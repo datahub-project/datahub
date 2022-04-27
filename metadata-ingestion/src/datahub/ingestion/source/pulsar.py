@@ -1,18 +1,14 @@
 import json
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from hashlib import md5
-from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
-from urllib.parse import urlparse
+from typing import Iterable, List, Optional, Tuple, cast
 
 import requests
-from pydantic import Field, validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
-from datahub.configuration.source_common import DatasetSourceConfigBase
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import (
-    DEFAULT_ENV,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
@@ -27,14 +23,13 @@ from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.kafka_state import KafkaCheckpointState
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     JobId,
-    StatefulIngestionConfig,
-    StatefulIngestionConfigBase,
-    StatefulIngestionReport,
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import Status
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.ingestion.source_config.pulsar import PulsarSourceConfig
+from datahub.ingestion.source_report.pulsar import PulsarSourceReport
+
+# from datahub.metadata.com.linkedin.pegasus2avro.common import Status
+from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     KafkaSchema,
     SchemaField,
@@ -48,10 +43,8 @@ from datahub.metadata.schema_classes import (
     JobStatusClass,
     SubTypesClass,
 )
-from datahub.utilities import config_clean
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 class PulsarTopic(object):
@@ -87,146 +80,15 @@ class PulsarSchema(object):
         self.properties = schema.get("properties")
 
 
-class PulsarSourceStatefulIngestionConfig(StatefulIngestionConfig):
-    """
-    Specialization of the basic StatefulIngestionConfig to add custom config.
-    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
-    in the PulsarSourceConfig.
-    """
-
-    remove_stale_metadata: bool = True
-
-
-def _is_valid_hostname(hostname: str) -> bool:
-    """
-    Loosely ascii hostname validation. A hostname is considered valid when the total length does not exceed 253
-    characters, contain valid characters and are max 63 octets per label.
-    """
-    if len(hostname) > 253:
-        return False
-    # Hostnames ending on a dot are valid, if present strip exactly one
-    if hostname[-1] == ".":
-        hostname = hostname[:-1]
-    allowed = re.compile(r"(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
-    return all(allowed.match(x) for x in hostname.split("."))
-
-
-class PulsarSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
-    env: str = DEFAULT_ENV
-    # The web URL for the cluster.
-    web_service_url: str = "http://localhost:8080"
-    # Mandatory for oauth authentication
-    issuer_url: Optional[str] = None
-    client_id: Optional[str] = None
-    client_secret: Optional[str] = None
-    # Mandatory for token authentication
-    token: Optional[str] = None
-    # Either a boolean, in which case it controls whether we verify the server's TLS certificate, or a string,
-    # in which case it must be a path to a CA bundle to use.
-    verify_ssl: Any = True
-    # By default, allow all topics and deny the pulsar system topics
-    tenant_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["pulsar"])
-    namespace_patterns: AllowDenyPattern = AllowDenyPattern(
-        allow=[".*"], deny=["public/functions"]
-    )
-    topic_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["/__.*$"])
-    # Exclude partition topics. e.g. topics ending on _partition_N where N is a number
-    exclude_individual_partitions: bool = True
-    # Listing all tenants requires superUser role, alternative you can set tenants you want to scrape
-    # using the tenant admin role
-    tenants: List[str] = []
-
-    domain: Dict[str, AllowDenyPattern] = dict()
-    # Custom Stateful Ingestion settings
-    stateful_ingestion: Optional[PulsarSourceStatefulIngestionConfig] = None
-
-    # Placeholder for OpenId discovery document
-    oid_config: dict = Field(default_factory=dict)
-
-    @validator("token")
-    def ensure_only_issuer_or_token(
-        cls, token: Optional[str], values: Dict[str, Optional[str]]
-    ) -> Optional[str]:
-        if token is not None and values.get("issuer_url") is not None:
-            raise ValueError(
-                "Expected only one authentication method, either issuer_url or token."
-            )
-        return token
-
-    @validator("verify_ssl")
-    def ensure_bool_or_string_verify_ssl(cls, verify_ssl: Any) -> Any:
-        if not isinstance(verify_ssl, (str, bool)):
-            raise ValueError(
-                "Either a boolean, in which case it controls whether we verify the server''s"
-                " TLS certificate, or a string, in which case it must be a path to a CA bundle to use."
-                "Defaults to ''True''."
-            )
-        return verify_ssl
-
-    @validator("client_secret", always=True)
-    def ensure_client_id_and_secret_for_issuer_url(
-        cls, client_secret: Optional[str], values: Dict[str, Optional[str]]
-    ) -> Optional[str]:
-        if values.get("issuer_url") is not None and (
-            client_secret is None or values.get("client_id") is None
-        ):
-            raise ValueError(
-                "Missing configuration: client_id and client_secret are mandatory when issuer_url is set."
-            )
-        return client_secret
-
-    @validator("web_service_url")
-    def web_service_url_scheme_host_port(cls, val: str) -> str:
-        # Tokenize the web url
-        url = urlparse(val)
-
-        if url.scheme not in ["http", "https"]:
-            raise ValueError(f"Scheme should be http or https, found {url.scheme}")
-
-        if not _is_valid_hostname(url.hostname.__str__()):
-            raise ValueError(
-                f"Not a valid hostname, hostname contains invalid characters, found {url.hostname}"
-            )
-
-        return config_clean.remove_trailing_slashes(val)
-
-
-@dataclass
-class PulsarSourceReport(StatefulIngestionReport):
-    tenants_scanned: int = 0
-    namespaces_scanned: int = 0
-    topics_scanned: int = 0
-    filtered: List[str] = field(default_factory=list)
-    soft_deleted_stale_entities: List[str] = field(default_factory=list)
-
-    def report_tenants_scanned(self, topic_str: str) -> None:
-        self.tenants_scanned += 1
-
-    def report_namespaces_scanned(self, topic_str: str) -> None:
-        self.namespaces_scanned += 1
-
-    def report_topic_scanned(self, topic: str) -> None:
-        self.topics_scanned += 1
-
-    def report_dropped(self, topic: str) -> None:
-        self.filtered.append(topic)
-
-    def report_stale_entity_soft_deleted(self, urn: str) -> None:
-        self.soft_deleted_stale_entities.append(urn)
-
-
 @dataclass
 class PulsarSource(StatefulIngestionSourceBase):
-    config: PulsarSourceConfig
-    report: PulsarSourceReport
-    platform: str = "pulsar"
-
     def __init__(self, config: PulsarSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
-        self.config = config
-        self.report = PulsarSourceReport()
-        self.base_url = self.config.web_service_url + "/admin/v2"
-        self.tenants = self.config.tenants
+        self.platform: str = "pulsar"
+        self.config: PulsarSourceConfig = config
+        self.report: PulsarSourceReport = PulsarSourceReport()
+        self.base_url: str = self.config.web_service_url + "/admin/v2"
+        self.tenants: list[str] = config.tenants
 
         self.session = requests.Session()
         self.session.verify = self.config.verify_ssl
@@ -322,7 +184,7 @@ class PulsarSource(StatefulIngestionSourceBase):
         """
         try:
             # Request the Pulsar metadata
-            response = self.session.get(url, timeout=5)
+            response = self.session.get(url, timeout=self.config.timeout)
             response.raise_for_status()
             # Return the response for status_code 200
             return response.json()
@@ -346,14 +208,12 @@ class PulsarSource(StatefulIngestionSourceBase):
             )
 
     def is_checkpointing_enabled(self, job_id: JobId) -> bool:
-        if (
-            job_id == self.get_default_ingestion_job_id()
+        return job_id == (
+            self.get_default_ingestion_job_id()
             and self.is_stateful_ingestion_configured()
             and self.config.stateful_ingestion
             and self.config.stateful_ingestion.remove_stale_metadata
-        ):
-            return True
-        return False
+        )
 
     def get_default_ingestion_job_id(self) -> JobId:
         """
@@ -392,6 +252,20 @@ class PulsarSource(StatefulIngestionSourceBase):
 
         return cls(config, ctx)
 
+    def soft_delete_dataset(self, urn: str, type: str) -> Iterable[MetadataWorkUnit]:
+        logger.debug(f"Soft-deleting stale entity of type {type} - {urn}.")
+        mcp = MetadataChangeProposalWrapper(
+            entityType="dataset",
+            entityUrn=urn,
+            changeType=ChangeTypeClass.UPSERT,
+            aspectName="status",
+            aspect=StatusClass(removed=True),
+        )
+        wu = MetadataWorkUnit(id=f"soft-delete-{type}-{urn}", mcp=mcp)
+        self.report.report_workunit(wu)
+        self.report.report_stale_entity_soft_deleted(urn)
+        yield wu
+
     def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
         last_checkpoint = self.get_last_checkpoint(
             self.get_default_ingestion_job_id(), KafkaCheckpointState
@@ -409,27 +283,13 @@ class PulsarSource(StatefulIngestionSourceBase):
         ):
             logger.debug("Checking for stale entity removal.")
 
-            def soft_delete_dataset(urn: str, type: str) -> Iterable[MetadataWorkUnit]:
-                logger.info(f"Soft-deleting stale entity of type {type} - {urn}.")
-                mcp = MetadataChangeProposalWrapper(
-                    entityType="dataset",
-                    entityUrn=urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="status",
-                    aspect=Status(removed=True),
-                )
-                wu = MetadataWorkUnit(id=f"soft-delete-{type}-{urn}", mcp=mcp)
-                self.report.report_workunit(wu)
-                self.report.report_stale_entity_soft_deleted(urn)
-                yield wu
-
             last_checkpoint_state = cast(KafkaCheckpointState, last_checkpoint.state)
             cur_checkpoint_state = cast(KafkaCheckpointState, cur_checkpoint.state)
 
             for topic_urn in last_checkpoint_state.get_topic_urns_not_in(
                 cur_checkpoint_state
             ):
-                yield from soft_delete_dataset(topic_urn, "topic")
+                yield from self.soft_delete_dataset(topic_urn, "topic")
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         """
@@ -449,13 +309,21 @@ class PulsarSource(StatefulIngestionSourceBase):
             self.base_url + "/non-persistent/{}/partitioned",
         ]
 
+        # Report the Pulsar broker version we are communicating with
+        self.report.report_pulsar_version(
+            self.session.get(
+                "%s/brokers/version" % self.base_url,
+                timeout=self.config.timeout,
+            ).text
+        )
+
         # If no tenants are provided, request all tenants from cluster using /admin/v2/tenants endpoint.
         # Requesting cluster tenant information requires superuser privileges
         if not self.tenants:
             self.tenants = self._get_pulsar_metadata(self.base_url + "/tenants") or []
 
         for tenant in self.tenants:
-            self.report.report_tenants_scanned(tenant)
+            self.report.report_tenants_scanned()
             if self.config.tenant_patterns.allowed(tenant):
                 # Get namespaces belonging to a tenant, /admin/v2/%s/namespaces
                 # A tenant admin role has sufficient privileges to perform this action
@@ -464,7 +332,7 @@ class PulsarSource(StatefulIngestionSourceBase):
                     or []
                 )
                 for namespace in namespaces:
-                    self.report.report_namespaces_scanned(namespace)
+                    self.report.report_namespaces_scanned()
                     if self.config.namespace_patterns.allowed(namespace):
                         # Get all topics (persistent, non-persistent and partitioned) belonging to a tenant/namespace
                         # Four endpoint invocations are needs to get all topic metadata for a namespace
@@ -484,7 +352,7 @@ class PulsarSource(StatefulIngestionSourceBase):
 
                         # For all allowed topics get the metadata
                         for topic, is_partitioned in topics.items():
-                            self.report.report_topic_scanned(topic)
+                            self.report.report_topic_scanned()
                             if self.config.topic_patterns.allowed(topic):
 
                                 yield from self._extract_record(topic, is_partitioned)
@@ -492,16 +360,16 @@ class PulsarSource(StatefulIngestionSourceBase):
                                 if self.is_stateful_ingestion_configured():
                                     self._add_topic_to_checkpoint(topic)
                             else:
-                                self.report.report_dropped("(topic) " + topic)
+                                self.report.report_topics_dropped(topic)
 
                         if self.is_stateful_ingestion_configured():
                             # Clean up stale entities.
                             yield from self.gen_removed_entity_workunits()
 
                     else:
-                        self.report.report_dropped("(namespace) " + namespace)
+                        self.report.report_namespaces_dropped(namespace)
             else:
-                self.report.report_dropped("(tenant) " + tenant)
+                self.report.report_tenants_dropped(tenant)
 
     def _add_topic_to_checkpoint(self, topic: str) -> None:
         cur_checkpoint = self.get_current_checkpoint(
@@ -605,7 +473,7 @@ class PulsarSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         logger.info(f"topic = {topic}")
 
-        # 1. Create the default dataset snapshot for the topic. Extract type, tenant, namespace
+        # 1. Create and emit the default dataset for the topic. Extract type, tenant, namespace
         # and topic name from full Pulsar topic name i.e. persistent://tenant/namespace/topic
         pulsar_topic = PulsarTopic(topic)
 
@@ -617,18 +485,37 @@ class PulsarSource(StatefulIngestionSourceBase):
             env=self.config.env,
         )
 
-        dataset_snapshot = DatasetSnapshot(
-            urn=dataset_urn,
-            aspects=[Status(removed=False)],  # we append to this list later on
+        status_wu = MetadataWorkUnit(
+            id=f"{dataset_urn}-status",
+            mcp=MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="status",
+                aspect=StatusClass(removed=False),
+            ),
         )
+        self.report.report_workunit(status_wu)
+        yield status_wu
 
-        # 2. Attach schemaMetadata aspect
+        # 2. Emit schemaMetadata aspect
         schema, schema_metadata = self._get_schema_metadata(pulsar_topic, platform_urn)
         if schema_metadata is not None:
-            dataset_snapshot.aspects.append(schema_metadata)
+            schema_metadata_wu = MetadataWorkUnit(
+                id=f"{dataset_urn}-schemaMetadata",
+                mcp=MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    changeType=ChangeTypeClass.UPSERT,
+                    entityUrn=dataset_urn,
+                    aspectName="schemaMetadata",
+                    aspect=schema_metadata,
+                ),
+            )
+            self.report.report_workunit(schema_metadata_wu)
+            yield schema_metadata_wu
 
         # TODO Add topic properties (Pulsar 2.10.0 feature)
-        # Construct a dataset properties object
+        # 3. Construct and emit dataset properties aspect
         if schema is not None:
             schema_properties = {
                 "schema_version": str(schema.schema_version),
@@ -637,13 +524,24 @@ class PulsarSource(StatefulIngestionSourceBase):
             }
             # Add some static properties to the schema properties
             schema.properties.update(schema_properties)
-            dataset_properties = DatasetPropertiesClass(
-                description=schema.schema_description,
-                customProperties=schema.properties,
-            )
-            dataset_snapshot.aspects.append(dataset_properties)
 
-        # 3. Attach browsePaths aspect
+            dataset_properties_wu = MetadataWorkUnit(
+                id=f"{dataset_urn}-datasetProperties",
+                mcp=MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    changeType=ChangeTypeClass.UPSERT,
+                    entityUrn=dataset_urn,
+                    aspectName="datasetProperties",
+                    aspect=DatasetPropertiesClass(
+                        description=schema.schema_description,
+                        customProperties=schema.properties,
+                    ),
+                ),
+            )
+            self.report.report_workunit(dataset_properties_wu)
+            yield dataset_properties_wu
+
+        # 4. Emit browsePaths aspect
         pulsar_path = (
             f"{pulsar_topic.tenant}/{pulsar_topic.namespace}/{pulsar_topic.topic}"
         )
@@ -652,33 +550,45 @@ class PulsarSource(StatefulIngestionSourceBase):
             if self.config.platform_instance
             else pulsar_path
         )
-        browse_path = BrowsePathsClass(
-            [f"/{self.config.env.lower()}/{self.platform}/{browse_path_suffix}"]
-        )
-        dataset_snapshot.aspects.append(browse_path)
 
-        # 4. Attach dataPlatformInstance aspect.
+        browse_path_wu = MetadataWorkUnit(
+            id=f"{dataset_urn}-browsePaths",
+            mcp=MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspectName="browsePaths",
+                aspect=BrowsePathsClass(
+                    [f"/{self.config.env.lower()}/{self.platform}/{browse_path_suffix}"]
+                ),
+            ),
+        )
+        self.report.report_workunit(browse_path_wu)
+        yield browse_path_wu
+
+        # 5. Emit dataPlatformInstance aspect.
         if self.config.platform_instance:
-            dataset_snapshot.aspects.append(
-                DataPlatformInstanceClass(
-                    platform=platform_urn,
-                    instance=make_dataplatform_instance_urn(
-                        self.platform, self.config.platform_instance
+            platform_instance_wu = MetadataWorkUnit(
+                id=f"{dataset_urn}-dataPlatformInstance",
+                mcp=MetadataChangeProposalWrapper(
+                    entityType="dataset",
+                    changeType=ChangeTypeClass.UPSERT,
+                    entityUrn=dataset_urn,
+                    aspectName="dataPlatformInstance",
+                    aspect=DataPlatformInstanceClass(
+                        platform=platform_urn,
+                        instance=make_dataplatform_instance_urn(
+                            self.platform, self.config.platform_instance
+                        ),
                     ),
-                )
+                ),
             )
-        # 5. Emit the datasetSnapshot MCE
-        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        wu = MetadataWorkUnit(
-            id=f"pulsar-{pulsar_topic.tenant}-{pulsar_topic.namespace}-{pulsar_topic.topic}",
-            mce=mce,
-        )
-        self.report.report_workunit(wu)
-        yield wu
+            self.report.report_workunit(platform_instance_wu)
+            yield platform_instance_wu
 
-        # 6. Add the subtype aspect marking this as a "topic"
+        # 6. Emit subtype aspect marking this as a "topic"
         subtype_wu = MetadataWorkUnit(
-            id=f"{pulsar_topic.tenant}-{pulsar_topic.namespace}-{pulsar_topic.topic}-subtype",
+            id=f"{dataset_urn}-subTypes",
             mcp=MetadataChangeProposalWrapper(
                 entityType="dataset",
                 changeType=ChangeTypeClass.UPSERT,
@@ -687,9 +597,10 @@ class PulsarSource(StatefulIngestionSourceBase):
                 aspect=SubTypesClass(typeNames=["topic"]),
             ),
         )
+        self.report.report_workunit(subtype_wu)
         yield subtype_wu
 
-        # 7. Emit domains aspect MCPW
+        # 7. Emit domains aspect
         domain_urn: Optional[str] = None
         for domain, pattern in self.config.domain.items():
             if pattern.allowed(pulsar_topic.fullname):

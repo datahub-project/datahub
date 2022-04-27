@@ -10,7 +10,7 @@
 <!-- Plain-language description of what this integration is meant to do.  -->
 <!-- Include details about where metadata is extracted from (ie. logs, source API, manifest, etc.)   -->
 
-The Datahub Pulsar source plugin extracts `topic` and `schema` metadata from an Apache Pulsar instance and ingest the information into Datahub. The plugin uses the [Pulsar admin Rest API interface](https://pulsar.apache.org/admin-rest-api/#) to interact with the Pulsar instance. The following APIs are use in order to:
+The Datahub Pulsar source plugin extracts `topic` and `schema` metadata from an Apache Pulsar instance and ingest the information into Datahub. The plugin uses the [Pulsar admin Rest API interface](https://pulsar.apache.org/admin-rest-api/#) to interact with the Pulsar instance. The following APIs are used in order to:
 - [Get the list of existing tenants](https://pulsar.apache.org/admin-rest-api/#tag/tenants)
 - [Get the list of namespaces associated with each tenant](https://pulsar.apache.org/admin-rest-api/#tag/namespaces)
 - [Get the list of topics associated with each namespace](https://pulsar.apache.org/admin-rest-api/#tag/persistent-topic)
@@ -45,20 +45,20 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 <!-- This should be an auto-generated table of supported DataHub features/functionality -->
 <!-- Each capability should link out to a feature guide -->
 
-| Capability                                                                      | Status | Notes                                                                                                                                                                                                                                        |
-|---------------------------------------------------------------------------------|:------:|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Data Container                                                                  |   ❌    |                                                                                                                                                                                                                                              |
-| [Stateful Ingestion](docs/metadata-ingestion/source_docs/stateful_ingestion.md) |   ✅    | Requires recipe configuration, stateful Ingestion is available only when a Platform Instance is assigned to this source.                                                                                                                     |
-| Partition Support                                                               |   ✅    | Requires recipe configuration, each individual partition topic can be ingest. Behind the scenes, a partitioned topic is actually implemented as N internal topics, where N is the number of partitions. This feature is disabled by default. |
-| [Platform Instance](../../docs/platform-instances.md)                           |   ✅    | Requires recipe configuration and is mandatory for Stateful Ingestion. A Pulsar instance consists of one or more Pulsar clusters.                                                                                                            |
-| [Data Domain](../../docs/domains.md)                                            |   ✅    | Requires recipe configuration                                                                                                                                                                                                                |
-| Dataset Profiling                                                               |   ❌    |                                                                                                                                                                                                                                              |
-| Dataset Usage                                                                   |   ❌    |                                                                                                                                                                                                                                              |
-| Extract Descriptions                                                            |   ❌    |                                                                                                                                                                                                                                              |
-| Extract Lineage                                                                 |   ❌    |                                                                                                                                                                                                                                              |
-| Extract Ownership                                                               |   ❌    |                                                                                                                                                                                                                                              |
-| Extract Tags                                                                    |   ❌    |                                                                                                                                                                                                                                              |
-| ...                                                                             |        |
+| Capability                                            | Status | Notes                                                                                                                                                                                                                                        |
+|-------------------------------------------------------|:------:|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Data Container                                        |   ❌    |                                                                                                                                                                                                                                              |
+| [Stateful Ingestion](./stateful_ingestion.md)         |   ✅    | Requires recipe configuration, stateful Ingestion is available only when a Platform Instance is assigned to this source.                                                                                                                     |
+| Partition Support                                     |   ✅    | Requires recipe configuration, each individual partition topic can be ingest. Behind the scenes, a partitioned topic is actually implemented as N internal topics, where N is the number of partitions. This feature is disabled by default. |
+| [Platform Instance](../../docs/platform-instances.md) |   ✅    | Requires recipe configuration and is mandatory for Stateful Ingestion. A Pulsar instance consists of one or more Pulsar clusters.                                                                                                            |
+| [Data Domain](../../docs/domains.md)                  |   ✅    | Requires recipe configuration                                                                                                                                                                                                                |
+| Dataset Profiling                                     |   ❌    |                                                                                                                                                                                                                                              |
+| Dataset Usage                                         |   ❌    |                                                                                                                                                                                                                                              |
+| Extract Descriptions                                  |   ❌    |                                                                                                                                                                                                                                              |
+| Extract Lineage                                       |   ❌    |                                                                                                                                                                                                                                              |
+| Extract Ownership                                     |   ❌    |                                                                                                                                                                                                                                              |
+| Extract Tags                                          |   ❌    |                                                                                                                                                                                                                                              |
+| ...                                                   |        |
 
 ## Metadata Ingestion Quickstart
 
@@ -134,7 +134,7 @@ sink:
 > **_NOTE:_**  Always use TLS encryption in a production environment and use variable substitution for sensitive information (e.g. ${CLIENT_ID} and ${CLIENT_SECRET}).
 >
 
-
+## Config details
 <details>
   <summary>View All Recipe Configuration Options</summary>
 
@@ -164,7 +164,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `domain.domain_urn.allow`       |    ❌     |                         | List of regex patterns for topics to set domain_urn domain key. There can be multiple domain key specified.                                                     |
 | `domain.domain_urn.deny`        |    ❌     |                         | List of regex patterns for topics to not assign domain_urn. There can be multiple domain key specified.                                                         |
 | `domain.domain_urn.ignoreCase`  |    ❌     | `True`                  | Whether to ignore case sensitivity during pattern matching.There can be multiple domain key specified.                                                          |
-| `stateful_ingestion`            |    ❌     |                         | see [Stateful Ingestion](docs/metadata-ingestion/source_docs/stateful_ingestion.md)                                                                             |
+| `stateful_ingestion`            |    ❌     |                         | see [Stateful Ingestion](./stateful_ingestion.md)                                                                                                               |
 </details>
 
 

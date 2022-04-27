@@ -4,6 +4,8 @@ from unittest.mock import patch
 
 import pytest
 
+from datahub.configuration.common import ConfigurationError
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.pulsar import (
     PulsarSchema,
@@ -11,7 +13,6 @@ from datahub.ingestion.source.pulsar import (
     PulsarSourceConfig,
     PulsarTopic,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 
 mock_schema_response: Dict[str, Any] = {
     "version": 1,
@@ -33,7 +34,7 @@ class TestPulsarSourceConfig:
 
     def test_pulsar_source_config_invalid_web_service_url_scheme(self):
         with pytest.raises(
-            ValueError, match=r"Scheme should be http or https, found ftp"
+            ConfigurationError, match=r"Scheme should be http or https, found ftp"
         ):
             PulsarSourceConfig().web_service_url_scheme_host_port(
                 "ftp://localhost:8080/"
@@ -41,20 +42,12 @@ class TestPulsarSourceConfig:
 
     def test_pulsar_source_config_invalid_web_service_url_host(self):
         with pytest.raises(
-            ValueError,
+            ConfigurationError,
             match=r"Not a valid hostname, hostname contains invalid characters, found localhost&",
         ):
             PulsarSourceConfig().web_service_url_scheme_host_port(
                 "http://localhost&:8080/"
             )
-
-    def test_pulsar_source_config_ensure_bool_or_string_verify_ssl(self):
-        assert PulsarSourceConfig().ensure_bool_or_string_verify_ssl(True) is True
-        assert PulsarSourceConfig().ensure_bool_or_string_verify_ssl(False) is False
-        assert (
-            PulsarSourceConfig().ensure_bool_or_string_verify_ssl("/foo/bar")
-            == "/foo/bar"
-        )
 
 
 class TestPulsarTopic:
@@ -100,7 +93,6 @@ class TestPulsarSource(unittest.TestCase):
     @patch("datahub.ingestion.source.pulsar.requests.get", autospec=True)
     @patch("datahub.ingestion.source.pulsar.requests.post", autospec=True)
     def test_pulsar_source_get_token_oauth(self, mock_post, mock_get):
-
         ctx = PipelineContext(run_id="test")
         mock_get.return_value.json.return_value = {
             "token_endpoint": "http://127.0.0.1:8083/realms/pulsar/protocol/openid-connect/token"
@@ -120,7 +112,6 @@ class TestPulsarSource(unittest.TestCase):
 
     @patch("datahub.ingestion.source.pulsar.requests.Session.get", autospec=True)
     def test_pulsar_source_get_workunits_all_tenant(self, mock_session):
-
         ctx = PipelineContext(run_id="test")
         pulsar_source = PulsarSource.create(
             {
@@ -144,8 +135,8 @@ class TestPulsarSource(unittest.TestCase):
             ]  # schema for persistent://t_1/ns_1/topic
 
             work_units = list(pulsar_source.get_workunits())
-            first_mce = work_units[0].metadata
-            assert isinstance(first_mce, MetadataChangeEvent)
+            first_mcp = work_units[0].metadata
+            assert isinstance(first_mcp, MetadataChangeProposalWrapper)
 
             # Expected calls 7
             # http://localhost:8080/admin/v2/tenants
@@ -156,13 +147,11 @@ class TestPulsarSource(unittest.TestCase):
             # http://localhost:8080/admin/v2/non-persistent/t_1/ns_1/partitioned
             # http://localhost:8080/admin/v2/schemas/t_1/ns_1/topic_1/schema
             assert mock.call_count == 7
-            # mock.assert_called_once()
-            # mce and mcp for one topic
-            assert len(work_units) == 2
+            # expecting 5 mcp for one topic with default config
+            assert len(work_units) == 5
 
     @patch("datahub.ingestion.source.pulsar.requests.Session.get", autospec=True)
     def test_pulsar_source_get_workunits_custom_tenant(self, mock_session):
-
         ctx = PipelineContext(run_id="test")
         pulsar_source = PulsarSource.create(
             {
@@ -187,8 +176,8 @@ class TestPulsarSource(unittest.TestCase):
             ]
 
             work_units = list(pulsar_source.get_workunits())
-            first_mce = work_units[0].metadata
-            assert isinstance(first_mce, MetadataChangeEvent)
+            first_mcp = work_units[0].metadata
+            assert isinstance(first_mcp, MetadataChangeProposalWrapper)
 
             # Expected calls 7
             # http://localhost:8080/admin/v2/namespaces/t_1
@@ -199,13 +188,11 @@ class TestPulsarSource(unittest.TestCase):
             # http://localhost:8080/admin/v2/schemas/t_1/ns_1/topic_1/schema
             # http://localhost:8080/admin/v2/namespaces/t_2
             assert mock.call_count == 7
-            # mock.assert_called_once()
-            # mce and mcp for one topic
-            assert len(work_units) == 2
+            # expecting 5 mcp for one topic with default config
+            assert len(work_units) == 5
 
     @patch("datahub.ingestion.source.pulsar.requests.Session.get", autospec=True)
     def test_pulsar_source_get_workunits_patterns(self, mock_session):
-
         ctx = PipelineContext(run_id="test")
         pulsar_source = PulsarSource.create(
             {
@@ -236,8 +223,8 @@ class TestPulsarSource(unittest.TestCase):
             ]
 
             work_units = list(pulsar_source.get_workunits())
-            first_mce = work_units[0].metadata
-            assert isinstance(first_mce, MetadataChangeEvent)
+            first_mcp = work_units[0].metadata
+            assert isinstance(first_mcp, MetadataChangeProposalWrapper)
 
             # Expected calls 7
             # http://localhost:8080/admin/v2/namespaces/t_1
@@ -248,6 +235,5 @@ class TestPulsarSource(unittest.TestCase):
             # http://localhost:8080/admin/v2/schemas/t_1/ns_1/topic_1/schema
             # http://localhost:8080/admin/v2/namespaces/t_2
             assert mock.call_count == 7
-            # mock.assert_called_once()
-            # mce and mcp for one topic
-            assert len(work_units) == 2
+            # expecting 5 mcp for one topic with default config
+            assert len(work_units) == 5
