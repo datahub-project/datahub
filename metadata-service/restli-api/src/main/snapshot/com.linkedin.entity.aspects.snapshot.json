@@ -3438,6 +3438,7 @@
     }, {
       "name" : "aspect",
       "type" : "GenericAspect",
+      "doc" : "The value of the new aspect.",
       "optional" : true
     }, {
       "name" : "systemMetadata",

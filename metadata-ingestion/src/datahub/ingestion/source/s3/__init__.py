@@ -229,9 +229,11 @@ class S3Source(Source):
 
         if self.source_config.aws_config is not None:
 
-            aws_access_key_id = self.source_config.aws_config.aws_access_key_id
-            aws_secret_access_key = self.source_config.aws_config.aws_secret_access_key
-            aws_session_token = self.source_config.aws_config.aws_session_token
+            credentials = self.source_config.aws_config.get_credentials()
+
+            aws_access_key_id = credentials.get("aws_access_key_id")
+            aws_secret_access_key = credentials.get("aws_secret_access_key")
+            aws_session_token = credentials.get("aws_session_token")
 
             aws_provided_credentials = [
                 aws_access_key_id,

@@ -15,7 +15,7 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_feast_ingest(docker_compose_runner, pytestconfig, tmp_path):
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/feast"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/feast-legacy"
 
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "feast"
@@ -32,7 +32,7 @@ def test_feast_ingest(docker_compose_runner, pytestconfig, tmp_path):
             {
                 "run_id": "feast-test",
                 "source": {
-                    "type": "feast",
+                    "type": "feast-legacy",
                     "config": {
                         "core_url": "localhost:6565",
                         "use_local_build": True,

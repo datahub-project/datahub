@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 # This import verifies that the dependencies are available.
 import sqlalchemy_bigquery
-from dateutil import parser
+from dateutil.relativedelta import relativedelta
 from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from sqlalchemy import create_engine, inspect
@@ -219,6 +219,40 @@ def bigquery_audit_metadata_query_template(
     query = textwrap.dedent(query) + audit_log_filter
 
     return textwrap.dedent(query)
+
+
+def get_partition_range_from_partition_id(
+    partition_id: str, partition_datetime: Optional[datetime.datetime]
+) -> Tuple[datetime.datetime, datetime.datetime]:
+    duration: relativedelta
+    # if yearly partitioned,
+    if len(partition_id) == 4:
+        duration = relativedelta(years=1)
+        if not partition_datetime:
+            partition_datetime = datetime.datetime.strptime(partition_id, "%Y")
+        partition_datetime = partition_datetime.replace(month=1, day=1)
+    # elif monthly partitioned,
+    elif len(partition_id) == 6:
+        duration = relativedelta(months=1)
+        if not partition_datetime:
+            partition_datetime = datetime.datetime.strptime(partition_id, "%Y%m")
+        partition_datetime = partition_datetime.replace(day=1)
+    # elif daily partitioned,
+    elif len(partition_id) == 8:
+        duration = relativedelta(days=1)
+        if not partition_datetime:
+            partition_datetime = datetime.datetime.strptime(partition_id, "%Y%m%d")
+    # elif hourly partitioned,
+    elif len(partition_id) == 10:
+        duration = relativedelta(hours=1)
+        if not partition_datetime:
+            partition_datetime = datetime.datetime.strptime(partition_id, "%Y%m%d%H")
+    else:
+        raise ValueError(
+            f"check your partition_id {partition_id}. It must be yearly/monthly/daily/hourly."
+        )
+    upper_bound_partition_datetime = partition_datetime + duration
+    return partition_datetime, upper_bound_partition_datetime
 
 
 # Handle the GEOGRAPHY type. We will temporarily patch the _type_map
@@ -632,14 +666,25 @@ class BigQuerySource(SQLAlchemySource):
 
         partition = self.get_latest_partition(schema, table)
         if partition:
-            partition_ts: Union[datetime.datetime, datetime.date]
-            if not partition_datetime:
-                partition_datetime = parser.parse(partition.partition_id)
+            partition_where_clause: str
             logger.debug(f"{table} is partitioned and partition column is {partition}")
+            (
+                partition_datetime,
+                upper_bound_partition_datetime,
+            ) = get_partition_range_from_partition_id(
+                partition.partition_id, partition_datetime
+            )
             if partition.data_type in ("TIMESTAMP", "DATETIME"):
-                partition_ts = partition_datetime
+                partition_where_clause = "{column_name} BETWEEN '{partition_id}' AND '{upper_bound_partition_id}'".format(
+                    column_name=partition.column_name,
+                    partition_id=partition_datetime,
+                    upper_bound_partition_id=upper_bound_partition_datetime,
+                )
             elif partition.data_type == "DATE":
-                partition_ts = partition_datetime.date()
+                partition_where_clause = "{column_name} = '{partition_id}'".format(
+                    column_name=partition.column_name,
+                    partition_id=partition_datetime.date(),
+                )
             else:
                 logger.warning(f"Not supported partition type {partition.data_type}")
                 return None, None
@@ -650,13 +695,12 @@ SELECT
 FROM
     `{table_catalog}.{table_schema}.{table_name}`
 WHERE
-    {column_name} = '{partition_id}'
+    {partition_where_clause}
             """.format(
                 table_catalog=partition.table_catalog,
                 table_schema=partition.table_schema,
                 table_name=partition.table_name,
-                column_name=partition.column_name,
-                partition_id=partition_ts,
+                partition_where_clause=partition_where_clause,
             )
 
             return (partition.partition_id, custom_sql)
