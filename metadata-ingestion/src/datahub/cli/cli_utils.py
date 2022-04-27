@@ -293,7 +293,7 @@ def post_delete_references_endpoint(
     payload_obj: dict,
     path: str,
     cached_session_host: Optional[Tuple[Session, str]] = None,
-) -> int:
+) -> Tuple[int, List[Dict]]:
     if not cached_session_host:
         session, gms_host = get_session_and_host()
     else:
@@ -303,9 +303,9 @@ def post_delete_references_endpoint(
     payload = json.dumps(payload_obj)
     response = session.post(url, payload)
     summary = parse_run_restli_response(response)
-    print(summary)
     reference_count = summary.get("total", 0)
-    return reference_count
+    related_aspects = summary.get("relatedAspects", [])
+    return reference_count, related_aspects
 
 
 def post_delete_endpoint(

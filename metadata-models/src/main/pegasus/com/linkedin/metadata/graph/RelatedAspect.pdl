@@ -21,9 +21,4 @@ record RelatedAspect {
    * The name of the relationship that the aspect has.
    */
   relationship: string
-
-  /*
-   * The field of aspect containig the relationship
-   */
-  field: string
 }

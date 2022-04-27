@@ -429,8 +429,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Nonnull
   @WithSpan
   public Task<RelationshipResult> deleteReferencesTo(@ActionParam(PARAM_URN) @Nonnull String urnStr,
-      @ActionParam("dryRun") @Optional Boolean dryRun)
+      @ActionParam("dryRun") @Optional Boolean dry)
       throws URISyntaxException {
+    boolean dryRun = dry != null ? dry : false;
+
     Urn urn = Urn.createFromString(urnStr);
     return RestliUtil.toTask(() -> {
 
@@ -449,7 +451,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
         return findAspectDetails(urn, relatedUrn, relationType, relatedEntitySpec).map(pair -> {
           final RelatedAspect relatedAspect = new RelatedAspect();
-          relatedAspect.setEntity(urn);
+          relatedAspect.setEntity(relatedUrn);
           relatedAspect.setRelationship(relationType);
           relatedAspect.setAspect(pair.getSecond().getName());
           return relatedAspect;
@@ -481,7 +483,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       relatedEntities.getEntities().forEach(entity -> deleteRelatedEntities(urn, entity));
 
       return result;
-    }, MetricRegistry.name(this.getClass(), "getReferencesTo"));
+    }, MetricRegistry.name(this.getClass(), "deleteReferences"));
   }
 
   /**

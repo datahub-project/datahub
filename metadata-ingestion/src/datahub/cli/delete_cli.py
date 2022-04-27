@@ -2,7 +2,7 @@ import logging
 import time
 from dataclasses import dataclass
 from random import choices
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import click
 import progressbar
@@ -131,15 +131,26 @@ def delete(
         entity_type = guess_entity_type(urn=urn)
         logger.info(f"DataHub configured with {host}")
 
-        references_count: int = _delete_references(
+        references_count, related_aspects = _delete_references(
             urn, dry_run=True, cached_session_host=(session, host)
         )
         remove_dangling: bool = False
 
         if references_count > 0:
-            remove_dangling = click.confirm(
-                f"This urn is referenced in {references_count} other aspects across your metadata graph. Do you want to delete these references?"
+            print(
+                f"This urn is referenced in {references_count} other aspects across your metadata graph:"
             )
+            click.echo(
+                tabulate(
+                    [x.values() for x in related_aspects],
+                    ["relationship", "entity", "aspect"],
+                    tablefmt="grid",
+                )
+            )
+            remove_dangling = click.confirm("Do you want to delete these references?")
+
+        if remove_dangling:
+            _delete_references(urn, dry_run=False, cached_session_host=(session, host))
 
         deletion_result: DeletionResult = delete_one_urn_cmd(
             urn,
@@ -148,9 +159,6 @@ def delete(
             entity_type=entity_type,
             cached_session_host=(session, host),
         )
-
-        if remove_dangling:
-            _delete_references(urn, dry_run=True, cached_session_host=(session, host))
 
         if not dry_run:
             if deletion_result.num_records == 0:
@@ -259,7 +267,6 @@ def delete_with_filters(
 def _delete_one_urn(
     urn: str,
     soft: bool = False,
-    remove_dangling: bool = False,
     dry_run: bool = False,
     entity_type: str = "dataset",
     cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
@@ -297,7 +304,7 @@ def _delete_one_urn(
             logger.info(f"[Dry-run] Would soft-delete {urn}")
     else:
         if not dry_run:
-            payload_obj = {"urn": urn, "includeDangling": remove_dangling}
+            payload_obj = {"urn": urn}
             urn, rows_affected = cli_utils.post_delete_endpoint(
                 payload_obj,
                 "/entities?action=delete",
@@ -316,7 +323,6 @@ def _delete_one_urn(
 def delete_one_urn_cmd(
     urn: str,
     soft: bool = False,
-    remove_dangling: bool = False,
     dry_run: bool = False,
     entity_type: str = "dataset",
     cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
@@ -331,7 +337,6 @@ def delete_one_urn_cmd(
     return _delete_one_urn(
         urn,
         soft,
-        remove_dangling,
         dry_run,
         entity_type,
         cached_session_host,
@@ -343,8 +348,8 @@ def _delete_references(
     urn: str,
     dry_run: bool = False,
     cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
-) -> int:
-    payload_obj = {"urn": urn, "dry_run": dry_run}
+) -> Tuple[int, List[Dict]]:
+    payload_obj = {"urn": urn, "dryRun": dry_run}
     return cli_utils.post_delete_references_endpoint(
         payload_obj,
         "/entities?action=deleteReferences",

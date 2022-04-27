@@ -4,8 +4,6 @@ import com.datahub.test.TestEntityProfile;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.util.Map;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -22,7 +20,7 @@ public class ConfigEntityRegistryTest {
   }
 
   @Test
-  public void testEntityRegistry() throws FileNotFoundException {
+  public void testEntityRegistry() {
     ConfigEntityRegistry configEntityRegistry = new ConfigEntityRegistry(
         TestEntityProfile.class.getClassLoader().getResourceAsStream("test-entity-registry.yml"));
 
@@ -54,17 +52,9 @@ public class ConfigEntityRegistryTest {
   }
 
   @Test
-  public void testEntityRegistryIdentifier() throws FileNotFoundException {
+  public void testEntityRegistryIdentifier() {
     ConfigEntityRegistry configEntityRegistry = new ConfigEntityRegistry(
         TestEntityProfile.class.getClassLoader().getResourceAsStream("test-entity-registry.yml"));
-    assertEquals(configEntityRegistry.getIdentifier(), "test-registry");
-  }
-
-  @Test
-  public void testEntityRegisterReal() throws FileNotFoundException {
-    ConfigEntityRegistry configEntityRegistry = new ConfigEntityRegistry(
-        new FileInputStream("/Users/pedro/dev/oss/personal/datahub/metadata-models/src/main/resources/entity-registry.yml")
-        );
     assertEquals(configEntityRegistry.getIdentifier(), "test-registry");
   }
 }
