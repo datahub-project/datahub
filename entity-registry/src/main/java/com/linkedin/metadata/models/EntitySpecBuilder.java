@@ -73,7 +73,7 @@ public class EntitySpecBuilder {
       }
     }
 
-    //4. Validate that all relationships point to valid entities.
+    //Now validate that all relationships point to valid entities.
     for (final RelationshipFieldSpec spec : _relationshipFieldSpecs) {
       if (!_entityNames.containsAll(
           spec.getValidDestinationTypes().stream().map(String::toLowerCase).collect(Collectors.toList()))) {

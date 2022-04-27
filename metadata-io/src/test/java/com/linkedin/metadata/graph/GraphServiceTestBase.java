@@ -31,8 +31,14 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.search.utils.QueryUtils.*;
-import static org.testng.Assert.*;
+import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
+import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
+import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 
 /**
@@ -286,9 +292,9 @@ abstract public class GraphServiceTestBase {
                     Arrays.asList()
             },
             new Object[]{
-                    Arrays.asList(new Edge(datasetOneUrn, datasetTwoUrn, downstreamOf),
+                    Arrays.asList(new Edge(datasetOneUrn, datasetTwoUrn, downstreamOf)),
                     Arrays.asList(downstreamOfDatasetTwoRelatedEntity),
-                    Arrays.asList(downstreamOfDatasetOneRelatedEntity))
+                    Arrays.asList(downstreamOfDatasetOneRelatedEntity)
             },
             new Object[]{
                     Arrays.asList(
@@ -1391,6 +1397,7 @@ abstract public class GraphServiceTestBase {
                   Urn source = createFromString("urn:li:type" + sourceType + ":(urn:li:node" + sourceNode + ")");
                   int destinationType = destinationNode % 3;
                   Urn destination = createFromString("urn:li:type" + destinationType + ":(urn:li:node" + destinationNode + ")");
+
                   edges.add(new Edge(source, destination, relationship));
               }
           }

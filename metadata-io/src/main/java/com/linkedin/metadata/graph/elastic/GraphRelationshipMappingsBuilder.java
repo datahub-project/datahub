@@ -16,7 +16,6 @@ public class GraphRelationshipMappingsBuilder {
     mappings.put("source", getMappingsForEntity());
     mappings.put("destination", getMappingsForEntity());
     mappings.put("relationshipType", getMappingsForKeyword());
-    mappings.put("metadata", getMappingsForNonIndexedField());
     return ImmutableMap.of("properties", mappings);
   }
 
@@ -32,9 +31,5 @@ public class GraphRelationshipMappingsBuilder {
         .build();
 
     return ImmutableMap.of("properties", mappings);
-  }
-
-  private static Map<String, Object> getMappingsForNonIndexedField() {
-    return ImmutableMap.of("type", "object", "enabled", false);
   }
 }

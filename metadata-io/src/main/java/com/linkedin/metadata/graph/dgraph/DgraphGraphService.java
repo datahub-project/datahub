@@ -545,7 +545,6 @@ public class DgraphGraphService implements GraphService {
                         })
                         // for undirected we get duplicate relationships
                         .distinct()
-                        // TODO: FIXME, Current code does not extract necessary information from DGraph.
                         .map(relationship -> new RelatedEntity(relationship, urn));
             }
 

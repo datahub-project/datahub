@@ -4,6 +4,8 @@ import com.datahub.test.TestEntityProfile;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.util.Map;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -20,7 +22,7 @@ public class ConfigEntityRegistryTest {
   }
 
   @Test
-  public void testEntityRegistry() {
+  public void testEntityRegistry() throws FileNotFoundException {
     ConfigEntityRegistry configEntityRegistry = new ConfigEntityRegistry(
         TestEntityProfile.class.getClassLoader().getResourceAsStream("test-entity-registry.yml"));
 
@@ -52,10 +54,11 @@ public class ConfigEntityRegistryTest {
   }
 
   @Test
-  public void testEntityRegistryIdentifier() {
+  public void testEntityRegistryIdentifier() throws FileNotFoundException {
     ConfigEntityRegistry configEntityRegistry = new ConfigEntityRegistry(
         TestEntityProfile.class.getClassLoader().getResourceAsStream("test-entity-registry.yml"));
     assertEquals(configEntityRegistry.getIdentifier(), "test-registry");
   }
+
 }
 
