@@ -40,8 +40,8 @@ project.ext.spec = [
 ]
 
 project.ext.externalDependency = [
-    'antlr4Runtime': 'org.antlr:antlr4-runtime:4.8-1',
-    'antlr4': 'org.antlr:antlr4:4.8-1',
+    'antlr4Runtime': 'org.antlr:antlr4-runtime:4.9.3',
+    'antlr4': 'org.antlr:antlr4:4.9.3',
     'assertJ': 'org.assertj:assertj-core:3.11.1',
     'avro_1_7': 'org.apache.avro:avro:1.7.7',
     'avroCompiler_1_7': 'org.apache.avro:avro-compiler:1.7.7',
