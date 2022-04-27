@@ -840,7 +840,7 @@ class GlueSource(Source):
                         [current_tag.tag for current_tag in current_tags.tags]
                     )
             else:
-                logger.debug(
+                logger.warn(
                     "Could not connect to DatahubApi. No current tags to maintain"
                 )
 
