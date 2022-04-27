@@ -318,6 +318,7 @@ base_dev_requirements = {
             "hive",
             "starburst-trino-usage",
             "powerbi",
+            "great-expectations",
             # airflow is added below
         ]
         for dependency in plugins[plugin]
