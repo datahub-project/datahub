@@ -160,7 +160,7 @@ As a SQL-based service, the Athena integration is also supported by our SQL prof
 | `lineage_client_project_id`            |                                                                           | None                                                                    | The project to use when creating the BigQuery Client. If left empty, the required `project_id` will be used. This is helpful in case the default project_id is not used for querying.                                                                                    |
 | `use_v2_audit_metadata`                |   | `False` | Whether to use `BigQuery audit logs` to get the lineage or not |
 | `upstream_lineage_in_report`           |   | `False` | Useful for debugging lineage information. Set to `True` to see the raw lineage created internally. |
-
+| `temp_table_prefix`                    |   | `_`     | If you are using a prefix for temp tables from before bigquery's introduction of temp tables you can use this config to set the prefix for your temp tables. |
 
 The following parameters are only relevant if include_table_lineage is set to true:
 
@@ -293,6 +293,7 @@ By default, we extract usage stats for the last day, with the recommendation tha
 | `bigquery_audit_metadata_datasets`     |                                                                          | None                                                           | A list of datasets that contain a table named `cloudaudit_googleapis_com_data_access` which contain BigQuery audit logs, specifically, those containing `BigQueryAuditMetadata`. It is recommended that the project of the dataset is also specified, for example, `projectA.datasetB`.                                                                                                |
 | `use_v2_audit_metadata`                | Required if `use_exported_bigquery_audit_metadata` is set to `True`.      | `False`                                                        | Whether to ingest logs using the v2 format.                                                                                                                                                                                                                                                                                                                                            |
 | `format_sql_queries`            |                                                                          | `False`                                                        | Whether to format sql queries                                                                                                                                                                                                                                                                                                                                                          |
+| `temp_table_prefix`                    |   | `_`     | If you are using a prefix for temp tables from before bigquery's introduction of temp tables you can use this config to set the prefix for your temp tables. |
 
 ## Compatibility
 

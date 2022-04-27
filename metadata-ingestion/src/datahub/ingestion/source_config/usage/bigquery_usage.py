@@ -60,6 +60,7 @@ class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
     max_query_duration: timedelta = timedelta(minutes=15)
     credential: Optional[BigQueryCredential]
     _credentials_path: Optional[str] = pydantic.PrivateAttr(None)
+    temp_table_prefix: str = "_"
 
     def __init__(self, **data: Any):
         super().__init__(**data)
