@@ -569,7 +569,7 @@ class S3Source(Source):
             or self.source_config.use_s3_object_tags
         ):
             bucket = get_bucket_name(table_data.table_path)
-            key_prefix = get_key_prefix(table_data.table_path)
+            key_prefix = get_key_prefix(table_data.table_path) if table_data.full_path == table_data.table_path else None
             s3_tags = self.get_s3_tags(bucket, key_prefix, dataset_urn)
             if s3_tags is not None:
                 dataset_snapshot.aspects.append(s3_tags)
@@ -594,7 +594,7 @@ class S3Source(Source):
         )
 
     def get_s3_tags(
-        self, bucket_name: str, key_name: str, dataset_urn: str
+        self, bucket_name: str, key_name: Optional[str], dataset_urn: str
     ) -> Optional[GlobalTagsClass]:
         if self.source_config.aws_config is None:
             raise ValueError("aws_config not set. Cannot browse s3")
@@ -609,7 +609,7 @@ class S3Source(Source):
                     for tag in bucket.Tagging().tag_set
                 ]
             )
-        if self.source_config.use_s3_object_tags:
+        if self.source_config.use_s3_object_tags and key_name is not None:
             s3_client = self.source_config.aws_config.get_s3_client()
             object_tagging = s3_client.get_object_tagging(
                 Bucket=bucket_name, Key=key_name
