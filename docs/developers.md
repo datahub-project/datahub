@@ -5,10 +5,16 @@ title: "Local Development"
 # DataHub Developer's Guide
 
 ## Pre-requirements
- - [Java 1.8 SDK](https://adoptopenjdk.net/?variant=openjdk8&jvmVariant=hotspot)
+ - [Java 1.8 SDK](https://adoptopenjdk.net/?variant=openjdk8&jvmVariant=hotspot).
  - [Docker](https://www.docker.com/)
  - [Docker Compose](https://docs.docker.com/compose/)
  - Docker engine with at least 8GB of memory to run tests.
+
+ :::note
+
+ Do not try to use a JDK newer than JDK 8. The build process does not work with newer JDKs currently.
+
+ :::
 
 ## Building the Project
 
