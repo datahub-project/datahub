@@ -383,7 +383,7 @@ def _parse_basic_datatype(
         # Also of interest: https://avro.apache.org/docs/current/spec.html#Decimal
         decimal_type: IcebergTypes.DecimalType = type
         return {
-            # "type": "bytes",
+            # "type": "bytes", # when using bytes, avro drops _nullable attribute and others.  See unit test.
             "type": "fixed",  # to fix avro bug
             "name": "bogus",  # to fix avro bug
             "size": 1,  # to fix avro bug

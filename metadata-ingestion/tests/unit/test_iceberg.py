@@ -25,8 +25,6 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
 )
 
-FROZEN_TIME = "2020-04-14 07:00:00"
-
 
 def iceberg_source() -> IcebergSource:
     adls: AdlsSourceConfig = AdlsSourceConfig(
@@ -80,11 +78,12 @@ def assert_field(
         ),  # Is this the right mapping or it should be a FixedType?
     ],
 )
-@pytest.mark.skip(reason="To be enabled when all done")
 def test_iceberg_primitive_type_to_schema_field(
     iceberg_type: IcebergTypes.PrimitiveType, expected_schema_field_type: Any
 ) -> None:
-    """Test converting a primitive typed Iceberg field to a SchemaField"""
+    """
+    Test converting a primitive typed Iceberg field to a SchemaField
+    """
     iceberg_source_instance = iceberg_source()
     for column in [
         NestedField.required(
@@ -101,10 +100,12 @@ def test_iceberg_primitive_type_to_schema_field(
         )
 
 
-@pytest.mark.skip(
-    reason="Waiting on Array nestedType fix from Datahub, then need to complete this test"
-)
 def test_iceberg_list_to_schema_field():
+    """
+    This test is failing because avro does not keep the nestedType.
+    Here is a link to a Slack post that tries to describe the issue: 
+    https://datahubspace.slack.com/archives/C02SRNN11EG/p1648687685930859?thread_ts=1647388015.115169&cid=C02SRNN11EG
+    """
     list_column: NestedField = NestedField.required(
         1,
         "listField",
@@ -122,10 +123,12 @@ def test_iceberg_list_to_schema_field():
     assert isinstance(arrayType.nestedType, StringTypeClass)
 
 
-@pytest.mark.skip(
-    reason="Waiting on Array nestedType fix from Datahub, then need to complete this test"
-)
 def test_iceberg_map_to_schema_field():
+    """
+    This test is failing because avro does not keep the nestedType.
+    Here is a link to a Slack post that tries to describe the issue: 
+    https://datahubspace.slack.com/archives/C02SRNN11EG/p1648687685930859?thread_ts=1647388015.115169&cid=C02SRNN11EG
+    """
     map_column: NestedField = NestedField.required(
         1,
         "mapField",
@@ -175,7 +178,6 @@ def test_iceberg_map_to_schema_field():
         ),  # Is this the right mapping or it should be a FixedType?
     ],
 )
-@pytest.mark.skip(reason="To be enabled when all done")
 def test_iceberg_struct_to_schema_field(iceberg_type, expected_schema_field_type):
     field1: NestedField = NestedField.required(
         11, "field1", iceberg_type, "field documentation"
@@ -194,23 +196,37 @@ def test_iceberg_struct_to_schema_field(iceberg_type, expected_schema_field_type
     )
 
 
-def __test_avro_nullable():
+def test_avro_decimal_bytes_nullable():
+    """
+    The following test exposes a problem with decimal (bytes) not preserving extra attributes like _nullable.  Decimal (fixed) and Boolean for example do.
+    NOTE: This bug was by-passed by mapping the Decimal type to fixed instead of bytes.  
+    """
     import avro.schema
 
-    decimal_avro_schema_string = """{"type": "record", "name": "__struct_", "fields": [{"name": "required_field", "type": {"type": "bytes", "logicalType": "decimal", "precision": 3, "scale": 2, "native_data_type": "decimal(3, 2)", "_nullable": false}, "doc": "required field documentation"}]}"""
+    decimal_avro_schema_string = """{"type": "record", "name": "__struct_", "fields": [{"type": {"type": "bytes", "precision": 3, "scale": 2, "logicalType": "decimal", "native_data_type": "decimal(3, 2)", "_nullable": false}, "name": "required_field", "doc": "required field documentation"}]}"""
     decimal_avro_schema = avro.schema.parse(decimal_avro_schema_string)
     print("\nDecimal (bytes)")
-    print(f"Before: {decimal_avro_schema_string}")
-    print(f"After:  {decimal_avro_schema}")
+    print(
+        f"Original avro schema string:                         {decimal_avro_schema_string}"
+    )
+    print(f"After avro parsing, _nullable attribute is missing:  {decimal_avro_schema}")
 
-    decimal_fixed_avro_schema_string = """{"type": "record", "name": "__struct_", "fields": [{"name": "required_field", "type": {"type": "fixed", "size": 16, "name": "bogusName", "logicalType": "decimal", "precision": 3, "scale": 2, "native_data_type": "decimal(3, 2)", "_nullable": false}, "doc": "required field documentation"}]}"""
+    decimal_fixed_avro_schema_string = """{"type": "record", "name": "__struct_", "fields": [{"type": {"type": "fixed", "logicalType": "decimal", "precision": 3, "scale": 2, "native_data_type": "decimal(3, 2)", "_nullable": false, "name": "bogusName", "size": 16}, "name": "required_field", "doc": "required field documentation"}]}"""
     decimal_fixed_avro_schema = avro.schema.parse(decimal_fixed_avro_schema_string)
     print("\nDecimal (fixed)")
-    print(f"Before: {decimal_fixed_avro_schema_string}")
-    print(f"After:  {decimal_fixed_avro_schema}")
+    print(
+        f"Original avro schema string:                           {decimal_fixed_avro_schema_string}"
+    )
+    print(
+        f"After avro parsing, _nullable attribute is preserved:  {decimal_fixed_avro_schema}"
+    )
 
-    boolean_avro_schema_string = """{"type": "record", "name": "__struct_", "fields": [{"name": "required_field", "type": {"type": "boolean", "native_data_type": "boolean", "_nullable": false}, "doc": "required field documentation"}]}"""
+    boolean_avro_schema_string = """{"type": "record", "name": "__struct_", "fields": [{"type": {"type": "boolean", "native_data_type": "boolean", "_nullable": false}, "name": "required_field", "doc": "required field documentation"}]}"""
     boolean_avro_schema = avro.schema.parse(boolean_avro_schema_string)
     print("\nBoolean")
-    print(f"Before: {boolean_avro_schema_string}")
-    print(f"After:  {boolean_avro_schema}")
+    print(
+        f"Original avro schema string:                           {boolean_avro_schema_string}"
+    )
+    print(
+        f"After avro parsing, _nullable attribute is preserved:  {boolean_avro_schema}"
+    )
