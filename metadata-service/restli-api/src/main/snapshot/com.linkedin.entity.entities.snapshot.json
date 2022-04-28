@@ -5512,13 +5512,16 @@
           "type" : "string"
         }, {
           "name" : "aspectName",
-          "type" : "string"
+          "type" : "string",
+          "optional" : true
         }, {
           "name" : "startTimeMillis",
-          "type" : "long"
+          "type" : "long",
+          "optional" : true
         }, {
           "name" : "endTimeMillis",
-          "type" : "long"
+          "type" : "long",
+          "optional" : true
         } ],
         "returns" : "com.linkedin.metadata.run.DeleteEntityResponse"
       }, {

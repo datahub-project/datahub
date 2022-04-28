@@ -1,8 +1,9 @@
 import logging
 import time
 from dataclasses import dataclass
+from datetime import datetime
 from random import choices
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import click
 import progressbar
@@ -32,20 +33,20 @@ UNKNOWN_NUM_RECORDS = -1
 
 @dataclass
 class DeletionResult:
-    start_time_millis: int = int(time.time() * 1000.0)
-    end_time_millis: int = 0
+    start_time: int = int(time.time() * 1000.0)
+    end_time: int = 0
     num_records: int = 0
     num_entities: int = 0
     sample_records: Optional[List[List[str]]] = None
 
     def start(self) -> None:
-        self.start_time_millis = int(time.time() * 1000.0)
+        self.start_time = int(time.time() * 1000.0)
 
     def end(self) -> None:
-        self.end_time_millis = int(time.time() * 1000.0)
+        self.end_time = int(time.time() * 1000.0)
 
     def merge(self, another_result: "DeletionResult") -> None:
-        self.end_time_millis = another_result.end_time_millis
+        self.end_time = another_result.end_time
         self.num_records = (
             self.num_records + another_result.num_records
             if another_result.num_records != UNKNOWN_NUM_RECORDS
@@ -84,25 +85,65 @@ def delete_for_registry(
 
 
 @click.command()
-@click.option("--urn", required=False, type=str)
-@click.option("-f", "--force", required=False, is_flag=True)
-@click.option("--soft/--hard", required=False, is_flag=True, default=True)
-@click.option("-e", "--env", required=False, type=str)
-@click.option("-p", "--platform", required=False, type=str)
-@click.option("--entity_type", required=False, type=str, default="dataset")
+@click.option("--urn", required=False, type=str, help="the urn of the entity")
+@click.option(
+    "-a",
+    "--aspect_name",
+    required=False,
+    type=str,
+    help="the aspect name associated with the entity(only for timeseries aspects)",
+)
+@click.option(
+    "-f", "--force", required=False, is_flag=True, help="force the delete if set"
+)
+@click.option(
+    "--soft/--hard",
+    required=False,
+    is_flag=True,
+    default=True,
+    help="specifies soft/hard deletion",
+)
+@click.option(
+    "-e", "--env", required=False, type=str, help="the environment of the entity"
+)
+@click.option(
+    "-p", "--platform", required=False, type=str, help="the platform of the entity"
+)
+@click.option(
+    "--entity_type",
+    required=False,
+    type=str,
+    default="dataset",
+    help="the entity_type of the entity",
+)
 @click.option("--query", required=False, type=str)
+@click.option(
+    "--start_time",
+    required=False,
+    type=click.DateTime(),
+    help="the start time(only for timeseries aspects)",
+)
+@click.option(
+    "--end_time",
+    required=False,
+    type=click.DateTime(),
+    help="the end time(only for timeseries aspects)",
+)
 @click.option("--registry-id", required=False, type=str)
-@click.option("-n", "--dry-run", required=False, is_flag=True)
+@click.option("-n", "--dry-run", required=False, is_flag=True, help="if dry run mode")
 @click.option("--include-removed", required=False, is_flag=True)
 @telemetry.with_telemetry
 def delete(
     urn: str,
+    aspect_name: Optional[str],
     force: bool,
     soft: bool,
     env: str,
     platform: str,
     entity_type: str,
     query: str,
+    start_time: Optional[datetime],
+    end_time: Optional[datetime],
     registry_id: str,
     dry_run: bool,
     include_removed: bool,
@@ -132,9 +173,12 @@ def delete(
         logger.info(f"DataHub configured with {host}")
         deletion_result: DeletionResult = delete_one_urn_cmd(
             urn,
+            aspect_name=aspect_name,
             soft=soft,
             dry_run=dry_run,
             entity_type=entity_type,
+            start_time=start_time,
+            end_time=end_time,
             cached_session_host=(session, host),
         )
 
@@ -175,11 +219,11 @@ def delete(
     if not dry_run:
         message = "soft delete" if soft else "hard delete"
         click.echo(
-            f"Took {(deletion_result.end_time_millis-deletion_result.start_time_millis)/1000.0} seconds to {message} {deletion_result.num_records} rows for {deletion_result.num_entities} entities"
+            f"Took {(deletion_result.end_time-deletion_result.start_time)/1000.0} seconds to {message} {deletion_result.num_records} rows for {deletion_result.num_entities} entities"
         )
     else:
         click.echo(
-            f"{deletion_result.num_entities} entities with {deletion_result.num_records if deletion_result.num_records != UNKNOWN_NUM_RECORDS else 'unknown'} rows will be affected. Took {(deletion_result.end_time_millis-deletion_result.start_time_millis)/1000.0} seconds to evaluate."
+            f"{deletion_result.num_entities} entities with {deletion_result.num_records if deletion_result.num_records != UNKNOWN_NUM_RECORDS else 'unknown'} rows will be affected. Took {(deletion_result.end_time-deletion_result.start_time)/1000.0} seconds to evaluate."
         )
     if deletion_result.sample_records:
         click.echo(
@@ -247,6 +291,9 @@ def _delete_one_urn(
     soft: bool = False,
     dry_run: bool = False,
     entity_type: str = "dataset",
+    aspect_name: Optional[str] = None,
+    startTimeMillis: Optional[datetime] = None,
+    endTimeMillis: Optional[datetime] = None,
     cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
     cached_emitter: Optional[rest_emitter.DatahubRestEmitter] = None,
     run_id: str = "delete-run-id",
@@ -282,7 +329,17 @@ def _delete_one_urn(
             logger.info(f"[Dry-run] Would soft-delete {urn}")
     else:
         if not dry_run:
-            payload_obj = {"urn": urn}
+            payload_obj: Dict[str, str] = {"urn": urn}
+            if aspect_name:
+                payload_obj["aspectName"] = aspect_name
+            if startTimeMillis:
+                payload_obj["startTimeMillis"] = str(
+                    int(round(startTimeMillis.timestamp() * 1000))
+                )
+            if endTimeMillis:
+                payload_obj["endTimeMillis"] = str(
+                    int(round(endTimeMillis.timestamp() * 1000))
+                )
             urn, rows_affected = cli_utils.post_delete_endpoint(
                 payload_obj,
                 "/entities?action=delete",
@@ -300,9 +357,12 @@ def _delete_one_urn(
 @telemetry.with_telemetry
 def delete_one_urn_cmd(
     urn: str,
+    aspect_name: Optional[str] = None,
     soft: bool = False,
     dry_run: bool = False,
     entity_type: str = "dataset",
+    start_time: Optional[datetime] = None,
+    end_time: Optional[datetime] = None,
     cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
     cached_emitter: Optional[rest_emitter.DatahubRestEmitter] = None,
 ) -> DeletionResult:
@@ -317,6 +377,9 @@ def delete_one_urn_cmd(
         soft,
         dry_run,
         entity_type,
+        aspect_name,
+        start_time,
+        end_time,
         cached_session_host,
         cached_emitter,
     )

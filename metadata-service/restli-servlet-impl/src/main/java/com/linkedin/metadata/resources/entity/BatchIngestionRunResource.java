@@ -1,16 +1,10 @@
 package com.linkedin.metadata.resources.entity;
 
 import com.codahale.metrics.MetricRegistry;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.query.filter.Condition;
-import com.linkedin.metadata.query.filter.Criterion;
-import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.AspectRowSummaryArray;
@@ -19,7 +13,6 @@ import com.linkedin.metadata.run.IngestionRunSummaryArray;
 import com.linkedin.metadata.run.RollbackResponse;
 import com.linkedin.metadata.run.UnsafeEntityInfo;
 import com.linkedin.metadata.run.UnsafeEntityInfoArray;
-import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.parseq.Task;
@@ -28,6 +21,7 @@ import com.linkedin.restli.server.annotations.ActionParam;
 import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
+import com.linkedin.timeseries.DeleteAspectValuesResult;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.List;
 import java.util.Map;
@@ -163,10 +157,8 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
       }
 
       // Rollback timeseries aspects
-      if (doHardDelete) {
-        Long numDocumentsRolledBack = rollbackTimeseriesAspects(runId);
-        rowsDeletedFromEntityDeletion += numDocumentsRolledBack;
-      }
+      DeleteAspectValuesResult result = _timeseriesAspectService.rollbackTimeseriesAspects(runId);
+      rowsDeletedFromEntityDeletion += result.getNumDocsDeleted();
 
       log.info("finished deleting {} rows", deletedRows.size());
       int aspectsReverted = deletedRows.size() + rowsDeletedFromEntityDeletion;
@@ -215,28 +207,6 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
           .setUnsafeEntities(new UnsafeEntityInfoArray(unsafeEntityInfos))
           .setAspectRowSummaries(rowSummaries);
     }, MetricRegistry.name(this.getClass(), "rollback"));
-  }
-
-  private Long rollbackTimeseriesAspects(@Nonnull String runId) {
-    long totalNumberOfDocsDeleted = 0;
-    // Construct the runId filter for deletion.
-    Criterion hasRunIdCriterion = new Criterion().setField("runId").setCondition(Condition.EQUAL).setValue(runId);
-    Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasRunIdCriterion));
-
-    // Delete the timeseries aspects across all entities with the runId.
-    for (Map.Entry<String, EntitySpec> entry : _entityService.getEntityRegistry().getEntitySpecs().entrySet()) {
-      for (AspectSpec aspectSpec : entry.getValue().getAspectSpecs()) {
-        if (aspectSpec.isTimeseries()) {
-          long numDocsDeleted =
-              _timeseriesAspectService.deleteAspectValues(entry.getKey(), aspectSpec.getName(), filter);
-          totalNumberOfDocsDeleted += numDocsDeleted;
-          log.info("Number of timeseries docs deleted for entity:{}, aspect:{}, runId:{}={}", entry.getKey(),
-              aspectSpec.getName(), runId, numDocsDeleted);
-        }
-      }
-    }
-
-    return totalNumberOfDocsDeleted;
   }
 
   private String stringifyRowCount(int size) {

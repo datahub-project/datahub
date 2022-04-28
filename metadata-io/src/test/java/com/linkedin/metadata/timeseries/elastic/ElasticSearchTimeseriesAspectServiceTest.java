@@ -36,6 +36,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.AggregationType;
 import com.linkedin.timeseries.CalendarInterval;
+import com.linkedin.timeseries.DeleteAspectValuesResult;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.GroupingBucketType;
@@ -769,10 +770,11 @@ public class ElasticSearchTimeseriesAspectServiceTest {
 
     Filter filter =
         QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion, startTimeCriterion, endTimeCriterion));
-    Long numRecordsDeleted = _elasticSearchTimeseriesAspectService.deleteAspectValues(ENTITY_NAME, ASPECT_NAME, filter);
+    DeleteAspectValuesResult result =
+        _elasticSearchTimeseriesAspectService.deleteAspectValues(ENTITY_NAME, ASPECT_NAME, filter);
     // For day1, we expect 24 (number of hours) * 3 (each testEntityProfile aspect expands 3 elastic docs:
     //  1 original + 2 for componentProfiles) = 72 total.
-    assertEquals(numRecordsDeleted, Long.valueOf(72L));
+    assertEquals(result.getNumDocsDeleted(), Long.valueOf(72L));
   }
 
   @Test(groups = {"deleteAspectValues2"}, dependsOnGroups = {"deleteAspectValues1"})
@@ -780,8 +782,9 @@ public class ElasticSearchTimeseriesAspectServiceTest {
     Criterion hasUrnCriterion =
         new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(TEST_URN.toString());
     Filter filter = QueryUtils.getFilterFromCriteria(ImmutableList.of(hasUrnCriterion));
-    Long numRecordsDeleted = _elasticSearchTimeseriesAspectService.deleteAspectValues(ENTITY_NAME, ASPECT_NAME, filter);
+    DeleteAspectValuesResult result =
+        _elasticSearchTimeseriesAspectService.deleteAspectValues(ENTITY_NAME, ASPECT_NAME, filter);
     // Of the 300 elastic docs upserted for TEST_URN, 72 got deleted by deleteAspectValues1 test group leaving 228.
-    assertEquals(numRecordsDeleted, Long.valueOf(228L));
+    assertEquals(result.getNumDocsDeleted(), Long.valueOf(228L));
   }
 }

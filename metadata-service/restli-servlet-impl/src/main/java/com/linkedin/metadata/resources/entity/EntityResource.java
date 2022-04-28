@@ -1,6 +1,7 @@
 package com.linkedin.metadata.resources.entity;
 
 import com.codahale.metrics.MetricRegistry;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -14,7 +15,7 @@ import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.LineageDirection;
-import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.EntitySpecUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -48,6 +49,7 @@ import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
+import com.linkedin.timeseries.DeleteAspectValuesResult;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
@@ -101,21 +103,27 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Inject
   @Named("entityService")
   private EntityService _entityService;
+
   @Inject
   @Named("searchService")
   private SearchService _searchService;
+
   @Inject
   @Named("entitySearchService")
   private EntitySearchService _entitySearchService;
+
   @Inject
   @Named("systemMetadataService")
   private SystemMetadataService _systemMetadataService;
+
   @Inject
   @Named("relationshipSearchService")
   private LineageSearchService _lineageSearchService;
+
   @Inject
   @Named("kafkaEventProducer")
   private EventProducer _eventProducer;
+
   @Inject
   @Named("timeseriesAspectService")
   private TimeseriesAspectService _timeseriesAspectService;
@@ -396,22 +404,37 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }, MetricRegistry.name(this.getClass(), "deleteAll"));
   }
 
-  /*
-  Used to delete all data related to an individual urn
+  /**
+   * Deletes all data related to an individual urn(entity).
+   * @param urnStr - the urn of the entity.
+   * @param aspectName - the optional aspect name if only want to delete the aspect (applicable only for timeseries aspects).
+   * @param startTimeMills - the optional start time (applicable only for timeseries aspects).
+   * @param endTimeMillis - the optional end time (applicable only for the timeseries aspects).
+   * @return -  a DeleteEntityResponse object.
+   * @throws URISyntaxException
    */
   @Action(name = ACTION_DELETE)
   @Nonnull
   @WithSpan
   public Task<DeleteEntityResponse> deleteEntity(@ActionParam(PARAM_URN) @Nonnull String urnStr,
-      @ActionParam(PARAM_ASPECT_NAME) @Nonnull String aspectName,
-      @ActionParam(PARAM_START_TIME_MILLIS) @Nullable Long startTimeMills,
-      @ActionParam(PARAM_END_TIME_MILLIS) @Nullable Long endTimeMillis) throws URISyntaxException {
+      @ActionParam(PARAM_ASPECT_NAME) @Optional String aspectName,
+      @ActionParam(PARAM_START_TIME_MILLIS) @Optional Long startTimeMills,
+      @ActionParam(PARAM_END_TIME_MILLIS) @Optional Long endTimeMillis) throws URISyntaxException {
     Urn urn = Urn.createFromString(urnStr);
     return RestliUtil.toTask(() -> {
-      DeleteEntityResponse response = new DeleteEntityResponse();
+      // Find the timeseries aspects to delete. If aspectName is null, delete all.
+      List<String> timeseriesAspectNames =
+          EntitySpecUtils.getEntityTimeseriesAspectNames(_entityService.getEntityRegistry(), urn.getEntityType());
+      if (aspectName != null && !timeseriesAspectNames.contains(aspectName)) {
+        throw new IllegalArgumentException(String.format("Failed to find timeseries aspect {}", aspectName));
+      }
+      List<String> timeseriesAspectsToDelete =
+          (aspectName == null) ? timeseriesAspectNames : ImmutableList.of(aspectName);
 
+      DeleteEntityResponse response = new DeleteEntityResponse();
       RollbackRunResult result = _entityService.deleteUrn(urn);
-      Long numTimeseriesDocsDeleted = deleteTimeseriesAspects(urn, startTimeMills, endTimeMillis, aspectName);
+      Long numTimeseriesDocsDeleted =
+          deleteTimeseriesAspects(urn, startTimeMills, endTimeMillis, timeseriesAspectsToDelete);
       log.info("Total number of timeseries aspect docs deleted: {}", numTimeseriesDocsDeleted);
 
       response.setUrn(urnStr);
@@ -421,52 +444,37 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     }, MetricRegistry.name(this.getClass(), "delete"));
   }
 
-  private Long deleteTimeseriesAspects(@Nonnull Urn urn, @Nullable Long startTimeMillis, @Nonnull Long endTimeMillis,
-      String aspectName) {
-    assert (urn != null);
+  private Long deleteTimeseriesAspects(@Nonnull Urn urn, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis,
+      @Nonnull List<String> aspectsToDelete) {
     long totalNumberOfDocsDeleted = 0;
     // Construct the filter.
     List<Criterion> criteria = new ArrayList<>();
-    Criterion hasUrnCriterion = new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(urn.toString());
+    final Criterion hasUrnCriterion =
+        new Criterion().setField("urn").setCondition(Condition.EQUAL).setValue(urn.toString());
     criteria.add(hasUrnCriterion);
 
     if (startTimeMillis != null) {
-      Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
+      final Criterion startTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
           .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
           .setValue(startTimeMillis.toString());
       criteria.add(startTimeCriterion);
     }
     if (endTimeMillis != null) {
-      Criterion endTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
+      final Criterion endTimeCriterion = new Criterion().setField(ES_FILED_TIMESTAMP)
           .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
           .setValue(endTimeMillis.toString());
       criteria.add(endTimeCriterion);
     }
-    Filter filter = QueryUtils.getFilterFromCriteria(criteria);
+    final Filter filter = QueryUtils.getFilterFromCriteria(criteria);
 
-    // Find the timeseries aspects to delete. If aspectName is null, delete all.
-    String entityType = urn.getEntityType();
-    EntitySpec entitySpec = _entityService.getEntityRegistry().getEntitySpec(entityType);
-    List<String> aspectsToDelete = (aspectName == null) ? entitySpec.getAspectSpecs()
-        .stream()
-        .filter(x -> x.isTimeseries())
-        .map(x -> x.getName())
-        .collect(Collectors.toList()) : entitySpec.getAspectSpecs()
-        .stream()
-        .filter(x -> x.isTimeseries() && x.getName().equals(aspectName))
-        .map(x -> x.getName())
-        .collect(Collectors.toList());
+    // Delete all the timeseries aspects by the filter.
+    final String entityType = urn.getEntityType();
+    for (final String aspect : aspectsToDelete) {
+      DeleteAspectValuesResult result = _timeseriesAspectService.deleteAspectValues(entityType, aspect, filter);
+      totalNumberOfDocsDeleted += result.getNumDocsDeleted();
 
-    if (aspectName != null && aspectsToDelete.size() != 1) {
-      throw new IllegalArgumentException(String.format("Failed to find timeseries aspect {}", aspectName));
-    }
-
-    // Delete all of the timeseries aspects by the filter.
-    for (String aspect : aspectsToDelete) {
-      long numDocsDeleted = _timeseriesAspectService.deleteAspectValues(entityType, aspect, filter);
       log.info("Number of timeseries docs deleted for entity:{}, aspect:{}, urn:{}, startTime:{}, endTime:{}={}",
-          entityType, aspect, urn, startTimeMillis, endTimeMillis, numDocsDeleted);
-      totalNumberOfDocsDeleted += numDocsDeleted;
+          entityType, aspect, urn, startTimeMillis, endTimeMillis, result.getNumDocsDeleted());
     }
     return totalNumberOfDocsDeleted;
   }
