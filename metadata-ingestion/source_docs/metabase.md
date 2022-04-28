@@ -31,7 +31,7 @@ retrieve the following dashboard information.
 - Associated charts
 - Dashboard parameters
 
-The following properties for a Darshboard are ingested in DataHub.
+The following properties for a Dashboard are ingested in DataHub.
 
 | Name          | Description                                     |
 | ------------- | ----------------------------------------------- |
