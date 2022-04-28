@@ -1,7 +1,7 @@
 apply plugin: 'java'
 
 dependencies {
-  compile externalDependency.avro_1_7
+  compile externalDependency.avro
   compile externalDependency.commonsLang
   compile externalDependency.dropwizardMetricsCore
   compile externalDependency.dropwizardMetricsJmx
