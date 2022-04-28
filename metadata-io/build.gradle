@@ -18,6 +18,7 @@ dependencies {
 
   compile externalDependency.dgraph4j exclude group: 'com.google.guava', module: 'guava'
   compile externalDependency.lombok
+  compile externalDependency.commonsCollections
   compile externalDependency.datastaxOssNativeProtocol
   compile externalDependency.datastaxOssCore
   compile externalDependency.datastaxOssQueryBuilder

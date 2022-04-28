@@ -27,6 +27,12 @@ dependencies {
     play('net.minidev:json-smart:2.4.1')
     play('io.netty:netty-all:4.1.75.Final')
   }
+  modules {
+    module("commons-httpclient:commons-httpclient") {
+      replacedBy("org.apache.httpcomponents:httpclient", "commons-httpclient is deprecated")
+    }
+  }
+
   play project(":datahub-graphql-core")
   play project(":metadata-service:auth-api")
 
