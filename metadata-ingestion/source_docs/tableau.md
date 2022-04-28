@@ -15,15 +15,15 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 
 | Source Concept | DataHub Concept | Notes |
 | -- | -- | -- |
-| `Tableau` | [Data Platform](../../docs/generated/metamodel/entities/dataPlatform.md) | |
-| Embedded DataSource | [Dataset](../../docs/generated/metamodel/entities/dataset.md) | |
-| Published DataSource | [Dataset](../../docs/generated/metamodel/entities/dataset.md) | |
-| Custom SQL Table | [Dataset](../../docs/generated/metamodel/entities/dataset.md) | |
+| `"Tableau"` | [Data Platform](../../docs/generated/metamodel/entities/dataPlatform.md) | |
+| Embedded DataSource | [Dataset](../../docs/generated/metamodel/entities/dataset.md) | SubType `"Embedded Data Source"` |
+| Published DataSource | [Dataset](../../docs/generated/metamodel/entities/dataset.md) | SubType `"Published Data Source"` |
+| Custom SQL Table | [Dataset](../../docs/generated/metamodel/entities/dataset.md) | SubTypes `"View"`, `"Custom SQL"` |
 | Embedded or External Tables | [Dataset](../../docs/generated/metamodel/entities/dataset.md) | |
 | Sheet | [Chart](../../docs/generated/metamodel/entities/chart.md) | |
 | Dashboard | [Dashboard](../../docs/generated/metamodel/entities/dashboard.md) | |
 | User | [User (a.k.a CorpUser)](../../docs/generated/metamodel/entities/corpuser.md) | |
-| Workbook | [Container](../../docs/generated/metamodel/entities/container.md) | | 
+| Workbook | [Container](../../docs/generated/metamodel/entities/container.md) | SubType `"Workbook"` | 
 | Tag | [Tag](../../docs/generated/metamodel/entities/tag.md) | | 
 
 
@@ -489,7 +489,8 @@ sink:
 | `default_schema_map`* |          |           | Default schema to use when schema is not found.                          |
 | `ingest_tags`         |          | `False`   | Ingest Tags from source. This will override Tags entered from UI         |
 | `ingest_owners`       |          | `False`   | Ingest Owner from source. This will override Owner info entered from UI  |
-
+| `ingest_tables_external`       |          | `False`   | Ingest details for tables external to (not embedded in) tableau as entities 
+ 
 *Tableau may not provide schema name when ingesting Custom SQL data source. Use `default_schema_map` to provide a default
 schema name to use when constructing a table URN.
 
@@ -498,6 +499,8 @@ schema name to use when constructing a table URN.
 
 ## Troubleshooting
 
-### Why are only some workbooks ingested from the specified project?
+### Why are only some workbooks/sheets/dashboards/datasources ingested and others are missing
 
-This happens when the Tableau API returns NODE_LIMIT_EXCEEDED error and returns partial results with message "Showing partial results. , The request exceeded the ‘n’ node limit. Use pagination, additional filtering, or both in the query to adjust results." To resolve this, reduce the page size using the `workbooks_page_size` config param (Defaults to 10).
+This may happen when the Tableau API returns NODE_LIMIT_EXCEEDED error in response to metadata query and returns partial results with message "Showing partial results. , The request exceeded the ‘n’ node limit. Use pagination, additional filtering, or both in the query to adjust results." To resolve this, consider 
+- reducing the page size using the `workbooks_page_size` config param in datahub recipe (Defaults to 10).
+- increasing tableau configuration [metadata query node limit](https://help.tableau.com/current/server/en-us/cli_configuration-set_tsm.htm#metadata_nodelimit) to higher value. 

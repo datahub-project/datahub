@@ -82,4 +82,24 @@
         "theme": null,
         "visibility": null,
         "onPremisesProvisioningErrors": []
-    }]
+    },
+    {"@odata.type": "#microsoft.graph.orgContact",
+        "id": "00000000-0000-0000-9999-000000000000",
+        "deletedDateTime": null,
+        "companyName": null,
+        "department": null,
+        "displayName": null,
+        "proxyAddresses": [],
+        "givenName": null,
+        "imAddresses": [],
+        "jobTitle": null,
+        "mail": null,
+        "mailNickname": null,
+        "onPremisesLastSyncDateTime": null,
+        "onPremisesSyncEnabled": null,
+        "surname": null,
+        "addresses": [],
+        "onPremisesProvisioningErrors": [],
+        "phones": []
+    }
+]
