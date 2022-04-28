@@ -60,6 +60,9 @@ class MockResponse:
             )
             raise HTTPError(http_error_msg, response=self)
 
+    def mount(self, *args, **kwargs):
+        return self
+
 
 def mocked_requests_sucess(*args, **kwargs):
     return MockResponse(None)
@@ -80,8 +83,8 @@ def mocked_requests_session_delete(url, headers):
 @freeze_time(FROZEN_TIME)
 def test_mode_ingest_success(pytestconfig, tmp_path):
     with patch(
-        "datahub.ingestion.source.metabase.requests.session",
-        side_effect=mocked_requests_sucess,
+            "datahub.ingestion.source.metabase.requests.session",
+            side_effect=mocked_requests_sucess,
     ), patch(
         "datahub.ingestion.source.metabase.requests.post",
         side_effect=mocked_requests_session_post,
@@ -125,8 +128,8 @@ def test_mode_ingest_success(pytestconfig, tmp_path):
 @freeze_time(FROZEN_TIME)
 def test_mode_ingest_failure(pytestconfig, tmp_path):
     with patch(
-        "datahub.ingestion.source.metabase.requests.session",
-        side_effect=mocked_requests_failure,
+            "datahub.ingestion.source.metabase.requests.session",
+            side_effect=mocked_requests_failure,
     ), patch(
         "datahub.ingestion.source.metabase.requests.post",
         side_effect=mocked_requests_session_post,
