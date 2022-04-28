@@ -13,8 +13,9 @@ import com.linkedin.datahub.graphql.generated.ManagedIngestionConfig;
 import com.linkedin.datahub.graphql.generated.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.Privilege;
 import com.linkedin.datahub.graphql.generated.ResourcePrivileges;
-import com.linkedin.datahub.graphql.generated.VisualConfiguration;
+import com.linkedin.datahub.graphql.generated.VisualConfig;
 import com.linkedin.metadata.config.IngestionConfiguration;
+import com.linkedin.metadata.config.VisualConfiguration;
 import com.linkedin.metadata.version.GitVersion;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -96,7 +97,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     appConfig.setIdentityManagementConfig(identityManagementConfig);
     appConfig.setManagedIngestionConfig(ingestionConfig);
     appConfig.setAuthConfig(authConfig);
-    appConfig.setVisualConfig(_visualConfiguration);
+
+    final VisualConfig visualConfig = new VisualConfig();
+    visualConfig.setLogoUrl(_visualConfiguration.getAssets().getLogoUrl());
+    appConfig.setVisualConfig(visualConfig);
 
     return CompletableFuture.completedFuture(appConfig);
   }
