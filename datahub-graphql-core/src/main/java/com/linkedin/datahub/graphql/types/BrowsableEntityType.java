@@ -14,7 +14,7 @@ import java.util.List;
  * Extension of {@link EntityType} containing methods required for 'browse' functionality.
  *
  * @param <T>: The GraphQL object type corresponding to the entity, must extend the `Entity` interface.
- * @param <K> the key type for the dataloader
+ * @param <K> the key type for the DataLoader
  */
 public interface BrowsableEntityType<T extends Entity, K> extends EntityType<T, K> {
 

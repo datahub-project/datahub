@@ -11,7 +11,7 @@ import java.util.List;
  * GQL graph type that can be loaded from a downstream service by primary key.
  *
  * @param <T>: The GraphQL object type corresponding to the type.
- * @param <K> the key type for the dataloader
+ * @param <K> the key type for the DataLoader
  */
 public interface LoadableType<T, K> {
 
