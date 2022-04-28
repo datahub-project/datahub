@@ -94,6 +94,7 @@ def delete_for_registry(
 @click.option("--registry-id", required=False, type=str)
 @click.option("-n", "--dry-run", required=False, is_flag=True)
 @click.option("--include-removed", required=False, is_flag=True)
+@click.option("--old", required=False, is_flag=True)
 @telemetry.with_telemetry
 def delete(
     urn: str,
@@ -106,6 +107,7 @@ def delete(
     registry_id: str,
     dry_run: bool,
     include_removed: bool,
+    old: bool,
 ) -> None:
     """Delete metadata from datahub using a single urn or a combination of filters"""
 
@@ -131,22 +133,6 @@ def delete(
         entity_type = guess_entity_type(urn=urn)
         logger.info(f"DataHub configured with {host}")
 
-        deletion_result: DeletionResult = delete_one_urn_cmd(
-            urn,
-            soft=soft,
-            dry_run=dry_run,
-            entity_type=entity_type,
-            cached_session_host=(session, host),
-        )
-
-        if not dry_run:
-            if deletion_result.num_records == 0:
-                click.echo(f"Nothing deleted for {urn}")
-            else:
-                click.echo(
-                    f"Successfully deleted {urn}. {deletion_result.num_records} rows deleted"
-                )
-
         references_count, related_aspects = _delete_references(
             urn, dry_run=True, cached_session_host=(session, host)
         )
@@ -166,8 +152,25 @@ def delete(
             remove_dangling = click.confirm("Do you want to delete these references?")
 
         if remove_dangling:
-            _delete_references(urn, dry_run=False, cached_session_host=(session, host))    elif registry_id:
+            _delete_references(urn, dry_run=False, cached_session_host=(session, host))
 
+        deletion_result: DeletionResult = delete_one_urn_cmd(
+            urn,
+            soft=soft,
+            dry_run=dry_run,
+            entity_type=entity_type,
+            cached_session_host=(session, host),
+        )
+
+        if not dry_run:
+            if deletion_result.num_records == 0:
+                click.echo(f"Nothing deleted for {urn}")
+            else:
+                click.echo(
+                    f"Successfully deleted {urn}. {deletion_result.num_records} rows deleted"
+                )
+
+    elif registry_id:
         # Registry-id based delete
         if soft and not dry_run:
             raise click.UsageError(

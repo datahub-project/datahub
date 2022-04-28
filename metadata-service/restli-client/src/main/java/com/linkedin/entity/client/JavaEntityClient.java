@@ -18,6 +18,7 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.LineageDirection;

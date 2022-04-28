@@ -1,4 +1,4 @@
-package com.linkedin.metadata.resources.utils;
+package com.linkedin.metadata.entity;
 
 import com.datahub.util.RecordUtils;
 import com.linkedin.data.DataList;
@@ -12,7 +12,7 @@ import com.linkedin.schema.SchemaMetadata;
 import junit.framework.TestCase;
 import org.testng.annotations.Test;
 
-public class AspectProcessorTest extends TestCase {
+public class DeleteReferencesServiceTest extends TestCase {
 
   /**
    * Tests that Aspect Processor deletes the entire struct if it no longer has any fields
@@ -28,7 +28,7 @@ public class AspectProcessorTest extends TestCase {
         + "}");
 
     final DataSchema schema = pdlSchemaParser.lookupName("simple_record");
-    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
+    final Aspect updatedAspect = DeleteReferencesService.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_a"));
 
     assertFalse(updatedAspect.data().containsKey("key_a"));
@@ -50,7 +50,7 @@ public class AspectProcessorTest extends TestCase {
         + "}");
 
     final DataSchema schema = pdlSchemaParser.lookupName("simple_record");
-    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
+    final Aspect updatedAspect = DeleteReferencesService.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_a"));
 
     assertFalse(updatedAspect.data().containsKey("key_a"));
@@ -73,7 +73,7 @@ public class AspectProcessorTest extends TestCase {
         + "}");
 
     final DataSchema schema = pdlSchemaParser.lookupName("simple_record");
-    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
+    final Aspect updatedAspect = DeleteReferencesService.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_a"));
 
     assertTrue(updatedAspect.data().containsKey("key_a"));
@@ -101,7 +101,7 @@ public class AspectProcessorTest extends TestCase {
         + "}");
 
     final DataSchema schema = pdlSchemaParser.lookupName("complex_record");
-    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
+    final Aspect updatedAspect = DeleteReferencesService.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_c", "key_a"));
 
     assertTrue(updatedAspect.data().containsKey("key_c"));
@@ -127,7 +127,7 @@ public class AspectProcessorTest extends TestCase {
         + "}");
 
     final DataSchema schema = pdlSchemaParser.lookupName("complex_record");
-    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
+    final Aspect updatedAspect = DeleteReferencesService.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_c", "key_a"));
 
     assertTrue(updatedAspect.data().containsKey("key_c"));
@@ -158,7 +158,7 @@ public class AspectProcessorTest extends TestCase {
         + "}");
 
     final DataSchema schema = pdlSchemaParser.lookupName("complex_record");
-    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
+    final Aspect updatedAspect = DeleteReferencesService.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_c", "key_b"));
 
     assertFalse(updatedAspect.data().containsKey("key_c"));
@@ -177,7 +177,7 @@ public class AspectProcessorTest extends TestCase {
     assertEquals(1, ((DataList) aspect.data().get("key_a")).size());
 
     final DataSchema schema = pdlSchemaParser.lookupName("simple_record");
-    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
+    final Aspect updatedAspect = DeleteReferencesService.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_a", "*"));
 
     assertTrue(updatedAspect.data().containsKey("key_a"));
@@ -197,7 +197,7 @@ public class AspectProcessorTest extends TestCase {
     assertEquals(2, ((DataList) aspect.data().get("key_a")).size());
 
     final DataSchema schema = pdlSchemaParser.lookupName("simple_record");
-    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
+    final Aspect updatedAspect = DeleteReferencesService.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_a", "*"));
 
     assertTrue(updatedAspect.data().containsKey("key_a"));
@@ -226,7 +226,7 @@ public class AspectProcessorTest extends TestCase {
     assertEquals(2, ((DataList) aspect.data().get("key_c")).size());
 
     final DataSchema schema = pdlSchemaParser.lookupName("complex_record");
-    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
+    final Aspect updatedAspect = DeleteReferencesService.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_c", "*", "key_a"));
 
     assertTrue(updatedAspect.data().containsKey("key_c"));
@@ -263,18 +263,17 @@ public class AspectProcessorTest extends TestCase {
     assertEquals(2, ((DataList) aspect.data().get("key_c")).size());
 
     final DataSchema schema = pdlSchemaParser.lookupName("complex_record");
-    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
+    final Aspect updatedAspect = DeleteReferencesService.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_c", "*", "key_a"));
 
     assertTrue(updatedAspect.data().containsKey("key_c"));
-    assertEquals(1, ((DataList) updatedAspect.data().get("key_c")).size());
+    assertEquals(2, ((DataList) updatedAspect.data().get("key_c")).size());
 
-    assertNotSame(aspect.data().get("key_c"), updatedAspect.data().get("key_c"));
-
-    // First element from key_c should have been removed
+    // First element from key_c should have been emptied
     assertFalse(((DataMap) ((DataList) updatedAspect.data().get("key_c")).get(0)).containsKey("key_a"));
-    assertTrue(((DataMap) ((DataList) updatedAspect.data().get("key_c")).get(0)).containsKey("key_b"));
-    assertEquals("extra info", ((DataMap) ((DataList) updatedAspect.data().get("key_c")).get(0)).get("key_b"));
+    assertTrue(((DataMap) ((DataList) updatedAspect.data().get("key_c")).get(0)).isEmpty());
+    assertTrue(((DataMap) ((DataList) updatedAspect.data().get("key_c")).get(1)).containsKey("key_b"));
+    assertEquals("extra info", ((DataMap) ((DataList) updatedAspect.data().get("key_c")).get(1)).get("key_b"));
   }
 
   /**
@@ -298,11 +297,12 @@ public class AspectProcessorTest extends TestCase {
     assertEquals(1, ((DataList) aspect.data().get("key_c")).size());
 
     final DataSchema schema = pdlSchemaParser.lookupName("complex_record");
-    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
+    final Aspect updatedAspect = DeleteReferencesService.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_c", "*", "key_a"));
 
     assertTrue(updatedAspect.data().containsKey("key_c"));
-    assertEquals(0, ((DataList) updatedAspect.data().get("key_c")).size());
+    assertEquals(1, ((DataList) updatedAspect.data().get("key_c")).size());
+    assertTrue(((DataMap) ((DataList) updatedAspect.data().get("key_c")).get(0)).isEmpty());
   }
 
   /**
@@ -326,9 +326,10 @@ public class AspectProcessorTest extends TestCase {
     assertEquals(1, ((DataList) aspect.data().get("key_c")).size());
 
     final DataSchema schema = pdlSchemaParser.lookupName("complex_record");
-    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
+    final Aspect updatedAspect = DeleteReferencesService.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_c", "*", "key_a"));
 
+    // contains an empty key_c
     assertFalse(updatedAspect.data().containsKey("key_c"));
   }
 
@@ -356,7 +357,7 @@ public class AspectProcessorTest extends TestCase {
     assertTrue(aspect.data().containsKey("key_c"));
 
     final DataSchema schema = pdlSchemaParser.lookupName("complex_record");
-    final Aspect updatedAspect = AspectProcessor.getAspectWithReferenceRemoved("hello", aspect, schema,
+    final Aspect updatedAspect = DeleteReferencesService.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_c", "key_b", "key_a"));
 
     assertFalse(updatedAspect.data().containsKey("key_c"));
@@ -373,12 +374,14 @@ public class AspectProcessorTest extends TestCase {
     final Aspect aspect = RecordUtils.toRecordTemplate(Aspect.class, value);
 
     final Aspect updatedAspect =
-        AspectProcessor.getAspectWithReferenceRemoved("urn:li:tag:Dimension", aspect, SchemaMetadata.dataSchema(),
+        DeleteReferencesService.getAspectWithReferenceRemoved("urn:li:tag:Dimension", aspect, SchemaMetadata.dataSchema(),
             new PathSpec("fields", "*", "globalTags", "tags", "*", "tag"));
 
     assertFalse(updatedAspect.data().toString().contains("urn:li:tag:Dimension"));
     assertTrue(updatedAspect.data().containsKey("fields"));
-    assertTrue(updatedAspect.data().getDataList("fields").isEmpty());
+    // tags must be empty, not field
+    assertEquals(1, ((DataList) updatedAspect.data().get("fields")).size());
+    assertEquals(0, ((DataList) ((DataMap) ((DataMap) ((DataList) updatedAspect.data().get("fields")).get(0))
+        .get("globalTags")).get("tags")).size());
   }
-
 }
