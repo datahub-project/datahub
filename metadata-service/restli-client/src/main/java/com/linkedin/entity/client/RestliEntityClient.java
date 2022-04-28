@@ -57,8 +57,6 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.RestLiResponseException;
 import com.linkedin.restli.common.HttpStatus;
-import com.linkedin.util.Pair;
-import com.linkedin.util.VersionedUrnCoercer;
 import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.HashMap;
