@@ -45,7 +45,7 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.parquet.SemanticVersion;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.entity.EntityUtils.*;
+import static com.linkedin.common.urn.VersionedUrnUtils.*;
 
 
 public class EbeanTimelineService implements TimelineService {

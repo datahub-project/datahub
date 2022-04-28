@@ -143,6 +143,7 @@ import com.linkedin.datahub.graphql.types.container.ContainerType;
 import com.linkedin.datahub.graphql.types.corpgroup.CorpGroupType;
 import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
 import com.linkedin.datahub.graphql.types.dashboard.DashboardType;
+import com.linkedin.datahub.graphql.types.dataset.VersionedDatasetType;
 import com.linkedin.datahub.graphql.types.notebook.NotebookType;
 import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
 import com.linkedin.datahub.graphql.types.datajob.DataJobType;
@@ -241,6 +242,7 @@ public class GmsGraphQLEngine {
     private final DomainType domainType;
     private final NotebookType notebookType;
     private final AssertionType assertionType;
+    private final VersionedDatasetType versionedDatasetType;
 
 
     /**
@@ -327,6 +329,7 @@ public class GmsGraphQLEngine {
         this.domainType = new DomainType(entityClient);
         this.notebookType = new NotebookType(entityClient);
         this.assertionType = new AssertionType(entityClient);
+        this.versionedDatasetType = new VersionedDatasetType(entityClient);
 
         // Init Lists
         this.entityTypes = ImmutableList.of(
@@ -348,7 +351,8 @@ public class GmsGraphQLEngine {
             containerType,
             notebookType,
             domainType,
-            assertionType
+            assertionType,
+            versionedDatasetType
         );
         this.loadableTypes = new ArrayList<>(entityTypes);
         this.ownerTypes = ImmutableList.of(corpUserType, corpGroupType);
@@ -479,9 +483,10 @@ public class GmsGraphQLEngine {
             .dataFetcher("autoCompleteForMultiple", new AutoCompleteForMultipleResolver(searchableTypes))
             .dataFetcher("browse", new BrowseResolver(browsableTypes))
             .dataFetcher("browsePaths", new BrowsePathsResolver(browsableTypes))
-            .dataFetcher("dataset", getResolver(datasetType,
-                            (env) -> new VersionedUrn().setUrn(UrnUtils.getUrn(env.getArgument(URN_FIELD_NAME)))
-                                .setVersionStamp(env.getArgument(VERSION_STAMP_FIELD_NAME))))
+            .dataFetcher("dataset", getResolver(datasetType))
+            .dataFetcher("versionedDataset", getResolver(versionedDatasetType,
+                (env) -> new VersionedUrn().setUrn(UrnUtils.getUrn(env.getArgument(URN_FIELD_NAME)))
+                    .setVersionStamp(env.getArgument(VERSION_STAMP_FIELD_NAME))))
             .dataFetcher("notebook", getResolver(notebookType))
             .dataFetcher("corpUser", getResolver(corpUserType))
             .dataFetcher("corpGroup", getResolver(corpGroupType))
@@ -688,9 +693,7 @@ public class GmsGraphQLEngine {
             )
             .type("ForeignKeyConstraint", typeWiring -> typeWiring
                 .dataFetcher("foreignDataset", new LoadableTypeResolver<>(datasetType,
-                    (env) -> new VersionedUrn().setUrn(
-                        UrnUtils.getUrn(
-                            ((ForeignKeyConstraint) env.getSource()).getForeignDataset().getUrn()))))
+                    (env) -> ((ForeignKeyConstraint) env.getSource()).getForeignDataset().getUrn()))
             )
             .type("InstitutionalMemoryMetadata", typeWiring -> typeWiring
                 .dataFetcher("author", new LoadableTypeResolver<>(corpUserType,

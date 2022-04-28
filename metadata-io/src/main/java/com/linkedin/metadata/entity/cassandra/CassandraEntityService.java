@@ -11,6 +11,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.common.urn.VersionedUrnUtils;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
@@ -185,7 +186,7 @@ public class CassandraEntityService extends EntityService {
 
     Map<String, Map<String, Long>> urnAspectVersionMap = versionedUrns.stream()
         .collect(Collectors.toMap(versionedUrn -> versionedUrn.getUrn().toString(),
-            versionedUrn -> EntityUtils.convertVersionStamp(versionedUrn.getVersionStamp())));
+            versionedUrn -> VersionedUrnUtils.convertVersionStamp(versionedUrn.getVersionStamp())));
 
     // Cover full/partial versionStamp
     final Set<CassandraAspect.PrimaryKey> dbKeys = urnAspectVersionMap.entrySet().stream()
