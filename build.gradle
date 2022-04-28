@@ -193,6 +193,9 @@ subprojects {
           module("commons-httpclient:commons-httpclient") {
               replacedBy("org.apache.httpcomponents:httpclient", "commons-httpclient is deprecated")
           }
+          module("org.codehaus.jackson:jackson-mapper-asl") {
+              replacedBy("com.fasterxml.jackson.core:jackson-databind", "jackson-mapper-asl is deprecated")
+          }
       }
     }
 
