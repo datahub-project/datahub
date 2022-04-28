@@ -607,23 +607,33 @@ class S3Source(Source):
         if self.source_config.use_s3_bucket_tags:
             s3 = self.source_config.aws_config.get_s3_resource()
             bucket = s3.Bucket(bucket_name)
-            tags_to_add.extend(
-                [
-                    make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
-                    for tag in bucket.Tagging().tag_set
-                ]
-            )
+            try:
+                tags_to_add.extend(
+                    [
+                        make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
+                        for tag in bucket.Tagging().tag_set
+                    ]
+                )
+            except s3.meta.client.exceptions.ClientError:
+                logger.warn(f"No tags found for bucket={bucket_name}")
+
         if self.source_config.use_s3_object_tags and key_name is not None:
             s3_client = self.source_config.aws_config.get_s3_client()
             object_tagging = s3_client.get_object_tagging(
                 Bucket=bucket_name, Key=key_name
             )
-            tags_to_add.extend(
-                [
-                    make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
-                    for tag in object_tagging["TagSet"]
-                ]
-            )
+            tag_set = object_tagging["TagSet"]
+            if tag_set:
+                tags_to_add.extend(
+                    [
+                        make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
+                        for tag in tag_set
+                    ]
+                )
+            else:
+                # Unlike bucket tags, if an object does not have tags, it will just return an empty array
+                # as opposed to an exception.
+                logger.warn(f"No tags found for bucket={bucket_name} key={key_name}")
         if len(tags_to_add) == 0:
             return None
         if self.ctx.graph is not None:

@@ -804,13 +804,16 @@ class GlueSource(Source):
             )
             tags_to_add = []
             if self.source_config.use_s3_bucket_tags:
-                bucket_tags = self.s3_client.get_bucket_tagging(Bucket=bucket_name)
-                tags_to_add.extend(
-                    [
-                        make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
-                        for tag in bucket_tags["TagSet"]
-                    ]
-                )
+                try:
+                    bucket_tags = self.s3_client.get_bucket_tagging(Bucket=bucket_name)
+                    tags_to_add.extend(
+                        [
+                            make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
+                            for tag in bucket_tags["TagSet"]
+                        ]
+                    )
+                except self.s3_client.exceptions.ClientError:
+                    logger.warn(f"No tags found for bucket={bucket_name}")
             if self.source_config.use_s3_object_tags:
                 key_prefix = s3_util.get_key_prefix(
                     table["StorageDescriptor"]["Location"]
@@ -818,12 +821,20 @@ class GlueSource(Source):
                 object_tagging = self.s3_client.get_object_tagging(
                     Bucket=bucket_name, Key=key_prefix
                 )
-                tags_to_add.extend(
-                    [
-                        make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
-                        for tag in object_tagging["TagSet"]
-                    ]
-                )
+                tag_set = object_tagging["TagSet"]
+                if tag_set:
+                    tags_to_add.extend(
+                        [
+                            make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
+                            for tag in tag_set
+                        ]
+                    )
+                else:
+                    # Unlike bucket tags, if an object does not have tags, it will just return an empty array
+                    # as opposed to an exception.
+                    logger.warn(
+                        f"No tags found for bucket={bucket_name} key={key_prefix}"
+                    )
             if len(tags_to_add) == 0:
                 return None
             if self.ctx.graph is not None:
