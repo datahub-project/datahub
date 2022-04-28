@@ -196,6 +196,9 @@ subprojects {
           module("org.codehaus.jackson:jackson-mapper-asl") {
               replacedBy("com.fasterxml.jackson.core:jackson-databind", "jackson-mapper-asl is deprecated")
           }
+          module("org.apache.velocity:velocity") {
+              replacedBy("org.apache.velocity:velocity-engine-core", "velocity is deprecated")
+          }
       }
     }
 
