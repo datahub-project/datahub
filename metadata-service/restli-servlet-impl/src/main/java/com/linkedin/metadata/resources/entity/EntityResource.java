@@ -1,11 +1,9 @@
 package com.linkedin.metadata.resources.entity;
 
 import com.codahale.metrics.MetricRegistry;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
@@ -18,21 +16,16 @@ import com.linkedin.metadata.entity.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
-import com.linkedin.metadata.graph.RelatedEntitiesResult;
-import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.AspectRowSummaryArray;
 import com.linkedin.metadata.run.DeleteEntityResponse;
 import com.linkedin.metadata.run.DeleteReferencesResponse;
-import com.linkedin.metadata.run.RelatedAspect;
-import com.linkedin.metadata.run.RelatedAspectArray;
 import com.linkedin.metadata.run.RollbackResponse;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchResult;
@@ -63,7 +56,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -74,7 +66,6 @@ import org.apache.maven.artifact.versioning.ComparableVersion;
 
 import static com.linkedin.metadata.entity.ValidationUtils.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
-import static com.linkedin.metadata.search.utils.QueryUtils.*;
 import static com.linkedin.metadata.utils.PegasusUtils.*;
 
 
@@ -97,7 +88,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String PARAM_COUNT = "count";
   private static final String PARAM_VALUE = "value";
   private static final String SYSTEM_METADATA = "systemMetadata";
-  private static final Integer ELASTIC_BATCH_DELETE_SLEEP_SEC = 5;
 
   private final Clock _clock = Clock.systemUTC();
 
@@ -426,67 +416,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     boolean dryRun = dry != null ? dry : false;
 
     Urn urn = Urn.createFromString(urnStr);
-    return RestliUtil.toTask(() -> {
-
-      final DeleteReferencesResponse result = new DeleteReferencesResponse();
-      RelatedEntitiesResult relatedEntities =
-          _graphService.findRelatedEntities(null, newFilter("urn", urn.toString()), null,
-              EMPTY_FILTER,
-              ImmutableList.of(),
-              newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING), 0, 10000);
-
-      final List<RelatedAspect> relatedAspects = relatedEntities.getEntities().stream().map(relatedEntity -> {
-        final Urn relatedUrn = UrnUtils.getUrn(relatedEntity.getUrn());
-        final String relationType = relatedEntity.getRelationshipType();
-        final String relatedEntityName = relatedUrn.getEntityType();
-        final EntitySpec relatedEntitySpec = _entityService.getEntityRegistry().getEntitySpec(relatedEntityName);
-
-        return _deleteEntityService.getAspectReferringTo(urn, relatedUrn, relationType, relatedEntitySpec).map(pair -> {
-          final RelatedAspect relatedAspect = new RelatedAspect();
-          relatedAspect.setEntity(relatedUrn);
-          relatedAspect.setRelationship(relationType);
-          relatedAspect.setAspect(pair.getSecond().getName());
-          return relatedAspect;
-        });
-      }).filter(java.util.Optional::isPresent)
-          .map(java.util.Optional::get)
-          .limit(10).collect(Collectors.toList());
-
-      result.setRelatedAspects(new RelatedAspectArray(relatedAspects));
-      result.setTotal(relatedEntities.getTotal());
-
-      if (dryRun) {
-        return result;
-      }
-
-      int processedEntities = 0;
-
-      // Delete first 10k
-      relatedEntities.getEntities().forEach(entity -> _deleteEntityService.deleteReference(urn, entity));
-
-      processedEntities += relatedEntities.getEntities().size();
-
-      // Delete until less than 10k are left
-      while (relatedEntities.getCount() > 10000) {
-        log.info("Processing batch {} of {} aspects", processedEntities, relatedEntities.getTotal());
-        sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
-        relatedEntities = _graphService.findRelatedEntities(null, newFilter("urn", urn.toString()),
-            null, EMPTY_FILTER, ImmutableList.of(),
-            newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING), 0, 10000);
-        relatedEntities.getEntities().forEach(entity -> _deleteEntityService.deleteReference(urn, entity));
-        processedEntities += relatedEntities.getEntities().size();
-      }
-
-      return result;
-    }, MetricRegistry.name(this.getClass(), "deleteReferences"));
-  }
-
-  private void sleep(Integer seconds) {
-    try {
-      TimeUnit.SECONDS.sleep(seconds);
-    } catch (InterruptedException e) {
-      log.error("Interrupted sleep", e);
-    }
+    return RestliUtil.toTask(() -> _deleteEntityService.deleteReferencesTo(urn, dryRun), MetricRegistry.name(this.getClass(), "deleteReferences"));
   }
 
   /*

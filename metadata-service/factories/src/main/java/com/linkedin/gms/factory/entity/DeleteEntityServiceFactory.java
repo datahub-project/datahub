@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.entity;
 
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.graph.GraphService;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -17,10 +18,14 @@ public class DeleteEntityServiceFactory {
   @Qualifier("entityService")
   private EntityService _entityService;
 
+  @Autowired
+  @Qualifier("graphService")
+  private GraphService _graphService;
+
   @Bean(name = "deleteEntityService")
   @DependsOn({"entityService"})
   @Nonnull
   protected DeleteEntityService createDeleteEntityService() {
-    return new DeleteEntityService(_entityService);
+    return new DeleteEntityService(_entityService, _graphService);
   }
 }
