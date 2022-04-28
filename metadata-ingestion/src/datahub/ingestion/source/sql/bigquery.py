@@ -594,9 +594,6 @@ class BigQuerySource(SQLAlchemySource):
                 lineage_map[destination_table_str] = new_lineage_str
             if not (has_table or has_view):
                 self.report.num_skipped_lineage_entries_other += 1
-
-        if self.config.upstream_lineage_in_report:
-            self.report.upstream_lineage = lineage_map
         return lineage_map
 
     def get_latest_partition(
@@ -786,7 +783,7 @@ WHERE
         assert self.lineage_metadata
         for ref_table in self.lineage_metadata[str(bq_table)]:
             upstream_table = BigQueryTableRef.from_string_name(ref_table)
-            if upstream_table.is_temporary_table(self.config.temp_table_prefix):
+            if upstream_table.is_temporary_table(self.config.temp_table_dataset_prefix):
                 # making sure we don't process a table twice and not get into a recursive loop
                 if ref_table in tables_seen:
                     logger.debug(
@@ -834,6 +831,12 @@ WHERE
                     ),
                     DatasetLineageTypeClass.TRANSFORMED,
                 )
+                if self.config.upstream_lineage_in_report:
+                    current_lineage_map: Set = self.report.upstream_lineage.get(
+                        str(bq_table), set()
+                    )
+                    current_lineage_map.add(str(upstream_table))
+                    self.report.upstream_lineage[str(bq_table)] = current_lineage_map
                 upstream_list.append(upstream_table_class)
 
             if upstream_list:

@@ -30,7 +30,7 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
     _credentials_path: Optional[str] = pydantic.PrivateAttr(None)
     use_v2_audit_metadata: Optional[bool] = False
     upstream_lineage_in_report: bool = False
-    temp_table_prefix: str = "_"
+    temp_table_dataset_prefix: str = "_"
 
     def __init__(self, **data: Any):
         super().__init__(**data)

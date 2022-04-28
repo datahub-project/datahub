@@ -1114,7 +1114,7 @@ class BigQueryUsageSource(Source):
                 logger.warning(f"Failed to process event {str(event.resource)}", e)
                 continue
 
-            if resource.is_temporary_table(self.config.temp_table_prefix):
+            if resource.is_temporary_table(self.config.temp_table_dataset_prefix):
                 logger.debug(f"Dropping temporary table {resource}")
                 self.report.report_dropped(str(resource))
                 continue
