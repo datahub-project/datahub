@@ -1,7 +1,9 @@
 package com.linkedin.metadata.resources.entity;
 
 import com.codahale.metrics.MetricRegistry;
+import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.restli.RestliUtil;
@@ -18,6 +20,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -55,7 +58,14 @@ public class EntityVersionedV2Resource extends CollectionResourceTaskTemplate<Pa
       final Set<String> projectedAspects =
           aspectNames == null ? getAllAspectNames(_entityService, entityType) : new HashSet<>(Arrays.asList(aspectNames));
       try {
-        return _entityService.getEntitiesVersionedV2(versionedUrnStrs, projectedAspects);
+        return _entityService.getEntitiesVersionedV2(versionedUrnStrs.stream()
+            .map(pair -> {
+              VersionedUrn versionedUrn = new VersionedUrn().setUrn(UrnUtils.getUrn(pair.getFirst()));
+              if (pair.getSecond() != null) {
+                versionedUrn.setVersionStamp(pair.getSecond());
+              }
+              return versionedUrn;
+            }).collect(Collectors.toSet()), projectedAspects);
       } catch (Exception e) {
         throw new RuntimeException(
             String.format("Failed to batch get versioned entities: %s, projectedAspects: %s", versionedUrnStrs, projectedAspects),

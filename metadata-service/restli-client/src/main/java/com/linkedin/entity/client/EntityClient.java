@@ -1,6 +1,7 @@
 package com.linkedin.entity.client;
 
 import com.datahub.authentication.Authentication;
+import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
@@ -58,7 +59,7 @@ public interface EntityClient {
   @Nonnull
   Map<Urn, EntityResponse> batchGetVersionedV2(
       @Nonnull String entityName,
-      @Nonnull final Set<Pair<String, String>> versionedUrns,
+      @Nonnull final Set<VersionedUrn> versionedUrns,
       @Nullable final Set<String> aspectNames,
       @Nonnull final Authentication authentication) throws RemoteInvocationException, URISyntaxException;
 

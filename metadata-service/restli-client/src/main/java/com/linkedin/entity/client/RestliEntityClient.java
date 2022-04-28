@@ -2,6 +2,7 @@ package com.linkedin.entity.client;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.util.RecordUtils;
+import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.client.BaseClient;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -189,7 +190,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   @Nonnull
   public Map<Urn, EntityResponse> batchGetVersionedV2(
       @Nonnull String entityName,
-      @Nonnull final Set<Pair<String, String>> versionedUrns,
+      @Nonnull final Set<VersionedUrn> versionedUrns,
       @Nullable final Set<String> aspectNames,
       @Nonnull final Authentication authentication) throws RemoteInvocationException, URISyntaxException {
 
@@ -197,6 +198,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         .aspectsParam(aspectNames)
         .entityTypeParam(entityName)
         .ids(versionedUrns.stream()
+            .map(versionedUrn -> new Pair<>(versionedUrn.getUrn(), versionedUrn.getVersionStamp()))
             .map(Pair::toString)
             .map(string -> new PairCoercer().coerceOutput(string)).collect(
             Collectors.toSet()));

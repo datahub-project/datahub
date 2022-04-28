@@ -19,6 +19,7 @@ import java.util.function.Function;
  *  for the provided {@link LoadableType} under the name provided by {@link LoadableType#name()}
  *
  * @param <T> the generated GraphQL POJO corresponding to the resolved type.
+ * @param <K> the key type for the dataloader
  */
 public class LoadableTypeBatchResolver<T, K> implements DataFetcher<CompletableFuture<List<T>>> {
 

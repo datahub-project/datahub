@@ -16,7 +16,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
-
+@Deprecated
 public class AspectType implements LoadableType<Aspect, VersionedAspectKey> {
   private final EntityClient _entityClient;
 

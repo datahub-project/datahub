@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.dataset;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -56,7 +57,7 @@ import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class DatasetType implements SearchableEntityType<Dataset, Pair<String, String>>, BrowsableEntityType<Dataset, Pair<String, String>>,
+public class DatasetType implements SearchableEntityType<Dataset, VersionedUrn>, BrowsableEntityType<Dataset, VersionedUrn>,
                                     MutableType<DatasetUpdateInput, Dataset> {
 
     private static final Set<String> ASPECTS_TO_RESOLVE = ImmutableSet.of(
@@ -104,12 +105,12 @@ public class DatasetType implements SearchableEntityType<Dataset, Pair<String, S
     }
 
     @Override
-    public Function<Entity, Pair<String, String>> getKeyProvider() {
-        return entity -> new Pair<>(entity.getUrn(), null);
+    public Function<Entity, VersionedUrn> getKeyProvider() {
+        return entity -> new VersionedUrn().setUrn(UrnUtils.getUrn(entity.getUrn()));
     }
 
     @Override
-    public List<DataFetcherResult<Dataset>> batchLoad(@Nonnull final List<Pair<String, String>> versionedUrns,
+    public List<DataFetcherResult<Dataset>> batchLoad(@Nonnull final List<VersionedUrn> versionedUrns,
         @Nonnull final QueryContext context) {
         try {
             final Map<Urn, EntityResponse> datasetMap =
@@ -120,8 +121,8 @@ public class DatasetType implements SearchableEntityType<Dataset, Pair<String, S
                     context.getAuthentication());
 
             final List<EntityResponse> gmsResults = new ArrayList<>();
-            for (Pair<String, String> pair : versionedUrns) {
-                gmsResults.add(datasetMap.getOrDefault(UrnUtils.getUrn(pair.getFirst()), null));
+            for (VersionedUrn versionedUrn : versionedUrns) {
+                gmsResults.add(datasetMap.getOrDefault(versionedUrn.getUrn(), null));
             }
             return gmsResults.stream()
                 .map(gmsDataset -> gmsDataset == null ? null : DataFetcherResult.<Dataset>newResult()
@@ -192,7 +193,7 @@ public class DatasetType implements SearchableEntityType<Dataset, Pair<String, S
                 throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
             }
 
-            return load(new Pair<>(urn, null), context).getData();
+            return load(new VersionedUrn().setUrn(UrnUtils.getUrn(urn)), context).getData();
         }
         throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     }

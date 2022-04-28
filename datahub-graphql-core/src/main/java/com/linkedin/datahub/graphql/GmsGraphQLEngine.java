@@ -4,6 +4,8 @@ import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.token.TokenService;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.VersionedUrn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.analytics.resolver.AnalyticsChartTypeResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.GetChartsResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.GetHighlightsResolver;
@@ -479,8 +481,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("browse", new BrowseResolver(browsableTypes))
             .dataFetcher("browsePaths", new BrowsePathsResolver(browsableTypes))
             .dataFetcher("dataset", getResolver(datasetType,
-                            (env) -> new Pair<>(env.getArgument(URN_FIELD_NAME),
-                                env.getArgument(VERSION_STAMP_FIELD_NAME))))
+                            (env) -> new VersionedUrn().setUrn(UrnUtils.getUrn(env.getArgument(URN_FIELD_NAME)))
+                                .setVersionStamp(env.getArgument(VERSION_STAMP_FIELD_NAME))))
             .dataFetcher("notebook", getResolver(notebookType))
             .dataFetcher("corpUser", getResolver(corpUserType))
             .dataFetcher("corpGroup", getResolver(corpGroupType))
@@ -687,7 +689,9 @@ public class GmsGraphQLEngine {
             )
             .type("ForeignKeyConstraint", typeWiring -> typeWiring
                 .dataFetcher("foreignDataset", new LoadableTypeResolver<>(datasetType,
-                    (env) -> new Pair<>(((ForeignKeyConstraint) env.getSource()).getForeignDataset().getUrn(), null)))
+                    (env) -> new VersionedUrn().setUrn(
+                        UrnUtils.getUrn(
+                            ((ForeignKeyConstraint) env.getSource()).getForeignDataset().getUrn()))))
             )
             .type("InstitutionalMemoryMetadata", typeWiring -> typeWiring
                 .dataFetcher("author", new LoadableTypeResolver<>(corpUserType,

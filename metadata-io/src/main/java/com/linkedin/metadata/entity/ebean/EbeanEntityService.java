@@ -8,6 +8,7 @@ import com.google.common.collect.Iterators;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
+import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.RecordDataSchema;
@@ -206,12 +207,12 @@ public class EbeanEntityService extends EntityService {
 
   @Override
   public Map<Urn, List<EnvelopedAspect>> getVersionedEnvelopedAspects(
-      @Nonnull Set<Pair<String, String>> versionedUrnStrs,
+      @Nonnull Set<VersionedUrn> versionedUrns,
       @Nonnull Set<String> aspectNames) throws URISyntaxException {
 
-    Map<String, Map<String, Long>> urnAspectVersionMap = versionedUrnStrs.stream()
-        .collect(Collectors.toMap(Pair::getFirst,
-            pair -> EntityUtils.convertVersionStamp(pair.getSecond())));
+    Map<String, Map<String, Long>> urnAspectVersionMap = versionedUrns.stream()
+        .collect(Collectors.toMap(versionedUrn -> versionedUrn.getUrn().toString(),
+            versionedUrn -> EntityUtils.convertVersionStamp(versionedUrn.getVersionStamp())));
 
     // Cover full/partial versionStamp
     final Set<EbeanAspectV2.PrimaryKey> dbKeys = urnAspectVersionMap.entrySet().stream()
@@ -233,8 +234,8 @@ public class EbeanEntityService extends EntityService {
         .flatMap(List::stream)
         .collect(Collectors.toSet()));
 
-    return getCorrespondingAspects(dbKeys, versionedUrnStrs.stream()
-        .map(Pair::getFirst)
+    return getCorrespondingAspects(dbKeys, versionedUrns.stream()
+        .map(versionedUrn -> versionedUrn.getUrn().toString())
         .map(UrnUtils::getUrn).collect(Collectors.toSet()));
   }
 
