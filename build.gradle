@@ -189,6 +189,11 @@ subprojects {
         implementation('org.apache.velocity:velocity-engine-core:2.3')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
       }
+      modules {
+          module("commons-httpclient:commons-httpclient") {
+              replacedBy("org.apache.httpcomponents:httpclient", "commons-httpclient is deprecated")
+          }
+      }
     }
 
     tasks.withType(Test) {
