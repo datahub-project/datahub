@@ -12,7 +12,8 @@ jar -tvf $jarFile |\
       grep -v "legacyPegasusSchemas/" |\
       grep -v " com/$" |\
       grep -v "git.properties" |\
-      grep -v "client.properties"
+      grep -v "client.properties" |\
+      grep -v "module-info.class"
 
 if [ $? -ne 0 ]; then
   echo "✅ No unexpected class paths found in ${jarFile}"

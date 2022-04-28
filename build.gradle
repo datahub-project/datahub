@@ -76,7 +76,7 @@ project.ext.externalDependency = [
     'httpAsyncClient': 'org.apache.httpcomponents:httpasyncclient:4.1.5',
     'iStackCommons': 'com.sun.istack:istack-commons-runtime:4.0.1',
     'jacksonCore': 'com.fasterxml.jackson.core:jackson-core:2.9.10',
-    'jacksonDataBind': 'com.fasterxml.jackson.core:jackson-databind:2.9.10.7',
+    'jacksonDataBind': 'com.fasterxml.jackson.core:jackson-databind:2.12.3',
     'jacksonDataFormatYaml': 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.10',
     'javatuples': 'org.javatuples:javatuples:1.2',
     'javaxInject' : 'javax.inject:javax.inject:1',
