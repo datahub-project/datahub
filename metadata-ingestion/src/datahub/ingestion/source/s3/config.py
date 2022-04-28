@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Union
 import parse
 import pydantic
 from pydantic.fields import Field
+from pydantic import PrivateAttr
 from wcmatch import pathlib
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -14,7 +15,7 @@ from datahub.configuration.source_common import (
     PlatformSourceConfigBase,
 )
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
-from datahub.ingestion.source.aws.s3_util import is_s3_uri
+from datahub.ingestion.source.aws.s3_util import is_s3_uri, get_bucket_name
 from datahub.ingestion.source.s3.profiling import DataLakeProfilerConfig
 
 # hide annoying debug errors from py4j
@@ -39,6 +40,11 @@ class PathSpec(ConfigModel):
         default=SUPPORTED_FILE_TYPES,
         description="Files with extenstions specified here (subset of default value) only will be scanned to create dataset. Other files will be omitted.",
     )
+
+    default_extension: Optional[str] = Field(
+        description="For files without extension it will assume the specified file type. If it is not set the files without extensions will be skipped.",
+    )
+
     table_name: Optional[str] = Field(
         default=None,
         description="Display name of the dataset.Combination of named variableds from include path and strings",
@@ -148,6 +154,7 @@ class PathSpec(ConfigModel):
 
 
 class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
+    path_specs: Optional[List[PathSpec]] = Field(description="")
     path_spec: PathSpec = Field(description="")
     platform: str = Field(
         default="", description="The platform that this source connects to"
@@ -192,21 +199,50 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
         value = values.get("platform")
         if value is not None and value != "":
             return values
-        if values.get("path_spec") is not None and isinstance(
-            values.get("path_spec"), PathSpec
-        ):
-            if values["path_spec"].is_s3():
-                values["platform"] = "s3"
+
+        if not values.get("path_specs") and not values.get("path_spec"):
+            raise ValueError("Either path_specs or path_spec needs to be specified")
+
+        if values.get("path_specs") and values.get("path_spec"):
+            raise ValueError(
+                "Either path_specs or path_spec needs to be specified but not both"
+            )
+
+        if values.get("path_spec"):
+            logger.warning(
+                "path_spec config property is deprecated, please use path_specs instead of it."
+            )
+            values["path_specs"] = [values.get("path_spec")]
+
+        bucket_name: str = ""
+        for path_spec in values.get("path_specs", []):
+            if path_spec.is_s3():
+                platform = "s3"
             else:
                 if values.get("use_s3_object_tags") or values.get("use_s3_bucket_tags"):
                     raise ValueError(
                         "cannot grab s3 tags for platform != s3. Remove the flag or use s3."
                     )
-                values["platform"] = "file"
-            logger.debug(f'Setting config "platform": {values.get("platform")}')
-            return values
-        else:
-            raise ValueError("path_spec is not valid. Cannot autodetect platform")
+
+                platform = "file"
+
+            if "platform" in values and values["platform"] != "":
+                if values["platform"] != platform:
+                    raise ValueError("all path_spec should belong to the same platform")
+            else:
+                values["platform"] = platform
+                logger.debug(f'Setting config "platform": {values.get("platform")}')
+
+            if platform == "s3":
+                if bucket_name == "":
+                    bucket_name = get_bucket_name(path_spec.include)
+                else:
+                    if bucket_name != get_bucket_name(path_spec.include):
+                        raise ValueError(
+                            "all path_spec should reference the same s3 bucket"
+                        )
+
+        return values
 
     @pydantic.root_validator()
     def ensure_profiling_pattern_is_passed_to_profiling(

@@ -66,7 +66,7 @@ from datahub.ingestion.source.aws.s3_util import (
     get_key_prefix,
     strip_s3_prefix,
 )
-from datahub.ingestion.source.s3.config import DataLakeSourceConfig
+from datahub.ingestion.source.s3.config import DataLakeSourceConfig, PathSpec
 from datahub.ingestion.source.s3.profiling import _SingleTableProfiler
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
@@ -184,12 +184,14 @@ S3_PREFIXES = ("s3://", "s3n://", "s3a://")
 
 @dataclasses.dataclass
 class TableData:
-    disaply_name: str
+    display_name: str
     is_s3: bool
     full_path: str
     partitions: Optional[OrderedDict]
     timestamp: datetime
     table_path: str
+    size_in_bytes: int
+    number_of_files: int
 
 
 @platform_name("S3 Data Lake", id="s3")
@@ -410,7 +412,7 @@ class S3Source(Source):
         base_full_path = table_data.table_path
         parent_key = None
         if table_data.is_s3:
-            bucket_name = get_bucket_name(table_data.full_path)
+            bucket_name = get_bucket_name(table_data.table_path)
             bucket_key = self.gen_bucket_key(bucket_name)
             yield from self.create_emit_containers(
                 container_key=bucket_key,
@@ -429,6 +431,7 @@ class S3Source(Source):
         for folder in parent_folder_path.split("/"):
             abs_path = folder
             if parent_key:
+                prefix: str = ""
                 if isinstance(parent_key, S3BucketKey):
                     prefix = parent_key.bucket_name
                 elif isinstance(parent_key, FolderKey):
@@ -468,6 +471,8 @@ class S3Source(Source):
         try:
             if table_data.full_path.endswith(".parquet"):
                 fields = parquet.ParquetInferrer().infer_schema(file)
+            elif table_data.full_path.endswith(".orc"):
+                fields = parquet.OrcInferrer().infer_schema(file)
             elif table_data.full_path.endswith(".csv"):
                 fields = csv_tsv.CsvInferrer(
                     max_rows=self.source_config.max_rows
@@ -512,8 +517,8 @@ class S3Source(Source):
         # if table is not readable, skip
         if table is None:
             self.report.report_warning(
-                table_data.disaply_name,
-                f"unable to read table {table_data.disaply_name} from file {table_data.full_path}",
+                table_data.display_name,
+                f"unable to read table {table_data.display_name} from file {table_data.full_path}",
             )
             return
 
@@ -598,14 +603,17 @@ class S3Source(Source):
 
         dataset_properties = DatasetPropertiesClass(
             description="",
-            name=table_data.disaply_name,
-            customProperties={},
+            name=table_data.display_name,
+            customProperties={
+                "number_of_files": str(table_data.number_of_files),
+                "size_in_bytes": str(table_data.size_in_bytes),
+            },
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
         fields = self.get_fields(table_data)
         schema_metadata = SchemaMetadata(
-            schemaName=table_data.disaply_name,
+            schemaName=table_data.display_name,
             platform=data_platform_urn,
             version=0,
             hash="",
@@ -721,58 +729,62 @@ class S3Source(Source):
         else:
             return relative_path
 
-    def extract_table_name(self, named_vars: dict) -> str:
-        if self.source_config.path_spec.table_name is None:
+    def extract_table_name(self, path_spec: PathSpec, named_vars: dict) -> str:
+        if path_spec.table_name is None:
             raise ValueError("path_spec.table_name is not set")
-        return self.source_config.path_spec.table_name.format_map(named_vars)
+        return path_spec.table_name.format_map(named_vars)
 
-    def extract_table_data(self, path: str, timestamp: datetime) -> TableData:
+    def extract_table_data(
+        self, path_spec: PathSpec, path: str, timestamp: datetime, size: int
+    ) -> TableData:
 
         logger.debug(f"Getting table data for path: {path}")
-        parsed_vars = self.source_config.path_spec.get_named_vars(path)
+        parsed_vars = path_spec.get_named_vars(path)
         table_data = None
         if parsed_vars is None or "table" not in parsed_vars.named:
             table_data = TableData(
-                disaply_name=os.path.basename(path),
-                is_s3=self.source_config.path_spec.is_s3(),
+                display_name=os.path.basename(path),
+                is_s3=path_spec.is_s3(),
                 full_path=path,
                 partitions=None,
                 timestamp=timestamp,
                 table_path=path,
+                number_of_files=1,
+                size_in_bytes=size,
             )
         else:
-            include = self.source_config.path_spec.include
+            include = path_spec.include
             depth = include.count("/", 0, include.find("{table}"))
             table_path = (
                 "/".join(path.split("/")[:depth]) + "/" + parsed_vars.named["table"]
             )
             table_data = TableData(
-                disaply_name=self.extract_table_name(parsed_vars.named),
-                is_s3=self.source_config.path_spec.is_s3(),
+                display_name=self.extract_table_name(path_spec, parsed_vars.named),
+                is_s3=path_spec.is_s3(),
                 full_path=path,
                 partitions=None,
                 timestamp=timestamp,
                 table_path=table_path,
+                number_of_files=1,
+                size_in_bytes=size,
             )
         return table_data
 
-    def s3_browser(self) -> Iterable[tuple]:
+    def s3_browser(self, path_spec: PathSpec) -> Iterable[tuple]:
         if self.source_config.aws_config is None:
             raise ValueError("aws_config not set. Cannot browse s3")
         s3 = self.source_config.aws_config.get_s3_resource()
-        bucket_name = get_bucket_name(self.source_config.path_spec.include)
+        bucket_name = get_bucket_name(path_spec.include)
         logger.debug(f"Scanning bucket : {bucket_name}")
         bucket = s3.Bucket(bucket_name)
-        prefix = self.get_prefix(
-            get_bucket_relative_path(self.source_config.path_spec.include)
-        )
+        prefix = self.get_prefix(get_bucket_relative_path(path_spec.include))
         logger.debug(f"Scanning objects with prefix:{prefix}")
         for obj in bucket.objects.filter(Prefix=prefix).page_size(1000):
             s3_path = f"s3://{obj.bucket_name}/{obj.key}"
-            yield s3_path, obj.last_modified
+            yield s3_path, obj.last_modified, obj.size,
 
-    def local_browser(self) -> Iterable[tuple]:
-        prefix = self.get_prefix(self.source_config.path_spec.include)
+    def local_browser(self, path_spec: PathSpec) -> Iterable[tuple]:
+        prefix = self.get_prefix(path_spec.include)
         if os.path.isfile(prefix):
             logger.debug(f"Scanning single local file: {prefix}")
             yield prefix, os.path.getmtime(prefix)
@@ -786,22 +798,39 @@ class S3Source(Source):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         self.processed_containers = []
         with PerfTimer() as timer:
+            for path_spec in self.source_config.path_specs:
+                file_browser = (
+                    self.s3_browser(path_spec)
+                    if self.source_config.platform == "s3"
+                    else self.local_browser(path_spec)
+                )
+                table_dict: Dict[str, TableData] = {}
+                for file, timestamp, size in file_browser:
+                    if not path_spec.allowed(file):
+                        continue
+                    table_data = self.extract_table_data(
+                        path_spec, file, timestamp, size
+                    )
+                    if table_data.table_path not in table_dict:
+                        table_dict[table_data.table_path] = table_data
+                    else:
+                        table_dict[table_data.table_path].number_of_files = (
+                            table_dict[table_data.table_path].number_of_files + 1
+                        )
+                        table_dict[table_data.table_path].size_in_bytes = (
+                            table_dict[table_data.table_path].size_in_bytes
+                            + table_data.size_in_bytes
+                        )
+                        if (
+                            table_dict[table_data.table_path].timestamp
+                            < table_data.timestamp
+                        ):
+                            table_dict[
+                                table_data.table_path
+                            ].timestamp = table_data.timestamp
 
-            file_browser = (
-                self.s3_browser()
-                if self.source_config.path_spec.is_s3()
-                else self.local_browser()
-            )
-            table_dict: Dict[str, TableData] = {}
-            for file, timestamp in file_browser:
-                if not self.source_config.path_spec.allowed(file):
-                    continue
-                table_data = self.extract_table_data(file, timestamp)
-                d_table_data = table_dict.setdefault(table_data.table_path, table_data)
-                if d_table_data.timestamp < table_data.timestamp:
-                    table_dict[table_data.table_path] = table_data
-            for guid, table_data in table_dict.items():
-                yield from self.ingest_table(table_data)
+                for guid, table_data in table_dict.items():
+                    yield from self.ingest_table(table_data)
 
             if not self.source_config.profiling.enabled:
                 return
