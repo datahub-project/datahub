@@ -186,7 +186,7 @@ datahub-datahub-frontend   <none>   demo.datahubproject.io   k8s-default-datahub
 
 Note down the elb address in the address column. Add the DNS CNAME record to the host domain pointing the host-name (
 from above) to the elb address. DNS updates generally take a few minutes to an hour. Once that is done, you should be
-able to access datahub-frontend through the host-name. In case the frontend is not loading well try setting a specific version in the field tag for the repository.
+able to access datahub-frontend through the host-name.
 
 ## Use AWS managed services for the storage layer
 
