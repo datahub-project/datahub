@@ -40,7 +40,6 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.util.Pair;
 import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
 import java.util.Collection;
