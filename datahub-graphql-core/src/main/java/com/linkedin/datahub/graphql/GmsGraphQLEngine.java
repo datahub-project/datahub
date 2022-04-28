@@ -168,7 +168,6 @@ import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.usage.UsageClient;
-import com.linkedin.util.Pair;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
