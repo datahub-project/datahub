@@ -65,7 +65,6 @@ public class EntitiesControllerTest {
             .materialized(true))
         .entityType(DATASET_ENTITY_NAME)
         .entityUrn(DATASET_URN)
-        .aspectName(VIEW_PROPERTIES_ASPECT_NAME)
         .build();
     datasetAspects.add(viewProperties);
 
@@ -77,7 +76,6 @@ public class EntitiesControllerTest {
             .name("name")
             .platform(DATA_PLATFORM_URN)
             .origin(FabricType.PROD))
-        .aspectName(SUB_TYPES_ASPECT_NAME)
         .build();
     datasetAspects.add(subTypes);
 
@@ -93,7 +91,6 @@ public class EntitiesControllerTest {
             .name("name")
             .platform(DATA_PLATFORM_URN)
             .origin(FabricType.PROD))
-        .aspectName("datasetProfile")
         .build();
     datasetAspects.add(datasetProfile);
 
@@ -126,7 +123,6 @@ public class EntitiesControllerTest {
             .name("name")
             .platform(DATA_PLATFORM_URN)
             .origin(FabricType.PROD))
-        .aspectName(SCHEMA_METADATA_ASPECT_NAME)
         .build();
     datasetAspects.add(schemaMetadata);
 
@@ -142,7 +138,6 @@ public class EntitiesControllerTest {
             .name("name")
             .platform(DATA_PLATFORM_URN)
             .origin(FabricType.PROD))
-        .aspectName(GLOSSARY_TERMS_ASPECT_NAME)
         .build();
     datasetAspects.add(glossaryTerms);
 
