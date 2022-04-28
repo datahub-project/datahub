@@ -311,7 +311,7 @@ public class GmsGraphQLEngine {
         final AuthorizationConfiguration authorizationConfiguration,
         final GitVersion gitVersion,
         final boolean supportsImpactAnalysis,
-        final com.linkedin.metadata.config.VisualConfiguration visualConfiguration
+        final VisualConfiguration visualConfiguration
         ) {
 
         this.entityClient = entityClient;

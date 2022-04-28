@@ -4,6 +4,7 @@ dependencies {
   compile project(':metadata-io')
   compile project(':metadata-utils')
   compile project(':metadata-service:auth-impl')
+  compile project(':datahub-graphql-core')
   compile project(':metadata-service:restli-servlet-impl')
   compile project(':metadata-dao-impl:kafka-producer')
   compile project(':ingestion-scheduler')
