@@ -7,7 +7,7 @@
   "collection" : {
     "identifier" : {
       "name" : "entitiesVersionedV2Id",
-      "type" : "com.linkedin.common.Pair"
+      "type" : "com.linkedin.common.versioned.VersionedUrn"
     },
     "supports" : [ "batch_get" ],
     "methods" : [ {

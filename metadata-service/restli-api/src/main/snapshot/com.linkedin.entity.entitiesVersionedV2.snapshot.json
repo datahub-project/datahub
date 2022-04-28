@@ -30,16 +30,16 @@
       "doc" : "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
       "optional" : true
     } ]
-  }, {
+  }, "com.linkedin.common.Time", "com.linkedin.common.Urn", {
     "type" : "typeref",
-    "name" : "Pair",
-    "namespace" : "com.linkedin.common",
+    "name" : "VersionedUrn",
+    "namespace" : "com.linkedin.common.versioned",
     "ref" : "string",
     "java" : {
-      "class" : "com.linkedin.util.Pair",
-      "coercerClass" : "com.linkedin.util.PairCoercer"
+      "class" : "com.linkedin.common.urn.VersionedUrn",
+      "coercerClass" : "com.linkedin.util.VersionedUrnCoercer"
     }
-  }, "com.linkedin.common.Time", "com.linkedin.common.Urn", {
+  }, {
     "type" : "record",
     "name" : "Aspect",
     "namespace" : "com.linkedin.entity",
@@ -117,7 +117,7 @@
     "collection" : {
       "identifier" : {
         "name" : "entitiesVersionedV2Id",
-        "type" : "com.linkedin.common.Pair"
+        "type" : "com.linkedin.common.versioned.VersionedUrn"
       },
       "supports" : [ "batch_get" ],
       "methods" : [ {

@@ -5,6 +5,7 @@ import com.datahub.util.RecordUtils;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.client.BaseClient;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
@@ -57,7 +58,7 @@ import com.linkedin.restli.client.Client;
 import com.linkedin.restli.client.RestLiResponseException;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.util.Pair;
-import com.linkedin.util.PairCoercer;
+import com.linkedin.util.VersionedUrnCoercer;
 import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.HashMap;
@@ -198,23 +199,15 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         .aspectsParam(aspectNames)
         .entityTypeParam(entityName)
         .ids(versionedUrns.stream()
-            .map(versionedUrn -> new Pair<>(versionedUrn.getUrn(), versionedUrn.getVersionStamp()))
-            .map(Pair::toString)
-            .map(string -> new PairCoercer().coerceOutput(string)).collect(
-            Collectors.toSet()));
+            .map(versionedUrn -> com.linkedin.common.urn.VersionedUrn.of(versionedUrn.getUrn().toString(), versionedUrn.getVersionStamp()))
+            .collect(Collectors.toSet()));
 
     return sendClientRequest(requestBuilder, authentication).getEntity()
         .getResults()
         .entrySet()
         .stream()
-        .collect(Collectors.toMap(entry -> {
-          try {
-            return Urn.createFromString((String) entry.getKey().getFirst());
-          } catch (URISyntaxException e) {
-            throw new RuntimeException(
-                String.format("Failed to bind urn string with value %s into urn", entry.getKey()));
-          }
-        }, entry -> entry.getValue().getEntity()));
+        .collect(Collectors.toMap(entry ->
+            UrnUtils.getUrn(entry.getKey().getUrn()), entry -> entry.getValue().getEntity()));
   }
 
   /**

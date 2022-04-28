@@ -13,7 +13,6 @@ import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
-import com.linkedin.util.Pair;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.Arrays;
 import java.util.Collections;
@@ -36,8 +35,8 @@ import static com.linkedin.metadata.resources.restli.RestliConstants.*;
  */
 @Slf4j
 @RestLiCollection(name = "entitiesVersionedV2", namespace = "com.linkedin.entity",
-    keyTyperefClass = com.linkedin.common.Pair.class)
-public class EntityVersionedV2Resource extends CollectionResourceTaskTemplate<Pair<String, String>, EntityResponse> {
+    keyTyperefClass = com.linkedin.common.versioned.VersionedUrn.class)
+public class EntityVersionedV2Resource extends CollectionResourceTaskTemplate<com.linkedin.common.urn.VersionedUrn, EntityResponse> {
 
   @Inject
   @Named("entityService")
@@ -47,7 +46,7 @@ public class EntityVersionedV2Resource extends CollectionResourceTaskTemplate<Pa
   @Nonnull
   @WithSpan
   public Task<Map<Urn, EntityResponse>> batchGetVersioned(
-      @Nonnull Set<Pair<String, String>> versionedUrnStrs,
+      @Nonnull Set<com.linkedin.common.urn.VersionedUrn> versionedUrnStrs,
       @QueryParam(PARAM_ENTITY_TYPE) @Nonnull String entityType,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) {
     log.debug("BATCH GET VERSIONED V2 {}", versionedUrnStrs);
@@ -59,10 +58,10 @@ public class EntityVersionedV2Resource extends CollectionResourceTaskTemplate<Pa
           aspectNames == null ? getAllAspectNames(_entityService, entityType) : new HashSet<>(Arrays.asList(aspectNames));
       try {
         return _entityService.getEntitiesVersionedV2(versionedUrnStrs.stream()
-            .map(pair -> {
-              VersionedUrn versionedUrn = new VersionedUrn().setUrn(UrnUtils.getUrn(pair.getFirst()));
-              if (pair.getSecond() != null) {
-                versionedUrn.setVersionStamp(pair.getSecond());
+            .map(versionedUrnTyperef -> {
+              VersionedUrn versionedUrn = new VersionedUrn().setUrn(UrnUtils.getUrn(versionedUrnTyperef.getUrn()));
+              if (versionedUrnTyperef.getVersionStamp() != null) {
+                versionedUrn.setVersionStamp(versionedUrnTyperef.getVersionStamp());
               }
               return versionedUrn;
             }).collect(Collectors.toSet()), projectedAspects);
