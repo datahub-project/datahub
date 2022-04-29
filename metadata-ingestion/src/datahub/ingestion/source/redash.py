@@ -548,6 +548,9 @@ class RedashSource(Source):
                     database_name = self._get_database_name_from_datasource_id(
                         query_data.get("data_source_id")
                     )
+                    if not database_name:
+                        continue
+
                     if not self.config.database_patterns.allowed(database_name):
                         self.report.report_dropped(dashboard_name)
                         break
@@ -665,6 +668,9 @@ class RedashSource(Source):
                 database_name = self._get_database_name_from_datasource_id(
                     query_response["data_source_id"]
                 )
+                if not database_name:
+                    continue
+                
                 self.report.report_item_scanned()
 
                 if (
