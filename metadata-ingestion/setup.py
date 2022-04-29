@@ -303,7 +303,6 @@ base_dev_requirements = {
             "clickhouse-usage",
             "druid",
             "elasticsearch",
-            "iceberg",
             "ldap",
             "looker",
             "glue",
