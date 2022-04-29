@@ -22,7 +22,8 @@ public class Authenticator extends Security.Authenticator {
 
     @Inject
     public Authenticator(@Nonnull Config config) {
-        this.metadataServiceAuthEnabled = config.hasPath(METADATA_SERVICE_AUTH_ENABLED_CONFIG_PATH) && config.getBoolean(METADATA_SERVICE_AUTH_ENABLED_CONFIG_PATH);
+        this.metadataServiceAuthEnabled = config.hasPath(METADATA_SERVICE_AUTH_ENABLED_CONFIG_PATH)
+            && config.getBoolean(METADATA_SERVICE_AUTH_ENABLED_CONFIG_PATH);
     }
 
     @Override

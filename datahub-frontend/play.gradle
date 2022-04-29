@@ -1,4 +1,4 @@
-apply plugin: 'play'
+apply plugin: "org.gradle.playframework"
 
 // Change this to listen on a different port
 project.ext.httpPort = 9001
@@ -45,20 +45,22 @@ dependencies {
   play externalDependency.playWs
   play externalDependency.kafkaClients
 
-  playTest externalDependency.mockito
-  playTest externalDependency.playTest
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.playTest
 
-  playRun externalDependency.lombok
-  playRun externalDependency.guice
-  playRun externalDependency.playDocs
-  playRun externalDependency.playGuice
-  playRun externalDependency.logbackClassic
+  compileOnly externalDependency.lombok
+  runtime externalDependency.guice
+  runtime externalDependency.playDocs
+  runtime externalDependency.playGuice
+  runtime externalDependency.logbackClassic
+
+  annotationProcessor externalDependency.lombok
 }
 
 model {
   components {
     play {
-      platform play: '2.6.18', scala: '2.11', java: '1.8'
+      platform play: '2.7.6', scala: '2.11', java: '1.8'
       injectedRoutesGenerator = true
 
       binaries.all {
@@ -71,11 +73,6 @@ model {
         binary.assets.addAssetDir moveAssets.destinationDir
         binary.assets.builtBy moveAssets
       }
-    }
-  }
-  distributions {
-    playBinary {
-      baseName = project.ext.playBinaryBaseName
     }
   }
 }

@@ -47,3 +47,5 @@ graphqlCodegen {
 tasks.withType(Checkstyle) {
   exclude "**/generated/**"
 }
+
+checkstyleMain.source = "app/"

@@ -114,7 +114,8 @@ public class Application extends Controller {
             .toMap()
             .entrySet()
             .stream()
-            .filter(entry -> !AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER.equals(entry.getKey())) // Remove X-DataHub-Actor to prevent malicious delegation.
+            // Remove X-DataHub-Actor to prevent malicious delegation.
+            .filter(entry -> !AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER.equals(entry.getKey()))
             .filter(entry -> !Http.HeaderNames.CONTENT_LENGTH.equals(entry.getKey()))
             .filter(entry -> !Http.HeaderNames.CONTENT_TYPE.equals(entry.getKey()))
             .filter(entry -> !Http.HeaderNames.AUTHORIZATION.equals(entry.getKey()))
