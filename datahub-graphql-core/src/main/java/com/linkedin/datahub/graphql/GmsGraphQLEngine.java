@@ -271,7 +271,6 @@ public class GmsGraphQLEngine {
     /**
      * Configures the graph objects that can be browsed.
      */
-
     public final List<BrowsableEntityType<?, ?>> browsableTypes;
 
     public GmsGraphQLEngine(
@@ -481,7 +480,6 @@ public class GmsGraphQLEngine {
                     this.ingestionConfiguration,
                     this.authenticationConfiguration,
                     this.authorizationConfiguration,
-
                     supportsImpactAnalysis, this.visualConfiguration, this.telemetryConfiguration))
             .dataFetcher("me", new MeResolver(this.entityClient))
             .dataFetcher("search", new SearchResolver(this.entityClient))
