@@ -37,7 +37,7 @@ record MetadataChangeProposal {
   /**
    * Aspect of the entity being written to
    * Not filling this out implies that the writer wants to affect the entire entity
-   * Note: This is only valid for CREATE and DELETE operations.
+   * Note: This is only valid for CREATE, UPSERT, and DELETE operations.
    **/
   aspectName: optional string
 

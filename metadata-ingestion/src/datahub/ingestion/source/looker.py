@@ -858,6 +858,7 @@ class LookerDashboardSource(Source):
             async_workunits = [
                 async_executor.submit(self.process_dashboard, dashboard_id)
                 for dashboard_id in dashboard_ids
+                if dashboard_id is not None
             ]
             for async_workunit in concurrent.futures.as_completed(async_workunits):
                 work_units, dashboard_id, start_time, end_time = async_workunit.result()

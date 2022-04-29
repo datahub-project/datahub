@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.gms.factory.entity.EntityServiceFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
+import com.linkedin.gms.factory.search.SearchDocumentTransformerFactory;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformsStep;
@@ -13,6 +14,7 @@ import com.linkedin.metadata.boot.steps.IngestRootUserStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import io.ebean.EbeanServer;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,7 +26,8 @@ import org.springframework.context.annotation.Scope;
 
 
 @Configuration
-@Import({EntityServiceFactory.class, EntityRegistryFactory.class, EntitySearchServiceFactory.class})
+@Import({EntityServiceFactory.class, EntityRegistryFactory.class, EntitySearchServiceFactory.class,
+    SearchDocumentTransformerFactory.class})
 public class BootstrapManagerFactory {
 
   @Autowired
@@ -40,6 +43,10 @@ public class BootstrapManagerFactory {
   private EntitySearchService _entitySearchService;
 
   @Autowired
+  @Qualifier("searchDocumentTransformer")
+  private SearchDocumentTransformer _searchDocumentTransformer;
+
+  @Autowired(required = false)
   @Qualifier("ebeanServer")
   private EbeanServer _server;
 
@@ -53,7 +60,7 @@ public class BootstrapManagerFactory {
   protected BootstrapManager createInstance() {
     final IngestRootUserStep ingestRootUserStep = new IngestRootUserStep(_entityService);
     final IngestPoliciesStep ingestPoliciesStep =
-        new IngestPoliciesStep(_entityRegistry, _entityService, _entitySearchService);
+        new IngestPoliciesStep(_entityRegistry, _entityService, _entitySearchService, _searchDocumentTransformer);
     final IngestDataPlatformsStep ingestDataPlatformsStep = new IngestDataPlatformsStep(_entityService);
     final IngestDataPlatformInstancesStep ingestDataPlatformInstancesStep =
         new IngestDataPlatformInstancesStep(_entityService, _server);

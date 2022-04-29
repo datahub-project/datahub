@@ -1,14 +1,23 @@
 import socket
 
-from feast import Client
-from feast.data_format import ParquetFormat
-from feast.data_source import FileSource
-from feast.entity import Entity
-from feast.feature import Feature
-from feast.feature_table import FeatureTable
-from feast.value_type import ValueType
+import feast
+
+FEAST_MIN_VERSION = "0.18.0"
+if feast.__version__ <= FEAST_MIN_VERSION:
+    from feast import Client  # type: ignore
+    from feast.data_format import ParquetFormat
+    from feast.data_source import FileSource  # type: ignore
+    from feast.entity import Entity
+    from feast.feature import Feature
+    from feast.feature_table import FeatureTable  # type: ignore
+    from feast.value_type import ValueType
+
 
 if __name__ == "__main__":
+    if feast.__version__ > FEAST_MIN_VERSION:
+        raise Exception(
+            f"this code does not work with feast > {FEAST_MIN_VERSION}. Found {feast.__version__}"
+        )
 
     test_client = Client(core_url="testfeast:6565")
 

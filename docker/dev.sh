@@ -1,4 +1,5 @@
 #!/bin/bash
+set -ex
 
 MONITORING_COMPOSE=""
 if [[ $MONITORING == true ]]; then
@@ -13,6 +14,11 @@ if [[ $SEPARATE_CONSUMERS == true ]]; then
   fi
 fi
 
+M1_COMPOSE=""
+if [[ $(uname -m) == 'arm64' && $(uname) == 'Darwin' ]]; then
+  M1_COMPOSE="-f docker-compose.m1.yml"
+fi
+
 # Launches dev instances of DataHub images. See documentation for more details.
 # YOU MUST BUILD VIA GRADLE BEFORE RUNNING THIS.
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
@@ -21,10 +27,10 @@ cd $DIR && \
     -f docker-compose.yml \
     -f docker-compose.override.yml \
     -f docker-compose.dev.yml \
-    $CONSUMERS_COMPOSE $MONITORING_COMPOSE pull \
+    $CONSUMERS_COMPOSE $MONITORING_COMPOSE $M1_COMPOSE pull \
 && \
   COMPOSE_DOCKER_CLI_BUILD=1 DOCKER_BUILDKIT=1 docker-compose -p datahub \
     -f docker-compose.yml \
     -f docker-compose.override.yml \
     -f docker-compose.dev.yml \
-    $CONSUMERS_COMPOSE $MONITORING_COMPOSE up --build $@
+    $CONSUMERS_COMPOSE $MONITORING_COMPOSE $M1_COMPOSE up --build $@
