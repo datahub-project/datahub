@@ -148,6 +148,8 @@ class PulsarSource(StatefulIngestionSourceBase):
 
         # OAuth, connect to issuer and return access token
         if self._is_oauth_authentication_configured():
+            assert self.config.client_id
+            assert self.config.client_secret
             data = {"grant_type": "client_credentials"}
             try:
                 # Get a token from the issuer
