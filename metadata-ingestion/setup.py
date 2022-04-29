@@ -339,6 +339,7 @@ if is_py37_or_newer:
             dependency
             for plugin in [
                 "feast",
+                "iceberg",
                 "lookml",
             ]
             for dependency in plugins[plugin]
