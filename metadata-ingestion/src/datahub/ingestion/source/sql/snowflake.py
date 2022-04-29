@@ -327,7 +327,7 @@ WHERE
                     continue
                 self._external_lineage_map[key] |= {*json.loads(db_row[0])}
                 logger.debug(
-                    f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]}"
+                    f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]} via access_history"
                 )
         except Exception as e:
             logger.warning(
@@ -346,7 +346,7 @@ WHERE
                     continue
                 self._external_lineage_map[key].add(db_row.location)
                 logger.debug(
-                    f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]}"
+                    f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]} via show external tables"
                 )
                 num_edges += 1
         except Exception as e:
