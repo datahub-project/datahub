@@ -252,7 +252,7 @@ export default function DefaultPreviewCard({
                 </TitleContainer>
                 {description && description.length > 0 && (
                     <DescriptionContainer>
-                        <NoMarkdownViewer limit={200}>{description}</NoMarkdownViewer>
+                        <NoMarkdownViewer limit={250}>{description}</NoMarkdownViewer>
                     </DescriptionContainer>
                 )}
                 {owners && owners.length > 0 && (
