@@ -524,13 +524,25 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:  # noqa: C
                     f"There are {len(platform_docs['plugins'].keys())} sources that provide integration with {platform_docs['name']}\n"
                 )
                 f.write("\n")
-                f.write("| Source Module | Documentation |\n")
-                f.write("| ------ | ---- |\n")
+                f.write("<table>\n")
+                f.write("<tr>")
+                for col_header in ["Source Module", "Documentation"]:
+                    f.write(f"<td>{col_header}</td>")
+                f.write("</tr>")
+
+                #                f.write("| Source Module | Documentation |\n")
+                #                f.write("| ------ | ---- |\n")
                 for plugin in platform_docs["plugins"]:
+                    f.write("<tr>\n")
+                    f.write(f"<td>\n\n`{plugin}`\n\n</td>\n")
                     f.write(
-                        f"| `{plugin}` | {get_snippet(platform_docs['plugins'][plugin]['source_doc'])}[Read more...](#module-{plugin}) |\n"
+                        f"<td>\n\n\n{platform_docs['plugins'][plugin]['source_doc']} [Read more...](#module-{plugin})\n\n\n</td>\n"
                     )
-                f.write("\n")
+                    f.write("</tr>\n")
+                #                    f.write(
+                #                        f"| `{plugin}` | {get_snippet(platform_docs['plugins'][plugin]['source_doc'])}[Read more...](#module-{plugin}) |\n"
+                #                    )
+                f.write("</table>\n")
             # insert platform level custom docs before plugin section
             f.write(platform_docs.get("custom_docs") or "")
             for plugin, plugin_docs in platform_docs["plugins"].items():
