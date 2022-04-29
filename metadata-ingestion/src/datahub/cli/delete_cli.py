@@ -132,7 +132,7 @@ def delete(
         logger.info(f"DataHub configured with {host}")
 
         references_count, related_aspects = _delete_references(
-          urn, dry_run=True, cached_session_host=(session, host)
+            urn, dry_run=True, cached_session_host=(session, host)
         )
         remove_dangling: bool = False
 
@@ -149,8 +149,8 @@ def delete(
             )
             remove_dangling = click.confirm("Do you want to delete these references?")
 
-          if remove_dangling:
-              _delete_references(urn, dry_run=False, cached_session_host=(session, host))
+        if remove_dangling:
+            _delete_references(urn, dry_run=False, cached_session_host=(session, host))
 
         deletion_result: DeletionResult = delete_one_urn_cmd(
             urn,
