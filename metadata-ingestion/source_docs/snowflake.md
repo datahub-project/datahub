@@ -109,6 +109,7 @@ source:
   type: snowflake
   config:
 
+    check_role_grants: True
     provision_role: # Optional
       enabled: false
       dry_run: true
@@ -214,7 +215,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `provision_role.admin_role`             |          | `accountadmin` | The Snowflake role of admin user used for provisioning of the role specified by `role` config. System admins can audit the open source code and decide to use a different role |
 | `provision_role.admin_username`         |  ✅       |          | The username to be used for provisioning of role |
 | `provision_role.admin_password`         |  ✅       |          | The password to be used for provisioning of role |
-
+| `check_role_grants`                     |           | `False`  | If set to `True` then checks role grants at the beginning of the ingestion run. To be used for debugging purposes. If you think everything is working fine then set it to `False`. In some cases this can take long depending on how many roles you might have. |
 
 ## `snowflake-usage`
 
