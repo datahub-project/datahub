@@ -172,6 +172,7 @@ import com.linkedin.usage.UsageClient;
 import graphql.execution.DataFetcherResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import graphql.schema.StaticDataFetcher;
 import graphql.schema.idl.RuntimeWiring;
 import java.io.IOException;
 import java.io.InputStream;
@@ -404,6 +405,7 @@ public class GmsGraphQLEngine {
         configureAssertionResolvers(builder);
         configurePolicyResolvers(builder);
         configureDataProcessInstanceResolvers(builder);
+        configureVersionedDatasetResolvers(builder);
     }
 
     public GraphQLEngine.Builder builder() {
@@ -699,6 +701,16 @@ public class GmsGraphQLEngine {
                 .dataFetcher("author", new LoadableTypeResolver<>(corpUserType,
                     (env) -> ((InstitutionalMemoryMetadata) env.getSource()).getAuthor().getUrn()))
             );
+
+    }
+
+    /**
+     * Configures resolvers responsible for resolving the {@link com.linkedin.datahub.graphql.generated.VersionedDataset} type.
+     */
+    private void configureVersionedDatasetResolvers(final RuntimeWiring.Builder builder) {
+        builder
+            .type("VersionedDataset", typeWiring -> typeWiring
+                .dataFetcher("relationships", new StaticDataFetcher(null)));
 
     }
 

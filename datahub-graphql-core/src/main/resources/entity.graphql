@@ -336,6 +336,11 @@ interface Entity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    List of relationships between the source Entity and some destination entities with a given types
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
 """
@@ -968,6 +973,11 @@ type VersionedDataset implements Entity {
     Note that this field will soon be deprecated in favor of a more standardized concept of Environment
     """
     origin: FabricType! @deprecated
+
+    """
+    No-op, has to be included due to model
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult @deprecated
 }
 
 """
