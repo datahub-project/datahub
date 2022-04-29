@@ -76,7 +76,9 @@ kafka_protobuf = (
         "types-protobuf",
     }
     if is_py37_or_newer
-    else {}
+    else {
+        "types-protobuf",
+    }
 )
 
 sql_common = {
@@ -349,7 +351,7 @@ if is_py37_or_newer:
             for dependency in plugins[plugin]
         }
     )
-    
+
     # These plugins are compatible with Airflow 1.
     base_dev_requirements_airflow_1 = base_dev_requirements_airflow_1.union(
         {
