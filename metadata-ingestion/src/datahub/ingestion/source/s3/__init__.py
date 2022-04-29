@@ -381,7 +381,12 @@ class S3Source(Source):
             parent_key = bucket_key
             base_full_path = get_bucket_relative_path(table_data.table_path)
 
-        for folder in base_full_path[: base_full_path.rfind("/")].split("/"):
+        parent_folder_path = (
+            base_full_path[: base_full_path.rfind("/")]
+            if base_full_path.rfind("/") != -1
+            else ""
+        )
+        for folder in parent_folder_path.split("/"):
             abs_path = folder
             if parent_key:
                 if isinstance(parent_key, S3BucketKey):
@@ -456,9 +461,13 @@ class S3Source(Source):
         self, table_data: TableData, dataset_urn: str
     ) -> Iterable[MetadataWorkUnit]:
         # read in the whole table with Spark for profiling
-        table = self.read_file_spark(
-            table_data.table_path, os.path.splitext(table_data.full_path)[1]
-        )
+        table = None
+        try:
+            table = self.read_file_spark(
+                table_data.table_path, os.path.splitext(table_data.full_path)[1]
+            )
+        except Exception as e:
+            logger.error(e)
 
         # if table is not readable, skip
         if table is None:
