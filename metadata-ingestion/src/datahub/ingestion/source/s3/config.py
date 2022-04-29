@@ -15,7 +15,7 @@ from datahub.configuration.source_common import (
     PlatformSourceConfigBase,
 )
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
-from datahub.ingestion.source.aws.s3_util import is_s3_uri, get_bucket_name
+from datahub.ingestion.source.aws.s3_util import get_bucket_name, is_s3_uri
 from datahub.ingestion.source.s3.profiling import DataLakeProfilerConfig
 
 # hide annoying debug errors from py4j
@@ -72,7 +72,9 @@ class PathSpec(ConfigModel):
         logger.debug(f"{path} is not excluded")
         ext = os.path.splitext(path)[1].strip(".")
 
-        if ext != "*" and ext not in self.file_types:
+        if (ext == "" and self.default_extension is None) and (
+            ext != "*" and ext not in self.file_types
+        ):
             return False
 
         logger.debug(f"{path} had selected extension {ext}")
@@ -107,8 +109,18 @@ class PathSpec(ConfigModel):
                         f"file type {file_type} not in supported file types. Please specify one from {SUPPORTED_FILE_TYPES}"
                     )
 
+        if values.get("default_extension") is not None:
+            if values.get("default_extension") not in SUPPORTED_FILE_TYPES:
+                raise ValueError(
+                    f"default extension {values.get('default_extension')} not in supported default file extension. Please specify one from {SUPPORTED_FILE_TYPES}"
+                )
+
         include_ext = os.path.splitext(values["include"])[1].strip(".")
-        if include_ext not in values["file_types"] and include_ext != "*":
+        if (
+            include_ext not in values["file_types"]
+            and include_ext != "*"
+            and not values["default_extension"]
+        ):
             raise ValueError(
                 f"file type specified ({include_ext}) in path_spec.include is not in specified file "
                 f'types. Please select one from {values.get("file_types")} or specify ".*" to allow all types'

@@ -7,7 +7,10 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "number_of_files": "2",
+                            "size_in_bytes": "8412"
+                        },
                         "externalUrl": null,
                         "name": "food_parquet",
                         "qualifiedName": null,
@@ -40,93 +43,7 @@
                                 "rawSchema": ""
                             }
                         },
-                        "fields": [
-                            {
-                                "fieldPath": "color",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "healthy",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                    }
-                                },
-                                "nativeDataType": "bool",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "height",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "int64",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "name",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "weight",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "int64",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            }
-                        ],
+                        "fields": [],
                         "primaryKeys": null,
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
@@ -779,7 +696,10 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "number_of_files": "2",
+                            "size_in_bytes": "3446"
+                        },
                         "externalUrl": null,
                         "name": "food_csv",
                         "qualifiedName": null,
@@ -812,93 +732,7 @@
                                 "rawSchema": ""
                             }
                         },
-                        "fields": [
-                            {
-                                "fieldPath": "color",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "healthy",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                    }
-                                },
-                                "nativeDataType": "boolean",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "height",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "integer",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "name",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "weight",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "integer",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            }
-                        ],
+                        "fields": [],
                         "primaryKeys": null,
                         "foreignKeysSpecs": null,
                         "foreignKeys": null

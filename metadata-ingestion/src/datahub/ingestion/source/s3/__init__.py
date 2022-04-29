@@ -1,6 +1,7 @@
 import dataclasses
 import logging
 import os
+import pathlib
 import re
 from collections import OrderedDict
 from datetime import datetime
@@ -452,7 +453,7 @@ class S3Source(Source):
             return
         yield from add_dataset_to_container(parent_key, dataset_urn)
 
-    def get_fields(self, table_data: TableData) -> List:
+    def get_fields(self, table_data: TableData, path_spec: PathSpec) -> List:
         if table_data.is_s3:
             if self.source_config.aws_config is None:
                 raise ValueError("AWS config is required for S3 file sources")
@@ -468,22 +469,24 @@ class S3Source(Source):
 
         fields = []
 
+        extension = pathlib.Path(table_data.full_path).suffix
+        if extension == "" and path_spec.default_extension:
+            extension = path_spec.default_extension
+
         try:
-            if table_data.full_path.endswith(".parquet"):
+            if extension == "parquet":
                 fields = parquet.ParquetInferrer().infer_schema(file)
-            elif table_data.full_path.endswith(".orc"):
-                fields = parquet.OrcInferrer().infer_schema(file)
-            elif table_data.full_path.endswith(".csv"):
+            elif extension == "csv":
                 fields = csv_tsv.CsvInferrer(
                     max_rows=self.source_config.max_rows
                 ).infer_schema(file)
-            elif table_data.full_path.endswith(".tsv"):
+            elif extension == "tsv":
                 fields = csv_tsv.TsvInferrer(
                     max_rows=self.source_config.max_rows
                 ).infer_schema(file)
-            elif table_data.full_path.endswith(".json"):
+            elif extension == ".json":
                 fields = json.JsonInferrer().infer_schema(file)
-            elif table_data.full_path.endswith(".avro"):
+            elif extension == ".avro":
                 fields = avro.AvroInferrer().infer_schema(file)
             else:
                 self.report.report_warning(
@@ -578,7 +581,9 @@ class S3Source(Source):
         self.report.report_workunit(wu)
         yield wu
 
-    def ingest_table(self, table_data: TableData) -> Iterable[MetadataWorkUnit]:
+    def ingest_table(
+        self, table_data: TableData, path_spec: PathSpec
+    ) -> Iterable[MetadataWorkUnit]:
 
         logger.info(f"Extracting table schema from file: {table_data.full_path}")
         browse_path: str = (
@@ -611,7 +616,7 @@ class S3Source(Source):
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
-        fields = self.get_fields(table_data)
+        fields = self.get_fields(table_data, path_spec)
         schema_metadata = SchemaMetadata(
             schemaName=table_data.display_name,
             platform=data_platform_urn,
@@ -787,17 +792,20 @@ class S3Source(Source):
         prefix = self.get_prefix(path_spec.include)
         if os.path.isfile(prefix):
             logger.debug(f"Scanning single local file: {prefix}")
-            yield prefix, os.path.getmtime(prefix)
+            yield prefix, os.path.getmtime(prefix), os.path.getsize(prefix)
         else:
             logger.debug(f"Scanning files under local folder: {prefix}")
             for root, dirs, files in os.walk(prefix):
                 for file in sorted(files):
                     full_path = os.path.join(root, file)
-                    yield full_path, os.path.getmtime(full_path)
+                    yield full_path, os.path.getmtime(full_path), os.path.getsize(
+                        full_path
+                    )
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         self.processed_containers = []
         with PerfTimer() as timer:
+            assert self.source_config.path_specs
             for path_spec in self.source_config.path_specs:
                 file_browser = (
                     self.s3_browser(path_spec)
@@ -830,7 +838,7 @@ class S3Source(Source):
                             ].timestamp = table_data.timestamp
 
                 for guid, table_data in table_dict.items():
-                    yield from self.ingest_table(table_data)
+                    yield from self.ingest_table(table_data, path_spec)
 
             if not self.source_config.profiling.enabled:
                 return
