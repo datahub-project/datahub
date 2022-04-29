@@ -320,8 +320,13 @@ class PulsarSource(StatefulIngestionSourceBase):
         if not self.tenants:
             self.tenants = self._get_pulsar_metadata(self.base_url + "/tenants") or []
 
+        # Initialize counters
+        self.report.tenants_scanned = 0
+        self.report.namespaces_scanned = 0
+        self.report.topics_scanned = 0
+
         for tenant in self.tenants:
-            self.report.report_tenants_scanned()
+            self.report.tenants_scanned += 1
             if self.config.tenant_patterns.allowed(tenant):
                 # Get namespaces belonging to a tenant, /admin/v2/%s/namespaces
                 # A tenant admin role has sufficient privileges to perform this action
@@ -330,7 +335,7 @@ class PulsarSource(StatefulIngestionSourceBase):
                     or []
                 )
                 for namespace in namespaces:
-                    self.report.report_namespaces_scanned()
+                    self.report.namespaces_scanned += 1
                     if self.config.namespace_patterns.allowed(namespace):
                         # Get all topics (persistent, non-persistent and partitioned) belonging to a tenant/namespace
                         # Four endpoint invocations are needs to get all topic metadata for a namespace
@@ -350,7 +355,7 @@ class PulsarSource(StatefulIngestionSourceBase):
 
                         # For all allowed topics get the metadata
                         for topic, is_partitioned in topics.items():
-                            self.report.report_topic_scanned()
+                            self.report.topics_scanned += 1
                             if self.config.topic_patterns.allowed(topic):
 
                                 yield from self._extract_record(topic, is_partitioned)

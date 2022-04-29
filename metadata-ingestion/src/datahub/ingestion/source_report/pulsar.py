@@ -9,9 +9,9 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 @dataclass
 class PulsarSourceReport(StatefulIngestionReport):
     pulsar_version: Optional[str] = None
-    tenants_scanned: int = 0
-    namespaces_scanned: int = 0
-    topics_scanned: int = 0
+    tenants_scanned: Optional[int] = None
+    namespaces_scanned: Optional[int] = None
+    topics_scanned: Optional[int] = None
     tenants_filtered: List[str] = field(default_factory=list)
     namespaces_filtered: List[str] = field(default_factory=list)
     topics_filtered: List[str] = field(default_factory=list)
@@ -19,15 +19,6 @@ class PulsarSourceReport(StatefulIngestionReport):
 
     def report_pulsar_version(self, version: str) -> None:
         self.pulsar_version = version
-
-    def report_tenants_scanned(self) -> None:
-        self.tenants_scanned += 1
-
-    def report_namespaces_scanned(self) -> None:
-        self.namespaces_scanned += 1
-
-    def report_topic_scanned(self) -> None:
-        self.topics_scanned += 1
 
     def report_tenants_dropped(self, tenant: str) -> None:
         self.tenants_filtered.append(tenant)
