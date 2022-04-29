@@ -51,7 +51,6 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
 
   @Override
   public void invoke(@Nonnull MetadataChangeLog event) {
-
     if (isEligibleForProcessing(event)) {
 
       log.info("Received {} to Ingestion Source. Rescheduling the source (if applicable). urn: {}, key: {}.",
