@@ -49,3 +49,9 @@ tasks.withType(Checkstyle) {
 }
 
 checkstyleMain.source = "app/"
+
+distributions {
+  playBinary {
+    distributionBaseName = playBinaryBaseName
+  }
+}
