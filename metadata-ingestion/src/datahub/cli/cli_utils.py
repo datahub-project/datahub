@@ -552,7 +552,7 @@ def get_entity(
         )
     endpoint: str = f"/entitiesV2/{encoded_urn}"
 
-    if aspect:
+    if aspect and len(aspect):
         endpoint = endpoint + "?aspects=List(" + ",".join(aspect) + ")"
 
     response = session.get(gms_host + endpoint)
@@ -689,7 +689,7 @@ def get_latest_timeseries_aspect_values(
 
 def get_aspects_for_entity(
     entity_urn: str,
-    aspects: List[str],
+    aspects: List[str] = [],
     typed: bool = False,
     cached_session_host: Optional[Tuple[Session, str]] = None,
 ) -> Dict[str, Union[dict, DictWrapper]]:

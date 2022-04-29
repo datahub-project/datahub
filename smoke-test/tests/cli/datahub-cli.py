@@ -57,10 +57,10 @@ def test_rollback_editable():
     session.post(rollback_url, data=json.dumps({"runId": ingested_dataset_run_id, "dryRun": False, "hardDelete": False}))
 
     # Allow async MCP processor to handle ingestions & rollbacks
-    sleep(10)
+    sleep(20)
 
     # EditableDatasetProperties should still be part of the entity that was soft deleted.
     assert "editableDatasetProperties" in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False)
     # But first ingestion aspects should not be present
-    assert "browsePaths" not in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["browsePaths"], typed=False)
+    assert "browsePaths" not in get_aspects_for_entity(entity_urn=dataset_urn, typed=False)
     pass
