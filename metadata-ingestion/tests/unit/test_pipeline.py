@@ -44,16 +44,20 @@ class TestPipeline(object):
         mock_sink.assert_called_once()
 
     @freeze_time(FROZEN_TIME)
-    @patch("datahub.emitter.rest_emitter.DatahubRestEmitter.test_connection")
-    @patch("datahub.ingestion.source.kafka.KafkaSource.get_workunits", autospec=True)
-    def test_configure_without_sink(self, mock_source, mock_test_connection):
-
-        mock_test_connection.return_value = {"noCode": True}
+    @patch(
+        "datahub.emitter.rest_emitter.DatahubRestEmitter.test_connection",
+        return_value={"noCode": True},
+    )
+    @patch(
+        "datahub.ingestion.graph.client.DataHubGraph.get_config",
+        return_value={"noCode": True},
+    )
+    def test_configure_without_sink(self, mock_emitter, mock_graph):
         pipeline = Pipeline.create(
             {
                 "source": {
-                    "type": "kafka",
-                    "config": {"connection": {"bootstrap": "localhost:9092"}},
+                    "type": "file",
+                    "config": {"filename": "test_file.json"},
                 },
             }
         )
@@ -66,22 +70,27 @@ class TestPipeline(object):
         }
 
     @freeze_time(FROZEN_TIME)
-    @patch("datahub.emitter.rest_emitter.DatahubRestEmitter.test_connection")
-    @patch("datahub.ingestion.source.kafka.KafkaSource.get_workunits", autospec=True)
+    @patch(
+        "datahub.emitter.rest_emitter.DatahubRestEmitter.test_connection",
+        return_value={"noCode": True},
+    )
+    @patch(
+        "datahub.ingestion.graph.client.DataHubGraph.get_config",
+        return_value={"noCode": True},
+    )
     def test_configure_with_rest_sink_initializes_graph(
         self, mock_source, mock_test_connection
     ):
-        mock_test_connection.return_value = {"nodeCode": True}
         pipeline = Pipeline.create(
             {
                 "source": {
-                    "type": "kafka",
-                    "config": {"connection": {"bootstrap": "localhost:9092"}},
+                    "type": "file",
+                    "config": {"filename": "test_events.json"},
                 },
                 "sink": {
                     "type": "datahub-rest",
                     "config": {
-                        "server": "http://localhost:8081",
+                        "server": "http://somehost.someplace.some:8080",
                         "token": "foo",
                     },
                 },
@@ -91,7 +100,7 @@ class TestPipeline(object):
         assert isinstance(pipeline.config.sink, DynamicTypedConfig)
         assert pipeline.config.sink.type == "datahub-rest"
         assert pipeline.config.sink.config == {
-            "server": "http://localhost:8081",
+            "server": "http://somehost.someplace.some:8080",
             "token": "foo",
         }
         assert pipeline.ctx.graph is not None, "DataHubGraph should be initialized"
