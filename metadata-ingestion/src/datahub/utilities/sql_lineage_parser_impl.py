@@ -35,46 +35,6 @@ class SqlLineageSQLParserImpl:
         if "lateral flatten" in sql_query:
             sql_query = sql_query[: sql_query.find("lateral flatten")]
 
-        # BigQuery can use # as a comment symbol and that may break the parsing
-        # if the comment starts without a space sign after #
-        # and the comment is written inside SQL DDL statement (e.g., after CREATE...AS)
-        sql_query = re.sub(r"#([^ ])", r"# \1", sql_query, flags=re.IGNORECASE)
-
-        # Wrap calls to field '<table_alias>.from' in ` so it would not be taken as a reserved keyword
-        sql_query = re.sub(r"(\w*\.from)", r"`\1`", sql_query, flags=re.IGNORECASE)
-
-        # Apply sqlparser formatting to get rid of comments and reindent keywords
-        # which should remove some potential inconsistencies in parsing output
-        sql_query = sqlparse.format(
-            sql_query.strip(),
-            reindent_aligned=True,
-            strip_comments=True,
-        )
-
-        # SqlLineageParser does not allow table/view names not being wrapped in quotes or backticks
-        # Add ` signs before and after supposed object name that comes right after reserved word FROM
-        # note 1: this excludes date/time/datetime extract functions like EXTRACT DATE FROM...
-        # note 2: this includes adding ` signs to CTE aliases
-        sql_query = re.sub(
-            r"(?<!day\s)(?<!(date|time|hour|week|year)\s)(?<!month\s)(?<!(second|minute)\s)(?<!quarter\s)(?<!\.)(from\s)([^`\s()]+)",
-            r"\3`\4`",
-            sql_query,
-            flags=re.IGNORECASE,
-        )
-
-        # Add ` signs before and after table/view name at the beginning of SQL DDL statement (e.g. CREATE/CREATE OR REPLACE...AS)
-        sql_query = re.sub(
-            r"(create.*\s)(table\s|view\s)([^`\s()]+)(?=\sas)",
-            r"\1\2`\3`",
-            sql_query,
-            flags=re.IGNORECASE,
-        )
-
-        # Add ` signs before and after CTE alias name at WITH
-        sql_query = re.sub(
-            r"(with\s)([^`\s()]+)", r"\1`\2`", sql_query, flags=re.IGNORECASE
-        )
-
         # Replace reserved words that break SqlLineageParser
         self.token_to_original: Dict[str, str] = {
             self._DATE_SWAP_TOKEN: "date",
@@ -109,8 +69,11 @@ class SqlLineageSQLParserImpl:
             self._stmt = [
                 s
                 for s in sqlparse.parse(
+                    # first apply sqlparser formatting just to get rid of comments, which cause
+                    # inconsistencies in parsing output
                     sqlparse.format(
                         self._sql.strip(),
+                        strip_comments=True,
                         use_space_around_operators=True,
                     ),
                 )

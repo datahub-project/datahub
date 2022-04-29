@@ -54,7 +54,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.utilities.sql_parser import DefaultSQLParser
+from datahub.utilities.bigquery_sql_parser import BigQuerySQLParser
 
 logger = logging.getLogger(__name__)
 
@@ -550,7 +550,7 @@ class BigQuerySource(SQLAlchemySource):
                 # If there is a view being referenced then bigquery sends both the view as well as underlying table
                 # in the references. There is no distinction between direct/base objects accessed. So doing sql parsing
                 # to ensure we only use direct objects accessed for lineage
-                parser = DefaultSQLParser(e.query)
+                parser = BigQuerySQLParser(e.query)
                 referenced_objs = set(
                     map(lambda x: x.split(".")[-1], parser.get_tables())
                 )
