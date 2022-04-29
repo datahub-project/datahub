@@ -1,4 +1,28 @@
-import { Direction, FetchedEntities, NodeData } from '../types';
+import { EntityType } from '../../../types.generated';
+import { Direction, EntityAndType, FetchedEntities, FetchedEntity, NodeData } from '../types';
+
+// If there are nodes A, B, C and A -> B, B -> C, A -> C, where A and C are Datasets and B is a DataJob, we don't want to show edge A -> C
+export function shouldIncludeChildEntity(
+    direction: Direction,
+    parentChildren?: EntityAndType[],
+    childEntity?: FetchedEntity | null,
+    parentEntity?: FetchedEntity,
+) {
+    if (
+        parentEntity?.type === EntityType.Dataset &&
+        childEntity?.type === EntityType.Dataset &&
+        childEntity &&
+        parentChildren
+    ) {
+        // we want the children of this child entity in the opposite direction of the parent to see if we connect back to the parent
+        const childrenKey = direction === Direction.Upstream ? 'downstreamChildren' : 'upstreamChildren';
+        return !childEntity[childrenKey]?.some(
+            (child) =>
+                child.type === EntityType.DataJob && parentChildren.some((c) => c.entity.urn === child.entity.urn),
+        );
+    }
+    return true;
+}
 
 export default function constructFetchedNode(
     urn: string,
@@ -18,6 +42,8 @@ export default function constructFetchedNode(
         return constructedNodes[urn];
     }
 
+    const childrenKey = direction === Direction.Upstream ? 'upstreamChildren' : 'downstreamChildren';
+
     if (fetchedNode && !constructedNodes[urn]) {
         const node: NodeData = {
             name: fetchedNode.name,
@@ -27,9 +53,7 @@ export default function constructFetchedNode(
             subtype: fetchedNode.subtype,
             icon: fetchedNode.icon,
             unexploredChildren:
-                fetchedNode?.[direction === Direction.Upstream ? 'upstreamChildren' : 'downstreamChildren']?.filter(
-                    (childUrn) => !(childUrn.entity.urn in fetchedEntities),
-                ).length || 0,
+                fetchedNode?.[childrenKey]?.filter((childUrn) => !(childUrn.entity.urn in fetchedEntities)).length || 0,
             countercurrentChildrenUrns:
                 fetchedNode?.[direction === Direction.Downstream ? 'upstreamChildren' : 'downstreamChildren']?.map(
                     (child) => child.entity.urn,
@@ -43,7 +67,7 @@ export default function constructFetchedNode(
         constructedNodes[urn] = node;
 
         node.children =
-            (fetchedNode?.[direction === Direction.Upstream ? 'upstreamChildren' : 'downstreamChildren']
+            (fetchedNode?.[childrenKey]
                 ?.map((child) => {
                     if (child.entity.urn === node.urn) {
                         return null;
@@ -55,6 +79,11 @@ export default function constructFetchedNode(
                         constructedNodes,
                         newConstructionPath,
                     );
+                })
+                ?.filter((child) => {
+                    const childEntity = fetchedEntities[child?.urn || ''];
+                    const parentChildren = fetchedNode[childrenKey];
+                    return shouldIncludeChildEntity(direction, parentChildren, childEntity, fetchedNode);
                 })
                 .filter(Boolean) as Array<NodeData>) || [];
 

@@ -36,10 +36,12 @@ class AzureADConfig(ConfigModel):
     client_id: str
     tenant_id: str
     client_secret: str
-    redirect: str
     authority: str
     token_url: str
-    graph_url: str
+
+    # Optional: URLs for redirect and hitting the Graph API
+    redirect: str = "https://login.microsoftonline.com/common/oauth2/nativeclient"
+    graph_url: str = "https://graph.microsoft.com/v1.0"
 
     # Optional: Customize the mapping to DataHub Username from an attribute in the REST API response
     # Reference: https://docs.microsoft.com/en-us/graph/api/user-list?view=graph-rest-1.0&tabs=http#response-1
@@ -228,7 +230,9 @@ class AzureADSource(Source):
                     )
                 else:
                     # Unless told otherwise, we only care about users and groups.  Silently skip other object types.
-                    pass
+                    logger.warning(
+                        f"Unsupported @odata.type '{odata_type}' found in Azure group member. Skipping...."
+                    )
 
     def _add_user_to_group_membership(
         self,

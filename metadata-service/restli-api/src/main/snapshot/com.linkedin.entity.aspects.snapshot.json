@@ -3433,7 +3433,7 @@
     }, {
       "name" : "aspectName",
       "type" : "string",
-      "doc" : "Aspect of the entity being written to\nNot filling this out implies that the writer wants to affect the entire entity\nNote: This is only valid for CREATE and DELETE operations.\n",
+      "doc" : "Aspect of the entity being written to\nNot filling this out implies that the writer wants to affect the entire entity\nNote: This is only valid for CREATE, UPSERT, and DELETE operations.\n",
       "optional" : true
     }, {
       "name" : "aspect",

@@ -8,7 +8,10 @@ import com.google.common.collect.Iterators;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
+import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.common.urn.VersionedUrnUtils;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.JacksonDataTemplateCodec;
@@ -200,6 +203,46 @@ public class EbeanEntityService extends EntityService {
         .flatMap(List::stream)
         .collect(Collectors.toSet());
 
+    return getCorrespondingAspects(dbKeys, urns);
+  }
+
+  @Override
+  public Map<Urn, List<EnvelopedAspect>> getVersionedEnvelopedAspects(
+      @Nonnull Set<VersionedUrn> versionedUrns,
+      @Nonnull Set<String> aspectNames) throws URISyntaxException {
+
+    Map<String, Map<String, Long>> urnAspectVersionMap = versionedUrns.stream()
+        .collect(Collectors.toMap(versionedUrn -> versionedUrn.getUrn().toString(),
+            versionedUrn -> VersionedUrnUtils.convertVersionStamp(versionedUrn.getVersionStamp())));
+
+    // Cover full/partial versionStamp
+    final Set<EbeanAspectV2.PrimaryKey> dbKeys = urnAspectVersionMap.entrySet().stream()
+        .filter(entry -> !entry.getValue().isEmpty())
+        .map(entry -> aspectNames.stream()
+            .filter(aspectName -> entry.getValue().containsKey(aspectName))
+            .map(aspectName -> new EbeanAspectV2.PrimaryKey(entry.getKey(), aspectName,
+                entry.getValue().get(aspectName)))
+            .collect(Collectors.toList()))
+        .flatMap(List::stream)
+        .collect(Collectors.toSet());
+
+    // Cover empty versionStamp
+    dbKeys.addAll(urnAspectVersionMap.entrySet().stream()
+        .filter(entry -> entry.getValue().isEmpty())
+        .map(entry -> aspectNames.stream()
+            .map(aspectName -> new EbeanAspectV2.PrimaryKey(entry.getKey(), aspectName, 0L))
+            .collect(Collectors.toList()))
+        .flatMap(List::stream)
+        .collect(Collectors.toSet()));
+
+    return getCorrespondingAspects(dbKeys, versionedUrns.stream()
+        .map(versionedUrn -> versionedUrn.getUrn().toString())
+        .map(UrnUtils::getUrn).collect(Collectors.toSet()));
+  }
+
+  private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EbeanAspectV2.PrimaryKey> dbKeys, Set<Urn> urns)
+      throws URISyntaxException {
+
     final Map<EbeanAspectV2.PrimaryKey, EnvelopedAspect> envelopedAspectMap = getEnvelopedAspects(dbKeys);
 
     // Group result by Urn
@@ -208,7 +251,6 @@ public class EbeanEntityService extends EntityService {
         .collect(Collectors.groupingBy(entry -> entry.getKey().getUrn(),
             Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
 
-    // For each input urn, get the aspects corresponding to the urn. If empty, return the key aspect
     final Map<Urn, List<EnvelopedAspect>> result = new HashMap<>();
     for (Urn urn : urns) {
       List<EnvelopedAspect> aspects = urnToAspects.getOrDefault(urn.toString(), Collections.emptyList());

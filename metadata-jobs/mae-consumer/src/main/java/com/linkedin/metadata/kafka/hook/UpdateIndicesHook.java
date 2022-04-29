@@ -120,8 +120,8 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         updateSystemMetadata(event.getSystemMetadata(), urn, aspectSpec, aspect);
       }
     } else if (event.getChangeType() == ChangeType.DELETE) {
-      if (!event.hasAspectName() || !event.hasAspect()) {
-        log.error("Aspect or aspect name is missing");
+      if (!event.hasAspectName() || !event.hasPreviousAspectValue()) {
+        log.error("Previous aspect or aspect name is missing");
         return;
       }
 
@@ -131,9 +131,8 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         return;
       }
 
-      RecordTemplate aspect =
-          GenericRecordUtils.deserializeAspect(event.getAspect().getValue(), event.getAspect().getContentType(),
-              aspectSpec);
+      RecordTemplate aspect = GenericRecordUtils.deserializeAspect(event.getPreviousAspectValue().getValue(),
+              event.getPreviousAspectValue().getContentType(), aspectSpec);
       Boolean isDeletingKey = event.getAspectName().equals(entitySpec.getKeyAspectName());
 
       if (!aspectSpec.isTimeseries()) {

@@ -24,7 +24,7 @@ public interface EntityRegistry {
    * @param entityName the name of the entity to be retrieved
    * @return an {@link DefaultEntitySpec} corresponding to the entity name provided, null if none exists.
    */
-  @Nullable
+  @Nonnull
   EntitySpec getEntitySpec(@Nonnull final String entityName);
 
   /**

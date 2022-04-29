@@ -17,6 +17,7 @@ from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
+    make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
@@ -28,6 +29,7 @@ from datahub.emitter.mcp_builder import (
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
@@ -48,10 +50,12 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    GlobalTagsClass,
     MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -74,6 +78,9 @@ class GlueSourceConfig(AwsSourceConfig, PlatformSourceConfigBase):
     glue_s3_lineage_direction: str = "upstream"
     domain: Dict[str, AllowDenyPattern] = dict()
     catalog_id: Optional[str] = None
+
+    use_s3_bucket_tags: Optional[bool] = False
+    use_s3_object_tags: Optional[bool] = False
 
     @property
     def glue_client(self):
@@ -760,6 +767,7 @@ class GlueSource(Source):
                 self.report.report_workunit(dataset_wu)
                 yield dataset_wu
 
+    # flake8: noqa: C901
     def _extract_record(self, table: Dict, table_name: str) -> MetadataChangeEvent:
         def get_owner() -> Optional[OwnershipClass]:
             owner = table.get("Owner")
@@ -789,6 +797,70 @@ class GlueSource(Source):
                 uri=table.get("Location"),
                 tags=[],
             )
+
+        def get_s3_tags() -> Optional[GlobalTagsClass]:
+            bucket_name = s3_util.get_bucket_name(
+                table["StorageDescriptor"]["Location"]
+            )
+            tags_to_add = []
+            if self.source_config.use_s3_bucket_tags:
+                try:
+                    bucket_tags = self.s3_client.get_bucket_tagging(Bucket=bucket_name)
+                    tags_to_add.extend(
+                        [
+                            make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
+                            for tag in bucket_tags["TagSet"]
+                        ]
+                    )
+                except self.s3_client.exceptions.ClientError:
+                    logger.warn(f"No tags found for bucket={bucket_name}")
+            if self.source_config.use_s3_object_tags:
+                key_prefix = s3_util.get_key_prefix(
+                    table["StorageDescriptor"]["Location"]
+                )
+                object_tagging = self.s3_client.get_object_tagging(
+                    Bucket=bucket_name, Key=key_prefix
+                )
+                tag_set = object_tagging["TagSet"]
+                if tag_set:
+                    tags_to_add.extend(
+                        [
+                            make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
+                            for tag in tag_set
+                        ]
+                    )
+                else:
+                    # Unlike bucket tags, if an object does not have tags, it will just return an empty array
+                    # as opposed to an exception.
+                    logger.warn(
+                        f"No tags found for bucket={bucket_name} key={key_prefix}"
+                    )
+            if len(tags_to_add) == 0:
+                return None
+            if self.ctx.graph is not None:
+                logger.debug(
+                    "Connected to DatahubApi, grabbing current tags to maintain."
+                )
+                current_tags: Optional[GlobalTagsClass] = self.ctx.graph.get_aspect_v2(
+                    entity_urn=dataset_urn,
+                    aspect="globalTags",
+                    aspect_type=GlobalTagsClass,
+                )
+                if current_tags:
+                    tags_to_add.extend(
+                        [current_tag.tag for current_tag in current_tags.tags]
+                    )
+            else:
+                logger.warn(
+                    "Could not connect to DatahubApi. No current tags to maintain"
+                )
+
+            # Remove duplicate tags
+            tags_to_add = list(set(tags_to_add))
+            new_tags = GlobalTagsClass(
+                tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
+            )
+            return new_tags
 
         def get_schema_metadata(glue_source: GlueSource) -> SchemaMetadata:
             schema = table["StorageDescriptor"]["Columns"]
@@ -832,13 +904,14 @@ class GlueSource(Source):
                 else None,
             )
 
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=table_name,
+            env=self.env,
+            platform_instance=self.source_config.platform_instance,
+        )
         dataset_snapshot = DatasetSnapshot(
-            urn=make_dataset_urn_with_platform_instance(
-                platform=self.platform,
-                name=table_name,
-                env=self.env,
-                platform_instance=self.source_config.platform_instance,
-            ),
+            urn=dataset_urn,
             aspects=[],
         )
 
@@ -852,6 +925,13 @@ class GlueSource(Source):
         dataset_snapshot.aspects.append(get_dataset_properties())
         dataset_snapshot.aspects.append(get_schema_metadata(self))
         dataset_snapshot.aspects.append(get_data_platform_instance())
+        if (
+            self.source_config.use_s3_bucket_tags
+            or self.source_config.use_s3_object_tags
+        ):
+            s3_tags = get_s3_tags()
+            if s3_tags is not None:
+                dataset_snapshot.aspects.append(s3_tags)
 
         metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         return metadata_record
