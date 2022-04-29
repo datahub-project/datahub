@@ -17,9 +17,9 @@ This plugin extracts the following:
 - Table metadata, such as owner, description and parameters
 - Jobs and their component transformations, data sources, and data sinks
 
-| Capability | Status | Details | 
-| -----------| ------ | ---- |
-| Platform Instance | ✔ | [link](../../docs/platform-instances.md) |
+| Capability        | Status | Details                                  |
+| ----------------- | ------ | ---------------------------------------- |
+| Platform Instance | ✔      | [link](../../docs/platform-instances.md) |
 | Data Containers   | ✔️     |                                          |
 | Data Domains      | ✔️     | [link](../../docs/domains.md)            |
 
@@ -41,31 +41,28 @@ sink:
 ```
 
 ## IAM permissions
+
 For ingesting datasets, the following IAM permissions are required:
+
 ```json
 {
-    "Effect": "Allow",
-    "Action": [
-        "glue:GetDatabases",
-        "glue:GetTables"
-    ],
-    "Resource": [
-        "arn:aws:glue:$region-id:$account-id:catalog",
-        "arn:aws:glue:$region-id:$account-id:database/*",
-        "arn:aws:glue:$region-id:$account-id:table/*"
-    ]
+  "Effect": "Allow",
+  "Action": ["glue:GetDatabases", "glue:GetTables"],
+  "Resource": [
+    "arn:aws:glue:$region-id:$account-id:catalog",
+    "arn:aws:glue:$region-id:$account-id:database/*",
+    "arn:aws:glue:$region-id:$account-id:table/*"
+  ]
 }
 ```
 
 For ingesting jobs (`extract_transforms: True`), the following additional permissions are required:
+
 ```json
 {
-    "Effect": "Allow",
-    "Action": [
-        "glue:GetDataflowGraph",
-        "glue:GetJobs",
-    ],
-    "Resource": "*"
+  "Effect": "Allow",
+  "Action": ["glue:GetDataflowGraph", "glue:GetJobs"],
+  "Resource": "*"
 }
 ```
 
@@ -75,33 +72,35 @@ plus `s3:GetObject` for the job script locations.
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                           | Required | Default      | Description                                                                                                                                            |
-|---------------------------------|----------|--------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `aws_region`                    | ✅        |              | AWS region code.                                                                                                                                       |
-| `env`                           |          | `"PROD"`     | Environment to use in namespace when constructing URNs.                                                                                                |
-| `aws_access_key_id`             |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                     |
-| `aws_secret_access_key`         |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                     |
-| `aws_session_token`             |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                     |
-| `aws_role`                      |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                     |
-| `aws_profile`                   |          |              | Named AWS profile to use, if not set the default will be used                                                                                          |
-| `extract_transforms`            |          | `True`       | Whether to extract Glue transform jobs.                                                                                                                |
-| `database_pattern.allow`        |          |              | List of regex patterns for databases to include in ingestion.                                                                                          |
-| `database_pattern.deny`         |          |              | List of regex patterns for databases to exclude from ingestion.                                                                                        |
-| `database_pattern.ignoreCase`   |          | `True`       | Whether to ignore case sensitivity during pattern matching.                                                                                            |
-| `table_pattern.allow`           |          |              | List of regex patterns for fully-qualified table names (in the format `database_name.table_name`) to include in ingestion.                             |
-| `table_pattern.deny`            |          |              | List of regex patterns for fully-qualified table names (in the format `database_name.table_name`) to exclude from ingestion.                           |
-| `table_pattern.ignoreCase`      |          | `True`       | Whether to ignore case sensitivity during pattern matching.                                                                                            |
-| `platform`                      |          | `glue`       | Override for platform name. Allowed values - `glue`, `athena`                                                                                          |
-| `platform_instance`             |          | None         | The Platform instance to use while constructing URNs.                                                                                                  |
-| `underlying_platform`           |          | `glue`       | @deprecated(Use `platform`) Override for platform name. Allowed values - `glue`, `athena`                                                              |
-| `ignore_unsupported_connectors` |          | `True`       | Whether to ignore unsupported connectors. If disabled, an error will be raised.                                                                        |
-| `emit_s3_lineage`               |          | `True`       | Whether to emit S3-to-Glue lineage.                                                                                                                    |
-| `glue_s3_lineage_direction`     |          | `upstream`   | If `upstream`, S3 is upstream to Glue. If `downstream` S3 is downstream to Glue.                                                                       |
-| `extract_owners`                |          | `True`       | When enabled, extracts ownership from Glue directly and overwrites existing owners. When disabled, ownership is left empty for datasets.               |
-| `domain.domain_key.allow`       |          |              | List of regex patterns for tables to set domain_key domain key (domain_key can be any string like `sales`. There can be multiple domain key specified. |
-| `domain.domain_key.deny`        |          |              | List of regex patterns for tables to not assign domain_key. There can be multiple domain key specified.                                                |
-| `domain.domain_key.ignoreCase`  |          | `True`       | Whether to ignore case sensitivity during pattern matching.There can be multiple domain key specified.                                                 |
-| `catalog_id`                    |          | None         | The aws account id where the target glue catalog lives. If None, datahub will ingest glue catalog in aws caller's account.                             |
+| Field                           | Required | Default      | Description                                                                                                                                                         |
+| ------------------------------- | -------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `aws_region`                    | ✅       |              | AWS region code.                                                                                                                                                    |
+| `env`                           |          | `"PROD"`     | Environment to use in namespace when constructing URNs.                                                                                                             |
+| `aws_access_key_id`             |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                  |
+| `aws_secret_access_key`         |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                  |
+| `aws_session_token`             |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                  |
+| `aws_role`                      |          | Autodetected | See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html                                                                                  |
+| `aws_profile`                   |          |              | Named AWS profile to use, if not set the default will be used                                                                                                       |
+| `extract_transforms`            |          | `True`       | Whether to extract Glue transform jobs.                                                                                                                             |
+| `database_pattern.allow`        |          |              | List of regex patterns for databases to include in ingestion.                                                                                                       |
+| `database_pattern.deny`         |          |              | List of regex patterns for databases to exclude from ingestion.                                                                                                     |
+| `database_pattern.ignoreCase`   |          | `True`       | Whether to ignore case sensitivity during pattern matching.                                                                                                         |
+| `table_pattern.allow`           |          |              | List of regex patterns for tables to include in ingestion.                                                                                                          |
+| `table_pattern.deny`            |          |              | List of regex patterns for tables to exclude from ingestion.                                                                                                        |
+| `table_pattern.ignoreCase`      |          | `True`       | Whether to ignore case sensitivity during pattern matching.                                                                                                         |
+| `platform`                      |          | `glue`       | Override for platform name. Allowed values - `glue`, `athena`                                                                                                       |
+| `platform_instance`             |          | None         | The Platform instance to use while constructing URNs.                                                                                                               |
+| `underlying_platform`           |          | `glue`       | @deprecated(Use `platform`) Override for platform name. Allowed values - `glue`, `athena`                                                                           |
+| `ignore_unsupported_connectors` |          | `True`       | Whether to ignore unsupported connectors. If disabled, an error will be raised.                                                                                     |
+| `emit_s3_lineage`               |          | `True`       | Whether to emit S3-to-Glue lineage.                                                                                                                                 |
+| `glue_s3_lineage_direction`     |          | `upstream`   | If `upstream`, S3 is upstream to Glue. If `downstream` S3 is downstream to Glue. Please Note that this will not apply tags to any folders ingested, only the files. |
+| `use_s3_bucket_tags`            |          | None         | If an S3 Buckets Tags should be created for the Tables ingested by Glue. Please Note that this will not apply tags to any folders ingested, only the files.         |
+| `use_s3_object_tags`            |          | None         | If an S3 Objects Tags should be created for the Tables ingested by Glue.                                                                                            |
+| `extract_owners`                |          | `True`       | When enabled, extracts ownership from Glue directly and overwrites existing owners. When disabled, ownership is left empty for datasets.                            |
+| `domain.domain_key.allow`       |          |              | List of regex patterns for tables to set domain_key domain key (domain_key can be any string like `sales`. There can be multiple domain key specified.              |
+| `domain.domain_key.deny`        |          |              | List of regex patterns for tables to not assign domain_key. There can be multiple domain key specified.                                                             |
+| `domain.domain_key.ignoreCase`  |          | `True`       | Whether to ignore case sensitivity during pattern matching.There can be multiple domain key specified.                                                              |
+| `catalog_id`                    |          | None         | The aws account id where the target glue catalog lives. If None, datahub will ingest glue catalog in aws caller's account.                                          |
 
 ### Cross-account ingestion
 

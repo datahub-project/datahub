@@ -416,6 +416,14 @@
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {"tag": "urn:li:tag:foo:bar"},
+                            {"tag": "urn:li:tag:baz:bob"}
+                        ]
+                    }
                 }
             ]
         }
