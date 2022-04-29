@@ -68,6 +68,9 @@ public class MetadataChangeLogProcessor {
       return;
     }
 
+    log.info("Invoked MCL Processor with event {}", event.toString());
+
+
     log.debug("Invoking MCL hooks for urn: {}, key: {}", event.getEntityUrn(), event.getEntityKeyAspect());
 
     // Here - plug in additional "custom processor hooks"
