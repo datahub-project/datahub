@@ -166,6 +166,7 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
+import com.linkedin.metadata.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.usage.UsageClient;
@@ -221,6 +222,7 @@ public class GmsGraphQLEngine {
     private final AuthenticationConfiguration authenticationConfiguration;
     private final AuthorizationConfiguration authorizationConfiguration;
     private final VisualConfiguration visualConfiguration;
+    private final TelemetryConfiguration telemetryConfiguration;
 
     private final DatasetType datasetType;
     private final CorpUserType corpUserType;
@@ -287,7 +289,8 @@ public class GmsGraphQLEngine {
         final AuthorizationConfiguration authorizationConfiguration,
         final GitVersion gitVersion,
         final boolean supportsImpactAnalysis,
-        final VisualConfiguration visualConfiguration
+        final VisualConfiguration visualConfiguration,
+        final TelemetryConfiguration telemetryConfiguration
         ) {
 
         this.entityClient = entityClient;
@@ -308,6 +311,7 @@ public class GmsGraphQLEngine {
         this.authenticationConfiguration = Objects.requireNonNull(authenticationConfiguration);
         this.authorizationConfiguration = Objects.requireNonNull(authorizationConfiguration);
         this.visualConfiguration = visualConfiguration;
+        this.telemetryConfiguration = telemetryConfiguration;
 
         this.datasetType = new DatasetType(entityClient);
         this.corpUserType = new CorpUserType(entityClient);
@@ -476,7 +480,7 @@ public class GmsGraphQLEngine {
                     this.ingestionConfiguration,
                     this.authenticationConfiguration,
                     this.authorizationConfiguration,
-                    supportsImpactAnalysis, this.visualConfiguration))
+                    supportsImpactAnalysis, this.visualConfiguration, this.telemetryConfiguration))
             .dataFetcher("me", new MeResolver(this.entityClient))
             .dataFetcher("search", new SearchResolver(this.entityClient))
             .dataFetcher("searchAcrossEntities", new SearchAcrossEntitiesResolver(this.entityClient))
