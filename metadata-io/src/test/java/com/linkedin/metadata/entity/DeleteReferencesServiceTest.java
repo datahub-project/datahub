@@ -330,7 +330,8 @@ public class DeleteReferencesServiceTest extends TestCase {
         new PathSpec("key_c", "*", "key_a"));
 
     // contains an empty key_c
-    assertFalse(updatedAspect.data().containsKey("key_c"));
+    assertTrue(updatedAspect.data().containsKey("key_c"));
+    assertTrue(((DataList) updatedAspect.data().get("key_c")).isEmpty());
   }
 
   /**
