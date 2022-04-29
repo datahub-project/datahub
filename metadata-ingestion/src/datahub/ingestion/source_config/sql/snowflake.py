@@ -86,6 +86,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
     include_table_lineage: bool = True
     include_view_lineage: bool = True
     connect_args: Optional[Dict] = pydantic.Field(default=None, exclude=True)
+    check_role_grants: bool = False
 
     def get_account(self) -> str:
         assert self.account_id
