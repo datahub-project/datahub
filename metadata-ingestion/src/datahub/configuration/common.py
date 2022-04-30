@@ -13,8 +13,7 @@ class ConfigModel(BaseModel):
 
 class DynamicTypedConfig(ConfigModel):
     type: str = Field(
-        default=None,
-        description="The type of the ingestion state provider registered with datahub",
+        description="The type of the dynamic object",
     )
     # This config type is declared Optional[Any] here. The eventual parser for the
     # specified type is responsible for further validation.
