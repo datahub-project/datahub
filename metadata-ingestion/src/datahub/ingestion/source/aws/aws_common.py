@@ -1,8 +1,10 @@
 from functools import reduce
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import boto3
 from boto3.session import Session
+from botocore.config import Config
+from botocore.utils import fix_s3_host
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
@@ -72,6 +74,14 @@ class AwsSourceConfig(EnvBasedSourceConfigBase):
         description="Named AWS profile to use, if not set the default will be used",
     )
     aws_region: str = Field(description="AWS region code.")
+    aws_endpoint_url: Optional[str] = Field(
+        default=None,
+        description="Autodetected. See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/core/session.html",
+    )
+    aws_proxy: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="Autodetected. See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/core/session.html",
+    )
 
     def get_session(self) -> Session:
         if (
@@ -111,11 +121,36 @@ class AwsSourceConfig(EnvBasedSourceConfigBase):
         else:
             return Session(region_name=self.aws_region, profile_name=self.aws_profile)
 
+    def get_credentials(self) -> Dict[str, str]:
+        credentials = self.get_session().get_credentials()
+        if credentials is not None:
+            return {
+                "aws_access_key_id": credentials.access_key,
+                "aws_secret_access_key": credentials.secret_key,
+                "aws_session_token": credentials.token,
+            }
+        return {}
+
     def get_s3_client(self) -> "S3Client":
-        return self.get_session().client("s3")
+        return self.get_session().client(
+            "s3",
+            endpoint_url=self.aws_endpoint_url,
+            config=Config(proxies=self.aws_proxy),
+        )
 
     def get_s3_resource(self) -> "S3ServiceResource":
-        return self.get_session().resource("s3")
+        resource = self.get_session().resource(
+            "s3",
+            endpoint_url=self.aws_endpoint_url,
+            config=Config(proxies=self.aws_proxy),
+        )
+        # according to: https://stackoverflow.com/questions/32618216/override-s3-endpoint-using-boto3-configuration-file
+        # boto3 only reads the signature version for s3 from that config file. boto3 automatically changes the endpoint to
+        # your_bucket_name.s3.amazonaws.com when it sees fit. If you'll be working with both your own host and s3, you may wish
+        # to override the functionality rather than removing it altogether.
+        if self.aws_endpoint_url is not None and self.aws_proxy is not None:
+            resource.meta.client.meta.events.unregister("before-sign.s3", fix_s3_host)
+        return resource
 
     def get_glue_client(self) -> "GlueClient":
         return self.get_session().client("glue")

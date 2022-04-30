@@ -78,6 +78,10 @@ to read your organization's Users and Groups. The following permissions are requ
 - `GroupMember.Read.All`
 - `User.Read.All`
 
+You can add a permission by navigating to the permissions tab in your DataHub application on the Azure AD portal. ![Azure AD API Permissions](./images/azure_ad_api_permissions.png)
+
+You can view the necessary endpoints to configure by clicking on the Endpoints button in the Overview tab. ![Azure AD Endpoints](./images/azure_ad_endpoints.png)
+
 You can use the following recipe to get started with Azure ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
@@ -88,9 +92,10 @@ source:
     client_id: "00000000-0000-0000-0000-000000000000"
     tenant_id: "00000000-0000-0000-0000-000000000000"
     client_secret: "xxxxx"
-    redirect: "https://login.microsoftonline.com/common/oauth2/nativeclient"
     authority: "https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000"
     token_url: "https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2/token"
+    # All of the below parameters are optional.
+    redirect: "https://login.microsoftonline.com/common/oauth2/nativeclient"
     graph_url: "https://graph.microsoft.com/v1.0"
     ingest_users: True
     ingest_groups: True
@@ -116,11 +121,11 @@ Note that a `.` is used to denote nested fields in the YAML configuration block.
 |----------------------------------------|-----------------|----------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `client_id`                            | string          | ✅        |                       | Application ID. Found in your app registration on Azure AD Portal                                                                                                                                                                                          |                                                         
 | `tenant_id`                            | string          | ✅        |                       | Directory ID. Found in your app registration on Azure AD Portal                                                                                                                                                                                            |                                     
-| `client_secret`                        | string          | ✅        |                       | Client secret. Found in your app registration on Azure AD Portal                                                                                                                                                                                           |                                  
-| `redirect`                             | string          | ✅        |                       | Redirect URI.  Found in your app registration on Azure AD Portal                                                                                                                                                                                           |                                  
+| `client_secret`                        | string          | ✅        |                       | Client secret. Found in your app registration on Azure AD Portal                                                                                                                                                                                           |                                                                    
 | `authority`                            | string          | ✅        |                       | The [authority](https://docs.microsoft.com/en-us/azure/active-directory/develop/msal-client-application-configuration) is a URL that indicates a directory that MSAL can request tokens from.                                                              |
 | `token_url`                            | string          | ✅        |                       | The token URL that acquires a token from Azure AD for authorizing requests.  This source will only work with v1.0 endpoint.                                                                                                                                |
-| `graph_url`                            | string          | ✅        |                       | [Microsoft Graph API endpoint](https://docs.microsoft.com/en-us/graph/use-the-api)                                                                                                                                                                         |
+| `redirect`                             | string          |          |                       | Redirect URI.  Found in your app registration on Azure AD Portal. Defaults to https://login.microsoftonline.com/common/oauth2/nativeclient.                                                                                                                |
+| `graph_url`                            | string          |          |                       | [Microsoft Graph API endpoint](https://docs.microsoft.com/en-us/graph/use-the-api). Defaults to https://graph.microsoft.com/v1.0.                                                                                                                          |
 | `ingest_users`                         | bool            |          | `True`                | Whether users should be ingested into DataHub.                                                                                                                                                                                                             |
 | `ingest_groups`                        | bool            |          | `True`                | Whether groups should be ingested into DataHub.                                                                                                                                                                                                            |
 | `ingest_group_membership`              | bool            |          | `True`                | Whether group membership should be ingested into DataHub. ingest_groups must be True if this is True.                                                                                                                                                      |

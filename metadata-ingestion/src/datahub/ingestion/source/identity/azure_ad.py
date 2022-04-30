@@ -49,17 +49,21 @@ class AzureADConfig(ConfigModel):
     client_secret: str = Field(
         description="Client secret. Found in your app registration on Azure AD Portal"
     )
-    redirect: str = Field(
-        description="Redirect URI.  Found in your app registration on Azure AD Portal"
-    )
     authority: str = Field(
         description="The authority (https://docs.microsoft.com/en-us/azure/active-directory/develop/msal-client-application-configuration) is a URL that indicates a directory that MSAL can request tokens from."
     )
     token_url: str = Field(
         description="The token URL that acquires a token from Azure AD for authorizing requests.  This source will only work with v1.0 endpoint."
     )
+    # Optional: URLs for redirect and hitting the Graph API
+    redirect: str = Field(
+        "https://login.microsoftonline.com/common/oauth2/nativeclient",
+        description="Redirect URI.  Found in your app registration on Azure AD Portal.",
+    )
+
     graph_url: str = Field(
-        description="[Microsoft Graph API endpoint](https://docs.microsoft.com/en-us/graph/use-the-api)"
+        "https://graph.microsoft.com/v1.0",
+        description="[Microsoft Graph API endpoint](https://docs.microsoft.com/en-us/graph/use-the-api)",
     )
 
     # Optional: Customize the mapping to DataHub Username from an attribute in the REST API response
@@ -116,8 +120,14 @@ class AzureADConfig(ConfigModel):
     )
 
     # Optional: Whether to mask sensitive information from workunit ID's. On by default.
-    mask_group_id: bool = True
-    mask_user_id: bool = True
+    mask_group_id: bool = Field(
+        True,
+        description="Whether workunit ID's for groups should be masked to avoid leaking sensitive information.",
+    )
+    mask_user_id: bool = Field(
+        True,
+        description="Whether workunit ID's for users should be masked to avoid leaking sensitive information.",
+    )
 
 
 @dataclass
@@ -353,7 +363,9 @@ class AzureADSource(Source):
                     )
                 else:
                     # Unless told otherwise, we only care about users and groups.  Silently skip other object types.
-                    pass
+                    logger.warning(
+                        f"Unsupported @odata.type '{odata_type}' found in Azure group member. Skipping...."
+                    )
 
     def _add_user_to_group_membership(
         self,
