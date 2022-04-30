@@ -1,8 +1,12 @@
 from typing import Any
 
 import pytest
-from iceberg.api import types as IcebergTypes
-from iceberg.api.types.types import NestedField
+
+try:
+    from iceberg.api import types as IcebergTypes
+    from iceberg.api.types.types import NestedField
+except ImportError:
+    pytest.skip("iceberg not available", allow_module_level=True)
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.azure.azure_common import AdlsSourceConfig
