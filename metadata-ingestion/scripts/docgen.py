@@ -375,6 +375,48 @@ def get_additional_deps_for_extra(extra_name: str) -> List[str]:
     return list(delta_deps)
 
 
+def relocate_path(orig_path: str, relative_path: str, relocated_path: str) -> str:
+
+    newPath = os.path.join(os.path.dirname(orig_path), relative_path)
+    assert os.path.exists(newPath)
+
+    newRelativePath = os.path.relpath(newPath, os.path.dirname(relocated_path))
+    return newRelativePath
+
+
+def rewrite_markdown(file_contents: str, path: str, relocated_path: str) -> str:
+    def new_url(original_url: str, file_path: str) -> str:
+        if original_url.startswith(("http://", "https://", "#")):
+            return original_url
+        import pathlib
+
+        file_ext = pathlib.Path(original_url).suffix
+        if file_ext.startswith(".md"):
+            return original_url
+        elif file_ext in [".png", ".svg", ".gif", ".pdf"]:
+            new_url = relocate_path(path, original_url, relocated_path)
+            return new_url
+        return original_url
+
+    # Look for the [text](url) syntax. Note that this will also capture images.
+    #
+    # We do a little bit of parenthesis matching here to account for parens in URLs.
+    # See https://stackoverflow.com/a/17759264 for explanation of the second capture group.
+    new_content = re.sub(
+        r"\[(.*?)\]\(((?:[^)(]+|\((?:[^)(]+|\([^)(]*\))*\))*)\)",
+        lambda x: f"[{x.group(1)}]({new_url(x.group(2).strip(),path)})",  # type: ignore
+        file_contents,
+    )
+
+    new_content = re.sub(
+        # Also look for the [text]: url syntax.
+        r"^\[(.+?)\]\s*:\s*(.+?)\s*$",
+        lambda x: f"[{x.group(1)}]: {new_url(x.group(2), path)}",
+        new_content,
+    )
+    return new_content
+
+
 @click.command()
 @click.option("--out-dir", type=str, required=True)
 @click.option("--extra-docs", type=str, required=False)
@@ -389,9 +431,15 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:  # noqa: C
             if m:
                 platform_name = m.group(1).lower()
                 file_name = m.group(2)
+                destination_md: str = (
+                    f"../docs/generated/ingestion/sources/{platform_name}.md"
+                )
+
                 with open(path, "r") as doc_file:
                     file_contents = doc_file.read()
-                    # final_markdown = preprocess_markdown(file_contents)
+                    final_markdown = rewrite_markdown(
+                        file_contents, path, destination_md
+                    )
 
                     if file_name == "README":
                         # README goes as platform level docs
@@ -399,13 +447,13 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:  # noqa: C
                         create_or_update(
                             source_documentation,
                             [platform_name, "custom_docs"],
-                            file_contents,
+                            final_markdown,
                         )
                     else:
                         create_or_update(
                             source_documentation,
                             [platform_name, "plugins", file_name, "custom_docs"],
-                            file_contents,
+                            final_markdown,
                         )
             else:
                 yml_match = re.search("/docs/sources/(.*)/(.*)_recipe.yml", path)

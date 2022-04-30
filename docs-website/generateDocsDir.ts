@@ -100,7 +100,7 @@ function list_markdown_files(): string[] {
     /^datahub-kubernetes\//,
     // Various other docs/directories to ignore.
     /^metadata-models\/docs\//, // these are used to generate docs, so we don't want to consider them here
-    /^metadata-ingestion\/docs\//, // these are used to generate docs, so we don't want to consider them here
+    /^metadata-ingestion\/docs\/sources\//, // these are used to generate docs, so we don't want to consider them here
     /^metadata-ingestion-examples\//,
     /^docker\/(?!README|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
     /^docs\/rfc\/templates\/000-template\.md$/,
@@ -322,6 +322,7 @@ function new_url(original: string, filepath: string): string {
     const updated = path.normalize(
       `${"../".repeat(up_levels + 2)}/${relation}/${original}`
     );
+    //console.log(`Rewriting ${original} ${filepath} as ${updated}`);
     return updated;
   } else {
     throw new Error(`unknown extension - ${original} in ${filepath}`);
