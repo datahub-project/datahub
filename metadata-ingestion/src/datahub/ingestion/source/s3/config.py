@@ -149,13 +149,20 @@ class PathSpec(ConfigModel):
 
 class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
     path_spec: PathSpec = Field(description="")
-    platform: str = "The platform that this source connects to"
-    platform_instance = (
-        "The instance of the platform that all assets produced by this recipe belong to"
+    platform: str = Field(default="", description="The platform that this source connects to")
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="The instance of the platform that all assets produced by this recipe belong to"
     )
     aws_config: Optional[AwsSourceConfig] = Field(
         default=None, description="AWS configuration"
     )
+
+    # Whether or not to create in datahub from the s3 bucket
+    use_s3_bucket_tags: Optional[bool] = Field(None, description="Whether or not to create tags in datahub from the s3 bucket")
+    # Whether or not to create in datahub from the s3 object
+    use_s3_object_tags: Optional[bool] = Field(None, description="# Whether or not to create tags in datahub from the s3 object")
+
 
     profile_patterns: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -185,6 +192,10 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
             if values["path_spec"].is_s3():
                 values["platform"] = "s3"
             else:
+                if values.get("use_s3_object_tags") or values.get("use_s3_bucket_tags"):
+                    raise ValueError(
+                        "cannot grab s3 tags for platform != s3. Remove the flag or use s3."
+                    )
                 values["platform"] = "file"
             logger.debug(f'Setting config "platform": {values.get("platform")}')
             return values
