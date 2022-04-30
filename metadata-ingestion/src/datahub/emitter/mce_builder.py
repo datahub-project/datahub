@@ -4,7 +4,6 @@ import logging
 import os
 import re
 import time
-from distutils.util import strtobool
 from enum import Enum
 from hashlib import md5
 from typing import Any, List, Optional, Type, TypeVar, Union, cast, get_type_hints
@@ -40,8 +39,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_ENV = DEFAULT_ENV_CONFIGURATION
 DEFAULT_FLOW_CLUSTER = "prod"
 UNKNOWN_USER = "urn:li:corpuser:unknown"
-DATASET_URN_TO_LOWER: bool = strtobool(
-    os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false")
+DATASET_URN_TO_LOWER: bool = (
+    os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false") == "true"
 )
 
 

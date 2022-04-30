@@ -1,7 +1,8 @@
-import { Tabs, Typography } from 'antd';
-import React, { useState } from 'react';
+import React from 'react';
+import { Typography } from 'antd';
 import styled from 'styled-components';
 import { SearchablePage } from '../search/SearchablePage';
+import { RoutedTabs } from '../shared/RoutedTabs';
 import { GroupList } from './group/GroupList';
 import { UserList } from './user/UserList';
 
@@ -21,34 +22,52 @@ const PageTitle = styled(Typography.Title)`
     }
 `;
 
-const StyledTabs = styled(Tabs)`
+const Content = styled.div`
     &&& .ant-tabs-nav {
-        margin-bottom: 0;
-        padding-left: 28px;
+        margin: 0;
+    }
+    color: #262626;
+    height: calc(100vh - 60px);
+
+    &&& .ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
+        padding-left: 15px;
     }
 `;
-
-const Tab = styled(Tabs.TabPane)`
-    font-size: 14px;
-    line-height: 22px;
-`;
-
-const ListContainer = styled.div``;
 
 enum TabType {
     Users = 'Users',
     Groups = 'Groups',
 }
+const ENABLED_TAB_TYPES = [TabType.Users, TabType.Groups];
 
 export const ManageIdentitiesPage = () => {
     /**
      * Determines which view should be visible: users or groups list.
      */
-    const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Users);
 
-    const onClickTab = (newTab: string) => {
-        setSelectedTab(TabType[newTab]);
+    const getTabs = () => {
+        return [
+            {
+                name: TabType.Users,
+                path: TabType.Users.toLocaleLowerCase(),
+                content: <UserList />,
+                display: {
+                    enabled: () => true,
+                },
+            },
+            {
+                name: TabType.Groups,
+                path: TabType.Groups.toLocaleLowerCase(),
+                content: <GroupList />,
+                display: {
+                    enabled: () => true,
+                },
+            },
+        ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
     };
+
+    const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
+    const onTabChange = () => null;
 
     return (
         <SearchablePage>
@@ -59,11 +78,9 @@ export const ManageIdentitiesPage = () => {
                         View your DataHub users & groups. Take administrative actions.
                     </Typography.Paragraph>
                 </PageHeaderContainer>
-                <StyledTabs activeKey={selectedTab} size="large" onTabClick={(tab: string) => onClickTab(tab)}>
-                    <Tab key={TabType.Users} tab={TabType.Users} />
-                    <Tab key={TabType.Groups} tab={TabType.Groups} />
-                </StyledTabs>
-                <ListContainer>{selectedTab === TabType.Users ? <UserList /> : <GroupList />}</ListContainer>
+                <Content>
+                    <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
+                </Content>
             </PageContainer>
         </SearchablePage>
     );

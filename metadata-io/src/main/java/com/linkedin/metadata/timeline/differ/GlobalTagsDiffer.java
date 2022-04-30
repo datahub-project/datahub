@@ -2,6 +2,7 @@ package com.linkedin.metadata.timeline.differ;
 
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.TagAssociationArray;
@@ -12,19 +13,21 @@ import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
+import com.linkedin.metadata.timeline.data.entity.TagChangeEvent;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import javax.annotation.Nonnull;
 
 import static com.linkedin.metadata.Constants.*;
 
 
-public class GlobalTagsDiffer implements Differ {
+public class GlobalTagsDiffer implements AspectDiffer<GlobalTags> {
   private static final String TAG_ADDED_FORMAT = "Tag '%s' added to entity '%s'.";
   private static final String TAG_REMOVED_FORMAT = "Tag '%s' removed from entity '%s'.";
 
   public static List<ChangeEvent> computeDiffs(GlobalTags baseGlobalTags, GlobalTags targetGlobalTags,
-      String entityUrn) {
+      String entityUrn, AuditStamp auditStamp) {
     sortGlobalTagsByTagUrn(baseGlobalTags);
     sortGlobalTagsByTagUrn(targetGlobalTags);
     List<ChangeEvent> changeEvents = new ArrayList<>();
@@ -43,24 +46,28 @@ public class GlobalTagsDiffer implements Differ {
         ++targetTagIdx;
       } else if (comparison < 0) {
         // Tag got removed.
-        changeEvents.add(ChangeEvent.builder()
-            .elementId(baseTagAssociation.getTag().toString())
-            .target(entityUrn)
+        changeEvents.add(TagChangeEvent.entityTagChangeEventBuilder()
+            .modifier(baseTagAssociation.getTag().toString())
+            .entityUrn(entityUrn)
             .category(ChangeCategory.TAG)
-            .changeType(ChangeOperation.REMOVE)
+            .operation(ChangeOperation.REMOVE)
             .semVerChange(SemanticChangeType.MINOR)
             .description(String.format(TAG_REMOVED_FORMAT, baseTagAssociation.getTag().getId(), entityUrn))
+            .tagUrn(baseTagAssociation.getTag())
+            .auditStamp(auditStamp)
             .build());
         ++baseTagIdx;
       } else {
         // Tag got added.
-        changeEvents.add(ChangeEvent.builder()
-            .elementId(targetTagAssociation.getTag().toString())
-            .target(entityUrn)
+        changeEvents.add(TagChangeEvent.entityTagChangeEventBuilder()
+            .modifier(targetTagAssociation.getTag().toString())
+            .entityUrn(entityUrn)
             .category(ChangeCategory.TAG)
-            .changeType(ChangeOperation.ADD)
+            .operation(ChangeOperation.ADD)
             .semVerChange(SemanticChangeType.MINOR)
             .description(String.format(TAG_ADDED_FORMAT, targetTagAssociation.getTag().getId(), entityUrn))
+            .tagUrn(targetTagAssociation.getTag())
+            .auditStamp(auditStamp)
             .build());
         ++targetTagIdx;
       }
@@ -69,26 +76,30 @@ public class GlobalTagsDiffer implements Differ {
     while (baseTagIdx < baseTags.size()) {
       // Handle removed tags.
       TagAssociation baseTagAssociation = baseTags.get(baseTagIdx);
-      changeEvents.add(ChangeEvent.builder()
-          .elementId(baseTagAssociation.getTag().toString())
-          .target(entityUrn)
+      changeEvents.add(TagChangeEvent.entityTagChangeEventBuilder()
+          .modifier(baseTagAssociation.getTag().toString())
+          .entityUrn(entityUrn)
           .category(ChangeCategory.TAG)
-          .changeType(ChangeOperation.REMOVE)
+          .operation(ChangeOperation.REMOVE)
           .semVerChange(SemanticChangeType.MINOR)
           .description(String.format(TAG_REMOVED_FORMAT, baseTagAssociation.getTag().getId(), entityUrn))
+          .tagUrn(baseTagAssociation.getTag())
+          .auditStamp(auditStamp)
           .build());
       ++baseTagIdx;
     }
     while (targetTagIdx < targetTags.size()) {
       // Handle newly added tags.
       TagAssociation targetTagAssociation = targetTags.get(targetTagIdx);
-      changeEvents.add(ChangeEvent.builder()
-          .elementId(targetTagAssociation.getTag().toString())
-          .target(entityUrn)
+      changeEvents.add(TagChangeEvent.entityTagChangeEventBuilder()
+          .modifier(targetTagAssociation.getTag().toString())
+          .entityUrn(entityUrn)
           .category(ChangeCategory.TAG)
-          .changeType(ChangeOperation.ADD)
+          .operation(ChangeOperation.ADD)
           .semVerChange(SemanticChangeType.MINOR)
           .description(String.format(TAG_ADDED_FORMAT, targetTagAssociation.getTag().getId(), entityUrn))
+          .tagUrn(targetTagAssociation.getTag())
+          .auditStamp(auditStamp)
           .build());
       ++targetTagIdx;
     }
@@ -123,7 +134,7 @@ public class GlobalTagsDiffer implements Differ {
     GlobalTags targetGlobalTags = getGlobalTagsFromAspect(currentValue);
     List<ChangeEvent> changeEvents = new ArrayList<>();
     if (element == ChangeCategory.TAG) {
-      changeEvents.addAll(computeDiffs(baseGlobalTags, targetGlobalTags, currentValue.getUrn()));
+      changeEvents.addAll(computeDiffs(baseGlobalTags, targetGlobalTags, currentValue.getUrn(), null));
     }
 
     // Assess the highest change at the transaction(schema) level.
@@ -141,5 +152,16 @@ public class GlobalTagsDiffer implements Differ {
         .rawDiff(rawDiffsRequested ? rawDiff : null)
         .actor(currentValue.getCreatedBy())
         .build();
+  }
+
+  @Override
+  public List<ChangeEvent> getChangeEvents(
+      @Nonnull Urn urn,
+      @Nonnull String entity,
+      @Nonnull String aspect,
+      @Nonnull Aspect<GlobalTags> from,
+      @Nonnull Aspect<GlobalTags> to,
+      @Nonnull AuditStamp auditStamp) {
+    return computeDiffs(from.getValue(), to.getValue(), urn.toString(), auditStamp);
   }
 }

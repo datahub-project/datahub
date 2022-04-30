@@ -64,6 +64,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             entityType={EntityType.MlmodelGroup}
             useEntityQuery={useGetMlModelGroupQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
+            showDeprecateOption
             tabs={[
                 {
                     name: 'Models',

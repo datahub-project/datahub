@@ -36,10 +36,12 @@ class AzureADConfig(ConfigModel):
     client_id: str
     tenant_id: str
     client_secret: str
-    redirect: str
     authority: str
     token_url: str
-    graph_url: str
+
+    # Optional: URLs for redirect and hitting the Graph API
+    redirect: str = "https://login.microsoftonline.com/common/oauth2/nativeclient"
+    graph_url: str = "https://graph.microsoft.com/v1.0"
 
     # Optional: Customize the mapping to DataHub Username from an attribute in the REST API response
     # Reference: https://docs.microsoft.com/en-us/graph/api/user-list?view=graph-rest-1.0&tabs=http#response-1
@@ -62,6 +64,10 @@ class AzureADConfig(ConfigModel):
 
     # If enabled, report will contain names of filtered users and groups.
     filtered_tracking: bool = True
+
+    # Optional: Whether to mask sensitive information from workunit ID's. On by default.
+    mask_group_id: bool = True
+    mask_user_id: bool = True
 
 
 @dataclass
@@ -134,11 +140,18 @@ class AzureADSource(Source):
                 datahub_corp_group_snapshots = self._map_azure_ad_groups(
                     azure_ad_groups
                 )
-                for datahub_corp_group_snapshot in datahub_corp_group_snapshots:
+                for group_count, datahub_corp_group_snapshot in enumerate(
+                    datahub_corp_group_snapshots
+                ):
                     mce = MetadataChangeEvent(
                         proposedSnapshot=datahub_corp_group_snapshot
                     )
-                    wu = MetadataWorkUnit(id=datahub_corp_group_snapshot.urn, mce=mce)
+                    wu_id = (
+                        f"group-{group_count + 1}"
+                        if self.config.mask_group_id
+                        else datahub_corp_group_snapshot.urn
+                    )
+                    wu = MetadataWorkUnit(id=wu_id, mce=mce)
                     self.report.report_workunit(wu)
                     yield wu
 
@@ -216,8 +229,9 @@ class AzureADSource(Source):
                         user_urn_to_group_membership,
                     )
                 else:
-                    raise ValueError(
-                        f"Unsupported @odata.type '{odata_type}' found in Azure group member"
+                    # Unless told otherwise, we only care about users and groups.  Silently skip other object types.
+                    logger.warning(
+                        f"Unsupported @odata.type '{odata_type}' found in Azure group member. Skipping...."
                     )
 
     def _add_user_to_group_membership(
@@ -241,7 +255,9 @@ class AzureADSource(Source):
         datahub_corp_user_snapshots: Generator[CorpUserSnapshot, Any, None],
         datahub_corp_user_urn_to_group_membership: dict,
     ) -> Generator[MetadataWorkUnit, Any, None]:
-        for datahub_corp_user_snapshot in datahub_corp_user_snapshots:
+        for user_count, datahub_corp_user_snapshot in enumerate(
+            datahub_corp_user_snapshots
+        ):
             # Add GroupMembership if applicable
             if (
                 datahub_corp_user_snapshot.urn
@@ -255,7 +271,12 @@ class AzureADSource(Source):
                 assert datahub_group_membership
                 datahub_corp_user_snapshot.aspects.append(datahub_group_membership)
             mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_user_snapshot)
-            wu = MetadataWorkUnit(id=datahub_corp_user_snapshot.urn, mce=mce)
+            wu_id = (
+                f"user-{user_count + 1}"
+                if self.config.mask_user_id
+                else datahub_corp_user_snapshot.urn
+            )
+            wu = MetadataWorkUnit(id=wu_id, mce=mce)
             self.report.report_workunit(wu)
             yield wu
 

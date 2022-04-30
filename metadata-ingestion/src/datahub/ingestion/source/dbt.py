@@ -10,7 +10,6 @@ from pydantic import validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.emitter import mce_builder
-from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_state_provider import JobId
@@ -99,7 +98,7 @@ class DBTConfig(StatefulIngestionConfigBase):
     manifest_path: str
     catalog_path: str
     sources_path: Optional[str]
-    env: str = DEFAULT_ENV
+    env: str = mce_builder.DEFAULT_ENV
     target_platform: str
     load_schemas: bool = True
     use_identifiers: bool = False
@@ -109,8 +108,11 @@ class DBTConfig(StatefulIngestionConfigBase):
     disable_dbt_node_creation = False
     meta_mapping: Dict = {}
     enable_meta_mapping = True
+    query_tag_mapping: Dict = {}
+    enable_query_tag_mapping = True
     write_semantics: str = "PATCH"
     strip_user_ids_from_email: bool = False
+    owner_extraction_pattern: Optional[str]
 
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[DBTStatefulIngestionConfig] = None
@@ -173,6 +175,7 @@ class DBTNode:
     upstream_nodes: List[str] = field(default_factory=list)
 
     meta: Dict[str, Any] = field(default_factory=dict)
+    query_tag: Dict[str, Any] = field(default_factory=dict)
 
     tags: List[str] = field(default_factory=list)
 
@@ -266,6 +269,8 @@ def extract_dbt_entities(
         else:
             catalog_type = all_catalog_entities[key]["metadata"]["type"]
 
+        query_tag_props = manifest_node.get("query_tag", {})
+
         meta = manifest_node.get("meta", {})
 
         owner = meta.get("owner")
@@ -293,6 +298,7 @@ def extract_dbt_entities(
             catalog_type=catalog_type,
             columns=[],
             meta=meta_props,
+            query_tag=query_tag_props,
             tags=tags,
             owner=owner,
         )
@@ -406,7 +412,7 @@ def get_urn_from_dbtNode(
     database: Optional[str], schema: str, name: str, target_platform: str, env: str
 ) -> str:
     db_fqn = get_db_fqn(database, schema, name)
-    return f"urn:li:dataset:(urn:li:dataPlatform:{target_platform},{db_fqn},{env})"
+    return mce_builder.make_dataset_urn(target_platform, db_fqn, env)
 
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
@@ -560,7 +566,10 @@ def get_schema_metadata(
         globalTags = None
         if column.tags:
             globalTags = GlobalTagsClass(
-                tags=[TagAssociationClass(f"urn:li:tag:{tag}") for tag in column.tags]
+                tags=[
+                    TagAssociationClass(mce_builder.make_tag_urn(tag))
+                    for tag in column.tags
+                ]
             )
 
         field = SchemaField(
@@ -577,7 +586,7 @@ def get_schema_metadata(
 
     last_modified = None
     if node.max_loaded_at is not None:
-        actor = "urn:li:corpuser:dbt_executor"
+        actor = mce_builder.make_user_urn("dbt_executor")
         last_modified = AuditStamp(
             time=int(dateutil.parser.parse(node.max_loaded_at).timestamp() * 1000),
             actor=actor,
@@ -585,7 +594,7 @@ def get_schema_metadata(
 
     return SchemaMetadata(
         schemaName=node.dbt_name,
-        platform=f"urn:li:dataPlatform:{platform}",
+        platform=mce_builder.make_data_platform_urn(platform),
         version=0,
         hash="",
         platformSchema=MySqlDDL(tableSchema=""),
@@ -607,6 +616,11 @@ class DBTSource(StatefulIngestionSourceBase):
         self.config: DBTConfig = config
         self.platform: str = platform
         self.report: DBTSourceReport = DBTSourceReport()
+        self.compiled_owner_extraction_pattern: Optional[Any] = None
+        if self.config.owner_extraction_pattern:
+            self.compiled_owner_extraction_pattern = re.compile(
+                self.config.owner_extraction_pattern
+            )
 
     # TODO: Consider refactoring this logic out for use across sources as it is leading to a significant amount of
     #  code duplication.
@@ -757,6 +771,13 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.strip_user_ids_from_email,
         )
 
+        action_processor_tag = OperationProcessor(
+            self.config.query_tag_mapping,
+            self.config.tag_prefix,
+            "SOURCE_CONTROL",
+            self.config.strip_user_ids_from_email,
+        )
+
         for node in dbt_nodes:
             node_datahub_urn = get_urn_from_dbtNode(
                 node.database,
@@ -765,21 +786,14 @@ class DBTSource(StatefulIngestionSourceBase):
                 mce_platform,
                 self.config.env,
             )
-            if self.is_stateful_ingestion_configured():
-                cur_checkpoint = self.get_current_checkpoint(
-                    self.get_default_ingestion_job_id()
-                )
-
-                if cur_checkpoint is not None:
-                    # Utilizing BaseSQLAlchemyCheckpointState class to save state
-                    checkpoint_state = cast(
-                        BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-                    )
-                    checkpoint_state.add_table_urn(node_datahub_urn)
+            self.save_checkpoint(node_datahub_urn)
 
             meta_aspects: Dict[str, Any] = {}
             if self.config.enable_meta_mapping and node.meta:
                 meta_aspects = action_processor.process(node.meta)
+
+            if self.config.enable_query_tag_mapping and node.query_tag:
+                self.extract_query_tag_aspects(action_processor_tag, meta_aspects, node)
 
             aspects = self._generate_base_aspects(
                 node, additional_custom_props_filtered, mce_platform, meta_aspects
@@ -847,14 +861,31 @@ class DBTSource(StatefulIngestionSourceBase):
             self.report.report_workunit(wu)
             yield wu
 
-            # TODO: Remove. keeping this till PR review
-            # for meta_mcpw in meta_mcpw_list:
-            #     meta_wu = MetadataWorkUnit(
-            #         id=f"{self.platform}-{meta_mcpw.entityUrn}-{meta_mcpw.aspectName}",
-            #         mcp=meta_mcpw,
-            #     )
-            #     yield meta_wu
-            #     self.report.report_workunit(meta_wu)
+    def save_checkpoint(self, node_datahub_urn: str) -> None:
+        if self.is_stateful_ingestion_configured():
+            cur_checkpoint = self.get_current_checkpoint(
+                self.get_default_ingestion_job_id()
+            )
+
+            if cur_checkpoint is not None:
+                # Utilizing BaseSQLAlchemyCheckpointState class to save state
+                checkpoint_state = cast(
+                    BaseSQLAlchemyCheckpointState, cur_checkpoint.state
+                )
+                checkpoint_state.add_table_urn(node_datahub_urn)
+
+    def extract_query_tag_aspects(
+        self,
+        action_processor_tag: OperationProcessor,
+        meta_aspects: Dict[str, Any],
+        node: DBTNode,
+    ) -> None:
+        query_tag_aspects = action_processor_tag.process(node.query_tag)
+        if "add_tag" in query_tag_aspects:
+            if "add_tag" in meta_aspects:
+                meta_aspects["add_tag"].tags.extend(query_tag_aspects["add_tag"].tags)
+            else:
+                meta_aspects["add_tag"] = query_tag_aspects["add_tag"]
 
     def get_aspect_from_dataset(
         self, dataset_snapshot: DatasetSnapshot, aspect_type: type
@@ -900,7 +931,7 @@ class DBTSource(StatefulIngestionSourceBase):
             transformed_tag_list = self.get_transformed_tags_by_prefix(
                 tag_aspect.tags,
                 mce.proposedSnapshot.urn,
-                f"urn:li:tag:{self.config.tag_prefix}",
+                mce_builder.make_tag_urn(self.config.tag_prefix),
             )
             tag_aspect.tags = transformed_tag_list
 
@@ -939,17 +970,6 @@ class DBTSource(StatefulIngestionSourceBase):
             name=node.name,
         )
         return dbt_properties
-
-    def _get_owners_aspect(self, node: DBTNode) -> OwnershipClass:
-        owners = [
-            OwnerClass(
-                owner=f"urn:li:corpuser:{node.owner}",
-                type=OwnershipTypeClass.DATAOWNER,
-            )
-        ]
-        return OwnershipClass(
-            owners=owners,
-        )
 
     def _create_view_properties_aspect(self, node: DBTNode) -> ViewPropertiesClass:
         materialized = node.materialization in {"table", "incremental"}
@@ -1026,14 +1046,29 @@ class DBTSource(StatefulIngestionSourceBase):
     ) -> List[OwnerClass]:
         owner_list: List[OwnerClass] = []
         if node.owner:
+            owner: str = node.owner
+            if self.compiled_owner_extraction_pattern:
+                match: Optional[Any] = re.match(
+                    self.compiled_owner_extraction_pattern, owner
+                )
+                if match:
+                    owner = match.group("owner")
+                    logger.debug(
+                        f"Owner after applying owner extraction pattern:'{self.config.owner_extraction_pattern}' is '{owner}'."
+                    )
+            if self.config.strip_user_ids_from_email:
+                owner = owner.split("@")[0]
+                logger.debug(f"Owner (after stripping email):{owner}")
+
             owner_list.append(
                 OwnerClass(
-                    owner=f"urn:li:corpuser:{node.owner}",
+                    owner=mce_builder.make_user_urn(owner),
                     type=OwnershipTypeClass.DATAOWNER,
                 )
             )
+
         if meta_owner_aspects and self.config.enable_meta_mapping:
-            owner_list += meta_owner_aspects.owners
+            owner_list.extend(meta_owner_aspects.owners)
 
         owner_list = sorted(owner_list, key=lambda x: x.owner)
         return owner_list

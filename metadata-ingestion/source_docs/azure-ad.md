@@ -78,6 +78,10 @@ to read your organization's Users and Groups. The following permissions are requ
 - `GroupMember.Read.All`
 - `User.Read.All`
 
+You can add a permission by navigating to the permissions tab in your DataHub application on the Azure AD portal. ![Azure AD API Permissions](./images/azure_ad_api_permissions.png)
+
+You can view the necessary endpoints to configure by clicking on the Endpoints button in the Overview tab. ![Azure AD Endpoints](./images/azure_ad_endpoints.png)
+
 You can use the following recipe to get started with Azure ingestion! See [below](#config-details) for full configuration options.
 
 ```yml
@@ -88,9 +92,10 @@ source:
     client_id: "00000000-0000-0000-0000-000000000000"
     tenant_id: "00000000-0000-0000-0000-000000000000"
     client_secret: "xxxxx"
-    redirect: "https://login.microsoftonline.com/common/oauth2/nativeclient"
     authority: "https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000"
     token_url: "https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2/token"
+    # All of the below parameters are optional.
+    redirect: "https://login.microsoftonline.com/common/oauth2/nativeclient"
     graph_url: "https://graph.microsoft.com/v1.0"
     ingest_users: True
     ingest_groups: True
@@ -112,27 +117,29 @@ For general pointers on writing and running a recipe, see our [main recipe guide
 
 Note that a `.` is used to denote nested fields in the YAML configuration block.
 
-| Field                              | Type   | Required | Default     | Description                                                                                                     |
-|------------------------------------|--------|----------|-------------|-----------------------------------------------------------------------------------------------------------------|
-| `client_id`                     | string   | ✅          | |  Application ID. Found in your app registration on Azure AD Portal       |                                                         
-| `tenant_id`                     | string   | ✅          |       | Directory ID. Found in your app registration on Azure AD Portal       |                                     
-| `client_secret`                     | string   | ✅           |       | Client secret. Found in your app registration on Azure AD Portal       |                                  
-| `redirect`                     | string   | ✅          |       | Redirect URI.  Found in your app registration on Azure AD Portal       |                                  
-| `authority`                     | string   | ✅          |       | The [authority](https://docs.microsoft.com/en-us/azure/active-directory/develop/msal-client-application-configuration) is a URL that indicates a directory that MSAL can request tokens from. |
-| `token_url`                     | string   | ✅          |       | The token URL that acquires a token from Azure AD for authorizing requests.  This source will only work with v1.0 endpoint. |
-| `graph_url`                     | string   | ✅          |       | [Microsoft Graph API endpoint](https://docs.microsoft.com/en-us/graph/use-the-api)
-| `ingest_users`                     | bool   |          | `True`      | Whether users should be ingested into DataHub.                                                                  |
-| `ingest_groups`                    | bool   |          | `True`      | Whether groups should be ingested into DataHub.                                                                 |
-| `ingest_group_membership`          | bool   |          | `True`      | Whether group membership should be ingested into DataHub. ingest_groups must be True if this is True.           |
-| `azure_ad_response_to_username_attr`    | string |          | `"userPrincipalName"`   | Which Azure AD User Response attribute to use as input to DataHub username mapping.                                  |
-| `azure_ad_response_to_username_regex`   | string |          | `"(.*)"` | A regex used to parse the DataHub username from the attribute specified in `azure_ad_response_to_username_attr`.     |
-| `users_pattern.allow`                 |  list of strings    |             |       | List of regex patterns for users to include in ingestion. The name against which compare the regexp is the DataHub user name, i.e. the one resulting from the action of `azure_ad_response_to_username_attr` and `azure_ad_response_to_username_regex`   |
-| `users_pattern.deny`                  | list of strings     |             |       | As above, but for excluding users from ingestion.                                                                                                                           |
-| `azure_ad_response_to_groupname_attr`  | string |          | `"name"`    | Which Azure AD Group Response attribute to use as input to DataHub group name mapping.                               |
-| `azure_ad_response_to_groupname_regex` | string |          | `"(.*)"`    | A regex used to parse the DataHub group name from the attribute specified in `azure_ad_response_to_groupname_attr`. |
-| `groups_pattern.allow`                 |  list of strings  |             |       | List of regex patterns for groups to include in ingestion. The name against which compare the regexp is the DataHub group name, i.e. the one resulting from the action of `azure_ad_response_to_groupname_attr` and `azure_ad_response_to_groupname_regex`   |
-| `groups_pattern.deny`                  |  list of strings  |             |       | As above, but for exculing groups from ingestion.                                                                                                                           |
-| `ingest_groups_users`                  | bool              |             | `True`             | This option is useful only when `ingest_users` is set to False and `ingest_group_membership` to True. As effect, only the users which belongs to the selected groups will be ingested. |
+| Field                                  | Type            | Required | Default               | Description                                                                                                                                                                                                                                                |
+|----------------------------------------|-----------------|----------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `client_id`                            | string          | ✅        |                       | Application ID. Found in your app registration on Azure AD Portal                                                                                                                                                                                          |                                                         
+| `tenant_id`                            | string          | ✅        |                       | Directory ID. Found in your app registration on Azure AD Portal                                                                                                                                                                                            |                                     
+| `client_secret`                        | string          | ✅        |                       | Client secret. Found in your app registration on Azure AD Portal                                                                                                                                                                                           |                                                                    
+| `authority`                            | string          | ✅        |                       | The [authority](https://docs.microsoft.com/en-us/azure/active-directory/develop/msal-client-application-configuration) is a URL that indicates a directory that MSAL can request tokens from.                                                              |
+| `token_url`                            | string          | ✅        |                       | The token URL that acquires a token from Azure AD for authorizing requests.  This source will only work with v1.0 endpoint.                                                                                                                                |
+| `redirect`                             | string          |          |                       | Redirect URI.  Found in your app registration on Azure AD Portal. Defaults to https://login.microsoftonline.com/common/oauth2/nativeclient.                                                                                                                |
+| `graph_url`                            | string          |          |                       | [Microsoft Graph API endpoint](https://docs.microsoft.com/en-us/graph/use-the-api). Defaults to https://graph.microsoft.com/v1.0.                                                                                                                          |
+| `ingest_users`                         | bool            |          | `True`                | Whether users should be ingested into DataHub.                                                                                                                                                                                                             |
+| `ingest_groups`                        | bool            |          | `True`                | Whether groups should be ingested into DataHub.                                                                                                                                                                                                            |
+| `ingest_group_membership`              | bool            |          | `True`                | Whether group membership should be ingested into DataHub. ingest_groups must be True if this is True.                                                                                                                                                      |
+| `azure_ad_response_to_username_attr`   | string          |          | `"userPrincipalName"` | Which Azure AD User Response attribute to use as input to DataHub username mapping.                                                                                                                                                                        |
+| `azure_ad_response_to_username_regex`  | string          |          | `"(.*)"`              | A regex used to parse the DataHub username from the attribute specified in `azure_ad_response_to_username_attr`.                                                                                                                                           |
+| `users_pattern.allow`                  | list of strings |          |                       | List of regex patterns for users to include in ingestion. The name against which compare the regexp is the DataHub user name, i.e. the one resulting from the action of `azure_ad_response_to_username_attr` and `azure_ad_response_to_username_regex`     |
+| `users_pattern.deny`                   | list of strings |          |                       | As above, but for excluding users from ingestion.                                                                                                                                                                                                          |
+| `azure_ad_response_to_groupname_attr`  | string          |          | `"name"`              | Which Azure AD Group Response attribute to use as input to DataHub group name mapping.                                                                                                                                                                     |
+| `azure_ad_response_to_groupname_regex` | string          |          | `"(.*)"`              | A regex used to parse the DataHub group name from the attribute specified in `azure_ad_response_to_groupname_attr`.                                                                                                                                        |
+| `groups_pattern.allow`                 | list of strings |          |                       | List of regex patterns for groups to include in ingestion. The name against which compare the regexp is the DataHub group name, i.e. the one resulting from the action of `azure_ad_response_to_groupname_attr` and `azure_ad_response_to_groupname_regex` |
+| `groups_pattern.deny`                  | list of strings |          |                       | As above, but for exculing groups from ingestion.                                                                                                                                                                                                          |
+| `ingest_groups_users`                  | bool            |          | `True`                | This option is useful only when `ingest_users` is set to False and `ingest_group_membership` to True. As effect, only the users which belongs to the selected groups will be ingested.                                                                     |
+| `mask_group_id`                        | bool            |          | `True`                | Whether workunit ID's for groups should be masked.                                                                                                                                                                                                         |
+| `mask_user_id`                         | bool            |          | `True`                | Whether workunit ID's for users should be masked.                                                                                                                                                                                                          |
 
 ## Questions
 

@@ -11,7 +11,8 @@ source:
         okta_domain: # Your Okta Domain, e.g. "dev-35531955.okta.com"
 
         # Credentials
-        okta_api_token: # Your Okta API Token, e.g. "11be4R_M2MzDqXawbTHfKGpKee0kuEOfX1RCQSRx99"
+        # Add secret in Secrets Tab with relevant names for each variable
+        okta_api_token: "\${OKTA_API_TOKEN}" # Your Okta API Token, e.g. "11be4R_M2MzDqXawbTHfKGpKee0kuEOfX1RCQSRx99"
 
         # Optional flags to ingest users, groups, or both
         ingest_users: True
@@ -33,7 +34,9 @@ source:
 sink: 
     type: datahub-rest 
     config: 
-        server: "${baseUrl}/api/gms"`;
+        server: "${baseUrl}/api/gms"
+        # Add a secret in secrets Tab
+        token: "\${GMS_TOKEN}"`;
 
 const oktaConfig: SourceConfig = {
     type: 'okta',

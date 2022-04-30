@@ -1389,7 +1389,7 @@
                     "com.linkedin.pegasus2avro.common.Ownership": {
                         "owners": [
                             {
-                                "owner": "urn:li:corpuser:@bob",
+                                "owner": "urn:li:corpuser:bob",
                                 "type": "DATAOWNER",
                                 "source": null
                             }
@@ -2056,7 +2056,7 @@
                     "com.linkedin.pegasus2avro.common.Ownership": {
                         "owners": [
                             {
-                                "owner": "urn:li:corpuser:@charles",
+                                "owner": "urn:li:corpuser:charles",
                                 "type": "DATAOWNER",
                                 "source": null
                             }
