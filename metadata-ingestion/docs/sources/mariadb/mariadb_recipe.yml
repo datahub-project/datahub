@@ -9,5 +9,4 @@ source:
     username: root
     password: example
 
-sink:
-  # sink configs
+# sink configs

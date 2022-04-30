@@ -433,9 +433,9 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:  # noqa: C
             # )
 
             source_registry._ensure_not_lazy(plugin_name)
-            print(plugin_name)
+            logger.debug(f"Processing {plugin_name}")
             source_type = source_registry.get(plugin_name)
-            print(source_type)
+            logger.debug(f"Source class is {source_type}")
             extra_plugin = plugin_name if does_extra_exist(plugin_name) else None
             extra_deps = (
                 get_additional_deps_for_extra(extra_plugin) if extra_plugin else []
@@ -536,7 +536,7 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:  # noqa: C
                     f.write("<tr>\n")
                     f.write(f"<td>\n\n`{plugin}`\n\n</td>\n")
                     f.write(
-                        f"<td>\n\n\n{platform_docs['plugins'][plugin]['source_doc']} [Read more...](#module-{plugin})\n\n\n</td>\n"
+                        f"<td>\n\n\n{platform_docs['plugins'][plugin].get('source_doc') or ''} [Read more...](#module-{plugin})\n\n\n</td>\n"
                     )
                     f.write("</tr>\n")
                 #                    f.write(
@@ -564,9 +564,9 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:  # noqa: C
                         )
                     f.write("\n")
 
-                f.write(f"{plugin_docs['source_doc'] or ''}\n")
+                f.write(f"{plugin_docs.get('source_doc') or ''}\n")
                 f.write("### Install the Plugin\n")
-                if plugin_docs["extra_deps"]:
+                if plugin_docs.get("extra_deps"):
                     f.write("```shell\n")
                     f.write(f"pip install 'acryl-datahub[{plugin}]`\n")
                     f.write("```\n")
@@ -585,16 +585,17 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:  # noqa: C
                     f.write("```yaml\n")
                     f.write(plugin_docs["recipe"])
                     f.write("\n```\n")
-                f.write("\n### Config Details\n")
-                f.write(
-                    "Note that a `.` is used to denote nested fields in the YAML recipe.\n\n"
-                )
-                f.write(
-                    "\n<details>\n<summary>View All Configuration Options</summary>\n\n"
-                )
-                for doc in plugin_docs["config"]:
-                    f.write(doc)
-                f.write("\n</details>\n\n")
+                if "config" in plugin_docs:
+                    f.write("\n### Config Details\n")
+                    f.write(
+                        "Note that a `.` is used to denote nested fields in the YAML recipe.\n\n"
+                    )
+                    f.write(
+                        "\n<details>\n<summary>View All Configuration Options</summary>\n\n"
+                    )
+                    for doc in plugin_docs["config"]:
+                        f.write(doc)
+                    f.write("\n</details>\n\n")
                 # insert custom plugin docs after config details
                 f.write(plugin_docs.get("custom_docs", ""))
 
