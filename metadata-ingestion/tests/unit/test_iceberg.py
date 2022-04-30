@@ -1,12 +1,12 @@
+import sys
 from typing import Any
 
 import pytest
 
-try:
-    from iceberg.api import types as IcebergTypes
-    from iceberg.api.types.types import NestedField
-except ImportError:
-    pytest.skip("iceberg not available", allow_module_level=True)
+if sys.version_info < (3, 7):
+    pytest.skip("iceberg not available for python < 3.7", allow_module_level=True)
+from iceberg.api import types as IcebergTypes
+from iceberg.api.types.types import NestedField
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.azure.azure_common import AdlsSourceConfig
