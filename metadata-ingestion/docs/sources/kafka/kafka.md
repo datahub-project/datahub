@@ -1,12 +1,6 @@
-### Capabilities
-
-| Capability        | Status | Details                                  | 
-|-------------------|--------|------------------------------------------|
-| Platform Instance | ✔️ | [link](../../../platform-instances.md) |
-| Data Domains      | ✔️     | [link](../../../domains.md)            |
-| Stateful Ingestion | ✔️ | [link](../../../../metadata-ingestion/source_docs/stateful_ingestion.md)
-
+:::note
 Stateful Ingestion is available only when a Platform Instance is assigned to this source.
+:::
 
 ### Connecting to Confluent Cloud
 
@@ -106,6 +100,5 @@ source:
       bootstrap: "broker:9092"
       schema_registry_url: http://localhost:8081
 
-sink:
-  # sink configs
+# sink configs
 ```

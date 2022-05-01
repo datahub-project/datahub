@@ -50,7 +50,7 @@ class PostgresConfig(BasicSQLAlchemyConfig):
         return regular
 
 
-@platform_name("PostgreSQL")
+@platform_name("Postgres")
 @config_class(PostgresConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DOMAINS, "Enabled by default")
@@ -64,7 +64,7 @@ class PostgresSource(SQLAlchemySource):
     - Column types associated with each table
     - Also supports PostGIS extensions
     - database_alias (optional) can be used to change the name of database to be ingested
-    - Table, row, and column statistics via optional [SQL profiling](../../../../metadata-ingestion/source_docs/sql_profiles.md)
+    - Table, row, and column statistics via optional SQL profiling
     """
 
     def __init__(self, config, ctx):

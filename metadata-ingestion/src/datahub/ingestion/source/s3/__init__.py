@@ -187,7 +187,7 @@ class TableData:
     table_path: str
 
 
-@platform_name("S3 Data Lake")
+@platform_name("S3 Data Lake", id="s3")
 @config_class(DataLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")

@@ -63,45 +63,44 @@ We use a plugin architecture so that you can install only the dependencies you a
 
 | Plugin Name                                                                         | Install Command                                            | Provides                            |
 |-------------------------------------------------------------------------------------|------------------------------------------------------------| ----------------------------------- |
-| [file](../metadata-ingestion/source_docs/file.md)                                   | _included by default_                                      | File source and sink                |
-| [athena](../metadata-ingestion/source_docs/athena.md)                               | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
-| [bigquery](../metadata-ingestion/source_docs/bigquery.md)                           | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
-| [bigquery-usage](../metadata-ingestion/source_docs/bigquery.md)                     | `pip install 'acryl-datahub[bigquery-usage]'`              | BigQuery usage statistics source    |
-| [datahub-lineage-file](../metadata-ingestion/source_docs/file_lineage.md)           | _no additional dependencies_                               | Lineage File source                 |
-| [datahub-business-glossary](../metadata-ingestion/source_docs/business_glossary.md) | _no additional dependencies_                               | Business Glossary File source       |
-| [dbt](../metadata-ingestion/source_docs/dbt.md)                                     | _no additional dependencies_                               | dbt source                          |
-| [druid](../metadata-ingestion/source_docs/druid.md)                                 | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
-| [feast-legacy](../metadata-ingestion/source_docs/feast_legacy.md)                   | `pip install 'acryl-datahub[feast-legacy]'`                | Feast source (legacy)               |
-| [feast](../metadata-ingestion/source_docs/feast.md)                                 | `pip install 'acryl-datahub[feast]'`                       | Feast source (0.18.0)               |
-| [glue](../metadata-ingestion/source_docs/glue.md)                                   | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
-| [hive](../metadata-ingestion/source_docs/hive.md)                                   | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
-| [kafka](../metadata-ingestion/source_docs/kafka.md)                                 | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
-| [kafka-connect](../metadata-ingestion/source_docs/kafka-connect.md)                 | `pip install 'acryl-datahub[kafka-connect]'`               | Kafka connect source                |
-| [ldap](../metadata-ingestion/source_docs/ldap.md)                                   | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
-| [looker](../metadata-ingestion/source_docs/looker.md)                               | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
-| [lookml](../metadata-ingestion/source_docs/lookml.md)                               | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
-| [metabase](../metadata-ingestion/source_docs/metabase.md)                           | `pip install 'acryl-datahub[metabase]'`                    | Metabase source                     |
-| [mode](../metadata-ingestion/source_docs/mode.md)                                   | `pip install 'acryl-datahub[mode]'`                        | Mode Analytics source               |
-| [mongodb](../metadata-ingestion/source_docs/mongodb.md)                             | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
-| [mssql](../metadata-ingestion/source_docs/mssql.md)                                 | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
-| [mysql](../metadata-ingestion/source_docs/mysql.md)                                 | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                        |
-| [mariadb](../metadata-ingestion/source_docs/mariadb.md)                             | `pip install 'acryl-datahub[mariadb]'`                     | MariaDB source                      |
-| [openapi](../metadata-ingestion/source_docs/openapi.md)                             | `pip install 'acryl-datahub[openapi]'`                     | OpenApi Source                      |
-| [oracle](../metadata-ingestion/source_docs/oracle.md)                               | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
-| [postgres](../metadata-ingestion/source_docs/postgres.md)                           | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                     |
-| [redash](../metadata-ingestion/source_docs/redash.md)                               | `pip install 'acryl-datahub[redash]'`                      | Redash source                       |
-| [redshift](../metadata-ingestion/source_docs/redshift.md)                           | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
-| [sagemaker](../metadata-ingestion/source_docs/sagemaker.md)                         | `pip install 'acryl-datahub[sagemaker]'`                   | AWS SageMaker source                |
-| [snowflake](../metadata-ingestion/source_docs/snowflake.md)                         | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
-| [snowflake-usage](../metadata-ingestion/source_docs/snowflake.md)                   | `pip install 'acryl-datahub[snowflake-usage]'`             | Snowflake usage statistics source   |
-| [sql-profiles](../metadata-ingestion/source_docs/sql_profiles.md)                   | `pip install 'acryl-datahub[sql-profiles]'`                | Data profiles for SQL-based systems |
-| [sqlalchemy](../metadata-ingestion/source_docs/sqlalchemy.md)                       | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
-| [superset](../metadata-ingestion/source_docs/superset.md)                           | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
-| [tableau](../metadata-ingestion/source_docs/tableau.md)                             | `pip install 'acryl-datahub[tableau]'`                     | Tableau source                      |
-| [trino](../metadata-ingestion/source_docs/trino.md)                                 | `pip install 'acryl-datahub[trino]'`                       | Trino source                        |
-| [starburst-trino-usage](../metadata-ingestion/source_docs/trino.md)                 | `pip install 'acryl-datahub[starburst-trino-usage]'`       | Starburst Trino usage statistics source |
-| [nifi](../metadata-ingestion/source_docs/nifi.md)                                   | `pip install 'acryl-datahub[nifi]'`                        | Nifi source                         |
-| [powerbi](../metadata-ingestion/source_docs/powerbi.md)                             | `pip install 'acryl-datahub[powerbi]'`                     | Microsoft Power BI source           |
+| [file](./generated/ingestion/sources/file.md)                                   | _included by default_                                      | File source and sink                |
+| [athena](./generated/ingestion/sources/athena.md)                               | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
+| [bigquery](./generated/ingestion/sources/bigquery.md)                           | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
+| [bigquery-usage](./generated/ingestion/sources/bigquery.md#module-bigquery-usage)                     | `pip install 'acryl-datahub[bigquery-usage]'`              | BigQuery usage statistics source    |
+| [datahub-lineage-file](./generated/ingestion/sources/file-based-lineage.md)           | _no additional dependencies_                               | Lineage File source                 |
+| [datahub-business-glossary](./generated/ingestion/sources/business-glossary.md) | _no additional dependencies_                               | Business Glossary File source       |
+| [dbt](./generated/ingestion/sources/dbt.md)                                     | _no additional dependencies_                               | dbt source                          |
+| [druid](./generated/ingestion/sources/druid.md)                                 | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
+| [feast-legacy](./generated/ingestion/sources/feast.md#module-feast-legacy)                   | `pip install 'acryl-datahub[feast-legacy]'`                | Feast source (legacy)               |
+| [feast](./generated/ingestion/sources/feast.md)                                 | `pip install 'acryl-datahub[feast]'`                       | Feast source (0.18.0)               |
+| [glue](./generated/ingestion/sources/glue.md)                                   | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
+| [hive](./generated/ingestion/sources/hive.md)                                   | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
+| [kafka](./generated/ingestion/sources/kafka.md)                                 | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
+| [kafka-connect](./generated/ingestion/sources/kafka-connect.md)                 | `pip install 'acryl-datahub[kafka-connect]'`               | Kafka connect source                |
+| [ldap](./generated/ingestion/sources/ldap.md)                                   | `pip install 'acryl-datahub[ldap]'` ([extra requirements]) | LDAP source                         |
+| [looker](./generated/ingestion/sources/looker.md)                               | `pip install 'acryl-datahub[looker]'`                      | Looker source                       |
+| [lookml](./generated/ingestion/sources/looker.md#module-lookml)                               | `pip install 'acryl-datahub[lookml]'`                      | LookML source, requires Python 3.7+ |
+| [metabase](./generated/ingestion/sources/metabase.md)                           | `pip install 'acryl-datahub[metabase]'`                    | Metabase source                     |
+| [mode](./generated/ingestion/sources/mode.md)                                   | `pip install 'acryl-datahub[mode]'`                        | Mode Analytics source               |
+| [mongodb](./generated/ingestion/sources/mongodb.md)                             | `pip install 'acryl-datahub[mongodb]'`                     | MongoDB source                      |
+| [mssql](./generated/ingestion/sources/mssql.md)                                 | `pip install 'acryl-datahub[mssql]'`                       | SQL Server source                   |
+| [mysql](./generated/ingestion/sources/mysql.md)                                 | `pip install 'acryl-datahub[mysql]'`                       | MySQL source                        |
+| [mariadb](./generated/ingestion/sources/mariadb.md)                             | `pip install 'acryl-datahub[mariadb]'`                     | MariaDB source                      |
+| [openapi](./generated/ingestion/sources/openapi.md)                             | `pip install 'acryl-datahub[openapi]'`                     | OpenApi Source                      |
+| [oracle](./generated/ingestion/sources/oracle.md)                               | `pip install 'acryl-datahub[oracle]'`                      | Oracle source                       |
+| [postgres](./generated/ingestion/sources/postgres.md)                           | `pip install 'acryl-datahub[postgres]'`                    | Postgres source                     |
+| [redash](./generated/ingestion/sources/redash.md)                               | `pip install 'acryl-datahub[redash]'`                      | Redash source                       |
+| [redshift](./generated/ingestion/sources/redshift.md)                           | `pip install 'acryl-datahub[redshift]'`                    | Redshift source                     |
+| [sagemaker](./generated/ingestion/sources/sagemaker.md)                         | `pip install 'acryl-datahub[sagemaker]'`                   | AWS SageMaker source                |
+| [snowflake](./generated/ingestion/sources/snowflake.md)                         | `pip install 'acryl-datahub[snowflake]'`                   | Snowflake source                    |
+| [snowflake-usage](./generated/ingestion/sources/snowflake.md#module-snowflake-usage)                   | `pip install 'acryl-datahub[snowflake-usage]'`             | Snowflake usage statistics source   |
+| [sqlalchemy](./generated/ingestion/sources/sqlalchemy.md)                       | `pip install 'acryl-datahub[sqlalchemy]'`                  | Generic SQLAlchemy source           |
+| [superset](./generated/ingestion/sources/superset.md)                           | `pip install 'acryl-datahub[superset]'`                    | Superset source                     |
+| [tableau](./generated/ingestion/sources/tableau.md)                             | `pip install 'acryl-datahub[tableau]'`                     | Tableau source                      |
+| [trino](./generated/ingestion/sources/trino.md)                                 | `pip install 'acryl-datahub[trino]'`                       | Trino source                        |
+| [starburst-trino-usage](./generated/ingestion/sources/trino.md)                 | `pip install 'acryl-datahub[starburst-trino-usage]'`       | Starburst Trino usage statistics source |
+| [nifi](./generated/ingestion/sources/nifi.md)                                   | `pip install 'acryl-datahub[nifi]'`                        | Nifi source                         |
+| [powerbi](./generated/ingestion/sources/powerbi.md)                             | `pip install 'acryl-datahub[powerbi]'`                     | Microsoft Power BI source           |
 
 ### Sinks
 

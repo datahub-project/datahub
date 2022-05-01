@@ -357,9 +357,10 @@ def get_capability_text(src_capability: SourceCapability) -> str:
     Returns markdown format cell text for a capability, hyperlinked to capability feature page if known
     """
     capability_docs_mapping: Dict[SourceCapability, str] = {
-        SourceCapability.DELETION_DETECTION: "../../../../metadata-ingestion/source_docs/stateful_ingestion.md#removal-of-stale-tables-and-views",
+        SourceCapability.DELETION_DETECTION: "../../../../metadata-ingestion/docs/dev_guides/stateful.md#removal-of-stale-tables-and-views",
         SourceCapability.DOMAINS: "../../../domains.md",
         SourceCapability.PLATFORM_INSTANCE: "../../../platform-instances.md",
+        SourceCapability.DATA_PROFILING: "../../../../metadata-ingestion/docs/dev_guides/sql_profiles.md",
     }
 
     capability_doc = capability_docs_mapping.get(src_capability)
@@ -544,6 +545,28 @@ def generate(
                 source_documentation[platform_id] = (
                     source_documentation.get(platform_id) or {}
                 )
+                # breakpoint()
+
+                create_or_update(
+                    source_documentation,
+                    [platform_id, "plugins", plugin_name, "classname"],
+                    ".".join([source_type.__module__, source_type.__name__]),
+                )
+                plugin_file_name = "src/" + "/".join(source_type.__module__.split("."))
+                if os.path.exists(plugin_file_name) and os.path.isdir(plugin_file_name):
+                    plugin_file_name = plugin_file_name + "/__init__.py"
+                else:
+                    plugin_file_name = plugin_file_name + ".py"
+                if os.path.exists(plugin_file_name):
+                    create_or_update(
+                        source_documentation,
+                        [platform_id, "plugins", plugin_name, "filename"],
+                        plugin_file_name,
+                    )
+                else:
+                    logger.info(
+                        f"Failed to locate filename for {plugin_name}. Guessed {plugin_file_name}"
+                    )
 
                 if hasattr(source_type, "get_support_status"):
                     support_status = source_type.get_support_status()
@@ -682,6 +705,13 @@ def generate(
                     f.write("\n</details>\n\n")
                 # insert custom plugin docs after config details
                 f.write(plugin_docs.get("custom_docs", ""))
+                if "classname" in plugin_docs:
+                    f.write("\n### Code Coordinates\n")
+                    f.write(f"- Class Name: `{plugin_docs['classname']}`\n")
+                    if "filename" in plugin_docs:
+                        f.write(
+                            f"- Browse on [GitHub](../../../../metadata-ingestion/{plugin_docs['filename']})\n\n"
+                        )
 
             f.write("\n## Questions\n")
             f.write(

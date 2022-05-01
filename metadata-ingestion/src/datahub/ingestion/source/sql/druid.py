@@ -53,7 +53,7 @@ class DruidSource(SQLAlchemySource):
     This plugin extracts the following:
     - Metadata for databases, schemas, and tables
     - Column types associated with each table
-    - Table, row, and column statistics via optional [SQL profiling](../../../../metadata-ingestion/source_docs/sql_profiles.md)
+    - Table, row, and column statistics via optional SQL profiling.
 
     **Note**: It is important to explicitly define the deny schema pattern for internal Druid databases (lookup & sys) if adding a schema pattern. Otherwise, the crawler may crash before processing relevant databases. This deny pattern is defined by default but is overriden by user-submitted configurations.
     """

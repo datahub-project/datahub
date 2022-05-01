@@ -152,7 +152,7 @@ class TrinoSource(SQLAlchemySource):
 
     - Metadata for databases, schemas, and tables
     - Column types and schema associated with each table
-    - Table, row, and column statistics via optional [SQL profiling](../../../../metadata-ingestion/source_docs/sql_profiles.md)
+    - Table, row, and column statistics via optional SQL profiling
 
     """
 

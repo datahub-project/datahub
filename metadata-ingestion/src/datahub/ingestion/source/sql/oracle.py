@@ -85,7 +85,7 @@ class OracleSource(SQLAlchemySource):
 
     - Metadata for databases, schemas, and tables
     - Column types associated with each table
-    - Table, row, and column statistics via optional [SQL profiling](../../../../metadata-ingestion/source_docs/sql_profiles.md)
+    - Table, row, and column statistics via optional SQL profiling
 
     Using the Oracle source requires that you've also installed the correct drivers; see the [cx_Oracle docs](https://cx-oracle.readthedocs.io/en/latest/user_guide/installation.html). The easiest one is the [Oracle Instant Client](https://www.oracle.com/database/technologies/instant-client.html).
 

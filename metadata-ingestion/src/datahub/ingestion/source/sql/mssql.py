@@ -67,7 +67,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         return regular
 
 
-@platform_name("Microsoft SQL Server")
+@platform_name("Microsoft SQL Server", id="mssql")
 @config_class(SQLServerConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
@@ -87,7 +87,7 @@ class SQLServerSource(SQLAlchemySource):
 
     - Metadata for databases, schemas, views and tables
     - Column types associated with each table/view
-    - Table, row, and column statistics via optional [SQL profiling](../../../../metadata-ingestion/source_docs/sql_profiles.md)
+    - Table, row, and column statistics via optional SQL profiling
 
     We have two options for the underlying library used to connect to SQL Server: (1) [python-tds](https://github.com/denisenkom/pytds) and (2) [pyodbc](https://github.com/mkleehammer/pyodbc). The TDS library is pure Python and hence easier to install, but only PyODBC supports encrypted connections.
     """

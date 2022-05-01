@@ -411,7 +411,7 @@ class RedshiftSource(SQLAlchemySource):
     - Metadata for databases, schemas, views and tables
     - Column types associated with each table
     - Also supports PostGIS extensions
-    - Table, row, and column statistics via optional [SQL profiling](../../../../metadata-ingestion/source_docs/sql_profiles.md)
+    - Table, row, and column statistics via optional SQL profiling
     - Table lineage
 
     :::tip

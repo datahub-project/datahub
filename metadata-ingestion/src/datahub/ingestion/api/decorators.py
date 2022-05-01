@@ -51,9 +51,21 @@ def platform_name(
 
 class SupportStatus(Enum):
     CERTIFIED = auto()
+    """
+    Certified Sources are well-tested & widely-adopted by the DataHub Community. We expect the integration to be stable with few user-facing issues.
+    """
     INCUBATING = auto()
+    """
+    Incubating Sources are ready for DataHub Community adoption but have not been tested for a wide variety of edge-cases. We eagerly solicit feedback from the Community to streghten the connector; minor version changes may arise in future releases.
+    """
     TESTING = auto()
+    """
+    Testing Sources are available for experimentation by DataHub Community members, but may change without notice.
+    """
     UNKNOWN = auto()
+    """
+    System-default value for when the connector author has declined to provide a status on this connector.
+    """
 
 
 def support_status(

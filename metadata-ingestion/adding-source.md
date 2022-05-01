@@ -22,6 +22,35 @@ your local environment.
 We use [pydantic](https://pydantic-docs.helpmanual.io/) for configuration, and all models must inherit
 from `ConfigModel`. The [file source](./src/datahub/ingestion/source/file.py) is a good example.
 
+#### Documentation for Configuration Classes
+
+We use [pydantic](https://pydantic-docs.helpmanual.io) conventions for documenting configuration flags. Use the `description` attribute to write rich documentation for your configuration field.
+
+For example, the following code:
+```python
+from pydantic import Field
+from datahub.api.configuration.common import ConfigModel
+
+class LookerAPIConfig(ConfigModel):
+    client_id: str = Field(description="Looker API client id.")
+    client_secret: str = Field(description="Looker API client secret.")
+    base_url: str = Field(
+        description="Url to your Looker instance: `https://company.looker.com:19999` or `https://looker.company.com`, or similar. Used for making API calls to Looker and constructing clickable dashboard and chart urls."
+    )
+    transport_options: Optional[TransportOptionsConfig] = Field(
+        default=None,
+        description="Populates the [TransportOptions](https://github.com/looker-open-source/sdk-codegen/blob/94d6047a0d52912ac082eb91616c1e7c379ab262/python/looker_sdk/rtl/transport.py#L70) struct for looker client",
+    )
+```
+
+generates the following documentation:
+![Generated Config Documentation](./docs/images/generated_config_docs.png)
+
+:::note
+Inline markdown or code snippets are not yet supported for field level documentation.
+:::
+
+
 ### 2. Set up the reporter
 
 The reporter interface enables the source to report statistics, warnings, failures, and other information about the run.
@@ -56,23 +85,44 @@ Tests go in the `tests` directory. We use the [pytest framework](https://pytest.
 - Indicate the platform name that this source class produces metadata for using the `@platform_name` decorator. We prefer using the human-readable platform name, so e.g. BigQuery (not bigquery).
 - Indicate the config class being used by the source by using the `@config_class` decorator.
 - Indicate the support status of the connector by using the `@support_status` decorator.
+- Indicate what capabilities the connector supports (and what important capabilities it does NOT support) by using the `@capability` decorator.
+- Add rich documentation for the connector by utilizing docstrings on your Python class. Markdown is supported.
 
 See below a simple example of how to do this for any source.
 
 ```python
 
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
 
-
 @platform_name("File")
 @support_status(SupportStatus.CERTIFIED)
 @config_class(FileSourceConfig)
+@capability(
+    SourceCapability.PLATFORM_INSTANCE,
+    "File based ingestion does not support platform instances",
+    supported=False,
+)
+@capability(SourceCapability.DOMAINS, "Enabled by default")
+@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class FileSource(Source):
+   """
+   
+   The File Source can be used to produce all kinds of metadata from a generic metadata events file. 
+   :::note
+   Events in this file can be in MCE form or MCP form.
+   :::
+   
+   """
+
    ... source code goes here
 
 ```

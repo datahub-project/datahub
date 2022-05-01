@@ -191,7 +191,7 @@ class DataLakeSource(Source):
     To install this plugin, run `pip install 'acryl-datahub[data-lake]'`. Note that because the profiling is run with PySpark, we require Spark 3.0.3 with Hadoop 3.2 to be installed (see [compatibility](#compatibility) for more details). If profiling, make sure that permissions for **s3a://** access are set because Spark and Hadoop use the s3a:// protocol to interface with AWS (schema inference outside of profiling requires s3:// access).
 
     The data lake connector extracts schemas and profiles from a variety of file formats (see below for an exhaustive list).
-    Individual files are ingested as tables, and profiles are computed similar to the [SQL profiler](../../../../metadata-ingestion/source_docs/sql_profiles.md).
+    Individual files are ingested as tables, and profiles are computed similar to the [SQL profiler](../../../../metadata-ingestion/docs/dev_guides/sql_profiles.md).
 
     Enabling profiling will slow down ingestion runs.
 

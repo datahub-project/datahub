@@ -329,7 +329,7 @@ class ClickHouseSource(SQLAlchemySource):
 
     - Metadata for tables, views, materialized views and dictionaries
     - Column types associated with each table(except *AggregateFunction and DateTime with timezone)
-    - Table, row, and column statistics via optional [SQL profiling](../../../../metadata-ingestion/source_docs/sql_profiles.md)
+    - Table, row, and column statistics via optional SQL profiling.
     - Table, view, materialized view and dictionary(with CLICKHOUSE source_type) lineage
 
     :::tip

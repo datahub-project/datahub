@@ -1334,7 +1334,7 @@ class PowerBiDashboardSourceReport(SourceReport):
         self.filtered_charts.append(view)
 
 
-@platform_name("Power BI dashboards")
+@platform_name("PowerBI")
 @config_class(PowerBiDashboardSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")

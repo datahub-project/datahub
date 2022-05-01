@@ -25,7 +25,7 @@ class SQLAlchemyGenericConfig(SQLAlchemyConfig):
         return self.connect_uri
 
 
-@platform_name("Other SQLAlchemy databases")
+@platform_name("Other SQLAlchemy databases", id="sqlalchemy")
 @config_class(SQLAlchemyGenericConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
@@ -40,7 +40,7 @@ class SQLAlchemyGenericSource(SQLAlchemySource):
 
     - Metadata for databases, schemas, views, and tables
     - Column types associated with each table
-    - Table, row, and column statistics via optional [SQL profiling](../../../../metadata-ingestion/source_docs/sql_profiles.md)
+    - Table, row, and column statistics via optional SQL profiling.
     """
 
     def __init__(self, config: SQLAlchemyGenericConfig, ctx: PipelineContext):
