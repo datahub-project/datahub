@@ -1,4 +1,5 @@
 import glob
+import json
 import logging
 import os
 import re
@@ -454,6 +455,9 @@ def generate(
     out_dir: str, extra_docs: Optional[str] = None, source: Optional[str] = None
 ) -> None:  # noqa: C901
     source_documentation: Dict[str, Any] = {}
+    metrics = {}
+    metrics["source_platforms"] = {"discovered": 0, "generated": 0}
+    metrics["plugins"] = {"discovered": 0, "generated": 0, "failed": 0}
 
     if extra_docs:
         for path in glob.glob(f"{extra_docs}/**/*[.md|.yaml|.yml]", recursive=True):
@@ -507,6 +511,8 @@ def generate(
     for plugin_name in sorted(source_registry._mapping.keys()):
         if source and source != plugin_name:
             continue
+
+        metrics["plugins"]["discovered"] = metrics["plugins"]["discovered"] + 1
         # We want to attempt to load all plugins before printing a summary.
         source_type = None
         try:
@@ -525,6 +531,8 @@ def generate(
 
         except Exception as e:
             print(f"Failed to process {plugin_name} due to {e}")
+            metrics["plugins"]["failed"] = metrics["plugins"].get["failed"] + 1
+
         if source_type and hasattr(source_type, "get_config_class"):
             try:
                 source_config_class: ConfigModel = source_type.get_config_class()
@@ -622,6 +630,9 @@ def generate(
     for platform_id, platform_docs in source_documentation.items():
         if source and platform_id != source:
             continue
+        metrics["source_platforms"]["discovered"] = (
+            metrics["source_platforms"]["discovered"] + 1
+        )
         platform_doc_file = f"{sources_dir}/{platform_id}.md"
         with open(platform_doc_file, "w") as f:
             f.write(f"# {platform_docs['name']}\n")
@@ -712,11 +723,19 @@ def generate(
                         f.write(
                             f"- Browse on [GitHub](../../../../metadata-ingestion/{plugin_docs['filename']})\n\n"
                         )
+                metrics["plugins"]["generated"] = metrics["plugins"]["generated"] + 1
 
             f.write("\n## Questions\n")
             f.write(
                 f"If you've got any questions on configuring ingestion for {platform_docs['name']}, feel free to ping us on [our Slack](https://slack.datahubproject.io)\n"
             )
+            metrics["source_platforms"]["generated"] = (
+                metrics["source_platforms"]["generated"] + 1
+            )
+    print("Ingestion Documentation Generation Complete")
+    print("############################################")
+    print(json.dumps(metrics, indent=2))
+    print("############################################")
 
 
 if __name__ == "__main__":

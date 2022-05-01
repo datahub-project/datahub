@@ -111,7 +111,7 @@ class ApiWorkUnit(MetadataWorkUnit):
     pass
 
 
-@platform_name("OpenApi Metadata", id="openapi")
+@platform_name("OpenAPI", id="openapi")
 @config_class(OpenApiConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, supported=False, description="")

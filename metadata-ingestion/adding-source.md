@@ -135,6 +135,96 @@ class FileSource(Source):
 - Add a quickstart recipe corresponding to the plugin under `metadata-ingestion/docs/sources/<platform>/<plugin>_recipe.yml`. For example, for the Kafka platform, under the `kafka` plugin, there is a quickstart recipe located at `metadata-ingestion/docs/sources/kafka/kafka_recipe.yml`.
 - To write platform-specific documentation (that is cross-plugin), write the documentation under `metadata-ingestion/docs/sources/<platform>/README.md`. For example, cross-plugin documentation for the BigQuery platform is located under `metadata-ingestion/docs/sources/bigquery/README.md`.
 
+#### 7.3 Viewing the Documentation
+
+Documentation for the source can be viewed by running the documentation generator from the `docs-website` module. 
+
+##### Step 1: Build the Ingestion docs
+```console
+# From the root of DataHub repo
+./gradlew :metadata-ingestion:docGen
+```
+
+If this finishes successfully, you will see output messages like:
+```console
+Ingestion Documentation Generation Complete
+############################################
+{
+  "source_platforms": {
+    "discovered": 40,
+    "generated": 40
+  },
+  "plugins": {
+    "discovered": 47,
+    "generated": 47,
+    "failed": 0
+  }
+}
+############################################
+```
+
+You can also find documentation files generated at `./docs/generated/ingestion/sources` relative to the root of the DataHub repo. You should be able to locate your specific source's markdown file here and investigate it to make sure things look as expected.
+
+#### Step 2: Build the Entire Documentation
+To view how this documentation looks in the browser, there is one more step. Just build the entire docusaurus page from the `docs-website` module. 
+
+```console
+# From the root of DataHub repo
+./gradlew :docs-website:build
+```
+
+This will generate messages like:
+```console
+...
+> Task :docs-website:yarnGenerate
+yarn run v1.22.0
+$ rm -rf genDocs/* && ts-node -O '{ "lib": ["es2020"], "target": "es6" }' generateDocsDir.ts && mv -v docs/* genDocs/
+Including untracked files in docs list:
+docs/graphql -> genDocs/graphql
+Done in 2.47s.
+
+> Task :docs-website:yarnBuild
+yarn run v1.22.0
+$ docusaurus build
+
+╭──────────────────────────────────────────────────────────────────────────────╮│                                                                              ││                Update available 2.0.0-beta.8 → 2.0.0-beta.18                 ││                                                                              ││       To upgrade Docusaurus packages with the latest version, run the        ││                             following command:                               ││                    yarn upgrade @docusaurus/core@latest                      ││   @docusaurus/plugin-ideal-image@latest @docusaurus/preset-classic@latest    ││                                                                              │╰──────────────────────────────────────────────────────────────────────────────╯
+
+
+[en] Creating an optimized production build...
+Invalid docusaurus-plugin-ideal-image version 2.0.0-beta.7.
+All official @docusaurus/* packages should have the exact same version as @docusaurus/core (2.0.0-beta.8).
+Maybe you want to check, or regenerate your yarn.lock or package-lock.json file?
+Browserslist: caniuse-lite is outdated. Please run:
+  npx browserslist@latest --update-db
+  Why you should do it regularly: https://github.com/browserslist/browserslist#browsers-data-updating
+ℹ Compiling Client
+ℹ Compiling Server
+✔ Client: Compiled successfully in 1.95s
+✔ Server: Compiled successfully in 7.52s
+Success! Generated static files in "build".
+
+Use `npm run serve` command to test your build locally.
+
+Done in 11.59s.
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 7.0.
+Use '--warning-mode all' to show the individual deprecation warnings.
+See https://docs.gradle.org/6.9.2/userguide/command_line_interface.html#sec:command_line_warnings
+
+BUILD SUCCESSFUL in 35s
+36 actionable tasks: 16 executed, 20 up-to-date
+```
+
+After this you need to run the following script from the `docs-website` module. 
+```console
+cd docs-website
+npm run serve
+```
+
+Now, browse to http://localhost:3000 or whichever port npm is running on, to browse the docs. 
+Your source should show up on the left sidebar under `Metadata Ingestion / Sources`. 
+
+
 ### 8. Add SQL Alchemy mapping (if applicable)
 
 Add the source in `get_platform_from_sqlalchemy_uri` function

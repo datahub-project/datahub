@@ -9,7 +9,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
 
 
-@platform_name("mariadb")
+@platform_name("MariaDB")
 @config_class(MySQLConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
