@@ -51,7 +51,7 @@ task modelDocGen(type: Exec, dependsOn: [codegen]) {
     project.fileTree(dir: "examples/", include: "**/*.py"),
     project.fileTree(dir: "../metadata-events/mxe-schemas/src/", include: "**/*.avsc")
   )
-  outputs.dir('../docs/generated')
+  outputs.dir('../docs/generated/metamodel')
   commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/modeldocgen.sh"
 }
 
