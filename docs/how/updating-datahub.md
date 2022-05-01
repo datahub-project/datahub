@@ -14,3 +14,4 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #4644 `host_port` option of `snowflake` and `snowflake-usage` sources deprecated as the name was confusing. Use `account_id` option instead.
 
 ### Other notable Changes
+- #4760 `check_role_grants` option was added in `snowflake` to disable checking roles in `snowflake` as some people were reporting long run times when checking roles.

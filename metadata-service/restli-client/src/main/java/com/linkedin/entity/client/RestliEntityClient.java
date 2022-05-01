@@ -2,8 +2,10 @@ package com.linkedin.entity.client;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.util.RecordUtils;
+import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.client.BaseClient;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
@@ -30,6 +32,8 @@ import com.linkedin.entity.EntitiesRequestBuilders;
 import com.linkedin.entity.EntitiesV2BatchGetRequestBuilder;
 import com.linkedin.entity.EntitiesV2GetRequestBuilder;
 import com.linkedin.entity.EntitiesV2RequestBuilders;
+import com.linkedin.entity.EntitiesVersionedV2BatchGetRequestBuilder;
+import com.linkedin.entity.EntitiesVersionedV2RequestBuilders;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityArray;
 import com.linkedin.entity.EntityResponse;
@@ -76,6 +80,8 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
 
   private static final EntitiesRequestBuilders ENTITIES_REQUEST_BUILDERS = new EntitiesRequestBuilders();
   private static final EntitiesV2RequestBuilders ENTITIES_V2_REQUEST_BUILDERS = new EntitiesV2RequestBuilders();
+  private static final EntitiesVersionedV2RequestBuilders ENTITIES_VERSIONED_V2_REQUEST_BUILDERS =
+      new EntitiesVersionedV2RequestBuilders();
   private static final AspectsRequestBuilders ASPECTS_REQUEST_BUILDERS = new AspectsRequestBuilders();
   private static final PlatformRequestBuilders PLATFORM_REQUEST_BUILDERS = new PlatformRequestBuilders();
 
@@ -169,6 +175,37 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
                 String.format("Failed to bind urn string with value %s into urn", entry.getKey()));
           }
         }, entry -> entry.getValue().getEntity()));
+  }
+
+  /**
+   * Batch get a set of versioned aspects for a single entity.
+   *
+   * @param entityName the entity type to fetch
+   * @param versionedUrns the urns of the entities to batch get
+   * @param aspectNames the aspect names to batch get
+   * @param authentication the authentication to include in the request to the Metadata Service
+   * @throws RemoteInvocationException
+   */
+  @Nonnull
+  public Map<Urn, EntityResponse> batchGetVersionedV2(
+      @Nonnull String entityName,
+      @Nonnull final Set<VersionedUrn> versionedUrns,
+      @Nullable final Set<String> aspectNames,
+      @Nonnull final Authentication authentication) throws RemoteInvocationException, URISyntaxException {
+
+    final EntitiesVersionedV2BatchGetRequestBuilder requestBuilder = ENTITIES_VERSIONED_V2_REQUEST_BUILDERS.batchGet()
+        .aspectsParam(aspectNames)
+        .entityTypeParam(entityName)
+        .ids(versionedUrns.stream()
+            .map(versionedUrn -> com.linkedin.common.urn.VersionedUrn.of(versionedUrn.getUrn().toString(), versionedUrn.getVersionStamp()))
+            .collect(Collectors.toSet()));
+
+    return sendClientRequest(requestBuilder, authentication).getEntity()
+        .getResults()
+        .entrySet()
+        .stream()
+        .collect(Collectors.toMap(entry ->
+            UrnUtils.getUrn(entry.getKey().getUrn()), entry -> entry.getValue().getEntity()));
   }
 
   /**

@@ -113,7 +113,7 @@ class SnowflakeSource(SQLAlchemySource):
 
         self.report.role = cur_role
         logger.info(f"Current role is {cur_role}")
-        if cur_role.lower() == "accountadmin":
+        if cur_role.lower() == "accountadmin" or not self.config.check_role_grants:
             return
 
         logger.info(f"Checking grants for role {cur_role}")
@@ -336,7 +336,7 @@ WHERE
                     continue
                 self._external_lineage_map[key] |= {*json.loads(db_row[0])}
                 logger.debug(
-                    f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]}"
+                    f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]} via access_history"
                 )
         except Exception as e:
             logger.warning(
@@ -355,7 +355,7 @@ WHERE
                     continue
                 self._external_lineage_map[key].add(db_row.location)
                 logger.debug(
-                    f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]}"
+                    f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]} via show external tables"
                 )
                 num_edges += 1
         except Exception as e:
@@ -518,7 +518,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
         if not self.report.ignore_start_time_lineage:
             self.report.lineage_start_time = self.config.start_time
         self.report.lineage_end_time = self.config.end_time
-
+        self.report.check_role_grants = self.config.check_role_grants
         if self.config.provision_role is not None:
             self.report.run_ingestion = self.config.provision_role.run_ingestion
 

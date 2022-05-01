@@ -457,6 +457,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:pulsar",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "pulsar",
+      "displayName": "Pulsar",
+      "type": "MESSAGE_BROKER",
+      "logoUrl": "/assets/platforms/pulsarlogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:unknown",
     "aspect": {
       "datasetNameDelimiter": ".",

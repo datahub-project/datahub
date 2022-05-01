@@ -456,7 +456,7 @@ def generate(
 ) -> None:  # noqa: C901
     source_documentation: Dict[str, Any] = {}
     metrics = {}
-    metrics["source_platforms"] = {"discovered": 0, "generated": 0}
+    metrics["source_platforms"] = {"discovered": 0, "generated": 0, "warnings": []}
     metrics["plugins"] = {"discovered": 0, "generated": 0, "failed": 0}
 
     if extra_docs:
@@ -634,8 +634,15 @@ def generate(
             metrics["source_platforms"]["discovered"] + 1
         )
         platform_doc_file = f"{sources_dir}/{platform_id}.md"
+        if "name" not in platform_docs:
+            # We seem to have discovered written docs that corresponds to a platform, but haven't found linkage to it from the source classes
+            warning_msg = f"Failed to find source classes for platform {platform_id}. Did you remember to annotate your source class with @platform_name({platform_id})?"
+            logger.error(warning_msg)
+            metrics["source_platforms"]["warnings"].append(warning_msg)
+
         with open(platform_doc_file, "w") as f:
-            f.write(f"# {platform_docs['name']}\n")
+            if "name" in platform_docs:
+                f.write(f"# {platform_docs['name']}\n")
             if len(platform_docs["plugins"].keys()) > 1:
                 # More than one plugin used to provide integration with this platform
                 f.write(
@@ -683,15 +690,16 @@ def generate(
                     f.write("\n")
 
                 f.write(f"{plugin_docs.get('source_doc') or ''}\n")
-                f.write("### Install the Plugin\n")
-                if plugin_docs.get("extra_deps"):
-                    f.write("```shell\n")
-                    f.write(f"pip install 'acryl-datahub[{plugin}]`\n")
-                    f.write("```\n")
-                else:
-                    f.write(
-                        f"The `{plugin}` source works out of the box with `acryl-datahub`.\n"
-                    )
+                if "extra_deps" in plugin_docs:
+                    f.write("### Install the Plugin\n")
+                    if plugin_docs["extra_deps"] != []:
+                        f.write("```shell\n")
+                        f.write(f"pip install 'acryl-datahub[{plugin}]`\n")
+                        f.write("```\n")
+                    else:
+                        f.write(
+                            f"The `{plugin}` source works out of the box with `acryl-datahub`.\n"
+                        )
                 if "recipe" in plugin_docs:
                     f.write("\n### Quickstart Recipe\n")
                     f.write(
@@ -727,7 +735,7 @@ def generate(
 
             f.write("\n## Questions\n")
             f.write(
-                f"If you've got any questions on configuring ingestion for {platform_docs['name']}, feel free to ping us on [our Slack](https://slack.datahubproject.io)\n"
+                f"If you've got any questions on configuring ingestion for {platform_docs.get('name',platform_id)}, feel free to ping us on [our Slack](https://slack.datahubproject.io)\n"
             )
             metrics["source_platforms"]["generated"] = (
                 metrics["source_platforms"]["generated"] + 1

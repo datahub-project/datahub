@@ -31,4 +31,5 @@ class SnowflakeReport(BaseSnowflakeReport, SQLSourceReport):
     # https://community.snowflake.com/s/topic/0TO0Z000000Unu5WAC/releases
     saas_version: str = ""
     role: str = ""
+    check_role_grants: Optional[bool] = None
     role_grants: List[str] = field(default_factory=list)
