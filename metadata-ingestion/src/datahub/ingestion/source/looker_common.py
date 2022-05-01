@@ -8,7 +8,7 @@ import pydantic
 from looker_sdk.error import SDKError
 from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api31.methods import Looker31SDK
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic.class_validators import validator
 
 import datahub.emitter.mce_builder as builder
@@ -125,12 +125,18 @@ class LookerExploreNamingConfig(ConfigModel):
 
 
 class LookerViewNamingConfig(ConfigModel):
-    view_naming_pattern: NamingPattern = NamingPattern(
-        allowed_vars=naming_pattern_variables, pattern="{project}.view.{name}"
+    view_naming_pattern: NamingPattern = Field(
+        NamingPattern(
+            allowed_vars=naming_pattern_variables, pattern="{project}.view.{name}"
+        ),
+        description="Pattern for providing dataset names to views. Allowed variables are `{project}`, `{model}`, `{name}`",
     )
-    view_browse_pattern: NamingPattern = NamingPattern(
-        allowed_vars=naming_pattern_variables,
-        pattern="/{env}/{platform}/{project}/views/{name}",
+    view_browse_pattern: NamingPattern = Field(
+        NamingPattern(
+            allowed_vars=naming_pattern_variables,
+            pattern="/{env}/{platform}/{project}/views/{name}",
+        ),
+        description="Pattern for providing browse paths to views. Allowed variables are `{project}`, `{model}`, `{name}`, `{platform}` and `{env}`",
     )
 
     @validator("view_naming_pattern", "view_browse_pattern", pre=True)
@@ -154,9 +160,17 @@ class LookerViewNamingConfig(ConfigModel):
 class LookerCommonConfig(
     LookerViewNamingConfig, LookerExploreNamingConfig, DatasetSourceConfigBase
 ):
-    tag_measures_and_dimensions: bool = True
-    platform_name: str = "looker"
-    github_info: Optional[GitHubInfo] = None
+    tag_measures_and_dimensions: bool = Field(
+        True,
+        description="When enabled, attaches tags to measures, dimensions and dimension groups to make them more discoverable. When disabled, adds this information to the description of the column.",
+    )
+    platform_name: str = Field(
+        "looker", description="Default platform name. Don't change."
+    )
+    github_info: Optional[GitHubInfo] = Field(
+        None,
+        description="Reference to your github location to enable easy navigation from DataHub to your LookML files",
+    )
 
 
 @dataclass

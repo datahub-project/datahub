@@ -201,16 +201,45 @@ def gen_md_table(
             elif "type" in value and value["type"] == "object":
                 # struct
                 if "$ref" not in value:
-                    md_str.append(
-                        FieldRow(
+                    if (
+                        "additionalProperties" in value
+                        and "$ref" in value["additionalProperties"]
+                    ):
+                        # breakpoint()
+                        value_ref = value["additionalProperties"]["$ref"]
+                        def_dict = get_definition_dict_from_definition(
+                            definitions_dict, value_ref
+                        )
+
+                        row = FieldRow(
                             path=get_prefixed_name(field_prefix, field_name),
-                            type_name="Dict",
+                            type_name=f"Dict[str, {value_ref.split('/')[-1]}]",
                             description=value.get("description") or "",
                             default=value.get("default") or "",
                             required=required_field,
                         )
-                        # f"| {get_prefixed_name(field_prefix, field_name)} | Dict | {value.get('description') or ''} | {value.get('default') or ''} | \n"
-                    )
+                        md_str.append(row)
+                        gen_md_table(
+                            def_dict,
+                            definitions_dict,
+                            field_prefix=get_prefixed_name(
+                                field_prefix, f"{field_name}.`key`"
+                            ),
+                            md_str=row.inner_fields,
+                        )
+                    else:
+                        value_type = value.get("additionalProperties", {}).get("type")
+                        md_str.append(
+                            FieldRow(
+                                path=get_prefixed_name(field_prefix, field_name),
+                                type_name=f"Dict[str,{value_type}]"
+                                if value_type
+                                else "Dict",
+                                description=value.get("description") or "",
+                                default=value.get("default") or "",
+                                required=required_field,
+                            )
+                        )
                 else:
                     object_definition = value["$ref"]
                     row = FieldRow(
@@ -225,7 +254,6 @@ def gen_md_table(
                         row
                         # f"| {get_prefixed_name(field_prefix, field_name)} | {object_definition.split('/')[-1]} (see below for fields) | {value.get('description') or ''} | {value.get('default') or ''} | \n"
                     )
-                    # breakpoint()
                     def_dict = get_definition_dict_from_definition(
                         definitions_dict, object_definition
                     )
@@ -420,7 +448,10 @@ def rewrite_markdown(file_contents: str, path: str, relocated_path: str) -> str:
 @click.command()
 @click.option("--out-dir", type=str, required=True)
 @click.option("--extra-docs", type=str, required=False)
-def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:  # noqa: C901
+@click.option("--source", type=str, required=False)
+def generate(
+    out_dir: str, extra_docs: Optional[str] = None, source: Optional[str] = None
+) -> None:  # noqa: C901
     source_documentation: Dict[str, Any] = {}
 
     if extra_docs:
@@ -473,6 +504,8 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:  # noqa: C
 
     # This source is always enabled
     for plugin_name in sorted(source_registry._mapping.keys()):
+        if source and source != plugin_name:
+            continue
         # We want to attempt to load all plugins before printing a summary.
         source_type = None
         try:
@@ -560,9 +593,12 @@ def generate(out_dir: str, extra_docs: Optional[str] = None) -> None:  # noqa: C
             except Exception as e:
                 raise e
 
+    sources_dir = f"{out_dir}/sources"
+    os.makedirs(sources_dir, exist_ok=True)
+
     for platform_id, platform_docs in source_documentation.items():
-        sources_dir = f"{out_dir}/sources"
-        os.makedirs(sources_dir, exist_ok=True)
+        if source and platform_id != source:
+            continue
         platform_doc_file = f"{sources_dir}/{platform_id}.md"
         with open(platform_doc_file, "w") as f:
             f.write(f"# {platform_docs['name']}\n")
