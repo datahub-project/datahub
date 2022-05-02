@@ -117,6 +117,12 @@ public class MockEntityService extends EntityService {
   }
 
   @Override
+  public Map<Urn, List<EnvelopedAspect>> getVersionedEnvelopedAspects(@Nonnull Set<VersionedUrn> versionedUrns,
+      @Nonnull Set<String> aspectNames) throws URISyntaxException {
+    return null;
+  }
+
+  @Override
   public EnvelopedAspect getLatestEnvelopedAspect(@Nonnull String entityName, @Nonnull Urn urn,
       @Nonnull String aspectName) throws Exception {
     return null;
