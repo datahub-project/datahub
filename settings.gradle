@@ -1,3 +1,10 @@
+pluginManagement {
+    repositories {
+        maven {
+            url 'https://artifacts.sys.dom:443/artifactory/maven/'
+        }
+    }
+}
 include 'datahub-web-react'
 include 'datahub-frontend'
 include 'datahub-graphql-core'
