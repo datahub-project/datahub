@@ -1,6 +1,7 @@
 import collections
 import json
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
@@ -461,6 +462,7 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
             query_type = event.query_type
             user_email = event.email
             operation_type = OPERATION_STATEMENT_TYPES[query_type]
+            reported_time: int = int(time.time() * 1000)
             last_updated_timestamp: int = int(start_time.timestamp() * 1000)
             user_urn = builder.make_user_urn(user_email.split("@")[0])
             for obj in event.base_objects_accessed:
@@ -472,7 +474,7 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
                     self.config.env,
                 )
                 operation_aspect = OperationClass(
-                    timestampMillis=last_updated_timestamp,
+                    timestampMillis=reported_time,
                     lastUpdatedTimestamp=last_updated_timestamp,
                     actor=user_urn,
                     operationType=operation_type,

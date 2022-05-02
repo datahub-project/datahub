@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import textwrap
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast
@@ -925,6 +926,7 @@ class BigQueryUsageSource(Source):
                     f"Failed to clean up destination table, {e}",
                 )
                 return None
+            reported_time: int = int(time.time() * 1000)
             last_updated_timestamp: int = int(event.timestamp.timestamp() * 1000)
             affected_datasets = []
             if event.referencedTables:
@@ -942,7 +944,7 @@ class BigQueryUsageSource(Source):
                             f"Failed to clean up table, {e}",
                         )
             operation_aspect = OperationClass(
-                timestampMillis=last_updated_timestamp,
+                timestampMillis=reported_time,
                 lastUpdatedTimestamp=last_updated_timestamp,
                 actor=builder.make_user_urn(event.actor_email.split("@")[0]),
                 operationType=OPERATION_STATEMENT_TYPES[event.statementType],

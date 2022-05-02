@@ -1,6 +1,7 @@
 import collections
 import dataclasses
 import logging
+import time
 from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Set
 
@@ -191,6 +192,12 @@ class RedshiftUsageSource(Source):
 
     :::
 
+    :::note
+
+    Redshift system tables have some latency in getting data from queries. In addition, these tables only maintain logs for 2-5 days. You can find more information from the official documentation [here](https://aws.amazon.com/premiumsupport/knowledge-center/logs-redshift-database-cluster/).
+
+    :::
+
     """
 
     def __init__(self, config: RedshiftUsageConfig, ctx: PipelineContext):
@@ -311,10 +318,11 @@ class RedshiftUsageSource(Source):
             assert event.operation_type in ["insert", "delete"]
 
             resource: str = f"{event.database}.{event.schema_}.{event.table}"
+            reported_time: int = int(time.time() * 1000)
             last_updated_timestamp: int = int(event.endtime.timestamp() * 1000)
             user_email: str = event.username
             operation_aspect = OperationClass(
-                timestampMillis=last_updated_timestamp,
+                timestampMillis=reported_time,
                 lastUpdatedTimestamp=last_updated_timestamp,
                 actor=builder.make_user_urn(user_email.split("@")[0]),
                 operationType=(
