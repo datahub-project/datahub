@@ -215,7 +215,7 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
         )
 
     def get_options(self) -> dict:
-        options_connect_args: Dict = self.options.get("connect_args", {})
-        options_connect_args.update(super().get_sql_alchemy_connect_args())
+        options_connect_args: Dict = super().get_sql_alchemy_connect_args()
+        options_connect_args.update(self.options.get("connect_args", {}))
         self.options["connect_args"] = options_connect_args
         return self.options
