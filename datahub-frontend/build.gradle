@@ -51,7 +51,10 @@ tasks.withType(Checkstyle) {
 checkstyleMain.source = "app/"
 
 distributions {
+  create("datahub-frontend") {
+    distributionBaseName = project.ext.playBinaryBaseName
+  }
   playBinary {
-    distributionBaseName = playBinaryBaseName
+    distributionBaseName = project.ext.playBinaryBaseName
   }
 }
