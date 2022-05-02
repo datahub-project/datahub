@@ -90,6 +90,8 @@
                 "StoredAsSubDirectories": "False"
               },
               "externalUrl": null,
+              "name": null,
+              "qualifiedName": null,
               "description": null,
               "uri": null,
               "tags": []
@@ -261,6 +263,20 @@
               "foreignKeysSpecs": null,
               "foreignKeys": null
             }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+              "platform": "urn:li:dataPlatform:glue",
+              "instance": null
+            }
+          },
+          {
+              "com.linkedin.pegasus2avro.common.GlobalTags": {
+                  "tags": [
+                      {"tag": "urn:li:tag:foo:bar"},
+                      {"tag": "urn:li:tag:baz:bob"}
+                  ]
+              }
           }
         ]
       }
@@ -371,6 +387,8 @@
                 "StoredAsSubDirectories": "False"
               },
               "externalUrl": null,
+              "name": null,
+              "qualifiedName": null,
               "description": null,
               "uri": null,
               "tags": []
@@ -480,6 +498,20 @@
               "foreignKeysSpecs": null,
               "foreignKeys": null
             }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+              "platform": "urn:li:dataPlatform:glue",
+              "instance": null
+            }
+          },
+          {
+              "com.linkedin.pegasus2avro.common.GlobalTags": {
+                  "tags": [
+                      {"tag": "urn:li:tag:foo:bar"},
+                      {"tag": "urn:li:tag:baz:bob"}
+                  ]
+              }
           }
         ]
       }
@@ -551,6 +583,8 @@
                 "StoredAsSubDirectories": "False"
               },
               "externalUrl": null,
+              "name": null,
+              "qualifiedName": null,
               "description": null,
               "uri": null,
               "tags": []
@@ -671,6 +705,20 @@
               "foreignKeysSpecs": null,
               "foreignKeys": null
             }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+              "platform": "urn:li:dataPlatform:glue",
+              "instance": null
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.GlobalTags": {
+                "tags": [
+                    {"tag": "urn:li:tag:foo:bar"},
+                    {"tag": "urn:li:tag:baz:bob"}
+                ]
+            }
           }
         ]
       }
@@ -773,7 +821,10 @@
               "outputDatasets": [],
               "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform2_job1)"
-              ]
+              ],
+              "inputDatasetFields": null,
+              "outputDatasetFields": null,
+              "fineGrainedLineages": null
             }
           }
         ]
@@ -812,7 +863,10 @@
               "outputDatasets": [],
               "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Filter-Transform0_job1)"
-              ]
+              ],
+              "inputDatasetFields": null,
+              "outputDatasetFields": null,
+              "fineGrainedLineages": null
             }
           }
         ]
@@ -851,7 +905,10 @@
                 "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)"
               ],
               "outputDatasets": [],
-              "inputDatajobs": []
+              "inputDatajobs": [],
+              "inputDatasetFields": null,
+              "outputDatasetFields": null,
+              "fineGrainedLineages": null
             }
           }
         ]
@@ -891,7 +948,10 @@
               "outputDatasets": [],
               "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform4_job1)"
-              ]
+              ],
+              "inputDatasetFields": null,
+              "outputDatasetFields": null,
+              "fineGrainedLineages": null
             }
           }
         ]
@@ -928,7 +988,10 @@
             "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
               "inputDatasets": [],
               "outputDatasets": [],
-              "inputDatajobs": []
+              "inputDatajobs": [],
+              "inputDatasetFields": null,
+              "outputDatasetFields": null,
+              "fineGrainedLineages": null
             }
           }
         ]
@@ -965,7 +1028,10 @@
             "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
               "inputDatasets": [],
               "outputDatasets": [],
-              "inputDatajobs": []
+              "inputDatajobs": [],
+              "inputDatasetFields": null,
+              "outputDatasetFields": null,
+              "fineGrainedLineages": null
             }
           }
         ]
@@ -994,6 +1060,8 @@
                 "transformation_ctx": "DataSink1"
               },
               "externalUrl": null,
+              "name": null,
+              "qualifiedName": null,
               "description": null,
               "uri": null,
               "tags": []
@@ -1037,7 +1105,10 @@
               "outputDatasets": [],
               "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),ApplyMapping-Transform1_job2)"
-              ]
+              ],
+              "inputDatasetFields": null,
+              "outputDatasetFields": null,
+              "fineGrainedLineages": null
             }
           }
         ]
@@ -1076,7 +1147,10 @@
                 "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_parquet,PROD)"
               ],
               "outputDatasets": [],
-              "inputDatajobs": []
+              "inputDatajobs": [],
+              "inputDatasetFields": null,
+              "outputDatasetFields": null,
+              "fineGrainedLineages": null
             }
           }
         ]
@@ -1115,7 +1189,10 @@
               "outputDatasets": [],
               "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),ApplyMapping-Transform1_job2)"
-              ]
+              ],
+              "inputDatasetFields": null,
+              "outputDatasetFields": null,
+              "fineGrainedLineages": null
             }
           }
         ]
@@ -1156,7 +1233,10 @@
               ],
               "inputDatajobs": [
                 "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),FillMissingValues-Transform2_job2)"
-              ]
+              ],
+              "inputDatasetFields": null,
+              "outputDatasetFields": null,
+              "fineGrainedLineages": null
             }
           }
         ]
@@ -1185,6 +1265,8 @@
                 "transformation_ctx": "DataSink0"
               },
               "externalUrl": null,
+              "name": null,
+              "qualifiedName": null,
               "description": null,
               "uri": null,
               "tags": []

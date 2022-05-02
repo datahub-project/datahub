@@ -18,6 +18,9 @@ dependencies {
 
   compile externalDependency.dgraph4j exclude group: 'com.google.guava', module: 'guava'
   compile externalDependency.lombok
+  compile externalDependency.datastaxOssNativeProtocol
+  compile externalDependency.datastaxOssCore
+  compile externalDependency.datastaxOssQueryBuilder
   compile externalDependency.parquet
   compile externalDependency.elasticSearchRest
   compile externalDependency.elasticSearchTransport
@@ -43,6 +46,7 @@ dependencies {
   testCompile externalDependency.testContainers
   testCompile externalDependency.testContainersJunit
   testCompile externalDependency.testContainersElasticsearch
+  testCompile externalDependency.testContainersCassandra
   testCompile externalDependency.lombok
   testCompile project(':test-models')
 

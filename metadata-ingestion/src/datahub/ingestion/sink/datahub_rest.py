@@ -4,7 +4,8 @@ import logging
 from dataclasses import dataclass
 from typing import Union, cast
 
-from datahub.configuration.common import OperationalError
+from datahub.cli.cli_utils import set_env_variables_override_config
+from datahub.configuration.common import ConfigurationError, OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
@@ -51,13 +52,22 @@ class DatahubRestSink(Sink):
             extra_headers=self.config.extra_headers,
             ca_certificate_path=self.config.ca_certificate_path,
         )
-        gms_config = self.emitter.test_connection()
+        try:
+            gms_config = self.emitter.test_connection()
+        except Exception as exc:
+            raise ConfigurationError(
+                f"💥 Failed to connect to DataHub@{self.config.server} (token:{'XXX-redacted' if self.config.token else 'empty'}) over REST",
+                exc,
+            )
+
         self.report.gms_version = (
             gms_config.get("versions", {})
             .get("linkedin/datahub", {})
             .get("version", "")
         )
-        logger.info("Setting gms config")
+        logger.debug("Setting env variables to override config")
+        set_env_variables_override_config(self.config.server, self.config.token)
+        logger.debug("Setting gms config")
         set_gms_config(gms_config)
         self.executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=self.config.max_threads
@@ -72,7 +82,6 @@ class DatahubRestSink(Sink):
         if isinstance(workunit, MetadataWorkUnit):
             mwu: MetadataWorkUnit = cast(MetadataWorkUnit, workunit)
             self.treat_errors_as_warnings = mwu.treat_errors_as_warnings
-        pass
 
     def handle_work_unit_end(self, workunit: WorkUnit) -> None:
         pass

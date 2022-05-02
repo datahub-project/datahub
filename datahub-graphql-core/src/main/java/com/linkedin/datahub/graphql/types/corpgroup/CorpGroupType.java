@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpGroupUpdateInput;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
@@ -28,7 +29,7 @@ import com.linkedin.identity.CorpGroupEditableInfo;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.execution.DataFetcherResult;
 import java.util.ArrayList;
@@ -36,13 +37,14 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import static com.linkedin.metadata.Constants.*;
 
-public class CorpGroupType implements SearchableEntityType<CorpGroup>, MutableType<CorpGroupUpdateInput, CorpGroup> {
+public class CorpGroupType implements SearchableEntityType<CorpGroup, String>, MutableType<CorpGroupUpdateInput, CorpGroup> {
 
     private final EntityClient _entityClient;
 
@@ -62,6 +64,11 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup>, MutableTy
     @Override
     public EntityType type() {
         return EntityType.CORP_GROUP;
+    }
+
+    @Override
+    public Function<Entity, String> getKeyProvider() {
+        return Entity::getUrn;
     }
 
     @Override
@@ -133,7 +140,7 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup>, MutableTy
             proposal.setEntityType(CORP_GROUP_ENTITY_NAME);
             proposal.setAspectName(CORP_GROUP_EDITABLE_INFO_ASPECT_NAME);
             proposal.setAspect(
-                GenericAspectUtils.serializeAspect(mapCorpGroupEditableInfo(input, existingCorpGroupEditableInfo)));
+                GenericRecordUtils.serializeAspect(mapCorpGroupEditableInfo(input, existingCorpGroupEditableInfo)));
             proposal.setChangeType(ChangeType.UPSERT);
             _entityClient.ingestProposal(proposal, context.getAuthentication());
 

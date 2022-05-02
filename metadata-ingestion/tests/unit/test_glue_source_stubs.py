@@ -759,5 +759,17 @@ def mock_get_object_response(raw_body: str) -> Dict[str, Any]:
     return {"Body": raw_stream}
 
 
-get_object_response_1 = mock_get_object_response(get_object_body_1)
-get_object_response_2 = mock_get_object_response(get_object_body_2)
+def get_object_response_1() -> Dict[str, Any]:
+    return mock_get_object_response(get_object_body_1)
+
+
+def get_object_response_2() -> Dict[str, Any]:
+    return mock_get_object_response(get_object_body_2)
+
+
+def get_bucket_tagging() -> Dict[str, Any]:
+    return {"TagSet": [{"Key": "foo", "Value": "bar"}]}
+
+
+def get_object_tagging() -> Dict[str, Any]:
+    return {"TagSet": [{"Key": "baz", "Value": "bob"}]}

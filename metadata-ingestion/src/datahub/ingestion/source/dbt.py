@@ -2,19 +2,26 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, cast
 
 import dateutil.parser
 import requests
 from pydantic import validator
+from pydantic.fields import Field
 
-from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.emitter import mce_builder
-from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
+from datahub.ingestion.api.ingestion_job_state_provider import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_types import (
     BIGQUERY_TYPES_MAP,
@@ -22,6 +29,16 @@ from datahub.ingestion.source.sql.sql_types import (
     SNOWFLAKE_TYPES_MAP,
     SPARK_SQL_TYPES_MAP,
     resolve_postgres_modified_type,
+)
+from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.ingestion.source.state.sql_common_state import (
+    BaseSQLAlchemyCheckpointState,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfig,
+    StatefulIngestionConfigBase,
+    StatefulIngestionReport,
+    StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -56,6 +73,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    StatusClass,
     SubTypesClass,
     TagAssociationClass,
     UpstreamLineageClass,
@@ -67,22 +85,98 @@ logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
 
 
-class DBTConfig(ConfigModel):
-    manifest_path: str
-    catalog_path: str
-    sources_path: Optional[str]
-    env: str = DEFAULT_ENV
-    target_platform: str
-    load_schemas: bool = True
-    use_identifiers: bool = False
-    node_type_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    tag_prefix: str = f"{DBT_PLATFORM}:"
-    node_name_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    disable_dbt_node_creation = False
-    meta_mapping: Dict = {}
-    enable_meta_mapping = True
-    write_semantics: str = "PATCH"
-    strip_user_ids_from_email: bool = False
+class DBTStatefulIngestionConfig(StatefulIngestionConfig):
+    """
+    Specialization of basic StatefulIngestionConfig to adding custom config.
+    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
+    in the SQLAlchemyConfig.
+    """
+
+    remove_stale_metadata: bool = True
+
+
+@dataclass
+class DBTSourceReport(StatefulIngestionReport):
+    soft_deleted_stale_entities: List[str] = field(default_factory=list)
+
+    def report_stale_entity_soft_deleted(self, urn: str) -> None:
+        self.soft_deleted_stale_entities.append(urn)
+
+
+class DBTConfig(StatefulIngestionConfigBase):
+    manifest_path: str = Field(
+        description="Path to dbt manifest JSON. See https://docs.getdbt.com/reference/artifacts/manifest-json Note this can be a local file or a URI."
+    )
+    catalog_path: str = Field(
+        description="Path to dbt catalog JSON. See https://docs.getdbt.com/reference/artifacts/catalog-json Note this can be a local file or a URI."
+    )
+    sources_path: Optional[str] = Field(
+        default=None,
+        description="Path to dbt sources JSON. See https://docs.getdbt.com/reference/artifacts/sources-json. If not specified, last-modified fields will not be populated. Note this can be a local file or a URI.",
+    )
+    env: str = Field(
+        default=mce_builder.DEFAULT_ENV,
+        description="Environment to use in namespace when constructing URNs.",
+    )
+    target_platform: str = Field(
+        description="The platform that dbt is loading onto. (e.g. bigquery / redshift / postgres etc.)"
+    )
+    load_schemas: bool = Field(
+        default=True,
+        description="This flag is only consulted when disable_dbt_node_creation is set to True. Load schemas for target_platform entities from dbt catalog file, not necessary when you are already ingesting this metadata from the data platform directly. If set to False, table schema details (e.g. columns) will not be ingested.",
+    )
+    use_identifiers: bool = Field(
+        default=False,
+        description="Use model identifier instead of model name if defined (if not, default to model name).",
+    )
+    node_type_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for dbt nodes to filter in ingestion.",
+    )
+    tag_prefix: str = Field(
+        default=f"{DBT_PLATFORM}:", description="Prefix added to tags during ingestion."
+    )
+    node_name_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for dbt model names to filter in ingestion.",
+    )
+    disable_dbt_node_creation = Field(
+        default=False,
+        description="Whether to suppress dbt dataset metadata creation. When set to True, this flag applies the dbt metadata to the target_platform entities (e.g. populating schema and column descriptions from dbt into the postgres / bigquery table metadata in DataHub) and generates lineage between the platform entities.",
+    )
+    meta_mapping: Dict = Field(
+        default={},
+        description="mapping rules that will be executed against dbt meta properties. Refer to the section below on dbt meta automated mappings.",
+    )
+    enable_meta_mapping = Field(
+        default=True,
+        description="When enabled, applies the mappings that are defined through the meta_mapping directives.",
+    )
+    query_tag_mapping: Dict = Field(
+        default={},
+        description="mapping rules that will be executed against dbt query_tag meta properties. Refer to the section below on dbt meta automated mappings.",
+    )
+    enable_query_tag_mapping = Field(
+        default=True,
+        description="When enabled, applies the mappings that are defined through the `query_tag_mapping` directives.",
+    )
+    write_semantics: str = Field(
+        default="PATCH",
+        description='Whether the new tags, terms and owners to be added will override the existing ones added only by this source or not. Value for this config can be "PATCH" or "OVERRIDE"',
+    )
+    strip_user_ids_from_email: bool = Field(
+        default=False,
+        description="Whether or not to strip email id while adding owners using dbt meta actions.",
+    )
+    owner_extraction_pattern: Optional[str] = Field(
+        default=None,
+        description='Regex string to extract owner from the dbt node using the `(?P<name>...) syntax` of the [match object](https://docs.python.org/3/library/re.html#match-objects), where the group name must be `owner`. Examples: (1)`r"(?P<owner>(.*)): (\w+) (\w+)"` will extract `jdoe` as the owner from `"jdoe: John Doe"` (2) `r"@(?P<owner>(.*))"` will extract `alice` as the owner from `"@alice"`.',  # noqa: W605
+    )
+
+    # Custom Stateful Ingestion settings
+    stateful_ingestion: Optional[DBTStatefulIngestionConfig] = Field(
+        default=None, description=""
+    )
 
     @validator("target_platform")
     def validate_target_platform_value(cls, target_platform: str) -> str:
@@ -142,6 +236,7 @@ class DBTNode:
     upstream_nodes: List[str] = field(default_factory=list)
 
     meta: Dict[str, Any] = field(default_factory=dict)
+    query_tag: Dict[str, Any] = field(default_factory=dict)
 
     tags: List[str] = field(default_factory=list)
 
@@ -185,7 +280,7 @@ def extract_dbt_entities(
     use_identifiers: bool,
     tag_prefix: str,
     node_type_pattern: AllowDenyPattern,
-    report: SourceReport,
+    report: DBTSourceReport,
     node_name_pattern: AllowDenyPattern,
 ) -> List[DBTNode]:
     sources_by_id = {x["unique_id"]: x for x in sources_results}
@@ -235,6 +330,8 @@ def extract_dbt_entities(
         else:
             catalog_type = all_catalog_entities[key]["metadata"]["type"]
 
+        query_tag_props = manifest_node.get("query_tag", {})
+
         meta = manifest_node.get("meta", {})
 
         owner = meta.get("owner")
@@ -262,6 +359,7 @@ def extract_dbt_entities(
             catalog_type=catalog_type,
             columns=[],
             meta=meta_props,
+            query_tag=query_tag_props,
             tags=tags,
             owner=owner,
         )
@@ -305,7 +403,7 @@ def loadManifestAndCatalog(
     use_identifiers: bool,
     tag_prefix: str,
     node_type_pattern: AllowDenyPattern,
-    report: SourceReport,
+    report: DBTSourceReport,
     node_name_pattern: AllowDenyPattern,
 ) -> Tuple[
     List[DBTNode],
@@ -375,7 +473,7 @@ def get_urn_from_dbtNode(
     database: Optional[str], schema: str, name: str, target_platform: str, env: str
 ) -> str:
     db_fqn = get_db_fqn(database, schema, name)
-    return f"urn:li:dataset:(urn:li:dataPlatform:{target_platform},{db_fqn},{env})"
+    return mce_builder.make_dataset_urn(target_platform, db_fqn, env)
 
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
@@ -487,7 +585,7 @@ _field_type_mapping = {
 
 
 def get_column_type(
-    report: SourceReport, dataset_name: str, column_type: str
+    report: DBTSourceReport, dataset_name: str, column_type: str
 ) -> SchemaFieldDataType:
     """
     Maps known DBT types to datahub types
@@ -509,7 +607,7 @@ def get_column_type(
 
 
 def get_schema_metadata(
-    report: SourceReport, node: DBTNode, platform: str
+    report: DBTSourceReport, node: DBTNode, platform: str
 ) -> SchemaMetadata:
     canonical_schema: List[SchemaField] = []
     for column in node.columns:
@@ -529,7 +627,10 @@ def get_schema_metadata(
         globalTags = None
         if column.tags:
             globalTags = GlobalTagsClass(
-                tags=[TagAssociationClass(f"urn:li:tag:{tag}") for tag in column.tags]
+                tags=[
+                    TagAssociationClass(mce_builder.make_tag_urn(tag))
+                    for tag in column.tags
+                ]
             )
 
         field = SchemaField(
@@ -546,7 +647,7 @@ def get_schema_metadata(
 
     last_modified = None
     if node.max_loaded_at is not None:
-        actor = "urn:li:corpuser:dbt_executor"
+        actor = mce_builder.make_user_urn("dbt_executor")
         last_modified = AuditStamp(
             time=int(dateutil.parser.parse(node.max_loaded_at).timestamp() * 1000),
             actor=actor,
@@ -554,7 +655,7 @@ def get_schema_metadata(
 
     return SchemaMetadata(
         schemaName=node.dbt_name,
-        platform=f"urn:li:dataPlatform:{platform}",
+        platform=mce_builder.make_data_platform_urn(platform),
         version=0,
         hash="",
         platformSchema=MySqlDDL(tableSchema=""),
@@ -563,8 +664,39 @@ def get_schema_metadata(
     )
 
 
-class DBTSource(Source):
-    """Extract DBT metadata for ingestion to Datahub"""
+@platform_name("dbt")
+@config_class(DBTConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@capability(SourceCapability.USAGE_STATS, "", supported=False)
+class DBTSource(StatefulIngestionSourceBase):
+    """
+    This plugin pulls metadata from dbt's artifact files and generates:
+    - dbt Tables: for nodes in the dbt manifest file that are models materialized as tables
+    - dbt Views: for nodes in the dbt manifest file that are models materialized as views
+    - dbt Ephemeral: for nodes in the dbt manifest file that are ephemeral models
+    - dbt Sources: for nodes that are sources on top of the underlying platform tables
+    - dbt Seed: for seed entities
+    - dbt Test: for dbt test entities
+
+    Note:
+    1. It also generates lineage between the `dbt` nodes (e.g. ephemeral nodes that depend on other dbt sources) as well as lineage between the `dbt` nodes and the underlying (target) platform nodes (e.g. BigQuery Table -> dbt Source, dbt View -> BigQuery View).
+    2. The previous version of this source (`acryl_datahub<=0.8.16.2`) did not generate `dbt` entities and lineage between `dbt` entities and platform entities. For backwards compatibility with the previous version of this source, there is a config flag `disable_dbt_node_creation` that falls back to the old behavior.
+    3. We also support automated actions (like add a tag, term or owner) based on properties defined in dbt meta.
+
+    The artifacts used by this source are:
+    - [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json)
+      - This file contains model, source and lineage data.
+    - [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json)
+      - This file contains schema data.
+      - dbt does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
+    - [dbt sources file](https://docs.getdbt.com/reference/artifacts/sources-json)
+      - This file contains metadata for sources with freshness checks.
+      - We transfer dbt's freshness checks to DataHub's last-modified fields.
+      - Note that this file is optional – if not specified, we'll use time of ingestion instead as a proxy for time last-modified.
+
+    """
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -572,10 +704,61 @@ class DBTSource(Source):
         return cls(config, ctx, "dbt")
 
     def __init__(self, config: DBTConfig, ctx: PipelineContext, platform: str):
-        super().__init__(ctx)
-        self.config = config
-        self.platform = platform
-        self.report = SourceReport()
+        super().__init__(config, ctx)
+        self.config: DBTConfig = config
+        self.platform: str = platform
+        self.report: DBTSourceReport = DBTSourceReport()
+        self.compiled_owner_extraction_pattern: Optional[Any] = None
+        if self.config.owner_extraction_pattern:
+            self.compiled_owner_extraction_pattern = re.compile(
+                self.config.owner_extraction_pattern
+            )
+
+    # TODO: Consider refactoring this logic out for use across sources as it is leading to a significant amount of
+    #  code duplication.
+    def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
+        last_checkpoint = self.get_last_checkpoint(
+            self.get_default_ingestion_job_id(), BaseSQLAlchemyCheckpointState
+        )
+        cur_checkpoint = self.get_current_checkpoint(
+            self.get_default_ingestion_job_id()
+        )
+        if (
+            self.config.stateful_ingestion
+            and self.config.stateful_ingestion.remove_stale_metadata
+            and last_checkpoint is not None
+            and last_checkpoint.state is not None
+            and cur_checkpoint is not None
+            and cur_checkpoint.state is not None
+        ):
+            logger.debug("Checking for stale entity removal.")
+
+            def soft_delete_item(urn: str, type: str) -> Iterable[MetadataWorkUnit]:
+
+                logger.info(f"Soft-deleting stale entity of type {type} - {urn}.")
+                mcp = MetadataChangeProposalWrapper(
+                    entityType=type,
+                    entityUrn=urn,
+                    changeType=ChangeTypeClass.UPSERT,
+                    aspectName="status",
+                    aspect=StatusClass(removed=True),
+                )
+                wu = MetadataWorkUnit(id=f"soft-delete-{type}-{urn}", mcp=mcp)
+                self.report.report_workunit(wu)
+                self.report.report_stale_entity_soft_deleted(urn)
+                yield wu
+
+            last_checkpoint_state = cast(
+                BaseSQLAlchemyCheckpointState, last_checkpoint.state
+            )
+            cur_checkpoint_state = cast(
+                BaseSQLAlchemyCheckpointState, cur_checkpoint.state
+            )
+
+            for table_urn in last_checkpoint_state.get_table_urns_not_in(
+                cur_checkpoint_state
+            ):
+                yield from soft_delete_item(table_urn, "dataset")
 
     # create workunits from dbt nodes
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -584,6 +767,7 @@ class DBTSource(Source):
                 "With PATCH semantics, dbt source requires a datahub_api to connect to. "
                 "Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe."
             )
+
         (
             nodes,
             manifest_schema,
@@ -631,6 +815,30 @@ class DBTSource(Source):
             self.config.target_platform,
         )
 
+        if self.is_stateful_ingestion_configured():
+            # Clean up stale entities.
+            yield from self.gen_removed_entity_workunits()
+
+    def remove_duplicate_urns_from_checkpoint_state(self) -> None:
+        """
+        During MCEs creation process some nodes getting processed more than once and hence
+        duplicates URN are getting added in checkpoint_state.
+        This function will remove duplicates
+        """
+        if not self.is_stateful_ingestion_configured():
+            return
+
+        cur_checkpoint = self.get_current_checkpoint(
+            self.get_default_ingestion_job_id()
+        )
+
+        if cur_checkpoint is not None:
+            # Utilizing BaseSQLAlchemyCheckpointState class to save state
+            checkpoint_state = cast(BaseSQLAlchemyCheckpointState, cur_checkpoint.state)
+            checkpoint_state.encoded_table_urns = list(
+                set(checkpoint_state.encoded_table_urns)
+            )
+
     def create_platform_mces(
         self,
         dbt_nodes: List[DBTNode],
@@ -655,6 +863,13 @@ class DBTSource(Source):
             self.config.strip_user_ids_from_email,
         )
 
+        action_processor_tag = OperationProcessor(
+            self.config.query_tag_mapping,
+            self.config.tag_prefix,
+            "SOURCE_CONTROL",
+            self.config.strip_user_ids_from_email,
+        )
+
         for node in dbt_nodes:
             node_datahub_urn = get_urn_from_dbtNode(
                 node.database,
@@ -663,10 +878,14 @@ class DBTSource(Source):
                 mce_platform,
                 self.config.env,
             )
+            self.save_checkpoint(node_datahub_urn)
 
             meta_aspects: Dict[str, Any] = {}
             if self.config.enable_meta_mapping and node.meta:
                 meta_aspects = action_processor.process(node.meta)
+
+            if self.config.enable_query_tag_mapping and node.query_tag:
+                self.extract_query_tag_aspects(action_processor_tag, meta_aspects, node)
 
             aspects = self._generate_base_aspects(
                 node, additional_custom_props_filtered, mce_platform, meta_aspects
@@ -734,14 +953,31 @@ class DBTSource(Source):
             self.report.report_workunit(wu)
             yield wu
 
-            # TODO: Remove. keeping this till PR review
-            # for meta_mcpw in meta_mcpw_list:
-            #     meta_wu = MetadataWorkUnit(
-            #         id=f"{self.platform}-{meta_mcpw.entityUrn}-{meta_mcpw.aspectName}",
-            #         mcp=meta_mcpw,
-            #     )
-            #     yield meta_wu
-            #     self.report.report_workunit(meta_wu)
+    def save_checkpoint(self, node_datahub_urn: str) -> None:
+        if self.is_stateful_ingestion_configured():
+            cur_checkpoint = self.get_current_checkpoint(
+                self.get_default_ingestion_job_id()
+            )
+
+            if cur_checkpoint is not None:
+                # Utilizing BaseSQLAlchemyCheckpointState class to save state
+                checkpoint_state = cast(
+                    BaseSQLAlchemyCheckpointState, cur_checkpoint.state
+                )
+                checkpoint_state.add_table_urn(node_datahub_urn)
+
+    def extract_query_tag_aspects(
+        self,
+        action_processor_tag: OperationProcessor,
+        meta_aspects: Dict[str, Any],
+        node: DBTNode,
+    ) -> None:
+        query_tag_aspects = action_processor_tag.process(node.query_tag)
+        if "add_tag" in query_tag_aspects:
+            if "add_tag" in meta_aspects:
+                meta_aspects["add_tag"].tags.extend(query_tag_aspects["add_tag"].tags)
+            else:
+                meta_aspects["add_tag"] = query_tag_aspects["add_tag"]
 
     def get_aspect_from_dataset(
         self, dataset_snapshot: DatasetSnapshot, aspect_type: type
@@ -787,7 +1023,7 @@ class DBTSource(Source):
             transformed_tag_list = self.get_transformed_tags_by_prefix(
                 tag_aspect.tags,
                 mce.proposedSnapshot.urn,
-                f"urn:li:tag:{self.config.tag_prefix}",
+                mce_builder.make_tag_urn(self.config.tag_prefix),
             )
             tag_aspect.tags = transformed_tag_list
 
@@ -823,19 +1059,9 @@ class DBTSource(Source):
             description=description,
             customProperties=custom_props,
             tags=node.tags,
+            name=node.name,
         )
         return dbt_properties
-
-    def _get_owners_aspect(self, node: DBTNode) -> OwnershipClass:
-        owners = [
-            OwnerClass(
-                owner=f"urn:li:corpuser:{node.owner}",
-                type=OwnershipTypeClass.DATAOWNER,
-            )
-        ]
-        return OwnershipClass(
-            owners=owners,
-        )
 
     def _create_view_properties_aspect(self, node: DBTNode) -> ViewPropertiesClass:
         materialized = node.materialization in {"table", "incremental"}
@@ -870,6 +1096,9 @@ class DBTSource(Source):
         )
         aspects.append(dbt_properties)
 
+        # add status aspect
+        status = StatusClass(removed=False)
+        aspects.append(status)
         # add owners aspect
         # we need to aggregate owners added by meta properties and the owners that are coming from server.
         meta_owner_aspects = meta_aspects.get(Constants.ADD_OWNER_OPERATION)
@@ -909,14 +1138,29 @@ class DBTSource(Source):
     ) -> List[OwnerClass]:
         owner_list: List[OwnerClass] = []
         if node.owner:
+            owner: str = node.owner
+            if self.compiled_owner_extraction_pattern:
+                match: Optional[Any] = re.match(
+                    self.compiled_owner_extraction_pattern, owner
+                )
+                if match:
+                    owner = match.group("owner")
+                    logger.debug(
+                        f"Owner after applying owner extraction pattern:'{self.config.owner_extraction_pattern}' is '{owner}'."
+                    )
+            if self.config.strip_user_ids_from_email:
+                owner = owner.split("@")[0]
+                logger.debug(f"Owner (after stripping email):{owner}")
+
             owner_list.append(
                 OwnerClass(
-                    owner=f"urn:li:corpuser:{node.owner}",
+                    owner=mce_builder.make_user_urn(owner),
                     type=OwnershipTypeClass.DATAOWNER,
                 )
             )
+
         if meta_owner_aspects and self.config.enable_meta_mapping:
-            owner_list += meta_owner_aspects.owners
+            owner_list.extend(meta_owner_aspects.owners)
 
         owner_list = sorted(owner_list, key=lambda x: x.owner)
         return owner_list
@@ -1075,5 +1319,59 @@ class DBTSource(Source):
     def get_report(self):
         return self.report
 
+    def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
+        """
+        Create the custom checkpoint with empty state for the job.
+        """
+        assert self.ctx.pipeline_name is not None
+        if job_id == self.get_default_ingestion_job_id():
+            return Checkpoint(
+                job_name=job_id,
+                pipeline_name=self.ctx.pipeline_name,
+                platform_instance_id=self.get_platform_instance_id(),
+                run_id=self.ctx.run_id,
+                config=self.config,
+                # Reusing BaseSQLAlchemyCheckpointState as it has needed functionality to support statefulness of DBT
+                state=BaseSQLAlchemyCheckpointState(),
+            )
+        return None
+
+    def get_platform_instance_id(self) -> str:
+        """
+        DBT project identifier is used as platform instance.
+        """
+
+        project_id = (
+            load_file_as_json(self.config.manifest_path)
+            .get("metadata", {})
+            .get("project_id")
+        )
+        if project_id is None:
+            raise ValueError("DBT project identifier is not found in manifest")
+
+        return f"{self.platform}_{project_id}"
+
+    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
+        if (
+            job_id == self.get_default_ingestion_job_id()
+            and self.is_stateful_ingestion_configured()
+            and self.config.stateful_ingestion
+            and self.config.stateful_ingestion.remove_stale_metadata
+        ):
+            return True
+
+        return False
+
+    def get_default_ingestion_job_id(self) -> JobId:
+        """
+        DBT ingestion job name.
+        """
+        return JobId(f"{self.platform}_stateful_ingestion")
+
     def close(self):
-        pass
+        self.remove_duplicate_urns_from_checkpoint_state()
+        self.prepare_for_commit()
+
+    @property
+    def __bases__(self) -> Tuple[Type]:
+        return (DBTSource,)

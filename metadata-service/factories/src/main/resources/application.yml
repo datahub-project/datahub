@@ -24,13 +24,28 @@ authentication:
   # The max duration of a UI session in milliseconds. Defaults to 1 day.
   sessionTokenDurationMs: ${SESSION_TOKEN_DURATION_MS:86400000}
 
+# Authorization-related configurations.
+authorization:
+
+  # Configurations for the default DataHub policies-based authorizer.
+  defaultAuthorizer:
+    enabled: ${AUTH_POLICIES_ENABLED:true}
+    cacheRefreshIntervalSecs: ${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:120}
+
+  # Optional: A set of custom authorizers, serving in addition to the default DataHub policies-based authorizer.
+  authorizers:
+  # - type: com.datahub.authorization.authorizer.CustomAuthorizer
+  #   configs:
+  #     config1: value1
+
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
-  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.26.6}'
+  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.32.1}'
 
 telemetry:
   enabledCli: ${CLI_TELEMETRY_ENABLED:true}
   enabledIngestion: ${INGESTION_REPORTING_ENABLED:false}
+  enableThirdPartyLogging: ${ENABLE_THIRD_PARTY_LOGGING:false}
 
 secretService:
   encryptionKey: ${SECRET_SERVICE_ENCRYPTION_KEY:ENCRYPTION_KEY}
@@ -50,6 +65,7 @@ datahub:
       path: ${RETENTION_PLUGIN_PATH:/etc/datahub/plugins/retention}
 
 entityService:
+  impl: ${ENTITY_SERVICE_IMPL:ebean}
   retention:
     enabled: ${ENTITY_SERVICE_ENABLE_RETENTION:false}
 
@@ -64,12 +80,12 @@ configEntityRegistry:
   # TODO: Change to read from resources on classpath.
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
 
-authorizationManager:
-  enabled: ${AUTH_POLICIES_ENABLED:true}
-  cacheRefreshIntervalSecs: ${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:120}
-
 platformAnalytics:
   enabled: ${ANALYTICS_ENABLED:true}
+
+visualConfig:
+  assets:
+    logoUrl: ${REACT_APP_LOGO_URL:#{null}}
 
 # Storage Layer
 ebean:
@@ -82,7 +98,17 @@ ebean:
   maxInactiveTimeSeconds: ${EBEAN_MAX_INACTIVE_TIME_IN_SECS:120}
   maxAgeMinutes: ${EBEAN_MAX_AGE_MINUTES:120}
   leakTimeMinutes: ${EBEAN_LEAK_TIME_MINUTES:15}
+  waitTimeoutMillis: ${EBEAN_WAIT_TIMEOUT_MILLIS:1000}
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
+
+cassandra:
+  datasourceUsername: ${CASSANDRA_DATASOURCE_USERNAME:cassandra}
+  datasourcePassword: ${CASSANDRA_DATASOURCE_PASSWORD:cassandra}
+  hosts: ${CASSANDRA_HOSTS:cassandra}
+  port: ${CASSANDRA_PORT:9042}
+  datacenter: ${CASSANDRA_DATACENTER:datacenter1}
+  keyspace: ${CASSANDRA_KEYSPACE:datahub}
+  useSsl: ${CASSANDRA_USE_SSL:false}
 
 elasticsearch:
   host: ${ELASTICSEARCH_HOST:localhost}
@@ -118,6 +144,8 @@ elasticsearch:
 
 # TODO: Kafka topic convention
 kafka:
+  listener:
+    concurrency: ${KAFKA_LISTENER_CONCURRENCY:1}
   bootstrapServers: ${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # KAFKA or AWS_GLUE

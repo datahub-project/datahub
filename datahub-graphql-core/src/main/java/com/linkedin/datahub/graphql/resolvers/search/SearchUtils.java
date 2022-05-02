@@ -20,6 +20,8 @@ public class SearchUtils {
           EntityType.MLMODEL,
           EntityType.MLMODEL_GROUP,
           EntityType.MLFEATURE_TABLE,
+          EntityType.MLFEATURE,
+          EntityType.MLPRIMARY_KEY,
           EntityType.DATA_FLOW,
           EntityType.DATA_JOB,
           EntityType.GLOSSARY_TERM,
@@ -27,7 +29,8 @@ public class SearchUtils {
           EntityType.CORP_USER,
           EntityType.CORP_GROUP,
           EntityType.CONTAINER,
-          EntityType.DOMAIN);
+          EntityType.DOMAIN,
+          EntityType.NOTEBOOK);
 
   /**
    * Entities that are part of autocomplete by default in Auto Complete Across Entities
@@ -45,5 +48,6 @@ public class SearchUtils {
           EntityType.GLOSSARY_TERM,
           EntityType.TAG,
           EntityType.CORP_USER,
-          EntityType.CORP_GROUP);
+          EntityType.CORP_GROUP,
+          EntityType.NOTEBOOK);
 }

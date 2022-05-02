@@ -23,20 +23,20 @@ def side_effect_query_metadata(query):
     if "workbooksConnection (first:0" in query:
         return _read_response("workbooksConnection_0.json")
 
-    if "workbooksConnection (first:8" in query:
-        return _read_response("workbooksConnection_8.json")
+    if "workbooksConnection (first:3" in query:
+        return _read_response("workbooksConnection_all.json")
 
     if "publishedDatasourcesConnection (first:0" in query:
         return _read_response("publishedDatasourcesConnection_0.json")
 
     if "publishedDatasourcesConnection (first:2" in query:
-        return _read_response("publishedDatasourcesConnection_2.json")
+        return _read_response("publishedDatasourcesConnection_all.json")
 
     if "customSQLTablesConnection (first:0" in query:
         return _read_response("customSQLTablesConnection_0.json")
 
     if "customSQLTablesConnection (first:2" in query:
-        return _read_response("customSQLTablesConnection_2.json")
+        return _read_response("customSQLTablesConnection_all.json")
 
 
 @freeze_time(FROZEN_TIME)
@@ -69,8 +69,10 @@ def test_tableau_ingest(pytestconfig, tmp_path):
                         "connect_uri": "https://do-not-connect",
                         "site": "acryl",
                         "projects": ["default", "Project 2"],
+                        "workbooks_page_size": 10,
                         "ingest_tags": True,
                         "ingest_owner": True,
+                        "ingest_tables_external": True,
                         "default_schema_map": {
                             "dvdrental": "public",
                             "someotherdb": "schema",

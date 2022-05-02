@@ -6,6 +6,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import dateutil.parser as dp
 from pydantic import validator
+from pydantic.fields import Field
 from tableauserverclient import (
     PersonalAccessTokenAuth,
     Server,
@@ -22,6 +23,14 @@ from datahub.emitter.mcp_builder import (
     gen_containers,
 )
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.tableau_common import (
@@ -81,20 +90,56 @@ REPLACE_SLASH_CHAR = "|"
 
 
 class TableauConfig(ConfigModel):
-    connect_uri: str
-    username: Optional[str] = None
-    password: Optional[str] = None
-    token_name: Optional[str] = None
-    token_value: Optional[str] = None
+    connect_uri: str = Field(description="Tableau host URL.")
+    username: Optional[str] = Field(
+        default=None,
+        description="Tableau username, must be set if authenticating using username/password.",
+    )
+    password: Optional[str] = Field(
+        default=None,
+        description="Tableau password, must be set if authenticating using username/password.",
+    )
+    token_name: Optional[str] = Field(
+        default=None,
+        description="Tableau token name, must be set if authenticating using a personal access token.",
+    )
+    token_value: Optional[str] = Field(
+        default=None,
+        description="Tableau token value, must be set if authenticating using a personal access token.",
+    )
 
-    site: str = ""
-    projects: Optional[List] = ["default"]
-    default_schema_map: dict = {}
-    ingest_tags: Optional[bool] = False
-    ingest_owner: Optional[bool] = False
+    site: str = Field(
+        default="",
+        description="Tableau Site. Always required for Tableau Online. Use emptystring "
+        " to connect with Default site on Tableau Server.",
+    )
+    projects: Optional[List[str]] = Field(
+        default=["default"], description="List of projects"
+    )
+    default_schema_map: dict = Field(
+        default={}, description="Default schema to use when schema is not found."
+    )
+    ingest_tags: Optional[bool] = Field(
+        default=False,
+        description="Ingest Tags from source. This will override Tags entered from UI",
+    )
+    ingest_owner: Optional[bool] = Field(
+        default=False,
+        description="Ingest Owner from source. This will override Owner info entered from UI",
+    )
+    ingest_tables_external: bool = Field(
+        default=False,
+        description="Ingest details for tables external to (not embedded in) tableau as entities.",
+    )
 
-    workbooks_page_size: int = 10
-    env: str = builder.DEFAULT_ENV
+    workbooks_page_size: int = Field(
+        default=10,
+        description="Number of workbooks to query at a time using Tableau api.",
+    )
+    env: str = Field(
+        default=builder.DEFAULT_ENV,
+        description="Environment to use in namespace when constructing URNs.",
+    )
 
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
@@ -105,21 +150,49 @@ class WorkbookKey(PlatformKey):
     workbook_id: str
 
 
+@platform_name("Tableau")
+@config_class(TableauConfig)
+@support_status(SupportStatus.INCUBATING)
+@capability(
+    SourceCapability.PLATFORM_INSTANCE,
+    "Not applicable to source",
+    supported=False,
+)
+@capability(SourceCapability.DOMAINS, "Requires transformer", supported=False)
+@capability(SourceCapability.DATA_PROFILING, "", supported=False)
+@capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
+@capability(
+    SourceCapability.USAGE_STATS,
+    "",
+    supported=False,
+)
+@capability(SourceCapability.DELETION_DETECTION, "", supported=False)
+@capability(SourceCapability.OWNERSHIP, "Requires recipe configuration")
+@capability(SourceCapability.TAGS, "Requires recipe configuration")
+@capability(
+    SourceCapability.PARTITION_SUPPORT, "Not applicable to source", supported=False
+)
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class TableauSource(Source):
     config: TableauConfig
     report: SourceReport
     platform = "tableau"
-    server: Server
-    upstream_tables: Dict[str, Tuple[Any, str]] = {}
+    server: Optional[Server]
+    upstream_tables: Dict[str, Tuple[Any, Optional[str], bool]] = {}
 
     def __hash__(self):
         return id(self)
 
-    def __init__(self, ctx: PipelineContext, config: TableauConfig):
+    def __init__(
+        self,
+        config: TableauConfig,
+        ctx: PipelineContext,
+    ):
         super().__init__(ctx)
 
         self.config = config
         self.report = SourceReport()
+        self.server = None
         # This list keeps track of datasource being actively used by workbooks so that we only retrieve those
         # when emitting published data sources.
         self.datasource_ids_being_used: List[str] = []
@@ -130,11 +203,12 @@ class TableauSource(Source):
         self._authenticate()
 
     def close(self) -> None:
-        self.server.auth.sign_out()
+        if self.server is not None:
+            self.server.auth.sign_out()
 
     def _authenticate(self):
         # https://tableau.github.io/server-client-python/docs/api-ref#authentication
-        authentication = None
+        authentication: Optional[Union[TableauAuth, PersonalAccessTokenAuth]] = None
         if self.config.username and self.config.password:
             authentication = TableauAuth(
                 username=self.config.username,
@@ -154,11 +228,13 @@ class TableauSource(Source):
             self.server = Server(self.config.connect_uri, use_server_version=True)
             self.server.auth.sign_in(authentication)
         except ServerResponseError as e:
+            logger.error(e)
             self.report.report_failure(
                 key="tableau-login",
                 reason=f"Unable to Login with credentials provided" f"Reason: {str(e)}",
             )
         except Exception as e:
+            logger.error(e)
             self.report.report_failure(
                 key="tableau-login", reason=f"Unable to Login" f"Reason: {str(e)}"
             )
@@ -181,7 +257,12 @@ class TableauSource(Source):
                 reason=f"Connection: {connection_type} Error: {query_data['errors']}",
             )
 
-        connection_object = query_data.get("data", {}).get(connection_type, {})
+        connection_object = (
+            query_data.get("data").get(connection_type, {})
+            if query_data.get("data")
+            else {}
+        )
+
         total_count = connection_object.get("totalCount", 0)
         has_next_page = connection_object.get("pageInfo", {}).get("hasNextPage", False)
         return connection_object, total_count, has_next_page
@@ -228,9 +309,11 @@ class TableauSource(Source):
 
     def _track_custom_sql_ids(self, field: dict) -> None:
         # Tableau shows custom sql datasource as a table in ColumnField.
-        if field.get("__typename", "") == "ColumnField":
+        if field.get("__typename") == "ColumnField":
             for column in field.get("columns", []):
-                table_id = column.get("table", {}).get("id")
+                table_id = (
+                    column.get("table", {}).get("id") if column.get("table") else None
+                )
 
                 if (
                     table_id is not None
@@ -239,25 +322,72 @@ class TableauSource(Source):
                     self.custom_sql_ids_being_used.append(table_id)
 
     def _create_upstream_table_lineage(
-        self, datasource: dict, project: str, is_custom_sql: bool = False
+        self,
+        datasource: dict,
+        project: str,
+        is_custom_sql: bool = False,
+        is_embedded_ds: bool = False,
     ) -> List[UpstreamClass]:
         upstream_tables = []
-        upstream_dbs = datasource.get("upstreamDatabases", [])
-        upstream_db = upstream_dbs[0].get("name", "") if upstream_dbs else ""
+
+        for ds in datasource.get("upstreamDatasources", []):
+            if ds["id"] not in self.datasource_ids_being_used:
+                self.datasource_ids_being_used.append(ds["id"])
+
+            datasource_urn = builder.make_dataset_urn(
+                self.platform, ds["id"], self.config.env
+            )
+            upstream_table = UpstreamClass(
+                dataset=datasource_urn,
+                type=DatasetLineageTypeClass.TRANSFORMED,
+            )
+            upstream_tables.append(upstream_table)
+
+        # When tableau workbook connects to published datasource, it creates an embedded
+        # datasource inside workbook that connects to published datasource. Both embedded
+        # and published datasource have same upstreamTables in this case.
+        if upstream_tables and is_embedded_ds:
+            logger.debug(
+                f"Embedded datasource {datasource.get('id')} has upstreamDatasources.\
+                Setting only upstreamDatasources lineage. The upstreamTables lineage \
+                    will be set via upstream published datasource."
+            )
+            return upstream_tables
 
         for table in datasource.get("upstreamTables", []):
             # skip upstream tables when there is no column info when retrieving embedded datasource
+            # and when table name is None
             # Schema details for these will be taken care in self.emit_custom_sql_ds()
             if not is_custom_sql and not table.get("columns"):
                 continue
+            elif table["name"] is None:
+                continue
 
-            schema = self._get_schema(table.get("schema", ""), upstream_db)
+            schema = table.get("schema", "")
+            table_name = table.get("name", "")
+            full_name = table.get("fullName", "")
+            upstream_db = table.get("database", {}).get("name", "")
+            logger.debug(
+                "Processing Table with Connection Type: {0} and id {1}".format(
+                    table.get("connectionType", ""), table.get("id", "")
+                )
+            )
+            schema = self._get_schema(schema, upstream_db, full_name)
+            # if the schema is included within the table name we omit it
+            if (
+                schema
+                and table_name
+                and full_name
+                and table_name == full_name
+                and schema in table_name
+            ):
+                schema = ""
             table_urn = make_table_urn(
                 self.config.env,
                 upstream_db,
                 table.get("connectionType", ""),
                 schema,
-                table.get("name", ""),
+                table_name,
             )
 
             upstream_table = UpstreamClass(
@@ -265,11 +395,18 @@ class TableauSource(Source):
                 type=DatasetLineageTypeClass.TRANSFORMED,
             )
             upstream_tables.append(upstream_table)
-            table_path = f"{project.replace('/', REPLACE_SLASH_CHAR)}/{datasource.get('name', '')}/{table.get('name', '')}"
+
+            table_path = None
+            if project and datasource.get("name"):
+                table_name = table.get("name") if table.get("name") else table["id"]
+                table_path = f"{project.replace('/', REPLACE_SLASH_CHAR)}/{datasource['name']}/{table_name}"
+
             self.upstream_tables[table_urn] = (
                 table.get("columns", []),
                 table_path,
+                table.get("isEmbedded") if table.get("isEmbedded") else False,
             )
+
         return upstream_tables
 
     def emit_custom_sql_datasources(self) -> Iterable[MetadataWorkUnit]:
@@ -305,7 +442,7 @@ class TableauSource(Source):
                 custom_sql_connection.get("nodes", [])
             )
             for csql in unique_custom_sql:
-                csql_id: str = csql.get("id", "")
+                csql_id: str = csql["id"]
                 csql_urn = builder.make_dataset_urn(
                     self.platform, csql_id, self.config.env
                 )
@@ -314,10 +451,35 @@ class TableauSource(Source):
                     aspects=[],
                 )
 
-                # lineage from datasource -> custom sql source #
-                yield from self._create_lineage_from_csql_datasource(
-                    csql_urn, csql.get("datasources", [])
-                )
+                datasource_name = None
+                project = None
+                if len(csql["datasources"]) > 0:
+                    yield from self._create_lineage_from_csql_datasource(
+                        csql_urn, csql["datasources"]
+                    )
+
+                    # CustomSQLTable id owned by exactly one tableau data source
+                    logger.debug(
+                        f"Number of datasources referencing CustomSQLTable: {len(csql['datasources'])}"
+                    )
+
+                    datasource = csql["datasources"][0]
+                    datasource_name = datasource.get("name")
+                    if datasource.get(
+                        "__typename"
+                    ) == "EmbeddedDatasource" and datasource.get("workbook"):
+                        datasource_name = (
+                            f"{datasource.get('workbook').get('name')}/{datasource_name}"
+                            if datasource_name
+                            and datasource.get("workbook").get("name")
+                            else None
+                        )
+                        yield from add_entity_to_container(
+                            self.gen_workbook_key(datasource["workbook"]),
+                            "dataset",
+                            dataset_snapshot.urn,
+                        )
+                    project = self._get_project(datasource)
 
                 # lineage from custom sql -> datasets/tables #
                 columns = csql.get("columns", [])
@@ -329,12 +491,17 @@ class TableauSource(Source):
                     dataset_snapshot.aspects.append(schema_metadata)
 
                 # Browse path
-                browse_paths = BrowsePathsClass(
-                    paths=[
-                        f"/{self.config.env.lower()}/{self.platform}/Custom SQL/{csql.get('name', '')}/{csql_id}"
-                    ]
-                )
-                dataset_snapshot.aspects.append(browse_paths)
+                csql_name = csql.get("name") if csql.get("name") else csql_id
+
+                if project and datasource_name:
+                    browse_paths = BrowsePathsClass(
+                        paths=[
+                            f"/{self.config.env.lower()}/{self.platform}/{project}/{datasource['name']}/{csql_name}"
+                        ]
+                    )
+                    dataset_snapshot.aspects.append(browse_paths)
+                else:
+                    logger.debug(f"Browse path not set for Custom SQL table {csql_id}")
 
                 dataset_properties = DatasetPropertiesClass(
                     name=csql.get("name"), description=csql.get("description")
@@ -400,6 +567,13 @@ class TableauSource(Source):
                 datasource_urn, aspect_name="upstreamLineage", aspect=upstream_lineage
             )
 
+    def _get_project(self, node):
+        if node.get("__typename") == "EmbeddedDatasource" and node.get("workbook"):
+            return node["workbook"].get("projectName")
+        elif node.get("__typename") == "PublishedDatasource":
+            return node.get("projectName")
+        return None
+
     def _create_lineage_to_upstream_tables(
         self, csql_urn: str, columns: List[dict]
     ) -> Iterable[MetadataWorkUnit]:
@@ -417,9 +591,7 @@ class TableauSource(Source):
                     continue
                 used_datasources.append(datasource.get("id", ""))
                 upstream_tables = self._create_upstream_table_lineage(
-                    datasource,
-                    datasource.get("workbook", {}).get("projectName", ""),
-                    True,
+                    datasource, self._get_project(datasource), is_custom_sql=True
                 )
                 if upstream_tables:
                     upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
@@ -429,7 +601,7 @@ class TableauSource(Source):
                         aspect=upstream_lineage,
                     )
 
-    def _get_schema_metadata_for_embedded_datasource(
+    def _get_schema_metadata_for_datasource(
         self, datasource_fields: List[dict]
     ) -> Optional[SchemaMetadata]:
         fields = []
@@ -502,10 +674,10 @@ class TableauSource(Source):
         return mcp_workunit
 
     def emit_datasource(
-        self, datasource: dict, workbook: dict = None
+        self, datasource: dict, workbook: dict = None, is_embedded_ds: bool = False
     ) -> Iterable[MetadataWorkUnit]:
         datasource_info = workbook
-        if workbook is None:
+        if not is_embedded_ds:
             datasource_info = datasource
 
         project = (
@@ -513,8 +685,7 @@ class TableauSource(Source):
             if datasource_info
             else ""
         )
-        datasource_id = datasource.get("id", "")
-        datasource_name = f"{datasource.get('name')}.{datasource_id}"
+        datasource_id = datasource["id"]
         datasource_urn = builder.make_dataset_urn(
             self.platform, datasource_id, self.config.env
         )
@@ -526,10 +697,15 @@ class TableauSource(Source):
             aspects=[],
         )
 
+        datasource_name = (
+            datasource.get("name") if datasource.get("name") else datasource_id
+        )
+        if is_embedded_ds and workbook and workbook.get("name"):
+            datasource_name = f"{workbook['name']}/{datasource_name}"
         # Browse path
         browse_paths = BrowsePathsClass(
             paths=[
-                f"/{self.config.env.lower()}/{self.platform}/{project}/{datasource.get('name', '')}/{datasource_name}"
+                f"/{self.config.env.lower()}/{self.platform}/{project}/{datasource_name}"
             ]
         )
         dataset_snapshot.aspects.append(browse_paths)
@@ -563,9 +739,11 @@ class TableauSource(Source):
         dataset_snapshot.aspects.append(dataset_props)
 
         # Upstream Tables
-        if datasource.get("upstreamTables") is not None:
+        if datasource.get("upstreamTables") or datasource.get("upstreamDatasources"):
             # datasource -> db table relations
-            upstream_tables = self._create_upstream_table_lineage(datasource, project)
+            upstream_tables = self._create_upstream_table_lineage(
+                datasource, project, is_embedded_ds=is_embedded_ds
+            )
 
             if upstream_tables:
                 upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
@@ -576,7 +754,7 @@ class TableauSource(Source):
                 )
 
         # Datasource Fields
-        schema_metadata = self._get_schema_metadata_for_embedded_datasource(
+        schema_metadata = self._get_schema_metadata_for_datasource(
             datasource.get("fields", [])
         )
         if schema_metadata is not None:
@@ -586,10 +764,16 @@ class TableauSource(Source):
         yield self.get_metadata_change_proposal(
             dataset_snapshot.urn,
             aspect_name="subTypes",
-            aspect=SubTypesClass(typeNames=["Data Source"]),
+            aspect=SubTypesClass(
+                typeNames=(
+                    ["Embedded Data Source"]
+                    if is_embedded_ds
+                    else ["Published Data Source"]
+                )
+            ),
         )
 
-        if datasource.get("__typename") == "EmbeddedDatasource":
+        if is_embedded_ds:
             yield from add_entity_to_container(
                 self.gen_workbook_key(workbook), "dataset", dataset_snapshot.urn
             )
@@ -633,43 +817,62 @@ class TableauSource(Source):
                 yield from self.emit_datasource(datasource)
 
     def emit_upstream_tables(self) -> Iterable[MetadataWorkUnit]:
-        for (table_urn, (columns, path)) in self.upstream_tables.items():
+        for (table_urn, (columns, path, is_embedded)) in self.upstream_tables.items():
+            if not is_embedded and not self.config.ingest_tables_external:
+                logger.error(
+                    f"Skipping external table {table_urn} as ingest_tables_external is set to False"
+                )
+                continue
+
             dataset_snapshot = DatasetSnapshot(
                 urn=table_urn,
                 aspects=[],
             )
-            # Browse path
-            browse_paths = BrowsePathsClass(
-                paths=[f"/{self.config.env.lower()}/{self.platform}/{path}"]
-            )
-            dataset_snapshot.aspects.append(browse_paths)
-
-            fields = []
-            for field in columns:
-                nativeDataType = field.get("remoteType", "UNKNOWN")
-                TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
-
-                schema_field = SchemaField(
-                    fieldPath=field["name"],
-                    type=SchemaFieldDataType(type=TypeClass()),
-                    description="",
-                    nativeDataType=nativeDataType,
+            if path:
+                # Browse path
+                browse_paths = BrowsePathsClass(
+                    paths=[f"/{self.config.env.lower()}/{self.platform}/{path}"]
                 )
+                dataset_snapshot.aspects.append(browse_paths)
+            else:
+                logger.debug(f"Browse path not set for table {table_urn}")
+            schema_metadata = None
+            if columns:
+                fields = []
+                for field in columns:
+                    nativeDataType = field.get("remoteType", "UNKNOWN")
+                    TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
 
-                fields.append(schema_field)
+                    schema_field = SchemaField(
+                        fieldPath=field["name"],
+                        type=SchemaFieldDataType(type=TypeClass()),
+                        description="",
+                        nativeDataType=nativeDataType,
+                    )
 
-            schema_metadata = SchemaMetadata(
-                schemaName="test",
-                platform=f"urn:li:dataPlatform:{self.platform}",
-                version=0,
-                fields=fields,
-                hash="",
-                platformSchema=OtherSchema(rawSchema=""),
-            )
+                    fields.append(schema_field)
+
+                schema_metadata = SchemaMetadata(
+                    schemaName="test",
+                    platform=f"urn:li:dataPlatform:{self.platform}",
+                    version=0,
+                    fields=fields,
+                    hash="",
+                    platformSchema=OtherSchema(rawSchema=""),
+                )
             if schema_metadata is not None:
                 dataset_snapshot.aspects.append(schema_metadata)
 
             yield self.get_metadata_change_event(dataset_snapshot)
+
+    def get_sheetwise_upstream_datasources(self, sheet: dict) -> set:
+        sheet_upstream_datasources = set()
+
+        for field in sheet.get("datasourceFields", ""):
+            if field and field.get("datasource"):
+                sheet_upstream_datasources.add(field["datasource"]["id"])
+
+        return sheet_upstream_datasources
 
     def emit_sheets_as_charts(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         for sheet in workbook.get("sheets", []):
@@ -706,9 +909,9 @@ class TableauSource(Source):
 
             # datasource urn
             datasource_urn = []
-            data_sources = sheet.get("upstreamDatasources", [])
-            for datasource in data_sources:
-                ds_id = datasource.get("id")
+            data_sources = self.get_sheetwise_upstream_datasources(sheet)
+
+            for ds_id in data_sources:
                 if ds_id is None or not ds_id:
                     continue
                 ds_urn = builder.make_dataset_urn(self.platform, ds_id, self.config.env)
@@ -722,21 +925,24 @@ class TableauSource(Source):
                 title=sheet.get("name", ""),
                 lastModified=last_modified,
                 externalUrl=sheet_external_url,
-                inputs=datasource_urn,
+                inputs=sorted(datasource_urn),
                 customProperties=fields,
             )
             chart_snapshot.aspects.append(chart_info)
 
-            # Browse path
-            browse_path = BrowsePathsClass(
-                paths=[
-                    f"/{self.platform}/{workbook.get('projectName', '').replace('/', REPLACE_SLASH_CHAR)}"
-                    f"/{workbook.get('name', '')}"
-                    f"/{sheet.get('name', '').replace('/', REPLACE_SLASH_CHAR)}"
-                ]
-            )
-            chart_snapshot.aspects.append(browse_path)
-
+            if workbook.get("projectName") and workbook.get("name"):
+                sheet_name = sheet.get("name") if sheet.get("name") else sheet["id"]
+                # Browse path
+                browse_path = BrowsePathsClass(
+                    paths=[
+                        f"/{self.platform}/{workbook['projectName'].replace('/', REPLACE_SLASH_CHAR)}"
+                        f"/{workbook['name']}"
+                        f"/{sheet_name.replace('/', REPLACE_SLASH_CHAR)}"
+                    ]
+                )
+                chart_snapshot.aspects.append(browse_path)
+            else:
+                logger.debug(f"Browse path not set for sheet {sheet['id']}")
             # Ownership
             owner = self._get_ownership(creator)
             if owner is not None:
@@ -811,7 +1017,7 @@ class TableauSource(Source):
     def emit_dashboards(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         for dashboard in workbook.get("dashboards", []):
             dashboard_snapshot = DashboardSnapshot(
-                urn=builder.make_dashboard_urn(self.platform, dashboard.get("id", "")),
+                urn=builder.make_dashboard_urn(self.platform, dashboard["id"]),
                 aspects=[],
             )
 
@@ -822,7 +1028,11 @@ class TableauSource(Source):
 
             site_part = f"/site/{self.config.site}" if self.config.site else ""
             dashboard_external_url = f"{self.config.connect_uri}/#{site_part}/views/{dashboard.get('path', '')}"
-            title = dashboard.get("name", "").replace("/", REPLACE_SLASH_CHAR) or ""
+            title = (
+                dashboard["name"].replace("/", REPLACE_SLASH_CHAR)
+                if dashboard.get("name")
+                else ""
+            )
             chart_urns = [
                 builder.make_chart_urn(self.platform, sheet.get("id"))
                 for sheet in dashboard.get("sheets", [])
@@ -837,15 +1047,19 @@ class TableauSource(Source):
             )
             dashboard_snapshot.aspects.append(dashboard_info_class)
 
-            # browse path
-            browse_paths = BrowsePathsClass(
-                paths=[
-                    f"/{self.platform}/{workbook.get('projectName', '').replace('/', REPLACE_SLASH_CHAR)}"
-                    f"/{workbook.get('name', '').replace('/', REPLACE_SLASH_CHAR)}"
-                    f"/{title}"
-                ]
-            )
-            dashboard_snapshot.aspects.append(browse_paths)
+            if workbook.get("projectName") and workbook.get("name"):
+                dashboard_name = title if title else dashboard["id"]
+                # browse path
+                browse_paths = BrowsePathsClass(
+                    paths=[
+                        f"/{self.platform}/{workbook['projectName'].replace('/', REPLACE_SLASH_CHAR)}"
+                        f"/{workbook['name'].replace('/', REPLACE_SLASH_CHAR)}"
+                        f"/{dashboard_name}"
+                    ]
+                )
+                dashboard_snapshot.aspects.append(browse_paths)
+            else:
+                logger.debug(f"Browse path not set for dashboard {dashboard['id']}")
 
             # Ownership
             owner = self._get_ownership(creator)
@@ -860,15 +1074,37 @@ class TableauSource(Source):
 
     def emit_embedded_datasource(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
         for datasource in workbook.get("embeddedDatasources", []):
-            yield from self.emit_datasource(datasource, workbook)
+            yield from self.emit_datasource(datasource, workbook, is_embedded_ds=True)
 
     @lru_cache(maxsize=None)
-    def _get_schema(self, schema_provided: str, database: str) -> str:
-        schema = schema_provided
-        if not schema_provided and database in self.config.default_schema_map:
+    def _get_schema(self, schema_provided: str, database: str, fullName: str) -> str:
+
+        # For some databases, the schema attribute in tableau api does not return
+        # correct schema name for the table. For more information, see
+        # https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_model.html#schema_attribute.
+        # Hence we extract schema from fullName whenever fullName is available
+        schema = self._extract_schema_from_fullName(fullName) if fullName else ""
+        if not schema:
+            schema = schema_provided
+        elif schema != schema_provided:
+            logger.debug(
+                "Correcting schema, provided {0}, corrected {1}".format(
+                    schema_provided, schema
+                )
+            )
+
+        if not schema and database in self.config.default_schema_map:
             schema = self.config.default_schema_map[database]
 
         return schema
+
+    @lru_cache(maxsize=None)
+    def _extract_schema_from_fullName(self, fullName: str) -> str:
+        # fullName is observed to be in format [schemaName].[tableName]
+        # OR simply tableName OR [tableName]
+        if fullName.startswith("[") and fullName.find("].[") >= 0:
+            return fullName[1 : fullName.index("]")]
+        return ""
 
     @lru_cache(maxsize=None)
     def get_last_modified(
@@ -904,9 +1140,11 @@ class TableauSource(Source):
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
         config = TableauConfig.parse_obj(config_dict)
-        return cls(ctx, config)
+        return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        if self.server is None or not self.server.is_signed_in():
+            return
         try:
             yield from self.emit_workbooks(self.config.workbooks_page_size)
             if self.datasource_ids_being_used:

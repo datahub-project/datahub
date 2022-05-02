@@ -15,16 +15,16 @@ import java.util.stream.Collectors;
  */
 public class EntityInterfaceTypeResolver implements TypeResolver {
 
-    private final List<EntityType<?>> _entities;
+    private final List<EntityType<?, ?>> _entities;
 
-    public EntityInterfaceTypeResolver(final List<EntityType<?>> entities) {
+    public EntityInterfaceTypeResolver(final List<EntityType<?, ?>> entities) {
         _entities = entities;
     }
 
     @Override
     public GraphQLObjectType getType(TypeResolutionEnvironment env) {
         Object javaObject = env.getObject();
-        final LoadableType<?> filteredEntity = Iterables.getOnlyElement(_entities.stream()
+        final LoadableType<?, ?> filteredEntity = Iterables.getOnlyElement(_entities.stream()
                 .filter(entity -> javaObject.getClass().isAssignableFrom(entity.objectClass()))
                 .collect(Collectors.toList()));
         return env.getSchema().getObjectType(filteredEntity.objectClass().getSimpleName());

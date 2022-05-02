@@ -1,6 +1,6 @@
 package datahub.protobuf.visitors.dataset;
 
-import com.google.protobuf.ByteString;
+import com.google.gson.Gson;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.linkedin.data.template.StringMap;
@@ -9,12 +9,16 @@ import datahub.protobuf.visitors.ProtobufModelVisitor;
 import datahub.protobuf.visitors.ProtobufExtensionUtil;
 import datahub.protobuf.visitors.VisitContext;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static datahub.protobuf.visitors.ProtobufExtensionUtil.getProperties;
+
 
 public class ProtobufExtensionPropertyVisitor implements ProtobufModelVisitor<DatasetProperties> {
+    private static final Gson GSON = new Gson();
 
     @Override
     public Stream<DatasetProperties> visitGraph(VisitContext context) {
@@ -22,7 +26,12 @@ public class ProtobufExtensionPropertyVisitor implements ProtobufModelVisitor<Da
                         .getOptions().getAllFields(), context.getGraph().getRegistry(), ProtobufExtensionUtil.DataHubMetadataType.PROPERTY)
                 .entrySet().stream().flatMap(fd -> {
                     if (fd.getKey().getJavaType() != Descriptors.FieldDescriptor.JavaType.MESSAGE) {
-                        return Stream.of(Map.entry(fd.getKey().getName(), fd.getValue().toString()));
+                        if (fd.getKey().isRepeated()) {
+                            return Stream.of(Map.entry(fd.getKey().getName(), GSON.toJson(
+                                    ((Collection<?>) fd.getValue()).stream().map(Object::toString).collect(Collectors.toList()))));
+                        } else {
+                            return Stream.of(Map.entry(fd.getKey().getName(), fd.getValue().toString()));
+                        }
                     } else {
                         Descriptors.FieldDescriptor field = fd.getKey();
                         DescriptorProtos.DescriptorProto value = (DescriptorProtos.DescriptorProto) fd.getValue();
@@ -31,13 +40,5 @@ public class ProtobufExtensionPropertyVisitor implements ProtobufModelVisitor<Da
                 }).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
         return Stream.of(new DatasetProperties().setCustomProperties(new StringMap(properties)));
-    }
-
-    private static Stream<Map.Entry<String, String>> getProperties(Descriptors.FieldDescriptor field, DescriptorProtos.DescriptorProto value)  {
-       return value.getUnknownFields().asMap().entrySet().stream().map(unknown -> {
-            Descriptors.FieldDescriptor fieldDesc = field.getMessageType().findFieldByNumber(unknown.getKey());
-            String fieldValue = unknown.getValue().getLengthDelimitedList().stream().map(ByteString::toStringUtf8).collect(Collectors.joining(""));
-            return Map.entry(String.join(".", field.getFullName(), fieldDesc.getName()), fieldValue);
-        });
     }
 }

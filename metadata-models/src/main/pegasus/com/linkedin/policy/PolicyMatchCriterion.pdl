@@ -1,0 +1,23 @@
+namespace com.linkedin.policy
+
+/**
+ * A criterion for matching a field with given value
+ */
+record PolicyMatchCriterion {
+
+  /**
+   * The name of the field that the criterion refers to
+   */
+  field: string
+
+  /**
+   * Values. Matches criterion if any one of the values matches condition (OR-relationship)
+   */
+  values: array[string]
+
+  /**
+   * The condition for the criterion
+   */
+  condition: PolicyMatchCondition = "EQUALS"
+
+}

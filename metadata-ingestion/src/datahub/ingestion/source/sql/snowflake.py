@@ -16,6 +16,12 @@ from sqlalchemy.sql import sqltypes, text
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.sql.sql_common import (
@@ -46,6 +52,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 snowdialect.ischema_names["GEOGRAPHY"] = sqltypes.NullType
 
 
+@platform_name("Snowflake")
+@config_class(SnowflakeConfig)
+@support_status(SupportStatus.CERTIFIED)
 class SnowflakeSource(SQLAlchemySource):
     def __init__(self, config: SnowflakeConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "snowflake")
@@ -104,7 +113,7 @@ class SnowflakeSource(SQLAlchemySource):
 
         self.report.role = cur_role
         logger.info(f"Current role is {cur_role}")
-        if cur_role.lower() == "accountadmin":
+        if cur_role.lower() == "accountadmin" or not self.config.check_role_grants:
             return
 
         logger.info(f"Checking grants for role {cur_role}")
@@ -165,6 +174,8 @@ WHERE
                 # Process UpstreamTable/View/ExternalTable/Materialized View->View edge.
                 view_upstream: str = db_row["view_upstream"].lower()
                 view_name: str = db_row["downstream_view"].lower()
+                if not self._is_dataset_allowed(dataset_name=view_name, is_view=True):
+                    continue
                 # key is the downstream view name
                 self._lineage_map[view_name].append(
                     # (<upstream_table_name>, <empty_json_list_of_upstream_table_columns>, <empty_json_list_of_downstream_view_columns>)
@@ -187,9 +198,7 @@ WHERE
     def _populate_view_downstream_lineage(
         self, engine: sqlalchemy.engine.Engine
     ) -> None:
-        # NOTE: This query captures both the upstream and downstream table lineage for views.
-        # We need this query to populate the downstream lineage of a view,
-        # as well as to delete the false direct edges between the upstream and downstream tables of a view.
+        # This query captures the downstream table lineage for views.
         # See https://docs.snowflake.com/en/sql-reference/account-usage/access_history.html#usage-notes for current limitations on capturing the lineage for views.
         # Eg: For viewA->viewB->ViewC->TableD, snowflake does not yet log intermediate view logs, resulting in only the viewA->TableD edge.
         view_lineage_query: str = """
@@ -198,9 +207,6 @@ WITH view_lineage_history AS (
     vu.value : "objectName" AS view_name,
     vu.value : "objectDomain" AS view_domain,
     vu.value : "columns" AS view_columns,
-    r.value : "objectName" AS upstream_table_name,
-    r.value : "objectDomain" AS upstream_table_domain,
-    r.value : "columns" AS upstream_table_columns,
     w.value : "objectName" AS downstream_table_name,
     w.value : "objectDomain" AS downstream_table_domain,
     w.value : "columns" AS downstream_table_columns,
@@ -213,83 +219,42 @@ WITH view_lineage_history AS (
         snowflake.account_usage.access_history
     ) t,
     lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) vu,
-    lateral flatten(input => t.BASE_OBJECTS_ACCESSED) r,
     lateral flatten(input => t.OBJECTS_MODIFIED) w
   WHERE
     vu.value : "objectId" IS NOT NULL
-    AND r.value : "objectId" IS NOT NULL
     AND w.value : "objectId" IS NOT NULL
+    AND w.value : "objectName" NOT LIKE '%.GE_TMP_%'
+    AND w.value : "objectName" NOT LIKE '%.GE_TEMP_%'
     AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
     AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
 )
 SELECT
   view_name,
   view_columns,
-  upstream_table_name,
-  upstream_table_domain,
-  upstream_table_columns,
   downstream_table_name,
-  downstream_table_domain,
   downstream_table_columns
 FROM
   view_lineage_history
 WHERE
   view_domain in ('View', 'Materialized view')
-  AND view_name != upstream_table_name
-  AND upstream_table_name != downstream_table_name
-  AND view_name != downstream_table_name
   QUALIFY ROW_NUMBER() OVER (
     PARTITION BY view_name,
-    upstream_table_name,
     downstream_table_name
     ORDER BY
       query_start_time DESC
   ) = 1
         """.format(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000),
+            start_time_millis=int(self.config.start_time.timestamp() * 1000)
+            if not self.config.ignore_start_time_lineage
+            else 0,
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
         )
 
         assert self._lineage_map is not None
-        num_edges: int = 0
-        num_false_edges: int = 0
+        self.report.num_view_to_table_edges_scanned = 0
 
         try:
-            for db_row in engine.execute(view_lineage_query):
-                # We get two edges here.
-                # (1) False UpstreamTable->Downstream table that will be deleted.
-                # (2) View->DownstreamTable that will be added.
-
-                view_name: str = db_row[0].lower().replace('"', "")
-                upstream_table: str = db_row[2].lower().replace('"', "")
-                downstream_table: str = db_row[5].lower().replace('"', "")
-                # (1) Delete false direct edge between upstream_table and downstream_table
-                prior_edges: List[Tuple[str, str, str]] = self._lineage_map[
-                    downstream_table
-                ]
-                self._lineage_map[downstream_table] = [
-                    entry
-                    for entry in self._lineage_map[downstream_table]
-                    if entry[0] != upstream_table
-                ]
-                for false_edge in set(prior_edges) - set(
-                    self._lineage_map[downstream_table]
-                ):
-                    logger.debug(
-                        f"False Table->Table edge removed: Lineage[Table(Down)={downstream_table}]:Table(Up)={false_edge}."
-                    )
-                    num_false_edges += 1
-
-                # (2) Add view->downstream table lineage.
-                self._lineage_map[downstream_table].append(
-                    # (<upstream_view_name>, <json_list_of_upstream_view_columns>, <json_list_of_downstream_columns>)
-                    (view_name, db_row[1], db_row[7])
-                )
-                logger.debug(
-                    f"View->Table: Lineage[Table(Down)={downstream_table}]:View(Up)={self._lineage_map[downstream_table]}, downstream_domain={db_row[6]}"
-                )
-                num_edges += 1
-
+            db_rows = engine.execute(view_lineage_query)
         except Exception as e:
             self.warn(
                 logger,
@@ -297,10 +262,32 @@ WHERE
                 f"Extracting the view lineage from Snowflake failed."
                 f"Please check your permissions. Continuing...\nError was {e}.",
             )
+        else:
+            for db_row in db_rows:
+                view_name: str = db_row["view_name"].lower().replace('"', "")
+                if not self._is_dataset_allowed(dataset_name=view_name, is_view=True):
+                    continue
+                downstream_table: str = (
+                    db_row["downstream_table_name"].lower().replace('"', "")
+                )
+                # Capture view->downstream table lineage.
+                self._lineage_map[downstream_table].append(
+                    # (<upstream_view_name>, <json_list_of_upstream_view_columns>, <json_list_of_downstream_columns>)
+                    (
+                        view_name,
+                        db_row["view_columns"],
+                        db_row["downstream_table_columns"],
+                    )
+                )
+                self.report.num_view_to_table_edges_scanned += 1
+
+                logger.debug(
+                    f"View->Table: Lineage[Table(Down)={downstream_table}]:View(Up)={self._lineage_map[downstream_table]}"
+                )
+
         logger.info(
-            f"Found {num_edges} View->Table edges. Removed {num_false_edges} false Table->Table edges."
+            f"Found {self.report.num_view_to_table_edges_scanned} View->Table edges."
         )
-        self.report.num_view_to_table_edges_scanned = num_edges
 
     def _populate_view_lineage(self) -> None:
         if not self.config.include_view_lineage:
@@ -333,7 +320,9 @@ WHERE
     FROM external_table_lineage_history
     WHERE downstream_table_domain = 'Table'
     QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name ORDER BY query_start_time DESC) = 1""".format(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000),
+            start_time_millis=int(self.config.start_time.timestamp() * 1000)
+            if not self.config.ignore_start_time_lineage
+            else 0,
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
         )
 
@@ -343,9 +332,11 @@ WHERE
             for db_row in engine.execute(query):
                 # key is the down-stream table name
                 key: str = db_row[1].lower().replace('"', "")
+                if not self._is_dataset_allowed(key):
+                    continue
                 self._external_lineage_map[key] |= {*json.loads(db_row[0])}
                 logger.debug(
-                    f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]}"
+                    f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]} via access_history"
                 )
         except Exception as e:
             logger.warning(
@@ -360,9 +351,11 @@ WHERE
                 key = (
                     f"{db_row.database_name}.{db_row.schema_name}.{db_row.name}".lower()
                 )
+                if not self._is_dataset_allowed(dataset_name=key):
+                    continue
                 self._external_lineage_map[key].add(db_row.location)
                 logger.debug(
-                    f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]}"
+                    f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]} via show external tables"
                 )
                 num_edges += 1
         except Exception as e:
@@ -401,7 +394,9 @@ SELECT upstream_table_name, downstream_table_name, upstream_table_columns, downs
 FROM table_lineage_history
 WHERE upstream_table_domain in ('Table', 'External table') and downstream_table_domain = 'Table'
 QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_name ORDER BY query_start_time DESC) = 1        """.format(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000),
+            start_time_millis=int(self.config.start_time.timestamp() * 1000)
+            if not self.config.ignore_start_time_lineage
+            else 0,
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
         )
         num_edges: int = 0
@@ -410,9 +405,15 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             for db_row in engine.execute(query):
                 # key is the down-stream table name
                 key: str = db_row[1].lower().replace('"', "")
+                upstream_table_name = db_row[0].lower().replace('"', "")
+                if not (
+                    self._is_dataset_allowed(key)
+                    or self._is_dataset_allowed(upstream_table_name)
+                ):
+                    continue
                 self._lineage_map[key].append(
                     # (<upstream_table_name>, <json_list_of_upstream_columns>, <json_list_of_downstream_columns>)
-                    (db_row[0].lower().replace('"', ""), db_row[2], db_row[3])
+                    (upstream_table_name, db_row[2], db_row[3])
                 )
                 num_edges += 1
                 logger.debug(
@@ -503,15 +504,21 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             logger.debug(
                 f"Upstream lineage of '{dataset_name}': {[u.dataset for u in upstream_tables]}"
             )
-            self.report.upstream_lineage[dataset_name] = [
-                u.dataset for u in upstream_tables
-            ]
+            if self.config.upstream_lineage_in_report:
+                self.report.upstream_lineage[dataset_name] = [
+                    u.dataset for u in upstream_tables
+                ]
             return UpstreamLineage(upstreams=upstream_tables), column_lineage
         return None
 
     def add_config_to_report(self):
-        self.report.cleaned_host_port = self.config.host_port
-
+        self.report.cleaned_account_id = self.config.get_account()
+        self.report.ignore_start_time_lineage = self.config.ignore_start_time_lineage
+        self.report.upstream_lineage_in_report = self.config.upstream_lineage_in_report
+        if not self.report.ignore_start_time_lineage:
+            self.report.lineage_start_time = self.config.start_time
+        self.report.lineage_end_time = self.config.end_time
+        self.report.check_role_grants = self.config.check_role_grants
         if self.config.provision_role is not None:
             self.report.run_ingestion = self.config.provision_role.run_ingestion
 
@@ -555,17 +562,38 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
                 [
                     f"grant usage on DATABASE {db_name} to role {role}",
                     f"grant usage on all schemas in database {db_name} to role {role}",
-                    f"grant select on all tables in database {db_name} to role {role}",
-                    f"grant select on all external tables in database {db_name} to role {role}",
-                    f"grant select on all views in database {db_name} to role {role}",
                     f"grant usage on future schemas in database {db_name} to role {role}",
-                    f"grant select on future tables in database {db_name} to role {role}",
                 ]
             )
+            if self.config.profiling.enabled:
+                sqls.extend(
+                    [
+                        f"grant select on all tables in database {db_name} to role {role}",
+                        f"grant select on future tables in database {db_name} to role {role}",
+                        f"grant select on all external tables in database {db_name} to role {role}",
+                        f"grant select on future external tables in database {db_name} to role {role}",
+                        f"grant select on all views in database {db_name} to role {role}",
+                        f"grant select on future views in database {db_name} to role {role}",
+                    ]
+                )
+            else:
+                sqls.extend(
+                    [
+                        f"grant references on all tables in database {db_name} to role {role}",
+                        f"grant references on future tables in database {db_name} to role {role}",
+                        f"grant references on all external tables in database {db_name} to role {role}",
+                        f"grant references on future external tables in database {db_name} to role {role}",
+                        f"grant references on all views in database {db_name} to role {role}",
+                        f"grant references on future views in database {db_name} to role {role}",
+                    ]
+                )
         if self.config.username is not None:
             sqls.append(f"grant role {role} to user {self.config.username}")
 
-        sqls.append(f"grant imported privileges on database snowflake to role {role}")
+        if self.config.include_table_lineage or self.config.include_view_lineage:
+            sqls.append(
+                f"grant imported privileges on database snowflake to role {role}"
+            )
 
         dry_run_str = "[DRY RUN] " if provision_role_block.dry_run else ""
         for sql in sqls:
@@ -669,7 +697,9 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             # Emit the work unit from super.
             yield wu
 
-    def _is_dataset_allowed(self, dataset_name: Optional[str]) -> bool:
+    def _is_dataset_allowed(
+        self, dataset_name: Optional[str], is_view: bool = False
+    ) -> bool:
         # View lineages is not supported. Add the allow/deny pattern for that when it is supported.
         if dataset_name is None:
             return True
@@ -679,11 +709,10 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
         if (
             not self.config.database_pattern.allowed(dataset_params[0])
             or not self.config.schema_pattern.allowed(dataset_params[1])
-            or not self.config.table_pattern.allowed(dataset_params[2])
             or (
-                self.config.include_view_lineage
-                and not self.config.view_pattern.allowed(dataset_params[2])
+                not is_view and not self.config.table_pattern.allowed(dataset_params[2])
             )
+            or (is_view and not self.config.view_pattern.allowed(dataset_params[2]))
         ):
             return False
         return True
@@ -692,4 +721,4 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
     # NOTE: There is no special state associated with this source yet than what is provided by sql_common.
     def get_platform_instance_id(self) -> str:
         """Overrides the source identifier for stateful ingestion."""
-        return self.config.host_port
+        return self.config.get_account()

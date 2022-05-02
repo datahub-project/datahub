@@ -2,8 +2,6 @@ syntax = "proto3";
 package extended_protobuf;
 
 import "extended_protobuf/meta/meta.proto";
-import "extended_protobuf/meta/meta_field_options.proto";
-import "extended_protobuf/meta/meta_message_options.proto";
 
 message Department {
   int32 id = 1 [(meta.fld.is_primary_key) = true];
@@ -16,6 +14,8 @@ message Department {
   The comment added after thought
 */
 message Person {
+  option(meta.msg.data_steward) = "corpUser:datahub";
+
   string name = 1 [(meta.fld.classification) = "Classification.HighlyConfidential"]; // person name
 
   // unique identifier for a given person
@@ -29,5 +29,8 @@ message Person {
   Department dept = 4; // department name of the person
 
   string test_coverage = 5
-  [(meta.fld.product_type_bool) = true, (meta.fld.product_type) = "my type", (meta.fld.product_type_enum) = EVENT];
+  [(meta.fld.product_type_bool) = true,
+    (meta.fld.product_type) = "my type",
+    (meta.fld.product_type_enum) = EVENT,
+    (meta.fld.tag_list) = "d, e, f"];
 }

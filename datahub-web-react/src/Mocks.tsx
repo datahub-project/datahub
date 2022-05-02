@@ -32,6 +32,7 @@ import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossar
 import { GetEntityCountsDocument } from './graphql/app.generated';
 import { GetMeDocument } from './graphql/me.generated';
 import { ListRecommendationsDocument } from './graphql/recommendations.generated';
+import { FetchedEntity } from './app/lineage/types';
 
 const user1 = {
     username: 'sdas',
@@ -115,7 +116,7 @@ const dataPlatform = {
     },
 };
 
-const dataset1 = {
+export const dataset1 = {
     urn: 'urn:li:dataset:1',
     type: EntityType.Dataset,
     platform: {
@@ -205,9 +206,10 @@ const dataset1 = {
     downstream: null,
     health: null,
     assertions: null,
+    deprecation: null,
 };
 
-const dataset2 = {
+export const dataset2 = {
     urn: 'urn:li:dataset:2',
     type: EntityType.Dataset,
     platform: {
@@ -230,6 +232,7 @@ const dataset2 = {
         name: 'Some Other Dataset',
         description: 'This is some other dataset, so who cares!',
         customProperties: [],
+        origin: 'PROD',
     },
     editableProperties: null,
     created: {
@@ -283,6 +286,7 @@ const dataset2 = {
     health: null,
     assertions: null,
     status: null,
+    deprecation: null,
 };
 
 export const dataset3 = {
@@ -486,6 +490,8 @@ export const dataset3 = {
     health: null,
     assertions: null,
     status: null,
+    readRuns: null,
+    writeRuns: null,
 } as Dataset;
 
 export const dataset4 = {
@@ -519,7 +525,8 @@ export const dataset6 = {
     name: 'Sixth Test Dataset',
     urn: 'urn:li:dataset:6',
     properties: {
-        name: 'Sixth Test Dataset',
+        name: 'Display Name of Sixth',
+        qualifiedName: 'Fully Qualified Name of Sixth Test Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
         origin: 'PROD',
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
@@ -788,6 +795,7 @@ const glossaryTerm1 = {
         sourceRef: 'sourceRef',
         sourceURI: 'sourceURI',
     },
+    deprecation: null,
 } as GlossaryTerm;
 
 const glossaryTerm2 = {
@@ -830,6 +838,7 @@ const glossaryTerm2 = {
         ],
         __typename: 'GlossaryTermProperties',
     },
+    deprecation: null,
     isRealtedTerms: {
         start: 0,
         count: 0,
@@ -921,6 +930,7 @@ const glossaryTerm3 = {
         ],
         __typename: 'GlossaryRelatedTerms',
     },
+    deprecation: null,
     __typename: 'GlossaryTerm',
 } as GlossaryTerm;
 
@@ -1009,6 +1019,7 @@ export const dataFlow1 = {
         ...dataPlatform,
     },
     domain: null,
+    deprecation: null,
 } as DataFlow;
 
 export const dataJob1 = {
@@ -1046,8 +1057,8 @@ export const dataJob1 = {
     editableProperties: null,
     inputOutput: {
         __typename: 'DataJobInputOutput',
-        inputDatasets: [dataset3],
-        outputDatasets: [dataset3],
+        inputDatasets: [dataset5],
+        outputDatasets: [dataset6],
         inputDatajobs: [],
     },
     globalTags: {
@@ -1085,6 +1096,7 @@ export const dataJob1 = {
     },
     domain: null,
     status: null,
+    deprecation: null,
 } as DataJob;
 
 export const dataJob2 = {
@@ -1146,6 +1158,7 @@ export const dataJob2 = {
     domain: null,
     upstream: null,
     downstream: null,
+    deprecation: null,
 } as DataJob;
 
 export const dataJob3 = {
@@ -1208,6 +1221,7 @@ export const dataJob3 = {
     upstream: null,
     downstream: null,
     status: null,
+    deprecation: null,
 } as DataJob;
 
 export const mlModel = {
@@ -1283,7 +1297,30 @@ export const mlModel = {
     upstream: null,
     downstream: null,
     status: null,
+    deprecation: null,
 } as MlModel;
+
+export const dataset1FetchedEntity = {
+    urn: dataset1.urn,
+    name: dataset1.name,
+    type: dataset1.type,
+    upstreamChildren: [],
+    downstreamChildren: [
+        { type: EntityType.Dataset, entity: dataset2 },
+        { type: EntityType.DataJob, entity: dataJob1 },
+    ],
+} as FetchedEntity;
+
+export const dataset2FetchedEntity = {
+    urn: dataset2.urn,
+    name: 'test name',
+    type: dataset2.type,
+    upstreamChildren: [
+        { type: EntityType.Dataset, entity: dataset1 },
+        { type: EntityType.DataJob, entity: dataJob1 },
+    ],
+    downstreamChildren: [],
+} as FetchedEntity;
 
 export const mlModelGroup = {
     __typename: 'MLModelGroup',
@@ -1346,6 +1383,7 @@ export const mlModelGroup = {
     upstream: null,
     downstream: null,
     status: null,
+    deprecation: null,
 } as MlModelGroup;
 
 export const recommendationModules = [

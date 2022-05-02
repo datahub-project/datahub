@@ -71,7 +71,12 @@ sql_common = {
     # Required for all SQL sources.
     "sqlalchemy==1.3.24",
     # Required for SQL profiling.
-    "great-expectations>=0.13.40",
+    # release 0.15.3 is not compatible with python3.6.
+    "great-expectations>=0.14.11"
+    if is_py37_or_newer
+    else "great-expectations>=0.14.11,<0.15.3",
+    # datahub does not depend on Jinja2 directly but great expectations does. With Jinja2 3.1.0 GE 0.14.11 is breaking
+    "Jinja2<3.1.0",
     "greenlet",
 }
 
@@ -91,6 +96,7 @@ looker_common = {
 bigquery_common = {
     # Google cloud logging library
     "google-cloud-logging",
+    "google-cloud-bigquery",
     "more-itertools>=8.12.0",
 }
 
@@ -100,6 +106,11 @@ snowflake_common = {
     # Required for all Snowflake sources
     "snowflake-sqlalchemy<=1.2.4",
     "cryptography",
+}
+
+trino = {
+    "trino>=0.308",
+    "trino[sqlalchemy]>=0.308",
 }
 
 microsoft_common = {"msal==1.16.0"}
@@ -119,6 +130,16 @@ data_lake_profiling = {
     "pyspark==3.0.3",
 }
 
+s3_base = {
+    *data_lake_base,
+    "moto[s3]",
+    "wcmatch",
+}
+
+usage_common = {
+    "sqlparse",
+}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -128,18 +149,25 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {
         "apache-airflow >= 1.10.2",
     },
-    "great-expectations": sql_common | {"sqllineage==1.3.3"},
+    "great-expectations": sql_common | {"sqllineage==1.3.4"},
     # Source plugins
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
     "azure-ad": set(),
-    "bigquery": sql_common | bigquery_common | {"pybigquery >= 0.6.0"},
-    "bigquery-usage": bigquery_common | {"cachetools"},
+    "bigquery": sql_common
+    | bigquery_common
+    | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.4", "sqlparse"},
+    "bigquery-usage": bigquery_common | usage_common | {"cachetools"},
     "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
-    "clickhouse-usage": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
+    "clickhouse-usage": sql_common
+    | usage_common
+    | {
+        "clickhouse-sqlalchemy==0.1.8",
+    },
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "data-lake": {*data_lake_base, *data_lake_profiling},
+    "s3": {*s3_base, *data_lake_profiling},
     "dbt": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
@@ -147,13 +175,16 @@ plugins: Dict[str, Set[str]] = {
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
-    "feast": {"docker"},
+    "feast-legacy": {"docker"},
+    "feast": {"feast==0.18.0", "flask-openid>=1.3.0"},
     "glue": aws_common,
     "hive": sql_common
     | {
-        # Acryl Data maintains a fork of PyHive, which adds support for table comments
-        # and column comments, and also releases HTTP and HTTPS transport schemes.
-        "acryl-pyhive[hive]>=0.6.11"
+        # Acryl Data maintains a fork of PyHive
+        # - 0.6.11 adds support for table comments and column comments,
+        #   and also releases HTTP and HTTPS transport schemes
+        # - 0.6.12 adds support for Spark Thrift Server
+        "acryl-pyhive[hive]>=0.6.13"
     },
     "kafka": kafka_common,
     "kafka-connect": sql_common | {"requests", "JPype1"},
@@ -161,9 +192,9 @@ plugins: Dict[str, Set[str]] = {
     "looker": looker_common,
     # lkml>=1.1.2 is required to support the sql_preamble expression in LookML
     "lookml": looker_common
-    | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.3"},
-    "metabase": {"requests", "sqllineage==1.3.3"},
-    "mode": {"requests", "sqllineage==1.3.3", "tenacity>=8.0.1"},
+    | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.4"},
+    "metabase": {"requests", "sqllineage==1.3.4"},
+    "mode": {"requests", "sqllineage==1.3.4", "tenacity>=8.0.1"},
     "mongodb": {"pymongo>=3.11", "packaging"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -173,19 +204,38 @@ plugins: Dict[str, Set[str]] = {
     "okta": {"okta~=1.7.0"},
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
-    "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.3"},
+    "presto-on-hive": sql_common
+    | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
+    "pulsar": {"requests"},
+    "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.4"},
     "redshift": sql_common
-    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.3"},
+    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.4"},
     "redshift-usage": sql_common
-    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.3"},
+    | usage_common
+    | {
+        "sqlalchemy-redshift",
+        "psycopg2-binary",
+        "GeoAlchemy2",
+        "sqllineage==1.3.4",
+    },
     "sagemaker": aws_common,
     "snowflake": snowflake_common,
-    "snowflake-usage": snowflake_common | {"more-itertools>=8.12.0"},
+    "snowflake-usage": snowflake_common
+    | usage_common
+    | {
+        "more-itertools>=8.12.0",
+    },
     "sqlalchemy": sql_common,
-    "superset": {"requests", "sqlalchemy", "great_expectations", "greenlet"},
+    "superset": {
+        "requests",
+        "sqlalchemy",
+        "great_expectations",
+        "greenlet",
+        "Jinja2<3.1.0",
+    },
     "tableau": {"tableauserverclient>=0.17.0"},
-    "trino": sql_common | {"trino"},
-    "starburst-trino-usage": sql_common | {"trino"},
+    "trino": sql_common | trino,
+    "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging"},
     "powerbi": {"orderedset"} | microsoft_common,
 }
@@ -220,7 +270,7 @@ base_dev_requirements = {
     *base_requirements,
     *framework_common,
     *mypy_stubs,
-    *data_lake_base,
+    *s3_base,
     "black>=21.12b0",
     "coverage>=5.1",
     "flake8>=3.8.3",
@@ -233,7 +283,7 @@ base_dev_requirements = {
     "pytest>=6.2.2",
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
-    "pytest-docker>=0.10.3",
+    "pytest-docker>=0.10.3,<0.12",
     "tox",
     "deepdiff",
     "requests-mock",
@@ -249,7 +299,9 @@ base_dev_requirements = {
             "bigquery-usage",
             "clickhouse",
             "clickhouse-usage",
+            "druid",
             "elasticsearch",
+            "ldap",
             "looker",
             "glue",
             "mariadb",
@@ -263,21 +315,42 @@ base_dev_requirements = {
             "redshift",
             "redshift-usage",
             "data-lake",
+            "s3",
             "tableau",
             "trino",
             "hive",
             "starburst-trino-usage",
-            "powerbi"
+            "powerbi",
             # airflow is added below
         ]
         for dependency in plugins[plugin]
     ),
 }
 
+base_dev_requirements_airflow_1 = base_dev_requirements.copy()
+
 if is_py37_or_newer:
-    # The lookml plugin only works on Python 3.7 or newer.
+    # These plugins only work on Python 3.7 or newer.
     base_dev_requirements = base_dev_requirements.union(
-        {dependency for plugin in ["lookml"] for dependency in plugins[plugin]}
+        {
+            dependency
+            for plugin in [
+                "feast",
+                "lookml",
+            ]
+            for dependency in plugins[plugin]
+        }
+    )
+
+    # These plugins are compatible with Airflow 1.
+    base_dev_requirements_airflow_1 = base_dev_requirements_airflow_1.union(
+        {
+            dependency
+            for plugin in [
+                "lookml",
+            ]
+            for dependency in plugins[plugin]
+        }
     )
 
 dev_requirements = {
@@ -292,7 +365,7 @@ dev_requirements_airflow_1_base = {
     "WTForms==2.3.3",  # make constraint consistent with extras
 }
 dev_requirements_airflow_1 = {
-    *base_dev_requirements,
+    *base_dev_requirements_airflow_1,
     *dev_requirements_airflow_1_base,
 }
 
@@ -300,11 +373,9 @@ full_test_dev_requirements = {
     *list(
         dependency
         for plugin in [
-            # Only include Athena for Python 3.7 or newer.
-            *(["athena"] if is_py37_or_newer else []),
             "clickhouse",
             "druid",
-            "feast",
+            "feast-legacy",
             "hive",
             "ldap",
             "mongodb",
@@ -319,6 +390,19 @@ full_test_dev_requirements = {
     ),
 }
 
+if is_py37_or_newer:
+    # These plugins only work on Python 3.7 or newer.
+    full_test_dev_requirements = full_test_dev_requirements.union(
+        {
+            dependency
+            for plugin in [
+                "athena",
+                "feast",
+            ]
+            for dependency in plugins[plugin]
+        }
+    )
+
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
     "datahub.ingestion.source.plugins": [
@@ -331,10 +415,12 @@ entry_points = {
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "data-lake = datahub.ingestion.source.data_lake:DataLakeSource",
+        "s3 = datahub.ingestion.source.s3:S3Source",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
-        "feast = datahub.ingestion.source.feast:FeastSource",
+        "feast-legacy = datahub.ingestion.source.feast_legacy:FeastSource",
+        "feast = datahub.ingestion.source.feast:FeastRepositorySource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
         "hive = datahub.ingestion.source.sql.hive:HiveSource",
@@ -366,6 +452,8 @@ entry_points = {
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",
         "powerbi = datahub.ingestion.source.powerbi:PowerBiDashboardSource",
+        "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
+        "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
@@ -390,8 +478,8 @@ setuptools.setup(
     url="https://datahubproject.io/",
     project_urls={
         "Documentation": "https://datahubproject.io/docs/",
-        "Source": "https://github.com/linkedin/datahub",
-        "Changelog": "https://github.com/linkedin/datahub/releases",
+        "Source": "https://github.com/datahub-project/datahub",
+        "Changelog": "https://github.com/datahub-project/datahub/releases",
     },
     license="Apache License 2.0",
     description="A CLI to work with DataHub metadata",

@@ -1,9 +1,11 @@
 import collections
 import dataclasses
+import logging
 from datetime import datetime
 from typing import Callable, Counter, Generic, List, Optional, TypeVar
 
 import pydantic
+from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
@@ -20,6 +22,9 @@ from datahub.metadata.schema_classes import (
     DatasetUserUsageCountsClass,
     TimeWindowSizeClass,
 )
+from datahub.utilities.sql_formatter import format_sql_query
+
+logger = logging.getLogger(__name__)
 
 ResourceType = TypeVar("ResourceType")
 
@@ -77,8 +82,8 @@ class GenericAggregatedDataset(Generic[ResourceType]):
         bucket_duration: BucketDuration,
         urn_builder: Callable[[ResourceType], str],
         top_n_queries: int,
+        format_sql_queries: bool,
     ) -> MetadataWorkUnit:
-
         budget_per_query: int = int(self.total_budget_for_query_list / top_n_queries)
 
         usageStats = DatasetUsageStatisticsClass(
@@ -87,7 +92,12 @@ class GenericAggregatedDataset(Generic[ResourceType]):
             uniqueUserCount=len(self.userFreq),
             totalSqlQueries=self.queryCount,
             topSqlQueries=[
-                self.trim_query(query, budget_per_query)
+                self.trim_query(
+                    format_sql_query(query, keyword_case="upper", reindent_aligned=True)
+                    if format_sql_queries
+                    else query,
+                    budget_per_query,
+                )
                 for query, _ in self.queryFreq.most_common(top_n_queries)
             ],
             userCounts=[
@@ -121,9 +131,19 @@ class GenericAggregatedDataset(Generic[ResourceType]):
 
 
 class BaseUsageConfig(BaseTimeWindowConfig):
-    top_n_queries: pydantic.PositiveInt = 10
-    user_email_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    include_operational_stats: bool = True
+    top_n_queries: pydantic.PositiveInt = Field(
+        default=10, description="Number of top queries to save to each table."
+    )
+    user_email_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for user emails to filter in usage.",
+    )
+    include_operational_stats: bool = Field(
+        default=True, description="Whether to display operational stats."
+    )
+    format_sql_queries: bool = Field(
+        default=False, description="Whether to format sql queries"
+    )
 
     @pydantic.validator("top_n_queries")
     def ensure_top_n_queries_is_not_too_big(cls, v: int) -> int:

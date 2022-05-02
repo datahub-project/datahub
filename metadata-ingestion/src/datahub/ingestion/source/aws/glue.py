@@ -8,10 +8,18 @@ from urllib.parse import urlparse
 
 import yaml
 from pydantic import validator
+from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.source_common import PlatformSourceConfigBase
 from datahub.emitter import mce_builder
-from datahub.emitter.mce_builder import make_dataset_urn, make_domain_urn
+from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
+    make_dataset_urn_with_platform_instance,
+    make_domain_urn,
+    make_tag_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     DatabaseKey,
@@ -20,8 +28,17 @@ from datahub.emitter.mcp_builder import (
     gen_containers,
 )
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
@@ -39,12 +56,15 @@ from datahub.metadata.schema_classes import (
     DataJobInfoClass,
     DataJobInputOutputClass,
     DataJobSnapshotClass,
+    DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    GlobalTagsClass,
     MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -53,15 +73,45 @@ from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_col
 logger = logging.getLogger(__name__)
 
 
-class GlueSourceConfig(AwsSourceConfig):
+DEFAULT_PLATFORM = "glue"
+VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
-    extract_owners: Optional[bool] = True
-    extract_transforms: Optional[bool] = True
-    underlying_platform: Optional[str] = None
-    ignore_unsupported_connectors: Optional[bool] = True
-    emit_s3_lineage: bool = False
-    glue_s3_lineage_direction: str = "upstream"
-    domain: Dict[str, AllowDenyPattern] = dict()
+
+class GlueSourceConfig(AwsSourceConfig, PlatformSourceConfigBase):
+
+    extract_owners: Optional[bool] = Field(
+        default=True,
+        description="When enabled, extracts ownership from Glue directly and overwrites existing owners. When disabled, ownership is left empty for datasets.",
+    )
+    extract_transforms: Optional[bool] = Field(
+        default=True, description="Whether to extract Glue transform jobs."
+    )
+    underlying_platform: Optional[str] = Field(
+        default=None,
+        description="@deprecated(Use `platform`) Override for platform name. Allowed values - `glue`, `athena`",
+    )
+    ignore_unsupported_connectors: Optional[bool] = Field(
+        default=True,
+        description="Whether to ignore unsupported connectors. If disabled, an error will be raised.",
+    )
+    emit_s3_lineage: bool = Field(
+        default=False, description=" Whether to emit S3-to-Glue lineage."
+    )
+    glue_s3_lineage_direction: str = Field(
+        default="upstream",
+        description="If `upstream`, S3 is upstream to Glue. If `downstream` S3 is downstream to Glue.",
+    )
+    domain: Dict[str, AllowDenyPattern] = Field(
+        default=dict(),
+        description="regex patterns for tables to filter to assign domain_key. ",
+    )
+    catalog_id: Optional[str] = Field(
+        default=None,
+        description="The aws account id where the target glue catalog lives. If None, datahub will ingest glue in aws caller's account.",
+    )
+
+    use_s3_bucket_tags: Optional[bool] = False
+    use_s3_object_tags: Optional[bool] = False
 
     @property
     def glue_client(self):
@@ -79,6 +129,24 @@ class GlueSourceConfig(AwsSourceConfig):
             )
         return v.lower()
 
+    @validator("underlying_platform")
+    def underlying_platform_validator(cls, v: str) -> str:
+        if not v or v in VALID_PLATFORMS:
+            return v
+        else:
+            raise ConfigurationError(
+                f"'underlying_platform' can only take following values: {VALID_PLATFORMS}"
+            )
+
+    @validator("platform")
+    def platform_validator(cls, v: str) -> str:
+        if not v or v in VALID_PLATFORMS:
+            return v
+        else:
+            raise ConfigurationError(
+                f"'platform' can only take following values: {VALID_PLATFORMS}"
+            )
+
 
 @dataclass
 class GlueSourceReport(SourceReport):
@@ -92,7 +160,56 @@ class GlueSourceReport(SourceReport):
         self.filtered.append(table)
 
 
+@platform_name("Glue")
+@config_class(GlueSourceConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 class GlueSource(Source):
+    """
+    Note: if you also have files in S3 that you'd like to ingest, we recommend you use Glue's built-in data catalog. See [here](../../../../docs/generated/ingestion/sources/s3.md) for a quick guide on how to set up a crawler on Glue and ingest the outputs with DataHub.
+
+    This plugin extracts the following:
+
+    - Tables in the Glue catalog
+    - Column types associated with each table
+    - Table metadata, such as owner, description and parameters
+    - Jobs and their component transformations, data sources, and data sinks
+
+    ## IAM permissions
+
+    For ingesting datasets, the following IAM permissions are required:
+    ```json
+    {
+        "Effect": "Allow",
+        "Action": [
+            "glue:GetDatabases",
+            "glue:GetTables"
+        ],
+        "Resource": [
+            "arn:aws:glue:$region-id:$account-id:catalog",
+            "arn:aws:glue:$region-id:$account-id:database/*",
+            "arn:aws:glue:$region-id:$account-id:table/*"
+        ]
+    }
+    ```
+
+    For ingesting jobs (`extract_transforms: True`), the following additional permissions are required:
+    ```json
+    {
+        "Effect": "Allow",
+        "Action": [
+            "glue:GetDataflowGraph",
+            "glue:GetJobs",
+        ],
+        "Resource": "*"
+    }
+    ```
+
+    plus `s3:GetObject` for the job script locations.
+
+    """
+
     source_config: GlueSourceConfig
     report = GlueSourceReport()
 
@@ -104,7 +221,6 @@ class GlueSource(Source):
         self.glue_client = config.glue_client
         self.s3_client = config.s3_client
         self.extract_transforms = config.extract_transforms
-        self.underlying_platform = config.underlying_platform
         self.env = config.env
 
     @classmethod
@@ -112,14 +228,22 @@ class GlueSource(Source):
         config = GlueSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_underlying_platform(self):
-        if self.underlying_platform in ["athena"]:
-            return self.underlying_platform
-        return "glue"
+    @property
+    def platform(self) -> str:
+        """
+        This deprecates "underlying_platform" field in favour of the standard "platform" one, which has
+        more priority when both are defined.
+        :return: platform, otherwise underlying_platform, otherwise "glue"
+        """
+        return (
+            self.source_config.platform
+            or self.source_config.underlying_platform
+            or DEFAULT_PLATFORM
+        )
 
     def get_all_jobs(self):
         """
-        List all jobs in Glue.
+        List all jobs in Glue. boto3 get_jobs api call doesn't support cross account access.
         """
 
         jobs = []
@@ -239,7 +363,12 @@ class GlueSource(Source):
                 full_table_name = f"{node_args['database']}.{node_args['table_name']}"
 
                 # we know that the table will already be covered when ingesting Glue tables
-                node_urn = f"urn:li:dataset:(urn:li:dataPlatform:{self.get_underlying_platform()},{full_table_name},{self.env})"
+                node_urn = make_dataset_urn_with_platform_instance(
+                    platform=self.platform,
+                    name=full_table_name,
+                    env=self.env,
+                    platform_instance=self.source_config.platform_instance,
+                )
 
             # if data object is S3 bucket
             elif node_args.get("connection_type") == "s3":
@@ -289,7 +418,7 @@ class GlueSource(Source):
                         flow_urn,
                         f"Unrecognized Glue data object type: {node_args}. Skipping.",
                     )
-
+                    return None
                 else:
 
                     raise ValueError(f"Unrecognized Glue data object type: {node_args}")
@@ -345,8 +474,19 @@ class GlueSource(Source):
         # traverse edges to fill in node properties
         for edge in dataflow_graph["DagEdges"]:
 
-            source_node = nodes[edge["Source"]]
-            target_node = nodes[edge["Target"]]
+            source_node = nodes.get(edge["Source"])
+            target_node = nodes.get(edge["Target"])
+
+            # Currently, in case of unsupported connectors,
+            # Source and Target for some edges is not available
+            # in nodes. this may lead to broken edge in lineage.
+            if source_node is None or target_node is None:
+                logger.warning(
+                    flow_urn,
+                    f"Unrecognized source or target node in edge: {edge}. Skipping.\
+                        This may lead to broken edge in lineage",
+                )
+                continue
 
             source_node_type = source_node["NodeType"]
             target_node_type = target_node["NodeType"]
@@ -454,7 +594,15 @@ class GlueSource(Source):
 
             # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.get_tables
             paginator = self.glue_client.get_paginator("get_tables")
-            for page in paginator.paginate(DatabaseName=database_name):
+
+            if self.source_config.catalog_id:
+                paginator_response = paginator.paginate(
+                    DatabaseName=database_name, CatalogId=self.source_config.catalog_id
+                )
+            else:
+                paginator_response = paginator.paginate(DatabaseName=database_name)
+
+            for page in paginator_response:
                 new_tables += page["TableList"]
 
             return new_tables
@@ -464,7 +612,15 @@ class GlueSource(Source):
 
             # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue.html#Glue.Client.get_databases
             paginator = self.glue_client.get_paginator("get_databases")
-            for page in paginator.paginate():
+
+            if self.source_config.catalog_id:
+                paginator_response = paginator.paginate(
+                    CatalogId=self.source_config.catalog_id
+                )
+            else:
+                paginator_response = paginator.paginate()
+
+            for page in paginator_response:
                 for db in page["DatabaseList"]:
                     if self.source_config.database_pattern.allowed(db["Name"]):
                         database_names.append(db["Name"])
@@ -533,8 +689,11 @@ class GlueSource(Source):
     def gen_database_key(self, database: str) -> DatabaseKey:
         return DatabaseKey(
             database=database,
-            platform=self.get_underlying_platform(),
-            instance=self.env,
+            platform=self.platform,
+            instance=self.source_config.platform_instance
+            # keeps backward compatibility when platform instance is missed
+            if self.source_config.platform_instance is not None
+            else self.source_config.env,
         )
 
     def gen_database_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
@@ -608,8 +767,11 @@ class GlueSource(Source):
             self.report.report_workunit(workunit)
             yield workunit
 
-            dataset_urn: str = make_dataset_urn(
-                self.get_underlying_platform(), full_table_name, self.env
+            dataset_urn: str = make_dataset_urn_with_platform_instance(
+                platform=self.platform,
+                name=full_table_name,
+                env=self.env,
+                platform_instance=self.source_config.platform_instance,
             )
             yield from self._get_domain_wu(
                 dataset_name=full_table_name,
@@ -636,7 +798,7 @@ class GlueSource(Source):
         for job in self.get_all_jobs():
 
             flow_urn = mce_builder.make_data_flow_urn(
-                self.get_underlying_platform(), job["Name"], self.env
+                self.platform, job["Name"], self.env
             )
 
             flow_wu = self.get_dataflow_wu(flow_urn, job)
@@ -685,6 +847,7 @@ class GlueSource(Source):
                 self.report.report_workunit(dataset_wu)
                 yield dataset_wu
 
+    # flake8: noqa: C901
     def _extract_record(self, table: Dict, table_name: str) -> MetadataChangeEvent:
         def get_owner() -> Optional[OwnershipClass]:
             owner = table.get("Owner")
@@ -715,6 +878,70 @@ class GlueSource(Source):
                 tags=[],
             )
 
+        def get_s3_tags() -> Optional[GlobalTagsClass]:
+            bucket_name = s3_util.get_bucket_name(
+                table["StorageDescriptor"]["Location"]
+            )
+            tags_to_add = []
+            if self.source_config.use_s3_bucket_tags:
+                try:
+                    bucket_tags = self.s3_client.get_bucket_tagging(Bucket=bucket_name)
+                    tags_to_add.extend(
+                        [
+                            make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
+                            for tag in bucket_tags["TagSet"]
+                        ]
+                    )
+                except self.s3_client.exceptions.ClientError:
+                    logger.warn(f"No tags found for bucket={bucket_name}")
+            if self.source_config.use_s3_object_tags:
+                key_prefix = s3_util.get_key_prefix(
+                    table["StorageDescriptor"]["Location"]
+                )
+                object_tagging = self.s3_client.get_object_tagging(
+                    Bucket=bucket_name, Key=key_prefix
+                )
+                tag_set = object_tagging["TagSet"]
+                if tag_set:
+                    tags_to_add.extend(
+                        [
+                            make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
+                            for tag in tag_set
+                        ]
+                    )
+                else:
+                    # Unlike bucket tags, if an object does not have tags, it will just return an empty array
+                    # as opposed to an exception.
+                    logger.warn(
+                        f"No tags found for bucket={bucket_name} key={key_prefix}"
+                    )
+            if len(tags_to_add) == 0:
+                return None
+            if self.ctx.graph is not None:
+                logger.debug(
+                    "Connected to DatahubApi, grabbing current tags to maintain."
+                )
+                current_tags: Optional[GlobalTagsClass] = self.ctx.graph.get_aspect_v2(
+                    entity_urn=dataset_urn,
+                    aspect="globalTags",
+                    aspect_type=GlobalTagsClass,
+                )
+                if current_tags:
+                    tags_to_add.extend(
+                        [current_tag.tag for current_tag in current_tags.tags]
+                    )
+            else:
+                logger.warn(
+                    "Could not connect to DatahubApi. No current tags to maintain"
+                )
+
+            # Remove duplicate tags
+            tags_to_add = list(set(tags_to_add))
+            new_tags = GlobalTagsClass(
+                tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
+            )
+            return new_tags
+
         def get_schema_metadata(glue_source: GlueSource) -> SchemaMetadata:
             schema = table["StorageDescriptor"]["Columns"]
             fields: List[SchemaField] = []
@@ -742,13 +969,29 @@ class GlueSource(Source):
                 schemaName=table_name,
                 version=0,
                 fields=fields,
-                platform=f"urn:li:dataPlatform:{self.get_underlying_platform()}",
+                platform=f"urn:li:dataPlatform:{self.platform}",
                 hash="",
                 platformSchema=MySqlDDL(tableSchema=""),
             )
 
+        def get_data_platform_instance() -> DataPlatformInstanceClass:
+            return DataPlatformInstanceClass(
+                platform=make_data_platform_urn(self.platform),
+                instance=make_dataplatform_instance_urn(
+                    self.platform, self.source_config.platform_instance
+                )
+                if self.source_config.platform_instance
+                else None,
+            )
+
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=table_name,
+            env=self.env,
+            platform_instance=self.source_config.platform_instance,
+        )
         dataset_snapshot = DatasetSnapshot(
-            urn=make_dataset_urn(self.get_underlying_platform(), table_name, self.env),
+            urn=dataset_urn,
             aspects=[],
         )
 
@@ -761,6 +1004,14 @@ class GlueSource(Source):
 
         dataset_snapshot.aspects.append(get_dataset_properties())
         dataset_snapshot.aspects.append(get_schema_metadata(self))
+        dataset_snapshot.aspects.append(get_data_platform_instance())
+        if (
+            self.source_config.use_s3_bucket_tags
+            or self.source_config.use_s3_object_tags
+        ):
+            s3_tags = get_s3_tags()
+            if s3_tags is not None:
+                dataset_snapshot.aspects.append(s3_tags)
 
         metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         return metadata_record
