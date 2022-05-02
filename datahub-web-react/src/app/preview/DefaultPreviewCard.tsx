@@ -194,7 +194,7 @@ export default function DefaultPreviewCard({
     }
     return (
         <PreviewContainer data-testid={dataTestID}>
-            <div>
+            <div style={{ width: '100%' }}>
                 <TitleContainer>
                     <Link to={url}>
                         <PlatformInfo>

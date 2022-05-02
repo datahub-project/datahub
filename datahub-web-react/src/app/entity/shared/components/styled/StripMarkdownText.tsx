@@ -5,9 +5,8 @@ import styled from 'styled-components';
 const RemoveMarkdownContainer = styled.div`
     display: block;
     overflow-wrap: break-word;
-    overflow: hidden auto;
     white-space: nowrap;
-    width: 844px;
+    width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
 `;
