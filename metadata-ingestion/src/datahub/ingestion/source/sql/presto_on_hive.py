@@ -58,6 +58,7 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
         description="Where clause to specify what Hive schemas should be ingested.",
     )
     host_port: str = Field(
+        default="localhost:3306",
         description="Host URL and port to connect to. Example: localhost:3306"
     )
     scheme: str = Field(default="mysql+pymysql", description="", exclude=True)
