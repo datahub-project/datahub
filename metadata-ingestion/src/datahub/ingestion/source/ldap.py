@@ -75,16 +75,16 @@ class LDAPSourceConfig(ConfigModel):
 
     # Extraction configuration.
     base_dn: str = Field(description="LDAP DN.")
-    filter: str = Field(dfault="(objectClass=*)", description="LDAP extractor filter.")
+    filter: str = Field(default="(objectClass=*)", description="LDAP extractor filter.")
 
     # If set to true, any users without first and last names will be dropped.
     drop_missing_first_last_name: bool = Field(
-        dfault=True,
+        default=True,
         description="If set to true, any users without first and last names will be dropped.",
     )
 
     page_size: int = Field(
-        dfault=20, description="Size of each page to fetch when extracting metadata."
+        default=20, description="Size of each page to fetch when extracting metadata."
     )
 
 
