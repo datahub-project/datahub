@@ -14,6 +14,12 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -120,6 +126,9 @@ class SnowflakeJoinedAccessEvent(PermissiveModel):
     role_name: str
 
 
+@platform_name("Snowflake")
+@support_status(SupportStatus.CERTIFIED)
+@config_class(SnowflakeUsageConfig)
 class SnowflakeUsageSource(StatefulIngestionSourceBase):
     def __init__(self, config: SnowflakeUsageConfig, ctx: PipelineContext):
         super(SnowflakeUsageSource, self).__init__(config, ctx)

@@ -1,0 +1,16 @@
+source:
+  type: postgres
+  config:
+    # Coordinates
+    host_port: localhost:5432
+    database: DemoDatabase
+
+    # Credentials
+    username: user
+    password: pass
+
+    # Options
+    database_alias: DatabaseNameToBeIngested
+
+sink:
+  # sink configs

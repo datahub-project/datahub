@@ -3,11 +3,20 @@ import re
 from typing import Any, Dict, List, Optional
 
 from pydantic.class_validators import validator
+from pydantic.fields import Field
 
 # This import verifies that the dependencies are available.
 from pyhive import hive  # noqa: F401
 from pyhive.sqlalchemy_hive import HiveDate, HiveDecimal, HiveTimestamp
 
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.sql.sql_common import (
     BasicSQLAlchemyConfig,
@@ -31,19 +40,37 @@ register_custom_type(HiveDecimal, NumberTypeClass)
 
 class HiveConfig(BasicSQLAlchemyConfig):
     # defaults
-    scheme = "hive"
+    scheme = Field(default="hive", exclude=True)
 
     # Hive SQLAlchemy connector returns views as tables.
     # See https://github.com/dropbox/PyHive/blob/b21c507a24ed2f2b0cf15b0b6abb1c43f31d3ee0/pyhive/sqlalchemy_hive.py#L270-L273.
     # Disabling views helps us prevent this duplication.
-    include_views = False
+    include_views = Field(
+        default=False,
+        exclude=True,
+        description="Hive SQLAlchemy connector returns views as tables. See https://github.com/dropbox/PyHive/blob/b21c507a24ed2f2b0cf15b0b6abb1c43f31d3ee0/pyhive/sqlalchemy_hive.py#L270-L273. Disabling views helps us prevent this duplication.",
+    )
 
     @validator("host_port")
     def clean_host_port(cls, v):
         return config_clean.remove_protocol(v)
 
 
+@platform_name("Hive")
+@config_class(HiveConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 class HiveSource(SQLAlchemySource):
+    """
+    This plugin extracts the following:
+
+    - Metadata for databases, schemas, and tables
+    - Column types associated with each table
+    - Detailed table and storage information
+    - Table, row, and column statistics via optional SQL profiling.
+
+    """
 
     _COMPLEX_TYPE = re.compile("^(struct|map|array|uniontype)")
 

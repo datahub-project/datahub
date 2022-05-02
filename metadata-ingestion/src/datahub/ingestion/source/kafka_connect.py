@@ -7,6 +7,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 import jpype
 import jpype.imports
 import requests
+from pydantic.fields import Field
 from sqlalchemy.engine.url import make_url
 
 import datahub.emitter.mce_builder as builder
@@ -15,6 +16,14 @@ from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import get_platform_from_sqlalchemy_uri
@@ -31,14 +40,33 @@ class ProvidedConfig(ConfigModel):
 class KafkaConnectSourceConfig(DatasetLineageProviderConfigBase):
     # See the Connect REST Interface for details
     # https://docs.confluent.io/platform/current/connect/references/restapi.html#
-    connect_uri: str = "http://localhost:8083/"
-    username: Optional[str] = None
-    password: Optional[str] = None
-    cluster_name: Optional[str] = "connect-cluster"
-    construct_lineage_workunits: bool = True
-    connector_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
-    provided_configs: Optional[List[ProvidedConfig]] = None
-    connect_to_platform_map: Optional[dict] = None
+    connect_uri: str = Field(
+        default="http://localhost:8083/", description="URI to connect to."
+    )
+    username: Optional[str] = Field(default=None, description="Kafka Connect username.")
+    password: Optional[str] = Field(default=None, description="Kafka Connect password.")
+    cluster_name: Optional[str] = Field(
+        default="connect-cluster", description="Cluster to ingest from."
+    )
+    construct_lineage_workunits: bool = Field(
+        default=True,
+        description="Whether to create the input and output Dataset entities",
+    )
+    connector_patterns: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for connectors to filter for ingestion.",
+    )
+    provided_configs: Optional[List[ProvidedConfig]] = Field(
+        default=None, description="Provided Configurations"
+    )
+    connect_to_platform_map: Optional[dict] = Field(
+        default=None,
+        description='Platform instance mapping when multiple instances for a platform is available. Entry for a platform should be in either `platform_instance_map` or `connect_to_platform_map`. e.g.`connect_to_platform_map: { "postgres-connector-finance-db": "postgres": "core_finance_instance" }`',
+    )
+    platform_instance_map: Optional[Dict[str, str]] = Field(
+        default=None,
+        description='Platform instance mapping to use when constructing URNs. e.g.`platform_instance_map: { "hive": "warehouse" }`',
+    )
 
 
 @dataclass
@@ -792,13 +820,23 @@ def transform_connector_config(
                 connector_config[k] = v.replace(key, value)
 
 
+@platform_name("Kafka Connect")
+@config_class(KafkaConnectSourceConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 class KafkaConnectSource(Source):
-    """The class for Kafka Connect source.
+    """
+    This plugin extracts the following:
 
-    Attributes:
-        config (KafkaConnectSourceConfig): Kafka Connect cluster REST API configurations.
-        report (KafkaConnectSourceReport): Kafka Connect source ingestion report.
+    - Kafka Connect connector as individual `DataFlowSnapshotClass` entity
+    - Creating individual `DataJobSnapshotClass` entity using `{connector_name}:{source_dataset}` naming
+    - Lineage information between source database to Kafka topic
 
+    Current limitations:
+
+    - works only for
+        - JDBC and Debezium source connectors
+        - BigQuery sink connector
     """
 
     config: KafkaConnectSourceConfig

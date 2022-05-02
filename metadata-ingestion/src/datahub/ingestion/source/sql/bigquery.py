@@ -26,6 +26,14 @@ from datahub.emitter.mcp_builder import (
     ProjectIdKey,
     gen_containers,
 )
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
@@ -284,7 +292,33 @@ def cleanup(config: BigQueryConfig) -> None:
         os.unlink(config._credentials_path)
 
 
+@config_class(BigQueryConfig)
+@platform_name("BigQuery")
+@support_status(SupportStatus.CERTIFIED)
+@capability(
+    SourceCapability.PLATFORM_INSTANCE,
+    "BigQuery doesn't need platform instances because project ids in BigQuery are globally unique.",
+    supported=False,
+)
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
+@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@capability(
+    SourceCapability.USAGE_STATS,
+    "Not provided by this module, use `bigquery-usage` for that.",
+    supported=False,
+)
+@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 class BigQuerySource(SQLAlchemySource):
+    """
+    This plugin extracts the following:
+    - Metadata for databases, schemas, and tables
+    - Column types associated with each table
+    - Table, row, and column statistics via optional SQL profiling
+    - Table level lineage.
+    """
+
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "bigquery")
         self.config: BigQueryConfig = config

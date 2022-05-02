@@ -16,6 +16,12 @@ from sqlalchemy.sql import sqltypes, text
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.sql.sql_common import (
@@ -46,6 +52,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 snowdialect.ischema_names["GEOGRAPHY"] = sqltypes.NullType
 
 
+@platform_name("Snowflake")
+@config_class(SnowflakeConfig)
+@support_status(SupportStatus.CERTIFIED)
 class SnowflakeSource(SQLAlchemySource):
     def __init__(self, config: SnowflakeConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "snowflake")

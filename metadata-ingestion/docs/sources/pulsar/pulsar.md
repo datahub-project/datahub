@@ -48,10 +48,10 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 | Capability                                            | Status | Notes                                                                                                                                                                                                                                        |
 |-------------------------------------------------------|:------:|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Data Container                                        |   ❌    |                                                                                                                                                                                                                                              |
-| [Stateful Ingestion](./stateful_ingestion.md)         |   ✅    | Requires recipe configuration, stateful Ingestion is available only when a Platform Instance is assigned to this source.                                                                                                                     |
+| [Stateful Ingestion](../../../../metadata-ingestion/docs/dev_guides/stateful.md)         |   ✅    | Requires recipe configuration, stateful Ingestion is available only when a Platform Instance is assigned to this source.                                                                                                                     |
 | Partition Support                                     |   ✅    | Requires recipe configuration, each individual partition topic can be ingest. Behind the scenes, a partitioned topic is actually implemented as N internal topics, where N is the number of partitions. This feature is disabled by default. |
-| [Platform Instance](../../docs/platform-instances.md) |   ✅    | Requires recipe configuration and is mandatory for Stateful Ingestion. A Pulsar instance consists of one or more Pulsar clusters.                                                                                                            |
-| [Data Domain](../../docs/domains.md)                  |   ✅    | Requires recipe configuration                                                                                                                                                                                                                |
+| [Platform Instance](../../../platform-instances.md) |   ✅    | Requires recipe configuration and is mandatory for Stateful Ingestion. A Pulsar instance consists of one or more Pulsar clusters.                                                                                                            |
+| [Data Domain](../../../domains.md)                  |   ✅    | Requires recipe configuration                                                                                                                                                                                                                |
 | Dataset Profiling                                     |   ❌    |                                                                                                                                                                                                                                              |
 | Dataset Usage                                         |   ❌    |                                                                                                                                                                                                                                              |
 | Extract Descriptions                                  |   ❌    |                                                                                                                                                                                                                                              |
@@ -62,7 +62,7 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 
 ## Metadata Ingestion Quickstart
 
-For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
+For context on getting started with ingestion, check out our [metadata ingestion guide](../../../../metadata-ingestion/README.md).
 
 ### Prerequisites
 
@@ -85,7 +85,7 @@ Run the following commands to install the relevant plugin(s):
 
 Use the following recipe(s) to get started with ingestion. See [below](#config-details) for full configuration options.
 
-_For general pointers on writing and running a recipe, see our [main recipe guide](../README.md#recipes)._
+_For general pointers on writing and running a recipe, see our [main recipe guide](../../../../metadata-ingestion/README.md#recipes)._
 
 #### Quickstart recipe
 Getting started receipt
@@ -165,7 +165,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `domain.domain_urn.allow`       |    ❌     |                         | List of regex patterns for topics to set domain_urn domain key. There can be multiple domain key specified.                                                     |
 | `domain.domain_urn.deny`        |    ❌     |                         | List of regex patterns for topics to not assign domain_urn. There can be multiple domain key specified.                                                         |
 | `domain.domain_urn.ignoreCase`  |    ❌     | `True`                  | Whether to ignore case sensitivity during pattern matching.There can be multiple domain key specified.                                                          |
-| `stateful_ingestion`            |    ❌     |                         | see [Stateful Ingestion](./stateful_ingestion.md)                                                                                                               |
+| `stateful_ingestion`            |    ❌     |                         | see [Stateful Ingestion](../../../../metadata-ingestion/docs/dev_guides/stateful.md)                                                                                                               |
 </details>
 
 
