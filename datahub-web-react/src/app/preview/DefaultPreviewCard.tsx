@@ -144,6 +144,7 @@ interface Props {
     type?: string;
     typeIcon?: JSX.Element;
     platform?: string;
+    platformInstanceId?: string;
     qualifier?: string | null;
     tags?: GlobalTags;
     owners?: Array<Owner> | null;
@@ -170,6 +171,7 @@ export default function DefaultPreviewCard({
     type,
     typeIcon,
     platform,
+    platformInstanceId,
     // TODO(Gabe): support qualifier in the new preview card
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     qualifier,
@@ -213,7 +215,12 @@ export default function DefaultPreviewCard({
                             {(logoUrl && <PreviewImage preview={false} src={logoUrl} alt={platform || ''} />) || (
                                 <LogoContainer>{logoComponent}</LogoContainer>
                             )}
-                            {platform && <PlatformText>{platform}</PlatformText>}
+                            {platform && (
+                                <PlatformText>
+                                    {platform}
+                                    {platformInstanceId && ` - ${platformInstanceId}`}
+                                </PlatformText>
+                            )}
                             {(logoUrl || logoComponent || platform) && <PlatformDivider />}
                             {typeIcon && <TypeIcon>{typeIcon}</TypeIcon>}
                             <PlatformText>{type}</PlatformText>

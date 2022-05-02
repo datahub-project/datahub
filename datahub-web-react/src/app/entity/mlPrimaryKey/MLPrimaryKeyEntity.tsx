@@ -142,6 +142,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
                 description={data.description || ''}
                 owners={data.ownership?.owners}
                 platform={platform}
+                platformInstanceId={data.dataPlatformInstance?.instanceId}
             />
         );
     };
