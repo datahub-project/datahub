@@ -474,13 +474,13 @@ class S3Source(Source):
             extension = path_spec.default_extension
 
         try:
-            if extension == "parquet":
+            if extension == ".parquet":
                 fields = parquet.ParquetInferrer().infer_schema(file)
-            elif extension == "csv":
+            elif extension == ".csv":
                 fields = csv_tsv.CsvInferrer(
                     max_rows=self.source_config.max_rows
                 ).infer_schema(file)
-            elif extension == "tsv":
+            elif extension == ".tsv":
                 fields = csv_tsv.TsvInferrer(
                     max_rows=self.source_config.max_rows
                 ).infer_schema(file)
@@ -775,7 +775,7 @@ class S3Source(Source):
             )
         return table_data
 
-    def s3_browser(self, path_spec: PathSpec) -> Iterable[tuple]:
+    def s3_browser(self, path_spec: PathSpec) -> Iterable[Tuple]:
         if self.source_config.aws_config is None:
             raise ValueError("aws_config not set. Cannot browse s3")
         s3 = self.source_config.aws_config.get_s3_resource()
@@ -788,7 +788,7 @@ class S3Source(Source):
             s3_path = f"s3://{obj.bucket_name}/{obj.key}"
             yield s3_path, obj.last_modified, obj.size,
 
-    def local_browser(self, path_spec: PathSpec) -> Iterable[tuple]:
+    def local_browser(self, path_spec: PathSpec) -> Iterable[Tuple]:
         prefix = self.get_prefix(path_spec.include)
         if os.path.isfile(prefix):
             logger.debug(f"Scanning single local file: {prefix}")

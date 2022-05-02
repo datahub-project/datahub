@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Optional, Union
 import parse
 import pydantic
 from pydantic.fields import Field
-from pydantic import PrivateAttr
 from wcmatch import pathlib
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -167,7 +166,7 @@ class PathSpec(ConfigModel):
 
 class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
     path_specs: Optional[List[PathSpec]] = Field(description="")
-    path_spec: PathSpec = Field(description="")
+    path_spec: Optional[PathSpec] = Field(description="")
     platform: str = Field(
         default="", description="The platform that this source connects to"
     )
