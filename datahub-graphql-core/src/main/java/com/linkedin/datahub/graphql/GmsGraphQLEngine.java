@@ -76,10 +76,6 @@ import com.linkedin.datahub.graphql.resolvers.group.EntityCountsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.ListGroupsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
-import com.linkedin.datahub.graphql.resolvers.jobs.EntityRunsResolver;
-import com.linkedin.datahub.graphql.resolvers.jobs.DataJobRunsResolver;
-import com.linkedin.datahub.graphql.resolvers.user.UpdateUserStatusResolver;
-import com.linkedin.datahub.graphql.resolvers.policy.GetGrantedPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CancelIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.GetIngestionExecutionRequestResolver;
@@ -92,6 +88,8 @@ import com.linkedin.datahub.graphql.resolvers.ingest.source.DeleteIngestionSourc
 import com.linkedin.datahub.graphql.resolvers.ingest.source.GetIngestionSourceResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSourcesResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.source.UpsertIngestionSourceResolver;
+import com.linkedin.datahub.graphql.resolvers.jobs.DataJobRunsResolver;
+import com.linkedin.datahub.graphql.resolvers.jobs.EntityRunsResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityLineageResultResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
@@ -113,6 +111,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTagResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateDescriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.DeletePolicyResolver;
+import com.linkedin.datahub.graphql.resolvers.policy.GetGrantedPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.UpsertPolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.recommendation.ListRecommendationsResolver;
@@ -122,6 +121,7 @@ import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolve
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.SetTagColorResolver;
+import com.linkedin.datahub.graphql.resolvers.timeline.GetSchemaBlameResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
@@ -130,8 +130,8 @@ import com.linkedin.datahub.graphql.resolvers.type.ResultsTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.TimeSeriesAspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.user.ListUsersResolver;
 import com.linkedin.datahub.graphql.resolvers.user.RemoveUserResolver;
+import com.linkedin.datahub.graphql.resolvers.user.UpdateUserStatusResolver;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
-import com.linkedin.datahub.graphql.types.dataprocessinst.mappers.DataProcessInstanceRunEventMapper;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
@@ -144,10 +144,10 @@ import com.linkedin.datahub.graphql.types.corpgroup.CorpGroupType;
 import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
 import com.linkedin.datahub.graphql.types.dashboard.DashboardType;
 import com.linkedin.datahub.graphql.types.dataset.VersionedDatasetType;
-import com.linkedin.datahub.graphql.types.notebook.NotebookType;
 import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
 import com.linkedin.datahub.graphql.types.datajob.DataJobType;
 import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
+import com.linkedin.datahub.graphql.types.dataprocessinst.mappers.DataProcessInstanceRunEventMapper;
 import com.linkedin.datahub.graphql.types.dataset.DatasetType;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
 import com.linkedin.datahub.graphql.types.domain.DomainType;
@@ -157,6 +157,7 @@ import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelGroupType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLPrimaryKeyType;
+import com.linkedin.datahub.graphql.types.notebook.NotebookType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.usage.UsageType;
 import com.linkedin.entity.client.EntityClient;
@@ -167,6 +168,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.telemetry.TelemetryConfiguration;
+import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.usage.UsageClient;
@@ -195,7 +197,7 @@ import org.dataloader.DataLoaderOptions;
 
 import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
-import static graphql.Scalars.GraphQLLong;
+import static graphql.Scalars.*;
 
 
 /**
@@ -217,6 +219,7 @@ public class GmsGraphQLEngine {
     private final GitVersion gitVersion;
     private final boolean supportsImpactAnalysis;
     private final TimeseriesAspectService timeseriesAspectService;
+    private final TimelineService timelineService;
 
     private final IngestionConfiguration ingestionConfiguration;
     private final AuthenticationConfiguration authenticationConfiguration;
@@ -288,6 +291,7 @@ public class GmsGraphQLEngine {
         final AuthenticationConfiguration authenticationConfiguration,
         final AuthorizationConfiguration authorizationConfiguration,
         final GitVersion gitVersion,
+        final TimelineService timelineService,
         final boolean supportsImpactAnalysis,
         final VisualConfiguration visualConfiguration,
         final TelemetryConfiguration telemetryConfiguration
@@ -306,6 +310,7 @@ public class GmsGraphQLEngine {
         this.gitVersion = gitVersion;
         this.supportsImpactAnalysis = supportsImpactAnalysis;
         this.timeseriesAspectService = timeseriesAspectService;
+        this.timelineService = timelineService;
 
         this.ingestionConfiguration = Objects.requireNonNull(ingestionConfiguration);
         this.authenticationConfiguration = Objects.requireNonNull(authenticationConfiguration);
@@ -421,6 +426,7 @@ public class GmsGraphQLEngine {
             .addSchema(fileBasedSchema(ANALYTICS_SCHEMA_FILE))
             .addSchema(fileBasedSchema(RECOMMENDATIONS_SCHEMA_FILE))
             .addSchema(fileBasedSchema(INGESTION_SCHEMA_FILE))
+            .addSchema(fileBasedSchema(TIMELINE_SCHEMA_FILE))
             .addDataLoaders(loaderSuppliers(loadableTypes))
             .addDataLoader("Aspect", context -> createDataLoader(aspectType, context))
             .addDataLoader("UsageQueryResult", context -> createDataLoader(usageType, context))
@@ -524,6 +530,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("listIngestionSources", new ListIngestionSourcesResolver(this.entityClient))
             .dataFetcher("ingestionSource", new GetIngestionSourceResolver(this.entityClient))
             .dataFetcher("executionRequest", new GetIngestionExecutionRequestResolver(this.entityClient))
+            .dataFetcher("getSchemaBlame", new GetSchemaBlameResolver(this.timelineService))
         );
     }
 

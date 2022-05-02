@@ -95,7 +95,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
     final ManagedIngestionConfig ingestionConfig = new ManagedIngestionConfig();
     ingestionConfig.setEnabled(_ingestionConfiguration.isEnabled());
-    appConfig.setAuthConfig(authConfig);
+
     appConfig.setAnalyticsConfig(analyticsConfig);
     appConfig.setPoliciesConfig(policiesConfig);
     appConfig.setIdentityManagementConfig(identityManagementConfig);
