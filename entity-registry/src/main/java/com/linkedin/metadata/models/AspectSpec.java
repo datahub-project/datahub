@@ -119,11 +119,4 @@ public class AspectSpec {
   public Class<RecordTemplate> getDataTemplateClass() {
     return _aspectClass;
   }
-
-  public List<RelationshipFieldSpec> findRelationshipFor(final String relationshipName, final String relatedEntityName) {
-    return getRelationshipFieldSpecs().stream()
-        .filter(relationship -> relationship.getRelationshipName().equals(relationshipName)
-            && relationship.getValidDestinationTypes().contains(relatedEntityName))
-        .collect(Collectors.toList());
-  }
 }

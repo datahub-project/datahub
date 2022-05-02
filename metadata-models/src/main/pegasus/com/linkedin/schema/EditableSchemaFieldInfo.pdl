@@ -27,7 +27,7 @@ record EditableSchemaFieldInfo {
    */
   @Relationship = {
     "/tags/*/tag": {
-      "name": "EditableFieldTaggedWith",
+      "name": "EditableSchemaFieldTaggedWith",
         "entityTypes": [ "tag" ]
     }
   }
@@ -45,7 +45,7 @@ record EditableSchemaFieldInfo {
    */
    @Relationship = {
       "/terms/*/urn": {
-        "name": "EditableFieldWithGlossaryTerm",
+        "name": "EditableSchemaFieldWithGlossaryTerm",
         "entityTypes": [ "glossaryTerm" ]
       }
    }

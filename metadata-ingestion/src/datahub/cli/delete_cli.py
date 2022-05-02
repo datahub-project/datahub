@@ -134,7 +134,7 @@ def delete(
         references_count, related_aspects = _delete_references(
             urn, dry_run=True, cached_session_host=(session, host)
         )
-        remove_dangling: bool = False
+        remove_references: bool = False
 
         if references_count > 0:
             print(
@@ -147,9 +147,9 @@ def delete(
                     tablefmt="grid",
                 )
             )
-            remove_dangling = click.confirm("Do you want to delete these references?")
+            remove_references = click.confirm("Do you want to delete these references?")
 
-        if remove_dangling:
+        if remove_references:
             _delete_references(urn, dry_run=False, cached_session_host=(session, host))
 
         deletion_result: DeletionResult = delete_one_urn_cmd(

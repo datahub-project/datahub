@@ -59,7 +59,7 @@ record SchemaField {
    */
   @Relationship = {
     "/tags/*/tag": {
-      "name": "FieldTaggedWith",
+      "name": "SchemaFieldTaggedWith",
       "entityTypes": [ "tag" ]
     }
   }
@@ -77,7 +77,7 @@ record SchemaField {
    */
    @Relationship = {
       "/terms/*/urn": {
-        "name": "FieldWithGlossaryTerm",
+        "name": "SchemaFieldWithGlossaryTerm",
         "entityTypes": [ "glossaryTerm" ]
       }
    }

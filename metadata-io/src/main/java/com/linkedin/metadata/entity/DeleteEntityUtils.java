@@ -25,14 +25,12 @@ import lombok.extern.slf4j.Slf4j;
  * For more information see {@link #getAspectWithReferenceRemoved(String, RecordTemplate, DataSchema, PathSpec)}
  */
 @Slf4j
-public class DeleteReferencesService {
+public class DeleteEntityUtils {
 
-  private DeleteReferencesService() { }
+  private DeleteEntityUtils() { }
 
   /**
-   *
-   * Utility method that provides utility methods to remove fields from a given aspect based on it's aspect spec that
-   * follows the following logic:
+   * Utility method that removes fields from a given aspect based on its aspect spec that follows the following logic:
    *
    * 1. If field is optional and not part of an array → remove the field.
    * 2. If is a field that is part of an array (has an `*` in the path spec)
@@ -40,11 +38,13 @@ public class DeleteReferencesService {
    *  Extra → If array only has 1 element which is being deleted→ optional rules (if optional set null, otherwise delete)
    * 3. If field is non-optional and does not belong to an array delete if and only if aspect becomes empty.
    *
-   * @param value       Value to be removed from Aspect
-   * @param aspect      Aspect in which the value property exists
-   * @param schema      {@link DataSchema} of the aspect being processed
+   * @param value       Value to be removed from Aspect.
+   * @param aspect      Aspect in which the value property exists.
+   * @param schema      {@link DataSchema} of the aspect being processed.
    * @param aspectPath  Path within the aspect to where the value can be found.
-   * @return  An updated version of the provided aspect without the provided value.
+   *
+   * @return A deep copy of the aspect. Modified if the value was found and according to the logic specified above.
+   * Otherwise, a copy of the original aspect is returned.
    */
   public static Aspect getAspectWithReferenceRemoved(String value, RecordTemplate aspect, DataSchema schema, PathSpec aspectPath) {
     try {
@@ -100,19 +100,17 @@ public class DeleteReferencesService {
       int index) {
     // If in the last component of the path spec
     if (index == pathComponents.size() - 1) {
-      // Can only remove if field is optional or if (parent is optional AND struct will be empty or just with optionals)
       boolean canDelete = spec.getField(pathComponents.get(index)).getOptional();
-
-      if (canDelete) {
-        final Object found = record.remove(pathComponents.get(index));
-        if (found == null) {
-          log.error("[Reference removal logic] Unable to find value {} in data map {} at path {}", value, record,
-              pathComponents.subList(0, index));
+      boolean valueExistsInRecord = record.getOrDefault(pathComponents.get(index), "").equals(value);
+      if (valueExistsInRecord) {
+        if (canDelete) {
+          record.remove(pathComponents.get(index));
+        } else if (record.size() == 1) {
+          return null;
         }
-      } else if (record.size() == 1) {
-        return null;
       } else {
-        log.warn("[Reference removal logic] Can not remove a field {} that is non-optional!", spec.getName());
+        log.error("[Reference removal logic] Unable to find value {} in data map {} at path {}", value, record,
+                pathComponents.subList(0, index));
       }
     } else {
       // else traverse further down the tree.

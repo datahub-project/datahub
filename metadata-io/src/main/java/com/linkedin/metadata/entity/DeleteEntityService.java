@@ -29,12 +29,13 @@ import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections.CollectionUtils;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
@@ -72,15 +73,15 @@ public class DeleteEntityService {
           final String relatedEntityName = relatedUrn.getEntityType();
           final EntitySpec relatedEntitySpec = _entityService.getEntityRegistry().getEntitySpec(relatedEntityName);
 
-          return getAspectReferringTo(urn, relatedUrn, relationType, relatedEntitySpec).map(pair -> {
+          return getAspectReferringTo(urn, relatedUrn, relationType, relatedEntitySpec).map(maybePair -> {
             final RelatedAspect relatedAspect = new RelatedAspect();
             relatedAspect.setEntity(relatedUrn);
             relatedAspect.setRelationship(relationType);
-            relatedAspect.setAspect(pair.getSecond().getName());
+            relatedAspect.setAspect(maybePair.getSecond().getName());
             return relatedAspect;
           });
-        }).filter(java.util.Optional::isPresent)
-        .map(java.util.Optional::get)
+        }).filter(Optional::isPresent)
+        .map(Optional::get)
         .limit(10).collect(Collectors.toList());
 
     result.setRelatedAspects(new RelatedAspectArray(relatedAspects));
@@ -92,7 +93,8 @@ public class DeleteEntityService {
 
     int processedEntities = 0;
 
-    // Delete first 10k
+    // Delete first 10k. We have to work in 10k batches as this is a limitation of elasticsearch search results:
+    // https://www.elastic.co/guide/en/elasticsearch/reference/current/paginate-search-results.html
     relatedEntities.getEntities().forEach(entity -> deleteReference(urn, entity));
 
     processedEntities += relatedEntities.getEntities().size();
@@ -113,6 +115,7 @@ public class DeleteEntityService {
 
   /**
    * Utility method to sleep the thread.
+   *
    * @param seconds The number of seconds to sleep.
    */
   private void sleep(final Integer seconds) {
@@ -126,23 +129,29 @@ public class DeleteEntityService {
   /**
    * Processes an aspect of a given {@link RelatedEntity} instance that references a given {@link Urn}, removes said
    * urn from the aspects and submits an MCP with the updated aspects.
+   *
    * @param urn           The urn to be found.
    * @param relatedEntity The entity to be modified.
    */
   private void deleteReference(final Urn urn, final RelatedEntity relatedEntity) {
     final Urn relatedUrn = UrnUtils.getUrn(relatedEntity.getUrn());
-    final String relationType = relatedEntity.getRelationshipType();
+    final String relationshipType = relatedEntity.getRelationshipType();
     final String relatedEntityName = relatedUrn.getEntityType();
 
-    log.debug("Processing related entity {} with relationship {}", relatedEntityName, relationType);
+    log.debug("Processing related entity {} with relationship {}", relatedEntityName, relationshipType);
 
     final EntitySpec relatedEntitySpec = _entityService.getEntityRegistry().getEntitySpec(relatedEntityName);
 
-    final java.util.Optional<Pair<EnvelopedAspect, AspectSpec>> optionalAspectInfo =
-        getAspectReferringTo(urn, relatedUrn, relationType, relatedEntitySpec);
+    final Optional<Pair<EnvelopedAspect, AspectSpec>> optionalAspectInfo =
+        getAspectReferringTo(urn, relatedUrn, relationshipType, relatedEntitySpec);
 
+
+    // If an empty Optional it means that we have a graph edge that points to some aspect that we can't find in the
+    // entity service. It would be a corrupted edge in the graph index or corrupted record in the entity DB.
     if (!optionalAspectInfo.isPresent()) {
-      log.error("Unable to find aspect information that relates {} {} via relationship {}", urn, relatedUrn, relationType);
+      log.error("Unable to find aspect information that relates {} {} via relationship {} in the entity service. " +
+                      "This is potentially a lack of consistency between the graph and entity DBs.",
+              urn, relatedUrn, relationshipType);
       return;
     }
 
@@ -150,89 +159,96 @@ public class DeleteEntityService {
     final Aspect aspect = optionalAspectInfo.get().getKey().getValue();
     final AspectSpec aspectSpec = optionalAspectInfo.get().getValue();
     final List<RelationshipFieldSpec> optionalRelationshipFieldSpec =
-        aspectSpec.findRelationshipFor(relationType, urn.getEntityType());
+        findRelationshipFor(aspectSpec, relationshipType, urn.getEntityType());
 
     if (optionalRelationshipFieldSpec.isEmpty()) {
       log.error("Unable to find relationship spec information in {} that connects to {} via {}",
-          aspectName, urn.getEntityType(), relationType);
+          aspectName, urn.getEntityType(), relationshipType);
       return;
     }
 
     for (RelationshipFieldSpec relationshipFieldSpec : optionalRelationshipFieldSpec) {
       final PathSpec path = relationshipFieldSpec.getPath();
-      final Aspect updatedAspect = DeleteReferencesService.getAspectWithReferenceRemoved(urn.toString(), aspect,
+      final Aspect updatedAspect = DeleteEntityUtils.getAspectWithReferenceRemoved(urn.toString(), aspect,
           aspectSpec.getPegasusSchema(), path);
 
-      final MetadataChangeProposal gmce = new MetadataChangeProposal();
-      gmce.setEntityUrn(relatedUrn);
-      gmce.setChangeType(ChangeType.UPSERT);
-      gmce.setEntityType(relatedEntityName);
-      gmce.setAspectName(aspectName);
-      gmce.setAspect(GenericRecordUtils.serializeAspect(updatedAspect));
+      // If there has been an update
+      if (!updatedAspect.equals(aspect)) {
+        final MetadataChangeProposal proposal = new MetadataChangeProposal();
+        proposal.setEntityUrn(relatedUrn);
+        proposal.setChangeType(ChangeType.UPSERT);
+        proposal.setEntityType(relatedEntityName);
+        proposal.setAspectName(aspectName);
+        proposal.setAspect(GenericRecordUtils.serializeAspect(updatedAspect));
 
-      final AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-      final EntityService.IngestProposalResult ingestProposalResult = _entityService.ingestProposal(gmce, auditStamp);
+        final AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+        final EntityService.IngestProposalResult ingestProposalResult = _entityService.ingestProposal(proposal, auditStamp);
 
-      if (!ingestProposalResult.isDidUpdate()) {
-        log.warn("Aspect update did not update metadata graph. Before {}, after: {}", aspect, updatedAspect);
+        if (!ingestProposalResult.isDidUpdate()) {
+          log.error("Aspect update did not update metadata graph. Before {}, after: {}, please check MCP processor" +
+                          " logs for more information", aspect, updatedAspect);
+        }
       }
+
     }
   }
 
   /**
    * Utility method that attempts to find Aspect information as well as the associated path spec for a given urn that
-   * has a relationship of type `relationType` to another urn
+   * has a relationship of type `relationType` to another urn.
+   *
    * @param urn               The urn of the entity for which we want to find the aspect that relates the urn to
    *                          `relatedUrn`.
    * @param relatedUrn        The urn of the related entity in which we want to find the aspect that has a relationship
    *                          to `urn`.
    * @param relationType      The relationship type that details how the `urn` entity is related to `relatedUrn` entity.
    * @param relatedEntitySpec The entity spec of the related entity.
-   * @return An {@link java.util.Optional} object containing the aspect content & respective spec that contains the
+   * @return An {@link Optional} object containing the aspect content & respective spec that contains the
    * relationship between `urn` & `relatedUrn`.
    */
-  public java.util.Optional<Pair<EnvelopedAspect, AspectSpec>> getAspectReferringTo(final Urn urn, final Urn relatedUrn,
+  public Optional<Pair<EnvelopedAspect, AspectSpec>> getAspectReferringTo(final Urn urn, final Urn relatedUrn,
       final String relationType, final @Nonnull EntitySpec relatedEntitySpec) {
 
     // Find which aspects are the candidates for the relationship we are looking for
     final Map<String, AspectSpec> aspectSpecs = relatedEntitySpec.getAspectSpecMap()
         .entrySet()
         .stream()
-        .filter(aspectSpec -> !aspectSpec.getValue().findRelationshipFor(relationType, urn.getEntityType()).isEmpty())
+        .filter(entry -> !findRelationshipFor(entry.getValue(), relationType, urn.getEntityType()).isEmpty())
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
     // FIXME: Can we not depend on entity service?
     final EntityResponse entityResponse;
     try {
-      entityResponse = _entityService.getEntityV2(relatedUrn.getEntityType(),
-          relatedUrn,
-          aspectSpecs.keySet());
+      entityResponse = _entityService.getEntityV2(relatedUrn.getEntityType(), relatedUrn, aspectSpecs.keySet());
     } catch (URISyntaxException e) {
       log.error("Unable to retrieve entity data for relatedUrn " + relatedUrn, e);
-      return java.util.Optional.empty();
+      return Optional.empty();
     }
-
     // Find aspect which contains the relationship with the value we are looking for
     return entityResponse
-        .getAspects().values()
-        .stream()
-        // Get aspects which contain the relationship field specs found above
-        .filter(aspect -> aspectWithRelationshipTo(urn.getEntityType(), relationType, aspectSpecs, aspect))
-        .map(aspect -> Pair.of(aspect, aspectSpecs.get(aspect.getName())))
-        .findFirst();
+            .getAspects()
+            .values()
+            .stream()
+            // Get aspects which contain the relationship field specs found above
+            .filter(Objects::nonNull)
+            .filter(aspect -> hasRelationshipTo(aspect, urn.getEntityType(), relationType, aspectSpecs))
+            .map(aspect -> Pair.of(aspect, aspectSpecs.get(aspect.getName())))
+            .findFirst();
   }
 
   /**
    * Utility method that determines whether a given aspect has a relationship of type relationType to a given entity type.
+   *
+   * @param aspect        The aspect in which to search for the relationship.
    * @param entityType    The name of the entity the method checks against.
    * @param relationType  The name of the relationship to search for.
    * @param aspectSpecs   A dictionary of relationship types to aspect specs in which to search for a concrete
    *                      relationship with name=relationType and that targets the entityType passed by parameter.
-   * @param aspect        The aspect in which to search for the relationship.
+   *
    * @return {@code True} if the aspect has a relationship with the intended conditions, {@code False} otherwise.
    */
-  private boolean aspectWithRelationshipTo(final String entityType, final String relationType,
-      final Map<String, AspectSpec> aspectSpecs, final EnvelopedAspect aspect) {
+  private boolean hasRelationshipTo(final EnvelopedAspect aspect, final String entityType, final String relationType,
+                                    final Map<String, AspectSpec> aspectSpecs) {
 
     final AspectSpec aspectSpec = aspectSpecs.get(aspect.getName());
     if (aspectSpec == null) {
@@ -247,8 +263,32 @@ public class DeleteEntityService {
             aspectSpec.getRelationshipFieldSpecs());
 
     final List<RelationshipFieldSpec> relationshipFor =
-        aspectSpec.findRelationshipFor(relationType, entityType);
+        findRelationshipFor(aspectSpec, relationType, entityType);
 
-    return relationshipFor.stream().anyMatch(relationship -> !CollectionUtils.isEmpty(extractFields.get(relationship)));
+    // Is there is any instance of the relationship specs defined in the aspect's spec extracted from the
+    // aspect record instance?
+    return relationshipFor.stream()
+            .map(extractFields::get)
+            .filter(Objects::nonNull)
+            .anyMatch(list -> !list.isEmpty());
+  }
+
+  /**
+   *  Utility method to find the relationship specs within an AspectSpec with name relationshipName and which has
+   *  relatedEntity name as a valid destination type.
+   *
+   * @param spec              The aspect spec from which to extract relationship field specs.
+   * @param relationshipName  The name of the relationship to find.
+   * @param relatedEntityName The name of the entity type (i.e: dataset, chart, usergroup, etc...) which the relationship
+   *                          is valid for.
+   *
+   * @return  The list of relationship field specs which match the criteria.
+   */
+  private List<RelationshipFieldSpec> findRelationshipFor(final AspectSpec spec, final String relationshipName,
+                                                         final String relatedEntityName) {
+    return spec.getRelationshipFieldSpecs().stream()
+            .filter(relationship -> relationship.getRelationshipName().equals(relationshipName)
+                    && relationship.getValidDestinationTypes().contains(relatedEntityName))
+            .collect(Collectors.toList());
   }
 }
