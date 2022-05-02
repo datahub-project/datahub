@@ -59,7 +59,7 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
     )
     host_port: str = Field(
         default="localhost:3306",
-        description="Host URL and port to connect to. Example: localhost:3306"
+        description="Host URL and port to connect to. Example: localhost:3306",
     )
     scheme: str = Field(default="mysql+pymysql", description="", exclude=True)
 
