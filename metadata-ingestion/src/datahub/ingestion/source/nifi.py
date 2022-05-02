@@ -15,7 +15,8 @@ from pydantic.fields import Field
 from requests.adapters import HTTPAdapter
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -62,7 +63,7 @@ class NifiAuthType(Enum):
     CLIENT_CERT = "CLIENT_CERT"
 
 
-class NifiSourceConfig(ConfigModel):
+class NifiSourceConfig(EnvBasedSourceConfigBase):
     site_url: str = Field(description="URI to connect")
 
     auth: NifiAuthType = Field(
@@ -91,32 +92,29 @@ class NifiSourceConfig(ConfigModel):
 
     # Required to be set if auth is of type SINGLE_USER
     username: Optional[str] = Field(
-        description='Nifi username, must be set for auth = "SINGLE_USER"'
+        default=None, description='Nifi username, must be set for auth = "SINGLE_USER"'
     )
     password: Optional[str] = Field(
-        description='Nifi password, must be set for auth = "SINGLE_USER"'
+        default=None, description='Nifi password, must be set for auth = "SINGLE_USER"'
     )
 
     # Required to be set if auth is of type CLIENT_CERT
     client_cert_file: Optional[str] = Field(
-        description='Path to PEM file containing the public certificates for the user/client identity, must be set for auth = "CLIENT_CERT"'
+        default=None,
+        description='Path to PEM file containing the public certificates for the user/client identity, must be set for auth = "CLIENT_CERT"',
     )
     client_key_file: Optional[str] = Field(
-        description="Path to PEM file containing the client’s secret key"
+        default=None, description="Path to PEM file containing the client’s secret key"
     )
     client_key_password: Optional[str] = Field(
-        description="The password to decrypt the client_key_file"
+        default=None, description="The password to decrypt the client_key_file"
     )
 
     # Required to be set if nifi server certificate is not signed by
     # root CA trusted by client system, e.g. self-signed certificates
     ca_file: Optional[str] = Field(
-        description="Path to PEM file containing certs for the root CA(s) for the NiFi"
-    )
-
-    env: str = Field(
-        default=builder.DEFAULT_ENV,
-        description="Environment to use in namespace when constructing URNs.",
+        default=None,
+        description="Path to PEM file containing certs for the root CA(s) for the NiFi",
     )
 
 

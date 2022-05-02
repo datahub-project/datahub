@@ -48,8 +48,8 @@ class MetabaseConfig(DatasetLineageProviderConfigBase):
     # See the Metabase /api/session endpoint for details
     # https://www.metabase.com/docs/latest/api-documentation.html#post-apisession
     connect_uri: str = Field(default="localhost:3000", description="Metabase host URL.")
-    username: str = Field(description="Metabase username.")
-    password: str = Field(description="Metabase password.")
+    username: str = Field(default=None, description="Metabase username.")
+    password: str = Field(default=None, description="Metabase password.")
     database_alias_map: Optional[dict] = Field(
         default=None,
         description="Database name map to use when constructing dataset URN.",

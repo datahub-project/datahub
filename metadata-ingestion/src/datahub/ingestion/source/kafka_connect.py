@@ -41,7 +41,7 @@ class KafkaConnectSourceConfig(DatasetLineageProviderConfigBase):
     # See the Connect REST Interface for details
     # https://docs.confluent.io/platform/current/connect/references/restapi.html#
     connect_uri: str = Field(
-        description="URI to connect to. examplr: http://localhost:8083/"
+        default="http://localhost:8083/", description="URI to connect to."
     )
     username: Optional[str] = Field(default=None, description="Kafka Connect username.")
     password: Optional[str] = Field(default=None, description="Kafka Connect password.")

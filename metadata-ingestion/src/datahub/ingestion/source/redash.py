@@ -231,9 +231,9 @@ class RedashConfig(ConfigModel):
     # See the Redash API for details
     # https://redash.io/help/user-guide/integrations-and-api/api
     connect_uri: str = Field(
-        description="Redash base URL. example: http://localhost:5000"
+        default="http://localhost:5000", description="Redash base URL."
     )
-    api_key: str = Field(description="Redash user API key.")
+    api_key: str = Field(default="REDASH_API_KEY", description="Redash user API key.")
 
     # Optionals
     dashboard_patterns: AllowDenyPattern = Field(

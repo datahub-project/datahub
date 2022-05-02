@@ -9,8 +9,7 @@ import docker
 from pydantic import Field
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel
-from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -60,14 +59,11 @@ _field_type_mapping: Dict[str, str] = {
 HOSTED_FEAST_IMAGE = "acryldata/datahub-ingestion-feast-wrapper"
 
 
-class FeastConfig(ConfigModel):
+class FeastConfig(EnvBasedSourceConfigBase):
     core_url: str = Field(
         default="localhost:6565", description="URL of Feast Core instance."
     )
-    env: str = Field(
-        default=DEFAULT_ENV,
-        description="Environment to use in namespace when constructing URNs.",
-    )
+
     use_local_build: bool = Field(
         default=False,
         description="Whether to build Feast ingestion Docker image locally.",

@@ -65,9 +65,11 @@ class ModeAPIConfig(ConfigModel):
 class ModeConfig(DatasetLineageProviderConfigBase):
     # See https://mode.com/developer/api-reference/authentication/
     # for authentication
-    connect_uri: str = Field(description="Mode host URL. eg: https://app.mode.com")
-    token: str = Field(description="Mode user token.")
-    password: str = Field(description="Mode password for authentication.")
+    connect_uri: str = Field(
+        default="https://app.mode.com", description="Mode host URL."
+    )
+    token: str = Field(default=None, description="Mode user token.")
+    password: str = Field(default=None, description="Mode password for authentication.")
     workspace: Optional[str] = Field(default=None, description="")
     default_schema: str = Field(
         default="public",

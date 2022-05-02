@@ -42,11 +42,13 @@ logger = logging.getLogger(__name__)
 class OktaConfig(ConfigModel):
     # Required: Domain of the Okta deployment. Example: dev-33231928.okta.com
     okta_domain: str = Field(
-        description="The location of your Okta Domain, without a protocol. Can be found in Okta Developer console.  Example: dev-33231928.okta.com"
+        default="dev-33231928.okta.com",
+        description="The location of your Okta Domain, without a protocol. Can be found in Okta Developer console.",
     )
     # Required: An API token generated from Okta.
     okta_api_token: str = Field(
-        description="An API token generated for the DataHub application inside your Okta Developer Console. Example: 00be4R_M2MzDqXawbWgfKGpKee0kuEOfX1RCQSRx00"
+        default="00be4R_M2MzDqXawbWgfKGpKee0kuEOfX1RCQSRx00",
+        description="An API token generated for the DataHub application inside your Okta Developer Console.",
     )
 
     # Optional: Whether to ingest users, groups, or both.
