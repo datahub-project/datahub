@@ -179,7 +179,7 @@ export default function TagTermGroup({
             )}
             {uneditableGlossaryTerms?.terms?.map((term) => {
                 renderedTags += 1;
-                if (maxShow && renderedTags > maxShow)
+                if (maxShow && renderedTags === maxShow + 1)
                     return (
                         <TagText>
                             {uneditableGlossaryTerms?.terms
@@ -187,6 +187,8 @@ export default function TagTermGroup({
                                 : null}
                         </TagText>
                     );
+                if (maxShow && renderedTags > maxShow) return null;
+
                 return (
                     <TermLink
                         to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
@@ -216,10 +218,12 @@ export default function TagTermGroup({
             {/* uneditable tags are provided by ingestion pipelines exclusively */}
             {uneditableTags?.tags?.map((tag) => {
                 renderedTags += 1;
-                if (maxShow && renderedTags > maxShow)
+                if (maxShow && renderedTags === maxShow + 1)
                     return (
                         <TagText>{uneditableTags?.tags ? `+${uneditableTags?.tags?.length - maxShow}` : null}</TagText>
                     );
+                if (maxShow && renderedTags > maxShow) return null;
+
                 return (
                     <TagLink key={tag?.tag?.urn}>
                         <StyledTag

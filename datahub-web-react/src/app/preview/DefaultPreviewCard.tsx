@@ -78,7 +78,6 @@ const PlatformDivider = styled.div`
 `;
 
 const DescriptionContainer = styled.div`
-    // margin-top: 5px;
     color: ${ANTD_GRAY[7]};
 `;
 
