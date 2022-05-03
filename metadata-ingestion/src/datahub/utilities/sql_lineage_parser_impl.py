@@ -5,6 +5,7 @@ import unittest.mock
 from typing import Dict, List, Set
 
 from sqllineage.core.holders import Column, SQLLineageHolder
+from sqllineage.exceptions import SQLLineageException
 
 try:
     import sqlparse
@@ -20,8 +21,10 @@ logger = logging.getLogger(__name__)
 
 class SqlLineageSQLParserImpl:
     _DATE_SWAP_TOKEN = "__d_a_t_e"
+    _HOUR_SWAP_TOKEN = "__h_o_u_r"
     _TIMESTAMP_SWAP_TOKEN = "__t_i_m_e_s_t_a_m_p"
     _DATA_SWAP_TOKEN = "__d_a_t_a"
+    _ADMIN_SWAP_TOKEN = "__a_d_m_i_n"
     _MYVIEW_SQL_TABLE_NAME_TOKEN = "__my_view__.__sql_table_name__"
     _MYVIEW_LOOKER_TOKEN = "my_view.SQL_TABLE_NAME"
 
@@ -32,17 +35,18 @@ class SqlLineageSQLParserImpl:
         if "lateral flatten" in sql_query:
             sql_query = sql_query[: sql_query.find("lateral flatten")]
 
+        # Replace reserved words that break SqlLineageParser
         self.token_to_original: Dict[str, str] = {
             self._DATE_SWAP_TOKEN: "date",
+            self._HOUR_SWAP_TOKEN: "hour",
             self._TIMESTAMP_SWAP_TOKEN: "timestamp",
             self._DATA_SWAP_TOKEN: "data",
+            self._ADMIN_SWAP_TOKEN: "admin",
         }
         for replacement, original in self.token_to_original.items():
             sql_query = re.sub(
                 rf"(\b{original}\b)", rf"{replacement}", sql_query, flags=re.IGNORECASE
             )
-
-        sql_query = re.sub(r"#([^ ])", r"# \1", sql_query)
 
         # SqlLineageParser lowercarese tablenames and we need to replace Looker specific token which should be uppercased
         sql_query = re.sub(
@@ -57,36 +61,39 @@ class SqlLineageSQLParserImpl:
         # Replace lookml templates with the variable otherwise sqlparse can't parse ${
         sql_query = re.sub(r"(\${)(.+)(})", r"\2", sql_query)
         if sql_query != original_sql_query:
-            logger.debug(f"rewrote original query {original_sql_query} as {sql_query}")
+            logger.debug(f"Rewrote original query {original_sql_query} as {sql_query}")
 
         self._sql = sql_query
 
-        self._stmt = [
-            s
-            for s in sqlparse.parse(
-                # first apply sqlparser formatting just to get rid of comments, which cause
-                # inconsistencies in parsing output
-                sqlparse.format(
-                    self._sql.strip(),
-                    strip_comments=True,
-                    use_space_around_operators=True,
-                ),
-            )
-            if s.token_first(skip_cm=True)
-        ]
+        try:
+            self._stmt = [
+                s
+                for s in sqlparse.parse(
+                    # first apply sqlparser formatting just to get rid of comments, which cause
+                    # inconsistencies in parsing output
+                    sqlparse.format(
+                        self._sql.strip(),
+                        strip_comments=True,
+                        use_space_around_operators=True,
+                    ),
+                )
+                if s.token_first(skip_cm=True)
+            ]
 
-        with unittest.mock.patch(
-            "sqllineage.core.handlers.source.SourceHandler.end_of_query_cleanup",
-            datahub.utilities.sqllineage_patch.end_of_query_cleanup_patch,
-        ):
             with unittest.mock.patch(
-                "sqllineage.core.holders.SubQueryLineageHolder.add_column_lineage",
-                datahub.utilities.sqllineage_patch.add_column_lineage_patch,
+                "sqllineage.core.handlers.source.SourceHandler.end_of_query_cleanup",
+                datahub.utilities.sqllineage_patch.end_of_query_cleanup_patch,
             ):
-                self._stmt_holders = [
-                    LineageAnalyzer().analyze(stmt) for stmt in self._stmt
-                ]
-                self._sql_holder = SQLLineageHolder.of(*self._stmt_holders)
+                with unittest.mock.patch(
+                    "sqllineage.core.holders.SubQueryLineageHolder.add_column_lineage",
+                    datahub.utilities.sqllineage_patch.add_column_lineage_patch,
+                ):
+                    self._stmt_holders = [
+                        LineageAnalyzer().analyze(stmt) for stmt in self._stmt
+                    ]
+                    self._sql_holder = SQLLineageHolder.of(*self._stmt_holders)
+        except SQLLineageException as e:
+            logger.error(f"SQL lineage analyzer error '{e}' for query: '{self._sql}")
 
     def get_tables(self) -> List[str]:
         result: List[str] = list()

@@ -12,7 +12,7 @@ import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
-import com.linkedin.metadata.entity.ebean.EbeanUtils;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -95,7 +95,7 @@ public class SendMAEStep implements UpgradeStep {
 
           // 3. Create record from json aspect
           final RecordTemplate aspectRecord =
-              EbeanUtils.toAspectRecord(entityName, aspectName, aspect.getMetadata(), _entityRegistry);
+              EntityUtils.toAspectRecord(entityName, aspectName, aspect.getMetadata(), _entityRegistry);
 
           // 4. Verify that the aspect is a valid aspect associated with the entity
           AspectSpec aspectSpec;
@@ -108,7 +108,7 @@ public class SendMAEStep implements UpgradeStep {
             return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
           }
 
-          SystemMetadata latestSystemMetadata = EbeanUtils.parseSystemMetadata(aspect.getSystemMetadata());
+          SystemMetadata latestSystemMetadata = EntityUtils.parseSystemMetadata(aspect.getSystemMetadata());
 
           // 5. Produce MAE events for the aspect record
           _entityService.produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, null, aspectRecord, null,

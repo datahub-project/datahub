@@ -1,0 +1,9 @@
+source:
+  type: "feast-repository"
+  config:
+    path: "/path/to/repository/"
+    environment: "PROD"
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

@@ -45,6 +45,7 @@ ingestion:
 telemetry:
   enabledCli: ${CLI_TELEMETRY_ENABLED:true}
   enabledIngestion: ${INGESTION_REPORTING_ENABLED:false}
+  enableThirdPartyLogging: ${ENABLE_THIRD_PARTY_LOGGING:false}
 
 secretService:
   encryptionKey: ${SECRET_SERVICE_ENCRYPTION_KEY:ENCRYPTION_KEY}
@@ -64,6 +65,7 @@ datahub:
       path: ${RETENTION_PLUGIN_PATH:/etc/datahub/plugins/retention}
 
 entityService:
+  impl: ${ENTITY_SERVICE_IMPL:ebean}
   retention:
     enabled: ${ENTITY_SERVICE_ENABLE_RETENTION:false}
 
@@ -96,7 +98,17 @@ ebean:
   maxInactiveTimeSeconds: ${EBEAN_MAX_INACTIVE_TIME_IN_SECS:120}
   maxAgeMinutes: ${EBEAN_MAX_AGE_MINUTES:120}
   leakTimeMinutes: ${EBEAN_LEAK_TIME_MINUTES:15}
+  waitTimeoutMillis: ${EBEAN_WAIT_TIMEOUT_MILLIS:1000}
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
+
+cassandra:
+  datasourceUsername: ${CASSANDRA_DATASOURCE_USERNAME:cassandra}
+  datasourcePassword: ${CASSANDRA_DATASOURCE_PASSWORD:cassandra}
+  hosts: ${CASSANDRA_HOSTS:cassandra}
+  port: ${CASSANDRA_PORT:9042}
+  datacenter: ${CASSANDRA_DATACENTER:datacenter1}
+  keyspace: ${CASSANDRA_KEYSPACE:datahub}
+  useSsl: ${CASSANDRA_USE_SSL:false}
 
 elasticsearch:
   host: ${ELASTICSEARCH_HOST:localhost}

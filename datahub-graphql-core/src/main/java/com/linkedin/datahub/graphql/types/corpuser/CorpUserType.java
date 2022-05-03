@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserUpdateInput;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
@@ -39,6 +40,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -46,7 +48,7 @@ import javax.annotation.Nullable;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class CorpUserType implements SearchableEntityType<CorpUser>, MutableType<CorpUserUpdateInput, CorpUser> {
+public class CorpUserType implements SearchableEntityType<CorpUser, String>, MutableType<CorpUserUpdateInput, CorpUser> {
 
     private final EntityClient _entityClient;
 
@@ -62,6 +64,11 @@ public class CorpUserType implements SearchableEntityType<CorpUser>, MutableType
     @Override
     public EntityType type() {
         return EntityType.CORP_USER;
+    }
+
+    @Override
+    public Function<Entity, String> getKeyProvider() {
+        return Entity::getUrn;
     }
 
     @Override
