@@ -2,7 +2,7 @@
 set -euxo pipefail
 
 if [[ ! ${RELEASE_SKIP_TEST:-} ]]; then
-	../gradlew build  # also runs tests
+	../../gradlew build  # also runs tests
 fi
 
 MODULE=datahub_airflow_plugin

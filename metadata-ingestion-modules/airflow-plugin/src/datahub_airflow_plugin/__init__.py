@@ -15,7 +15,7 @@ def nice_version_name() -> str:
 
 def get_provider_info():
     return {
-        "package-name": "acryl-datahub-airflow-plugin",
-        "name": "acryl-datahub-airflow-plugin",
+        "package-name": f"{__package_name__}",
+        "name": f"{__package_name__}",
         "description": "Datahub metadata collector plugin",
     }
