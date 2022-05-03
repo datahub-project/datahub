@@ -33,8 +33,9 @@ public class EntityChangeEventSinkManagerFactory {
 
     final List<EntityChangeEventSink> configuredSinks = new ArrayList<>();
     final List<EntityChangeEventSinkConfiguration> sinkConfigurations =
-        this.configurationProvider.getEventSinks() != null && this.configurationProvider.getEventSinks().getEntityChangeEvent() != null ?
-        this.configurationProvider.getEventSinks().getEntityChangeEvent().getSinks() : Collections.emptyList();
+        this.configurationProvider.getEventSinks() != null && this.configurationProvider.getEventSinks().getEntityChangeEvent() != null
+            ? this.configurationProvider.getEventSinks().getEntityChangeEvent().getSinks()
+            : Collections.emptyList();
     for (EntityChangeEventSinkConfiguration sink : sinkConfigurations) {
 
       boolean isSinkEnabled = sink.isEnabled();
