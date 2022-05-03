@@ -1,5 +1,6 @@
 package com.linkedin.metadata.event.change;
 
+import com.datahub.util.RecordUtils;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -22,18 +23,19 @@ public class EntityChangeEventSinkManager {
   }
 
   public CompletableFuture<Void> handle(@Nonnull final EntityChangeEvent event) {
-
-    log.debug(String.format("About to handle with sinks: %s, %s", this.sinkRegistry, event.toString()));
-
     // Send the change events to each registered sink.
     final List<CompletableFuture<Void>> sinkFutures = new ArrayList<>();
     for (final EntityChangeEventSink sink : this.sinkRegistry) {
       // Run each sink asynchronously.
       sinkFutures.add(CompletableFuture.runAsync(() -> {
         try {
+          log.debug(String.format("Sinking event to sink with type %s", sink.getClass().getCanonicalName()));
           sink.sink(event);
         } catch (Exception e) {
-          log.error(String.format("Caught exception while attempting to sink change event to sink %s.", sink.getClass()), e);
+          // This is very bad. It means that we could not sync events to the external destination.
+          // TODO: Better handling via failed events log. For now, simply print entire event so we know which have failed.
+          log.error(String.format("Caught exception while attempting to sink change event to sink %s. event: %s", sink.getClass(), RecordUtils
+              .toJsonString(event)), e);
         }
       }));
     }

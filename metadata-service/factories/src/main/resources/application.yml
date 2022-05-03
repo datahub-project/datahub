@@ -206,7 +206,7 @@ eventSinks:
     # Set of optional change event sinks.
     sinks:
       - type: "com.linkedin.metadata.event.change.aws.AwsEventBridgeChangeEventSink"
-        enabled: ${AWS_EVENT_BRIDGE_EVENT_SYNC:false}
+        enabled: ${AWS_EVENT_BRIDGE_EVENT_SYNC_ENABLED:false}
         configs:
           # URL to which event bridge instance should be sinked.
           eventBus: ${AWS_EVENT_BRIDGE_BUS_ARN}

@@ -15,7 +15,6 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.eventbridge.EventBridgeClient;
-import software.amazon.awssdk.services.eventbridge.model.EventBridgeException;
 import software.amazon.awssdk.services.eventbridge.model.PutEventsRequest;
 import software.amazon.awssdk.services.eventbridge.model.PutEventsRequestEntry;
 import software.amazon.awssdk.services.eventbridge.model.PutEventsResponse;
@@ -64,36 +63,30 @@ public class AwsEventBridgeChangeEventSink implements EntityChangeEventSink {
 
   @Override
   public void sink(@Nonnull EntityChangeEvent changeEvent) {
-    log.info("Received change event destined for EventBridge.");
     sinkToEventBridge(changeEvent);
   }
 
   private void sinkToEventBridge(@Nonnull EntityChangeEvent changeEvent) {
-    try {
-      PutEventsRequestEntry reqEntry = PutEventsRequestEntry.builder()
-          .source("acryl.events")
-          .detailType("Entity Event")
-          .detail(RecordUtils.toJsonString(changeEvent))
-          .eventBusName(this.eventBus)
-          .build();
+    PutEventsRequestEntry reqEntry = PutEventsRequestEntry.builder()
+        .source("acryl.events")
+        .detailType("EntityChangeEvent_v1")
+        .detail(RecordUtils.toJsonString(changeEvent))
+        .eventBusName(this.eventBus)
+        .build();
 
-      // TODO: Batch the events at the source. Then dump off after a certain time policy.
-      final PutEventsRequest eventsRequest = PutEventsRequest.builder()
-          .entries(reqEntry)
-          .build();
+    // TODO: Batch the events at the source. Then dump off after a certain time policy.
+    final PutEventsRequest eventsRequest = PutEventsRequest.builder()
+        .entries(reqEntry)
+        .build();
 
-      final PutEventsResponse result = this.client.putEvents(eventsRequest);
+    final PutEventsResponse result = this.client.putEvents(eventsRequest);
 
-      for (PutEventsResultEntry resultEntry : result.entries()) {
-        if (resultEntry.eventId() != null) {
-          log.info("Successfully sinked event to event bridge. Event id: {}, event: {}", resultEntry.eventId(), RecordUtils.toJsonString(changeEvent));
-        } else {
-          log.error(String.format("Failed to produce event to event bridge! %s", resultEntry.errorCode()));
-        }
+    for (PutEventsResultEntry resultEntry : result.entries()) {
+      if (resultEntry.eventId() != null) {
+        log.info("Successfully sinked event to event bridge. Event id: {}", resultEntry.eventId());
+      } else {
+        throw new RuntimeException(String.format("Failed to produce event to AWS event bridge! error code: %s", resultEntry.errorCode()));
       }
-
-    } catch (EventBridgeException e) {
-      log.error("Caught exception while attempting to produce event to Event Bridge!", e);
     }
   }
 

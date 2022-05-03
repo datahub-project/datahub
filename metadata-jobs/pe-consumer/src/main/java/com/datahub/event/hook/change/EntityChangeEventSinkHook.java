@@ -43,14 +43,9 @@ public class EntityChangeEventSinkHook implements PlatformEventHook {
           event.getPayload().getContentType(),
           EntityChangeEvent.class
       );
-      log.debug(String.format("Received change event %s", event));
-      try {
-        _sinkManager.handle(changeEvent);
-      } catch (Exception e) {
-        // TODO: Determine what others means we have.
-        // This is a serious issue. Think about logging this to a file.
-        log.error(String.format("Caught exception while attempting to mirror change event: %s", event.toString()), e);
-      }
+      log.debug(String.format("Received entity change event %s", event));
+      // Errors are caught at the nested task level.
+      _sinkManager.handle(changeEvent).join();
     }
   }
 }
