@@ -43,6 +43,7 @@ task installDev(type: Exec, dependsOn: [install]) {
     "${venv_name}/bin/pip install -e .[dev] && touch ${venv_name}/.build_install_dev_sentinel"
 }
 
+
 task modelDocGen(type: Exec, dependsOn: [codegen]) {
   inputs.files(
     file('scripts/modeldocgen.py'),
@@ -50,7 +51,7 @@ task modelDocGen(type: Exec, dependsOn: [codegen]) {
     project.fileTree(dir: "examples/", include: "**/*.py"),
     project.fileTree(dir: "../metadata-events/mxe-schemas/src/", include: "**/*.avsc")
   )
-  outputs.dir('../docs/generated')
+  outputs.dir('../docs/generated/metamodel')
   commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/modeldocgen.sh"
 }
 
@@ -117,6 +118,12 @@ task testSlowIntegration(type: Exec, dependsOn: [testQuick, installDevTest]) {
   commandLine 'bash', '-x', '-c',
     "source ${venv_name}/bin/activate && pytest -m 'slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
 }
+
+task docGen(type: Exec, dependsOn: [codegen, installDevTest]) {
+  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/docgen.sh"
+}
+
+
 
 task cleanPythonCache(type: Exec) {
   commandLine 'bash', '-x', '-c',

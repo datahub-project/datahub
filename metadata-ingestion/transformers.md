@@ -92,7 +92,7 @@ Finally, you can install and use your custom transformer as [shown here](#instal
 
 ### Adding a set of glossary terms
 
-We can use a similar convention to associate [Glossary Terms](https://datahubproject.io/docs/metadata-ingestion/source_docs/business_glossary) to datasets. We can use the `simple_add_dataset_terms` module that’s included in the ingestion framework.
+We can use a similar convention to associate [Glossary Terms](../docs/generated/ingestion/sources/business-glossary.md) to datasets. We can use the `simple_add_dataset_terms` module that’s included in the ingestion framework.
 
 The config, which we’d append to our ingestion recipe YAML, would look like this:
 

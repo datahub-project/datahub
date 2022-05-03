@@ -23,7 +23,7 @@ public class AutocompleteUtils {
   private AutocompleteUtils() { }
 
   public static CompletableFuture<AutoCompleteMultipleResults> batchGetAutocompleteResults(
-      List<SearchableEntityType<?>> entities,
+      List<SearchableEntityType<?, ?>> entities,
       String sanitizedQuery,
       AutoCompleteMultipleInput input,
       DataFetchingEnvironment environment

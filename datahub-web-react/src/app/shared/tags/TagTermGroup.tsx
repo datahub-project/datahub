@@ -8,7 +8,7 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 import { Domain, EntityType, GlobalTags, GlossaryTerms, SubResourceType } from '../../../types.generated';
 import AddTagTermModal from './AddTagTermModal';
 import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
-import { EMPTY_MESSAGES } from '../../entity/shared/constants';
+import { EMPTY_MESSAGES, ANTD_GRAY } from '../../entity/shared/constants';
 import { useRemoveTagMutation, useRemoveTermMutation } from '../../../graphql/mutations.generated';
 import { DomainLink } from './DomainLink';
 import { TagProfileDrawer } from './TagProfileDrawer';
@@ -50,6 +50,10 @@ const NoElementButton = styled(Button)`
     :not(:last-child) {
         margin-right: 8px;
     }
+`;
+
+const TagText = styled.span`
+    color: ${ANTD_GRAY[7]};
 `;
 
 export default function TagTermGroup({
@@ -173,14 +177,30 @@ export default function TagTermGroup({
             {domain && (
                 <DomainLink urn={domain.urn} name={entityRegistry.getDisplayName(EntityType.Domain, domain) || ''} />
             )}
-            {uneditableGlossaryTerms?.terms?.map((term) => (
-                <TermLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
-                    <Tag closable={false}>
-                        <BookOutlined style={{ marginRight: '3%' }} />
-                        {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
-                    </Tag>
-                </TermLink>
-            ))}
+            {uneditableGlossaryTerms?.terms?.map((term) => {
+                renderedTags += 1;
+                if (maxShow && renderedTags === maxShow + 1)
+                    return (
+                        <TagText>
+                            {uneditableGlossaryTerms?.terms
+                                ? `+${uneditableGlossaryTerms?.terms?.length - maxShow}`
+                                : null}
+                        </TagText>
+                    );
+                if (maxShow && renderedTags > maxShow) return null;
+
+                return (
+                    <TermLink
+                        to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
+                        key={term.term.urn}
+                    >
+                        <Tag closable={false}>
+                            <BookOutlined style={{ marginRight: '3%' }} />
+                            {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
+                        </Tag>
+                    </TermLink>
+                );
+            })}
             {editableGlossaryTerms?.terms?.map((term) => (
                 <TermLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
                     <Tag
@@ -198,7 +218,12 @@ export default function TagTermGroup({
             {/* uneditable tags are provided by ingestion pipelines exclusively */}
             {uneditableTags?.tags?.map((tag) => {
                 renderedTags += 1;
+                if (maxShow && renderedTags === maxShow + 1)
+                    return (
+                        <TagText>{uneditableTags?.tags ? `+${uneditableTags?.tags?.length - maxShow}` : null}</TagText>
+                    );
                 if (maxShow && renderedTags > maxShow) return null;
+
                 return (
                     <TagLink key={tag?.tag?.urn}>
                         <StyledTag

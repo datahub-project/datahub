@@ -19,21 +19,36 @@ def bucket_name():
 
 
 @pytest.fixture(scope="module", autouse=True)
-def s3_client():
+def s3():
     with mock_s3():
         conn = Session(
             aws_access_key_id="test",
             aws_secret_access_key="test",
             region_name="us-east-1",
-        ).resource("s3")
+        )
         yield conn
 
 
 @pytest.fixture(scope="module", autouse=True)
-def s3_populate(pytestconfig, s3_client, bucket_name):
+def s3_resource(s3):
+    with mock_s3():
+        conn = s3.resource("s3")
+        yield conn
+
+
+@pytest.fixture(scope="module", autouse=True)
+def s3_client(s3):
+    with mock_s3():
+        conn = s3.client("s3")
+        yield conn
+
+
+@pytest.fixture(scope="module", autouse=True)
+def s3_populate(pytestconfig, s3_resource, s3_client, bucket_name):
     logging.info("Populating s3 bucket")
-    s3_client.create_bucket(Bucket=bucket_name)
-    bkt = s3_client.Bucket(bucket_name)
+    s3_resource.create_bucket(Bucket=bucket_name)
+    bkt = s3_resource.Bucket(bucket_name)
+    bkt.Tagging().put(Tagging={"TagSet": [{"Key": "foo", "Value": "bar"}]})
     test_resources_dir = (
         pytestconfig.rootpath / "tests/integration/s3/test_data/local_system/"
     )
@@ -42,6 +57,11 @@ def s3_populate(pytestconfig, s3_client, bucket_name):
             full_path = os.path.join(root, file)
             rel_path = os.path.relpath(full_path, test_resources_dir)
             bkt.upload_file(full_path, rel_path)
+            s3_client.put_object_tagging(
+                Bucket=bucket_name,
+                Key=rel_path,
+                Tagging={"TagSet": [{"Key": "baz", "Value": "bob"}]},
+            )
     yield
 
 
@@ -94,6 +114,11 @@ def test_data_lake_local_ingest(pytestconfig, source_file, tmp_path, mock_time):
     ].replace("s3://my-test-bucket/", "tests/integration/s3/test_data/local_system/")
     source["config"]["profiling"]["enabled"] = True
     source["config"].pop("aws_config")
+    # Only pop the key/value for configs that contain the key
+    if "use_s3_bucket_tags" in source["config"]:
+        source["config"].pop("use_s3_bucket_tags")
+    if "use_s3_object_tags" in source["config"]:
+        source["config"].pop("use_s3_object_tags")
     config_dict["source"] = source
     config_dict["sink"] = {
         "type": "file",
