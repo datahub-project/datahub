@@ -162,10 +162,8 @@ changeEvents:
   # Set of optional change event sinks.
   sinks:
     - type: "com.linkedin.metadata.event.change.aws.AwsEventBridgeChangeEventSink"
-      enabled: true
+      enabled: ${AWS_EVENT_BRIDGE_EVENT_SYNC:false}
       configs:
         # URL to which event bridge instance should be sinked.
-        eventBus: "arn:aws:events:us-east-1:003625285934:event-bus/acryl-events"
-        region: "us-east-1"
-        accessKeyId: "AKIA3SPFEWCHHAVDXPEH"
-        secretAccessKey: "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"
+        eventBus: ${AWS_EVENT_BRIDGE_BUS_ARN}
+        region: ${AWS_EVENT_BRIDGE_BUS_REGION}
