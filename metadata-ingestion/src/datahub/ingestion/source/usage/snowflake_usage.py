@@ -293,8 +293,7 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(
             url,
-            connect_args=self.config.get_sql_alchemy_connect_args(),
-            **self.config.options,
+            **self.config.get_options(),
         )
         return engine
 
