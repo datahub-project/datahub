@@ -88,7 +88,7 @@ module.exports = {
       {
         "Push-Based Integrations": [
           {
-            Airflow: ["docs/lineage/airflow", "docker/airflow/local_airflow"],
+            Airflow: ["docs/lineage/airflow", "docker/airflow/local_airflow", //"metadata-ingestion-modules/airflow-plugin/README"],
           },
           "metadata-integration/java/spark-lineage/README",
           "metadata-ingestion/integration_docs/great-expectations",

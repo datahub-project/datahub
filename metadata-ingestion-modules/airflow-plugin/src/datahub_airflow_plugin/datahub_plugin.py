@@ -18,6 +18,7 @@ def get_lineage_config() -> DatahubLineageConfig:
     """Load the lineage config from airflow.cfg."""
 
     datahub_conn_id = conf.get("datahub", "conn_id", fallback="datahub_rest_default")
+    cluster = conf.get("datahub", "cluster", fallback="prod")
     graceful_exceptions = conf.get("datahub", "graceful_exceptions", fallback=True)
     capture_tags_info = conf.get("datahub", "capture_tags_info", fallback=True)
     capture_ownership_info = conf.get(
@@ -26,6 +27,7 @@ def get_lineage_config() -> DatahubLineageConfig:
     capture_executions = conf.get("datahub", "capture_executions", fallback=True)
     return DatahubLineageConfig(
         datahub_conn_id=datahub_conn_id,
+        cluster=cluster,
         graceful_exceptions=graceful_exceptions,
         capture_ownership_info=capture_ownership_info,
         capture_tags_info=capture_tags_info,
