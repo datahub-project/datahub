@@ -16,6 +16,7 @@ import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetUpdateInput;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
@@ -45,6 +46,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -53,7 +55,7 @@ import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEntityType<Dataset>,
+public class DatasetType implements SearchableEntityType<Dataset, String>, BrowsableEntityType<Dataset, String>,
                                     MutableType<DatasetUpdateInput, Dataset> {
 
     private static final Set<String> ASPECTS_TO_RESOLVE = ImmutableSet.of(
@@ -72,7 +74,8 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
         GLOSSARY_TERMS_ASPECT_NAME,
         STATUS_ASPECT_NAME,
         CONTAINER_ASPECT_NAME,
-        DOMAINS_ASPECT_NAME
+        DOMAINS_ASPECT_NAME,
+        SCHEMA_METADATA_ASPECT_NAME
     );
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
@@ -100,11 +103,18 @@ public class DatasetType implements SearchableEntityType<Dataset>, BrowsableEnti
     }
 
     @Override
-    public List<DataFetcherResult<Dataset>> batchLoad(final List<String> urnStrs, final QueryContext context) {
-        final List<Urn> urns = urnStrs.stream()
-            .map(UrnUtils::getUrn)
-            .collect(Collectors.toList());
+    public Function<Entity, String> getKeyProvider() {
+        return Entity::getUrn;
+    }
+
+    @Override
+    public List<DataFetcherResult<Dataset>> batchLoad(@Nonnull final List<String> urnStrs,
+        @Nonnull final QueryContext context) {
         try {
+            final List<Urn> urns = urnStrs.stream()
+                .map(UrnUtils::getUrn)
+                .collect(Collectors.toList());
+
             final Map<Urn, EntityResponse> datasetMap =
                 _entityClient.batchGetV2(
                     Constants.DATASET_ENTITY_NAME,

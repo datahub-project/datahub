@@ -78,7 +78,6 @@ const PlatformDivider = styled.div`
 `;
 
 const DescriptionContainer = styled.div`
-    margin-top: 5px;
     color: ${ANTD_GRAY[7]};
 `;
 
@@ -88,9 +87,15 @@ const AvatarContainer = styled.div`
 `;
 
 const TagContainer = styled.div`
-    display: inline-block;
+    display: inline-flex;
     margin-left: 0px;
-    margin-top: -2px;
+    margin-top: 5px;
+`;
+
+const TagSeparator = styled.div`
+    margin: 2px 8px 0 0;
+    height: 17px;
+    border-right: 1px solid #cccccc;
 `;
 
 const InsightContainer = styled.div`
@@ -241,20 +246,19 @@ export default function DefaultPreviewCard({
                             {name || ' '}
                         </EntityTitle>
                     </Link>
-                    <TagContainer>
-                        <TagTermGroup
-                            domain={domain}
-                            uneditableGlossaryTerms={glossaryTerms}
-                            uneditableTags={tags}
-                            maxShow={3}
-                        />
-                    </TagContainer>
                 </TitleContainer>
                 {description && description.length > 0 && (
                     <DescriptionContainer>
                         <NoMarkdownViewer limit={200}>{description}</NoMarkdownViewer>
                     </DescriptionContainer>
                 )}
+                <TagContainer>
+                    <TagTermGroup domain={domain} maxShow={3} />
+                    {domain && <TagSeparator />}
+                    <TagTermGroup uneditableGlossaryTerms={glossaryTerms} maxShow={3} />
+                    {tags && <TagSeparator />}
+                    <TagTermGroup uneditableTags={tags} maxShow={3} />
+                </TagContainer>
                 {owners && owners.length > 0 && (
                     <AvatarContainer>
                         <AvatarsGroup size={28} owners={owners} entityRegistry={entityRegistry} maxCount={4} />

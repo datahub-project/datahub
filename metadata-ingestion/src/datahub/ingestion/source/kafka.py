@@ -5,6 +5,7 @@ from importlib import import_module
 from typing import Dict, Iterable, List, Optional, Tuple, Type, cast
 
 import confluent_kafka
+import pydantic
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
@@ -19,6 +20,12 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka_schema_registry_base import KafkaSchemaRegistryBase
 from datahub.ingestion.source.state.checkpoint import Checkpoint
@@ -59,8 +66,14 @@ class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
     # TODO: inline the connection config
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
     topic_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
-    domain: Dict[str, AllowDenyPattern] = dict()
-    topic_subject_map: Dict[str, str] = dict()
+    domain: Dict[str, AllowDenyPattern] = pydantic.Field(
+        default_factory=dict,
+        description="A map of domain names to allow deny patterns. Domains can be urn-based (`urn:li:domain:13ae4d85-d955-49fc-8474-9004c663a810`) or bare (`13ae4d85-d955-49fc-8474-9004c663a810`).",
+    )
+    topic_subject_map: Dict[str, str] = pydantic.Field(
+        default_factory=dict,
+        description="Provides the mapping for the `key` and the `value` schemas of a topic to the corresponding schema registry subject name. Each entry of this map has the form `<topic_name>-key`:`<schema_registry_subject_name_for_key_schema>` and `<topic_name>-value`:`<schema_registry_subject_name_for_value_schema>` for the key and the value schemas associated with the topic, respectively. This parameter is mandatory when the [RecordNameStrategy](https://docs.confluent.io/platform/current/schema-registry/serdes-develop/index.html#how-the-naming-strategies-work) is used as the subject naming strategy in the kafka schema registry. NOTE: When provided, this overrides the default subject name resolution even when the `TopicNameStrategy` or the `TopicRecordNameStrategy` are used.",
+    )
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[KafkaSourceStatefulIngestionConfig] = None
     schema_registry_class: str = (
@@ -84,8 +97,16 @@ class KafkaSourceReport(StatefulIngestionReport):
         self.soft_deleted_stale_entities.append(urn)
 
 
-@dataclass
+@platform_name("Kafka")
+@config_class(KafkaSourceConfig)
+@support_status(SupportStatus.CERTIFIED)
 class KafkaSource(StatefulIngestionSourceBase):
+    """
+    This plugin extracts the following:
+    - Topics from the Kafka broker
+    - Schemas associated with each topic from the schema registry (only Avro schemas are currently supported)
+    """
+
     source_config: KafkaSourceConfig
     consumer: confluent_kafka.Consumer
     report: KafkaSourceReport
@@ -165,10 +186,10 @@ class KafkaSource(StatefulIngestionSourceBase):
         assert self.source_config.platform_instance is not None
         return self.source_config.platform_instance
 
-    @classmethod
-    def create(cls, config_dict: Dict, ctx: PipelineContext) -> "KafkaSource":
-        config: KafkaSourceConfig = KafkaSourceConfig.parse_obj(config_dict)
-        return cls(config, ctx)
+    # @classmethod
+    # def create(cls, config_dict: Dict, ctx: PipelineContext) -> "KafkaSource":
+    #    config: KafkaSourceConfig = KafkaSourceConfig.parse_obj(config_dict)
+    #    return cls(config, ctx)
 
     def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
         last_checkpoint = self.get_last_checkpoint(
