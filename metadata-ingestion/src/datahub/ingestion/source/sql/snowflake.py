@@ -89,8 +89,7 @@ class SnowflakeSource(SQLAlchemySource):
         logger.debug(f"sql_alchemy_url={url}")
         return create_engine(
             url,
-            connect_args=self.config.get_sql_alchemy_connect_args(),
-            **self.config.options,
+            **self.config.get_options(),
         )
 
     def inspect_session_metadata(self) -> Any:
