@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobUpdateInput;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
@@ -46,6 +47,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -54,7 +56,7 @@ import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEntityType<DataJob>,
+public class DataJobType implements SearchableEntityType<DataJob, String>, BrowsableEntityType<DataJob, String>,
                                     MutableType<DataJobUpdateInput, DataJob> {
 
     private static final Set<String> ASPECTS_TO_RESOLVE = ImmutableSet.of(
@@ -80,6 +82,11 @@ public class DataJobType implements SearchableEntityType<DataJob>, BrowsableEnti
     @Override
     public EntityType type() {
         return EntityType.DATA_JOB;
+    }
+
+    @Override
+    public Function<Entity, String> getKeyProvider() {
+        return Entity::getUrn;
     }
 
     @Override

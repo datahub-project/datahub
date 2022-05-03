@@ -10,6 +10,7 @@ record GlossaryTermAssociation {
   @Searchable = {
     "fieldName": "glossaryTerms",
     "fieldType": "URN",
+    "hasValuesFieldName": "hasGlossaryTerms",
     "addToFilters": true,
     "filterNameOverride": "Glossary Term"
   }

@@ -6,11 +6,19 @@ from shlex import quote
 from typing import Dict, Iterable, List
 
 import docker
+from pydantic import Field
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel
-from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import MLFeatureDataType
@@ -51,10 +59,15 @@ _field_type_mapping: Dict[str, str] = {
 HOSTED_FEAST_IMAGE = "acryldata/datahub-ingestion-feast-wrapper"
 
 
-class FeastConfig(ConfigModel):
-    core_url: str = "localhost:6565"
-    env: str = DEFAULT_ENV
-    use_local_build: bool = False
+class FeastConfig(EnvBasedSourceConfigBase):
+    core_url: str = Field(
+        default="localhost:6565", description="URL of Feast Core instance."
+    )
+
+    use_local_build: bool = Field(
+        default=False,
+        description="Whether to build Feast ingestion Docker image locally.",
+    )
 
 
 @dataclass
@@ -65,8 +78,25 @@ class FeastSourceReport(SourceReport):
         self.filtered.append(name)
 
 
+@platform_name("Feast")
+@config_class(FeastConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @dataclass
 class FeastSource(Source):
+    """
+    This plugin extracts the following:
+
+    - List of feature tables (modeled as [`MLFeatureTable`](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/ml/metadata/MLFeatureTableProperties.pdl)s),
+      features ([`MLFeature`](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/ml/metadata/MLFeatureProperties.pdl)s),
+      and entities ([`MLPrimaryKey`](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/ml/metadata/MLPrimaryKeyProperties.pdl)s)
+    - Column types associated with each feature and entity
+
+    Note: this uses a separate Docker container to extract Feast's metadata into a JSON file, which is then
+    parsed to DataHub's native objects. This separation was performed because of a dependency conflict in the `feast` module.
+
+    """
+
     config: FeastConfig
     report: FeastSourceReport
 

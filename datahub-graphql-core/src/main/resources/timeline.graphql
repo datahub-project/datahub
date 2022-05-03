@@ -1,0 +1,144 @@
+extend type Query {
+    """
+    Returns the most recent changes made to each column in a dataset at each dataset version.
+    """
+    getSchemaBlame(input: GetSchemaBlameInput!): GetSchemaBlameResult
+}
+
+"""
+Enum of types of changes
+"""
+enum ChangeOperationType {
+    """
+    When an element is added
+    """
+    ADD
+    """
+    When an element is modified
+    """
+    MODIFY
+    """
+    When an element is removed
+    """
+    REMOVE
+}
+
+"""
+Enum of CategoryTypes
+"""
+enum ChangeCategoryType {
+    """
+    When documentation has been edited
+    """
+    DOCUMENTATION
+    """
+    When glossary terms have been added or removed
+    """
+    GLOSSARY_TERM
+    """
+    When ownership has been modified
+    """
+    OWNERSHIP
+    """
+    When technical schemas have been added or removed
+    """
+    TECHNICAL_SCHEMA
+    """
+    When tags have been added or removed
+    """
+    TAG
+}
+
+"""
+Input for getting schema changes computed at a specific version.
+"""
+input GetSchemaBlameInput {
+    """
+    The dataset urn
+    """
+    datasetUrn: String!
+    """
+    Categories to filter on. By default, will just be TECHNICAL_SCHEMA.
+    """
+    categories: [ChangeCategoryType!]
+    """
+    Changes after this version are not shown. If not provided, this is the latestVersion.
+    """
+    version: String
+}
+
+"""
+Schema changes computed at a specific version.
+"""
+type GetSchemaBlameResult {
+    """
+    Latest and current semantic version
+    """
+    latestVersion: SemanticVersionStruct!
+    """
+    Selected semantic version
+    """
+    version: SemanticVersionStruct
+    """
+    All semantic versions. Absent when there are no versions.
+    """
+    semanticVersionList: [SemanticVersionStruct!]
+    """
+    List of schema blame. Absent when there are no fields to return history for.
+    """
+    schemaFieldBlameList: [SchemaFieldBlame!]
+}
+
+"""
+Blame for a single field
+"""
+type SchemaFieldBlame {
+    """
+    Flattened name of a schema field
+    """
+    fieldPath: String!
+    """
+    Attributes identifying a field change
+    """
+    schemaFieldChange: SchemaFieldChange!
+}
+
+"""
+Attributes identifying a field change
+"""
+type SchemaFieldChange {
+    """
+    The time at which the schema was updated
+    """
+    timestampMillis: Long!
+    """
+    Version stamp of the change
+    """
+    versionStamp: String!
+    """
+    The type of the change
+    """
+    changeType: ChangeOperationType!
+    """
+    Last column update, such as Added/Modified/Removed in v1.2.3.
+    """
+    lastSchemaFieldChange: String
+}
+
+"""
+Properties identify a semantic version
+"""
+type SemanticVersionStruct {
+    """
+    Semantic version of the change
+    """
+    semanticVersion: String
+    """
+    Semantic version timestamp
+    """
+    semanticVersionTimestamp: Long
+    """
+    Version stamp of the change
+    """
+    versionStamp: String
+}

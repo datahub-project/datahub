@@ -1,0 +1,19 @@
+source:
+  type: "elasticsearch"
+  config:
+    # Coordinates
+    host: 'localhost:9200'
+
+    # Credentials
+    username: user # optional
+    password: pass # optional
+
+    # Options
+    url_prefix: "" # optional url_prefix
+    env: "PROD"
+    index_pattern:
+      allow: [".*some_index_name_pattern*"]
+      deny: [".*skip_index_name_pattern*"]
+
+sink:
+# sink configs

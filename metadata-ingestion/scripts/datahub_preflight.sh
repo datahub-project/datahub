@@ -26,9 +26,9 @@ arm64_darwin_preflight() {
   	##preinstall numpy and pythran from source
   	pip3 uninstall -y numpy pythran
   	pip3 install cython pybind11
-  	pip3 install --no-binary :all: --no-use-pep517 numpy
+  	pip3 install --no-use-pep517 numpy
   	pip3 install pythran
-  	pip3 install --no-binary :all: --no-use-pep517 scipy
+  	pip3 install --no-use-pep517 scipy
   fi
 
   printf "✨ Setting up librdkafka prerequisities\n"
