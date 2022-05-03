@@ -174,88 +174,95 @@ export const SearchResults = ({
     return (
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
-            <SearchBody>
-                <FiltersContainer>
-                    <FiltersHeader>Filter</FiltersHeader>
-                    <SearchFilterContainer>
-                        <SearchFilters
-                            loading={loading}
-                            facets={filters || []}
-                            selectedFilters={selectedFilters}
-                            onFilterSelect={onFilterSelect}
-                        />
-                    </SearchFilterContainer>
-                </FiltersContainer>
-                <ResultContainer>
-                    <PaginationInfoContainer>
-                        <Typography.Paragraph>
-                            Showing{' '}
-                            <b>
-                                {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
-                            </b>{' '}
-                            of <b>{totalResults}</b> results
-                        </Typography.Paragraph>
-                        <SearchMenuContainer>
-                            <SearchExtendedMenu
-                                callSearchOnVariables={callSearchOnVariables}
-                                entityFilters={entityFilters}
-                                filters={filtersWithoutEntities}
-                                query={query}
+            <div>
+                <SearchBody>
+                    <FiltersContainer>
+                        <FiltersHeader>Filter</FiltersHeader>
+                        <SearchFilterContainer>
+                            <SearchFilters
+                                loading={loading}
+                                facets={filters || []}
+                                selectedFilters={selectedFilters}
+                                onFilterSelect={onFilterSelect}
                             />
-                        </SearchMenuContainer>
-                    </PaginationInfoContainer>
-                    {!loading && (
-                        <>
-                            <ResultList<React.FC<ListProps<SearchResult>>>
-                                dataSource={searchResponse?.searchResults}
-                                split={false}
-                                locale={{
-                                    emptyText: (
-                                        <NoDataContainer>
-                                            <Empty
-                                                style={{ fontSize: 18, color: ANTD_GRAY[8] }}
-                                                description={`No results found for "${query}"`}
-                                            />
-                                            <Button
-                                                onClick={() => navigateToSearchUrl({ query: '*', page: 0, history })}
-                                            >
-                                                <RocketOutlined /> Explore your metadata
-                                            </Button>
-                                        </NoDataContainer>
-                                    ),
-                                }}
-                                renderItem={(item, index) => (
-                                    <>
-                                        <List.Item style={{ padding: 0 }} onClick={() => onResultClick(item, index)}>
-                                            {entityRegistry.renderSearchResult(item.entity.type, item)}
-                                        </List.Item>
-                                        <ThinDivider />
-                                    </>
-                                )}
-                            />
-                            <PaginationControlContainer>
-                                <Pagination
-                                    current={page}
-                                    pageSize={SearchCfg.RESULTS_PER_PAGE}
-                                    total={totalResults}
-                                    showLessItems
-                                    onChange={onChangePage}
-                                    showSizeChanger={false}
+                        </SearchFilterContainer>
+                    </FiltersContainer>
+                    <ResultContainer>
+                        <PaginationInfoContainer>
+                            <Typography.Paragraph>
+                                Showing{' '}
+                                <b>
+                                    {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
+                                </b>{' '}
+                                of <b>{totalResults}</b> results
+                            </Typography.Paragraph>
+                            <SearchMenuContainer>
+                                <SearchExtendedMenu
+                                    callSearchOnVariables={callSearchOnVariables}
+                                    entityFilters={entityFilters}
+                                    filters={filtersWithoutEntities}
+                                    query={query}
                                 />
-                            </PaginationControlContainer>
-                            {authenticatedUserUrn && (
-                                <SearchResultsRecommendationsContainer>
-                                    <SearchResultsRecommendations
-                                        userUrn={authenticatedUserUrn}
-                                        query={query}
-                                        filters={selectedFilters}
+                            </SearchMenuContainer>
+                        </PaginationInfoContainer>
+                        {!loading && (
+                            <>
+                                <ResultList<React.FC<ListProps<SearchResult>>>
+                                    dataSource={searchResponse?.searchResults}
+                                    split={false}
+                                    locale={{
+                                        emptyText: (
+                                            <NoDataContainer>
+                                                <Empty
+                                                    style={{ fontSize: 18, color: ANTD_GRAY[8] }}
+                                                    description={`No results found for "${query}"`}
+                                                />
+                                                <Button
+                                                    onClick={() =>
+                                                        navigateToSearchUrl({ query: '*', page: 0, history })
+                                                    }
+                                                >
+                                                    <RocketOutlined /> Explore your metadata
+                                                </Button>
+                                            </NoDataContainer>
+                                        ),
+                                    }}
+                                    renderItem={(item, index) => (
+                                        <>
+                                            <List.Item
+                                                style={{ padding: 0 }}
+                                                onClick={() => onResultClick(item, index)}
+                                            >
+                                                {entityRegistry.renderSearchResult(item.entity.type, item)}
+                                            </List.Item>
+                                            <ThinDivider />
+                                        </>
+                                    )}
+                                />
+                                <PaginationControlContainer>
+                                    <Pagination
+                                        current={page}
+                                        pageSize={SearchCfg.RESULTS_PER_PAGE}
+                                        total={totalResults}
+                                        showLessItems
+                                        onChange={onChangePage}
+                                        showSizeChanger={false}
                                     />
-                                </SearchResultsRecommendationsContainer>
-                            )}
-                        </>
-                    )}
-                </ResultContainer>
-            </SearchBody>
+                                </PaginationControlContainer>
+                                {authenticatedUserUrn && (
+                                    <SearchResultsRecommendationsContainer>
+                                        <SearchResultsRecommendations
+                                            userUrn={authenticatedUserUrn}
+                                            query={query}
+                                            filters={selectedFilters}
+                                        />
+                                    </SearchResultsRecommendationsContainer>
+                                )}
+                            </>
+                        )}
+                    </ResultContainer>
+                </SearchBody>
+            </div>
         </>
     );
 };
