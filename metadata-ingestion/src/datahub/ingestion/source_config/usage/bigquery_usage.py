@@ -60,7 +60,10 @@ class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
     max_query_duration: timedelta = timedelta(minutes=15)
     credential: Optional[BigQueryCredential]
     _credentials_path: Optional[str] = pydantic.PrivateAttr(None)
-    temp_table_dataset_prefix: str = "_"
+    temp_table_dataset_prefix: str = pydantic.Field(
+        default="_",
+        description="If you are creating temp tables in a dataset with a particular prefix you can use this config to set the prefix for the dataset. This is to support workflows from before bigquery's introduction of temp tables. By default we use `_` because of datasets that begin with an underscore are hidden by default https://cloud.google.com/bigquery/docs/datasets#dataset-naming.",
+    )
 
     def __init__(self, **data: Any):
         super().__init__(**data)
