@@ -93,11 +93,32 @@ class SnowflakeSource(SQLAlchemySource):
             **self.config.options,
         )
 
-    def inspect_version(self) -> Any:
+    def inspect_session_metadata(self) -> Any:
         db_engine = self.get_metadata_engine()
-        logger.info("Checking current version")
-        for db_row in db_engine.execute("select CURRENT_VERSION()"):
-            self.report.saas_version = db_row[0]
+        try:
+            logger.info("Checking current version")
+            for db_row in db_engine.execute("select CURRENT_VERSION()"):
+                self.report.saas_version = db_row[0]
+        except Exception as e:
+            self.report.report_failure("version", f"Error: {e}")
+        try:
+            logger.info("Checking current warehouse")
+            for db_row in db_engine.execute("select current_warehouse()"):
+                self.report.default_warehouse = db_row[0]
+        except Exception as e:
+            self.report.report_failure("current_warehouse", f"Error: {e}")
+        try:
+            logger.info("Checking current database")
+            for db_row in db_engine.execute("select current_database()"):
+                self.report.default_db = db_row[0]
+        except Exception as e:
+            self.report.report_failure("current_database", f"Error: {e}")
+        try:
+            logger.info("Checking current schema")
+            for db_row in db_engine.execute("select current_schema()"):
+                self.report.default_schema = db_row[0]
+        except Exception as e:
+            self.report.report_failure("current_schema", f"Error: {e}")
 
     def inspect_role_grants(self) -> Any:
         db_engine = self.get_metadata_engine()
@@ -345,7 +366,7 @@ WHERE
             )
         # Handles the case for explicitly created external tables.
         # NOTE: Snowflake does not log this information to the access_history table.
-        external_tables_query: str = "show external tables"
+        external_tables_query: str = "show external tables in account"
         try:
             for db_row in engine.execute(external_tables_query):
                 key = (
@@ -635,11 +656,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
         if not self.should_run_ingestion():
             return
 
-        try:
-            self.inspect_version()
-        except Exception as e:
-            self.report.report_failure("version", f"Error: {e}")
-            return
+        self.inspect_session_metadata()
 
         self.inspect_role_grants()
         for wu in super().get_workunits():
