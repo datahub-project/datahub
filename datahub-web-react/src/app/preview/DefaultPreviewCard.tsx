@@ -82,7 +82,7 @@ const DescriptionContainer = styled.div`
 `;
 
 const AvatarContainer = styled.div`
-    margin-top: 12px;
+    margin-top: 6px;
     margin-right: 32px;
 `;
 
@@ -252,13 +252,15 @@ export default function DefaultPreviewCard({
                         <NoMarkdownViewer limit={250}>{description}</NoMarkdownViewer>
                     </DescriptionContainer>
                 )}
-                <TagContainer>
-                    <TagTermGroup domain={domain} maxShow={3} />
-                    {domain && <TagSeparator />}
-                    <TagTermGroup uneditableGlossaryTerms={glossaryTerms} maxShow={3} />
-                    {tags && <TagSeparator />}
-                    <TagTermGroup uneditableTags={tags} maxShow={3} />
-                </TagContainer>
+                {(domain || glossaryTerms || tags) && (
+                    <TagContainer>
+                        <TagTermGroup domain={domain} maxShow={3} />
+                        {domain && glossaryTerms && <TagSeparator />}
+                        <TagTermGroup uneditableGlossaryTerms={glossaryTerms} maxShow={1} />
+                        {((glossaryTerms && tags) || (domain && tags)) && <TagSeparator />}
+                        <TagTermGroup uneditableTags={tags} maxShow={3} />
+                    </TagContainer>
+                )}
                 {owners && owners.length > 0 && (
                     <AvatarContainer>
                         <AvatarsGroup size={28} owners={owners} entityRegistry={entityRegistry} maxCount={4} />
