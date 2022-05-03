@@ -161,6 +161,7 @@ As a SQL-based service, the Athena integration is also supported by our SQL prof
 | `use_v2_audit_metadata`                |   | `False` | Whether to use `BigQuery audit logs` to get the lineage or not |
 | `upstream_lineage_in_report`           |   | `False` | Useful for debugging lineage information. Set to `True` to see the raw lineage created internally. |
 
+
 The following parameters are only relevant if include_table_lineage is set to true:
 
 - max_query_duration 
