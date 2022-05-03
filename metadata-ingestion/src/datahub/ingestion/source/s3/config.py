@@ -166,7 +166,9 @@ class PathSpec(ConfigModel):
 
 class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
     path_specs: Optional[List[PathSpec]] = Field(description="")
-    path_spec: Optional[PathSpec] = Field(description="Path spec will be deprecated in favour of path_specs option.")
+    path_spec: Optional[PathSpec] = Field(
+        description="Path spec will be deprecated in favour of path_specs option."
+    )
     platform: str = Field(
         default="", description="The platform that this source connects to"
     )
