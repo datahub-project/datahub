@@ -133,9 +133,9 @@ datahub.add_command(telemetry_cli)
 datahub.add_command(migrate)
 datahub.add_command(timeline)
 try:
-    import datahub_actions
+    from datahub_actions.cli.actions import actions
 
-    datahub.add_command(datahub_actions.cli.actions)
+    datahub.add_command(actions)
 except ImportError:
     # TODO: Increase the log level once this approach has been validated.
     logger.debug(

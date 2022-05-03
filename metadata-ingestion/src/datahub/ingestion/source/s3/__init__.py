@@ -34,9 +34,11 @@ from pyspark.sql.types import (
 from pyspark.sql.utils import AnalysisException
 from smart_open import open as smart_open
 
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
+    make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
@@ -53,6 +55,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
+    get_key_prefix,
     strip_s3_prefix,
 )
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
@@ -80,8 +83,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetPropertiesClass,
+    GlobalTagsClass,
     MapTypeClass,
     OtherSchemaClass,
+    TagAssociationClass,
 )
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
@@ -190,7 +195,6 @@ class S3Source(Source):
         self.source_config = config
         self.report = DataLakeSourceReport()
         self.profiling_times_taken = []
-
         config_report = {
             config_option: config.dict().get(config_option)
             for config_option in config_options_to_report
@@ -560,6 +564,19 @@ class S3Source(Source):
             platformSchema=OtherSchemaClass(rawSchema=""),
         )
         dataset_snapshot.aspects.append(schema_metadata)
+        if (
+            self.source_config.use_s3_bucket_tags
+            or self.source_config.use_s3_object_tags
+        ):
+            bucket = get_bucket_name(table_data.table_path)
+            key_prefix = (
+                get_key_prefix(table_data.table_path)
+                if table_data.full_path == table_data.table_path
+                else None
+            )
+            s3_tags = self.get_s3_tags(bucket, key_prefix, dataset_urn)
+            if s3_tags is not None:
+                dataset_snapshot.aspects.append(s3_tags)
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         wu = MetadataWorkUnit(id=table_data.table_path, mce=mce)
@@ -579,6 +596,65 @@ class S3Source(Source):
             else self.source_config.platform_instance,
             bucket_name=name,
         )
+
+    def get_s3_tags(
+        self, bucket_name: str, key_name: Optional[str], dataset_urn: str
+    ) -> Optional[GlobalTagsClass]:
+        if self.source_config.aws_config is None:
+            raise ValueError("aws_config not set. Cannot browse s3")
+        new_tags = GlobalTagsClass(tags=[])
+        tags_to_add = []
+        if self.source_config.use_s3_bucket_tags:
+            s3 = self.source_config.aws_config.get_s3_resource()
+            bucket = s3.Bucket(bucket_name)
+            try:
+                tags_to_add.extend(
+                    [
+                        make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
+                        for tag in bucket.Tagging().tag_set
+                    ]
+                )
+            except s3.meta.client.exceptions.ClientError:
+                logger.warn(f"No tags found for bucket={bucket_name}")
+
+        if self.source_config.use_s3_object_tags and key_name is not None:
+            s3_client = self.source_config.aws_config.get_s3_client()
+            object_tagging = s3_client.get_object_tagging(
+                Bucket=bucket_name, Key=key_name
+            )
+            tag_set = object_tagging["TagSet"]
+            if tag_set:
+                tags_to_add.extend(
+                    [
+                        make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
+                        for tag in tag_set
+                    ]
+                )
+            else:
+                # Unlike bucket tags, if an object does not have tags, it will just return an empty array
+                # as opposed to an exception.
+                logger.warn(f"No tags found for bucket={bucket_name} key={key_name}")
+        if len(tags_to_add) == 0:
+            return None
+        if self.ctx.graph is not None:
+            logger.debug("Connected to DatahubApi, grabbing current tags to maintain.")
+            current_tags: Optional[GlobalTagsClass] = self.ctx.graph.get_aspect_v2(
+                entity_urn=dataset_urn,
+                aspect="globalTags",
+                aspect_type=GlobalTagsClass,
+            )
+            if current_tags:
+                tags_to_add.extend(
+                    [current_tag.tag for current_tag in current_tags.tags]
+                )
+        else:
+            logger.warn("Could not connect to DatahubApi. No current tags to maintain")
+        # Remove duplicate tags
+        tags_to_add = list(set(tags_to_add))
+        new_tags = GlobalTagsClass(
+            tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
+        )
+        return new_tags
 
     def gen_folder_key(self, abs_path):
         return FolderKey(
