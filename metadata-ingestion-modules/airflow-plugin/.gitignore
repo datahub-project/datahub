@@ -138,3 +138,4 @@ dmypy.json
 # Generated classes
 src/datahub/metadata/
 wheels/
+junit.quick.xml
