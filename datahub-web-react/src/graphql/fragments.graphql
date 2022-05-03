@@ -749,3 +749,31 @@ fragment entityDomain on Domain {
         name
     }
 }
+
+fragment incidentsFields on EntityIncidentsResult {
+    count
+    start
+    total
+    incidents {
+        urn
+        type
+        customType
+        title
+        description
+        status {
+            state
+            message
+            lastUpdated {
+                time
+                actor
+            }
+        }
+        source {
+            type
+        }
+        created {
+            time
+            actor
+        }
+    }
+}

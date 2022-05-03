@@ -1,4 +1,4 @@
-query getUser($urn: String!, $groupsCount: Int!) {
+query getUser($urn: String!, $groupsCount: Int) {
     corpUser(urn: $urn) {
         urn
         username

@@ -264,6 +264,9 @@ query getDataset($urn: String!) {
             start
             total
         }
+        totalIncidents: incidents(start: 0, count: 1) {
+            total
+        }
     }
 }
 
@@ -306,6 +309,14 @@ query getDatasetRuns($urn: String!, $start: Int!, $count: Int!, $direction: Rela
     dataset(urn: $urn) {
         runs(start: $start, count: $count, direction: $direction) {
             ...runResults
+        }
+    }
+}
+
+query getIncidents($urn: String!, $start: Int!, $count: Int!, $state: IncidentState) {
+    dataset(urn: $urn) {
+        incidents(start: $start, count: $count, state: $state) {
+            ...incidentsFields
         }
     }
 }
