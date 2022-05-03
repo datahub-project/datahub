@@ -62,7 +62,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.utilities.sql_parser import DefaultSQLParser
+from datahub.utilities.bigquery_sql_parser import BigQuerySQLParser
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +181,9 @@ def bigquery_audit_metadata_query_template(
     """
     Receives a dataset (with project specified) and returns a query template that is used to query exported
     AuditLogs containing protoPayloads of type BigQueryAuditMetadata.
+    Include only those that:
+    - have been completed (jobStatus.jobState = "DONE")
+    - do not contain errors (jobStatus.errorResults is none)
     :param dataset: the dataset to query against in the form of $PROJECT.$DATASET
     :param use_date_sharded_tables: whether to read from date sharded audit log tables or time partitioned audit log
            tables
@@ -221,6 +224,7 @@ def bigquery_audit_metadata_query_template(
     AND timestamp < "{end_time}"
     AND protopayload_auditlog.serviceName="bigquery.googleapis.com"
     AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
+    AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.errorResults") IS NULL
     AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL;
     """
 
@@ -614,7 +618,7 @@ class BigQuerySource(SQLAlchemySource):
                 # If there is a view being referenced then bigquery sends both the view as well as underlying table
                 # in the references. There is no distinction between direct/base objects accessed. So doing sql parsing
                 # to ensure we only use direct objects accessed for lineage
-                parser = DefaultSQLParser(e.query)
+                parser = BigQuerySQLParser(e.query)
                 referenced_objs = set(
                     map(lambda x: x.split(".")[-1], parser.get_tables())
                 )
