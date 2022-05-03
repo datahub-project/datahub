@@ -16,6 +16,12 @@ from sqlalchemy.sql import sqltypes, text
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.sql.sql_common import (
@@ -46,6 +52,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 snowdialect.ischema_names["GEOGRAPHY"] = sqltypes.NullType
 
 
+@platform_name("Snowflake")
+@config_class(SnowflakeConfig)
+@support_status(SupportStatus.CERTIFIED)
 class SnowflakeSource(SQLAlchemySource):
     def __init__(self, config: SnowflakeConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "snowflake")
@@ -84,11 +93,32 @@ class SnowflakeSource(SQLAlchemySource):
             **self.config.options,
         )
 
-    def inspect_version(self) -> Any:
+    def inspect_session_metadata(self) -> Any:
         db_engine = self.get_metadata_engine()
-        logger.info("Checking current version")
-        for db_row in db_engine.execute("select CURRENT_VERSION()"):
-            self.report.saas_version = db_row[0]
+        try:
+            logger.info("Checking current version")
+            for db_row in db_engine.execute("select CURRENT_VERSION()"):
+                self.report.saas_version = db_row[0]
+        except Exception as e:
+            self.report.report_failure("version", f"Error: {e}")
+        try:
+            logger.info("Checking current warehouse")
+            for db_row in db_engine.execute("select current_warehouse()"):
+                self.report.default_warehouse = db_row[0]
+        except Exception as e:
+            self.report.report_failure("current_warehouse", f"Error: {e}")
+        try:
+            logger.info("Checking current database")
+            for db_row in db_engine.execute("select current_database()"):
+                self.report.default_db = db_row[0]
+        except Exception as e:
+            self.report.report_failure("current_database", f"Error: {e}")
+        try:
+            logger.info("Checking current schema")
+            for db_row in db_engine.execute("select current_schema()"):
+                self.report.default_schema = db_row[0]
+        except Exception as e:
+            self.report.report_failure("current_schema", f"Error: {e}")
 
     def inspect_role_grants(self) -> Any:
         db_engine = self.get_metadata_engine()
@@ -104,7 +134,7 @@ class SnowflakeSource(SQLAlchemySource):
 
         self.report.role = cur_role
         logger.info(f"Current role is {cur_role}")
-        if cur_role.lower() == "accountadmin":
+        if cur_role.lower() == "accountadmin" or not self.config.check_role_grants:
             return
 
         logger.info(f"Checking grants for role {cur_role}")
@@ -327,7 +357,7 @@ WHERE
                     continue
                 self._external_lineage_map[key] |= {*json.loads(db_row[0])}
                 logger.debug(
-                    f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]}"
+                    f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]} via access_history"
                 )
         except Exception as e:
             logger.warning(
@@ -336,7 +366,7 @@ WHERE
             )
         # Handles the case for explicitly created external tables.
         # NOTE: Snowflake does not log this information to the access_history table.
-        external_tables_query: str = "show external tables"
+        external_tables_query: str = "show external tables in account"
         try:
             for db_row in engine.execute(external_tables_query):
                 key = (
@@ -346,7 +376,7 @@ WHERE
                     continue
                 self._external_lineage_map[key].add(db_row.location)
                 logger.debug(
-                    f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]}"
+                    f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]} via show external tables"
                 )
                 num_edges += 1
         except Exception as e:
@@ -509,7 +539,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
         if not self.report.ignore_start_time_lineage:
             self.report.lineage_start_time = self.config.start_time
         self.report.lineage_end_time = self.config.end_time
-
+        self.report.check_role_grants = self.config.check_role_grants
         if self.config.provision_role is not None:
             self.report.run_ingestion = self.config.provision_role.run_ingestion
 
@@ -626,11 +656,7 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
         if not self.should_run_ingestion():
             return
 
-        try:
-            self.inspect_version()
-        except Exception as e:
-            self.report.report_failure("version", f"Error: {e}")
-            return
+        self.inspect_session_metadata()
 
         self.inspect_role_grants()
         for wu in super().get_workunits():

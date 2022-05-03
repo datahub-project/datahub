@@ -1,6 +1,7 @@
 package com.linkedin.entity.client;
 
 import com.datahub.authentication.Authentication;
+import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
@@ -51,6 +52,13 @@ public interface EntityClient {
   public Map<Urn, EntityResponse> batchGetV2(
       @Nonnull String entityName,
       @Nonnull final Set<Urn> urns,
+      @Nullable final Set<String> aspectNames,
+      @Nonnull final Authentication authentication) throws RemoteInvocationException, URISyntaxException;
+
+  @Nonnull
+  Map<Urn, EntityResponse> batchGetVersionedV2(
+      @Nonnull String entityName,
+      @Nonnull final Set<VersionedUrn> versionedUrns,
       @Nullable final Set<String> aspectNames,
       @Nonnull final Authentication authentication) throws RemoteInvocationException, URISyntaxException;
 
@@ -146,14 +154,15 @@ public interface EntityClient {
    *
    * @param input search query
    * @param filter search filters
+   * @param sortCriterion sort criterion
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return Snapshot key
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nullable Filter filter, int start,
-      int count, @Nonnull Authentication authentication) throws RemoteInvocationException;
+  public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nullable Filter filter,
+      SortCriterion sortCriterion, int start, int count, @Nonnull Authentication authentication) throws RemoteInvocationException;
 
   /**
    * Searches for entities matching to a given query and filters across multiple entity types

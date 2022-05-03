@@ -1,15 +1,23 @@
 from dataclasses import dataclass
 from typing import Dict, Optional, Union
 
+from pydantic.fields import Field
+
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 
 
 class SagemakerSourceConfig(AwsSourceConfig):
 
-    extract_feature_groups: Optional[bool] = True
-    extract_models: Optional[bool] = True
-    extract_jobs: Optional[Union[Dict[str, str], bool]] = True
+    extract_feature_groups: Optional[bool] = Field(
+        default=True, description="Whether to extract feature groups."
+    )
+    extract_models: Optional[bool] = Field(
+        default=True, description="Whether to extract models."
+    )
+    extract_jobs: Optional[Union[Dict[str, str], bool]] = Field(
+        default=True, description="Whether to extract AutoML jobs."
+    )
 
     @property
     def sagemaker_client(self):
