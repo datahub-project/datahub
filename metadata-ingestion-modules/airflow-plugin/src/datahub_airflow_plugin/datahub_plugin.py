@@ -19,9 +19,17 @@ def get_lineage_config() -> DatahubLineageConfig:
 
     datahub_conn_id = conf.get("datahub", "conn_id", fallback="datahub_rest_default")
     graceful_exceptions = conf.get("datahub", "graceful_exceptions", fallback=True)
-
+    capture_tags_info = conf.get("datahub", "capture_tags_info", fallback=True)
+    capture_ownership_info = conf.get(
+        "datahub", "capture_ownership_info", fallback=True
+    )
+    capture_executions = conf.get("datahub", "capture_executions", fallback=True)
     return DatahubLineageConfig(
-        datahub_conn_id=datahub_conn_id, graceful_exceptions=graceful_exceptions
+        datahub_conn_id=datahub_conn_id,
+        graceful_exceptions=graceful_exceptions,
+        capture_ownership_info=capture_ownership_info,
+        capture_tags_info=capture_tags_info,
+        capture_executions=capture_executions,
     )
 
 
@@ -124,14 +132,14 @@ def datahub_on_failure_callback(context, *args, **kwargs):
     )
     dataflow.emit(emitter)
 
-    task.log.info(f"Emitted from Lineage: {dataflow}")
+    task.log.info(f"Emitted Datahub DataFlow: {dataflow}")
 
     datajob = AirflowGenerator.generate_datajob(
         cluster=context["_datahub_config"].cluster,
         task=context["ti"].task,
         dag=dag,
-        capture_tags=True,
-        capture_owner=True,
+        capture_tags=context["_datahub_config"].capture_tags_info,
+        capture_owner=context["_datahub_config"].capture_ownership_info,
     )
 
     for inlet in inlets:
@@ -140,32 +148,33 @@ def datahub_on_failure_callback(context, *args, **kwargs):
     for outlet in task._outlets:
         datajob.outlets.append(outlet.urn)
 
-    task.log.info(f"Emitting Datahub DataJob: {datajob}")
+    task.log.info(f"Emitted Datahub DataJob: {datajob}")
     datajob.emit(emitter)
 
-    dpi = AirflowGenerator.run_datajob(
-        emitter=emitter,
-        cluster=context["_datahub_config"].cluster,
-        ti=context["ti"],
-        dag=dag,
-        dag_run=context["dag_run"],
-        datajob=datajob,
-        start_timestamp_millis=int(ti.start_date.timestamp() * 1000),
-    )
+    if context["_datahub_config"].capture_executions:
+        dpi = AirflowGenerator.run_datajob(
+            emitter=emitter,
+            cluster=context["_datahub_config"].cluster,
+            ti=context["ti"],
+            dag=dag,
+            dag_run=context["dag_run"],
+            datajob=datajob,
+            start_timestamp_millis=int(ti.start_date.timestamp() * 1000),
+        )
 
-    task.log.info(f"Emitting Datahub Dataprocess Instance: {dpi}")
+        task.log.info(f"Emitted Start Datahub Dataprocess Instance: {dpi}")
 
-    dpi = AirflowGenerator.complete_datajob(
-        emitter=emitter,
-        cluster=context["_datahub_config"].cluster,
-        ti=context["ti"],
-        dag_run=context["dag_run"],
-        result=InstanceRunResult.FAILURE,
-        dag=dag,
-        datajob=datajob,
-        end_timestamp_millis=int(ti.end_date.timestamp() * 1000),
-    )
-    task.log.info(f"Emitting Datahub Dataprocess Instance: {dpi}")
+        dpi = AirflowGenerator.complete_datajob(
+            emitter=emitter,
+            cluster=context["_datahub_config"].cluster,
+            ti=context["ti"],
+            dag_run=context["dag_run"],
+            result=InstanceRunResult.FAILURE,
+            dag=dag,
+            datajob=datajob,
+            end_timestamp_millis=int(ti.end_date.timestamp() * 1000),
+        )
+        task.log.info(f"Emitted Completed Datahub Dataprocess Instance: {dpi}")
 
 
 def datahub_on_success_callback(context, *args, **kwargs):
@@ -191,49 +200,50 @@ def datahub_on_success_callback(context, *args, **kwargs):
     )
     dataflow.emit(emitter)
 
-    task.log.info(f"Emitting Datahub Dataprocess Instance: {dataflow}")
+    task.log.info(f"Emitted Datahub DataFlow: {dataflow}")
 
     datajob = AirflowGenerator.generate_datajob(
         cluster=context["_datahub_config"].cluster,
         task=task,
         dag=dag,
-        capture_tags=True,
-        capture_owner=True,
+        capture_tags=context["_datahub_config"].capture_tags_info,
+        capture_owner=context["_datahub_config"].capture_ownership_info,
     )
 
     for inlet in inlets:
         datajob.inlets.append(inlet.urn)
 
-    # We have to use _oulets becauet outlets is empty
+    # We have to use _oulets because outlets is empty
     for outlet in task._outlets:
         datajob.outlets.append(outlet.urn)
 
-    task.log.info(f"Emitting Datahub dataJob: {datajob}")
+    task.log.info(f"Emitted Datahub dataJob: {datajob}")
     datajob.emit(emitter)
 
-    dpi = AirflowGenerator.run_datajob(
-        emitter=emitter,
-        cluster=context["_datahub_config"].cluster,
-        ti=context["ti"],
-        dag=dag,
-        dag_run=context["dag_run"],
-        datajob=datajob,
-        start_timestamp_millis=int(ti.start_date.timestamp() * 1000),
-    )
+    if context["_datahub_config"].capture_executions:
+        dpi = AirflowGenerator.run_datajob(
+            emitter=emitter,
+            cluster=context["_datahub_config"].cluster,
+            ti=context["ti"],
+            dag=dag,
+            dag_run=context["dag_run"],
+            datajob=datajob,
+            start_timestamp_millis=int(ti.start_date.timestamp() * 1000),
+        )
 
-    task.log.info(f"Emitting Datahub Dataprocess Instance: {dpi}")
+        task.log.info(f"Emitted Start Datahub Dataprocess Instance: {dpi}")
 
-    dpi = AirflowGenerator.complete_datajob(
-        emitter=emitter,
-        cluster=context["_datahub_config"].cluster,
-        ti=context["ti"],
-        dag_run=context["dag_run"],
-        result=InstanceRunResult.SUCCESS,
-        dag=dag,
-        datajob=datajob,
-        end_timestamp_millis=int(ti.end_date.timestamp() * 1000),
-    )
-    task.log.info(f"Emitted Datahub Data Process Instance: {dpi}")
+        dpi = AirflowGenerator.complete_datajob(
+            emitter=emitter,
+            cluster=context["_datahub_config"].cluster,
+            ti=context["ti"],
+            dag_run=context["dag_run"],
+            result=InstanceRunResult.SUCCESS,
+            dag=dag,
+            datajob=datajob,
+            end_timestamp_millis=int(ti.end_date.timestamp() * 1000),
+        )
+        task.log.info(f"Emitted Completed Data Process Instance: {dpi}")
 
 
 def datahub_pre_execution(context):
@@ -257,8 +267,8 @@ def datahub_pre_execution(context):
         cluster=context["_datahub_config"].cluster,
         task=context["ti"].task,
         dag=dag,
-        capture_tags=True,
-        capture_owner=True,
+        capture_tags=context["_datahub_config"].capture_tags_info,
+        capture_owner=context["_datahub_config"].capture_ownership_info,
     )
 
     for inlet in inlets:
@@ -268,19 +278,20 @@ def datahub_pre_execution(context):
         datajob.outlets.append(outlet.urn)
 
     datajob.emit(emitter)
-    task.log.info(f"Emitting Datahub dataJob: {datajob}")
+    task.log.info(f"Emitting Datahub DataJob: {datajob}")
 
-    dpi = AirflowGenerator.run_datajob(
-        emitter=emitter,
-        cluster=context["_datahub_config"].cluster,
-        ti=context["ti"],
-        dag=dag,
-        dag_run=context["dag_run"],
-        datajob=datajob,
-        start_timestamp_millis=int(ti.start_date.timestamp() * 1000),
-    )
+    if context["_datahub_config"].capture_executions:
+        dpi = AirflowGenerator.run_datajob(
+            emitter=emitter,
+            cluster=context["_datahub_config"].cluster,
+            ti=context["ti"],
+            dag=dag,
+            dag_run=context["dag_run"],
+            datajob=datajob,
+            start_timestamp_millis=int(ti.start_date.timestamp() * 1000),
+        )
 
-    task.log.info(f"Emitting Datahub Dataprocess Instance: {dpi}")
+        task.log.info(f"Emitting Datahub Dataprocess Instance: {dpi}")
 
 
 def _wrap_pre_execution(pre_execution):
