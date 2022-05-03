@@ -40,10 +40,7 @@ const SchemaBlameBlameButton = styled(Button)`
     width: 30px;
 `;
 
-export default function useSchemaBlameRenderer(
-    selectedVersion: string,
-    schemaBlameList?: Array<SchemaFieldBlame> | null,
-) {
+export default function useSchemaBlameRenderer(schemaBlameList?: Array<SchemaFieldBlame> | null) {
     const history = useHistory();
     const location = useLocation();
     const schemaBlameRenderer = (record: SchemaField) => {
@@ -77,7 +74,8 @@ export default function useSchemaBlameRenderer(
                                         navigateToVersionedDatasetUrl({
                                             location,
                                             history,
-                                            datasetVersion: selectedVersion,
+                                            datasetVersion:
+                                                relevantSchemaFieldBlame.schemaFieldChange.lastSemanticVersion,
                                         });
                                     }}
                                     size="small"

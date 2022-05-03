@@ -112,6 +112,10 @@ type SchemaFieldChange {
     """
     timestampMillis: Long!
     """
+    The last semantic version that this schema was changed in
+    """
+    lastSemanticVersion: String!
+    """
     Version stamp of the change
     """
     versionStamp: String!

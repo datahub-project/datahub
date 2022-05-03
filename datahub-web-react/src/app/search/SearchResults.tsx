@@ -52,6 +52,7 @@ const FiltersContainer = styled.div`
 const ResultContainer = styled.div`
     flex: 1;
     margin-bottom: 20px;
+    max-width: calc(100% - 260px);
 `;
 
 const PaginationControlContainer = styled.div`
