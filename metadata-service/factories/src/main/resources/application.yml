@@ -1,6 +1,3 @@
-# The base URL where DataHub is accessible to users. This is used for crafting notifications, among other things.
-baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
-
 # App Layer
 authentication:
   # Enable if you want all requests to the Metadata Service to be authenticated. Disabled by default.
@@ -10,10 +7,6 @@ authentication:
   authenticators:
       # Required for authenticating requests with DataHub-issued Access Tokens - best not to remove.
     - type: com.datahub.authentication.authenticator.DataHubTokenAuthenticator
-      configs:
-        # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey
-        signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
-    - type: com.datahub.authentication.authenticator.LegacyTokenAuthenticator
       configs:
         # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey
         signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
@@ -71,7 +64,6 @@ datahub:
       path: ${RETENTION_PLUGIN_PATH:/etc/datahub/plugins/retention}
 
 entityService:
-  impl: ${ENTITY_SERVICE_IMPL:ebean}
   retention:
     enabled: ${ENTITY_SERVICE_ENABLE_RETENTION:false}
 
@@ -81,16 +73,6 @@ graphService:
 searchService:
   resultBatchSize: ${SEARCH_SERVICE_BATCH_SIZE:100}
   enableCache: ${SEARCH_SERVICE_ENABLE_CACHE:false}
-  ranker:
-    type: ${SEARCH_SERVICE_RANKER_TYPE:}
-
-recommendationService:
-  mostPopular:
-    offline: ${MOST_POPULAR_RECOMMENDATIONS_OFFLINE:false}
-  topTags:
-    offline: ${TOP_TAGS_RECOMMENDATIONS_OFFLINE:false}
-  topTerms:
-    offline: ${TOP_TERMS_RECOMMENDATIONS_OFFLINE:false}
 
 configEntityRegistry:
   # TODO: Change to read from resources on classpath.
@@ -114,17 +96,7 @@ ebean:
   maxInactiveTimeSeconds: ${EBEAN_MAX_INACTIVE_TIME_IN_SECS:120}
   maxAgeMinutes: ${EBEAN_MAX_AGE_MINUTES:120}
   leakTimeMinutes: ${EBEAN_LEAK_TIME_MINUTES:15}
-  waitTimeoutMillis: ${EBEAN_WAIT_TIMEOUT_MILLIS:1000}
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
-
-cassandra:
-  datasourceUsername: ${CASSANDRA_DATASOURCE_USERNAME:cassandra}
-  datasourcePassword: ${CASSANDRA_DATASOURCE_PASSWORD:cassandra}
-  hosts: ${CASSANDRA_HOSTS:cassandra}
-  port: ${CASSANDRA_PORT:9042}
-  datacenter: ${CASSANDRA_DATACENTER:datacenter1}
-  keyspace: ${CASSANDRA_KEYSPACE:datahub}
-  useSsl: ${CASSANDRA_USE_SSL:false}
 
 elasticsearch:
   host: ${ELASTICSEARCH_HOST:localhost}
@@ -186,17 +158,14 @@ spring:
     servlet:
       path: /openapi
 
-# Notifications config
-notifications:
-  # Enable if you want to enable creation of the Notification Manager.
-  enabled: ${METADATA_SERVICE_NOTIFICATIONS_ENABLED:false} # Enable to turn on notifications.
-
-  # Required if enabled is true! The set of notification sinks to use.
+changeEvents:
+  # Set of optional change event sinks.
   sinks:
-    - type: com.datahub.notification.slack.SlackNotificationSink
-      # This simply determines whether we try to instantiate and register this sink. Note that it does not control
-      # app-layer configurations as to whether notifications are actually sent to slack.
-      enabled: ${SLACK_SINK_ENABLED:false}
+    - type: "com.linkedin.metadata.event.change.aws.AwsEventBridgeChangeEventSink"
+      enabled: true
       configs:
-        botToken: ${SLACK_BOT_TOKEN}
-        defaultChannel: ${SLACK_DEFAULT_CHANNEL}
+        # URL to which event bridge instance should be sinked.
+        eventBus: "arn:aws:events:us-east-1:003625285934:event-bus/acryl-events"
+        region: "us-east-1"
+        accessKeyId: "AKIA3SPFEWCHHAVDXPEH"
+        secretAccessKey: "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"
