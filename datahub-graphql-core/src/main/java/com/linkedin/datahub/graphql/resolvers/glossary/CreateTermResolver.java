@@ -9,7 +9,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.GlossaryTermKey;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -39,10 +39,10 @@ public class CreateTermResolver implements DataFetcher<CompletableFuture<String>
 
                 // Create the MCP
                 final MetadataChangeProposal proposal = new MetadataChangeProposal();
-                proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
+                proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
                 proposal.setEntityType(Constants.GLOSSARY_TERM_ENTITY_NAME);
                 proposal.setAspectName(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME);
-                proposal.setAspect(GenericAspectUtils.serializeAspect(mapTermProperties(input)));
+                proposal.setAspect(GenericRecordUtils.serializeAspect(mapTermProperties(input)));
                 proposal.setChangeType(ChangeType.UPSERT);
                 return _entityClient.ingestProposal(proposal, context.getAuthentication());
             } catch (Exception e) {
