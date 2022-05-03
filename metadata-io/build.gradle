@@ -13,15 +13,14 @@ dependencies {
   compile project(':metadata-events:mxe-utils-avro-1.7')
   compile project(path: ':metadata-models')
 
-  // acryl-main only
-  compile('software.amazon.awssdk:eventbridge:2.17.170')
-  compile('software.amazon.awssdk:apache-client:2.17.170')
-
   compile spec.product.pegasus.data
   compile spec.product.pegasus.generator
 
   compile externalDependency.dgraph4j exclude group: 'com.google.guava', module: 'guava'
   compile externalDependency.lombok
+  compile externalDependency.datastaxOssNativeProtocol
+  compile externalDependency.datastaxOssCore
+  compile externalDependency.datastaxOssQueryBuilder
   compile externalDependency.parquet
   compile externalDependency.elasticSearchRest
   compile externalDependency.elasticSearchTransport
@@ -33,6 +32,10 @@ dependencies {
   compile externalDependency.resilience4j
   compile externalDependency.springContext
   compile externalDependency.swaggerAnnotations
+
+  // acryl-main only
+  compile('software.amazon.awssdk:eventbridge:2.17.170')
+  compile('software.amazon.awssdk:apache-client:2.17.170')
 
   annotationProcessor externalDependency.lombok
 
@@ -47,6 +50,7 @@ dependencies {
   testCompile externalDependency.testContainers
   testCompile externalDependency.testContainersJunit
   testCompile externalDependency.testContainersElasticsearch
+  testCompile externalDependency.testContainersCassandra
   testCompile externalDependency.lombok
   testCompile project(':test-models')
 

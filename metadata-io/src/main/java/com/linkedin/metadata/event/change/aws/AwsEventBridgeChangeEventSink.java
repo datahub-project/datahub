@@ -1,8 +1,8 @@
 package com.linkedin.metadata.event.change.aws;
 
 import com.datahub.util.RecordUtils;
-import com.linkedin.metadata.event.change.ChangeEventSink;
-import com.linkedin.metadata.event.change.ChangeEventSinkConfig;
+import com.linkedin.metadata.event.change.EntityChangeEventSink;
+import com.linkedin.metadata.event.change.EntityChangeEventSinkConfig;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
 import java.util.Map;
 import java.util.Objects;
@@ -23,7 +23,7 @@ import software.amazon.awssdk.services.eventbridge.model.PutEventsResultEntry;
 
 
 /**
- * An implementation of {@link ChangeEventSink} that sinks change events to
+ * An implementation of {@link EntityChangeEventSink} that sinks change events to
  * AWS event bridge.
  *
  * This sink requires the following configs:
@@ -37,7 +37,7 @@ import software.amazon.awssdk.services.eventbridge.model.PutEventsResultEntry;
  *    - secretAccessKey: the aws secret access key for the source account
  */
 @Slf4j
-public class AwsEventBridgeChangeEventSink implements ChangeEventSink {
+public class AwsEventBridgeChangeEventSink implements EntityChangeEventSink {
 
   private static final String AWS_REGION_PARAM = "region";
   private static final String AWS_EVENT_BUS_PARAM = "eventBus";
@@ -47,7 +47,7 @@ public class AwsEventBridgeChangeEventSink implements ChangeEventSink {
   private String eventBus;
 
   @Override
-  public void init(@Nonnull ChangeEventSinkConfig cfg) {
+  public void init(@Nonnull EntityChangeEventSinkConfig cfg) {
     try {
       this.eventBus = Objects.requireNonNull((String) cfg.getStaticConfig().get(AWS_EVENT_BUS_PARAM));
       final String region = Objects.requireNonNull((String) cfg.getStaticConfig().get(AWS_REGION_PARAM));

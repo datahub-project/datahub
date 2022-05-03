@@ -7,12 +7,12 @@ import lombok.Getter;
 
 
 /**
- * Configuration provided to any {@link ChangeEventSink} at initalization time.
+ * Configuration provided to any {@link EntityChangeEventSink} at initalization time.
  */
 @Data
 @AllArgsConstructor
 @Getter
-public class ChangeEventSinkConfig {
+public class EntityChangeEventSinkConfig {
   /**
    * Static configuration for a sink provided boot time configuration.
    */

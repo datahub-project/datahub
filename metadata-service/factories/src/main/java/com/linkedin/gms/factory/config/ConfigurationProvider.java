@@ -2,9 +2,10 @@ package com.linkedin.gms.factory.config;
 
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authorization.AuthorizationConfiguration;
-import com.linkedin.metadata.config.ChangeEventConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.config.events.EventSinksConfiguration;
+import com.linkedin.metadata.config.notification.NotificationConfiguration;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
@@ -16,6 +17,10 @@ import org.springframework.context.annotation.PropertySource;
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Data
 public class ConfigurationProvider {
+  /**
+   * The base URL where DataHub is hosted.
+   */
+  private String baseUrl;
   /**
    * Authentication related configs
    */
@@ -29,11 +34,15 @@ public class ConfigurationProvider {
    */
   private IngestionConfiguration ingestion;
   /**
+   * Notification related configs
+   */
+  private NotificationConfiguration notifications;
+  /**
    * Telemetry related configs
    */
   private TelemetryConfiguration telemetry;
   /**
-   * Change event related configs
+   * Event mirroring related configs
    */
-  private ChangeEventConfiguration changeEvents;
+  private EventSinksConfiguration eventSinks;
 }

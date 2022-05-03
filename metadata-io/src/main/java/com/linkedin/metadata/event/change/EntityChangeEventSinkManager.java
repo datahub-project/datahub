@@ -10,25 +10,24 @@ import lombok.extern.slf4j.Slf4j;
 
 
 /**
- * A manager of {@link ChangeEventSink}s.
+ * A manager of {@link EntityChangeEventSink}s.
  */
 @Slf4j
-public class ChangeEventSinkManager {
+public class EntityChangeEventSinkManager {
 
-  private final List<ChangeEventSink> sinkRegistry;
+  private final List<EntityChangeEventSink> sinkRegistry;
 
-  public ChangeEventSinkManager(@Nonnull final Collection<ChangeEventSink> sinks) {
+  public EntityChangeEventSinkManager(@Nonnull final Collection<EntityChangeEventSink> sinks) {
     this.sinkRegistry = new ArrayList<>(sinks);
   }
 
   public CompletableFuture<Void> handle(@Nonnull final EntityChangeEvent event) {
 
-    // TODO: Change to debug once we are ready.
-    log.info(String.format("About to handle with sinks: %s, %s", this.sinkRegistry, event.toString()));
+    log.debug(String.format("About to handle with sinks: %s, %s", this.sinkRegistry, event.toString()));
 
     // Send the change events to each registered sink.
     final List<CompletableFuture<Void>> sinkFutures = new ArrayList<>();
-    for (final ChangeEventSink sink : this.sinkRegistry) {
+    for (final EntityChangeEventSink sink : this.sinkRegistry) {
       // Run each sink asynchronously.
       sinkFutures.add(CompletableFuture.runAsync(() -> {
         try {

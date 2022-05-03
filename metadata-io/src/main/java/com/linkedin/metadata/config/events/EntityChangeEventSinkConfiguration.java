@@ -1,13 +1,14 @@
-package com.linkedin.metadata.config;
+package com.linkedin.metadata.config.events;
 
+import com.linkedin.metadata.event.change.EntityChangeEventSink;
 import java.util.Map;
 import lombok.Data;
 
 
 @Data
-public class ChangeEventSinkConfiguration {
+public class EntityChangeEventSinkConfiguration {
   /**
-   * A fully-qualified class name for the {@link com.linkedin.metadata.event.change.ChangeEventSink} implementation to be registered.
+   * A fully-qualified class name for the {@link EntityChangeEventSink} implementation to be registered.
    */
   private String type;
 

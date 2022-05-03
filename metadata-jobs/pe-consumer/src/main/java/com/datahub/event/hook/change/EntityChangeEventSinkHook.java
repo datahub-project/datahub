@@ -1,9 +1,9 @@
 package com.datahub.event.hook.change;
 
 import com.datahub.event.hook.PlatformEventHook;
-import com.linkedin.gms.factory.change.ChangeEventSinkFactory;
+import com.linkedin.gms.factory.change.EntityChangeEventSinkManagerFactory;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.event.change.ChangeEventSinkManager;
+import com.linkedin.metadata.event.change.EntityChangeEventSinkManager;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
@@ -20,13 +20,13 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@Import({ChangeEventSinkFactory.class})
-public class ChangeEventSinkHook implements PlatformEventHook {
+@Import({EntityChangeEventSinkManagerFactory.class})
+public class EntityChangeEventSinkHook implements PlatformEventHook {
 
-  private final ChangeEventSinkManager _sinkManager;
+  private final EntityChangeEventSinkManager _sinkManager;
 
   @Autowired
-  public ChangeEventSinkHook(@Nonnull final ChangeEventSinkManager sinkManager) {
+  public EntityChangeEventSinkHook(@Nonnull final EntityChangeEventSinkManager sinkManager) {
     _sinkManager = sinkManager;
   }
 
@@ -37,7 +37,6 @@ public class ChangeEventSinkHook implements PlatformEventHook {
 
   @Override
   public void invoke(@Nonnull PlatformEvent event) {
-    log.info(String.format("Received platform event %s", event.toString()));
     if (Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME.equals(event.getName())) {
       final EntityChangeEvent changeEvent = GenericRecordUtils.deserializePayload(
           event.getPayload().getValue(),
