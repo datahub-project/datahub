@@ -19,7 +19,6 @@ from datahub.ingestion.source.iceberg.iceberg_common import (
     IcebergProfilingConfig,
     IcebergSourceReport,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetFieldProfileClass,
@@ -60,44 +59,65 @@ class IcebergProfiler:
     ) -> None:
         for field_id, value_encoded in manifest_values.items():
             field = schema.find_field(field_id)
-            if not field:
-                raise RuntimeError(f"Cannot find field_id {field_id} in schema")
-            value_decoded = Conversions.from_byte_buffer(field.type, value_encoded)
-            if value_decoded:
-                agg_value = aggregated_values.get(field_id)
-                aggregated_values[field_id] = (
-                    aggregator(agg_value, value_decoded) if agg_value else value_decoded
-                )
+            # Bounds in manifests can reference historical field IDs that are not part of the current schema.
+            # We simply not profile those since we only care about the current snapshot.
+            if field:
+                value_decoded = Conversions.from_byte_buffer(field.type, value_encoded)
+                if value_decoded:
+                    agg_value = aggregated_values.get(field_id)
+                    aggregated_values[field_id] = (
+                        aggregator(agg_value, value_decoded)
+                        if agg_value
+                        else value_decoded
+                    )
 
     def profile_table(
         self,
         dataset_name: str,
         dataset_urn: str,
         table: Table,
-        schema_metadata: SchemaMetadata,
     ) -> Iterable[MetadataWorkUnit]:
+        """This method will profile the supplied Iceberg table by looking at the table's manifest.
 
+        The overall profile of the table is aggregated from the individual manifest files.
+        We can extract the following from those manifests:
+          - "field minimum values"
+          - "field maximum values"
+          - "field null occurences"
+
+        "field distinct value occurences" cannot be computed since the 'value_counts' only apply for
+        a manifest, making those values innacurate.  For example, if manifest A has 2 unique values
+        and manifest B has 1, it is possible that the value in B is also in A, hence making the total
+        number of unique values 2 and not 3.
+
+        Args:
+            dataset_name (str): dataset name of the table to profile, mainly used in error reporting
+            dataset_urn (str): dataset urn of the table to profile
+            table (Table): Iceberg table to profile.
+
+        Raises:
+            Exception: Occurs when a table manifest cannot be loaded.
+
+        Yields:
+            Iterator[Iterable[MetadataWorkUnit]]: Workunits related to datasetProfile.
+        """
         if len(table.snapshots()) == 0:
             # Table has no data, cannot profile.
             return
+
         row_count = int(table.current_snapshot().summary["total-records"])
+        column_count = len(table.schema()._id_to_name)
         dataset_profile = DatasetProfileClass(
             timestampMillis=get_sys_time(),
             rowCount=row_count,
-            columnCount=len(schema_metadata.fields)
-            # columnCount=len(table.schema().columns())
+            columnCount=column_count,
         )
         dataset_profile.fieldProfiles = []
 
-        field_paths: Dict[
-            int, str
-        ] = (
-            table.schema()._id_to_name
-        )  # dict[int, str] = {v: k for k, v in index_by_name(table.schema()).items()}
+        field_paths: Dict[int, str] = table.schema()._id_to_name
         current_snapshot: Snapshot = table.current_snapshot()
         total_count = 0
         null_counts: Dict[int, int] = {}
-        # valueCounts = {}
         min_bounds: Dict[int, Any] = {}
         max_bounds: Dict[int, Any] = {}
         manifest: ManifestFile
@@ -113,9 +133,6 @@ class IcebergProfiler:
                         null_counts = self._aggregate_counts(
                             null_counts, data_file.null_value_counts()
                         )
-                    # self._aggregateCounts(
-                    #     valueCounts, fieldPaths, dataFile.value_counts()
-                    # )
                     if self.config.include_field_min_value:
                         self._aggregate_bounds(
                             table.schema(),
@@ -146,10 +163,6 @@ class IcebergProfiler:
                         if column_profile.nullCount
                         else None
                     )
-                # column_profile.uniqueCount = valueCounts.get(fieldPath, 0)
-                # non_null_count = rowCount - column_profile.nullCount
-                # if non_null_count is not None and non_null_count > 0:
-                #     column_profile.uniqueProportion = column_profile.uniqueCount / non_null_count
 
                 if self.config.include_field_min_value:
                     column_profile.min = (

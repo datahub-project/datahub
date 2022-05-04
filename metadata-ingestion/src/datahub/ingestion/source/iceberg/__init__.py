@@ -1,9 +1,8 @@
 import json
 import logging
 import uuid
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-from azure.storage.filedatalake import PathProperties
 from iceberg.api import types as IcebergTypes
 from iceberg.api.table import Table
 from iceberg.api.types.types import NestedField
@@ -14,7 +13,6 @@ from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
     make_group_urn,
-    make_ownership_aspect_from_urn_list,
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -38,8 +36,6 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
-    OperationClass,
-    OperationTypeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -155,9 +151,7 @@ class IcebergSource(Source):
 
         if self.config.profiling.enabled:
             profiler = IcebergProfiler(self.report, self.config.profiling)
-            yield from profiler.profile_table(
-                dataset_name, dataset_urn, table, schema_metadata
-            )
+            yield from profiler.profile_table(dataset_name, dataset_urn, table)
 
     def _get_ownership_aspect(self, table: Table) -> Optional[OwnershipClass]:
         owners = []
@@ -272,32 +266,6 @@ class IcebergSource(Source):
                 }
             ],
         }
-
-    # def get_schema_field_from_iceberg_field(self, column: NestedField) -> SchemaField:
-    #     if not isinstance(column.type, IcebergTypes.DecimalType):
-    #         raise ValueError(f"Unsupported type {column.type}")
-    #     field = SchemaField(
-    #         fieldPath=field_path,
-    #         # Populate it with the simple native type for now.
-    #         nativeDataType=native_data_type,
-    #         # type=self._converter._get_column_type(
-    #         #     actual_schema.type, self._actual_schema.props.get("logicalType")
-    #         # ),
-    #         type=self._converter._get_column_type(
-    #             actual_schema.type,
-    #             (
-    #                 getattr(actual_schema, "logical_type", None)
-    #                 or actual_schema.props.get("logicalType")
-    #             ),
-    #         ),
-    #         description=description,
-    #         recursive=False,
-    #         nullable=self._converter._is_nullable(schema),
-    #         isPartOfKey=self._converter._is_key_schema,
-    #         globalTags=tags,
-    #         jsonProps=json.dumps(merged_props) if merged_props else None,
-    #     )
-    #     return field
 
     def get_report(self) -> SourceReport:
         return self.report
@@ -427,6 +395,7 @@ def _parse_basic_datatype(
             "type": "long",
             "logicalType": "timestamp-micros",
             # Commented out since Avro's Python implementation (1.11.0) does not support local-timestamp-micros, even though it exists in the spec.
+            # See bug report: https://issues.apache.org/jira/browse/AVRO-3476
             # "logicalType": "timestamp-micros"
             # if timestamp_type.adjust_to_utc
             # else "local-timestamp-micros",

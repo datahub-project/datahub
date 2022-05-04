@@ -32,7 +32,7 @@ class IcebergSourceConfig(DatasetSourceConfigBase):
     localfs: Optional[str]
     max_path_depth: int = 2
     table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    user_ownership_property: Optional[str]
+    user_ownership_property: Optional[str] = "owner"
     group_ownership_property: Optional[str]
     profiling: IcebergProfilingConfig = IcebergProfilingConfig()
 
