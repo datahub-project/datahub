@@ -16,6 +16,7 @@ buildscript {
     }
     classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.30.0"
     classpath "com.palantir.gradle.gitversion:gradle-git-version:0.12.3"
+    classpath "gradle.plugin.org.hidetake:gradle-swagger-generator-plugin:2.18.1"
   }
 }
 
@@ -80,10 +81,12 @@ project.ext.externalDependency = [
     'jacksonDataFormatYaml': 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.10',
     'javatuples': 'org.javatuples:javatuples:1.2',
     'javaxInject' : 'javax.inject:javax.inject:1',
+    'javaxValidation' : 'javax.validation:validation-api:2.0.1.Final',
     'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.25.1',
     'jerseyGuava': 'org.glassfish.jersey.bundles.repackaged:jersey-guava:2.25.1',
     'jettyJaas': 'org.eclipse.jetty:jetty-jaas:9.4.32.v20200930',
     'jgrapht': 'org.jgrapht:jgrapht-core:1.5.1',
+    'jsonSchemaAvro': 'com.github.fge:json-schema-avro:0.1.4',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
     'junitJupiterApi': "org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion",
     'junitJupiterParams': "org.junit.jupiter:junit-jupiter-params:$junitJupiterVersion",

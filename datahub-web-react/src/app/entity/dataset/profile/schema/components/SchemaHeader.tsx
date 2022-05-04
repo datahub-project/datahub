@@ -111,6 +111,7 @@ const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
     &&& {
         margin-top: 12px;
         font-size: 20px;
+        color: ${ANTD_GRAY[6]};
     }
 `;
 

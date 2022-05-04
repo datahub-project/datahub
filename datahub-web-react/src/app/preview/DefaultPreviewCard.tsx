@@ -202,7 +202,7 @@ export default function DefaultPreviewCard({
 
     return (
         <PreviewContainer data-testid={dataTestID}>
-            <div>
+            <div style={{ width: '100%' }}>
                 <TitleContainer>
                     <Link to={url}>
                         <PlatformInfo>
@@ -252,7 +252,7 @@ export default function DefaultPreviewCard({
                 </TitleContainer>
                 {description && description.length > 0 && (
                     <DescriptionContainer>
-                        <NoMarkdownViewer limit={200}>{description}</NoMarkdownViewer>
+                        <NoMarkdownViewer limit={250}>{description}</NoMarkdownViewer>
                     </DescriptionContainer>
                 )}
                 {(domain || hasGlossaryTerms || hasTags) && (

@@ -10,23 +10,26 @@ import datahub.protobuf.visitors.ProtobufExtensionUtil;
 import datahub.protobuf.visitors.VisitContext;
 import datahub.event.MetadataChangeProposalWrapper;
 
+import static datahub.protobuf.ProtobufUtils.getFieldOptions;
+import static datahub.protobuf.ProtobufUtils.getMessageOptions;
+
 import java.util.stream.Stream;
 
-public class ProtobufExtensionTagVisitor implements ProtobufModelVisitor<MetadataChangeProposalWrapper<? extends RecordTemplate>> {
+public class TagVisitor implements ProtobufModelVisitor<MetadataChangeProposalWrapper<? extends RecordTemplate>> {
     private static final String TAG_PROPERTIES_ASPECT = "tagProperties";
 
     @Override
     public Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> visitGraph(VisitContext context) {
-        return ProtobufExtensionUtil.extractTagPropertiesFromOptions(context.root().messageProto().getOptions()
-                        .getAllFields(), context.getGraph().getRegistry())
-                .map(ProtobufExtensionTagVisitor::wrapTagProperty);
+        return ProtobufExtensionUtil.extractTagPropertiesFromOptions(getMessageOptions(context.root().messageProto()),
+                        context.getGraph().getRegistry())
+                .map(TagVisitor::wrapTagProperty);
     }
 
     @Override
     public Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> visitField(ProtobufField field, VisitContext context) {
-        return ProtobufExtensionUtil.extractTagPropertiesFromOptions(field.getFieldProto().getOptions().getAllFields(),
+        return ProtobufExtensionUtil.extractTagPropertiesFromOptions(getFieldOptions(field.getFieldProto()),
                         context.getGraph().getRegistry())
-                .map(ProtobufExtensionTagVisitor::wrapTagProperty);
+                .map(TagVisitor::wrapTagProperty);
     }
 
     private static MetadataChangeProposalWrapper<TagProperties> wrapTagProperty(TagProperties tagProperty) {

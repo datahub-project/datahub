@@ -45,7 +45,6 @@ export type Props = {
     usageStats?: UsageQueryResult | null;
     schemaFieldBlameList?: Array<SchemaFieldBlame> | null;
     showSchemaBlame: boolean;
-    selectedVersion: string;
 };
 export default function SchemaTable({
     rows,
@@ -55,7 +54,6 @@ export default function SchemaTable({
     editMode = true,
     schemaFieldBlameList,
     showSchemaBlame,
-    selectedVersion,
 }: Props): JSX.Element {
     const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
 
@@ -74,7 +72,7 @@ export default function SchemaTable({
         showTerms: true,
     });
     const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, setSelectedFkFieldPath);
-    const schemaBlameRenderer = useSchemaBlameRenderer(selectedVersion, schemaFieldBlameList);
+    const schemaBlameRenderer = useSchemaBlameRenderer(schemaFieldBlameList);
 
     const onTagTermCell = (record: SchemaField, rowIndex: number | undefined) => ({
         onMouseEnter: () => {

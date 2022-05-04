@@ -169,3 +169,7 @@ spring:
   mvc:
     servlet:
       path: /openapi
+
+springdoc:
+  cache:
+    disabled: true

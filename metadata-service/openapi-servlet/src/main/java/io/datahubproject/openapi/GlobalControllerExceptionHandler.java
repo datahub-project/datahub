@@ -1,4 +1,4 @@
-package io.datahubproject.openapi.timeline;
+package io.datahubproject.openapi;
 
 import org.springframework.core.convert.ConversionFailedException;
 import org.springframework.http.HttpStatus;

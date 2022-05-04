@@ -147,6 +147,7 @@ public class SchemaFieldBlameMapper {
       String semanticVersion, String versionStamp) {
     SchemaFieldChange schemaFieldChange = new SchemaFieldChange();
     schemaFieldChange.setTimestampMillis(timestamp);
+    schemaFieldChange.setLastSemanticVersion(truncateSemanticVersion(semanticVersion));
     schemaFieldChange.setChangeType(
         ChangeOperationType.valueOf(ChangeOperationType.class, changeEvent.getOperation().toString()));
     schemaFieldChange.setVersionStamp(versionStamp);
