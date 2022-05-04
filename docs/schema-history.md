@@ -1,4 +1,4 @@
-#Schema History Guide
+# Schema History Guide
 
 ## Introduction
 
