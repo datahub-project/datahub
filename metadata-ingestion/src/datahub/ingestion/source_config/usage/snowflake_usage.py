@@ -27,10 +27,11 @@ class SnowflakeStatefulIngestionConfig(StatefulIngestionConfig):
 class SnowflakeUsageConfig(
     BaseSnowflakeConfig, BaseUsageConfig, StatefulIngestionConfigBase
 ):
-    options: pydantic.Field(
+    options: dict = pydantic.Field(
         default_factory=dict,
         description="Any options specified here will be passed to SQLAlchemy's create_engine as kwargs. See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.",
     )
+
     database_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern(
             deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
