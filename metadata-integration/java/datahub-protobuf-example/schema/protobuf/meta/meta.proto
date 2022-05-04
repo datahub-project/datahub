@@ -16,12 +16,13 @@ import "google/protobuf/descriptor.proto";
 
 */
 enum DataHubMetadataType {
-    PROPERTY = 0; // Datahub Custom Property
-    TAG      = 1; // Datahub Tag
-    TAG_LIST = 2; //    comma delimited string
-    TERM     = 3; // Datahub Term
-    OWNER    = 4; // Datahub Owner
-    DOMAIN   = 5; // Datahub Domain
+    PROPERTY    = 0; // Datahub Custom Property
+    TAG         = 1; // Datahub Tag
+    TAG_LIST    = 2; //    comma delimited string
+    TERM        = 3; // Datahub Term
+    OWNER       = 4; // Datahub Owner
+    DOMAIN      = 5; // Datahub Domain
+    DEPRECATION = 6; // Datahub Deprecation
 }
 
 // Assuming Glossary Term defined from bootstrap example
@@ -96,6 +97,9 @@ message lifecycle {
         bool archived = 5500 [(datahubField.type) = TAG, (datahubField.type) = PROPERTY];
         Frequency frequency = 5510 [(datahubField.type) = TAG, (datahubField.type) = PROPERTY];
         string ttl = 5520 [(datahubField.type) = TAG];
+
+        repeated string deprecation_note = 5530 [(datahubField.type) = DEPRECATION];
+        uint64 deprecation_time          = 5531 [(datahubField.type) = DEPRECATION];
     }
 }
 
@@ -110,6 +114,9 @@ message message {
 
         string tags = 5600 [(datahubField.type) = TAG_LIST];
         MessageType type = 5610 [(datahubField.type) = TAG, (datahubField.type) = PROPERTY];
+
+        repeated string deprecation_note = 5620 [(datahubField.type) = DEPRECATION, (datahubField.type) = PROPERTY];
+        uint64 deprecation_time          = 5621 [(datahubField.type) = DEPRECATION, (datahubField.type) = PROPERTY];
     }
 }
 
