@@ -38,27 +38,49 @@ VALID_AUTH_TYPES: Dict[str, str] = {
 
 
 class SnowflakeProvisionRoleConfig(ConfigModel):
-    enabled: bool = False
+    enabled: bool = pydantic.Field(
+        default=False,
+        description="Whether provisioning of Snowflake role (used for ingestion) is enabled or not.",
+    )
 
     # Can be used by account admin to test what sql statements will be run
-    dry_run: bool = False
+    dry_run: bool = pydantic.Field(
+        default=False,
+        description="If provision_role is enabled, whether to dry run the sql commands for system admins to see what sql grant commands would be run without actually running the grant commands.",
+    )
 
     # Setting this to True is helpful in case you want a clean role without any extra privileges
     # Not set to True by default because multiple parallel
     #   snowflake ingestions can be dependent on single role
-    drop_role_if_exists: bool = False
+    drop_role_if_exists: bool = pydantic.Field(
+        default=False,
+        description="Useful during testing to ensure you have a clean slate role. Not recommended for production use cases.",
+    )
 
     # When Account admin is testing they might not want to actually do the ingestion
     # Set this to False in case the account admin would want to
     #   create role
     #   grant role to user in main config
     #   run ingestion as the user in main config
-    run_ingestion: bool = False
+    run_ingestion: bool = pydantic.Field(
+        default=False,
+        description="If system admins wish to skip actual ingestion of metadata during testing of the provisioning of role.",
+    )
 
-    admin_role: Optional[str] = "accountadmin"
+    admin_role: Optional[str] = pydantic.Field(
+        default="accountadmin",
+        description="The Snowflake role of admin user used for provisioning of the role specified by role config. System admins can audit the open source code and decide to use a different role.",
+    )
 
-    admin_username: str
-    admin_password: pydantic.SecretStr = pydantic.Field(default=None, exclude=True)
+    admin_username: str = pydantic.Field(
+        description="The username to be used for provisioning of role."
+    )
+
+    admin_password: pydantic.SecretStr = pydantic.Field(
+        default=None,
+        exclude=True,
+        description="The password to be used for provisioning of role.",
+    )
 
     @pydantic.validator("admin_username", always=True)
     def username_not_empty(cls, v, values, **kwargs):
