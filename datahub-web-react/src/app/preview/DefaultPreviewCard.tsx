@@ -25,6 +25,10 @@ const PreviewContainer = styled.div`
     align-items: center;
 `;
 
+const PreviewWrapper = styled.div`
+    width: 100%;
+`;
+
 const PlatformInfo = styled.div`
     margin-bottom: 8px;
     display: flex;
@@ -202,7 +206,7 @@ export default function DefaultPreviewCard({
 
     return (
         <PreviewContainer data-testid={dataTestID}>
-            <div style={{ width: '100%' }}>
+            <PreviewWrapper>
                 <TitleContainer>
                     <Link to={url}>
                         <PlatformInfo>
@@ -279,7 +283,7 @@ export default function DefaultPreviewCard({
                         ))}
                     </InsightContainer>
                 )}
-            </div>
+            </PreviewWrapper>
         </PreviewContainer>
     );
 }
