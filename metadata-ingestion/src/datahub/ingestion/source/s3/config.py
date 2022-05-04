@@ -5,10 +5,14 @@ from typing import Any, Dict, List, Optional, Union
 
 import parse
 import pydantic
+from pydantic.fields import Field
 from wcmatch import pathlib
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.configuration.source_common import (
+    EnvBasedSourceConfigBase,
+    PlatformSourceConfigBase,
+)
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.s3.profiling import DataLakeProfilerConfig
@@ -24,10 +28,21 @@ class PathSpec(ConfigModel):
     class Config:
         arbitrary_types_allowed = True
 
-    include: str
-    exclude: Optional[List[str]]
-    file_types: List[str] = SUPPORTED_FILE_TYPES
-    table_name: Optional[str]
+    include: str = Field(
+        description="Path to table (s3 or local file system). Name variable {table} is used to mark the folder with dataset. In absence of {table}, file level dataset will be created. Check below examples for more details."
+    )
+    exclude: Optional[List[str]] = Field(
+        default=None,
+        description="list of paths in glob pattern which will be excluded while scanning for the datasets",
+    )
+    file_types: List[str] = Field(
+        default=SUPPORTED_FILE_TYPES,
+        description="Files with extenstions specified here (subset of default value) only will be scanned to create dataset. Other files will be omitted.",
+    )
+    table_name: Optional[str] = Field(
+        default=None,
+        description="Display name of the dataset.Combination of named variableds from include path and strings",
+    )
 
     # to be set internally
     _parsable_include: str
@@ -132,25 +147,45 @@ class PathSpec(ConfigModel):
         return values
 
 
-class DataLakeSourceConfig(ConfigModel):
-    path_spec: PathSpec
-    env: str = DEFAULT_ENV
-    platform_instance: Optional[str] = None
-    platform: str = ""  # overwritten by validator below
-
-    aws_config: Optional[AwsSourceConfig] = None
+class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
+    path_spec: PathSpec = Field(description="")
+    platform: str = Field(
+        default="", description="The platform that this source connects to"
+    )
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="The instance of the platform that all assets produced by this recipe belong to",
+    )
+    aws_config: Optional[AwsSourceConfig] = Field(
+        default=None, description="AWS configuration"
+    )
 
     # Whether or not to create in datahub from the s3 bucket
-    use_s3_bucket_tags: Optional[bool] = None
+    use_s3_bucket_tags: Optional[bool] = Field(
+        None, description="Whether or not to create tags in datahub from the s3 bucket"
+    )
     # Whether or not to create in datahub from the s3 object
-    use_s3_object_tags: Optional[bool] = None
+    use_s3_object_tags: Optional[bool] = Field(
+        None,
+        description="# Whether or not to create tags in datahub from the s3 object",
+    )
 
-    profile_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
-    profiling: DataLakeProfilerConfig = DataLakeProfilerConfig()
+    profile_patterns: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for tables to profile ",
+    )
+    profiling: DataLakeProfilerConfig = Field(
+        default=DataLakeProfilerConfig(), description="Data profiling configuration"
+    )
 
-    spark_driver_memory: str = "4g"
+    spark_driver_memory: str = Field(
+        default="4g", description="Max amount of memory to grant Spark."
+    )
 
-    max_rows: int = 100
+    max_rows: int = Field(
+        default=100,
+        description="Maximum number of rows to use when inferring schemas for TSV and CSV files.",
+    )
 
     @pydantic.root_validator(pre=False)
     def validate_platform(cls, values: Dict) -> Dict:

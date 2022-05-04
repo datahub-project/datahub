@@ -4,7 +4,7 @@ source:
   type: "kafka"
   config:
     connection:
-      bootstrap: "broker:9092"
+      bootstrap: "localhost:9092"
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/console for complete documentation
 sink:

@@ -3,11 +3,18 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Union
 
 from pydantic import validator
+from pydantic.fields import Field
 
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.config_loader import load_config_file
 from datahub.emitter.mce_builder import get_sys_time, make_group_urn, make_user_urn
+from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 
@@ -58,7 +65,7 @@ class DefaultConfig(ConfigModel):
 
 
 class BusinessGlossarySourceConfig(ConfigModel):
-    file: str
+    file: str = Field(description="Path to business glossary file to ingest.")
 
 
 class BusinessGlossaryConfig(DefaultConfig):
@@ -244,8 +251,15 @@ def get_mces_from_term(
     return [get_mce_from_snapshot(term_snapshot)]
 
 
+@platform_name("Business Glossary")
+@config_class(BusinessGlossarySourceConfig)
+@support_status(SupportStatus.CERTIFIED)
 @dataclass
 class BusinessGlossaryFileSource(Source):
+    """
+    This plugin pulls business glossary metadata from a yaml-formatted file. An example of one such file is located in the examples directory [here](../examples/bootstrap_data/business_glossary.yml).
+    """
+
     config: BusinessGlossarySourceConfig
     report: SourceReport = field(default_factory=SourceReport)
 

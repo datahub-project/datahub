@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import textwrap
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast
@@ -19,6 +20,12 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.usage.usage_common import GenericAggregatedDataset
@@ -612,7 +619,21 @@ def cleanup(config: BigQueryUsageConfig) -> None:
         os.unlink(config._credentials_path)
 
 
+@platform_name("BigQuery")
+@support_status(SupportStatus.CERTIFIED)
+@config_class(BigQueryUsageConfig)
 class BigQueryUsageSource(Source):
+    """
+    This plugin extracts the following:
+    * Statistics on queries issued and tables and columns accessed (excludes views)
+    * Aggregation of these statistics into buckets, by day or hour granularity
+
+    :::note
+    1. This source only does usage statistics. To get the tables, views, and schemas in your BigQuery project, use the `bigquery` plugin.
+    2. Depending on the compliance policies setup for the bigquery instance, sometimes logging.read permission is not sufficient. In that case, use either admin or private log viewer permission.
+    :::
+    """
+
     def __init__(self, config: BigQueryUsageConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.config: BigQueryUsageConfig = config
@@ -623,6 +644,10 @@ class BigQueryUsageSource(Source):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "BigQueryUsageSource":
         config = BigQueryUsageConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    # @staticmethod
+    # def get_config_class() -> Type[ConfigModel]:
+    #    return BigQueryUsageConfig
 
     def add_config_to_report(self):
         self.report.start_time = self.config.start_time
@@ -924,6 +949,7 @@ class BigQueryUsageSource(Source):
                     f"Failed to clean up destination table, {e}",
                 )
                 return None
+            reported_time: int = int(time.time() * 1000)
             last_updated_timestamp: int = int(event.timestamp.timestamp() * 1000)
             affected_datasets = []
             if event.referencedTables:
@@ -941,7 +967,7 @@ class BigQueryUsageSource(Source):
                             f"Failed to clean up table, {e}",
                         )
             operation_aspect = OperationClass(
-                timestampMillis=last_updated_timestamp,
+                timestampMillis=reported_time,
                 lastUpdatedTimestamp=last_updated_timestamp,
                 actor=builder.make_user_urn(event.actor_email.split("@")[0]),
                 operationType=OPERATION_STATEMENT_TYPES[event.statementType],

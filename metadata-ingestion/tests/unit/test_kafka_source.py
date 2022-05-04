@@ -15,7 +15,8 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.kafka import KafkaSource
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.kafka import KafkaSource, KafkaSourceConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
@@ -29,8 +30,9 @@ class KafkaSourceTest(unittest.TestCase):
     @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
     def test_kafka_source_configuration(self, mock_kafka):
         ctx = PipelineContext(run_id="test")
-        kafka_source = KafkaSource.create(
-            {"connection": {"bootstrap": "foobar:9092"}}, ctx
+        kafka_source = KafkaSource(
+            KafkaSourceConfig.parse_obj({"connection": {"bootstrap": "foobar:9092"}}),
+            ctx,
         )
         kafka_source.close()
         assert mock_kafka.call_count == 1
@@ -43,8 +45,11 @@ class KafkaSourceTest(unittest.TestCase):
         mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
 
         ctx = PipelineContext(run_id="test")
-        kafka_source = KafkaSource.create(
-            {"connection": {"bootstrap": "localhost:9092"}}, ctx
+        kafka_source = KafkaSource(
+            KafkaSourceConfig.parse_obj(
+                {"connection": {"bootstrap": "localhost:9092"}}
+            ),
+            ctx,
         )
         workunits = list(kafka_source.get_workunits())
 
@@ -111,6 +116,7 @@ class KafkaSourceTest(unittest.TestCase):
 
         # We should only have 1 topic + sub-type wu.
         assert len(workunits) == 2
+        assert isinstance(workunits[0], MetadataWorkUnit)
         assert isinstance(workunits[0].metadata, MetadataChangeEvent)
         proposed_snap = workunits[0].metadata.proposedSnapshot
         assert proposed_snap.urn == make_dataset_urn_with_platform_instance(
@@ -303,6 +309,7 @@ class KafkaSourceTest(unittest.TestCase):
         assert len(workunits) == 8
         i: int = -1
         for wu in workunits:
+            assert isinstance(wu, MetadataWorkUnit)
             if not isinstance(wu.metadata, MetadataChangeEvent):
                 continue
             mce: MetadataChangeEvent = wu.metadata
