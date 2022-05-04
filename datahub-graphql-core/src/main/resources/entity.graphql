@@ -769,7 +769,7 @@ type Dataset implements EntityWithRelationships & Entity {
     """
     Statistics about how this Dataset is used
     """
-    usageStats(resource: String!, range: TimeRange): UsageQueryResult
+    usageStats(range: TimeRange): UsageQueryResult
 
     """
     Profile Stats resource that retrieves the events in a previous unit of time in descending order
