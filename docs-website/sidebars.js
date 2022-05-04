@@ -203,6 +203,13 @@ module.exports = {
         ],
       },
     ],
+    OpenAPI: [
+      {
+        label: "Usage Guide",
+        type: "doc",
+        id: "docs/api/openapi/openapi-usage-guide",
+      },
+    ],
     "Usage Guides": [
       "docs/policies",
       "docs/domains",

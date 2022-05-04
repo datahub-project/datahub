@@ -12,6 +12,17 @@ jar -tvf $jarFile |\
       grep -v "legacyPegasusSchemas/" |\
       grep -v " com/$" |\
       grep -v "git.properties" |\
+      grep -v " org/$" |\
+      grep -v " io/$" |\
+      grep -v "git.properties" |\
+      grep -v "org/springframework" |\
+      grep -v "org/aopalliance" |\
+      grep -v "javax/" |\
+      grep -v "io/swagger" |\
+      grep -v "JavaSpring" |\
+      grep -v "java-header-style.xml" |\
+      grep -v "xml-header-style.xml" |\
+      grep -v "license.header" |\
       grep -v "client.properties"
 
 if [ $? -ne 0 ]; then
