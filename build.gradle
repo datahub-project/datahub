@@ -69,7 +69,7 @@ project.ext.externalDependency = [
     'guice': 'com.google.inject:guice:4.2.2',
     'guava': 'com.google.guava:guava:27.0.1-jre',
     'h2': 'com.h2database:h2:2.1.210',
-    'hadoopClient': 'org.apache.hadoop:hadoop-client:3.1.1',
+    'hadoopClient': 'org.apache.hadoop:hadoop-client:3.2.1',
     'hadoopCommon':'org.apache.hadoop:hadoop-common:2.7.2',
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
@@ -166,7 +166,6 @@ configure(subprojects.findAll {it.name != 'spark-lineage'}) {
     exclude group: "io.netty", module: "netty"
     exclude group: "log4j", module: "log4j"
   }
-
 }
 
 subprojects {
