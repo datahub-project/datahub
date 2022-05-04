@@ -278,7 +278,7 @@ export class DatasetEntity implements Entity<Dataset> {
         return {
             urn: entity?.urn,
             name: entity?.properties?.name || entity.name,
-            expandedName: entity?.properties?.qualifiedName || entity.name,
+            expandedName: entity?.properties?.qualifiedName || entity?.properties?.name || entity.name,
             type: EntityType.Dataset,
             subtype: entity?.subTypes?.typeNames?.[0] || undefined,
             icon: entity?.platform?.properties?.logoUrl || undefined,

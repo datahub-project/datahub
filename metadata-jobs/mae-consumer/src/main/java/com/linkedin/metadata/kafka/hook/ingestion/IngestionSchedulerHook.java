@@ -75,10 +75,19 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
    * of an Ingestion Source Info aspect, which in turn contains the schedule associated with the source.
    */
   private boolean isEligibleForProcessing(final MetadataChangeLog event) {
+    return isIngestionSourceUpdate(event) || isIngestionSourceDeleted(event);
+  }
+
+  private boolean isIngestionSourceUpdate(final MetadataChangeLog event) {
     return Constants.INGESTION_INFO_ASPECT_NAME.equals(event.getAspectName())
-        && (ChangeType.DELETE.equals(event.getChangeType())
-        || ChangeType.UPSERT.equals(event.getChangeType())
-        || ChangeType.CREATE.equals(event.getChangeType()));
+        && (ChangeType.UPSERT.equals(event.getChangeType())
+        || ChangeType.CREATE.equals(event.getChangeType())
+        || ChangeType.DELETE.equals(event.getChangeType()));
+  }
+
+  private boolean isIngestionSourceDeleted(final MetadataChangeLog event) {
+    return Constants.INGESTION_SOURCE_KEY_ASPECT_NAME.equals(event.getAspectName())
+        && ChangeType.DELETE.equals(event.getChangeType());
   }
 
   /**

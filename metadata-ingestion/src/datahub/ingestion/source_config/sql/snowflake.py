@@ -86,6 +86,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
     include_table_lineage: bool = True
     include_view_lineage: bool = True
     connect_args: Optional[Dict] = pydantic.Field(default=None, exclude=True)
+    check_role_grants: bool = False
 
     def get_account(self) -> str:
         assert self.account_id
@@ -214,5 +215,8 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
             database=database, username=username, password=password, role=role
         )
 
-    def get_sql_alchemy_connect_args(self) -> dict:
-        return super().get_sql_alchemy_connect_args()
+    def get_options(self) -> dict:
+        options_connect_args: Dict = super().get_sql_alchemy_connect_args()
+        options_connect_args.update(self.options.get("connect_args", {}))
+        self.options["connect_args"] = options_connect_args
+        return self.options

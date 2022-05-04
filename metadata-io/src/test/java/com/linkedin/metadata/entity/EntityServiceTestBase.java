@@ -7,6 +7,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
+import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
@@ -267,6 +268,79 @@ abstract public class EntityServiceTestBase<T_AD extends AspectDao, T_ES extends
         // 2. Retrieve Entities
         Map<Urn, EntityResponse> readEntities =
             _entityService.getEntitiesV2("corpuser", ImmutableSet.of(entityUrn1, entityUrn2), ImmutableSet.of(aspectName));
+
+        // 3. Compare Entity Objects
+
+        // Entity 1
+        EntityResponse readEntityResponse1 = readEntities.get(entityUrn1);
+        assertEquals(2, readEntityResponse1.getAspects().size()); // Key + Info aspect.
+        EnvelopedAspect envelopedAspect1 = readEntityResponse1.getAspects().get(aspectName);
+        assertEquals(envelopedAspect1.getName(), aspectName);
+        assertTrue(
+            DataTemplateUtil.areEqual(writeEntity1.getValue().getCorpUserSnapshot().getAspects().get(0).getCorpUserInfo(),
+                new CorpUserInfo(envelopedAspect1.getValue().data())));
+        CorpUserKey expectedKey1 = new CorpUserKey();
+        expectedKey1.setUsername("tester1");
+        EnvelopedAspect envelopedKey1 = readEntityResponse1.getAspects().get(keyName);
+        assertTrue(DataTemplateUtil.areEqual(expectedKey1, new CorpUserKey(envelopedKey1.getValue().data())));
+
+        // Entity 2
+        EntityResponse readEntityResponse2 = readEntities.get(entityUrn2);
+        assertEquals(2, readEntityResponse2.getAspects().size()); // Key + Info aspect.
+        EnvelopedAspect envelopedAspect2 = readEntityResponse2.getAspects().get(aspectName);
+        assertEquals(envelopedAspect2.getName(), aspectName);
+        assertTrue(
+            DataTemplateUtil.areEqual(writeEntity2.getValue().getCorpUserSnapshot().getAspects().get(0).getCorpUserInfo(),
+                new CorpUserInfo(envelopedAspect2.getValue().data())));
+        CorpUserKey expectedKey2 = new CorpUserKey();
+        expectedKey2.setUsername("tester2");
+        EnvelopedAspect envelopedKey2 = readEntityResponse2.getAspects().get(keyName);
+        assertTrue(DataTemplateUtil.areEqual(expectedKey2, new CorpUserKey(envelopedKey2.getValue().data())));
+
+        verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn1), Mockito.eq(null), Mockito.any(),
+            Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+
+        verify(_mockProducer, times(2)).produceMetadataAuditEvent(Mockito.eq(entityUrn2), Mockito.eq(null), Mockito.any(),
+            Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
+
+        verify(_mockProducer, times(2)).produceMetadataChangeLog(Mockito.eq(entityUrn1),
+            Mockito.any(), Mockito.any());
+
+        verify(_mockProducer, times(2)).produceMetadataChangeLog(Mockito.eq(entityUrn2),
+            Mockito.any(), Mockito.any());
+
+        verifyNoMoreInteractions(_mockProducer);
+    }
+
+    @Test
+    public void testIngestGetEntitiesVersionedV2() throws Exception {
+        // Test Writing a CorpUser Entity
+        Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:tester1");
+        VersionedUrn versionedUrn1 = new VersionedUrn().setUrn(entityUrn1).setVersionStamp("corpUserInfo:0");
+        com.linkedin.entity.Entity writeEntity1 = createCorpUserEntity(entityUrn1, "tester@test.com");
+
+        Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:tester2");
+        VersionedUrn versionedUrn2 = new VersionedUrn().setUrn(entityUrn2);
+        com.linkedin.entity.Entity writeEntity2 = createCorpUserEntity(entityUrn2, "tester2@test.com");
+
+        SystemMetadata metadata1 = new SystemMetadata();
+        metadata1.setLastObserved(1625792689);
+        metadata1.setRunId("run-123");
+
+        SystemMetadata metadata2 = new SystemMetadata();
+        metadata2.setLastObserved(1625792690);
+        metadata2.setRunId("run-123");
+
+        String aspectName = "corpUserInfo";
+        String keyName = "corpUserKey";
+
+        // 1. Ingest Entities
+        _entityService.ingestEntities(ImmutableList.of(writeEntity1, writeEntity2), TEST_AUDIT_STAMP,
+            ImmutableList.of(metadata1, metadata2));
+
+        // 2. Retrieve Entities
+        Map<Urn, EntityResponse> readEntities =
+            _entityService.getEntitiesVersionedV2(ImmutableSet.of(versionedUrn1, versionedUrn2), ImmutableSet.of(aspectName));
 
         // 3. Compare Entity Objects
 
