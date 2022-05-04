@@ -57,6 +57,8 @@ dependencies {
   annotationProcessor externalDependency.lombok
 }
 
+dist.dependsOn(':datahub-web-react:copyAssets')
+
 play {
   platform {
     playVersion = '2.7.6'
@@ -98,4 +100,15 @@ task unzipAssets(type: Copy, dependsOn: [configurations.assets, ':datahub-web-re
 task moveAssets(type: Copy, dependsOn: unzipAssets) {
   into "${buildDir}/assets"
   from ("${buildDir}/assets/assets")
+}
+
+clean {
+  delete 'public/platforms'
+  delete 'public/static'
+  delete 'public/asset-manifest.json'
+  delete 'public/manifest.json'
+  delete 'public/robots.txt'
+  delete 'public/logo.png'
+  delete 'public/index.html'
+  delete 'public/favicon.ico'
 }
