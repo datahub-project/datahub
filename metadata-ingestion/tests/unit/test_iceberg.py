@@ -131,9 +131,13 @@ def test_iceberg_list_to_schema_field():
     assert_field(
         schema_fields[0], list_column.doc, list_column.is_optional, ArrayTypeClass
     )
-    assert isinstance(schema_fields[0].type.type, ArrayType)
+    assert isinstance(
+        schema_fields[0].type.type, ArrayType
+    ), f"Field type {schema_fields[0].type.type} was expected to be {ArrayType}"
     arrayType: ArrayType = schema_fields[0].type.type
-    assert isinstance(arrayType.nestedType, StringTypeClass)
+    assert isinstance(
+        arrayType.nestedType, StringTypeClass
+    ), f"List Field nested type {arrayType.nestedType} was expected to be {StringTypeClass}"
 
 
 def test_iceberg_map_to_schema_field():
@@ -154,10 +158,16 @@ def test_iceberg_map_to_schema_field():
     schema_fields = iceberg_source_instance._get_schema_fields_for_column(map_column)
     assert len(schema_fields) == 1, f"Expected 1 field, but got {len(schema_fields)}"
     assert_field(schema_fields[0], map_column.doc, map_column.is_optional, MapTypeClass)
-    assert isinstance(schema_fields[0].type.type, MapType)
+    assert isinstance(
+        schema_fields[0].type.type, MapType
+    ), f"Field type {schema_fields[0].type.type} was expected to be {MapType}"
     mapType: MapType = schema_fields[0].type.type
-    assert isinstance(mapType.keyType, StringTypeClass)
-    assert isinstance(mapType.valueType, NumberTypeClass)
+    assert isinstance(
+        mapType.keyType, StringTypeClass
+    ), f"Map key type {mapType.keyType} was expected to be {StringTypeClass}"
+    assert isinstance(
+        mapType.valueType, NumberTypeClass
+    ), f"Map value type {mapType.valueType} was expected to be {NumberTypeClass}"
 
 
 @pytest.mark.parametrize(
