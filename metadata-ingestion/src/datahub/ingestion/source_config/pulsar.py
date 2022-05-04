@@ -49,7 +49,8 @@ class PulsarSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
     )
     # Mandatory for oauth authentication
     issuer_url: Optional[str] = Field(
-        default=None, description="The complete URL for a Custom Authorization Server. Mandatory for OAuth based authentication."
+        default=None,
+        description="The complete URL for a Custom Authorization Server. Mandatory for OAuth based authentication.",
     )
     client_id: Optional[str] = Field(
         default=None, description="The application's client ID"
@@ -59,7 +60,8 @@ class PulsarSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
     )
     # Mandatory for token authentication
     token: Optional[str] = Field(
-        default=None, description="The access token for the application. Mandatory for token based authentication."
+        default=None,
+        description="The access token for the application. Mandatory for token based authentication.",
     )
     verify_ssl: Union[bool, str] = Field(
         default=True,

@@ -13,7 +13,9 @@ from datahub.ingestion.api.decorators import (
     SupportStatus,
     config_class,
     platform_name,
-    support_status, SourceCapability, capability,
+    support_status,
+    SourceCapability,
+    capability,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
@@ -68,7 +70,10 @@ class AthenaConfig(SQLAlchemyConfig):
 @config_class(AthenaConfig)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
-@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.")
+@capability(
+    SourceCapability.DATA_PROFILING,
+    "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.",
+)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
 class AthenaSource(SQLAlchemySource):

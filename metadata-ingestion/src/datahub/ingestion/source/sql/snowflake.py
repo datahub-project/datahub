@@ -21,7 +21,8 @@ from datahub.ingestion.api.decorators import (
     capability,
     config_class,
     platform_name,
-    support_status, SourceCapability,
+    support_status,
+    SourceCapability,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
