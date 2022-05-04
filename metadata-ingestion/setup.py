@@ -146,7 +146,7 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {
         "apache-airflow >= 1.10.2",
     },
-    "great-expectations": sql_common | {"sqllineage==1.3.4", "simplejson"},
+    "great-expectations": sql_common | {"sqllineage==1.3.4"},
     # Source plugins
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
@@ -260,7 +260,6 @@ mypy_stubs = {
     "types-tabulate",
     # avrogen package requires this
     "types-pytz",
-    "types-simplejson",
 }
 
 base_dev_requirements = {
