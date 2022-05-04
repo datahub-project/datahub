@@ -165,7 +165,9 @@ class PathSpec(ConfigModel):
 
 
 class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
-    path_specs: Optional[List[PathSpec]] = Field(description="")
+    path_specs: Optional[List[PathSpec]] = Field(
+        description="List of PathSpec. See below the details about PathSpec"
+    )
     path_spec: Optional[PathSpec] = Field(
         description="Path spec will be deprecated in favour of path_specs option."
     )
@@ -239,7 +241,7 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
 
                 platform = "file"
 
-            if "platform" in values and values["platform"] != "":
+            if values.get("platform", "") != "":
                 if values["platform"] != platform:
                     raise ValueError("all path_spec should belong to the same platform")
             else:
