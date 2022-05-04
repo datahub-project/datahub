@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import {
     CheckOutlined,
     CopyOutlined,
+    ExclamationCircleOutlined,
     FolderOpenOutlined,
     InfoCircleOutlined,
+    LinkOutlined,
     MoreOutlined,
     RightOutlined,
 } from '@ant-design/icons';
@@ -238,6 +240,7 @@ export const EntityHeader = ({ showDeprecateOption }: Props) => {
     const hasDetails = entityData?.deprecation?.note !== '' || entityData?.deprecation?.decommissionTime !== null;
     const isDividerNeeded = entityData?.deprecation?.note !== '' && entityData?.deprecation?.decommissionTime !== null;
     const showAdditionalOptions = showDeprecateOption;
+    const pageUrl = window.location.href;
 
     return (
         <>
@@ -334,13 +337,23 @@ export const EntityHeader = ({ showDeprecateOption }: Props) => {
                                 overlay={
                                     <Menu>
                                         <Menu.Item key="0">
+                                            <MenuItem
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(pageUrl);
+                                                    message.info('Entity Profile Url copied', 1.2);
+                                                }}
+                                            >
+                                                <LinkOutlined /> Copy Url
+                                            </MenuItem>
+                                        </Menu.Item>
+                                        <Menu.Item key="1">
                                             {!entityData?.deprecation?.deprecated ? (
                                                 <MenuItem onClick={() => setShowAddDeprecationDetailsModal(true)}>
-                                                    Mark as deprecated
+                                                    <ExclamationCircleOutlined /> Mark as deprecated
                                                 </MenuItem>
                                             ) : (
                                                 <MenuItem onClick={() => handleUpdateDeprecation(false)}>
-                                                    Mark as un-deprecated
+                                                    <ExclamationCircleOutlined /> Mark as un-deprecated
                                                 </MenuItem>
                                             )}
                                         </Menu.Item>
