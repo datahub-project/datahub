@@ -29,7 +29,10 @@ class SnowflakeReport(BaseSnowflakeReport, SQLSourceReport):
     provision_role_success: bool = False
 
     # https://community.snowflake.com/s/topic/0TO0Z000000Unu5WAC/releases
-    saas_version: str = ""
+    saas_version: Optional[str] = None
+    default_warehouse: Optional[str] = None
+    default_db: Optional[str] = None
+    default_schema: Optional[str] = None
     role: str = ""
     check_role_grants: Optional[bool] = None
     role_grants: List[str] = field(default_factory=list)

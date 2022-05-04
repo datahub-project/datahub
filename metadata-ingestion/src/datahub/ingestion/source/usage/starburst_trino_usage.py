@@ -7,13 +7,21 @@ from email.utils import parseaddr
 from typing import Dict, Iterable, List
 
 from dateutil import parser
-from pydantic import Field
+from pydantic.fields import Field
 from pydantic.main import BaseModel
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.time_window_config import get_time_bucket
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.trino import TrinoConfig
@@ -75,19 +83,48 @@ class TrinoJoinedAccessEvent(BaseModel):
     endtime: datetime = Field(None, alias="end_time")
 
 
-class TrinoUsageConfig(TrinoConfig, BaseUsageConfig):
-    env: str = builder.DEFAULT_ENV
-    email_domain: str
-    audit_catalog: str
-    audit_schema: str
-    options: dict = {}
+class EnvBasedSourceBaseConfig:
+    pass
+
+
+class TrinoUsageConfig(TrinoConfig, BaseUsageConfig, EnvBasedSourceBaseConfig):
+    email_domain: str = Field(
+        description="The email domain which will be appended to the users "
+    )
+    audit_catalog: str = Field(
+        description="The catalog name where the audit table can be found "
+    )
+    audit_schema: str = Field(
+        description="The schema name where the audit table can be found"
+    )
+    options: dict = Field(default={}, description="")
+    database: str = Field(description="The name of the catalog from getting the usage")
 
     def get_sql_alchemy_url(self):
         return super().get_sql_alchemy_url()
 
 
+@platform_name("Trino")
+@config_class(TrinoUsageConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
+@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @dataclasses.dataclass
 class TrinoUsageSource(Source):
+    """
+    If you are using Starburst Trino you can collect usage stats the following way.
+
+    #### Prerequsities
+    1. You need to setup Event Logger which saves audit logs into a Postgres db and setup this db as a catalog in Trino
+    Here you can find more info about how to setup:
+    https://docs.starburst.io/354-e/security/event-logger.html#security-event-logger--page-root
+    https://docs.starburst.io/354-e/security/event-logger.html#analyzing-the-event-log
+
+    2. Install starbust-trino-usage plugin
+    Run pip install 'acryl-datahub[starburst-trino-usage]'.
+
+    """
+
     config: TrinoUsageConfig
     report: SourceReport = dataclasses.field(default_factory=SourceReport)
 

@@ -3,11 +3,18 @@ import logging
 import typing
 from typing import Dict, List, Optional, Tuple
 
+import pydantic
 from pyathena.common import BaseCursor
 from pyathena.model import AthenaTableMetadata
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.emitter.mcp_builder import DatabaseKey, gen_containers
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.sql.sql_common import (
@@ -19,8 +26,13 @@ from datahub.ingestion.source.sql.sql_common import (
 
 class AthenaConfig(SQLAlchemyConfig):
     scheme: str = "awsathena+rest"
-    username: Optional[str] = None
-    password: Optional[str] = None
+    username: Optional[str] = pydantic.Field(
+        default=None,
+        description="Username credential. If not specified, detected with boto3 rules. See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html",
+    )
+    password: Optional[str] = pydantic.Field(
+        default=None, description="Same detection scheme as username"
+    )
     database: Optional[str] = None
     aws_region: str
     s3_staging_dir: str
@@ -42,7 +54,22 @@ class AthenaConfig(SQLAlchemyConfig):
         )
 
 
+@platform_name("Athena")
+@support_status(SupportStatus.CERTIFIED)
+@config_class(AthenaConfig)
 class AthenaSource(SQLAlchemySource):
+    """
+    This plugin supports extracting the following metadata from Athena
+    - Tables, schemas etc.
+    - Profiling when enabled.
+
+    :::note
+
+    Athena source only works with python 3.7+.
+
+    :::
+    """
+
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "athena")
         self.cursor: Optional[BaseCursor] = None

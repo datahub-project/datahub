@@ -6,11 +6,20 @@ import bson
 import pymongo
 from packaging import version
 from pydantic import PositiveInt, validator
+from pydantic.fields import Field
 from pymongo.mongo_client import MongoClient
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.schema_inference.object import (
@@ -45,25 +54,46 @@ logger = logging.getLogger(__name__)
 DENY_DATABASE_LIST = set(["admin", "config", "local"])
 
 
-class MongoDBConfig(ConfigModel):
+class MongoDBConfig(EnvBasedSourceConfigBase):
     # See the MongoDB authentication docs for details and examples.
     # https://pymongo.readthedocs.io/en/stable/examples/authentication.html
-    connect_uri: str = "mongodb://localhost"
-    username: Optional[str] = None
-    password: Optional[str] = None
-    authMechanism: Optional[str] = None
-    options: dict = {}
-    enableSchemaInference: bool = True
-    schemaSamplingSize: Optional[PositiveInt] = 1000
-    useRandomSampling: bool = True
-    maxSchemaSize: Optional[PositiveInt] = 300
+    connect_uri: str = Field(
+        default="mongodb://localhost", description="MongoDB connection URI."
+    )
+    username: Optional[str] = Field(default=None, description="MongoDB username.")
+    password: Optional[str] = Field(default=None, description="MongoDB password.")
+    authMechanism: Optional[str] = Field(
+        default=None, description="MongoDB authentication mechanism."
+    )
+    options: dict = Field(
+        default={}, description="Additional options to pass to `pymongo.MongoClient()`."
+    )
+    enableSchemaInference: bool = Field(
+        default=True, description="Whether to infer schemas. "
+    )
+    schemaSamplingSize: Optional[PositiveInt] = Field(
+        default=1000,
+        description="Number of documents to use when inferring schema size. If set to `0`, all documents will be scanned.",
+    )
+    useRandomSampling: bool = Field(
+        default=True,
+        description="If documents for schema inference should be randomly selected. If `False`, documents will be selected from start.",
+    )
+    maxSchemaSize: Optional[PositiveInt] = Field(
+        default=300, description="Maximum number of fields to include in the schema."
+    )
     # mongodb only supports 16MB as max size for documents. However, if we try to retrieve a larger document it
     # errors out with "16793600" as the maximum size supported.
-    maxDocumentSize: Optional[PositiveInt] = 16793600
-    env: str = DEFAULT_ENV
+    maxDocumentSize: Optional[PositiveInt] = Field(default=16793600, description="")
 
-    database_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    collection_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    database_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for databases to filter in ingestion.",
+    )
+    collection_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for collections to filter in ingestion.",
+    )
 
     @validator("maxDocumentSize")
     def check_max_doc_size_filter_is_valid(cls, doc_size_filter_value):
@@ -96,7 +126,6 @@ PYMONGO_TYPE_TO_MONGO_TYPE = {
     bson.objectid.ObjectId: "oid",
     "mixed": "mixed",
 }
-
 
 # map PyMongo types to DataHub classes
 _field_type_mapping: Dict[Union[Type, str], Type] = {
@@ -166,8 +195,27 @@ def construct_schema_pymongo(
     return construct_schema(list(documents), delimiter)
 
 
+@platform_name("MongoDB")
+@config_class(MongoDBConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @dataclass
 class MongoDBSource(Source):
+    """
+    This plugin extracts the following:
+
+    - Databases and associated metadata
+    - Collections in each database and schemas for each collection (via schema inference)
+
+    By default, schema inference samples 1,000 documents from each collection. Setting `schemaSamplingSize: null` will scan the entire collection.
+    Moreover, setting `useRandomSampling: False` will sample the first documents found without random selection, which may be faster for large collections.
+
+    Note that `schemaSamplingSize` has no effect if `enableSchemaInference: False` is set.
+
+    Really large schemas will be further truncated to a maximum of 300 schema fields. This is configurable using the `maxSchemaSize` parameter.
+
+    """
+
     config: MongoDBConfig
     report: MongoDBSourceReport
     mongo_client: MongoClient
@@ -189,7 +237,7 @@ class MongoDBSource(Source):
             **self.config.options,
         }
 
-        self.mongo_client = pymongo.MongoClient(self.config.connect_uri, **options)
+        self.mongo_client = pymongo.MongoClient(self.config.connect_uri, **options)  # type: ignore
 
         # This cheaply tests the connection. For details, see
         # https://pymongo.readthedocs.io/en/stable/api/pymongo/mongo_client.html#pymongo.mongo_client.MongoClient

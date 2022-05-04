@@ -122,8 +122,8 @@ Supported fields are as follows
 
 ## Managing Policies
 
-Policies can be managed under the `/policies` page, or accessed inside the Control Center, a slide-out menu
-appearing on the left side of the DataHub UI. The `Policies` tab will only be visible to those users having the `MANAGE_POLICIES` privilege.
+Policies can be managed under the `/policies` page, or accessed via the top navigation bar. The `Policies` tab will only 
+be visible to those users having the `Manage Policies` privilege.
 
 Out of the box, DataHub is deployed with a set of pre-baked Policies. The set of default policies are created at deploy 
 time and can be found inside the `policies.json` file within `metadata-service/war/src/main/resources/boot`. This set of policies serves the 

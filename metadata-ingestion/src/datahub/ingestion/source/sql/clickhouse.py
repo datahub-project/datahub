@@ -9,6 +9,7 @@ import clickhouse_driver  # noqa: F401
 import clickhouse_sqlalchemy.types as custom_types
 from clickhouse_sqlalchemy.drivers import base
 from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
+from pydantic.fields import Field
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import reflection
 from sqlalchemy.sql import sqltypes
@@ -19,6 +20,14 @@ from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
     BasicSQLAlchemyConfig,
@@ -109,14 +118,16 @@ class ClickHouseConfig(
     BasicSQLAlchemyConfig, BaseTimeWindowConfig, DatasetLineageProviderConfigBase
 ):
     # defaults
-    host_port = "localhost:8123"
-    scheme = "clickhouse"
+    host_port = Field(default="localhost:8123", description="ClickHouse host URL.")
+    scheme = Field(default="clickhouse", description="", exclude=True)
 
-    secure: Optional[bool]
-    protocol: Optional[str]
+    secure: Optional[bool] = Field(default=None, description="")
+    protocol: Optional[str] = Field(default=None, description="")
 
-    include_table_lineage: Optional[bool] = True
-    include_materialized_views: Optional[bool] = True
+    include_table_lineage: Optional[bool] = Field(
+        default=True, description="Whether table lineage should be ingested."
+    )
+    include_materialized_views: Optional[bool] = Field(default=True, description="")
 
     def get_sql_alchemy_url(self, database=None):
         uri_opts = None
@@ -307,7 +318,28 @@ ClickHouseDialect.get_columns = get_columns
 clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
 
 
+@platform_name("ClickHouse")
+@config_class(ClickHouseConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 class ClickHouseSource(SQLAlchemySource):
+    """
+    This plugin extracts the following:
+
+    - Metadata for tables, views, materialized views and dictionaries
+    - Column types associated with each table(except *AggregateFunction and DateTime with timezone)
+    - Table, row, and column statistics via optional SQL profiling.
+    - Table, view, materialized view and dictionary(with CLICKHOUSE source_type) lineage
+
+    :::tip
+
+    You can also get fine-grained usage statistics for ClickHouse using the `clickhouse-usage` source described below.
+
+    :::
+
+    """
+
     config: ClickHouseConfig
 
     def __init__(self, config, ctx):
