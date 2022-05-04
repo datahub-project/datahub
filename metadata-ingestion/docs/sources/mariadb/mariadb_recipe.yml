@@ -1,0 +1,12 @@
+source:
+  type: mariadb
+  config:
+    # Coordinates
+    host_port: localhost:3306
+    database: dbname
+
+    # Credentials
+    username: root
+    password: example
+
+# sink configs

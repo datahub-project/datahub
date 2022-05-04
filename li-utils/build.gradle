@@ -20,4 +20,4 @@ idea {
 }
 
 // Need to compile backing java definitions with the data template.
-sourceSets.mainGeneratedDataTemplate.java.srcDirs('src/main/javaPegasus/')
+sourceSets.mainGeneratedDataTemplate.java.srcDirs('src/main/javaPegasus/', 'src/main/java/com/linkedin/util')

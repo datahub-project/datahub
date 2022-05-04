@@ -28,6 +28,9 @@ export const DEFAULT_APP_CONFIG = {
     authConfig: {
         tokenAuthEnabled: false,
     },
+    telemetryConfig: {
+        enableThirdPartyLogging: false,
+    },
 };
 
 export const AppConfigContext = React.createContext<{

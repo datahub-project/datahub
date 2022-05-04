@@ -36,6 +36,14 @@ from smart_open import open as smart_open
 from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import is_s3_uri, make_s3_urn, strip_s3_prefix
@@ -143,7 +151,67 @@ profiling_flags_to_report = [
 S3_PREFIXES = ["s3://", "s3n://", "s3a://"]
 
 
+@platform_name("Data lake files")
+@config_class(DataLakeSourceConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 class DataLakeSource(Source):
+    """
+    This plugin extracts:
+
+    - Row and column counts for each table
+    - For each column, if profiling is enabled:
+      - null counts and proportions
+      - distinct counts and proportions
+      - minimum, maximum, mean, median, standard deviation, some quantile values
+      - histograms or frequencies of unique values
+
+    This connector supports both local files as well as those stored on AWS S3 (which must be identified using the prefix `s3://`). Supported file types are as follows:
+
+    - CSV
+    - TSV
+    - JSON
+    - Parquet
+    - Apache Avro
+
+    Schemas for Parquet and Avro files are extracted as provided.
+
+    Schemas for schemaless formats (CSV, TSV, JSON) are inferred. For CSV and TSV files, we consider the first 100 rows by default, which can be controlled via the `max_rows` recipe parameter (see [below](#config-details))
+    JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
+    We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
+
+    :::caution
+
+    If you are ingesting datasets from AWS S3, we recommend running the ingestion on a server in the same region to avoid high egress costs.
+
+    :::
+
+    ## Setup
+
+    To install this plugin, run `pip install 'acryl-datahub[data-lake]'`. Note that because the profiling is run with PySpark, we require Spark 3.0.3 with Hadoop 3.2 to be installed (see [compatibility](#compatibility) for more details). If profiling, make sure that permissions for **s3a://** access are set because Spark and Hadoop use the s3a:// protocol to interface with AWS (schema inference outside of profiling requires s3:// access).
+
+    The data lake connector extracts schemas and profiles from a variety of file formats (see below for an exhaustive list).
+    Individual files are ingested as tables, and profiles are computed similar to the [SQL profiler](../../../../metadata-ingestion/docs/dev_guides/sql_profiles.md).
+
+    Enabling profiling will slow down ingestion runs.
+
+    :::caution
+
+    Running profiling against many tables or over many rows can run up significant costs.
+    While we've done our best to limit the expensiveness of the queries the profiler runs, you
+    should be prudent about the set of tables profiling is enabled on or the frequency
+    of the profiling runs.
+
+    :::
+
+    Because data lake files often have messy paths, we provide the built-in option to transform names into a more readable format via the `path_spec` option. This option extracts identifiers from paths through a format string specifier where extracted components are denoted as `{name[index]}`.
+
+    For instance, suppose we wanted to extract the files `/base_folder/folder_1/table_a.csv` and `/base_folder/folder_2/table_b.csv`. To ingest, we could set `base_path` to `/base_folder/` and `path_spec` to `./{name[0]}/{name[1]}.csv`, which would extract tables with names `folder_1.table_a` and `folder_2.table_b`. You could also ignore the folder component by using a `path_spec` such as `./{folder_name}/{name[0]}.csv`, which would just extract tables with names `table_a` and `table_b` – note that any component without the form `{name[index]}` is ignored.
+
+    If you would like to write a more complicated function for resolving file names, then a {transformer} would be a good fit.
+
+    """
+
     source_config: DataLakeSourceConfig
     report: DataLakeSourceReport
     profiling_times_taken: List[float]

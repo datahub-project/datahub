@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Dict, Optional
 
 import pydantic
 
@@ -37,6 +37,12 @@ class SnowflakeUsageConfig(
     view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     apply_view_usage_to_tables: bool = False
     stateful_ingestion: Optional[SnowflakeStatefulIngestionConfig] = None
+
+    def get_options(self) -> dict:
+        options_connect_args: Dict = super().get_sql_alchemy_connect_args()
+        options_connect_args.update(self.options.get("connect_args", {}))
+        self.options["connect_args"] = options_connect_args
+        return self.options
 
     def get_sql_alchemy_url(self):
         return super().get_sql_alchemy_url(

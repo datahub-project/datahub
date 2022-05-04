@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Type
 
 import dateutil.parser as dp
+from pydantic.fields import Field
 from redash_toolbelt import Redash
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
@@ -14,6 +15,12 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -223,17 +230,39 @@ def get_full_qualified_name(platform: str, database_name: str, table_name: str) 
 class RedashConfig(ConfigModel):
     # See the Redash API for details
     # https://redash.io/help/user-guide/integrations-and-api/api
-    connect_uri: str = "http://localhost:5000"
-    api_key: str = "REDASH_API_KEY"
-    env: str = DEFAULT_ENV
+    connect_uri: str = Field(
+        default="http://localhost:5000", description="Redash base URL."
+    )
+    api_key: str = Field(default="REDASH_API_KEY", description="Redash user API key.")
 
     # Optionals
-    dashboard_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
-    chart_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
-    skip_draft: bool = True
-    api_page_limit: int = sys.maxsize
-    parse_table_names_from_sql: bool = False
-    sql_parser: str = "datahub.utilities.sql_parser.DefaultSQLParser"
+    dashboard_patterns: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for dashboards to filter for ingestion.",
+    )
+    chart_patterns: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for charts to filter for ingestion.",
+    )
+    skip_draft: bool = Field(
+        default=True, description="Only ingest published dashboards and charts."
+    )
+    api_page_limit: int = Field(
+        default=sys.maxsize,
+        description="Limit on ingested dashboards and charts API pagination.",
+    )
+    parse_table_names_from_sql: bool = Field(
+        default=False, description="See note below."
+    )
+    sql_parser: str = Field(
+        default="datahub.utilities.sql_parser.DefaultSQLParser",
+        description="custom SQL parser. See note below for details.",
+    )
+
+    env: str = Field(
+        default=DEFAULT_ENV,
+        description="Environment to use in namespace when constructing URNs.",
+    )
 
 
 @dataclass
@@ -248,7 +277,17 @@ class RedashSourceReport(SourceReport):
         self.filtered.append(item)
 
 
+@platform_name("Redash")
+@config_class(RedashConfig)
+@support_status(SupportStatus.CERTIFIED)
 class RedashSource(Source):
+    """
+    This plugin extracts the following:
+
+    - Redash dashboards and queries/visualization
+    - Redash chart table lineages (disabled by default)
+    """
+
     config: RedashConfig
     report: RedashSourceReport
     platform = "redash"
