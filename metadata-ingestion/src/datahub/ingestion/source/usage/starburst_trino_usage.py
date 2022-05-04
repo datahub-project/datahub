@@ -107,8 +107,6 @@ class TrinoUsageConfig(TrinoConfig, BaseUsageConfig, EnvBasedSourceBaseConfig):
 @platform_name("Trino")
 @config_class(TrinoUsageConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
-@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @dataclasses.dataclass
 class TrinoUsageSource(Source):
     """

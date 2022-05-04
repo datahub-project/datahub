@@ -17,6 +17,8 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import platform_name, support_status, SupportStatus, config_class, \
+    SourceCapability, capability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.state.checkpoint import Checkpoint
@@ -77,7 +79,11 @@ class PulsarSchema(object):
         self.schema_str = schema.get("data")
         self.properties = schema.get("properties")
 
-
+@platform_name("Pulsar")
+@support_status(SupportStatus.INCUBATING)
+@config_class(PulsarSourceConfig)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @dataclass
 class PulsarSource(StatefulIngestionSourceBase):
     def __init__(self, config: PulsarSourceConfig, ctx: PipelineContext):

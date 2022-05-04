@@ -72,21 +72,50 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
     # Note: this config model is also used by the snowflake-usage source.
 
     scheme: str = "snowflake"
-    username: Optional[str] = None
-    password: Optional[pydantic.SecretStr] = pydantic.Field(default=None, exclude=True)
-    private_key_path: Optional[str]
-    private_key_password: Optional[pydantic.SecretStr] = pydantic.Field(
-        default=None, exclude=True
+    username: Optional[str] = pydantic.Field(
+        default=None, description="Snowflake username."
     )
-    authentication_type: str = "DEFAULT_AUTHENTICATOR"
-    host_port: Optional[str]  # Deprecated
-    account_id: Optional[str]  # Once host_port is removed this will be made mandatory
-    warehouse: Optional[str]
-    role: Optional[str]
-    include_table_lineage: bool = True
-    include_view_lineage: bool = True
-    connect_args: Optional[Dict] = pydantic.Field(default=None, exclude=True)
-    check_role_grants: bool = False
+    password: Optional[pydantic.SecretStr] = pydantic.Field(
+        default=None, exclude=True, description="Snowflake password."
+    )
+    private_key_path: Optional[str] = pydantic.Field(
+        default=None,
+        description="The path to the private key if using key pair authentication. See: https://docs.snowflake.com/en/user-guide/key-pair-auth.html",
+    )
+    private_key_password: Optional[pydantic.SecretStr] = pydantic.Field(
+        default=None,
+        exclude=True,
+        description="Password for your private key if using key pair authentication.",
+    )
+    authentication_type: str = pydantic.Field(
+        default="DEFAULT_AUTHENTICATOR",
+        description='The type of authenticator to use when connecting to Snowflake. Supports "DEFAULT_AUTHENTICATOR", "EXTERNAL_BROWSER_AUTHENTICATOR" and "KEY_PAIR_AUTHENTICATOR".',
+    )
+    host_port: Optional[str] = pydantic.Field(
+        description="DEPRECATED: Snowflake account. e.g. abc48144"
+    )  # Deprecated
+    account_id: Optional[str] = pydantic.Field(
+        description="Snowflake account. e.g. abc48144"
+    )  # Once host_port is removed this will be made mandatory
+    warehouse: Optional[str] = pydantic.Field(description="Snowflake warehouse.")
+    role: Optional[str] = pydantic.Field(description="Snowflake role.")
+    include_table_lineage: bool = pydantic.Field(
+        default=True,
+        description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role.",
+    )
+    include_view_lineage: bool = pydantic.Field(
+        default=True,
+        description="If enabled, populates the snowflake view->table and table->view lineages (no view->view lineage yet). Requires appropriate grants given to the role, and include_table_lineage to be True.",
+    )
+    connect_args: Optional[Dict] = pydantic.Field(
+        default=None,
+        description="Connect args to pass to Snowflake SqlAlchemy driver",
+        exclude=True,
+    )
+    check_role_grants: bool = pydantic.Field(
+        default=False,
+        description="If set to True then checks role grants at the beginning of the ingestion run. To be used for debugging purposes. If you think everything is working fine then set it to False. In some cases this can take long depending on how many roles you might have.",
+    )
 
     def get_account(self) -> str:
         assert self.account_id

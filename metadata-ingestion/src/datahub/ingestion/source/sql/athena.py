@@ -13,7 +13,7 @@ from datahub.ingestion.api.decorators import (
     SupportStatus,
     config_class,
     platform_name,
-    support_status,
+    support_status, SourceCapability, capability,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
@@ -33,10 +33,19 @@ class AthenaConfig(SQLAlchemyConfig):
     password: Optional[str] = pydantic.Field(
         default=None, description="Same detection scheme as username"
     )
-    database: Optional[str] = None
-    aws_region: str
-    s3_staging_dir: str
-    work_group: str
+    database: Optional[str] = pydantic.Field(
+        default=None,
+        description="The athena database to ingest from. If not set it will be autodetected",
+    )
+    aws_region: str = pydantic.Field(
+        description="Aws region where your Athena database is located"
+    )
+    s3_staging_dir: str = pydantic.Field(
+        description="Staging s3 location where the Athena query results will be stored"
+    )
+    work_group: str = pydantic.Field(
+        description="The name of your Amazon Athena Workgroups"
+    )
 
     include_views = False  # not supported for Athena
 
@@ -57,6 +66,11 @@ class AthenaConfig(SQLAlchemyConfig):
 @platform_name("Athena")
 @support_status(SupportStatus.CERTIFIED)
 @config_class(AthenaConfig)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
+@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.")
+@capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
+@capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
 class AthenaSource(SQLAlchemySource):
     """
     This plugin supports extracting the following metadata from Athena
