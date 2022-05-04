@@ -1,5 +1,5 @@
 - Start Date: 2022-04-19
-- RFC PR:
+- RFC PR: #4694
 - Discussion Issue: 
 - Implementation PR(s): 
 
@@ -8,7 +8,7 @@
 ## Summary
 
 Many datahub sources provide access control mechanisms to manage user access to assets.
-Datahub should provide functionality for viewing these permissions. 
+Datahub should provide functionality for viewing these permissions.
 
 ## Motivation
 
@@ -17,38 +17,41 @@ Within many sql systems, the data control language provides commands like GRANT,
 Being able to view grants is the first step toward supporting larger integrations with dataset permissions. [See Here](https://feature-requests.datahubproject.io/b/feedback/p/access-control-on-datasets-bi-assets)
 
 Of the datahub integration sources listed, the following have some form of data access control management:
- - Athena (via IAM)
- - BigQuery
- - Clickhouse
- - Druid
- - Elastic Search
- - Glue
- - Hive (via Apache Ranger)
- - Kafka
- - Looker
- - MariaDB
- - Metabase
- - MongoDB
- - MicrosoftSQLServer
- - MySQL
- - Oracle
- - PostgreSQL
- - Redash
- - Redshift
- - S3 (via IAM)
- - Sagemaker
- - Snowflake
- - Superset
- - Tableau
- - Trino
+
+- Athena (via IAM)
+- BigQuery
+- Clickhouse
+- Druid
+- Elastic Search
+- Glue
+- Hive (via Apache Ranger)
+- Kafka
+- Looker
+- MariaDB
+- Metabase
+- MongoDB
+- MicrosoftSQLServer
+- MySQL
+- Oracle
+- PostgreSQL
+- Redash
+- Redshift
+- S3 (via IAM)
+- Sagemaker
+- Snowflake
+- Superset
+- Tableau
+- Trino
 
 ## Requirements
 
 The permissions aspect must be:
+
 - Appliable to datasets, containers, dashboards
 - Support ingesting and viewing structured access control (GRANT {permission} ON {object} TO {user or role}
 - Support ingesting and viewing unstructured access control (IAM Policy Documents, Custom Policies from other datasets)
-- 
+-
+
 ### Extensibility
 
 > Please also call out extensibility requirements. Is this proposal meant to be extended in the future? Are you adding
@@ -66,8 +69,9 @@ There is one aspect proposed:
 
 ```
 record DataPermission {
-   structuredPermissions: array[StructuredDataPermission]
-   unstructuredPermissions: array[UnstructuredDataPermission]
+  structuredPermissions: array[StructuredDataPermission]
+  unstructuredPermissions: array[UnstructuredDataPermission]
+  relatedPermissions: array[Urn]
 }
 
 record StructuredDataPermission {
@@ -78,16 +82,22 @@ record StructuredDataPermission {
 
 record UnstructuredDataPermission {
   language: string // maybe ENUM? (e.g. "IAM")
-  string: string
+  value: string
 }
 ```
 
 This aspect should be attachable to
+
 - Datasets (e.g. SQL Grants on Tables)
 - Containers (e.g. Grants on Schemas/Databases)
 - Dashboards (e.g. Tableau permissions on dashboard access)
 - Charts (e.g. Tableau permissions on chart access)
 
+The `relatedPermissions` attribute allows us to expand Permissions into a full fledged Entity instead of just an aspect.
+
+The common case (SQL as an example) is primarily attached permissions (e.g. grants on a table or inline IAM policies).
+
+The extension allows for out of band policies (e.g. an external policy attached to multiple entities).
 
 ## How we teach this
 
@@ -119,10 +129,10 @@ This functionality is optional and does not break any other functionality.
 - (Provide a way to change permissions on data from within datahub)[https://feature-requests.datahubproject.io/b/feedback/p/access-control-on-datasets-bi-assets]
 
 ## Unresolved questions
+
 - Permissions Modeling (RBAC vs ABAC) (Different kinds of structured modeling)
 - Naming
   - Permission vs Policies
   - Subject vs User vs Owner vs Group
 - Permissions on permissions (i.e who can see this)
 - UI/UX (How do we visualize this)
-
