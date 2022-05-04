@@ -1,0 +1,5 @@
+namespace com.linkedin.common.versioned
+
+@java.class = "com.linkedin.common.urn.VersionedUrn"
+@java.coercerClass = "com.linkedin.util.VersionedUrnCoercer"
+typeref VersionedUrn = string

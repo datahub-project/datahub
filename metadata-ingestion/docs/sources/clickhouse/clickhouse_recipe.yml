@@ -1,0 +1,38 @@
+source:
+  type: clickhouse
+  config:
+    # Coordinates
+    host_port: localhost:9000
+
+    # Credentials
+    username: user
+    password: pass
+
+    # Options
+    platform_instance: DatabaseNameToBeIngested
+
+    include_views: True # whether to include views, defaults to True
+    include_tables: True # whether to include views, defaults to True
+
+sink:
+  # sink configs
+
+#---------------------------------------------------------------------------
+# For the HTTP interface:
+#---------------------------------------------------------------------------
+source:
+  type: clickhouse
+  config:
+    host_port: localhost:8443
+    protocol: https
+
+#---------------------------------------------------------------------------
+# For the Native interface:
+#---------------------------------------------------------------------------
+
+source:
+  type: clickhouse
+  config:
+    host_port: localhost:9440
+    scheme: clickhouse+native
+    secure: True

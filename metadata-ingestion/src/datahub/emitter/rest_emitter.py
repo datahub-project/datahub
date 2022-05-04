@@ -39,7 +39,7 @@ def _make_curl_command(
     return " ".join(shlex.quote(fragment) for fragment in fragments)
 
 
-class DatahubRestEmitter:
+class DataHubRestEmitter:
     DEFAULT_CONNECT_TIMEOUT_SEC = 30  # 30 seconds should be plenty to connect
     DEFAULT_READ_TIMEOUT_SEC = (
         30  # Any ingest call taking longer than 30 seconds should be abandoned
@@ -253,3 +253,9 @@ class DatahubRestEmitter:
             raise OperationalError(
                 "Unable to emit metadata to DataHub GMS", {"message": str(e)}
             ) from e
+
+
+class DatahubRestEmitter(DataHubRestEmitter):
+    """This class exists as a pass-through for backwards compatibility"""
+
+    pass

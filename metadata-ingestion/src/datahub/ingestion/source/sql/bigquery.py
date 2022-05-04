@@ -1,3 +1,4 @@
+import atexit
 import collections
 import datetime
 import functools
@@ -11,7 +12,7 @@ from unittest.mock import patch
 
 # This import verifies that the dependencies are available.
 import sqlalchemy_bigquery
-from dateutil import parser
+from dateutil.relativedelta import relativedelta
 from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from sqlalchemy import create_engine, inspect
@@ -24,6 +25,14 @@ from datahub.emitter.mcp_builder import (
     PlatformKey,
     ProjectIdKey,
     gen_containers,
+)
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
@@ -53,7 +62,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.utilities.sql_parser import DefaultSQLParser
+from datahub.utilities.bigquery_sql_parser import BigQuerySQLParser
 
 logger = logging.getLogger(__name__)
 
@@ -172,6 +181,9 @@ def bigquery_audit_metadata_query_template(
     """
     Receives a dataset (with project specified) and returns a query template that is used to query exported
     AuditLogs containing protoPayloads of type BigQueryAuditMetadata.
+    Include only those that:
+    - have been completed (jobStatus.jobState = "DONE")
+    - do not contain errors (jobStatus.errorResults is none)
     :param dataset: the dataset to query against in the form of $PROJECT.$DATASET
     :param use_date_sharded_tables: whether to read from date sharded audit log tables or time partitioned audit log
            tables
@@ -212,12 +224,47 @@ def bigquery_audit_metadata_query_template(
     AND timestamp < "{end_time}"
     AND protopayload_auditlog.serviceName="bigquery.googleapis.com"
     AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
+    AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.errorResults") IS NULL
     AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL;
     """
 
     query = textwrap.dedent(query) + audit_log_filter
 
     return textwrap.dedent(query)
+
+
+def get_partition_range_from_partition_id(
+    partition_id: str, partition_datetime: Optional[datetime.datetime]
+) -> Tuple[datetime.datetime, datetime.datetime]:
+    duration: relativedelta
+    # if yearly partitioned,
+    if len(partition_id) == 4:
+        duration = relativedelta(years=1)
+        if not partition_datetime:
+            partition_datetime = datetime.datetime.strptime(partition_id, "%Y")
+        partition_datetime = partition_datetime.replace(month=1, day=1)
+    # elif monthly partitioned,
+    elif len(partition_id) == 6:
+        duration = relativedelta(months=1)
+        if not partition_datetime:
+            partition_datetime = datetime.datetime.strptime(partition_id, "%Y%m")
+        partition_datetime = partition_datetime.replace(day=1)
+    # elif daily partitioned,
+    elif len(partition_id) == 8:
+        duration = relativedelta(days=1)
+        if not partition_datetime:
+            partition_datetime = datetime.datetime.strptime(partition_id, "%Y%m%d")
+    # elif hourly partitioned,
+    elif len(partition_id) == 10:
+        duration = relativedelta(hours=1)
+        if not partition_datetime:
+            partition_datetime = datetime.datetime.strptime(partition_id, "%Y%m%d%H")
+    else:
+        raise ValueError(
+            f"check your partition_id {partition_id}. It must be yearly/monthly/daily/hourly."
+        )
+    upper_bound_partition_datetime = partition_datetime + duration
+    return partition_datetime, upper_bound_partition_datetime
 
 
 # Handle the GEOGRAPHY type. We will temporarily patch the _type_map
@@ -240,7 +287,42 @@ class BigQueryPartitionColumn:
     partition_id: str
 
 
+# We can't use close as it is not called if the ingestion is not successful
+def cleanup(config: BigQueryConfig) -> None:
+    if config._credentials_path is not None:
+        logger.debug(
+            f"Deleting temporary credential file at {config._credentials_path}"
+        )
+        os.unlink(config._credentials_path)
+
+
+@config_class(BigQueryConfig)
+@platform_name("BigQuery")
+@support_status(SupportStatus.CERTIFIED)
+@capability(
+    SourceCapability.PLATFORM_INSTANCE,
+    "BigQuery doesn't need platform instances because project ids in BigQuery are globally unique.",
+    supported=False,
+)
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
+@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@capability(
+    SourceCapability.USAGE_STATS,
+    "Not provided by this module, use `bigquery-usage` for that.",
+    supported=False,
+)
+@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 class BigQuerySource(SQLAlchemySource):
+    """
+    This plugin extracts the following:
+    - Metadata for databases, schemas, and tables
+    - Column types associated with each table
+    - Table, row, and column statistics via optional SQL profiling
+    - Table level lineage.
+    """
+
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "bigquery")
         self.config: BigQueryConfig = config
@@ -248,6 +330,7 @@ class BigQuerySource(SQLAlchemySource):
         self.report: BigQueryReport = BigQueryReport()
         self.lineage_metadata: Optional[Dict[str, Set[str]]] = None
         self.maximum_shard_ids: Dict[str, str] = dict()
+        atexit.register(cleanup, config)
 
     def get_db_name(self, inspector: Inspector = None) -> str:
         if self.config.project_id:
@@ -535,7 +618,7 @@ class BigQuerySource(SQLAlchemySource):
                 # If there is a view being referenced then bigquery sends both the view as well as underlying table
                 # in the references. There is no distinction between direct/base objects accessed. So doing sql parsing
                 # to ensure we only use direct objects accessed for lineage
-                parser = DefaultSQLParser(e.query)
+                parser = BigQuerySQLParser(e.query)
                 referenced_objs = set(
                     map(lambda x: x.split(".")[-1], parser.get_tables())
                 )
@@ -621,14 +704,25 @@ class BigQuerySource(SQLAlchemySource):
 
         partition = self.get_latest_partition(schema, table)
         if partition:
-            partition_ts: Union[datetime.datetime, datetime.date]
-            if not partition_datetime:
-                partition_datetime = parser.parse(partition.partition_id)
+            partition_where_clause: str
             logger.debug(f"{table} is partitioned and partition column is {partition}")
+            (
+                partition_datetime,
+                upper_bound_partition_datetime,
+            ) = get_partition_range_from_partition_id(
+                partition.partition_id, partition_datetime
+            )
             if partition.data_type in ("TIMESTAMP", "DATETIME"):
-                partition_ts = partition_datetime
+                partition_where_clause = "{column_name} BETWEEN '{partition_id}' AND '{upper_bound_partition_id}'".format(
+                    column_name=partition.column_name,
+                    partition_id=partition_datetime,
+                    upper_bound_partition_id=upper_bound_partition_datetime,
+                )
             elif partition.data_type == "DATE":
-                partition_ts = partition_datetime.date()
+                partition_where_clause = "{column_name} = '{partition_id}'".format(
+                    column_name=partition.column_name,
+                    partition_id=partition_datetime.date(),
+                )
             else:
                 logger.warning(f"Not supported partition type {partition.data_type}")
                 return None, None
@@ -639,13 +733,12 @@ SELECT
 FROM
     `{table_catalog}.{table_schema}.{table_name}`
 WHERE
-    {column_name} = '{partition_id}'
+    {partition_where_clause}
             """.format(
                 table_catalog=partition.table_catalog,
                 table_schema=partition.table_schema,
                 table_name=partition.table_name,
-                column_name=partition.column_name,
-                partition_id=partition_ts,
+                partition_where_clause=partition_where_clause,
             )
 
             return (partition.partition_id, custom_sql)
@@ -906,11 +999,3 @@ WHERE
         for wu in container_workunits:
             self.report.report_workunit(wu)
             yield wu
-
-    # We can't use close as it is not called if the ingestion is not successful
-    def __del__(self):
-        if self.config._credentials_path is not None:
-            logger.debug(
-                f"Deleting temporary credential file at {self.config._credentials_path}"
-            )
-            os.unlink(self.config._credentials_path)

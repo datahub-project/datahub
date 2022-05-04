@@ -404,6 +404,18 @@ fragment nonRecursiveMLFeature on MLFeature {
     deprecation {
         ...deprecationFields
     }
+    featureTables: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 100 }) {
+        relationships {
+            type
+            entity {
+                ... on MLFeatureTable {
+                    platform {
+                        ...platformFields
+                    }
+                }
+            }
+        }
+    }
 }
 
 fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
@@ -456,6 +468,18 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
     deprecation {
         ...deprecationFields
     }
+    featureTables: relationships(input: { types: ["KeyedBy"], direction: INCOMING, start: 0, count: 100 }) {
+        relationships {
+            type
+            entity {
+                ... on MLFeatureTable {
+                    platform {
+                        ...platformFields
+                    }
+                }
+            }
+        }
+    }
 }
 
 fragment nonRecursiveMLFeatureTable on MLFeatureTable {
@@ -473,6 +497,10 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
         }
         mlPrimaryKeys {
             ...nonRecursiveMLPrimaryKey
+        }
+        customProperties {
+            key
+            value
         }
     }
     ownership {

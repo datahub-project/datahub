@@ -1,8 +1,16 @@
 import json
 
 import click
-from feast import Client
-from feast.data_source import BigQuerySource, FileSource, KafkaSource, KinesisSource
+import feast
+
+if feast.__version__ <= "0.18.0":
+    from feast import Client  # type: ignore
+    from feast.data_source import (  # type: ignore
+        BigQuerySource,
+        FileSource,
+        KafkaSource,
+        KinesisSource,
+    )
 
 
 @click.command(
