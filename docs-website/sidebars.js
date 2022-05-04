@@ -215,6 +215,7 @@ module.exports = {
       "docs/domains",
       "docs/ui-ingestion",
       "docs/tags",
+      "docs/schema-history",
       "docs/how/search",
       "docs/how/auth/add-users",
       "docs/how/ui-tabs-guide",
