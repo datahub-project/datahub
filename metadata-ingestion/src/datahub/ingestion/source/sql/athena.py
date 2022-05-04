@@ -10,12 +10,12 @@ from sqlalchemy.engine.reflection import Inspector
 
 from datahub.emitter.mcp_builder import DatabaseKey, gen_containers
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
-    SourceCapability,
-    capability,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
