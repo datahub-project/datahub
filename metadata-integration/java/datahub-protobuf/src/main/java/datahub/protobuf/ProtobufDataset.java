@@ -21,13 +21,13 @@ import datahub.protobuf.visitors.dataset.DomainVisitor;
 import datahub.protobuf.visitors.dataset.InstitutionalMemoryVisitor;
 import datahub.protobuf.visitors.dataset.KafkaTopicPropertyVisitor;
 import datahub.protobuf.visitors.dataset.OwnershipVisitor;
-import datahub.protobuf.visitors.dataset.ProtobufExtensionPropertyVisitor;
-import datahub.protobuf.visitors.dataset.ProtobufExtensionTagAssocVisitor;
-import datahub.protobuf.visitors.dataset.ProtobufExtensionTermAssocVisitor;
+import datahub.protobuf.visitors.dataset.PropertyVisitor;
+import datahub.protobuf.visitors.dataset.TagAssociationVisitor;
+import datahub.protobuf.visitors.dataset.TermAssociationVisitor;
 import datahub.protobuf.visitors.field.SchemaFieldVisitor;
 import datahub.event.MetadataChangeProposalWrapper;
 import datahub.protobuf.visitors.field.ProtobufExtensionFieldVisitor;
-import datahub.protobuf.visitors.tags.ProtobufExtensionTagVisitor;
+import datahub.protobuf.visitors.tags.TagVisitor;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
@@ -122,7 +122,7 @@ public class ProtobufDataset {
                     new ProtobufGraph(fileSet, messageName, filename), schema, auditStamp, fabricType)
                     .setMetadataChangeProposalVisitors(
                             List.of(
-                                    new ProtobufExtensionTagVisitor()
+                                    new TagVisitor()
                             )
                     )
                     .setFieldVisitor(new ProtobufExtensionFieldVisitor())
@@ -131,7 +131,7 @@ public class ProtobufDataset {
                             .datasetPropertyVisitors(
                                     List.of(
                                             new KafkaTopicPropertyVisitor(),
-                                            new ProtobufExtensionPropertyVisitor()
+                                            new PropertyVisitor()
                                     )
                             )
                             .institutionalMemoryMetadataVisitors(
@@ -141,12 +141,12 @@ public class ProtobufDataset {
                             )
                             .tagAssociationVisitors(
                                     List.of(
-                                            new ProtobufExtensionTagAssocVisitor()
+                                            new TagAssociationVisitor()
                                     )
                             )
                             .termAssociationVisitors(
                                     List.of(
-                                            new ProtobufExtensionTermAssocVisitor()
+                                            new TermAssociationVisitor()
                                     )
                             )
                             .ownershipVisitors(

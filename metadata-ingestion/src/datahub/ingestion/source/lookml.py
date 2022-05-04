@@ -20,6 +20,12 @@ from pydantic.fields import Field
 
 from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.source.looker_common import (
     LookerCommonConfig,
     LookerUtil,
@@ -140,15 +146,34 @@ class LookerConnectionDefinition(ConfigModel):
 
 
 class LookMLSourceConfig(LookerCommonConfig):
-    base_folder: pydantic.DirectoryPath
-    connection_to_platform_map: Optional[Dict[str, LookerConnectionDefinition]]
-    model_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    parse_table_names_from_sql: bool = False
-    sql_parser: str = "datahub.utilities.sql_parser.DefaultSQLParser"
+    base_folder: pydantic.DirectoryPath = Field(
+        description="Local filepath where the root of the LookML repo lives. This is typically the root folder where the `*.model.lkml` and `*.view.lkml` files are stored. e.g. If you have checked out your LookML repo under `/Users/jdoe/workspace/my-lookml-repo`, then set `base_folder` to `/Users/jdoe/workspace/my-lookml-repo`."
+    )
+    connection_to_platform_map: Optional[Dict[str, LookerConnectionDefinition]] = Field(
+        None,
+        description="A mapping of [Looker connection names](https://docs.looker.com/reference/model-params/connection-for-model) to DataHub platform, database, and schema values.",
+    )
+    model_pattern: AllowDenyPattern = Field(
+        AllowDenyPattern.allow_all(),
+        description="List of regex patterns for LookML models to include in the extraction.",
+    )
+    view_pattern: AllowDenyPattern = Field(
+        AllowDenyPattern.allow_all(),
+        description="List of regex patterns for LookML views to include in the extraction.",
+    )
+    parse_table_names_from_sql: bool = Field(False, description="See note below.")
+    sql_parser: str = Field(
+        "datahub.utilities.sql_parser.DefaultSQLParser", description="See note below."
+    )
     api: Optional[LookerAPIConfig]
-    project_name: Optional[str]
-    transport_options: Optional[TransportOptionsConfig]
+    project_name: Optional[str] = Field(
+        None,
+        description="Required if you don't specify the `api` section. The project name within which all the model files live. See (https://docs.looker.com/data-modeling/getting-started/how-project-works) to understand what the Looker project name should be. The simplest way to see your projects is to click on `Develop` followed by `Manage LookML Projects` in the Looker application.",
+    )
+    transport_options: Optional[TransportOptionsConfig] = Field(
+        None,
+        description="Populates the [TransportOptions](https://github.com/looker-open-source/sdk-codegen/blob/94d6047a0d52912ac082eb91616c1e7c379ab262/python/looker_sdk/rtl/transport.py#L70) struct for looker client",
+    )
 
     @validator("platform_instance")
     def platform_instance_not_supported(cls, v: str) -> str:
@@ -761,7 +786,21 @@ class LookerView:
         return None
 
 
+@platform_name("Looker")
+@config_class(LookMLSourceConfig)
+@support_status(SupportStatus.CERTIFIED)
 class LookMLSource(Source):
+    """
+    This plugin extracts the following:
+    - LookML views from model files in a project
+    - Name, upstream table names, metadata for dimensions, measures, and dimension groups attached as tags
+    - If API integration is enabled (recommended), resolves table and view names by calling the Looker API, otherwise supports offline resolution of these names.
+
+    :::note
+    To get complete Looker metadata integration (including Looker dashboards and charts and lineage to the underlying Looker views, you must ALSO use the `looker` source module.
+    :::
+    """
+
     source_config: LookMLSourceConfig
     reporter: LookMLSourceReport
     looker_client: Optional[Looker31SDK] = None
@@ -779,11 +818,6 @@ class LookMLSource(Source):
                 raise ValueError(
                     "Failed to retrieve connections from looker client. Please check to ensure that you have manage_models permission enabled on this API key."
                 )
-
-    @classmethod
-    def create(cls, config_dict, ctx):
-        config = LookMLSourceConfig.parse_obj(config_dict)
-        return cls(config, ctx)
 
     def _load_model(self, path: str) -> LookerModel:
         with open(path, "r") as file:
