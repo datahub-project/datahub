@@ -8,6 +8,7 @@ from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type
 
 from elasticsearch import Elasticsearch
 from pydantic import validator
+from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.source_common import DatasetSourceConfigBase
@@ -18,6 +19,14 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
@@ -165,12 +174,22 @@ class ElasticsearchSourceReport(SourceReport):
 
 
 class ElasticsearchSourceConfig(DatasetSourceConfigBase):
-    host: str = "localhost:9200"
-    username: Optional[str] = None
-    password: Optional[str] = None
-    url_prefix: str = ""
-    index_pattern: AllowDenyPattern = AllowDenyPattern(
-        allow=[".*"], deny=["^_.*", "^ilm-history.*"]
+    host: str = Field(
+        default="localhost:9200", description="The elastic search host URI."
+    )
+    username: Optional[str] = Field(
+        default=None, description="The username credential."
+    )
+    password: Optional[str] = Field(
+        default=None, description="The password credential."
+    )
+    url_prefix: str = Field(
+        default="",
+        description="There are cases where an enterprise would have multiple elastic search clusters. One way for them to manage is to have a single endpoint for all the elastic search clusters and use url_prefix for routing requests to different clusters.",
+    )
+    index_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern(allow=[".*"], deny=["^_.*", "^ilm-history.*"]),
+        description="regex patterns for indexes to filter in ingestion.",
     )
 
     @validator("host")
@@ -208,7 +227,19 @@ class ElasticsearchSourceConfig(DatasetSourceConfigBase):
         return self.username, self.password or ""
 
 
+@platform_name("Elastic Search")
+@config_class(ElasticsearchSourceConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 class ElasticsearchSource(Source):
+
+    """
+    This plugin extracts the following:
+
+    - Metadata for indexes
+    - Column types associated with each index field
+    """
+
     def __init__(self, config: ElasticsearchSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.source_config = config

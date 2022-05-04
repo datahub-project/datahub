@@ -1,0 +1,52 @@
+namespace com.linkedin.platform.event.v1
+
+import com.linkedin.common.Urn
+import com.linkedin.common.AuditStamp
+
+/**
+ * Shared fields for all entity change events.
+ */
+@Event = {
+  "name": "entityChangeEvent"
+}
+record EntityChangeEvent {
+  /**
+   * The type of the entity affected. Corresponds to the entity registry, e.g. 'dataset', 'chart', 'dashboard', etc.
+   */
+  entityType: string
+
+  /**
+   * The urn of the entity which was affected.
+   */
+  entityUrn: Urn
+
+  /**
+   * The category type (TAG, GLOSSARY_TERM, OWNERSHIP, TECHNICAL_SCHEMA, etc). This is used to determine what the rest of the schema will look like.
+   */
+  category: string
+
+  /**
+   * The operation type. This is used to determine what the rest of the schema will look like.
+   */
+  operation: string
+
+  /**
+   * The urn of the entity which was affected.
+   */
+  modifier: optional string
+
+  /**
+   * Arbitrary key-value parameters corresponding to the event.
+   */
+  parameters: optional Parameters
+
+  /**
+   * Audit stamp of the operation
+   */
+  auditStamp: AuditStamp
+
+  /**
+   * The version of the event type, incremented in integers.
+   */
+  version: int
+}

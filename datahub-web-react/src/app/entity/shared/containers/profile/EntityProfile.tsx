@@ -43,6 +43,7 @@ type Props<T, U> = {
     getOverrideProperties: (T) => GenericEntityProperties;
     tabs: EntityTab[];
     sidebarSections: EntitySidebarSection[];
+    showDeprecateOption?: boolean;
 };
 
 const ContentContainer = styled.div`
@@ -67,8 +68,21 @@ const HeaderAndTabsFlex = styled.div`
     max-height: 100%;
     overflow: hidden;
     min-height: 0;
+    overflow-y: auto;
+
+    &::-webkit-scrollbar {
+        height: 12px;
+        width: 2px;
+        background: #f2f2f2;
+    }
+    &::-webkit-scrollbar-thumb {
+        background: #cccccc;
+        -webkit-border-radius: 1ex;
+        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
+    }
 `;
 const Sidebar = styled.div`
+    max-height: 100%;
     overflow: auto;
     flex-basis: 30%;
     padding-left: 20px;
@@ -82,6 +96,8 @@ const Header = styled.div`
 `;
 
 const TabContent = styled.div`
+    display: flex;
+    flex-direction: column;
     flex: 1;
     overflow: auto;
 `;
@@ -114,6 +130,7 @@ export const EntityProfile = <T, U>({
     getOverrideProperties,
     tabs,
     sidebarSections,
+    showDeprecateOption,
 }: Props<T, U>): JSX.Element => {
     const isLineageMode = useIsLineageMode();
     const entityRegistry = useEntityRegistry();
@@ -202,7 +219,7 @@ export const EntityProfile = <T, U>({
                     )}
                     {!loading && (
                         <>
-                            <EntityHeader />
+                            <EntityHeader showDeprecateOption={showDeprecateOption} />
                             <Divider />
                             <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
                         </>
@@ -233,7 +250,7 @@ export const EntityProfile = <T, U>({
                 {showBrowseBar && <EntityProfileNavBar urn={urn} entityType={entityType} />}
                 {entityData?.status?.removed === true && (
                     <Alert
-                        message="This entity has been soft deleted and is not discoverable via search or lineage graph"
+                        message="This entity is not discoverable via search or lineage graph. Contact your DataHub admin for more information."
                         banner
                     />
                 )}
@@ -260,7 +277,7 @@ export const EntityProfile = <T, U>({
                             <HeaderAndTabs>
                                 <HeaderAndTabsFlex>
                                     <Header>
-                                        <EntityHeader />
+                                        <EntityHeader showDeprecateOption={showDeprecateOption} />
                                         <EntityTabs
                                             tabs={[...tabsWithDefaults, ...autoRenderTabs]}
                                             selectedTab={routedTab}

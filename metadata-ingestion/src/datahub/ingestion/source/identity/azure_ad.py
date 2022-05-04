@@ -8,11 +8,18 @@ from typing import Any, Dict, Generator, Iterable, List
 
 import click
 import requests
+from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import make_group_urn, make_user_urn
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
@@ -33,35 +40,94 @@ class AzureADConfig(ConfigModel):
     """Config to create a token and connect to Azure AD instance"""
 
     # Required
-    client_id: str
-    tenant_id: str
-    client_secret: str
-    redirect: str
-    authority: str
-    token_url: str
-    graph_url: str
+    client_id: str = Field(
+        description="Application ID. Found in your app registration on Azure AD Portal"
+    )
+    tenant_id: str = Field(
+        description="Directory ID. Found in your app registration on Azure AD Portal"
+    )
+    client_secret: str = Field(
+        description="Client secret. Found in your app registration on Azure AD Portal"
+    )
+    authority: str = Field(
+        description="The authority (https://docs.microsoft.com/en-us/azure/active-directory/develop/msal-client-application-configuration) is a URL that indicates a directory that MSAL can request tokens from."
+    )
+    token_url: str = Field(
+        description="The token URL that acquires a token from Azure AD for authorizing requests.  This source will only work with v1.0 endpoint."
+    )
+    # Optional: URLs for redirect and hitting the Graph API
+    redirect: str = Field(
+        "https://login.microsoftonline.com/common/oauth2/nativeclient",
+        description="Redirect URI.  Found in your app registration on Azure AD Portal.",
+    )
+
+    graph_url: str = Field(
+        "https://graph.microsoft.com/v1.0",
+        description="[Microsoft Graph API endpoint](https://docs.microsoft.com/en-us/graph/use-the-api)",
+    )
 
     # Optional: Customize the mapping to DataHub Username from an attribute in the REST API response
     # Reference: https://docs.microsoft.com/en-us/graph/api/user-list?view=graph-rest-1.0&tabs=http#response-1
-    azure_ad_response_to_username_attr: str = "userPrincipalName"
-    azure_ad_response_to_username_regex: str = "(.*)"
+    azure_ad_response_to_username_attr: str = Field(
+        default="userPrincipalName",
+        description="Which Azure AD User Response attribute to use as input to DataHub username mapping.",
+    )
+    azure_ad_response_to_username_regex: str = Field(
+        default="(.*)",
+        description="A regex used to parse the DataHub username from the attribute specified in `azure_ad_response_to_username_attr`.",
+    )
 
     # Optional: Customize the mapping to DataHub Groupname from an attribute in the REST API response
     # Reference: https://docs.microsoft.com/en-us/graph/api/group-list?view=graph-rest-1.0&tabs=http#response-1
-    azure_ad_response_to_groupname_attr: str = "displayName"
-    azure_ad_response_to_groupname_regex: str = "(.*)"
+    azure_ad_response_to_groupname_attr: str = Field(
+        default="displayName",
+        description="Which Azure AD Group Response attribute to use as input to DataHub group name mapping.",
+    )
+    azure_ad_response_to_groupname_regex: str = Field(
+        default="(.*)",
+        description="A regex used to parse the DataHub group name from the attribute specified in `azure_ad_response_to_groupname_attr`.",
+    )
 
     # Optional: to ingest users, groups or both
-    ingest_users: bool = True
-    ingest_groups: bool = True
-    ingest_group_membership: bool = True
+    ingest_users: bool = Field(
+        default=True, description="Whether users should be ingested into DataHub."
+    )
+    ingest_groups: bool = Field(
+        default=True, description="Whether groups should be ingested into DataHub."
+    )
+    ingest_group_membership: bool = Field(
+        default=True,
+        description="Whether group membership should be ingested into DataHub. ingest_groups must be True if this is True.",
+    )
 
-    ingest_groups_users: bool = True
-    users_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    groups_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    ingest_groups_users: bool = Field(
+        default=True,
+        description="This option is useful only when `ingest_users` is set to False and `ingest_group_membership` to True. As effect, only the users which belongs to the selected groups will be ingested.",
+    )
+    users_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for users to filter in ingestion.",
+    )
+    groups_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for groups to include in ingestion.",
+    )
 
     # If enabled, report will contain names of filtered users and groups.
-    filtered_tracking: bool = True
+    filtered_tracking: bool = Field(
+        default=True,
+        description="If enabled, report will contain names of filtered users and groups.",
+    )
+
+    # Optional: Whether to mask sensitive information from workunit ID's. On by default.
+    mask_group_id: bool = Field(
+        True,
+        description="Whether workunit ID's for groups should be masked to avoid leaking sensitive information.",
+    )
+    mask_user_id: bool = Field(
+        True,
+        description="Whether workunit ID's for users should be masked to avoid leaking sensitive information.",
+    )
 
 
 @dataclass
@@ -79,8 +145,81 @@ class AzureADSourceReport(SourceReport):
 # Source that extracts Azure AD users, groups and group memberships using Microsoft Graph REST API
 
 
+@platform_name("Azure AD")
+@config_class(AzureADConfig)
+@support_status(SupportStatus.CERTIFIED)
 class AzureADSource(Source):
-    """Ingest Azure AD Users and Groups into DataHub"""
+    """
+    This plugin extracts the following:
+
+    - Users
+    - Groups
+    - Group Membership
+
+    from your Azure AD instance.
+
+    ### Extracting DataHub Users
+
+    #### Usernames
+
+    Usernames serve as unique identifiers for users on DataHub. This connector extracts usernames using the
+    "userPrincipalName" field of an [Azure AD User Response](https://docs.microsoft.com/en-us/graph/api/user-list?view=graph-rest-1.0&tabs=http#response-1),
+    which is the unique identifier for your Azure AD users.
+
+    If this is not how you wish to map to DataHub usernames, you can provide a custom mapping using the configurations options detailed below. Namely, `azure_ad_response_to_username_attr`
+    and `azure_ad_response_to_username_regex`.
+
+    #### Responses
+
+    This connector also extracts basic user response information from Azure. The following fields of the Azure User Response are extracted
+    and mapped to the DataHub `CorpUserInfo` aspect:
+
+    - display name
+    - first name
+    - last name
+    - email
+    - title
+    - country
+
+    ### Extracting DataHub Groups
+
+    #### Group Names
+
+    Group names serve as unique identifiers for groups on DataHub. This connector extracts group names using the "name" attribute of an Azure Group Response.
+    By default, a URL-encoded version of the full group name is used as the unique identifier (CorpGroupKey) and the raw "name" attribute is mapped
+    as the display name that will appear in DataHub's UI.
+
+    If this is not how you wish to map to DataHub group names, you can provide a custom mapping using the configurations options detailed below. Namely, `azure_ad_response_to_groupname_attr`
+    and `azure_ad_response_to_groupname_regex`.
+
+    #### Responses
+
+    This connector also extracts basic group information from Azure. The following fields of the [Azure AD Group Response](https://docs.microsoft.com/en-us/graph/api/group-list?view=graph-rest-1.0&tabs=http#response-1) are extracted and mapped to the
+    DataHub `CorpGroupInfo` aspect:
+
+    - name
+    - description
+
+    ### Extracting Group Membership
+
+    This connector additional extracts the edges between Users and Groups that are stored in [Azure AD](https://docs.microsoft.com/en-us/graph/api/group-list-members?view=graph-rest-1.0&tabs=http#response-1). It maps them to the `GroupMembership` aspect
+    associated with DataHub users (CorpUsers). Today this has the unfortunate side effect of **overwriting** any Group Membership information that
+    was created outside of the connector. That means if you've used the DataHub REST API to assign users to groups, this information will be overridden
+    when the Azure AD Source is executed. If you intend to *always* pull users, groups, and their relationships from your Identity Provider, then
+    this should not matter.
+
+    This is a known limitation in our data model that is being tracked by [this ticket](https://github.com/datahub-project/datahub/issues/3065).
+
+    ### Prerequisite
+
+    [Create a DataHub Application](https://docs.microsoft.com/en-us/graph/toolkit/get-started/add-aad-app-registration) within the Azure AD Portal with the permissions
+    to read your organization's Users and Groups. The following permissions are required, with the `Application` permission type:
+
+    - `Group.Read.All`
+    - `GroupMember.Read.All`
+    - `User.Read.All`
+
+    """
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -134,11 +273,18 @@ class AzureADSource(Source):
                 datahub_corp_group_snapshots = self._map_azure_ad_groups(
                     azure_ad_groups
                 )
-                for datahub_corp_group_snapshot in datahub_corp_group_snapshots:
+                for group_count, datahub_corp_group_snapshot in enumerate(
+                    datahub_corp_group_snapshots
+                ):
                     mce = MetadataChangeEvent(
                         proposedSnapshot=datahub_corp_group_snapshot
                     )
-                    wu = MetadataWorkUnit(id=datahub_corp_group_snapshot.urn, mce=mce)
+                    wu_id = (
+                        f"group-{group_count + 1}"
+                        if self.config.mask_group_id
+                        else datahub_corp_group_snapshot.urn
+                    )
+                    wu = MetadataWorkUnit(id=wu_id, mce=mce)
                     self.report.report_workunit(wu)
                     yield wu
 
@@ -216,8 +362,9 @@ class AzureADSource(Source):
                         user_urn_to_group_membership,
                     )
                 else:
-                    raise ValueError(
-                        f"Unsupported @odata.type '{odata_type}' found in Azure group member"
+                    # Unless told otherwise, we only care about users and groups.  Silently skip other object types.
+                    logger.warning(
+                        f"Unsupported @odata.type '{odata_type}' found in Azure group member. Skipping...."
                     )
 
     def _add_user_to_group_membership(
@@ -241,7 +388,9 @@ class AzureADSource(Source):
         datahub_corp_user_snapshots: Generator[CorpUserSnapshot, Any, None],
         datahub_corp_user_urn_to_group_membership: dict,
     ) -> Generator[MetadataWorkUnit, Any, None]:
-        for datahub_corp_user_snapshot in datahub_corp_user_snapshots:
+        for user_count, datahub_corp_user_snapshot in enumerate(
+            datahub_corp_user_snapshots
+        ):
             # Add GroupMembership if applicable
             if (
                 datahub_corp_user_snapshot.urn
@@ -255,7 +404,12 @@ class AzureADSource(Source):
                 assert datahub_group_membership
                 datahub_corp_user_snapshot.aspects.append(datahub_group_membership)
             mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_user_snapshot)
-            wu = MetadataWorkUnit(id=datahub_corp_user_snapshot.urn, mce=mce)
+            wu_id = (
+                f"user-{user_count + 1}"
+                if self.config.mask_user_id
+                else datahub_corp_user_snapshot.urn
+            )
+            wu = MetadataWorkUnit(id=wu_id, mce=mce)
             self.report.report_workunit(wu)
             yield wu
 
