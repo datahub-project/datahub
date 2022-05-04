@@ -69,6 +69,17 @@ class ConfigurationMechanism(ABC):
         pass
 
 
+class OauthConfiguration(ConfigModel):
+    provider: Optional[str]
+    client_id: Optional[str]
+    scopes: Optional[List[str]]
+    use_certificate: Optional[str]
+    client_secret: Optional[str]
+    authority_url: Optional[str]
+    encoded_oauth_public_key: Optional[str]
+    encoded_oauth_private_key: Optional[str]
+
+
 class AllowDenyPattern(ConfigModel):
     """A class to store allow deny regexes"""
 

@@ -8,7 +8,6 @@ import pydantic
 # This import verifies that the dependencies are available.
 import snowflake.sqlalchemy  # noqa: F401
 import sqlalchemy.engine
-from snowflake.connector.network import OAUTH_AUTHENTICATOR
 from snowflake.sqlalchemy import custom_types, snowdialect
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
@@ -64,6 +63,7 @@ class SnowflakeSource(SQLAlchemySource):
     def get_metadata_engine(
         self, database: Optional[str] = None
     ) -> sqlalchemy.engine.Engine:
+        logger.info("logging here " + str(self.config.authentication_type))
         if self.provision_role_in_progress and self.config.provision_role is not None:
             username: Optional[str] = self.config.provision_role.admin_username
             password: Optional[
@@ -79,13 +79,15 @@ class SnowflakeSource(SQLAlchemySource):
             database=database, username=username, password=password, role=role
         )
         logger.debug(f"sql_alchemy_url={url}")
-        if self.config.authentication_type == OAUTH_AUTHENTICATOR:
+        if self.config.authentication_type == "OAUTH_AUTHENTICATOR":
+            logger.info("here i am")
             return create_engine(
                 url,
                 creator=self.config.get_oauth_connection,
                 **self.config.options,
             )
         else:
+            logger.info("in else")
             return create_engine(
                 url,
                 connect_args=self.config.get_sql_alchemy_connect_args(),
