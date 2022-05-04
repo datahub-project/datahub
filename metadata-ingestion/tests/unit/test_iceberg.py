@@ -1,10 +1,11 @@
 import sys
-from typing import Any
 
 import pytest
 
 if sys.version_info < (3, 7):
     pytest.skip("iceberg not available for python < 3.7", allow_module_level=True)
+from typing import Any
+
 from iceberg.api import types as IcebergTypes
 from iceberg.api.types.types import NestedField
 
@@ -46,9 +47,15 @@ def assert_field(
     expected_nullable: bool,
     expected_type: Any,
 ) -> None:
-    assert schema_field.description == expected_description
-    assert schema_field.nullable == expected_nullable
-    assert isinstance(schema_field.type.type, expected_type)
+    assert (
+        schema_field.description == expected_description
+    ), f"Field description '{schema_field.description}' is different from expected description '{expected_description}'"
+    assert (
+        schema_field.nullable == expected_nullable
+    ), f"Field nullable '{schema_field.nullable}' is different from expected nullable '{expected_nullable}'"
+    assert isinstance(
+        schema_field.type.type, expected_type
+    ), f"Field type {schema_field.type.type} is different from expected type {expected_type}"
 
 
 @pytest.mark.parametrize(
@@ -98,7 +105,9 @@ def test_iceberg_primitive_type_to_schema_field(
         ),
     ]:
         schema_fields = iceberg_source_instance._get_schema_fields_for_column(column)
-        assert len(schema_fields) == 1
+        assert (
+            len(schema_fields) == 1
+        ), f"Expected 1 field, but got {len(schema_fields)}"
         assert_field(
             schema_fields[0], column.doc, column.is_optional, expected_schema_field_type
         )
@@ -118,7 +127,7 @@ def test_iceberg_list_to_schema_field():
     )
     iceberg_source_instance = iceberg_source()
     schema_fields = iceberg_source_instance._get_schema_fields_for_column(list_column)
-    assert len(schema_fields) == 1
+    assert len(schema_fields) == 1, f"Expected 1 field, but got {len(schema_fields)}"
     assert_field(
         schema_fields[0], list_column.doc, list_column.is_optional, ArrayTypeClass
     )
@@ -143,7 +152,7 @@ def test_iceberg_map_to_schema_field():
     )
     iceberg_source_instance = iceberg_source()
     schema_fields = iceberg_source_instance._get_schema_fields_for_column(map_column)
-    assert len(schema_fields) == 1
+    assert len(schema_fields) == 1, f"Expected 1 field, but got {len(schema_fields)}"
     assert_field(schema_fields[0], map_column.doc, map_column.is_optional, MapTypeClass)
     assert isinstance(schema_fields[0].type.type, MapType)
     mapType: MapType = schema_fields[0].type.type
@@ -191,7 +200,7 @@ def test_iceberg_struct_to_schema_field(iceberg_type, expected_schema_field_type
     )
     iceberg_source_instance = iceberg_source()
     schema_fields = iceberg_source_instance._get_schema_fields_for_column(struct_column)
-    assert len(schema_fields) == 2
+    assert len(schema_fields) == 2, f"Expected 2 fields, but got {len(schema_fields)}"
     assert_field(
         schema_fields[0], struct_column.doc, struct_column.is_optional, RecordTypeClass
     )

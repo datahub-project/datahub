@@ -352,9 +352,9 @@ def _parse_basic_datatype(
         decimal_type: IcebergTypes.DecimalType = type
         return {
             # "type": "bytes", # when using bytes, avro drops _nullable attribute and others.  See unit test.
-            "type": "fixed",  # to fix avro bug
-            "name": "bogus",  # to fix avro bug
-            "size": 1,  # to fix avro bug
+            "type": "fixed",  # to fix avro bug ^ resolved by using a fixed type
+            "name": "bogus",  # to fix avro bug ^ resolved by using a fixed type
+            "size": 1,  # to fix avro bug ^ resolved by using a fixed type
             "logicalType": "decimal",
             "precision": decimal_type.precision,
             "scale": decimal_type.scale,

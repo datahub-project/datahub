@@ -1,9 +1,13 @@
 import sys
+
+import pytest
+
+if sys.version_info < (3, 7):
+    pytest.skip("iceberg not available for python < 3.7", allow_module_level=True)
 from pathlib import PosixPath
 from typing import Union
 from unittest.mock import patch
 
-import pytest
 from iceberg.core.filesystem.file_status import FileStatus
 from iceberg.core.filesystem.local_filesystem import LocalFileSystem
 
@@ -15,9 +19,6 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 
 @pytest.mark.integration
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="iceberg requires Python 3.7+")
-@pytest.mark.skip(
-    reason="Skip until unit tests are passing, which will mean the avro mapping bug has been fixed"
-)
 def test_iceberg_ingest(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/iceberg/"
 

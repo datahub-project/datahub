@@ -107,7 +107,7 @@
                                     "description": "A timestamp field",
                                     "type": {
                                         "type": {
-                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                            "com.linkedin.pegasus2avro.schema.TimeType": {}
                                         }
                                     },
                                     "nativeDataType": "timestamptz",
