@@ -4570,7 +4570,10 @@
                   "fields" : [ {
                     "name" : "displayName",
                     "type" : "string",
-                    "doc" : "Display name of the Policy"
+                    "doc" : "Display name of the Policy",
+                    "Searchable" : {
+                      "fieldType" : "KEYWORD"
+                    }
                   }, {
                     "name" : "description",
                     "type" : "string",

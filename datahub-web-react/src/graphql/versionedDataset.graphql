@@ -1,0 +1,28 @@
+query getVersionedDataset($urn: String!, $versionStamp: String) {
+    versionedDataset(urn: $urn, versionStamp: $versionStamp) {
+        schema {
+            fields {
+                fieldPath
+                jsonPath
+                nullable
+                description
+                type
+                nativeDataType
+                recursive
+                isPartOfKey
+            }
+        }
+        editableSchemaMetadata {
+            editableSchemaFieldInfo {
+                fieldPath
+                description
+                globalTags {
+                    ...globalTagsFields
+                }
+                glossaryTerms {
+                    ...glossaryTerms
+                }
+            }
+        }
+    }
+}
