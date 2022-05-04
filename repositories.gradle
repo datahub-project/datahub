@@ -1,7 +1,15 @@
-repositories {    
-    mavenLocal()        
+repositories {
+    gradlePluginPortal()
+    mavenLocal()
+    mavenCentral()
     maven {
-        url "https://artifacts.sys.dom:443/artifactory/maven"
+        url "https://packages.confluent.io/maven/"
+    }
+    maven {
+        url "https://plugins.gradle.org/m2/"
+    }
+    maven {
+        url "https://linkedin.jfrog.io/artifactory/open-source/" // GMA, pegasus
     }
 }
 
@@ -11,4 +19,3 @@ try {
     }
 } catch (Throwable t) {
 }
-
