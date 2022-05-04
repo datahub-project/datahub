@@ -109,6 +109,7 @@ source:
   type: snowflake
   config:
 
+    check_role_grants: True
     provision_role: # Optional
       enabled: false
       dry_run: true
@@ -116,8 +117,14 @@ source:
       admin_username: "${SNOWFLAKE_ADMIN_USER}"
       admin_password: "${SNOWFLAKE_ADMIN_PASS}"
 
+    # This option is recommended to be used for the first time to ingest all lineage
+    ignore_start_time_lineage: true
+    # This is an alternative option to specify the start_time for lineage
+    # if you don't want to look back since beginning
+    start_time: '2022-03-01T00:00:00Z'
+
     # Coordinates
-    host_port: account_name
+    account_id: "abc48144"
     warehouse: "COMPUTE_WH"
 
     # Credentials
@@ -125,6 +132,7 @@ source:
     password: "${SNOWFLAKE_PASS}"
     role: "datahub_role"
 
+    # Change these as per your database names. Remove to all all databases
     database_pattern:
       allow:
       - "^ACCOUNTING_DB$"
@@ -134,10 +142,12 @@ source:
       - "information_schema.*"
     table_pattern:
       allow:
-      # If you want to ingest only few tables with name revenue and revenue
+      # If you want to ingest only few tables with name revenue and sales
       - ".*revenue"
       - ".*sales"
+
     profiling:
+      # Change to false to disable profiling
       enabled: true
     profile_pattern:
       allow:
@@ -165,7 +175,8 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `password`                     |          |                                                                            | Snowflake password.                                                                                                                                                                     |
 | `private_key_path`             |          |                                                                            | The path to the private key if using key pair authentication. See: https://docs.snowflake.com/en/user-guide/key-pair-auth.html                                                          |
 | `private_key_password`         |          |                                                                            | Password for your private key if using key pair authentication.                                                                                                                         |
-| `host_port`                    | ✅        |                                                                            | Snowflake host URL.                                                                                                                                                                     |
+| `host_port`                    | Deprecated |                                                                          | Snowflake account. e.g. `abc48144`                  |
+| `account_id`                   | ✅        |                                                                           | Snowflake account. e.g. `abc48144`                 |
 | `warehouse`                    |          |                                                                            | Snowflake warehouse.                                                                                                                                                                    |
 | `role`                         |          |                                                                            | Snowflake role.                                                                                                                                                                         |
 | `sqlalchemy_uri`               |          |                                                                            | URI of database to connect to. See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls. Takes precedence over other connection parameters. |
@@ -189,7 +200,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `include_table_lineage`        |          | `True`                                                                     | If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role.                                                                |
 | `include_view_lineage`         |          | `True`                                                                     | If enabled, populates the snowflake view->table and table->view lineages (no view->view lineage yet). Requires appropriate grants given to the role, and `include_table_lineage` to be `True`.     |
 | `bucket_duration`              |          | `"DAY"`                                                                    | Duration to bucket lineage data extraction by. Can be `"DAY"` or `"HOUR"`.                                                                                                              |
-| `report_upstream_lineage`               |           | `False`  | Whether to report upstream lineage in the report. This should be marked as `True` in case someone is debugging lineage ingestion issues |
+| `upstream_lineage_in_report`               |           | `False`  | Whether to report upstream lineage in the report. This should be marked as `True` in case someone is debugging lineage ingestion issues |
 | `ignore_start_time_lineage`             |           | `False`     | Whether to ignore `start_time` and read all data for lineage. It is meant to be used for initial ingestion |
 | `start_time`                   |          | Start of last full day in UTC (or hour, depending on `bucket_duration`)    | Earliest time of lineage data to consider. For the bootstrap run, set it as far back in time as possible.                                                                               |
 | `end_time`                     |          | End of last full day in UTC (or hour, depending on `bucket_duration`)      | Latest time of lineage data to consider.                                                                                                                                                |
@@ -204,7 +215,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `provision_role.admin_role`             |          | `accountadmin` | The Snowflake role of admin user used for provisioning of the role specified by `role` config. System admins can audit the open source code and decide to use a different role |
 | `provision_role.admin_username`         |  ✅       |          | The username to be used for provisioning of role |
 | `provision_role.admin_password`         |  ✅       |          | The password to be used for provisioning of role |
-
+| `check_role_grants`                     |           | `False`  | If set to `True` then checks role grants at the beginning of the ingestion run. To be used for debugging purposes. If you think everything is working fine then set it to `False`. In some cases this can take long depending on how many roles you might have. |
 
 ## `snowflake-usage`
 
@@ -252,7 +263,7 @@ source:
   type: snowflake-usage
   config:
     # Coordinates
-    host_port: account_name
+    account_id: account_name
     warehouse: "COMPUTE_WH"
 
     # Credentials
@@ -286,7 +297,8 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 |---------------------------------|----------|---------------------------------------------------------------------|----------------------------------------------------------------------------------|
 | `username`                      |          |                                                                     | Snowflake username.                                                              |
 | `password`                      |          |                                                                     | Snowflake password.                                                              |
-| `host_port`                     | ✅       |                                                                     | Snowflake host URL.                                                              |
+| `host_port`                     | Deprecated |                                                                   | Snowflake account. e.g. `abc48144`.                                              |
+| `account_id`                    | ✅       |                                                                     | Snowflake account. e.g. `abc48144`.                                              |
 | `warehouse`                     |          |                                                                     | Snowflake warehouse.                                                             |
 | `role`                          |          |                                                                     | Snowflake role.                                                                  |
 | `env`                           |          | `"PROD"`                                                            | Environment to use in namespace when constructing URNs.                          |

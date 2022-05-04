@@ -60,6 +60,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 urn={urn}
                 entityType={EntityType.GlossaryTerm}
                 useEntityQuery={useGetGlossaryTermQuery as any}
+                showDeprecateOption
                 tabs={[
                     {
                         name: 'Related Entities',

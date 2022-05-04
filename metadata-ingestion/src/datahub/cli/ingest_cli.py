@@ -72,6 +72,13 @@ def ingest() -> None:
     default=False,
     help="If enabled, ingestion runs with warnings will yield a non-zero error code",
 )
+@click.option(
+    "--suppress-error-logs",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Supress display of variable values in logs by supressing elaborae stacktrace (stackprinter) during ingestion failures",
+)
 @click.pass_context
 @telemetry.with_telemetry
 @memory_leak_detector.with_leak_detection
@@ -82,6 +89,7 @@ def run(
     preview: bool,
     strict_warnings: bool,
     preview_workunits: int,
+    suppress_error_logs: bool,
 ) -> None:
     """Ingest metadata into DataHub."""
 
@@ -111,7 +119,13 @@ def run(
         logger.info(
             f"Sink ({pipeline.config.sink.type}) report:\n{pipeline.sink.get_report().as_string()}"
         )
-        raise e
+        # We dont want to log sensitive information in variables if the pipeline fails due to
+        # an unexpected error. Disable printing sensitive info to logs if ingestion is running
+        # with `--suppress-error-logs` flag.
+        if suppress_error_logs:
+            raise SensitiveError() from e
+        else:
+            raise e
     else:
         logger.info("Finished metadata pipeline")
         pipeline.log_ingestion_stats()
