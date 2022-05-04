@@ -44,7 +44,7 @@ const IncidentStateSelect = styled(Select)`
 const PAGE_SIZE = 10;
 
 /**
- * Returns a status summary for the assertions associated with a Dataset.
+ * Returns a status summary for the incidents
  */
 const getIncidentsStatusSummary = (incidents: Array<Incident>) => {
     const summary = {
@@ -61,20 +61,41 @@ const getIncidentsStatusSummary = (incidents: Array<Incident>) => {
             if (IncidentState.Resolved === resultType) {
                 summary.resolvedIncident++;
             }
-            summary.totalIncident++; // only count assertions for which there is one completed run event!
+            summary.totalIncident++;
         }
     });
     return summary;
+};
+
+/**
+ * Function to map selected incident to query incident
+ */
+const getIncidentState = (selectedIncidentState: string | undefined) => {
+    let incidentState: IncidentState | undefined;
+    if (selectedIncidentState === 'All') {
+        incidentState = undefined;
+    } else if (selectedIncidentState === 'ACTIVE') {
+        incidentState = IncidentState.Active;
+    } else if (selectedIncidentState === 'RESOLVED') {
+        incidentState = IncidentState.Resolved;
+    }
+    return incidentState;
 };
 
 export const IncidentTab = () => {
     const { urn } = useEntityData();
     const [page, setPage] = useState(1);
     const incidentStates = INCIDENT_DISPLAY_STATES;
-    const [selectedIncidentState, setSelectedIncidentState] = useState<IncidentState | undefined>();
+    const [selectedIncidentState, setSelectedIncidentState] = useState<string>('All');
 
+    // Fetching the incidents data using Incidents Query
     const { loading, data, refetch } = useGetIncidentsQuery({
-        variables: { urn, start: (page - 1) * PAGE_SIZE, count: PAGE_SIZE, state: selectedIncidentState },
+        variables: {
+            urn,
+            start: (page - 1) * PAGE_SIZE,
+            count: PAGE_SIZE,
+            state: getIncidentState(selectedIncidentState),
+        },
     });
 
     const incidents = (data && data.dataset?.incidents?.incidents?.map((incident) => incident as Incident)) || [];
@@ -90,11 +111,7 @@ export const IncidentTab = () => {
     }));
 
     const onSelectIncidentState = (newState) => {
-        if (newState === 'All') {
-            setSelectedIncidentState(undefined);
-        } else {
-            setSelectedIncidentState(newState);
-        }
+        setSelectedIncidentState(newState);
     };
 
     return (
@@ -103,7 +120,6 @@ export const IncidentTab = () => {
                 <AddIncident refetch={refetch} />
                 <IncidentStateSelect value={selectedIncidentState} onChange={onSelectIncidentState} autoFocus>
                     {incidentStates.map((incidentType) => {
-                        console.log('selectedIncidentState:: ', selectedIncidentState);
                         return (
                             <Select.Option key={incidentType.type} value={incidentType.type}>
                                 <Typography.Text>{incidentType.name}</Typography.Text>

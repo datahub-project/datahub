@@ -110,7 +110,16 @@ export const AddIncident = ({ refetch }: AddIncidentProps) => {
                         </Form.Item>
                     </Form.Item>
                     {isOtherTypeSelected && (
-                        <Form.Item name="customType" label="Custom Type">
+                        <Form.Item
+                            name="customType"
+                            label="Custom Type"
+                            rules={[
+                                {
+                                    required: selectedIncidentType === IncidentType.Custom,
+                                    message: 'A custom type is required.',
+                                },
+                            ]}
+                        >
                             <Input />
                         </Form.Item>
                     )}

@@ -56,10 +56,13 @@ const getSummaryMessage = (summary: IncidentsSummary) => {
         return 'No Incidents';
     }
     if (summary.resolvedIncident === summary.totalIncident) {
-        return 'There are no active incident';
+        return 'There are no active incidents';
     }
-    if (summary.activeIncident > 0) {
-        return `There are ${summary.activeIncident} open incidents`;
+    if (summary.activeIncident === 1) {
+        return `There is ${summary.activeIncident} active incident`;
+    }
+    if (summary.activeIncident > 1) {
+        return `There are ${summary.activeIncident} active incidents`;
     }
     return null;
 };

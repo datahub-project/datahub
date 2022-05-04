@@ -40,8 +40,13 @@ const IncidentHeaderContainer = styled.div`
     align-items: center;
 `;
 
-const CustomDiv = styled.div`
+const DescriptionContainer = styled.div`
     margin-top: 8px;
+`;
+
+const TitleContainer = styled.div`
+    display: flex;
+    align-items: center;
 `;
 
 const IncidentTitle = styled(Typography.Text)`
@@ -50,6 +55,8 @@ const IncidentTitle = styled(Typography.Text)`
     margin-right: 16px;
     color: #000000;
     line-height: 22px;
+    text-align: justify;
+    max-width: 500px;
 `;
 
 const IncidentTypeTag = styled(Tag)`
@@ -61,13 +68,22 @@ const IncidentTypeTag = styled(Tag)`
     line-height: 20px;
     color: #262626;
     padding: 2px 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 500px;
 `;
 
 const IncidentDescriptionText = styled(Typography.Text)`
+    max-width: 500px;
     font-weight: 500;
     font-size: 12px;
     line-height: 20px;
     color: #262626;
+    display: block;
+    word-wrap: break-word;
+    white-space: normal;
+    text-align: justify;
 `;
 
 const IncidentCreatedTime = styled(Typography.Text)`
@@ -142,14 +158,6 @@ export default function IncidentListItem({ incident, refetch }: Props) {
     const incidentTimeUTC =
         incidentDate && `${incidentDate.toLocaleDateString()} at ${incidentDate.toLocaleTimeString()}`;
 
-    const incidentResolvedMessage =
-        (incident?.status.lastUpdated &&
-            resolvedActor?.corpUser?.username &&
-            `Resolved on  ${moment.utc(incident.status.lastUpdated.time).format('DD MMM YYYY')} by ${
-                resolvedActor?.corpUser?.username.charAt(0).toUpperCase() + resolvedActor?.corpUser?.username.slice(1)
-            }`) ||
-        undefined;
-
     // Updating the incident status on button click
     const updateIncidentStatus = async (state: IncidentState, resolvedMessage: string) => {
         message.loading({ content: 'Updating...' });
@@ -194,18 +202,18 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                 <IncidentItemContainer>
                     <IncidentHeaderContainer>
                         <div>
-                            <div>
+                            <TitleContainer>
                                 <IncidentTitle>{incident.title}</IncidentTitle>
                                 <IncidentTypeTag>
                                     {incident.type === IncidentType.Operational
                                         ? getNameFromType(incident.type)
                                         : incident.customType}
                                 </IncidentTypeTag>
-                            </div>
-                            <CustomDiv>
+                            </TitleContainer>
+                            <DescriptionContainer>
                                 <IncidentDescriptionText>{incident?.description}</IncidentDescriptionText>
-                            </CustomDiv>
-                            <CustomDiv>
+                            </DescriptionContainer>
+                            <DescriptionContainer>
                                 {createdActor?.corpUser && (
                                     <Link
                                         to={entityRegistry.getEntityUrl(
@@ -225,7 +233,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                 <Tooltip placement="right" title={incidentTimeUTC}>
                                     <IncidentCreatedTime>{incidentCreatedTime}</IncidentCreatedTime>
                                 </Tooltip>
-                            </CustomDiv>
+                            </DescriptionContainer>
                         </div>
                     </IncidentHeaderContainer>
                     {incident.status.state === IncidentState.Resolved ? (
@@ -236,7 +244,23 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                 title={<Typography.Text strong>Note</Typography.Text>}
                                 content={<Typography.Text type="secondary">{incident?.status.message}</Typography.Text>}
                             >
-                                <IncidentResolvedText>{incidentResolvedMessage}</IncidentResolvedText>
+                                <IncidentResolvedText>
+                                    {incident?.status.lastUpdated &&
+                                        `Resolved on  ${moment
+                                            .utc(incident.status.lastUpdated.time)
+                                            .format('DD MMM YYYY')} by `}
+                                    {resolvedActor?.corpUser?.username && (
+                                        <Link
+                                            to={entityRegistry.getEntityUrl(
+                                                EntityType.CorpUser,
+                                                resolvedActor?.corpUser?.urn,
+                                            )}
+                                        >
+                                            {resolvedActor?.corpUser?.username.charAt(0).toUpperCase() +
+                                                resolvedActor?.corpUser?.username.slice(1)}
+                                        </Link>
+                                    )}
+                                </IncidentResolvedText>
                             </Popover>
                             <CheckCircleFilled style={{ fontSize: '28px', color: '#52C41A', marginLeft: '16px' }} />
                             <Dropdown overlay={menu} trigger={['click']}>
@@ -246,7 +270,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                     ) : (
                         <IncidentResolvedContainer>
                             <IncidentResolvedButton icon={<CheckOutlined />} onClick={() => handleResolved()}>
-                                Resolved
+                                Resolve
                             </IncidentResolvedButton>
                             <WarningFilled style={{ fontSize: '28px', marginLeft: '16px', color: '#FA8C16' }} />
                         </IncidentResolvedContainer>
