@@ -25,6 +25,10 @@ const PreviewContainer = styled.div`
     align-items: center;
 `;
 
+const PreviewWrapper = styled.div`
+    width: 100%;
+`;
+
 const PlatformInfo = styled.div`
     margin-bottom: 8px;
     display: flex;
@@ -82,7 +86,7 @@ const DescriptionContainer = styled.div`
 `;
 
 const AvatarContainer = styled.div`
-    margin-top: 12px;
+    margin-top: 6px;
     margin-right: 32px;
 `;
 
@@ -194,12 +198,15 @@ export default function DefaultPreviewCard({
             </>
         )) || []),
     ];
+    const hasGlossaryTerms = !!glossaryTerms?.terms?.length;
+    const hasTags = !!tags?.tags?.length;
     if (snippet) {
         insightViews.push(snippet);
     }
+
     return (
         <PreviewContainer data-testid={dataTestID}>
-            <div>
+            <PreviewWrapper>
                 <TitleContainer>
                     <Link to={url}>
                         <PlatformInfo>
@@ -249,16 +256,18 @@ export default function DefaultPreviewCard({
                 </TitleContainer>
                 {description && description.length > 0 && (
                     <DescriptionContainer>
-                        <NoMarkdownViewer limit={200}>{description}</NoMarkdownViewer>
+                        <NoMarkdownViewer limit={250}>{description}</NoMarkdownViewer>
                     </DescriptionContainer>
                 )}
-                <TagContainer>
-                    <TagTermGroup domain={domain} maxShow={3} />
-                    {domain && <TagSeparator />}
-                    <TagTermGroup uneditableGlossaryTerms={glossaryTerms} maxShow={3} />
-                    {tags && <TagSeparator />}
-                    <TagTermGroup uneditableTags={tags} maxShow={3} />
-                </TagContainer>
+                {(domain || hasGlossaryTerms || hasTags) && (
+                    <TagContainer>
+                        <TagTermGroup domain={domain} maxShow={3} />
+                        {domain && hasGlossaryTerms && <TagSeparator />}
+                        <TagTermGroup uneditableGlossaryTerms={glossaryTerms} maxShow={3} />
+                        {((hasGlossaryTerms && hasTags) || (domain && hasTags)) && <TagSeparator />}
+                        <TagTermGroup uneditableTags={tags} maxShow={3} />
+                    </TagContainer>
+                )}
                 {owners && owners.length > 0 && (
                     <AvatarContainer>
                         <AvatarsGroup size={28} owners={owners} entityRegistry={entityRegistry} maxCount={4} />
@@ -274,7 +283,7 @@ export default function DefaultPreviewCard({
                         ))}
                     </InsightContainer>
                 )}
-            </div>
+            </PreviewWrapper>
         </PreviewContainer>
     );
 }

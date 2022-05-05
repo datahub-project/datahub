@@ -54,6 +54,7 @@ const NoElementButton = styled(Button)`
 
 const TagText = styled.span`
     color: ${ANTD_GRAY[7]};
+    margin: 0 7px 0 0;
 `;
 
 export default function TagTermGroup({

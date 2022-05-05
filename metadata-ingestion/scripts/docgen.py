@@ -531,7 +531,7 @@ def generate(
 
         except Exception as e:
             print(f"Failed to process {plugin_name} due to {e}")
-            metrics["plugins"]["failed"] = metrics["plugins"].get["failed"] + 1
+            metrics["plugins"]["failed"] = metrics["plugins"]["failed"] + 1
 
         if source_type and hasattr(source_type, "get_config_class"):
             try:
