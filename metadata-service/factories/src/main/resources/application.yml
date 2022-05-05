@@ -40,7 +40,7 @@ authorization:
 
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
-  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.32.1}'
+  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.34.1}'
 
 telemetry:
   enabledCli: ${CLI_TELEMETRY_ENABLED:true}
