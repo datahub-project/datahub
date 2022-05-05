@@ -163,7 +163,6 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
                             usageStats={usageStats}
                             schemaFieldBlameList={schemaFieldBlameList}
                             showSchemaBlame={showSchemaBlame}
-                            selectedVersion={selectedVersion}
                         />
                     </SchemaEditableContext.Provider>
                 </>

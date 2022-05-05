@@ -9,6 +9,7 @@ query getSchemaBlame($input: GetSchemaBlameInput!) {
             fieldPath
             schemaFieldChange {
                 timestampMillis
+                lastSemanticVersion
                 lastSchemaFieldChange
                 versionStamp
             }

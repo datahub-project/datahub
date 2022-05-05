@@ -17,8 +17,9 @@ import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/s
 import { GetSearchResultsParams, SearchResultsInterface } from './types';
 
 const Container = styled.div`
-    overflow: scroll;
-    height: 120;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 `;
 
 // this extracts the response from useGetSearchResultsForMultipleQuery into a common interface other search endpoints can also produce

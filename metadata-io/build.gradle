@@ -1,4 +1,5 @@
 apply plugin: 'java'
+apply plugin: 'org.hidetake.swagger.generator'
 
 configurations {
   enhance
@@ -25,6 +26,7 @@ dependencies {
   compile externalDependency.elasticSearchRest
   compile externalDependency.elasticSearchTransport
   compile externalDependency.javatuples
+  compile externalDependency.javaxValidation
   compile externalDependency.kafkaClients
   compile externalDependency.ebean
   enhance externalDependency.ebeanAgent
@@ -32,6 +34,7 @@ dependencies {
   compile externalDependency.resilience4j
   compile externalDependency.springContext
   compile externalDependency.swaggerAnnotations
+  swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
 
   annotationProcessor externalDependency.lombok
 
@@ -81,3 +84,29 @@ project.compileJava {
         transformArgs: 'debug=1')
   }
 }
+
+tasks.register('generateOpenApiPojos', GenerateSwaggerCode) {
+  it.setInputFile(
+      file(
+          "${project(':metadata-models').projectDir}/src/generatedJsonSchema/combined/open-api.yaml"
+      )
+  )
+  it.setOutputDir(file("$projectDir/generated"))
+  it.setLanguage("spring")
+  it.setComponents(['models'])
+  it.setTemplateDir(file("$projectDir/src/main/resources/JavaSpring"))
+  it.setAdditionalProperties([
+      "group-id" : "io.datahubproject",
+      "dateLibrary" : "java8",
+      "java8" : "true",
+      "modelPropertyNaming" : "original",
+      "modelPackage" : "io.datahubproject.openapi.generated"] as Map<String, String>)
+
+  dependsOn ':metadata-models:generateJsonSchema'
+}
+
+compileJava.dependsOn generateOpenApiPojos
+sourceSets.main.java.srcDir "${generateOpenApiPojos.outputDir}/src/main/java"
+sourceSets.main.resources.srcDir "${generateOpenApiPojos.outputDir}/src/main/resources"
+
+checkstyleMain.exclude '**/generated/**'
