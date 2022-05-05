@@ -112,7 +112,7 @@ type AppConfig {
   Configurations related to visual appearance, allows styling the UI without rebuilding the bundle
   """
   visualConfig: VisualConfig!
-  
+
   """
   Configurations related to tracking users in the app
   """
