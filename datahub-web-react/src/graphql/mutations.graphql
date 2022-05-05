@@ -49,3 +49,11 @@ mutation setTagColor($urn: String!, $colorHex: String!) {
 mutation updateDeprecation($input: UpdateDeprecationInput!) {
     updateDeprecation(input: $input)
 }
+
+mutation raiseIncident($input: RaiseIncidentInput!) {
+    raiseIncident(input: $input)
+}
+
+mutation updateIncidentStatus($urn: String!, $input: UpdateIncidentStatusInput!){
+    updateIncidentStatus(urn: $urn, input: $input)
+}

@@ -26,6 +26,7 @@ import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { ValidationsTab } from '../shared/tabs/Dataset/Validations/ValidationsTab';
 import { OperationsTab } from './profile/OperationsTab';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
 
 const SUBTYPES = {
@@ -164,6 +165,18 @@ export class DatasetEntity implements Entity<Dataset> {
                             return (
                                 (dataset?.dataset?.readRuns?.total || 0) + (dataset?.dataset?.writeRuns?.total || 0) > 0
                             );
+                        },
+                    },
+                },
+                {
+                    name: 'Incidents',
+                    component: IncidentTab,
+                    display: {
+                        visible: (_, dataset: GetDatasetQuery) => {
+                            return (dataset?.dataset?.totalIncidents?.total || 0) > 0;
+                        },
+                        enabled: (_, dataset: GetDatasetQuery) => {
+                            return (dataset?.dataset?.totalIncidents?.total || 0) > 0;
                         },
                     },
                 },
