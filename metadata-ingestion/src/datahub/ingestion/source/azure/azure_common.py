@@ -1,10 +1,10 @@
 from typing import Optional
 
 from azure.storage.filedatalake import DataLakeServiceClient, FileSystemClient
-from pydantic import validator
+from pydantic import Field, root_validator
 
 from datahub.configuration import ConfigModel
-from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.configuration.common import ConfigurationError
 
 
 class AdlsSourceConfig(ConfigModel):
@@ -14,13 +14,23 @@ class AdlsSourceConfig(ConfigModel):
     https://docs.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-directory-file-acl-python
     """
 
-    env: str = DEFAULT_ENV
     # The following could be made optional when we add support for client_id/client_secret.  See above doc.
-    account_name: str
-    account_key: Optional[str]
-    sas_token: Optional[str]
-    container_name: str
-    base_path: str = "/"
+    account_name: str = Field(
+        description="Name of the Azure storage account.  See [Microsoft official documentation on how to create a storage account.](https://docs.microsoft.com/en-us/azure/storage/blobs/create-data-lake-storage-account)",
+    )
+    account_key: Optional[str] = Field(
+        description="Azure storage account access key that can be used as a credential. **An account key or a SAS token needs to be provided.**",
+    )
+    sas_token: Optional[str] = Field(
+        description="Azure storage account Shared Access Signature (SAS) token that can be used as a credential. **An account key or a SAS token needs to be provided.**",
+    )
+    container_name: str = Field(
+        description="Azure storage account container name.",
+    )
+    base_path: str = Field(
+        default="/",
+        description="Base folder in hierarchical namespaces to start from.",
+    )
 
     def get_abfss_url(self, folder_path: str = "") -> str:
         if not folder_path.startswith("/"):
@@ -37,10 +47,10 @@ class AdlsSourceConfig(ConfigModel):
         )
 
     def get_credentials(self):
-        return self.sas_token if (self.sas_token is not None) else self.account_key
+        return self.sas_token if self.sas_token is not None else self.account_key
 
-    @validator("sas_token")
-    def check_sas_or_account_key(cls, sas_token, values):
-        if "account_key" not in values and not sas_token:
-            raise ValueError("either account_key or sas_token is required")
-        return sas_token
+    @root_validator()
+    def _check_sas_or_account_key(cls, values):
+        if not values.get("account_key") and not values.get("sas_token"):
+            raise ConfigurationError("either account_key or sas_token is required")
+        return values

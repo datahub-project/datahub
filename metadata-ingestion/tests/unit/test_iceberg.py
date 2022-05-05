@@ -9,6 +9,7 @@ from typing import Any
 from iceberg.api import types as IcebergTypes
 from iceberg.api.types.types import NestedField
 
+from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.azure.azure_common import AdlsSourceConfig
 from datahub.ingestion.source.iceberg import IcebergSource, IcebergSourceConfig
@@ -31,9 +32,9 @@ from datahub.metadata.schema_classes import (
 )
 
 
-def iceberg_source() -> IcebergSource:
+def with_iceberg_source() -> IcebergSource:
     adls: AdlsSourceConfig = AdlsSourceConfig(
-        account_name="test", container_name="test"
+        account_name="test", account_key="test", container_name="test"
     )
     return IcebergSource(
         ctx=PipelineContext(run_id="iceberg-source-test"),
@@ -56,6 +57,42 @@ def assert_field(
     assert isinstance(
         schema_field.type.type, expected_type
     ), f"Field type {schema_field.type.type} is different from expected type {expected_type}"
+
+
+def test_adls_config_no_credential():
+    with pytest.raises(ConfigurationError):
+        AdlsSourceConfig(account_name="test", container_name="test")
+
+
+def test_adls_config_with_sas_credential():
+    AdlsSourceConfig(account_name="test", sas_token="test", container_name="test")
+
+
+def test_adls_config_with_key_credential():
+    AdlsSourceConfig(account_name="test", account_key="test", container_name="test")
+
+
+def test_config_for_tests():
+    with_iceberg_source()
+
+
+def test_config_no_filesystem():
+    with pytest.raises(ConfigurationError):
+        IcebergSource(
+            ctx=PipelineContext(run_id="iceberg-source-test"),
+            config=IcebergSourceConfig(),
+        )
+
+
+def test_config_multiple_filesystems():
+    with pytest.raises(ConfigurationError):
+        adls: AdlsSourceConfig = AdlsSourceConfig(
+            account_name="test", container_name="test"
+        )
+        IcebergSource(
+            ctx=PipelineContext(run_id="iceberg-source-test"),
+            config=IcebergSourceConfig(adls=adls, localfs="/tmp"),
+        )
 
 
 @pytest.mark.parametrize(
@@ -86,7 +123,7 @@ def assert_field(
         (
             IcebergTypes.UUIDType.get(),
             StringTypeClass,
-        ),  # Is this the right mapping or it should be a FixedType?
+        ),
     ],
 )
 def test_iceberg_primitive_type_to_schema_field(
@@ -95,7 +132,7 @@ def test_iceberg_primitive_type_to_schema_field(
     """
     Test converting a primitive typed Iceberg field to a SchemaField
     """
-    iceberg_source_instance = iceberg_source()
+    iceberg_source_instance = with_iceberg_source()
     for column in [
         NestedField.required(
             1, "required_field", iceberg_type, "required field documentation"
@@ -125,7 +162,7 @@ def test_iceberg_list_to_schema_field():
         IcebergTypes.ListType.of_required(2, IcebergTypes.StringType.get()),
         "documentation",
     )
-    iceberg_source_instance = iceberg_source()
+    iceberg_source_instance = with_iceberg_source()
     schema_fields = iceberg_source_instance._get_schema_fields_for_column(list_column)
     assert len(schema_fields) == 1, f"Expected 1 field, but got {len(schema_fields)}"
     assert_field(
@@ -154,7 +191,7 @@ def test_iceberg_map_to_schema_field():
         ),
         "documentation",
     )
-    iceberg_source_instance = iceberg_source()
+    iceberg_source_instance = with_iceberg_source()
     schema_fields = iceberg_source_instance._get_schema_fields_for_column(map_column)
     assert len(schema_fields) == 1, f"Expected 1 field, but got {len(schema_fields)}"
     assert_field(schema_fields[0], map_column.doc, map_column.is_optional, MapTypeClass)
@@ -208,7 +245,7 @@ def test_iceberg_struct_to_schema_field(iceberg_type, expected_schema_field_type
     struct_column: NestedField = NestedField.required(
         1, "structField", IcebergTypes.StructType.of([field1]), "struct documentation"
     )
-    iceberg_source_instance = iceberg_source()
+    iceberg_source_instance = with_iceberg_source()
     schema_fields = iceberg_source_instance._get_schema_fields_for_column(struct_column)
     assert len(schema_fields) == 2, f"Expected 2 fields, but got {len(schema_fields)}"
     assert_field(

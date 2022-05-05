@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, Iterable, Union
 
+from iceberg.api import types as IcebergTypes
 from iceberg.api.data_file import DataFile
 from iceberg.api.manifest_file import ManifestFile
 from iceberg.api.schema import Schema
@@ -58,10 +59,10 @@ class IcebergProfiler:
         manifest_values: Dict[int, Any],
     ) -> None:
         for field_id, value_encoded in manifest_values.items():
-            field = schema.find_field(field_id)
+            field: NestedField = schema.find_field(field_id)
             # Bounds in manifests can reference historical field IDs that are not part of the current schema.
             # We simply not profile those since we only care about the current snapshot.
-            if field:
+            if field and IcebergProfiler._is_numeric_type(field.type):
                 value_decoded = Conversions.from_byte_buffer(field.type, value_encoded)
                 if value_decoded:
                     agg_value = aggregated_values.get(field_id)
@@ -220,3 +221,19 @@ class IcebergProfiler:
                 f"Error in dataset {dataset_name} when profiling a {value_type} field with value {value}: {e}",
             )
             return None
+
+    @staticmethod
+    def _is_numeric_type(type: Type) -> bool:
+        return isinstance(
+            type,
+            (
+                IcebergTypes.DateType,
+                IcebergTypes.DecimalType,
+                IcebergTypes.DoubleType,
+                IcebergTypes.FloatType,
+                IcebergTypes.IntegerType,
+                IcebergTypes.LongType,
+                IcebergTypes.TimestampType,
+                IcebergTypes.TimeType,
+            ),
+        )

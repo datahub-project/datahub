@@ -17,6 +17,14 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
@@ -54,14 +62,49 @@ _all_atomic_types = {
 }
 
 
+@platform_name("Iceberg")
+@support_status(SupportStatus.TESTING)
+@config_class(IcebergSourceConfig)
+@capability(
+    SourceCapability.PLATFORM_INSTANCE,
+    "Optionally enabled via configuration, an Iceberg instance represents the datalake name where the table is stored.",
+)
+@capability(SourceCapability.DOMAINS, "Currently not supported.", supported=False)
+@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration.")
+@capability(
+    SourceCapability.PARTITION_SUPPORT, "Currently not supported.", supported=False
+)
+@capability(SourceCapability.DESCRIPTIONS, "Enabled by default.")
+@capability(
+    SourceCapability.OWNERSHIP,
+    "Optionally enabled via configuration by specifying which Iceberg table property holds user or group ownership.",
+)
 class IcebergSource(Source):
+    """
+    ## Integration Details
+
+    The DataHub Iceberg source plugin extracts metadata from [Iceberg tables](https://iceberg.apache.org/spec/) stored in a distributed or local file system.
+    Typically, Iceberg tables are stored in a distributed file system like S3 or Azure Data Lake Storage (ADLS) and registered in a catalog.  There are various catalog
+    implementations like Filesystem-based, RDBMS-based or even REST-based catalogs.  This Iceberg source plugin relies on the
+    [Iceberg python_legacy library](https://github.com/apache/iceberg/tree/master/python_legacy) and its support for catalogs is limited at the moment.
+    A new version of the [Iceberg Python library](https://github.com/apache/iceberg/tree/master/python) is currently in development and should fix this.
+    Because of this limitation, this source plugin **will only ingest HadoopCatalog-based tables that have a `version-hint.text` metadata file**.
+
+    Ingestion of tables happens in 2 steps:
+    1. Discover Iceberg tables stored in file system.
+    2. Load discovered tables using Iceberg python_legacy library
+
+    The current implementation of the Iceberg source plugin will only discover tables stored in a local file system or in ADLS.  Support for S3 could
+    be added fairly easily.
+    """
+
     config: IcebergSourceConfig
     report: IcebergSourceReport = IcebergSourceReport()
 
     def __init__(self, config: IcebergSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.config = config
-        self.platform = "iceberg"
+        self.PLATFORM = "iceberg"
         self.iceberg_client = config.filesystem_tables
 
     @classmethod
@@ -96,7 +139,7 @@ class IcebergSource(Source):
     ) -> Iterable[MetadataWorkUnit]:
         self.report.report_table_scanned(dataset_name)
         dataset_urn = make_dataset_urn_with_platform_instance(
-            self.platform,
+            self.PLATFORM,
             dataset_name,
             self.config.platform_instance,
             self.config.env,
@@ -192,9 +235,9 @@ class IcebergSource(Source):
                 entityUrn=dataset_urn,
                 aspectName="dataPlatformInstance",
                 aspect=DataPlatformInstanceClass(
-                    platform=make_data_platform_urn(self.platform),
+                    platform=make_data_platform_urn(self.PLATFORM),
                     instance=make_dataplatform_instance_urn(
-                        self.platform, self.config.platform_instance
+                        self.PLATFORM, self.config.platform_instance
                     ),
                 ),
             )
@@ -211,7 +254,7 @@ class IcebergSource(Source):
 
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
-            platform=make_data_platform_urn(self.platform),
+            platform=make_data_platform_urn(self.PLATFORM),
             version=0,
             hash="",
             platformSchema=SchemalessClass(),  # TODO: Not sure what to use here...

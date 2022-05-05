@@ -5,18 +5,35 @@ from typing import Iterable, List, Optional, Tuple
 from azure.storage.filedatalake import FileSystemClient, PathProperties
 from iceberg.core.filesystem.abfss_filesystem import AbfssFileSystem
 from iceberg.core.filesystem.filesystem_tables import FilesystemTables
+from pydantic import Field, root_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    ConfigurationError,
+)
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.azure.azure_common import AdlsSourceConfig
 
 
 class IcebergProfilingConfig(ConfigModel):
-    enabled: bool = False
-    include_field_null_count: bool = True
-    include_field_min_value: bool = True
-    include_field_max_value: bool = True
+    enabled: bool = Field(
+        default=False,
+        description="Whether profiling should be done.",
+    )
+    include_field_null_count: bool = Field(
+        default=True,
+        description="Whether to profile for the number of nulls for each column.",
+    )
+    include_field_min_value: bool = Field(
+        default=True,
+        description="Whether to profile for the min value of numeric columns.",
+    )
+    include_field_max_value: bool = Field(
+        default=True,
+        description="Whether to profile for the max value of numeric columns.",
+    )
     # Stats we cannot compute without looking at data
     # include_field_mean_value: bool = True
     # include_field_median_value: bool = True
@@ -28,20 +45,47 @@ class IcebergProfilingConfig(ConfigModel):
 
 
 class IcebergSourceConfig(DatasetSourceConfigBase):
-    adls: Optional[AdlsSourceConfig]
-    localfs: Optional[str]
-    max_path_depth: int = 2
-    table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    user_ownership_property: Optional[str] = "owner"
-    group_ownership_property: Optional[str]
+    adls: Optional[AdlsSourceConfig] = Field(
+        description="[Azure Data Lake Storage](https://docs.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction) to crawl for Iceberg tables.  This is one filesystem type supported by this source and **only one can be configured**.",
+    )
+    localfs: Optional[str] = Field(
+        description="Local path to crawl for Iceberg tables. This is one filesystem type supported by this source and **only one can be configured**.",
+    )
+    max_path_depth: int = Field(
+        default=2,
+        description="Maximum folder depth to crawl for Iceberg tables.  Folders deeper that this value will be silently ignored.",
+    )
+    table_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for tables to filter in ingestion.",
+    )
+    user_ownership_property: Optional[str] = Field(
+        default="owner",
+        description="Iceberg table property to look for a `CorpUser` owner.  Can only hold a single user value.  If property has no value, no owner information will be emitted.",
+    )
+    group_ownership_property: Optional[str] = Field(
+        description="Iceberg table property to look for a `CorpGroup` owner.  Can only hold a single group value.  If property has no value, no owner information will be emitted.",
+    )
     profiling: IcebergProfilingConfig = IcebergProfilingConfig()
+
+    @root_validator()
+    def _ensure_one_filesystem_is_configured(cls, values):
+        if values.get("adls") and values.get("localfs"):
+            raise ConfigurationError(
+                "Only one filesystem can be configured: adls or localfs"
+            )
+        elif not values.get("adls") and not values.get("localfs"):
+            raise ConfigurationError(
+                "One filesystem (adls or localfs) needs to be configured."
+            )
+        return values
 
     @property
     def adls_filesystem_client(self) -> FileSystemClient:
         """Azure Filesystem client if configured.
 
         Raises:
-            ValueError: If ADLS is not configured.
+            ConfigurationError: If ADLS is not configured.
 
         Returns:
             FileSystemClient: Azure Filesystem client instance to access storage account files and folders.
@@ -49,7 +93,7 @@ class IcebergSourceConfig(DatasetSourceConfigBase):
         if self.adls:  # Use local imports for abfss
             AbfssFileSystem.get_instance().set_conf(self.adls.dict())
             return self.adls.get_filesystem_client()
-        raise ValueError("No ADLS filesystem client configured")
+        raise ConfigurationError("No ADLS filesystem client configured")
 
     @property
     def filesystem_tables(self) -> FilesystemTables:
@@ -57,7 +101,7 @@ class IcebergSourceConfig(DatasetSourceConfigBase):
         Currently supporting ADLS (Azure Storage Account) and local filesystem.
 
         Raises:
-            ValueError: If no filesystem was configured.
+            ConfigurationError: If no filesystem was configured.
 
         Returns:
             FilesystemTables: An Iceberg FilesystemTables abstraction instance to access tables on a filesystem
@@ -66,7 +110,7 @@ class IcebergSourceConfig(DatasetSourceConfigBase):
             return FilesystemTables(self.adls.dict())
         elif self.localfs:
             return FilesystemTables()
-        raise ValueError("No filesystem client configured")
+        raise ConfigurationError("No filesystem client configured")
 
     def _get_adls_paths(self, root_path: str, depth: int) -> Iterable[Tuple[str, str]]:
         if self.adls and depth < self.max_path_depth:
@@ -96,7 +140,7 @@ class IcebergSourceConfig(DatasetSourceConfigBase):
         """Generates a sequence of data paths and dataset names.
 
         Raises:
-            ValueError: If no filesystem configured.
+            ConfigurationError: If no filesystem configured.
 
         Yields:
             Iterator[Iterable[Tuple[str, str]]]: A sequence of tuples where the first item is the location of the dataset
@@ -107,7 +151,7 @@ class IcebergSourceConfig(DatasetSourceConfigBase):
         elif self.localfs:
             yield from self._get_localfs_paths(self.localfs, 0)
         else:
-            raise ValueError("No filesystem client configured")
+            raise ConfigurationError("No filesystem client configured")
 
 
 @dataclass
