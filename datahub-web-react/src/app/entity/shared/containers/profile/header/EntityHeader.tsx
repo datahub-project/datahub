@@ -340,7 +340,7 @@ export const EntityHeader = ({ showDeprecateOption }: Props) => {
                                             <MenuItem
                                                 onClick={() => {
                                                     navigator.clipboard.writeText(pageUrl);
-                                                    message.info('Entity Profile Url copied', 1.2);
+                                                    message.info('Copied URL!', 1.2);
                                                 }}
                                             >
                                                 <LinkOutlined /> &nbsp; Copy Url
