@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
@@ -96,6 +97,18 @@ public class JavaEntityClient implements EntityClient {
             ? _entityService.getEntityAspectNames(entityName)
             : aspectNames;
         return _entityService.getEntitiesV2(entityName, urns, projectedAspects);
+    }
+
+    @Nonnull
+    public Map<Urn, EntityResponse> batchGetVersionedV2(
+        @Nonnull String entityName,
+        @Nonnull final Set<VersionedUrn> versionedUrns,
+        @Nullable final Set<String> aspectNames,
+        @Nonnull final Authentication authentication) throws RemoteInvocationException, URISyntaxException {
+        final Set<String> projectedAspects = aspectNames == null
+            ? _entityService.getEntityAspectNames(entityName)
+            : aspectNames;
+        return _entityService.getEntitiesVersionedV2(versionedUrns, projectedAspects);
     }
 
     @Nonnull
@@ -248,6 +261,7 @@ public class JavaEntityClient implements EntityClient {
      *
      * @param input search query
      * @param filter search filters
+     * @param sortCriterion sort criterion
      * @param start start offset for search results
      * @param count max number of search results requested
      * @return Snapshot key
@@ -258,11 +272,12 @@ public class JavaEntityClient implements EntityClient {
         @Nonnull String entity,
         @Nonnull String input,
         @Nullable Filter filter,
+        @Nullable SortCriterion sortCriterion,
         int start,
         int count,
         @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
-        return _entitySearchService.search(entity, input, filter, null, start, count);
+        return _entitySearchService.search(entity, input, filter, sortCriterion, start, count);
     }
 
     /**

@@ -206,6 +206,7 @@ public class ProtobufExtensionFieldVisitorTest {
                                 .setGlobalTags(new GlobalTags().setTags(new TagAssociationArray(
                                         new TagAssociation().setTag(new TagUrn("MetaEnumExample.EVENT")),
                                         new TagAssociation().setTag(new TagUrn("d")),
+                                        new TagAssociation().setTag(new TagUrn("deprecated")),
                                         new TagAssociation().setTag(new TagUrn("e")),
                                         new TagAssociation().setTag(new TagUrn("f")),
                                         new TagAssociation().setTag(new TagUrn("product_type.my type")),

@@ -18,7 +18,7 @@ public class SchemaMapper implements ModelMapper<SchemaMetadata, Schema> {
     @Override
     public Schema apply(@Nonnull final com.linkedin.schema.SchemaMetadata input) {
         final Schema result = new Schema();
-        if (input.hasDataset()) {
+        if (input.getDataset() != null) {
             result.setDatasetUrn(input.getDataset().toString());
         }
         result.setName(input.getSchemaName());
@@ -29,6 +29,11 @@ public class SchemaMapper implements ModelMapper<SchemaMetadata, Schema> {
         result.setPrimaryKeys(input.getPrimaryKeys());
         result.setFields(input.getFields().stream().map(SchemaFieldMapper::map).collect(Collectors.toList()));
         result.setPlatformSchema(PlatformSchemaMapper.map(input.getPlatformSchema()));
+        if (input.getForeignKeys() != null) {
+            result.setForeignKeys(input.getForeignKeys().stream()
+                .map(ForeignKeyConstraintMapper::map)
+                .collect(Collectors.toList()));
+        }
         return result;
     }
 }

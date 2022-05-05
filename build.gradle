@@ -16,6 +16,7 @@ buildscript {
     }
     classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.30.0"
     classpath "com.palantir.gradle.gitversion:gradle-git-version:0.12.3"
+    classpath "gradle.plugin.org.hidetake:gradle-swagger-generator-plugin:2.18.1"
   }
 }
 
@@ -45,7 +46,7 @@ project.ext.externalDependency = [
     'assertJ': 'org.assertj:assertj-core:3.11.1',
     'avro_1_7': 'org.apache.avro:avro:1.7.7',
     'avroCompiler_1_7': 'org.apache.avro:avro-compiler:1.7.7',
-    'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.1',
+    'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.10',
     'awsJavaSdkCore': 'com.amazonaws:aws-java-sdk-core:1.12.1',
     'awsJavaSdkSts': 'com.amazonaws:aws-java-sdk-sts:1.12.1',
     'awsJavaSdkS3': 'com.amazonaws:aws-java-sdk-s3:1.12.1',
@@ -55,6 +56,9 @@ project.ext.externalDependency = [
     'commonsLang': 'commons-lang:commons-lang:2.6',
     'commonsCollections': 'commons-collections:commons-collections:3.2.2',
     'data' : 'com.linkedin.pegasus:data:' + pegasusVersion,
+    'datastaxOssNativeProtocol': 'com.datastax.oss:native-protocol:1.5.1',
+    'datastaxOssCore': 'com.datastax.oss:java-driver-core:4.14.0',
+    'datastaxOssQueryBuilder': 'com.datastax.oss:java-driver-query-builder:4.14.0',
     'dgraph4j' : 'io.dgraph:dgraph4j:21.03.1',
     'dropwizardMetricsCore': 'io.dropwizard.metrics:metrics-core:4.2.3',
     'dropwizardMetricsJmx': 'io.dropwizard.metrics:metrics-jmx:4.2.3',
@@ -68,22 +72,24 @@ project.ext.externalDependency = [
     'guice': 'com.google.inject:guice:4.2.2',
     'guava': 'com.google.guava:guava:27.0.1-jre',
     'h2': 'com.h2database:h2:2.1.210',
-    'hadoopClient': 'org.apache.hadoop:hadoop-client:3.1.1',
+    'hadoopClient': 'org.apache.hadoop:hadoop-client:3.2.1',
     'hadoopCommon':'org.apache.hadoop:hadoop-common:2.7.2',
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
     'httpClient': 'org.apache.httpcomponents:httpclient:4.5.9',
     'httpAsyncClient': 'org.apache.httpcomponents:httpasyncclient:4.1.5',
     'iStackCommons': 'com.sun.istack:istack-commons-runtime:4.0.1',
-    'jacksonCore': 'com.fasterxml.jackson.core:jackson-core:2.9.10',
-    'jacksonDataBind': 'com.fasterxml.jackson.core:jackson-databind:2.9.10.7',
-    'jacksonDataFormatYaml': 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.10',
+    'jacksonCore': 'com.fasterxml.jackson.core:jackson-core:2.13.2',
+    'jacksonDataBind': 'com.fasterxml.jackson.core:jackson-databind:2.13.2.2',
+    'jacksonDataFormatYaml': 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.13.2',
     'javatuples': 'org.javatuples:javatuples:1.2',
     'javaxInject' : 'javax.inject:javax.inject:1',
+    'javaxValidation' : 'javax.validation:validation-api:2.0.1.Final',
     'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.25.1',
     'jerseyGuava': 'org.glassfish.jersey.bundles.repackaged:jersey-guava:2.25.1',
     'jettyJaas': 'org.eclipse.jetty:jetty-jaas:9.4.32.v20200930',
     'jgrapht': 'org.jgrapht:jgrapht-core:1.5.1',
+    'jsonSchemaAvro': 'com.github.fge:json-schema-avro:0.1.4',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
     'junitJupiterApi': "org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion",
     'junitJupiterParams': "org.junit.jupiter:junit-jupiter-params:$junitJupiterVersion",
@@ -144,6 +150,7 @@ project.ext.externalDependency = [
     'testContainersJunit': 'org.testcontainers:junit-jupiter:1.15.3',
     'testContainersPostgresql':'org.testcontainers:postgresql:1.15.3',
     'testContainersElasticsearch': 'org.testcontainers:elasticsearch:1.15.3',
+    'testContainersCassandra': 'org.testcontainers:cassandra:1.15.3',
     'typesafeConfig':'com.typesafe:config:1.4.1',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
     'zookeeper': 'org.apache.zookeeper:zookeeper:3.4.14'
@@ -162,7 +169,6 @@ configure(subprojects.findAll {it.name != 'spark-lineage'}) {
     exclude group: "io.netty", module: "netty"
     exclude group: "log4j", module: "log4j"
   }
-
 }
 
 subprojects {
@@ -187,6 +193,7 @@ subprojects {
         implementation('org.apache.commons:commons-compress:1.21')
         implementation('org.apache.velocity:velocity-engine-core:2.3')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
+        implementation('com.fasterxml.jackson.core:jackson-databind:2.13.2.2')
       }
     }
 

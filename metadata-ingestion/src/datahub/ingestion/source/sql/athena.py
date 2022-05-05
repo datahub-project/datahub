@@ -3,11 +3,20 @@ import logging
 import typing
 from typing import Dict, List, Optional, Tuple
 
+import pydantic
 from pyathena.common import BaseCursor
 from pyathena.model import AthenaTableMetadata
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.emitter.mcp_builder import DatabaseKey, gen_containers
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.sql.sql_common import (
@@ -19,12 +28,26 @@ from datahub.ingestion.source.sql.sql_common import (
 
 class AthenaConfig(SQLAlchemyConfig):
     scheme: str = "awsathena+rest"
-    username: Optional[str] = None
-    password: Optional[str] = None
-    database: Optional[str] = None
-    aws_region: str
-    s3_staging_dir: str
-    work_group: str
+    username: Optional[str] = pydantic.Field(
+        default=None,
+        description="Username credential. If not specified, detected with boto3 rules. See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html",
+    )
+    password: Optional[str] = pydantic.Field(
+        default=None, description="Same detection scheme as username"
+    )
+    database: Optional[str] = pydantic.Field(
+        default=None,
+        description="The athena database to ingest from. If not set it will be autodetected",
+    )
+    aws_region: str = pydantic.Field(
+        description="Aws region where your Athena database is located"
+    )
+    s3_staging_dir: str = pydantic.Field(
+        description="Staging s3 location where the Athena query results will be stored"
+    )
+    work_group: str = pydantic.Field(
+        description="The name of your Amazon Athena Workgroups"
+    )
 
     include_views = False  # not supported for Athena
 
@@ -42,7 +65,30 @@ class AthenaConfig(SQLAlchemyConfig):
         )
 
 
+@platform_name("Athena")
+@support_status(SupportStatus.CERTIFIED)
+@config_class(AthenaConfig)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
+@capability(
+    SourceCapability.DATA_PROFILING,
+    "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.",
+)
+@capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
+@capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
 class AthenaSource(SQLAlchemySource):
+    """
+    This plugin supports extracting the following metadata from Athena
+    - Tables, schemas etc.
+    - Profiling when enabled.
+
+    :::note
+
+    Athena source only works with python 3.7+.
+
+    :::
+    """
+
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "athena")
         self.cursor: Optional[BaseCursor] = None

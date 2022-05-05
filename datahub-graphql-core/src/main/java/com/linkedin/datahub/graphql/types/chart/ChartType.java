@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.ChartUpdateInput;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
@@ -46,6 +47,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -54,7 +56,7 @@ import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityType<Chart>, MutableType<ChartUpdateInput, Chart> {
+public class ChartType implements SearchableEntityType<Chart, String>, BrowsableEntityType<Chart, String>, MutableType<ChartUpdateInput, Chart> {
 
     private static final Set<String> ASPECTS_TO_RESOLVE = ImmutableSet.of(
         CHART_KEY_ASPECT_NAME,
@@ -86,6 +88,11 @@ public class ChartType implements SearchableEntityType<Chart>, BrowsableEntityTy
     @Override
     public EntityType type() {
         return EntityType.CHART;
+    }
+
+    @Override
+    public Function<Entity, String> getKeyProvider() {
+        return Entity::getUrn;
     }
 
     @Override

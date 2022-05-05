@@ -22,6 +22,7 @@ from typing import (
 from urllib.parse import quote_plus
 
 import pydantic
+from pydantic.fields import Field
 from sqlalchemy import create_engine, dialects, inspect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError
@@ -221,7 +222,10 @@ class SQLAlchemyStatefulIngestionConfig(StatefulIngestionConfig):
     in the SQLAlchemyConfig.
     """
 
-    remove_stale_metadata: bool = True
+    remove_stale_metadata: bool = Field(
+        default=True,
+        description="Soft-deletes the tables and views that were found in the last successful run but missing in the current run with stateful_ingestion enabled.",
+    )
 
 
 class SQLAlchemyConfig(StatefulIngestionConfigBase):
@@ -230,14 +234,33 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
     # having another option to allow/deny on schema level is an optimization for the case when there is a large number
     # of schemas that one wants to skip and you want to avoid the time to needlessly fetch those tables only to filter
     # them out afterwards via the table_pattern.
-    schema_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    profile_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    domain: Dict[str, AllowDenyPattern] = dict()
+    schema_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for schemas to filter in ingestion.",
+    )
+    table_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="egex patterns for tables to filter in ingestion.",
+    )
+    view_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for views to filter in ingestion.",
+    )
+    profile_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for profiles to filter in ingestion.",
+    )
+    domain: Dict[str, AllowDenyPattern] = Field(
+        default=dict(),
+        description=' regex patterns for tables/schemas to descide domain_key domain key (domain_key can be any string like "sales".) There can be multiple domain key specified.',
+    )
 
-    include_views: Optional[bool] = True
-    include_tables: Optional[bool] = True
+    include_views: Optional[bool] = Field(
+        default=True, description="Whether views should be ingested."
+    )
+    include_tables: Optional[bool] = Field(
+        default=True, description="Whether tables should be ingested."
+    )
 
     from datahub.ingestion.source.ge_data_profiler import GEProfilingConfig
 
@@ -260,13 +283,18 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
 
 
 class BasicSQLAlchemyConfig(SQLAlchemyConfig):
-    username: Optional[str] = None
-    password: Optional[pydantic.SecretStr] = None
-    host_port: Optional[str] = None
-    database: Optional[str] = None
-    database_alias: Optional[str] = None
-    scheme: Optional[str] = None
-    sqlalchemy_uri: Optional[str] = None
+    username: Optional[str] = Field(default=None, description="username")
+    password: Optional[pydantic.SecretStr] = Field(default=None, description="password")
+    host_port: str = Field(description="host URL")
+    database: Optional[str] = Field(default=None, description="database (catalog)")
+    database_alias: Optional[str] = Field(
+        default=None, description="Alias to apply to database when ingesting."
+    )
+    scheme: str = Field(description="scheme")
+    sqlalchemy_uri: Optional[str] = Field(
+        default=None,
+        description="URI of database to connect to. See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls. Takes precedence over other connection parameters.",
+    )
 
     def get_sql_alchemy_url(self, uri_opts: Optional[Dict[str, Any]] = None) -> str:
         if not ((self.host_port and self.scheme) or self.sqlalchemy_uri):

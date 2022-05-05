@@ -18,7 +18,7 @@ import java.util.List;
  * @param <T>: The GraphQL object type corresponding to the entity, must extend the `Entity` interface.
  */
 @Deprecated
-public interface SearchableEntityType<T extends Entity> extends EntityType<T> {
+public interface SearchableEntityType<T extends Entity, K> extends EntityType<T, K> {
 
     /**
      * Deprecated - this is no longer used in favor of the search and searchAcrossEntities GraphQL resolver.

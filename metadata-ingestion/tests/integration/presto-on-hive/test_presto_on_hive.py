@@ -1,15 +1,13 @@
 import re
 import subprocess
 import sys
+from typing import Dict
 
 import pytest
 import requests
 from freezegun import freeze_time
 
-from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.sink.file import FileSinkConfig
-from datahub.ingestion.source.sql.presto_on_hive import PrestoOnHiveConfig
 from tests.test_helpers import fs_helpers, mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
@@ -66,24 +64,26 @@ def test_presto_on_hive_ingest(
         mce_out_file = "presto_on_hive_mces.json"
         events_file = tmp_path / mce_out_file
 
-        pipeline_config = {
+        pipeline_config: Dict = {
             "run_id": "presto-on-hive-test",
             "source": {
                 "type": data_platform,
-                "config": PrestoOnHiveConfig(
-                    host_port="localhost:5432",
-                    database="metastore",
-                    database_alias="hive",
-                    username="postgres",
-                    scheme="postgresql+psycopg2",
-                    include_views=True,
-                    include_tables=True,
-                    schema_pattern=AllowDenyPattern(allow=["^public"]),
-                ).dict(),
+                "config": {
+                    "host_port": "localhost:5432",
+                    "database": "metastore",
+                    "database_alias": "hive",
+                    "username": "postgres",
+                    "scheme": "postgresql+psycopg2",
+                    "include_views": True,
+                    "include_tables": True,
+                    "schema_pattern": {"allow": ["^public"]},
+                },
             },
             "sink": {
                 "type": "file",
-                "config": FileSinkConfig(filename=str(events_file)).dict(),
+                "config": {
+                    "filename": str(events_file),
+                },
             },
         }
 
@@ -120,25 +120,28 @@ def test_presto_on_hive_instance_ingest(
     platform = "presto-on-hive"
     mce_out_file = "presto_on_hive_instance_mces.json"
     events_file = tmp_path / mce_out_file
-    pipeline_config = {
-        "run_id": "presto-on-hive-instance-test",
+
+    pipeline_config: Dict = {
+        "run_id": "presto-on-hive-test-2",
         "source": {
             "type": data_platform,
-            "config": PrestoOnHiveConfig(
-                host_port="localhost:5432",
-                database="metastore",
-                database_alias="hive",
-                username="postgres",
-                scheme="postgresql+psycopg2",
-                include_views=True,
-                include_tables=True,
-                platform_instance="production_warehouse",
-                schema_pattern=AllowDenyPattern(allow=["^public"]),
-            ).dict(),
+            "config": {
+                "host_port": "localhost:5432",
+                "database": "metastore",
+                "database_alias": "hive",
+                "username": "postgres",
+                "scheme": "postgresql+psycopg2",
+                "include_views": True,
+                "include_tables": True,
+                "schema_pattern": {"allow": ["^public"]},
+                "platform_instance": "production_warehouse",
+            },
         },
         "sink": {
             "type": "file",
-            "config": FileSinkConfig(filename=str(events_file)).dict(),
+            "config": {
+                "filename": str(events_file),
+            },
         },
     }
 

@@ -84,6 +84,11 @@ type AppConfig {
   appVersion: String
 
   """
+  Auth-related configurations
+  """
+  authConfig: AuthConfig!
+
+  """
   Configurations related to the Analytics Feature
   """
   analyticsConfig: AnalyticsConfig!
@@ -114,6 +119,11 @@ type AppConfig {
   Configurations related to visual appearance, allows styling the UI without rebuilding the bundle
   """
   visualConfig: VisualConfiguration!
+
+  """
+  Configurations related to tracking users in the app
+  """
+  telemetryConfig: TelemetryConfig!
 }
 
 """
@@ -124,6 +134,16 @@ type VisualConfiguration {
   Custom logo url for the homepage & top banner
   """
   logoUrl: String
+}
+
+"""
+Configurations related to tracking users in the app
+"""
+type TelemetryConfig {
+  """
+  Env variable for whether or not third party logging should be enabled for this instance
+  """
+  enableThirdPartyLogging: Boolean
 }
 
 """
@@ -145,6 +165,17 @@ type AnalyticsConfig {
   """
   enabled: Boolean!
 }
+
+"""
+Configurations related to auth
+"""
+type AuthConfig {
+  """
+  Whether token-based auth is enabled.
+  """
+  tokenAuthEnabled: Boolean!
+}
+
 
 """
 Configurations related to the Policies Feature

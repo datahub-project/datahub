@@ -27,6 +27,7 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 import { ValidationsTab } from '../shared/tabs/Dataset/Validations/ValidationsTab';
 import { OperationsTab } from './profile/OperationsTab';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -84,6 +85,7 @@ export class DatasetEntity implements Entity<Dataset> {
             useEntityQuery={useGetDatasetQuery}
             useUpdateQuery={useUpdateDatasetMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
+            showDeprecateOption
             tabs={[
                 {
                     name: 'Schema',
@@ -182,6 +184,13 @@ export class DatasetEntity implements Entity<Dataset> {
             sidebarSections={[
                 {
                     component: SidebarAboutSection,
+                },
+                {
+                    component: SidebarSiblingsSection,
+                    display: {
+                        visible: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.siblings?.siblings?.length || 0) > 0,
+                    },
                 },
                 {
                     component: SidebarViewDefinitionSection,
@@ -290,7 +299,7 @@ export class DatasetEntity implements Entity<Dataset> {
         return {
             urn: entity?.urn,
             name: entity?.properties?.name || entity.name,
-            expandedName: entity?.properties?.qualifiedName || entity.name,
+            expandedName: entity?.properties?.qualifiedName || entity?.properties?.name || entity.name,
             type: EntityType.Dataset,
             subtype: entity?.subTypes?.typeNames?.[0] || undefined,
             icon: entity?.platform?.properties?.logoUrl || undefined,

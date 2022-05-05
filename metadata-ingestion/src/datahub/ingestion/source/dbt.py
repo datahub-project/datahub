@@ -7,11 +7,20 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, cast
 import dateutil.parser
 import requests
 from pydantic import validator
+from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.ingestion_job_state_provider import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_types import (
@@ -95,25 +104,79 @@ class DBTSourceReport(StatefulIngestionReport):
 
 
 class DBTConfig(StatefulIngestionConfigBase):
-    manifest_path: str
-    catalog_path: str
-    sources_path: Optional[str]
-    env: str = mce_builder.DEFAULT_ENV
-    target_platform: str
-    load_schemas: bool = True
-    use_identifiers: bool = False
-    node_type_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    tag_prefix: str = f"{DBT_PLATFORM}:"
-    node_name_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    disable_dbt_node_creation = False
-    meta_mapping: Dict = {}
-    enable_meta_mapping = True
-    write_semantics: str = "PATCH"
-    strip_user_ids_from_email: bool = False
-    owner_extraction_pattern: Optional[str]
+    manifest_path: str = Field(
+        description="Path to dbt manifest JSON. See https://docs.getdbt.com/reference/artifacts/manifest-json Note this can be a local file or a URI."
+    )
+    catalog_path: str = Field(
+        description="Path to dbt catalog JSON. See https://docs.getdbt.com/reference/artifacts/catalog-json Note this can be a local file or a URI."
+    )
+    sources_path: Optional[str] = Field(
+        default=None,
+        description="Path to dbt sources JSON. See https://docs.getdbt.com/reference/artifacts/sources-json. If not specified, last-modified fields will not be populated. Note this can be a local file or a URI.",
+    )
+    env: str = Field(
+        default=mce_builder.DEFAULT_ENV,
+        description="Environment to use in namespace when constructing URNs.",
+    )
+    target_platform: str = Field(
+        description="The platform that dbt is loading onto. (e.g. bigquery / redshift / postgres etc.)"
+    )
+    load_schemas: bool = Field(
+        default=True,
+        description="This flag is only consulted when disable_dbt_node_creation is set to True. Load schemas for target_platform entities from dbt catalog file, not necessary when you are already ingesting this metadata from the data platform directly. If set to False, table schema details (e.g. columns) will not be ingested.",
+    )
+    use_identifiers: bool = Field(
+        default=False,
+        description="Use model identifier instead of model name if defined (if not, default to model name).",
+    )
+    node_type_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for dbt nodes to filter in ingestion.",
+    )
+    tag_prefix: str = Field(
+        default=f"{DBT_PLATFORM}:", description="Prefix added to tags during ingestion."
+    )
+    node_name_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for dbt model names to filter in ingestion.",
+    )
+    disable_dbt_node_creation = Field(
+        default=False,
+        description="Whether to suppress dbt dataset metadata creation. When set to True, this flag applies the dbt metadata to the target_platform entities (e.g. populating schema and column descriptions from dbt into the postgres / bigquery table metadata in DataHub) and generates lineage between the platform entities.",
+    )
+    meta_mapping: Dict = Field(
+        default={},
+        description="mapping rules that will be executed against dbt meta properties. Refer to the section below on dbt meta automated mappings.",
+    )
+    enable_meta_mapping = Field(
+        default=True,
+        description="When enabled, applies the mappings that are defined through the meta_mapping directives.",
+    )
+    query_tag_mapping: Dict = Field(
+        default={},
+        description="mapping rules that will be executed against dbt query_tag meta properties. Refer to the section below on dbt meta automated mappings.",
+    )
+    enable_query_tag_mapping = Field(
+        default=True,
+        description="When enabled, applies the mappings that are defined through the `query_tag_mapping` directives.",
+    )
+    write_semantics: str = Field(
+        default="PATCH",
+        description='Whether the new tags, terms and owners to be added will override the existing ones added only by this source or not. Value for this config can be "PATCH" or "OVERRIDE"',
+    )
+    strip_user_ids_from_email: bool = Field(
+        default=False,
+        description="Whether or not to strip email id while adding owners using dbt meta actions.",
+    )
+    owner_extraction_pattern: Optional[str] = Field(
+        default=None,
+        description='Regex string to extract owner from the dbt node using the `(?P<name>...) syntax` of the [match object](https://docs.python.org/3/library/re.html#match-objects), where the group name must be `owner`. Examples: (1)`r"(?P<owner>(.*)): (\w+) (\w+)"` will extract `jdoe` as the owner from `"jdoe: John Doe"` (2) `r"@(?P<owner>(.*))"` will extract `alice` as the owner from `"@alice"`.',  # noqa: W605
+    )
 
     # Custom Stateful Ingestion settings
-    stateful_ingestion: Optional[DBTStatefulIngestionConfig] = None
+    stateful_ingestion: Optional[DBTStatefulIngestionConfig] = Field(
+        default=None, description=""
+    )
 
     @validator("target_platform")
     def validate_target_platform_value(cls, target_platform: str) -> str:
@@ -173,6 +236,7 @@ class DBTNode:
     upstream_nodes: List[str] = field(default_factory=list)
 
     meta: Dict[str, Any] = field(default_factory=dict)
+    query_tag: Dict[str, Any] = field(default_factory=dict)
 
     tags: List[str] = field(default_factory=list)
 
@@ -266,6 +330,8 @@ def extract_dbt_entities(
         else:
             catalog_type = all_catalog_entities[key]["metadata"]["type"]
 
+        query_tag_props = manifest_node.get("query_tag", {})
+
         meta = manifest_node.get("meta", {})
 
         owner = meta.get("owner")
@@ -293,6 +359,7 @@ def extract_dbt_entities(
             catalog_type=catalog_type,
             columns=[],
             meta=meta_props,
+            query_tag=query_tag_props,
             tags=tags,
             owner=owner,
         )
@@ -597,8 +664,39 @@ def get_schema_metadata(
     )
 
 
+@platform_name("dbt")
+@config_class(DBTConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@capability(SourceCapability.USAGE_STATS, "", supported=False)
 class DBTSource(StatefulIngestionSourceBase):
-    """Extract DBT metadata for ingestion to Datahub"""
+    """
+    This plugin pulls metadata from dbt's artifact files and generates:
+    - dbt Tables: for nodes in the dbt manifest file that are models materialized as tables
+    - dbt Views: for nodes in the dbt manifest file that are models materialized as views
+    - dbt Ephemeral: for nodes in the dbt manifest file that are ephemeral models
+    - dbt Sources: for nodes that are sources on top of the underlying platform tables
+    - dbt Seed: for seed entities
+    - dbt Test: for dbt test entities
+
+    Note:
+    1. It also generates lineage between the `dbt` nodes (e.g. ephemeral nodes that depend on other dbt sources) as well as lineage between the `dbt` nodes and the underlying (target) platform nodes (e.g. BigQuery Table -> dbt Source, dbt View -> BigQuery View).
+    2. The previous version of this source (`acryl_datahub<=0.8.16.2`) did not generate `dbt` entities and lineage between `dbt` entities and platform entities. For backwards compatibility with the previous version of this source, there is a config flag `disable_dbt_node_creation` that falls back to the old behavior.
+    3. We also support automated actions (like add a tag, term or owner) based on properties defined in dbt meta.
+
+    The artifacts used by this source are:
+    - [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json)
+      - This file contains model, source and lineage data.
+    - [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json)
+      - This file contains schema data.
+      - dbt does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
+    - [dbt sources file](https://docs.getdbt.com/reference/artifacts/sources-json)
+      - This file contains metadata for sources with freshness checks.
+      - We transfer dbt's freshness checks to DataHub's last-modified fields.
+      - Note that this file is optional – if not specified, we'll use time of ingestion instead as a proxy for time last-modified.
+
+    """
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -765,6 +863,13 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.strip_user_ids_from_email,
         )
 
+        action_processor_tag = OperationProcessor(
+            self.config.query_tag_mapping,
+            self.config.tag_prefix,
+            "SOURCE_CONTROL",
+            self.config.strip_user_ids_from_email,
+        )
+
         for node in dbt_nodes:
             node_datahub_urn = get_urn_from_dbtNode(
                 node.database,
@@ -773,21 +878,14 @@ class DBTSource(StatefulIngestionSourceBase):
                 mce_platform,
                 self.config.env,
             )
-            if self.is_stateful_ingestion_configured():
-                cur_checkpoint = self.get_current_checkpoint(
-                    self.get_default_ingestion_job_id()
-                )
-
-                if cur_checkpoint is not None:
-                    # Utilizing BaseSQLAlchemyCheckpointState class to save state
-                    checkpoint_state = cast(
-                        BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-                    )
-                    checkpoint_state.add_table_urn(node_datahub_urn)
+            self.save_checkpoint(node_datahub_urn)
 
             meta_aspects: Dict[str, Any] = {}
             if self.config.enable_meta_mapping and node.meta:
                 meta_aspects = action_processor.process(node.meta)
+
+            if self.config.enable_query_tag_mapping and node.query_tag:
+                self.extract_query_tag_aspects(action_processor_tag, meta_aspects, node)
 
             aspects = self._generate_base_aspects(
                 node, additional_custom_props_filtered, mce_platform, meta_aspects
@@ -855,14 +953,31 @@ class DBTSource(StatefulIngestionSourceBase):
             self.report.report_workunit(wu)
             yield wu
 
-            # TODO: Remove. keeping this till PR review
-            # for meta_mcpw in meta_mcpw_list:
-            #     meta_wu = MetadataWorkUnit(
-            #         id=f"{self.platform}-{meta_mcpw.entityUrn}-{meta_mcpw.aspectName}",
-            #         mcp=meta_mcpw,
-            #     )
-            #     yield meta_wu
-            #     self.report.report_workunit(meta_wu)
+    def save_checkpoint(self, node_datahub_urn: str) -> None:
+        if self.is_stateful_ingestion_configured():
+            cur_checkpoint = self.get_current_checkpoint(
+                self.get_default_ingestion_job_id()
+            )
+
+            if cur_checkpoint is not None:
+                # Utilizing BaseSQLAlchemyCheckpointState class to save state
+                checkpoint_state = cast(
+                    BaseSQLAlchemyCheckpointState, cur_checkpoint.state
+                )
+                checkpoint_state.add_table_urn(node_datahub_urn)
+
+    def extract_query_tag_aspects(
+        self,
+        action_processor_tag: OperationProcessor,
+        meta_aspects: Dict[str, Any],
+        node: DBTNode,
+    ) -> None:
+        query_tag_aspects = action_processor_tag.process(node.query_tag)
+        if "add_tag" in query_tag_aspects:
+            if "add_tag" in meta_aspects:
+                meta_aspects["add_tag"].tags.extend(query_tag_aspects["add_tag"].tags)
+            else:
+                meta_aspects["add_tag"] = query_tag_aspects["add_tag"]
 
     def get_aspect_from_dataset(
         self, dataset_snapshot: DatasetSnapshot, aspect_type: type

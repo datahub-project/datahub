@@ -1,0 +1,71 @@
+source:
+  type: hive
+  config:
+    # Coordinates
+    host_port: localhost:10000
+    database: DemoDatabase # optional, if not specified, ingests from all databases
+
+    # Credentials
+    username: user # optional
+    password: pass # optional
+
+    # For more details on authentication, see the PyHive docs:
+    # https://github.com/dropbox/PyHive#passing-session-configuration.
+    # LDAP, Kerberos, etc. are supported using connect_args, which can be
+    # added under the `options` config parameter.
+    #options:
+    #  connect_args:
+    #    auth: KERBEROS
+    #    kerberos_service_name: hive
+    #scheme: 'hive+http' # set this if Thrift should use the HTTP transport
+    #scheme: 'hive+https' # set this if Thrift should use the HTTP with SSL transport
+    #scheme: 'sparksql' # set this for Spark Thrift Server
+
+sink:
+  # sink configs
+
+# ---------------------------------------------------------
+# Recipe (Azure HDInsight)
+# Connecting to Microsoft Azure HDInsight using TLS.
+# ---------------------------------------------------------
+
+source:
+  type: hive
+  config:
+    # Coordinates
+    host_port: <cluster_name>.azurehdinsight.net:443
+
+    # Credentials
+    username: admin
+    password: password
+
+    # Options
+    options:
+      connect_args:
+        http_path: "/hive2"
+        auth: BASIC
+
+sink:
+  # sink configs
+
+# ---------------------------------------------------------
+# Recipe (Databricks)
+# Ensure that databricks-dbapi is installed. If not, use ```pip install databricks-dbapi``` to install.
+# Use the ```http_path``` from your Databricks cluster in the following recipe.
+# See (https://docs.databricks.com/integrations/bi/jdbc-odbc-bi.html#get-server-hostname-port-http-path-and-jdbc-url) for instructions to find ```http_path```.
+# ---------------------------------------------------------
+
+source:
+  type: hive
+  config:
+    host_port: <databricks workspace URL>:443
+    username: token
+    password: <api token>
+    scheme: 'databricks+pyhive'
+
+    options:
+      connect_args:
+        http_path: 'sql/protocolv1/o/xxxyyyzzzaaasa/1234-567890-hello123'
+
+sink:
+  # sink configs
