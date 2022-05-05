@@ -7,6 +7,7 @@ import sqlalchemy
 
 # This import verifies that the dependencies are available.
 import trino.sqlalchemy  # noqa: F401
+from pydantic.fields import Field
 from sqlalchemy import exc, sql
 from sqlalchemy.engine import reflection
 from sqlalchemy.engine.reflection import Inspector
@@ -16,6 +17,14 @@ from trino.exceptions import TrinoQueryError  # noqa
 from trino.sqlalchemy import datatype, error
 from trino.sqlalchemy.dialect import TrinoDialect
 
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.sql.sql_common import (
     BasicSQLAlchemyConfig,
@@ -115,7 +124,7 @@ TrinoDialect._get_columns = _get_columns
 
 class TrinoConfig(BasicSQLAlchemyConfig):
     # defaults
-    scheme = "trino"
+    scheme = Field(default="trino", description="", exclude=True)
 
     def get_identifier(self: BasicSQLAlchemyConfig, schema: str, table: str) -> str:
         regular = f"{schema}.{table}"
@@ -131,7 +140,22 @@ class TrinoConfig(BasicSQLAlchemyConfig):
         )
 
 
+@platform_name("Trino")
+@config_class(TrinoConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
+@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 class TrinoSource(SQLAlchemySource):
+    """
+
+    This plugin extracts the following:
+
+    - Metadata for databases, schemas, and tables
+    - Column types and schema associated with each table
+    - Table, row, and column statistics via optional SQL profiling
+
+    """
+
     config: TrinoConfig
 
     def __init__(self, config, ctx):

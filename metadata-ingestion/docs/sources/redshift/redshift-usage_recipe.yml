@@ -1,0 +1,14 @@
+source:
+  type: redshift-usage
+  config:
+    # Coordinates
+    host_port: db_host:port
+    database: dev
+    email_domain: acryl.io
+
+    # Credentials
+    username: username
+    password: "password"
+
+sink:
+# sink configs

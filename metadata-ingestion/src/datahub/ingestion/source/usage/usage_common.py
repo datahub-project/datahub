@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Callable, Counter, Generic, List, Optional, TypeVar
 
 import pydantic
+from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
@@ -130,10 +131,19 @@ class GenericAggregatedDataset(Generic[ResourceType]):
 
 
 class BaseUsageConfig(BaseTimeWindowConfig):
-    top_n_queries: pydantic.PositiveInt = 10
-    user_email_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    include_operational_stats: bool = True
-    format_sql_queries: bool = False
+    top_n_queries: pydantic.PositiveInt = Field(
+        default=10, description="Number of top queries to save to each table."
+    )
+    user_email_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for user emails to filter in usage.",
+    )
+    include_operational_stats: bool = Field(
+        default=True, description="Whether to display operational stats."
+    )
+    format_sql_queries: bool = Field(
+        default=False, description="Whether to format sql queries"
+    )
 
     @pydantic.validator("top_n_queries")
     def ensure_top_n_queries_is_not_too_big(cls, v: int) -> int:

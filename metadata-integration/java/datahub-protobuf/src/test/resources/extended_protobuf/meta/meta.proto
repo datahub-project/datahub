@@ -16,12 +16,13 @@ import "google/protobuf/descriptor.proto";
 
 */
 enum DataHubMetadataType {
-  PROPERTY = 0; // Datahub Custom Property
-  TAG      = 1; // Datahub Tag
-  TAG_LIST = 2; //    comma delimited string
-  TERM     = 3; // Datahub Term
-  OWNER    = 4; // Datahub Owner
-  DOMAIN   = 5; // Datahub Domain
+  PROPERTY    = 0; // Datahub Custom Property
+  TAG         = 1; // Datahub Tag
+  TAG_LIST    = 2; //    comma delimited string
+  TERM        = 3; // Datahub Term
+  OWNER       = 4; // Datahub Owner
+  DOMAIN      = 5; // Datahub Domain
+  DEPRECATION = 6; // Datahub Deprecation
 }
 
 /*
@@ -91,5 +92,8 @@ message msg {
 
     repeated string repeat_string        = 60010 [(fld.type) = TERM, (fld.type) = TAG, (fld.type) = PROPERTY];
     repeated MetaEnumExample repeat_enum = 60012 [(fld.type) = TERM, (fld.type) = TAG, (fld.type) = PROPERTY];
+
+    repeated string deprecation_note = 60020 [(fld.type) = DEPRECATION, (fld.type) = PROPERTY];
+    uint64 deprecation_time          = 60021 [(fld.type) = DEPRECATION, (fld.type) = PROPERTY];
   }
 }

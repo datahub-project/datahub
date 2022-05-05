@@ -8,8 +8,17 @@ import sqlalchemy.dialects.postgresql as custom_types
 # effects of the import. For more details, see here:
 # https://geoalchemy-2.readthedocs.io/en/latest/core_tutorial.html#reflecting-tables.
 from geoalchemy2 import Geometry  # noqa: F401
+from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.source.sql.sql_common import (
     BasicSQLAlchemyConfig,
     SQLAlchemySource,
@@ -29,8 +38,8 @@ register_custom_type(custom_types.HSTORE, MapTypeClass)
 
 class PostgresConfig(BasicSQLAlchemyConfig):
     # defaults
-    scheme = "postgresql+psycopg2"
-    schema_pattern = AllowDenyPattern(deny=["information_schema"])
+    scheme = Field(default="postgresql+psycopg2", description="database scheme")
+    schema_pattern = Field(default=AllowDenyPattern(deny=["information_schema"]))
 
     def get_identifier(self: BasicSQLAlchemyConfig, schema: str, table: str) -> str:
         regular = f"{schema}.{table}"
@@ -41,7 +50,23 @@ class PostgresConfig(BasicSQLAlchemyConfig):
         return regular
 
 
+@platform_name("Postgres")
+@config_class(PostgresConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.DOMAINS, "Enabled by default")
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 class PostgresSource(SQLAlchemySource):
+    """
+    This plugin extracts the following:
+
+    - Metadata for databases, schemas, views, and tables
+    - Column types associated with each table
+    - Also supports PostGIS extensions
+    - database_alias (optional) can be used to change the name of database to be ingested
+    - Table, row, and column statistics via optional SQL profiling
+    """
+
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "postgres")
 

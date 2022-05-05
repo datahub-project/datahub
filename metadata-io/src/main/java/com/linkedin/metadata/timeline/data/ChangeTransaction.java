@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 
 
 @Getter
@@ -20,6 +21,8 @@ public class ChangeTransaction {
   List<ChangeEvent> changeEvents;
   @ArraySchema(schema = @Schema(implementation = PatchOperation.class))
   JsonPatch rawDiff;
+  @Setter
+  String versionStamp;
 
   public void setSemanticVersion(String semanticVersion) {
     this.semVer = semanticVersion;
