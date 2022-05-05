@@ -26,6 +26,7 @@ import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { ValidationsTab } from '../shared/tabs/Dataset/Validations/ValidationsTab';
 import { OperationsTab } from './profile/OperationsTab';
+import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -170,6 +171,13 @@ export class DatasetEntity implements Entity<Dataset> {
             sidebarSections={[
                 {
                     component: SidebarAboutSection,
+                },
+                {
+                    component: SidebarSiblingsSection,
+                    display: {
+                        visible: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.siblings?.siblings?.length || 0) > 0,
+                    },
                 },
                 {
                     component: SidebarViewDefinitionSection,

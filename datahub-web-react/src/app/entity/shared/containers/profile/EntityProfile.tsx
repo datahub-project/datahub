@@ -20,6 +20,7 @@ import LineageExplorer from '../../../../lineage/LineageExplorer';
 import CompactContext from '../../../../shared/CompactContext';
 import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
 import analytics, { EventType } from '../../../../analytics';
+import { combineEntityDataWithSiblings } from '../../siblingUtils';
 
 type Props<T, U> = {
     urn: string;
@@ -163,9 +164,16 @@ export const EntityProfile = <T, U>({
         [history, entityType, urn, entityRegistry],
     );
 
-    const { loading, error, data, refetch } = useEntityQuery({
+    const {
+        loading,
+        error,
+        data: dataNotCombinedWithSiblings,
+        refetch,
+    } = useEntityQuery({
         variables: { urn },
     });
+
+    const dataCombinedWithSiblings = combineEntityDataWithSiblings(dataNotCombinedWithSiblings);
 
     const maybeUpdateEntity = useUpdateQuery?.({
         onCompleted: () => refetch(),
@@ -176,7 +184,14 @@ export const EntityProfile = <T, U>({
     }
 
     const entityData =
-        (data && getDataForEntityType({ data: data[Object.keys(data)[0]], entityType, getOverrideProperties })) || null;
+        (dataCombinedWithSiblings &&
+            Object.keys(dataCombinedWithSiblings).length > 0 &&
+            getDataForEntityType({
+                data: dataCombinedWithSiblings[Object.keys(dataCombinedWithSiblings)[0]],
+                entityType,
+                getOverrideProperties,
+            })) ||
+        null;
 
     const lineage = entityData ? entityRegistry.getLineageVizConfig(entityType, entityData) : undefined;
 
@@ -205,7 +220,7 @@ export const EntityProfile = <T, U>({
                     urn,
                     entityType,
                     entityData,
-                    baseEntity: data,
+                    baseEntity: dataCombinedWithSiblings,
                     updateEntity,
                     routeToTab,
                     refetch,
@@ -239,7 +254,7 @@ export const EntityProfile = <T, U>({
                 urn,
                 entityType,
                 entityData,
-                baseEntity: data,
+                baseEntity: dataCombinedWithSiblings,
                 updateEntity,
                 routeToTab,
                 refetch,

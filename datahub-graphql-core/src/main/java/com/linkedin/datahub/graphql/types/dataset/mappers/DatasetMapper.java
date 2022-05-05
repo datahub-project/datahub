@@ -5,6 +5,7 @@ import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.Siblings;
 import com.linkedin.common.Status;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.Container;
@@ -17,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.SiblingsMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
@@ -84,6 +86,8 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
         mappingHelper.mapToResult(DEPRECATION_ASPECT_NAME, (dataset, dataMap) ->
             dataset.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
+        mappingHelper.mapToResult(SIBLINGS_ASPECT_NAME, (dataset, dataMap) ->
+            dataset.setSiblings(SiblingsMapper.map(new Siblings(dataMap))));
 
         return mappingHelper.getResult();
     }

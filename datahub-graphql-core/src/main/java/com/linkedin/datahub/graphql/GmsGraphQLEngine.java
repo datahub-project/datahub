@@ -57,6 +57,7 @@ import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.TagProposalParams;
+import com.linkedin.datahub.graphql.generated.SiblingProperties;
 import com.linkedin.datahub.graphql.generated.UserUsageCounts;
 import com.linkedin.datahub.graphql.generated.VisualConfiguration;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
@@ -776,6 +777,12 @@ public class GmsGraphQLEngine {
             .type("Owner", typeWiring -> typeWiring
                 .dataFetcher("owner", new OwnerTypeResolver<>(ownerTypes,
                     (env) -> ((Owner) env.getSource()).getOwner()))
+            )
+            .type("SiblingProperties", typeWiring -> typeWiring
+                .dataFetcher("siblings",
+                    new EntityTypeBatchResolver(
+                        new ArrayList<>(entityTypes),
+                        (env) -> ((SiblingProperties) env.getSource()).getSiblings()))
             )
             .type("UserUsageCounts", typeWiring -> typeWiring
                 .dataFetcher("user", new LoadableTypeResolver<>(corpUserType,
