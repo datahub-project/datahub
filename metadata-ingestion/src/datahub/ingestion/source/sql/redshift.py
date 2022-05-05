@@ -131,12 +131,13 @@ class RedshiftConfig(
         description="Whether lineage should be collected from copy commands",
     )
     capture_lineage_query_parser_failures: Optional[bool] = Field(
-        default=False, description=""
+        default=False,
+        description="Whether to capture lineage query parser errors with dataset properties for debuggings",
     )
 
     table_lineage_mode: Optional[LineageMode] = Field(
         default=LineageMode.STL_SCAN_BASED,
-        description="Which table lineage collector mode to use",
+        description="Which table lineage collector mode to use. Available modes are: [stl_scan_based, sql_based, mixed]",
     )
 
     @pydantic.validator("platform")
