@@ -121,7 +121,6 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
 
     @pydantic.validator("authentication_type", always=True)
     def authenticator_type_is_valid(cls, v, values, **kwargs):
-        logger.info("values is " + str(values))
         if v not in VALID_AUTH_TYPES.keys():
             raise ValueError(
                 f"unsupported authenticator type '{v}' was provided,"
@@ -188,21 +187,17 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         generator = OauthTokenGenerator(
             self.oauth_config.client_id, self.oauth_config.authority_url, self.oauth_config.provider
         )
-        logger.info("below generator")
         if self.oauth_config.use_certificate is True:
-            logger.info("use certificate is true")
             response = generator.get_token_with_certificate(
                 private_key_content=str(self.oauth_config.encoded_oauth_public_key),
                 public_key_content=str(self.oauth_config.encoded_oauth_private_key),
                 scopes=self.oauth_config.scopes,
             )
         else:
-            logger.info("use certificate is false")
             response = generator.get_token_with_secret(
                 secret=str(self.oauth_config.client_secret), scopes=self.oauth_config.scopes
             )
         token = response["access_token"]
-        logger.info("token is " + token)
         return snowflake.connector.connect(
             user=self.username,
             account=self.account_id,
