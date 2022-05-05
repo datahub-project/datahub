@@ -154,15 +154,15 @@ export default function IncidentListItem({ incident, refetch }: Props) {
     const localeTimezone = getLocaleTimezone();
     const incidentCreatedTime =
         (incident.created &&
-            `${moment.utc(incident.created.time).format('DD MMM YYYY')}, ${moment
+            `${moment.utc(incident.created.time).local().format('DD MMM YYYY')}, ${moment
                 .utc(incident.created.time)
+                .local()
                 .format('HH:mm:ss')} (${localeTimezone})`) ||
         undefined;
 
     // Converting the created time into UTC
     const incidentDate = incident.created.time && new Date(incident.created.time);
-    const incidentTimeUTC =
-        incidentDate && `${incidentDate.toLocaleDateString()} at ${incidentDate.toLocaleTimeString()}`;
+    const incidentTimeUTC = incidentDate && `${incidentDate.toUTCString()}`;
 
     // Updating the incident status on button click
     const updateIncidentStatus = async (state: IncidentState, resolvedMessage: string) => {
@@ -197,7 +197,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
     const menu = (
         <Menu>
             <Menu.Item key="0">
-                <MenuItem onClick={() => updateIncidentStatus(IncidentState.Active, '')}>Reopen an incident</MenuItem>
+                <MenuItem onClick={() => updateIncidentStatus(IncidentState.Active, '')}>Reopen incident</MenuItem>
             </Menu.Item>
         </Menu>
     );
