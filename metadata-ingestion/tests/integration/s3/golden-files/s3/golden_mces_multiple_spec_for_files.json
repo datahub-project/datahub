@@ -3,16 +3,16 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "number_of_files": "2",
-                            "size_in_bytes": "3446"
+                            "number_of_files": "1",
+                            "size_in_bytes": "1024"
                         },
                         "externalUrl": null,
-                        "name": "folder_aaa.food_csv",
+                        "name": "chord_progressions_avro.avro",
                         "qualifiedName": null,
                         "description": "",
                         "uri": null,
@@ -21,7 +21,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "folder_aaa.food_csv",
+                        "schemaName": "chord_progressions_avro.avro",
                         "platform": "urn:li:dataPlatform:s3",
                         "version": 0,
                         "created": {
@@ -45,9 +45,77 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "color",
+                                "fieldPath": "[version=2.0].[type=Root].[type=double].Progression Quality",
                                 "jsonPath": null,
-                                "nullable": false,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "double",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=Root].[type=long].1st chord",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "long",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=Root].[type=long].2nd chord",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "long",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=Root].[type=long].3rd chord",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "long",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=Root].[type=string].4th chord",
+                                "jsonPath": null,
+                                "nullable": true,
                                 "description": null,
                                 "type": {
                                     "type": {
@@ -55,74 +123,6 @@
                                     }
                                 },
                                 "nativeDataType": "string",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "healthy",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                    }
-                                },
-                                "nativeDataType": "boolean",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "height",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "integer",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "name",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "weight",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "integer",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -134,6 +134,18 @@
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:foo:bar"
+                            },
+                            {
+                                "tag": "urn:li:tag:baz:bob"
+                            }
+                        ]
+                    }
                 }
             ]
         }
@@ -141,7 +153,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -150,17 +162,17 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
+    "entityUrn": "urn:li:container:2151647ff17bde0f948909d19fa91b9b",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"s3\", \"instance\": \"UAT\", \"bucket_name\": \"my-test-bucket\"}, \"name\": \"my-test-bucket\"}",
+        "value": "{\"customProperties\": {\"platform\": \"s3\", \"instance\": \"PROD\", \"bucket_name\": \"my-test-bucket\"}, \"name\": \"my-test-bucket\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -169,7 +181,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
+    "entityUrn": "urn:li:container:2151647ff17bde0f948909d19fa91b9b",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -179,7 +191,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -188,7 +200,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
+    "entityUrn": "urn:li:container:2151647ff17bde0f948909d19fa91b9b",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -198,7 +210,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -207,17 +219,17 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
+    "entityUrn": "urn:li:container:a8aa32e8169b2ecc7ab4f3389c79124c",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"s3\", \"instance\": \"UAT\", \"folder_abs_path\": \"my-test-bucket/folder_a\"}, \"name\": \"folder_a\"}",
+        "value": "{\"customProperties\": {\"platform\": \"s3\", \"instance\": \"PROD\", \"folder_abs_path\": \"my-test-bucket/folder_a\"}, \"name\": \"folder_a\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -226,7 +238,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
+    "entityUrn": "urn:li:container:a8aa32e8169b2ecc7ab4f3389c79124c",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -236,7 +248,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -245,7 +257,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
+    "entityUrn": "urn:li:container:a8aa32e8169b2ecc7ab4f3389c79124c",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -255,7 +267,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -264,17 +276,17 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
+    "entityUrn": "urn:li:container:a8aa32e8169b2ecc7ab4f3389c79124c",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:050fedde7a12cb8c8447db8d298f5577\"}",
+        "value": "{\"container\": \"urn:li:container:2151647ff17bde0f948909d19fa91b9b\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -283,17 +295,17 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
+    "entityUrn": "urn:li:container:4f62b9a3e6794ee2cd4160bc0bbd8e15",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"s3\", \"instance\": \"UAT\", \"folder_abs_path\": \"my-test-bucket/folder_a/folder_aa\"}, \"name\": \"folder_aa\"}",
+        "value": "{\"customProperties\": {\"platform\": \"s3\", \"instance\": \"PROD\", \"folder_abs_path\": \"my-test-bucket/folder_a/folder_aa\"}, \"name\": \"folder_aa\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -302,7 +314,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
+    "entityUrn": "urn:li:container:4f62b9a3e6794ee2cd4160bc0bbd8e15",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -312,7 +324,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -321,7 +333,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
+    "entityUrn": "urn:li:container:4f62b9a3e6794ee2cd4160bc0bbd8e15",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -331,7 +343,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -340,17 +352,17 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
+    "entityUrn": "urn:li:container:4f62b9a3e6794ee2cd4160bc0bbd8e15",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:86297df39321e4948dbe8b8e941de98b\"}",
+        "value": "{\"container\": \"urn:li:container:a8aa32e8169b2ecc7ab4f3389c79124c\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -359,17 +371,17 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
+    "entityUrn": "urn:li:container:5abb7acbb8783b9e2d266c15bf7cebc0",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"s3\", \"instance\": \"UAT\", \"folder_abs_path\": \"my-test-bucket/folder_a/folder_aa/folder_aaa\"}, \"name\": \"folder_aaa\"}",
+        "value": "{\"customProperties\": {\"platform\": \"s3\", \"instance\": \"PROD\", \"folder_abs_path\": \"my-test-bucket/folder_a/folder_aa/folder_aaa\"}, \"name\": \"folder_aaa\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -378,7 +390,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
+    "entityUrn": "urn:li:container:5abb7acbb8783b9e2d266c15bf7cebc0",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -388,7 +400,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -397,7 +409,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
+    "entityUrn": "urn:li:container:5abb7acbb8783b9e2d266c15bf7cebc0",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -407,7 +419,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -416,17 +428,17 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
+    "entityUrn": "urn:li:container:5abb7acbb8783b9e2d266c15bf7cebc0",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:273fbeff7bd9ecb74982205aadd77994\"}",
+        "value": "{\"container\": \"urn:li:container:4f62b9a3e6794ee2cd4160bc0bbd8e15\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -435,17 +447,17 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2\"}",
+        "value": "{\"container\": \"urn:li:container:5abb7acbb8783b9e2d266c15bf7cebc0\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -455,16 +467,16 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "number_of_files": "2",
-                            "size_in_bytes": "8412"
+                            "number_of_files": "1",
+                            "size_in_bytes": "604"
                         },
                         "externalUrl": null,
-                        "name": "folder_aaa.food_parquet",
+                        "name": "chord_progressions_csv.csv",
                         "qualifiedName": null,
                         "description": "",
                         "uri": null,
@@ -473,7 +485,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "folder_aaa.food_parquet",
+                        "schemaName": "chord_progressions_csv.csv",
                         "platform": "urn:li:dataPlatform:s3",
                         "version": 0,
                         "created": {
@@ -497,7 +509,75 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "color",
+                                "fieldPath": "1st chord",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "2nd chord",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "3rd chord",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "4th chord",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "Progression Quality",
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
@@ -507,74 +587,6 @@
                                     }
                                 },
                                 "nativeDataType": "string",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "healthy",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                    }
-                                },
-                                "nativeDataType": "bool",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "height",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "int64",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "name",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "weight",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "int64",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -586,6 +598,18 @@
                         "foreignKeysSpecs": null,
                         "foreignKeys": null
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:foo:bar"
+                            },
+                            {
+                                "tag": "urn:li:tag:baz:bob"
+                            }
+                        ]
+                    }
                 }
             ]
         }
@@ -593,7 +617,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -602,17 +626,17 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2\"}",
+        "value": "{\"container\": \"urn:li:container:5abb7acbb8783b9e2d266c15bf7cebc0\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
