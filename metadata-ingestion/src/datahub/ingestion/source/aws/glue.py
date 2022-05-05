@@ -110,8 +110,14 @@ class GlueSourceConfig(AwsSourceConfig, PlatformSourceConfigBase):
         description="The aws account id where the target glue catalog lives. If None, datahub will ingest glue in aws caller's account.",
     )
 
-    use_s3_bucket_tags: Optional[bool] = False
-    use_s3_object_tags: Optional[bool] = False
+    use_s3_bucket_tags: Optional[bool] = Field(
+        default=False,
+        description="If an S3 Buckets Tags should be created for the Tables ingested by Glue. Please Note that this will not apply tags to any folders ingested, only the files.",
+    )
+    use_s3_object_tags: Optional[bool] = Field(
+        default=False,
+        description="If an S3 Objects Tags should be created for the Tables ingested by Glue.",
+    )
 
     @property
     def glue_client(self):

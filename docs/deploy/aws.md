@@ -162,6 +162,14 @@ You need to request a certificate in the AWS Certificate Manager by following th
 the ARN of the new certificate. You also need to replace host-name with the hostname of choice like
 demo.datahubproject.io.
 
+To have the metadata [authentication service](https://datahubproject.io/docs/introducing-metadata-service-authentication/#configuring-metadata-service-authentication) enable and use [API tokens](https://datahubproject.io/docs/introducing-metadata-service-authentication/#generating-personal-access-tokens) from the UI you will need to set the configuration in the values.yaml for the `gms` and the `frontend` deployments. This could be done by enabling the `metadata_service_authentication`:
+
+```
+datahub:
+  metadata_service_authentication:
+    enabled: true
+```
+
 After updating the yaml file, run the following to apply the updates.
 
 ```

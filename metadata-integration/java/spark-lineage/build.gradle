@@ -138,7 +138,7 @@ shadowJar {
         })
 
   }
-
+  relocate 'com.fasterxml.jackson', 'datahub.shaded.jackson'
   relocate 'org.apache.http','datahub.spark2.shaded.http'
   relocate 'org.apache.commons.codec', 'datahub.spark2.shaded.o.a.c.codec'
   relocate 'mozilla', 'datahub.spark2.shaded.mozilla'

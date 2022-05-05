@@ -260,9 +260,9 @@ class BigQueryTableRef:
             raise ValueError(f"invalid BigQuery table reference: {ref}")
         return cls(parts[1], parts[3], parts[5])
 
-    def is_temporary_table(self) -> bool:
+    def is_temporary_table(self, prefix: str) -> bool:
         # Temporary tables will have a dataset that begins with an underscore.
-        return self.dataset.startswith("_")
+        return self.dataset.startswith(prefix)
 
     def remove_extras(self) -> "BigQueryTableRef":
         # Handle partitioned and sharded tables.
@@ -971,7 +971,8 @@ class BigQueryUsageSource(Source):
     ) -> Iterable[Union[ReadEvent, QueryEvent, MetadataWorkUnit]]:
         self.report.num_read_events = 0
         self.report.num_query_events = 0
-        self.report.num_filtered_events = 0
+        self.report.num_filtered_read_events = 0
+        self.report.num_filtered_query_events = 0
         for entry in entries:
             event: Optional[Union[ReadEvent, QueryEvent]] = None
 
@@ -979,7 +980,7 @@ class BigQueryUsageSource(Source):
             if missing_read_entry is None:
                 event = ReadEvent.from_entry(entry)
                 if not self._is_table_allowed(event.resource):
-                    self.report.num_filtered_events += 1
+                    self.report.num_filtered_read_events += 1
                     continue
                 self.report.num_read_events += 1
 
@@ -987,7 +988,7 @@ class BigQueryUsageSource(Source):
             if event is None and missing_query_entry is None:
                 event = QueryEvent.from_entry(entry)
                 if not self._is_table_allowed(event.destinationTable):
-                    self.report.num_filtered_events += 1
+                    self.report.num_filtered_query_events += 1
                     continue
                 self.report.num_query_events += 1
                 wu = self._create_operation_aspect_work_unit(event)
@@ -999,7 +1000,7 @@ class BigQueryUsageSource(Source):
             if event is None and missing_query_entry_v2 is None:
                 event = QueryEvent.from_entry_v2(entry)
                 if not self._is_table_allowed(event.destinationTable):
-                    self.report.num_filtered_events += 1
+                    self.report.num_filtered_query_events += 1
                     continue
                 self.report.num_query_events += 1
                 wu = self._create_operation_aspect_work_unit(event)
@@ -1013,6 +1014,7 @@ class BigQueryUsageSource(Source):
                     f"Unable to parse {type(entry)} missing read {missing_query_entry}, missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {entry}",
                 )
             else:
+                logger.debug(f"Yielding {event} from log entries")
                 yield event
 
         logger.info(
@@ -1138,7 +1140,7 @@ class BigQueryUsageSource(Source):
                 logger.warning(f"Failed to process event {str(event.resource)}", e)
                 continue
 
-            if resource.is_temporary_table():
+            if resource.is_temporary_table(self.config.temp_table_dataset_prefix):
                 logger.debug(f"Dropping temporary table {resource}")
                 self.report.report_dropped(str(resource))
                 continue
