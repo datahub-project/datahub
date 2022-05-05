@@ -240,7 +240,7 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
     )
     table_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="egex patterns for tables to filter in ingestion.",
+        description="regex patterns for tables to filter in ingestion.",
     )
     view_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -248,7 +248,7 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
     )
     profile_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for profiles to filter in ingestion.",
+        description="regex patterns for profiles to filter in ingestion, allowed by the `table_pattern`.",
     )
     domain: Dict[str, AllowDenyPattern] = Field(
         default=dict(),
