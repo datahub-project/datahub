@@ -80,7 +80,7 @@ We currently support the following:
 | View Analytics                  | Allow the actor access to the DataHub analytics dashboard.                                                                     |
 | Generate Personal Access Tokens | Allow the actor to generate personal access tokens for use with DataHub APIs.                                                  |
 
-Common privileges to view & modify any entity within DataHub.
+**Common metadata privileges** to view & modify any entity within DataHub.
 
 | Common Privileges   | Description                                                                                                                      |
 |---------------------|----------------------------------------------------------------------------------------------------------------------------------|
@@ -96,7 +96,7 @@ Common privileges to view & modify any entity within DataHub.
 | Edit Assertions     | Allow actor to add and remove assertions from an entity.                                                                         |
 | Edit All            | Allow actor to edit any information about an entity. Super user privileges.                                                      |
 
-Specific entity-level privileges that are not generalizable: 
+**Specific entity-level privileges** that are not generalizable.
 
 | Entity       | Privilege                          | Description                                                                                                                                                                |
 |--------------|------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
