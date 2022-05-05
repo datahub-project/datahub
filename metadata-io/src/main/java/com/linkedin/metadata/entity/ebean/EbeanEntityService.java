@@ -16,6 +16,7 @@ import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.entity.AspectType;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
@@ -728,6 +729,9 @@ public class EbeanEntityService extends EntityService {
       final EnvelopedAspect envelopedAspect = new EnvelopedAspect();
       envelopedAspect.setName(currAspectEntry.getKey().getAspect());
       envelopedAspect.setVersion(currAspectEntry.getKey().getVersion());
+      // TODO: I think we can assume this here, adding as it's a required field so object mapping barfs when trying to access it,
+      //    since nowhere else is using it should be safe for now at least
+      envelopedAspect.setType(AspectType.VERSIONED);
       envelopedAspect.setValue(aspect);
       envelopedAspect.setCreated(new AuditStamp()
           .setActor(Urn.createFromString(currAspectEntry.getCreatedBy()))
@@ -749,6 +753,9 @@ public class EbeanEntityService extends EntityService {
     envelopedAspect.setName(keySpec.getName());
     envelopedAspect.setVersion(ASPECT_LATEST_VERSION);
     envelopedAspect.setValue(aspect);
+    // TODO: I think we can assume this here, adding as it's a required field so object mapping barfs when trying to access it,
+    //    since nowhere else is using it should be safe for now at least
+    envelopedAspect.setType(AspectType.VERSIONED);
     envelopedAspect.setCreated(
         new AuditStamp().setActor(Urn.createFromString(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()));
 

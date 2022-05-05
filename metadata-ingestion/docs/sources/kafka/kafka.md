@@ -71,13 +71,14 @@ source:
 
 ### Custom Schema Registry
 
-The Kafka Source uses the schema registry to figure out the schema associated with both `key` and `value` for the topic. 
-By default it uses the [Confluent's Kafka Schema registry](https://docs.confluent.io/platform/current/schema-registry/index.html) 
-and supports the `AVRO` schema type.
+The Kafka Source uses the schema registry to figure out the schema associated with both `key` and `value` for the topic.
+By default it uses the [Confluent's Kafka Schema registry](https://docs.confluent.io/platform/current/schema-registry/index.html)
+and supports the `AVRO` and `PROTOBUF` schema types.
 
-If you're using a custom schema registry, or you are using schema type other than `AVRO`, then you can provide your own 
+
+If you're using a custom schema registry, or you are using schema type other than `AVRO` or `PROTOBUF`, then you can provide your own
 custom implementation of the `KafkaSchemaRegistryBase` class, and implement the `get_schema_metadata(topic, platform_urn)` method that
-given a topic name would return object of `SchemaMetadata` containing schema for that topic. Please refer 
+given a topic name would return object of `SchemaMetadata` containing schema for that topic. Please refer
 `datahub.ingestion.source.confluent_schema_registry::ConfluentSchemaRegistry` for sample implementation of this class.
 ```python
 class KafkaSchemaRegistryBase(ABC):
@@ -101,4 +102,32 @@ source:
       schema_registry_url: http://localhost:8081
 
 # sink configs
+```
+
+### Limitations of `PROTOBUF` schema types implementation
+
+The current implementation of the support for `PROTOBUF` schema type has the following limitations:
+
++ Requires Python 3.7 & above.
++ Recursive types are not supported.
++ If the schemas of different topics define a type in the same package, the source would raise an exception.
+
+In addition to this, maps are represented as arrays of messages. The following message,
+
+```
+message MessageWithMap {
+  map<int, string> map_1 = 1;
+}
+```
+
+becomes:
+
+```
+message Map1Entry {
+  int key = 1;
+  string value = 2/
+}
+message MessageWithMap {
+  repeated Map1Entry map_1 = 1;
+}
 ```
