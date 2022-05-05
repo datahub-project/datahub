@@ -13,5 +13,4 @@ source:
     profiling:
       enabled: false
 
-sink:
-  # sink configs
+# sink configs
