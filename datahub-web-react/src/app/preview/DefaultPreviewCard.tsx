@@ -25,6 +25,10 @@ const PreviewContainer = styled.div`
     align-items: center;
 `;
 
+const PreviewWrapper = styled.div`
+    width: 100%;
+`;
+
 const PlatformInfo = styled.div`
     margin-bottom: 8px;
     display: flex;
@@ -194,12 +198,15 @@ export default function DefaultPreviewCard({
             </>
         )) || []),
     ];
+    const hasGlossaryTerms = !!glossaryTerms?.terms?.length;
+    const hasTags = !!tags?.tags?.length;
     if (snippet) {
         insightViews.push(snippet);
     }
+
     return (
         <PreviewContainer data-testid={dataTestID}>
-            <div style={{ width: '100%' }}>
+            <PreviewWrapper>
                 <TitleContainer>
                     <Link to={url}>
                         <PlatformInfo>
@@ -252,12 +259,12 @@ export default function DefaultPreviewCard({
                         <NoMarkdownViewer limit={250}>{description}</NoMarkdownViewer>
                     </DescriptionContainer>
                 )}
-                {(domain || glossaryTerms || tags) && (
+                {(domain || hasGlossaryTerms || hasTags) && (
                     <TagContainer>
                         <TagTermGroup domain={domain} maxShow={3} />
-                        {domain && glossaryTerms && <TagSeparator />}
-                        <TagTermGroup uneditableGlossaryTerms={glossaryTerms} maxShow={1} />
-                        {((glossaryTerms && tags) || (domain && tags)) && <TagSeparator />}
+                        {domain && hasGlossaryTerms && <TagSeparator />}
+                        <TagTermGroup uneditableGlossaryTerms={glossaryTerms} maxShow={3} />
+                        {((hasGlossaryTerms && hasTags) || (domain && hasTags)) && <TagSeparator />}
                         <TagTermGroup uneditableTags={tags} maxShow={3} />
                     </TagContainer>
                 )}
@@ -276,7 +283,7 @@ export default function DefaultPreviewCard({
                         ))}
                     </InsightContainer>
                 )}
-            </div>
+            </PreviewWrapper>
         </PreviewContainer>
     );
 }

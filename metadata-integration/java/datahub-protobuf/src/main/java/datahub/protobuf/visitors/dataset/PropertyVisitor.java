@@ -14,17 +14,18 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static datahub.protobuf.ProtobufUtils.getMessageOptions;
 import static datahub.protobuf.visitors.ProtobufExtensionUtil.getProperties;
 
 
-public class ProtobufExtensionPropertyVisitor implements ProtobufModelVisitor<DatasetProperties> {
+public class PropertyVisitor implements ProtobufModelVisitor<DatasetProperties> {
     private static final Gson GSON = new Gson();
 
     @Override
     public Stream<DatasetProperties> visitGraph(VisitContext context) {
-        Map<String, String> properties = ProtobufExtensionUtil.filterByDataHubType(context.root().messageProto()
-                        .getOptions().getAllFields(), context.getGraph().getRegistry(), ProtobufExtensionUtil.DataHubMetadataType.PROPERTY)
-                .entrySet().stream().flatMap(fd -> {
+        Map<String, String> properties = ProtobufExtensionUtil.filterByDataHubType(getMessageOptions(context.root().messageProto()),
+                        context.getGraph().getRegistry(), ProtobufExtensionUtil.DataHubMetadataType.PROPERTY)
+                .stream().flatMap(fd -> {
                     if (fd.getKey().getJavaType() != Descriptors.FieldDescriptor.JavaType.MESSAGE) {
                         if (fd.getKey().isRepeated()) {
                             return Stream.of(Map.entry(fd.getKey().getName(), GSON.toJson(

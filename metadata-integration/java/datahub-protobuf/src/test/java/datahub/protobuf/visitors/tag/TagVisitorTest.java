@@ -1,7 +1,7 @@
 package datahub.protobuf.visitors.tag;
 
 import com.linkedin.tag.TagProperties;
-import datahub.protobuf.visitors.tags.ProtobufExtensionTagVisitor;
+import datahub.protobuf.visitors.tags.TagVisitor;
 import datahub.event.MetadataChangeProposalWrapper;
 import org.junit.Test;
 
@@ -15,11 +15,11 @@ import static datahub.protobuf.TestFixtures.getVisitContextBuilder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 
-public class ProtobufExtensionTagVisitorTest {
+public class TagVisitorTest {
 
     @Test
     public void extendedMessageTest() throws IOException {
-        ProtobufExtensionTagVisitor test = new ProtobufExtensionTagVisitor();
+        TagVisitor test = new TagVisitor();
         assertEquals(Set.of(
                 new TagProperties()
                         .setName("bool_feature")
@@ -44,7 +44,10 @@ public class ProtobufExtensionTagVisitorTest {
                         .setDescription("meta.msg.repeat_string"),
                 new TagProperties()
                         .setName("repeat_string.b")
-                        .setDescription("meta.msg.repeat_string")
+                        .setDescription("meta.msg.repeat_string"),
+                new TagProperties()
+                        .setName("deprecated")
+                        .setColorHex("#FF0000")
         ), getTestProtobufGraph("extended_protobuf", "messageA")
                 .accept(getVisitContextBuilder("extended_protobuf.Person"), List.of(test))
                 .map(MetadataChangeProposalWrapper::getAspect)
@@ -71,12 +74,15 @@ public class ProtobufExtensionTagVisitorTest {
                         .setDescription("meta.fld.tag_list"),
                 new TagProperties()
                         .setName("f")
-                        .setDescription("meta.fld.tag_list")
+                        .setDescription("meta.fld.tag_list"),
+                new TagProperties()
+                        .setName("deprecated")
+                        .setColorHex("#FF0000")
         );
 
         assertEquals(expectedTagProperties,
                 getTestProtobufGraph("extended_protobuf", "messageB")
-                        .accept(getVisitContextBuilder("extended_protobuf.Person"), List.of(new ProtobufExtensionTagVisitor()))
+                        .accept(getVisitContextBuilder("extended_protobuf.Person"), List.of(new TagVisitor()))
                         .map(MetadataChangeProposalWrapper::getAspect)
                         .collect(Collectors.toSet()));
     }

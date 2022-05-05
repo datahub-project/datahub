@@ -15,9 +15,7 @@ from sqlalchemy.engine import Engine
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.ingestion.api.decorators import (
-    SourceCapability,
     SupportStatus,
-    capability,
     config_class,
     platform_name,
     support_status,
@@ -107,8 +105,6 @@ class TrinoUsageConfig(TrinoConfig, BaseUsageConfig, EnvBasedSourceBaseConfig):
 @platform_name("Trino")
 @config_class(TrinoUsageConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
-@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @dataclasses.dataclass
 class TrinoUsageSource(Source):
     """
