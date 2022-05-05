@@ -4,6 +4,9 @@
     "path_specs": [
       {
         "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro"
+      },
+      {
+        "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv"
       }
     ],
     "aws_config": {
