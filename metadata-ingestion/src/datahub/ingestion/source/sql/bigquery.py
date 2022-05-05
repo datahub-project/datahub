@@ -332,8 +332,12 @@ class BigQuerySource(SQLAlchemySource):
         self.maximum_shard_ids: Dict[str, str] = dict()
         atexit.register(cleanup, config)
 
-    def get_db_name(self, inspector: Inspector = None) -> str:
-        if self.config.project_id:
+    def get_db_name(
+        self, inspector: Inspector = None, for_sql_queries: bool = True
+    ) -> str:
+        if for_sql_queries and self.config.lineage_client_project_id:
+            return self.config.lineage_client_project_id
+        elif self.config.project_id:
             return self.config.project_id
         else:
             return self._get_project_id(inspector)
@@ -342,13 +346,10 @@ class BigQuerySource(SQLAlchemySource):
         if not self.config.include_table_lineage:
             return
 
-        lineage_client_project_id = self._get_lineage_client_project_id()
         if self.config.use_exported_bigquery_audit_metadata:
-            self._compute_bigquery_lineage_via_exported_bigquery_audit_metadata(
-                lineage_client_project_id
-            )
+            self._compute_bigquery_lineage_via_exported_bigquery_audit_metadata()
         else:
-            self._compute_bigquery_lineage_via_gcp_logging(lineage_client_project_id)
+            self._compute_bigquery_lineage_via_gcp_logging()
 
         if self.lineage_metadata is None:
             self.lineage_metadata = {}
@@ -359,14 +360,11 @@ class BigQuerySource(SQLAlchemySource):
         )
         logger.debug(f"lineage metadata is {self.lineage_metadata}")
 
-    def _compute_bigquery_lineage_via_gcp_logging(
-        self, lineage_client_project_id: Optional[str]
-    ) -> None:
+    def _compute_bigquery_lineage_via_gcp_logging(self) -> None:
+        project_id = self.get_db_name()
         logger.info("Populating lineage info via GCP audit logs")
         try:
-            _clients: List[GCPLoggingClient] = self._make_bigquery_client(
-                lineage_client_project_id
-            )
+            _clients: List[GCPLoggingClient] = self._make_gcp_logging_client(project_id)
             template: str = BQ_FILTER_RULE_TEMPLATE
 
             if self.config.use_v2_audit_metadata:
@@ -386,12 +384,11 @@ class BigQuerySource(SQLAlchemySource):
                 f"Error was {e}",
             )
 
-    def _compute_bigquery_lineage_via_exported_bigquery_audit_metadata(
-        self, lineage_client_project_id: Optional[str]
-    ) -> None:
+    def _compute_bigquery_lineage_via_exported_bigquery_audit_metadata(self) -> None:
+        project_id = self.get_db_name(for_sql_queries=True)
         logger.info("Populating lineage info via exported GCP audit logs")
         try:
-            _client: BigQueryClient = BigQueryClient(project=lineage_client_project_id)
+            _client: BigQueryClient = BigQueryClient(project=project_id)
             exported_bigquery_audit_metadata: Iterable[
                 BigQueryAuditMetadata
             ] = self._get_exported_bigquery_audit_metadata(_client)
@@ -408,27 +405,17 @@ class BigQuerySource(SQLAlchemySource):
                 f"Error: {e}",
             )
 
-    def _make_bigquery_client(
-        self, lineage_client_project_id: Optional[str]
+    def _make_gcp_logging_client(
+        self, project_id: Optional[str]
     ) -> List[GCPLoggingClient]:
         # See https://github.com/googleapis/google-cloud-python/issues/2674 for
         # why we disable gRPC here.
         client_options = self.config.extra_client_options.copy()
         client_options["_use_grpc"] = False
-        if lineage_client_project_id is not None:
-            return [
-                GCPLoggingClient(**client_options, project=lineage_client_project_id)
-            ]
+        if project_id is not None:
+            return [GCPLoggingClient(**client_options, project=project_id)]
         else:
             return [GCPLoggingClient(**client_options)]
-
-    def _get_lineage_client_project_id(self) -> Optional[str]:
-        project_id: Optional[str] = (
-            self.config.lineage_client_project_id
-            if self.config.lineage_client_project_id
-            else self.config.project_id
-        )
-        return project_id
 
     def _get_bigquery_log_entries(
         self,
@@ -642,7 +629,9 @@ class BigQuerySource(SQLAlchemySource):
         with engine.connect() as con:
             inspector = inspect(con)
             sql = BQ_GET_LATEST_PARTITION_TEMPLATE.format(
-                project_id=self.get_db_name(inspector), schema=schema, table=table
+                project_id=self.get_db_name(inspector, for_sql_queries=True),
+                schema=schema,
+                table=table,
             )
             result = con.execute(sql)
             # Bigquery only supports one partition column
@@ -897,7 +886,7 @@ WHERE
         custom_sql: Optional[str] = None,
     ) -> dict:
         return dict(
-            schema=self.config.project_id,
+            schema=self.get_db_name(for_sql_queries=True),
             table=f"{schema}.{table}",
             partition=partition,
             custom_sql=custom_sql,

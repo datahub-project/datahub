@@ -79,6 +79,8 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
 
     def get_sql_alchemy_url(self):
+        if self.lineage_client_project_id:
+            return f"{self.scheme}://{self.lineage_client_project_id}"
         if self.project_id:
             return f"{self.scheme}://{self.project_id}"
         # When project_id is not set, we will attempt to detect the project ID
