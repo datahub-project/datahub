@@ -191,6 +191,7 @@ subprojects {
         implementation('org.apache.velocity:velocity-engine-core:2.3')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
         implementation('com.fasterxml.jackson.core:jackson-databind:2.13.2.2')
+        implementation('com.fasterxml.jackson.core:jackson-dataformat-cbor:2.13.2')
       }
     }
 
