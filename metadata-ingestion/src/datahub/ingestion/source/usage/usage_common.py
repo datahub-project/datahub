@@ -83,15 +83,14 @@ class GenericAggregatedDataset(Generic[ResourceType]):
         urn_builder: Callable[[ResourceType], str],
         top_n_queries: int,
         format_sql_queries: bool,
+        display_top_sql_queries: bool = True,
     ) -> MetadataWorkUnit:
-        budget_per_query: int = int(self.total_budget_for_query_list / top_n_queries)
 
-        usageStats = DatasetUsageStatisticsClass(
-            timestampMillis=int(self.bucket_start_time.timestamp() * 1000),
-            eventGranularity=TimeWindowSizeClass(unit=bucket_duration, multiple=1),
-            uniqueUserCount=len(self.userFreq),
-            totalSqlQueries=self.queryCount,
-            topSqlQueries=[
+        if display_top_sql_queries:
+            budget_per_query: int = int(
+                self.total_budget_for_query_list / top_n_queries
+            )
+            top_sql_queries = [
                 self.trim_query(
                     format_sql_query(query, keyword_case="upper", reindent_aligned=True)
                     if format_sql_queries
@@ -99,7 +98,16 @@ class GenericAggregatedDataset(Generic[ResourceType]):
                     budget_per_query,
                 )
                 for query, _ in self.queryFreq.most_common(top_n_queries)
-            ],
+            ]
+        else:
+            top_sql_queries = None
+
+        usageStats = DatasetUsageStatisticsClass(
+            timestampMillis=int(self.bucket_start_time.timestamp() * 1000),
+            eventGranularity=TimeWindowSizeClass(unit=bucket_duration, multiple=1),
+            uniqueUserCount=len(self.userFreq),
+            totalSqlQueries=self.queryCount,
+            topSqlQueries=top_sql_queries,
             userCounts=[
                 DatasetUserUsageCountsClass(
                     user=builder.make_user_urn(user_email.split("@")[0]),

@@ -146,6 +146,7 @@ class RedshiftAccessEvent(BaseModel):
 class RedshiftUsageConfig(RedshiftConfig, BaseUsageConfig, EnvBasedSourceConfigBase):
     email_domain: str = Field(description="")
     options: Dict = Field(default={}, description="")
+    display_top_sql_queries: bool = True
 
     def get_sql_alchemy_url(self):
         return super().get_sql_alchemy_url()
@@ -392,6 +393,7 @@ class RedshiftUsageSource(Source):
             ),
             self.config.top_n_queries,
             self.config.format_sql_queries,
+            self.config.display_top_sql_queries,
         )
 
     def get_report(self) -> RedshiftUsageSourceReport:
