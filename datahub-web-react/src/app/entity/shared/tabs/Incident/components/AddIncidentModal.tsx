@@ -11,7 +11,7 @@ type AddIncidentProps = {
     refetch?: () => Promise<any>;
 };
 
-export const AddIncident = ({ refetch }: AddIncidentProps) => {
+export const AddIncidentModal = ({ refetch }: AddIncidentProps) => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const { urn, entityType } = useEntityData();
     const incidentTypes = INCIDENT_DISPLAY_TYPES;

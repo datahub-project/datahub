@@ -7,14 +7,14 @@ import moment from 'moment';
 
 import CustomAvatar from '../../../../../shared/avatar/CustomAvatar';
 import { EntityType, IncidentState, IncidentType } from '../../../../../../types.generated';
-import { ResolvedIncident } from './ResolvedIncident';
-import { getNameFromType } from '../incidentUtils';
+import { FAILURE_COLOR_HEX, getNameFromType, SUCCESS_COLOR_HEX } from '../incidentUtils';
 import { useGetUserQuery } from '../../../../../../graphql/user.generated';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { getLocaleTimezone } from '../../../../../shared/time/timeUtils';
 import { useEntityData } from '../../../EntityContext';
 import analytics, { EntityActionType, EventType } from '../../../../../analytics';
 import { useUpdateIncidentStatusMutation } from '../../../../../../graphql/mutations.generated';
+import { ResolveIncidentModal } from './ResolveIncidentModal';
 
 type Props = {
     incident: any;
@@ -101,9 +101,15 @@ const IncidentResolvedText = styled(Typography.Text)`
     color: #8c8c8c;
 `;
 
+const IncidentResolvedTextContainer = styled.div`
+    display: flex;
+    align-items: center;
+`;
+
 const IncidentResolvedContainer = styled.div`
     display: flex;
     align-items: center;
+    margin-right: 30px;
 `;
 
 const IncidentResolvedButton = styled(Button)`
@@ -205,9 +211,9 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                             <TitleContainer>
                                 <IncidentTitle>{incident.title}</IncidentTitle>
                                 <IncidentTypeTag>
-                                    {incident.type === IncidentType.Operational
-                                        ? getNameFromType(incident.type)
-                                        : incident.customType}
+                                    {incident.type === IncidentType.Custom
+                                        ? incident.customType
+                                        : getNameFromType(incident.type)}
                                 </IncidentTypeTag>
                             </TitleContainer>
                             <DescriptionContainer>
@@ -223,10 +229,10 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                     >
                                         <CustomAvatar
                                             size={26}
-                                            name={
-                                                createdActor?.corpUser?.username.charAt(0).toUpperCase() +
-                                                createdActor?.corpUser?.username.slice(1)
-                                            }
+                                            name={entityRegistry.getDisplayName(
+                                                EntityType.CorpUser,
+                                                createdActor?.corpUser,
+                                            )}
                                         />
                                     </Link>
                                 )}
@@ -237,7 +243,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                         </div>
                     </IncidentHeaderContainer>
                     {incident.status.state === IncidentState.Resolved ? (
-                        <IncidentResolvedContainer>
+                        <IncidentResolvedTextContainer>
                             <Popover
                                 overlayStyle={{ maxWidth: 240 }}
                                 placement="left"
@@ -249,36 +255,40 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                         `Resolved on  ${moment
                                             .utc(incident.status.lastUpdated.time)
                                             .format('DD MMM YYYY')} by `}
-                                    {resolvedActor?.corpUser?.username && (
+                                    {resolvedActor?.corpUser && (
                                         <Link
                                             to={entityRegistry.getEntityUrl(
                                                 EntityType.CorpUser,
                                                 resolvedActor?.corpUser?.urn,
                                             )}
                                         >
-                                            {resolvedActor?.corpUser?.username.charAt(0).toUpperCase() +
-                                                resolvedActor?.corpUser?.username.slice(1)}
+                                            {entityRegistry.getDisplayName(
+                                                EntityType.CorpUser,
+                                                resolvedActor?.corpUser,
+                                            )}
                                         </Link>
                                     )}
                                 </IncidentResolvedText>
                             </Popover>
-                            <CheckCircleFilled style={{ fontSize: '28px', color: '#52C41A', marginLeft: '16px' }} />
+                            <CheckCircleFilled
+                                style={{ fontSize: '28px', color: SUCCESS_COLOR_HEX, marginLeft: '16px' }}
+                            />
                             <Dropdown overlay={menu} trigger={['click']}>
                                 <MenuIcon />
                             </Dropdown>
-                        </IncidentResolvedContainer>
+                        </IncidentResolvedTextContainer>
                     ) : (
                         <IncidentResolvedContainer>
                             <IncidentResolvedButton icon={<CheckOutlined />} onClick={() => handleResolved()}>
                                 Resolve
                             </IncidentResolvedButton>
-                            <WarningFilled style={{ fontSize: '28px', marginLeft: '16px', color: '#FA8C16' }} />
+                            <WarningFilled style={{ fontSize: '28px', marginLeft: '16px', color: FAILURE_COLOR_HEX }} />
                         </IncidentResolvedContainer>
                     )}
                 </IncidentItemContainer>
             </IncidentListContainer>
             {isResolvedModalVisible && (
-                <ResolvedIncident
+                <ResolveIncidentModal
                     handleResolved={handleResolved}
                     isResolvedModalVisible={isResolvedModalVisible}
                     updateIncidentStatus={updateIncidentStatus}

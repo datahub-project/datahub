@@ -3,6 +3,7 @@ import { CheckCircleFilled, WarningFilled, StopOutlined } from '@ant-design/icon
 import { Typography } from 'antd';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../../../constants';
+import { SUCCESS_COLOR_HEX, FAILURE_COLOR_HEX } from '../incidentUtils';
 
 const SummaryHeader = styled.div`
     width: 100%;
@@ -37,9 +38,6 @@ export type IncidentsSummary = {
 type Props = {
     summary: IncidentsSummary;
 };
-
-const SUCCESS_COLOR_HEX = '#52C41A';
-const FAILURE_COLOR_HEX = '#FA8C16';
 
 const getSummaryIcon = (summary: IncidentsSummary) => {
     if (summary.totalIncident === 0) {

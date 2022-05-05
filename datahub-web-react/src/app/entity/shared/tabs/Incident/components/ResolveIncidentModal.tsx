@@ -10,7 +10,7 @@ type AddIncidentProps = {
     updateIncidentStatus: (state: IncidentState, resolvedMessage: string) => void;
 };
 
-export const ResolvedIncident = ({
+export const ResolveIncidentModal = ({
     handleResolved,
     isResolvedModalVisible,
     updateIncidentStatus,
@@ -38,12 +38,12 @@ export const ResolvedIncident = ({
                     <Button type="text" onClick={handleClose}>
                         Cancel
                     </Button>,
-                    <Button form="addIncidentForm" key="submit" htmlType="submit">
+                    <Button form="resolveIncidentForm" key="submit" htmlType="submit">
                         Resolve
                     </Button>,
                 ]}
             >
-                <Form form={form} name="addIncidentForm" onFinish={onResolvedIncident} layout="vertical">
+                <Form form={form} name="resolveIncidentForm" onFinish={onResolvedIncident} layout="vertical">
                     <Form.Item name="message" label="Note (optional)">
                         <TextArea rows={4} />
                     </Form.Item>

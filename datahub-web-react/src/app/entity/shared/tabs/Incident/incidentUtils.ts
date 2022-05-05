@@ -34,3 +34,6 @@ INCIDENT_DISPLAY_TYPES.forEach((incidentDetails) => {
 export const getNameFromType = (type: IncidentType) => {
     return incidentTypeToDetails.get(type)?.name || type;
 };
+
+export const SUCCESS_COLOR_HEX = '#52C41A';
+export const FAILURE_COLOR_HEX = '#FA8C16';

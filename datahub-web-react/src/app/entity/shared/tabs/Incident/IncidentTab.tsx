@@ -5,12 +5,12 @@ import { Empty, List, Pagination, Select, Typography } from 'antd';
 import { useGetIncidentsQuery } from '../../../../../graphql/dataset.generated';
 import TabToolbar from '../../components/styled/TabToolbar';
 import { useEntityData } from '../../EntityContext';
-import { AddIncident } from './components/AddIncident';
 import { ReactComponent as LoadingSvg } from '../../../../../images/datahub-logo-color-loading_pendulum.svg';
 import IncidentListItem from './components/IncidentListItem';
 import { INCIDENT_DISPLAY_STATES } from './incidentUtils';
 import { Incident, IncidentState } from '../../../../../types.generated';
 import { IncidentSummary } from './components/IncidentSummary';
+import { AddIncidentModal } from './components/AddIncidentModal';
 
 const LoadingContainer = styled.div`
     padding-top: 40px;
@@ -117,7 +117,7 @@ export const IncidentTab = () => {
     return (
         <>
             <TabToolbar>
-                <AddIncident refetch={refetch} />
+                <AddIncidentModal refetch={refetch} />
                 <IncidentStateSelect value={selectedIncidentState} onChange={onSelectIncidentState} autoFocus>
                     {incidentStates.map((incidentType) => {
                         return (
