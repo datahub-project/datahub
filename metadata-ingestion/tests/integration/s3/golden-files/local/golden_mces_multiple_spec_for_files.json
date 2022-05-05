@@ -3,16 +3,16 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "number_of_files": "2",
-                            "size_in_bytes": "8412"
+                            "number_of_files": "1",
+                            "size_in_bytes": "1024"
                         },
                         "externalUrl": null,
-                        "name": "folder_aaa.food_parquet",
+                        "name": "chord_progressions_avro.avro",
                         "qualifiedName": null,
                         "description": "",
                         "uri": null,
@@ -21,7 +21,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "folder_aaa.food_parquet",
+                        "schemaName": "chord_progressions_avro.avro",
                         "platform": "urn:li:dataPlatform:file",
                         "version": 0,
                         "created": {
@@ -45,9 +45,77 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "color",
+                                "fieldPath": "[version=2.0].[type=Root].[type=double].Progression Quality",
                                 "jsonPath": null,
-                                "nullable": false,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "double",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=Root].[type=long].1st chord",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "long",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=Root].[type=long].2nd chord",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "long",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=Root].[type=long].3rd chord",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "long",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=Root].[type=string].4th chord",
+                                "jsonPath": null,
+                                "nullable": true,
                                 "description": null,
                                 "type": {
                                     "type": {
@@ -55,74 +123,6 @@
                                     }
                                 },
                                 "nativeDataType": "string",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "healthy",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                    }
-                                },
-                                "nativeDataType": "bool",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "height",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "int64",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "name",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "weight",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "int64",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -141,7 +141,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -150,17 +150,17 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+    "entityUrn": "urn:li:container:ec641f2e55b5b507547420e7fe726e43",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"UAT\", \"folder_abs_path\": \"tests\"}, \"name\": \"tests\"}",
+        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"PROD\", \"folder_abs_path\": \"tests\"}, \"name\": \"tests\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -169,7 +169,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+    "entityUrn": "urn:li:container:ec641f2e55b5b507547420e7fe726e43",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -179,7 +179,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -188,7 +188,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+    "entityUrn": "urn:li:container:ec641f2e55b5b507547420e7fe726e43",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -198,7 +198,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -207,17 +207,17 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+    "entityUrn": "urn:li:container:c447df2838a56ea10746b2b29c6e1f55",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"UAT\", \"folder_abs_path\": \"tests/integration\"}, \"name\": \"integration\"}",
+        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"PROD\", \"folder_abs_path\": \"tests/integration\"}, \"name\": \"integration\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -226,7 +226,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+    "entityUrn": "urn:li:container:c447df2838a56ea10746b2b29c6e1f55",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -236,7 +236,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -245,7 +245,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+    "entityUrn": "urn:li:container:c447df2838a56ea10746b2b29c6e1f55",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -255,7 +255,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -264,17 +264,17 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+    "entityUrn": "urn:li:container:c447df2838a56ea10746b2b29c6e1f55",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:583fb3ef3a2b226ea2630157568eb7dc\"}",
+        "value": "{\"container\": \"urn:li:container:ec641f2e55b5b507547420e7fe726e43\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -283,17 +283,17 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
+    "entityUrn": "urn:li:container:7a7bb5d2c697f75af94470ff692c62fc",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"UAT\", \"folder_abs_path\": \"tests/integration/s3\"}, \"name\": \"s3\"}",
+        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"PROD\", \"folder_abs_path\": \"tests/integration/s3\"}, \"name\": \"s3\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -302,7 +302,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
+    "entityUrn": "urn:li:container:7a7bb5d2c697f75af94470ff692c62fc",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -312,7 +312,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -321,7 +321,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
+    "entityUrn": "urn:li:container:7a7bb5d2c697f75af94470ff692c62fc",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -331,7 +331,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -340,17 +340,17 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
+    "entityUrn": "urn:li:container:7a7bb5d2c697f75af94470ff692c62fc",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:bc816cf2df9acd90fcefa42dc425d886\"}",
+        "value": "{\"container\": \"urn:li:container:c447df2838a56ea10746b2b29c6e1f55\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -359,17 +359,17 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
+    "entityUrn": "urn:li:container:0cfba651f28915437b9ca20b860794b8",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"UAT\", \"folder_abs_path\": \"tests/integration/s3/test_data\"}, \"name\": \"test_data\"}",
+        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"PROD\", \"folder_abs_path\": \"tests/integration/s3/test_data\"}, \"name\": \"test_data\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -378,7 +378,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
+    "entityUrn": "urn:li:container:0cfba651f28915437b9ca20b860794b8",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -388,7 +388,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -397,7 +397,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
+    "entityUrn": "urn:li:container:0cfba651f28915437b9ca20b860794b8",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -407,7 +407,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -416,17 +416,17 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
+    "entityUrn": "urn:li:container:0cfba651f28915437b9ca20b860794b8",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:d20e88ff88a6de6e53e437d342e218f4\"}",
+        "value": "{\"container\": \"urn:li:container:7a7bb5d2c697f75af94470ff692c62fc\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -435,17 +435,17 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
+    "entityUrn": "urn:li:container:68e98abbe42abc5b7d18ecc59e99394b",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"UAT\", \"folder_abs_path\": \"tests/integration/s3/test_data/local_system\"}, \"name\": \"local_system\"}",
+        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"PROD\", \"folder_abs_path\": \"tests/integration/s3/test_data/local_system\"}, \"name\": \"local_system\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -454,7 +454,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
+    "entityUrn": "urn:li:container:68e98abbe42abc5b7d18ecc59e99394b",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -464,7 +464,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -473,7 +473,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
+    "entityUrn": "urn:li:container:68e98abbe42abc5b7d18ecc59e99394b",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -483,7 +483,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -492,17 +492,17 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
+    "entityUrn": "urn:li:container:68e98abbe42abc5b7d18ecc59e99394b",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50\"}",
+        "value": "{\"container\": \"urn:li:container:0cfba651f28915437b9ca20b860794b8\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -511,17 +511,17 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
+    "entityUrn": "urn:li:container:f1af6f7ad766fd11aaa792faa5670cfd",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"UAT\", \"folder_abs_path\": \"tests/integration/s3/test_data/local_system/folder_a\"}, \"name\": \"folder_a\"}",
+        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"PROD\", \"folder_abs_path\": \"tests/integration/s3/test_data/local_system/folder_a\"}, \"name\": \"folder_a\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -530,7 +530,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
+    "entityUrn": "urn:li:container:f1af6f7ad766fd11aaa792faa5670cfd",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -540,7 +540,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -549,7 +549,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
+    "entityUrn": "urn:li:container:f1af6f7ad766fd11aaa792faa5670cfd",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -559,7 +559,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -568,17 +568,17 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
+    "entityUrn": "urn:li:container:f1af6f7ad766fd11aaa792faa5670cfd",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:93525defb812252106d3b0c08a55e39a\"}",
+        "value": "{\"container\": \"urn:li:container:68e98abbe42abc5b7d18ecc59e99394b\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -587,17 +587,17 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
+    "entityUrn": "urn:li:container:0e95508357b8eda0da27f14ac7ae620b",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"UAT\", \"folder_abs_path\": \"tests/integration/s3/test_data/local_system/folder_a/folder_aa\"}, \"name\": \"folder_aa\"}",
+        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"PROD\", \"folder_abs_path\": \"tests/integration/s3/test_data/local_system/folder_a/folder_aa\"}, \"name\": \"folder_aa\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -606,7 +606,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
+    "entityUrn": "urn:li:container:0e95508357b8eda0da27f14ac7ae620b",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -616,7 +616,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -625,7 +625,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
+    "entityUrn": "urn:li:container:0e95508357b8eda0da27f14ac7ae620b",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -635,7 +635,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -644,17 +644,17 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
+    "entityUrn": "urn:li:container:0e95508357b8eda0da27f14ac7ae620b",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:48a8653fc4afb55b12cd8d0280e09156\"}",
+        "value": "{\"container\": \"urn:li:container:f1af6f7ad766fd11aaa792faa5670cfd\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -663,17 +663,17 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
+    "entityUrn": "urn:li:container:0b11f7e4b6df7e17a294482039b93289",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"UAT\", \"folder_abs_path\": \"tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa\"}, \"name\": \"folder_aaa\"}",
+        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"PROD\", \"folder_abs_path\": \"tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa\"}, \"name\": \"folder_aaa\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -682,7 +682,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
+    "entityUrn": "urn:li:container:0b11f7e4b6df7e17a294482039b93289",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -692,7 +692,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -701,7 +701,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
+    "entityUrn": "urn:li:container:0b11f7e4b6df7e17a294482039b93289",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -711,7 +711,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -720,17 +720,17 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
+    "entityUrn": "urn:li:container:0b11f7e4b6df7e17a294482039b93289",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:98a716614da5246426edd48260406364\"}",
+        "value": "{\"container\": \"urn:li:container:0e95508357b8eda0da27f14ac7ae620b\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -739,17 +739,17 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec\"}",
+        "value": "{\"container\": \"urn:li:container:0b11f7e4b6df7e17a294482039b93289\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -758,17 +758,17 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 140, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"name\", \"uniqueCount\": 9, \"uniqueProportion\": 0.06521739130434782, \"nullCount\": 2, \"nullProportion\": 0.014285714285714285, \"distinctValueFrequencies\": [{\"value\": \"NullValue\", \"frequency\": 2}, {\"value\": \"apple\", \"frequency\": 14}, {\"value\": \"chicken\", \"frequency\": 14}, {\"value\": \"cookie\", \"frequency\": 12}, {\"value\": \"hamburger\", \"frequency\": 14}, {\"value\": \"lasagna\", \"frequency\": 14}, {\"value\": \"orange\", \"frequency\": 14}, {\"value\": \"pasta\", \"frequency\": 14}, {\"value\": \"spinach\", \"frequency\": 14}, {\"value\": \"sushi\", \"frequency\": 14}, {\"value\": \"water\", \"frequency\": 14}], \"sampleValues\": [\"apple\", \"chicken\", \"cookie\", \"cookie\", \"cookie\", \"cookie\", \"hamburger\", \"lasagna\", \"lasagna\", \"lasagna\", \"pasta\", \"pasta\", \"spinach\", \"spinach\", \"spinach\", \"spinach\", \"spinach\", \"sushi\", \"water\", \"water\"]}, {\"fieldPath\": \"weight\", \"uniqueCount\": 10, \"uniqueProportion\": 0.07142857142857142, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"10\", \"frequency\": 14}, {\"value\": \"2\", \"frequency\": 14}, {\"value\": \"23\", \"frequency\": 14}, {\"value\": \"32\", \"frequency\": 14}, {\"value\": \"36\", \"frequency\": 14}, {\"value\": \"43\", \"frequency\": 14}, {\"value\": \"49\", \"frequency\": 14}, {\"value\": \"50\", \"frequency\": 14}, {\"value\": \"53\", \"frequency\": 14}, {\"value\": \"72\", \"frequency\": 14}], \"sampleValues\": [\"10\", \"10\", \"10\", \"10\", \"10\", \"2\", \"23\", \"23\", \"23\", \"23\", \"32\", \"32\", \"36\", \"49\", \"49\", \"49\", \"50\", \"53\", \"72\", \"72\"]}, {\"fieldPath\": \"height\", \"uniqueCount\": 4, \"uniqueProportion\": 0.02857142857142857, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"4\", \"frequency\": 48}, {\"value\": \"5\", \"frequency\": 30}, {\"value\": \"6\", \"frequency\": 46}, {\"value\": \"7\", \"frequency\": 16}], \"sampleValues\": [\"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"5\", \"5\", \"5\", \"5\", \"6\", \"6\", \"6\", \"6\", \"7\", \"7\", \"7\"]}, {\"fieldPath\": \"color\", \"uniqueCount\": 7, \"uniqueProportion\": 0.05, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"blue\", \"frequency\": 14}, {\"value\": \"brown\", \"frequency\": 28}, {\"value\": \"green\", \"frequency\": 14}, {\"value\": \"orange\", \"frequency\": 28}, {\"value\": \"red\", \"frequency\": 28}, {\"value\": \"white\", \"frequency\": 14}, {\"value\": \"yellow\", \"frequency\": 14}], \"sampleValues\": [\"blue\", \"blue\", \"brown\", \"brown\", \"brown\", \"brown\", \"brown\", \"green\", \"green\", \"green\", \"green\", \"green\", \"orange\", \"red\", \"red\", \"red\", \"red\", \"white\", \"yellow\", \"yellow\"]}, {\"fieldPath\": \"healthy\", \"uniqueCount\": 2, \"uniqueProportion\": 0.014492753623188406, \"nullCount\": 2, \"nullProportion\": 0.014285714285714285, \"sampleValues\": [\"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"None\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\"]}]}",
+        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 28, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"1st chord\", \"uniqueCount\": 5, \"uniqueProportion\": 0.17857142857142858, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"1\", \"frequency\": 5}, {\"value\": \"3\", \"frequency\": 1}, {\"value\": \"4\", \"frequency\": 10}, {\"value\": \"5\", \"frequency\": 7}, {\"value\": \"6\", \"frequency\": 5}], \"sampleValues\": [\"1\", \"1\", \"1\", \"1\", \"3\", \"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"5\", \"5\", \"5\", \"5\", \"5\", \"6\", \"6\", \"6\"]}, {\"fieldPath\": \"2nd chord\", \"uniqueCount\": 7, \"uniqueProportion\": 0.25, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"1\", \"frequency\": 10}, {\"value\": \"2\", \"frequency\": 2}, {\"value\": \"3\", \"frequency\": 2}, {\"value\": \"4\", \"frequency\": 6}, {\"value\": \"5\", \"frequency\": 5}, {\"value\": \"6\", \"frequency\": 2}, {\"value\": \"7\", \"frequency\": 1}], \"sampleValues\": [\"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"2\", \"2\", \"3\", \"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"5\", \"5\", \"5\", \"5\", \"6\"]}, {\"fieldPath\": \"3rd chord\", \"uniqueCount\": 6, \"uniqueProportion\": 0.21428571428571427, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"1\", \"frequency\": 3}, {\"value\": \"3\", \"frequency\": 1}, {\"value\": \"4\", \"frequency\": 9}, {\"value\": \"5\", \"frequency\": 8}, {\"value\": \"6\", \"frequency\": 5}, {\"value\": \"7\", \"frequency\": 2}], \"sampleValues\": [\"1\", \"1\", \"1\", \"3\", \"4\", \"4\", \"4\", \"4\", \"4\", \"5\", \"5\", \"5\", \"5\", \"5\", \"5\", \"5\", \"6\", \"6\", \"6\", \"7\"]}, {\"fieldPath\": \"4th chord\", \"uniqueCount\": 20, \"uniqueProportion\": 0.7142857142857143, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"Alternative\", \"frequency\": 1}, {\"value\": \"Catchy\", \"frequency\": 1}, {\"value\": \"Didgeridoo\", \"frequency\": 1}, {\"value\": \"Dreadful\", \"frequency\": 2}, {\"value\": \"Endless\", \"frequency\": 1}, {\"value\": \"Energetic\", \"frequency\": 1}, {\"value\": \"Flamenco\", \"frequency\": 2}, {\"value\": \"Folk\", \"frequency\": 2}, {\"value\": \"Grunge\", \"frequency\": 1}, {\"value\": \"Jazz\", \"frequency\": 1}, {\"value\": \"Love\", \"frequency\": 1}, {\"value\": \"Memories\", \"frequency\": 1}, {\"value\": \"Moody\", \"frequency\": 2}, {\"value\": \"Pop\", \"frequency\": 2}, {\"value\": \"Rebellious\", \"frequency\": 1}, {\"value\": \"Sad\", \"frequency\": 3}, {\"value\": \"Simple\", \"frequency\": 2}, {\"value\": \"Sweet\", \"frequency\": 1}, {\"value\": \"Wildside\", \"frequency\": 1}, {\"value\": \"Wistful\", \"frequency\": 1}], \"sampleValues\": [\"Alternative\", \"Didgeridoo\", \"Dreadful\", \"Dreadful\", \"Endless\", \"Energetic\", \"Flamenco\", \"Flamenco\", \"Folk\", \"Grunge\", \"Memories\", \"Moody\", \"Rebellious\", \"Sad\", \"Sad\", \"Sad\", \"Simple\", \"Simple\", \"Sweet\", \"Wistful\"]}, {\"fieldPath\": \"Progression Quality\", \"uniqueCount\": 1, \"uniqueProportion\": 0.03571428571428571, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"NaN\", \"frequency\": 28}], \"sampleValues\": [\"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\", \"nan\"]}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -778,16 +778,16 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "number_of_files": "2",
-                            "size_in_bytes": "3446"
+                            "number_of_files": "1",
+                            "size_in_bytes": "604"
                         },
                         "externalUrl": null,
-                        "name": "folder_aaa.food_csv",
+                        "name": "chord_progressions_csv.csv",
                         "qualifiedName": null,
                         "description": "",
                         "uri": null,
@@ -796,7 +796,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "folder_aaa.food_csv",
+                        "schemaName": "chord_progressions_csv.csv",
                         "platform": "urn:li:dataPlatform:file",
                         "version": 0,
                         "created": {
@@ -820,41 +820,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "color",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "healthy",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                    }
-                                },
-                                "nativeDataType": "boolean",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "height",
+                                "fieldPath": "1st chord",
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
@@ -871,24 +837,7 @@
                                 "jsonProps": null
                             },
                             {
-                                "fieldPath": "name",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": null,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "globalTags": null,
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "weight",
+                                "fieldPath": "2nd chord",
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
@@ -898,6 +847,57 @@
                                     }
                                 },
                                 "nativeDataType": "integer",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "3rd chord",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "4th chord",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
+                                "fieldPath": "Progression Quality",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": null,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "globalTags": null,
                                 "glossaryTerms": null,
@@ -916,7 +916,7 @@
     "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -925,17 +925,17 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec\"}",
+        "value": "{\"container\": \"urn:li:container:0b11f7e4b6df7e17a294482039b93289\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
@@ -944,17 +944,17 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 140, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"name\", \"uniqueCount\": 9, \"uniqueProportion\": 0.06521739130434782, \"nullCount\": 2, \"nullProportion\": 0.014285714285714285, \"distinctValueFrequencies\": [{\"value\": \"NullValue\", \"frequency\": 2}, {\"value\": \"apple\", \"frequency\": 14}, {\"value\": \"chicken\", \"frequency\": 14}, {\"value\": \"cookie\", \"frequency\": 12}, {\"value\": \"hamburger\", \"frequency\": 14}, {\"value\": \"lasagna\", \"frequency\": 14}, {\"value\": \"orange\", \"frequency\": 14}, {\"value\": \"pasta\", \"frequency\": 14}, {\"value\": \"spinach\", \"frequency\": 14}, {\"value\": \"sushi\", \"frequency\": 14}, {\"value\": \"water\", \"frequency\": 14}], \"sampleValues\": [\"apple\", \"chicken\", \"cookie\", \"cookie\", \"cookie\", \"cookie\", \"hamburger\", \"lasagna\", \"lasagna\", \"lasagna\", \"pasta\", \"pasta\", \"spinach\", \"spinach\", \"spinach\", \"spinach\", \"spinach\", \"sushi\", \"water\", \"water\"]}, {\"fieldPath\": \"weight\", \"uniqueCount\": 9, \"uniqueProportion\": 0.06428571428571428, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"10\", \"frequency\": 14}, {\"value\": \"2\", \"frequency\": 14}, {\"value\": \"23\", \"frequency\": 14}, {\"value\": \"32\", \"frequency\": 14}, {\"value\": \"36\", \"frequency\": 14}, {\"value\": \"43\", \"frequency\": 14}, {\"value\": \"49\", \"frequency\": 14}, {\"value\": \"50\", \"frequency\": 14}, {\"value\": \"53\", \"frequency\": 14}, {\"value\": \"72\", \"frequency\": 14}], \"sampleValues\": [\"10\", \"10\", \"10\", \"10\", \"10\", \"2\", \"23\", \"23\", \"23\", \"23\", \"32\", \"32\", \"36\", \"49\", \"49\", \"49\", \"50\", \"53\", \"72\", \"72\"]}, {\"fieldPath\": \"height\", \"uniqueCount\": 4, \"uniqueProportion\": 0.02857142857142857, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"4\", \"frequency\": 48}, {\"value\": \"5\", \"frequency\": 30}, {\"value\": \"6\", \"frequency\": 46}, {\"value\": \"7\", \"frequency\": 16}], \"sampleValues\": [\"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"5\", \"5\", \"5\", \"5\", \"6\", \"6\", \"6\", \"6\", \"7\", \"7\", \"7\"]}, {\"fieldPath\": \"color\", \"uniqueCount\": 7, \"uniqueProportion\": 0.05, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"blue\", \"frequency\": 14}, {\"value\": \"brown\", \"frequency\": 28}, {\"value\": \"green\", \"frequency\": 14}, {\"value\": \"orange\", \"frequency\": 28}, {\"value\": \"red\", \"frequency\": 28}, {\"value\": \"white\", \"frequency\": 14}, {\"value\": \"yellow\", \"frequency\": 14}], \"sampleValues\": [\"blue\", \"blue\", \"brown\", \"brown\", \"brown\", \"brown\", \"brown\", \"green\", \"green\", \"green\", \"green\", \"green\", \"orange\", \"red\", \"red\", \"red\", \"red\", \"white\", \"yellow\", \"yellow\"]}, {\"fieldPath\": \"healthy\", \"uniqueCount\": 2, \"uniqueProportion\": 0.014492753623188406, \"nullCount\": 2, \"nullProportion\": 0.014285714285714285, \"sampleValues\": [\"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"None\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\"]}]}",
+        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 28, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"1st chord\", \"uniqueCount\": 5, \"uniqueProportion\": 0.17857142857142858, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"1\", \"frequency\": 19}, {\"value\": \"2\", \"frequency\": 3}, {\"value\": \"4\", \"frequency\": 2}, {\"value\": \"5\", \"frequency\": 1}, {\"value\": \"6\", \"frequency\": 3}], \"sampleValues\": [\"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"2\", \"4\", \"5\", \"6\", \"6\", \"6\"]}, {\"fieldPath\": \"2nd chord\", \"uniqueCount\": 5, \"uniqueProportion\": 0.17857142857142858, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"1\", \"frequency\": 5}, {\"value\": \"3\", \"frequency\": 1}, {\"value\": \"4\", \"frequency\": 10}, {\"value\": \"5\", \"frequency\": 7}, {\"value\": \"6\", \"frequency\": 5}], \"sampleValues\": [\"1\", \"1\", \"1\", \"1\", \"3\", \"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"5\", \"5\", \"5\", \"5\", \"5\", \"6\", \"6\", \"6\"]}, {\"fieldPath\": \"3rd chord\", \"uniqueCount\": 7, \"uniqueProportion\": 0.25, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"1\", \"frequency\": 10}, {\"value\": \"2\", \"frequency\": 2}, {\"value\": \"3\", \"frequency\": 2}, {\"value\": \"4\", \"frequency\": 6}, {\"value\": \"5\", \"frequency\": 5}, {\"value\": \"6\", \"frequency\": 2}, {\"value\": \"7\", \"frequency\": 1}], \"sampleValues\": [\"1\", \"1\", \"1\", \"1\", \"1\", \"1\", \"2\", \"2\", \"3\", \"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"5\", \"5\", \"5\", \"5\", \"6\"]}, {\"fieldPath\": \"4th chord\", \"uniqueCount\": 6, \"uniqueProportion\": 0.21428571428571427, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"1\", \"frequency\": 3}, {\"value\": \"3\", \"frequency\": 1}, {\"value\": \"4\", \"frequency\": 9}, {\"value\": \"5\", \"frequency\": 8}, {\"value\": \"6\", \"frequency\": 5}, {\"value\": \"7\", \"frequency\": 2}], \"sampleValues\": [\"1\", \"1\", \"1\", \"3\", \"4\", \"4\", \"4\", \"4\", \"4\", \"5\", \"5\", \"5\", \"5\", \"5\", \"5\", \"5\", \"6\", \"6\", \"6\", \"7\"]}, {\"fieldPath\": \"Progression Quality\", \"uniqueCount\": 20, \"uniqueProportion\": 0.7142857142857143, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"Alternative\", \"frequency\": 1}, {\"value\": \"Catchy\", \"frequency\": 1}, {\"value\": \"Didgeridoo\", \"frequency\": 1}, {\"value\": \"Dreadful\", \"frequency\": 2}, {\"value\": \"Endless\", \"frequency\": 1}, {\"value\": \"Energetic\", \"frequency\": 1}, {\"value\": \"Flamenco\", \"frequency\": 2}, {\"value\": \"Folk\", \"frequency\": 2}, {\"value\": \"Grunge\", \"frequency\": 1}, {\"value\": \"Jazz\", \"frequency\": 1}, {\"value\": \"Love\", \"frequency\": 1}, {\"value\": \"Memories\", \"frequency\": 1}, {\"value\": \"Moody\", \"frequency\": 2}, {\"value\": \"Pop\", \"frequency\": 2}, {\"value\": \"Rebellious\", \"frequency\": 1}, {\"value\": \"Sad\", \"frequency\": 3}, {\"value\": \"Simple\", \"frequency\": 2}, {\"value\": \"Sweet\", \"frequency\": 1}, {\"value\": \"Wildside\", \"frequency\": 1}, {\"value\": \"Wistful\", \"frequency\": 1}], \"sampleValues\": [\"Alternative\", \"Didgeridoo\", \"Dreadful\", \"Dreadful\", \"Endless\", \"Energetic\", \"Flamenco\", \"Flamenco\", \"Folk\", \"Grunge\", \"Memories\", \"Moody\", \"Rebellious\", \"Sad\", \"Sad\", \"Sad\", \"Simple\", \"Simple\", \"Sweet\", \"Wistful\"]}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "folder_no_partition_filename.json",
+        "runId": "multiple_spec_for_files.json",
         "registryName": null,
         "registryVersion": null,
         "properties": null
