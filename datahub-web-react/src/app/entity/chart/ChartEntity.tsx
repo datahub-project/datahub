@@ -152,6 +152,7 @@ export class ChartEntity implements Entity<Chart> {
                 glossaryTerms={data?.glossaryTerms}
                 logoUrl={data?.platform?.properties?.logoUrl}
                 domain={data.domain}
+                parentContainers={data.parentContainers}
             />
         );
     };

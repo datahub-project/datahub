@@ -711,6 +711,11 @@ type Dataset implements EntityWithRelationships & Entity {
     container: Container
 
     """
+    Recursively get the lineage of containers for this entity
+    """
+    parentContainers: ParentContainersResult
+
+    """
     Unique guid for dataset
     No longer to be used as the Dataset display name. Use properties.name instead
     """
@@ -879,6 +884,21 @@ type Dataset implements EntityWithRelationships & Entity {
 }
 
 """
+All of the parent containers for a given entity
+"""
+type ParentContainersResult {
+    """
+    The number of containers bubbling up for this entity
+    """
+    count: Int!
+
+    """
+    A list of parent containers in order from direct parent, to parent's parent etc. If there are no containers, return an emty list
+    """
+    containers: [Container!]!
+}
+
+"""
 A Dataset entity, which encompasses Relational Tables, Document store collections, streaming topics, and other sets of data having an independent lifecycle
 """
 type VersionedDataset implements Entity {
@@ -901,6 +921,11 @@ type VersionedDataset implements Entity {
     The parent container in which the entity resides
     """
     container: Container
+
+    """
+    Recursively get the lineage of containers for this entity
+    """
+    parentContainers: ParentContainersResult
 
     """
     Unique guid for dataset
@@ -1514,6 +1539,11 @@ type Container implements Entity {
     Fetch an Entity Container by primary key (urn)
     """
     container: Container
+
+    """
+    Recursively get the lineage of containers for this entity
+    """
+    parentContainers: ParentContainersResult
 
     """
     Read-only properties that originate in the source data platform
@@ -3721,6 +3751,11 @@ type Dashboard implements EntityWithRelationships & Entity {
     container: Container
 
     """
+    Recursively get the lineage of containers for this entity
+    """
+    parentContainers: ParentContainersResult
+
+    """
     The dashboard tool name
     Note that this will soon be deprecated in favor of a standardized notion of Data Platform
     """
@@ -3972,6 +4007,11 @@ type Chart implements EntityWithRelationships & Entity {
     The parent container in which the entity resides
     """
     container: Container
+
+    """
+    Recursively get the lineage of containers for this entity
+    """
+    parentContainers: ParentContainersResult
 
     """
     The chart tool name
