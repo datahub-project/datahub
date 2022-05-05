@@ -186,7 +186,7 @@ subprojects {
     dependencies {
       testCompile externalDependency.testng
       constraints {
-        implementation('io.netty:netty-all:4.1.44.Final')
+        implementation('io.netty:netty-all:4.1.68.Final')
         implementation('org.apache.commons:commons-compress:1.21')
         implementation('org.apache.velocity:velocity-engine-core:2.3')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
