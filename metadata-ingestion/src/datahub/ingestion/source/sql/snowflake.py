@@ -88,14 +88,12 @@ class SnowflakeSource(SQLAlchemySource):
         )
         logger.debug(f"sql_alchemy_url={url}")
         if self.config.authentication_type == "OAUTH_AUTHENTICATOR":
-            logger.info("here i am")
             return create_engine(
                 url,
                 creator=self.config.get_oauth_connection,
                 **self.config.get_options(),
             )
         else:
-            logger.info("in else")
             return create_engine(
                 url,
                 **self.config.get_options(),
