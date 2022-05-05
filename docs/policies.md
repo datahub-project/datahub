@@ -72,43 +72,43 @@ We currently support the following:
 
 | Platform Privileges             | Description                                                                                                                    |
 |---------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
-| MANAGE_POLICIES                 | Allow actor to create and remove access control policies. Be careful - Actors with this privilege are effectively super users. |
-| MANAGE_INGESTION                | Allow actor to create, remove, and update Metadata Ingestion sources.                                                          |
-| MANAGE_SECRETS                  | Allow actor to create & remove secrets stored inside DataHub.                                                                  |
-| MANAGE_USERS_AND_GROUPS         | Allow actor to create, remove, and update users and groups on DataHub.                                                         |
-| MANAGE_DOMAINS                  | Allow actor to create and remove Asset Domains.                                                                                |
-| VIEW_ANALYTICS                  | Allow the actor access to the DataHub analytics dashboard.                                                                     |
-| GENERATE_PERSONAL_ACCESS_TOKENS | Allow the actor to generate personal access tokens for use with DataHub APIs.                                                  |
+| Manage Policies                 | Allow actor to create and remove access control policies. Be careful - Actors with this privilege are effectively super users. |
+| Manage Metadata Ingestion       | Allow actor to create, remove, and update Metadata Ingestion sources.                                                          |
+| Manage Secrets                  | Allow actor to create & remove secrets stored inside DataHub.                                                                  |
+| Manage Users & Groups           | Allow actor to create, remove, and update users and groups on DataHub.                                                         |
+| Manage Domains                  | Allow actor to create and remove Asset Domains.                                                                                |
+| View Analytics                  | Allow the actor access to the DataHub analytics dashboard.                                                                     |
+| Generate Personal Access Tokens | Allow the actor to generate personal access tokens for use with DataHub APIs.                                                  |
 
-Common privileges to view & modify any entity within datahub.
+Common privileges to view & modify any entity within DataHub.
 
-| Common Privileges          | Description                                                                                                                      |
-|----------------------------|----------------------------------------------------------------------------------------------------------------------------------|
-| VIEW_ENTITY_PAGE           | Allow actor to access the entity page for the resource in the UI. If not granted, it will redirect them to an unauthorized page. |
-| EDIT_ENTITY_TAGS           | Allow actor to add and remove tags to an asset.                                                                                  |
-| EDIT_ENTITY_GLOSSARY_TERMS | Allow actor to add and remove glossary terms to an asset.                                                                        |
-| EDIT_ENTITY_OWNERS         | Allow actor to add and remove owners of an entity.                                                                               |
-| EDIT_ENTITY_DOCS           | Allow actor to edit the description (documentation) of an entity.                                                                |
-| EDIT_ENTITY_DOC_LINKS      | Allow actor to edit links associated with an entity.                                                                             |
-| EDIT_ENTITY_STATUS         | Allow actor to edit the status of an entity (soft deleted or not).                                                               |
-| EDIT_DOMAINS_PRIVILEGE     | Allow actor to edit the Domain of an entity.                                                                                     |
-| EDIT_DEPRECATION_PRIVILEGE | Allow actor to edit the Deprecation status of an entity.                                                                         |
-| EDIT_ENTITY_ASSERTIONS     | Allow actor to add and remove assertions from an entity.                                                                         |
-| EDIT_ENTITY                | Allow actor to edit any information about an entity. Super user privileges.                                                      |
+| Common Privileges   | Description                                                                                                                      |
+|---------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| View Entity Page    | Allow actor to access the entity page for the resource in the UI. If not granted, it will redirect them to an unauthorized page. |
+| Edit Tags           | Allow actor to add and remove tags to an asset.                                                                                  |
+| Edit Glossary Terms | Allow actor to add and remove glossary terms to an asset.                                                                        |
+| Edit Owners         | Allow actor to add and remove owners of an entity.                                                                               |
+| Edit Description    | Allow actor to edit the description (documentation) of an entity.                                                                |
+| Edit Links          | Allow actor to edit links associated with an entity.                                                                             |
+| Edit Status         | Allow actor to edit the status of an entity (soft deleted or not).                                                               |
+| Edit Domain         | Allow actor to edit the Domain of an entity.                                                                                     |
+| Edit Deprecation    | Allow actor to edit the Deprecation status of an entity.                                                                         |
+| Edit Assertions     | Allow actor to add and remove assertions from an entity.                                                                         |
+| Edit All            | Allow actor to edit any information about an entity. Super user privileges.                                                      |
 
 Specific entity-level privileges that are not generalizable: 
 
-| Entity       | Privilege        | Description                                                                                                                                                                               |
-|--------------|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| DATASET      | EDIT_DATASET_COL_TAGS           | Allow actor to edit the column (field) tags associated with a dataset schema.                                                                                              |
-| DATASET      | EDIT_DATASET_COL_GLOSSARY_TERMS | Allow actor to edit the column (field) glossary terms associated with a dataset schema.                                                                                    |
-| DATASET      | EDIT_DATASET_COL_DESCRIPTION    | Allow actor to edit the column (field) descriptions associated with a dataset schema.                                                                                      |
-| DATASET      | VIEW_DATASET_USAGE              | Allow actor to access usage metadata about a dataset both in the UI and in the GraphQL API. This includes example queries, number of queries, etc.                         |
-| DATASET      | VIEW_DATASET_PROFILE            | Allow actor to access a dataset's profile both in the UI and in the GraphQL API. This   includes snapshot statistics like #rows, #columns, null percentage per field, etc. |
-| TAG          | EDIT_TAG_COLOR                  | Allow actor to change the color of a Tag.                                                                                                                                  |
-| GROUP        | EDIT_GROUP_MEMBERS              | Allow actor to add and remove members to a group.                                                                                                                          |
-| USER         | EDIT_USER_PROFILE               | Allow actor to change the user's profile including display name, bio, title, profile image, etc.                                                                           |
-| USER + GROUP | EDIT_CONTACT_INFO           | Allow actor to change the contact information such as email & chat handles.                                                                                                |
+| Entity       | Privilege                          | Description                                                                                                                                                                |
+|--------------|------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Dataset      | Edit Dataset Column Tags           | Allow actor to edit the column (field) tags associated with a dataset schema.                                                                                              |
+| Dataset      | Edit Dataset Column Glossary Terms | Allow actor to edit the column (field) glossary terms associated with a dataset schema.                                                                                    |
+| Dataset      | Edit Dataset Column Descriptions   | Allow actor to edit the column (field) descriptions associated with a dataset schema.                                                                                      |
+| Dataset      | View Dataset Usage                 | Allow actor to access usage metadata about a dataset both in the UI and in the GraphQL API. This includes example queries, number of queries, etc.                         |
+| Dataset      | View Dataset Profile               | Allow actor to access a dataset's profile both in the UI and in the GraphQL API. This   includes snapshot statistics like #rows, #columns, null percentage per field, etc. |
+| Tag          | Edit Tag Color                     | Allow actor to change the color of a Tag.                                                                                                                                  |
+| Group        | Edit Group Members                 | Allow actor to add and remove members to a group.                                                                                                                          |
+| User         | Edit User Profile                  | Allow actor to change the user's profile including display name, bio, title, profile image, etc.                                                                           |
+| User + Group | Edit Contact Information           | Allow actor to change the contact information such as email & chat handles.                                                                                                |
 
 
 #### Resources
