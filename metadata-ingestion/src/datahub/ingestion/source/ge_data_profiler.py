@@ -783,6 +783,9 @@ class DatahubGEProfiler:
         custom_sql: Optional[str] = None,
         **kwargs: Any,
     ) -> Optional[DatasetProfileClass]:
+        logger.debug(
+            f"Received single profile request for {pretty_name} for {schema}, {table}, {custom_sql}"
+        )
         bigquery_temp_table: Optional[str] = None
 
         ge_config = {

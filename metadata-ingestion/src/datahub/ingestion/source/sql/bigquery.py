@@ -624,7 +624,9 @@ class BigQuerySource(SQLAlchemySource):
     def get_latest_partition(
         self, schema: str, table: str
     ) -> Optional[BigQueryPartitionColumn]:
-        url = self.config.get_sql_alchemy_url()
+        logger.debug(f"get_latest_partition for {schema} and {table}")
+        url = self.config.get_sql_alchemy_url(for_run_sql=True)
+        logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
         with engine.connect() as con:
             inspector = inspect(con)
@@ -655,7 +657,8 @@ class BigQuerySource(SQLAlchemySource):
         table_name, shard = self.get_shard_from_table(table)
         if shard:
             logger.debug(f"{table_name} is sharded and shard id is: {shard}")
-            url = self.config.get_sql_alchemy_url()
+            url = self.config.get_sql_alchemy_url(for_run_sql=True)
+            logger.debug(f"sql_alchemy_url={url}")
             engine = create_engine(url, **self.config.options)
             if f"{project_id}.{schema}.{table_name}" not in self.maximum_shard_ids:
                 with engine.connect() as con:
@@ -793,6 +796,7 @@ WHERE
                     isinstance(wu, SqlWorkUnit)
                     and isinstance(wu.metadata, MetadataChangeEvent)
                     and isinstance(wu.metadata.proposedSnapshot, DatasetSnapshot)
+                    and self.config.include_table_lineage
                 ):
                     lineage_mcp = self.get_lineage_mcp(wu.metadata.proposedSnapshot.urn)
                     if lineage_mcp is not None:
