@@ -133,6 +133,7 @@ class DBTConfig(StatefulIngestionConfigBase):
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for dbt nodes to filter in ingestion.",
     )
+
     tag_prefix: str = Field(
         default=f"{DBT_PLATFORM}:", description="Prefix added to tags during ingestion."
     )
@@ -140,6 +141,17 @@ class DBTConfig(StatefulIngestionConfigBase):
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for dbt model names to filter in ingestion.",
     )
+
+    schema_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for schema names to filter in ingestion.",
+    )
+
+    database_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for database names to filter in ingestion.",
+    )
+
     disable_dbt_node_creation = Field(
         default=False,
         description="Whether to suppress dbt dataset metadata creation. When set to True, this flag applies the dbt metadata to the target_platform entities (e.g. populating schema and column descriptions from dbt into the postgres / bigquery table metadata in DataHub) and generates lineage between the platform entities.",
@@ -282,6 +294,8 @@ def extract_dbt_entities(
     node_type_pattern: AllowDenyPattern,
     report: DBTSourceReport,
     node_name_pattern: AllowDenyPattern,
+    database_pattern: AllowDenyPattern,
+    schema_pattern: AllowDenyPattern,
 ) -> List[DBTNode]:
     sources_by_id = {x["unique_id"]: x for x in sources_results}
 
@@ -299,6 +313,14 @@ def extract_dbt_entities(
             name = manifest_node["alias"]
 
         if not node_name_pattern.allowed(key):
+            continue
+
+        database: Optional[str] = manifest_node.get("database")
+        if database is not None and not database_pattern.allowed(database):
+            continue
+
+        schema: Optional[str] = manifest_node.get("schema")
+        if schema is not None and not schema_pattern.allowed(schema):
             continue
 
         # initialize comment to "" for consistency with descriptions
@@ -405,6 +427,8 @@ def loadManifestAndCatalog(
     node_type_pattern: AllowDenyPattern,
     report: DBTSourceReport,
     node_name_pattern: AllowDenyPattern,
+    database_pattern: AllowDenyPattern,
+    schema_pattern: AllowDenyPattern,
 ) -> Tuple[
     List[DBTNode],
     Optional[str],
@@ -449,6 +473,8 @@ def loadManifestAndCatalog(
         node_type_pattern,
         report,
         node_name_pattern,
+        database_pattern,
+        schema_pattern,
     )
 
     return (
@@ -785,6 +811,8 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.node_type_pattern,
             self.report,
             self.config.node_name_pattern,
+            self.config.database_pattern,
+            self.config.schema_pattern,
         )
 
         additional_custom_props = {
