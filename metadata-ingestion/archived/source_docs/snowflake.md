@@ -9,7 +9,7 @@ For context on getting started with ingestion, check out our [metadata ingestion
 
 To install this plugin, run `pip install 'acryl-datahub[snowflake]'`.
 
-### Prerequisites
+### Prerequisites 
 
 In order to execute this source, your Snowflake user will need to have specific privileges granted to it for reading metadata
 from your warehouse. 

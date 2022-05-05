@@ -76,14 +76,31 @@ class ConfigurationMechanism(ABC):
 
 
 class OauthConfiguration(ConfigModel):
-    provider: Optional[str]
-    client_id: Optional[str]
-    scopes: Optional[List[str]]
-    use_certificate: Optional[str]
-    client_secret: Optional[str]
-    authority_url: Optional[str]
-    encoded_oauth_public_key: Optional[str]
-    encoded_oauth_private_key: Optional[str]
+    provider: Optional[str] = Field(
+        description="Identity provider for oauth, e.g- microsoft"
+    )
+    client_id: Optional[str] = Field(
+        description="client id of your registered application"
+    )
+    scopes: Optional[List[str]] = Field(
+        description="scopes required to connect to snowflake"
+     )
+    use_certificate: Optional[str] = Field(
+        description="Do you want to use certificate and private key to authenticate using oauth",
+        default=False
+    )
+    client_secret: Optional[str] = Field(
+        description="client secret of the application if use_certificate = false"
+    )
+    authority_url: Optional[str] = Field(
+        description="Authority url of your identity provider"
+    )
+    encoded_oauth_public_key: Optional[str] = Field(
+        description="base64 encoded certificate content if use_certificate = true"
+    )
+    encoded_oauth_private_key: Optional[str] = Field(
+        description="base64 encoded private key content if use_certificate = true"
+    )
 
 
 class AllowDenyPattern(ConfigModel):
