@@ -72,7 +72,7 @@ const SchemaBlameSelector = styled(Select)`
     &&& {
         font-weight: 400;
         margin-top: 6px;
-        min-width: 17%;
+        min-width: 30px;
         margin-right: 10px;
         border-radius: 0px 8px 8px 0px;
     }
@@ -89,6 +89,7 @@ const BlameRadio = styled(Radio.Group)`
     &&& {
         margin-top: 6px;
         margin-right: 10px;
+        min-width: 140px;
     }
 `;
 
@@ -104,6 +105,7 @@ const CurrentVersionTimestampText = styled(Typography.Text)`
         margin-top: 10px;
         margin-right: 10px;
         color: ${ANTD_GRAY[7]};
+        min-width: 220px;
     }
 `;
 
