@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.MLModel;
@@ -30,6 +31,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -38,7 +40,7 @@ import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
 
 
-public class MLModelType implements SearchableEntityType<MLModel>, BrowsableEntityType<MLModel> {
+public class MLModelType implements SearchableEntityType<MLModel, String>, BrowsableEntityType<MLModel, String> {
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
     private final EntityClient _entityClient;
@@ -50,6 +52,11 @@ public class MLModelType implements SearchableEntityType<MLModel>, BrowsableEnti
     @Override
     public EntityType type() {
         return EntityType.MLMODEL;
+    }
+
+    @Override
+    public Function<Entity, String> getKeyProvider() {
+        return Entity::getUrn;
     }
 
     @Override

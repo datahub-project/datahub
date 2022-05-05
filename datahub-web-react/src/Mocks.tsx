@@ -24,6 +24,7 @@ import {
     ScenarioType,
     RecommendationRenderType,
     RelationshipDirection,
+    FabricType,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
@@ -207,6 +208,7 @@ export const dataset1 = {
     health: null,
     assertions: null,
     deprecation: null,
+    siblings: null,
 };
 
 export const dataset2 = {
@@ -287,6 +289,7 @@ export const dataset2 = {
     assertions: null,
     status: null,
     deprecation: null,
+    siblings: null,
 };
 
 export const dataset3 = {
@@ -311,7 +314,7 @@ export const dataset3 = {
     properties: {
         name: 'Yet Another Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
-        origin: 'PROD',
+        origin: 'PROD' as FabricType,
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
         externalUrl: 'https://data.hub',
     },
@@ -495,6 +498,7 @@ export const dataset3 = {
     status: null,
     readRuns: null,
     writeRuns: null,
+    siblings: null,
 } as Dataset;
 
 export const dataset4 = {
@@ -504,7 +508,7 @@ export const dataset4 = {
     properties: {
         name: 'Fourth Test Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
-        origin: 'PROD',
+        origin: 'PROD' as FabricType,
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
         externalUrl: 'https://data.hub',
     },

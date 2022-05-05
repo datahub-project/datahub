@@ -1,6 +1,7 @@
 import { Entity as EntityInterface, EntityType, SearchResult } from '../../types.generated';
 import { FetchedEntity } from '../lineage/types';
 import { Entity, IconStyleType, PreviewType } from './Entity';
+import { getUpstreamsAndDownstreamsFromEntityAndSiblings } from './shared/siblingUtils';
 import { GenericEntityProperties } from './shared/types';
 import { urlEncodeUrn } from './shared/utils';
 
@@ -114,24 +115,28 @@ export default class EntityRegistry {
         return entity.renderPreview(PreviewType.BROWSE, data);
     }
 
+    // Gabe, April 26, 2022
+    // this method has been slightly forked in acryl-main slightly to support sibling logic
+    // the goal is to combine this logic shortly once we get verification this is correctly solving
+    // the user need or revert
     getLineageVizConfig<T>(type: EntityType, data: T): FetchedEntity | undefined {
         const entity = validatedGet(type, this.entityTypeToEntity);
         const genericEntityProperties = this.getGenericEntityProperties(type, data);
+
+        const { allUpstreams, allDownstreams } =
+            getUpstreamsAndDownstreamsFromEntityAndSiblings(genericEntityProperties);
+
         return (
             ({
                 ...entity.getLineageVizConfig?.(data),
-                downstreamChildren: genericEntityProperties?.downstream?.relationships
-                    ?.filter((relationship) => relationship.entity)
-                    ?.map((relationship) => ({
-                        entity: relationship.entity as EntityInterface,
-                        type: (relationship.entity as EntityInterface).type,
-                    })),
-                upstreamChildren: genericEntityProperties?.upstream?.relationships
-                    ?.filter((relationship) => relationship.entity)
-                    ?.map((relationship) => ({
-                        entity: relationship.entity as EntityInterface,
-                        type: (relationship.entity as EntityInterface).type,
-                    })),
+                downstreamChildren: allDownstreams.map((relatedEntity) => ({
+                    entity: relatedEntity as EntityInterface,
+                    type: (relatedEntity as EntityInterface).type,
+                })),
+                upstreamChildren: allUpstreams.map((relatedEntity) => ({
+                    entity: relatedEntity as EntityInterface,
+                    type: (relatedEntity as EntityInterface).type,
+                })),
                 status: genericEntityProperties?.status,
             } as FetchedEntity) || undefined
         );

@@ -4,10 +4,19 @@ from unittest.mock import patch
 # This import verifies that the dependencies are available.
 import cx_Oracle  # noqa: F401
 import pydantic
+from pydantic.fields import Field
 from sqlalchemy import event
 from sqlalchemy.dialects.oracle.base import OracleDialect
 from sqlalchemy.engine.reflection import Inspector
 
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.source.sql.sql_common import (
     BasicSQLAlchemyConfig,
     SQLAlchemySource,
@@ -38,9 +47,17 @@ def before_cursor_execute(conn, cursor, statement, parameters, context, executem
 
 class OracleConfig(BasicSQLAlchemyConfig):
     # defaults
-    scheme = "oracle+cx_oracle"
+    scheme: str = Field(
+        default="oracle+cx_oracle",
+        description="Will be set automatically to default value.",
+    )
 
-    service_name: Optional[str]
+    service_name: Optional[str] = Field(
+        default=None, description="Oracle service name. If using, omit `database`."
+    )
+    database: Optional[str] = Field(
+        default=None, description="If using, omit `service_name`."
+    )
 
     @pydantic.validator("service_name")
     def check_service_name(cls, v, values):
@@ -58,7 +75,22 @@ class OracleConfig(BasicSQLAlchemyConfig):
         return url
 
 
+@platform_name("Oracle")
+@config_class(OracleConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.DOMAINS, "Enabled by default")
 class OracleSource(SQLAlchemySource):
+    """
+    This plugin extracts the following:
+
+    - Metadata for databases, schemas, and tables
+    - Column types associated with each table
+    - Table, row, and column statistics via optional SQL profiling
+
+    Using the Oracle source requires that you've also installed the correct drivers; see the [cx_Oracle docs](https://cx-oracle.readthedocs.io/en/latest/user_guide/installation.html). The easiest one is the [Oracle Instant Client](https://www.oracle.com/database/technologies/instant-client.html).
+
+    """
+
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "oracle")
 

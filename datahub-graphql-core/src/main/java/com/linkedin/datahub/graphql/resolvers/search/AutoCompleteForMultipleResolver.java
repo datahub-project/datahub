@@ -28,9 +28,9 @@ public class AutoCompleteForMultipleResolver implements DataFetcher<CompletableF
 
     private static final Logger _logger = LoggerFactory.getLogger(AutoCompleteForMultipleResolver.class.getName());
 
-    private final Map<EntityType, SearchableEntityType<?>> _typeToEntity;
+    private final Map<EntityType, SearchableEntityType<?, ?>> _typeToEntity;
 
-    public AutoCompleteForMultipleResolver(@Nonnull final List<SearchableEntityType<?>> searchableEntities) {
+    public AutoCompleteForMultipleResolver(@Nonnull final List<SearchableEntityType<?, ?>> searchableEntities) {
         _typeToEntity = searchableEntities.stream().collect(Collectors.toMap(
             SearchableEntityType::type,
             entity -> entity

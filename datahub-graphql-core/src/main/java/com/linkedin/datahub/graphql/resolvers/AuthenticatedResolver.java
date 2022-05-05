@@ -10,6 +10,7 @@ import graphql.schema.DataFetchingEnvironment;
 /**
  * Checks whether the user is currently authenticated & if so delegates execution to a child resolver.
  */
+@Deprecated
 public final class AuthenticatedResolver<T> implements DataFetcher<T> {
 
     private final DataFetcher<T> _resolver;

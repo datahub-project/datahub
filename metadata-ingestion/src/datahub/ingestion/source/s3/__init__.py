@@ -34,9 +34,11 @@ from pyspark.sql.types import (
 from pyspark.sql.utils import AnalysisException
 from smart_open import open as smart_open
 
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
+    make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
@@ -48,11 +50,20 @@ from datahub.emitter.mcp_builder import (
     gen_containers,
 )
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
+    get_key_prefix,
     strip_s3_prefix,
 )
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
@@ -80,8 +91,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetPropertiesClass,
+    GlobalTagsClass,
     MapTypeClass,
     OtherSchemaClass,
+    TagAssociationClass,
 )
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
@@ -179,7 +192,39 @@ class TableData:
     table_path: str
 
 
+@platform_name("S3 Data Lake", id="s3")
+@config_class(DataLakeSourceConfig)
+@support_status(SupportStatus.INCUBATING)
+@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 class S3Source(Source):
+    """
+    This plugin extracts:
+
+    - Row and column counts for each table
+    - For each column, if profiling is enabled:
+      - null counts and proportions
+      - distinct counts and proportions
+      - minimum, maximum, mean, median, standard deviation, some quantile values
+      - histograms or frequencies of unique values
+
+    This connector supports both local files as well as those stored on AWS S3 (which must be identified using the prefix `s3://`). Supported file types are as follows:
+
+    - CSV
+    - TSV
+    - JSON
+    - Parquet
+    - Apache Avro
+
+    Schemas for Parquet and Avro files are extracted as provided.
+
+    Schemas for schemaless formats (CSV, TSV, JSON) are inferred. For CSV and TSV files, we consider the first 100 rows by default, which can be controlled via the `max_rows` recipe parameter (see [below](#config-details))
+    JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
+    We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
+
+    Note that because the profiling is run with PySpark, we require Spark 3.0.3 with Hadoop 3.2 to be installed (see [compatibility](#compatibility) for more details). If profiling, make sure that permissions for **s3a://** access are set because Spark and Hadoop use the s3a:// protocol to interface with AWS (schema inference outside of profiling requires s3:// access).
+    Enabling profiling will slow down ingestion runs.
+    """
+
     source_config: DataLakeSourceConfig
     report: DataLakeSourceReport
     profiling_times_taken: List[float]
@@ -190,7 +235,6 @@ class S3Source(Source):
         self.source_config = config
         self.report = DataLakeSourceReport()
         self.profiling_times_taken = []
-
         config_report = {
             config_option: config.dict().get(config_option)
             for config_option in config_options_to_report
@@ -377,7 +421,12 @@ class S3Source(Source):
             parent_key = bucket_key
             base_full_path = get_bucket_relative_path(table_data.table_path)
 
-        for folder in base_full_path[: base_full_path.rfind("/")].split("/"):
+        parent_folder_path = (
+            base_full_path[: base_full_path.rfind("/")]
+            if base_full_path.rfind("/") != -1
+            else ""
+        )
+        for folder in parent_folder_path.split("/"):
             abs_path = folder
             if parent_key:
                 if isinstance(parent_key, S3BucketKey):
@@ -452,9 +501,13 @@ class S3Source(Source):
         self, table_data: TableData, dataset_urn: str
     ) -> Iterable[MetadataWorkUnit]:
         # read in the whole table with Spark for profiling
-        table = self.read_file_spark(
-            table_data.table_path, os.path.splitext(table_data.full_path)[1]
-        )
+        table = None
+        try:
+            table = self.read_file_spark(
+                table_data.table_path, os.path.splitext(table_data.full_path)[1]
+            )
+        except Exception as e:
+            logger.error(e)
 
         # if table is not readable, skip
         if table is None:
@@ -560,6 +613,19 @@ class S3Source(Source):
             platformSchema=OtherSchemaClass(rawSchema=""),
         )
         dataset_snapshot.aspects.append(schema_metadata)
+        if (
+            self.source_config.use_s3_bucket_tags
+            or self.source_config.use_s3_object_tags
+        ):
+            bucket = get_bucket_name(table_data.table_path)
+            key_prefix = (
+                get_key_prefix(table_data.table_path)
+                if table_data.full_path == table_data.table_path
+                else None
+            )
+            s3_tags = self.get_s3_tags(bucket, key_prefix, dataset_urn)
+            if s3_tags is not None:
+                dataset_snapshot.aspects.append(s3_tags)
 
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         wu = MetadataWorkUnit(id=table_data.table_path, mce=mce)
@@ -579,6 +645,65 @@ class S3Source(Source):
             else self.source_config.platform_instance,
             bucket_name=name,
         )
+
+    def get_s3_tags(
+        self, bucket_name: str, key_name: Optional[str], dataset_urn: str
+    ) -> Optional[GlobalTagsClass]:
+        if self.source_config.aws_config is None:
+            raise ValueError("aws_config not set. Cannot browse s3")
+        new_tags = GlobalTagsClass(tags=[])
+        tags_to_add = []
+        if self.source_config.use_s3_bucket_tags:
+            s3 = self.source_config.aws_config.get_s3_resource()
+            bucket = s3.Bucket(bucket_name)
+            try:
+                tags_to_add.extend(
+                    [
+                        make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
+                        for tag in bucket.Tagging().tag_set
+                    ]
+                )
+            except s3.meta.client.exceptions.ClientError:
+                logger.warn(f"No tags found for bucket={bucket_name}")
+
+        if self.source_config.use_s3_object_tags and key_name is not None:
+            s3_client = self.source_config.aws_config.get_s3_client()
+            object_tagging = s3_client.get_object_tagging(
+                Bucket=bucket_name, Key=key_name
+            )
+            tag_set = object_tagging["TagSet"]
+            if tag_set:
+                tags_to_add.extend(
+                    [
+                        make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
+                        for tag in tag_set
+                    ]
+                )
+            else:
+                # Unlike bucket tags, if an object does not have tags, it will just return an empty array
+                # as opposed to an exception.
+                logger.warn(f"No tags found for bucket={bucket_name} key={key_name}")
+        if len(tags_to_add) == 0:
+            return None
+        if self.ctx.graph is not None:
+            logger.debug("Connected to DatahubApi, grabbing current tags to maintain.")
+            current_tags: Optional[GlobalTagsClass] = self.ctx.graph.get_aspect_v2(
+                entity_urn=dataset_urn,
+                aspect="globalTags",
+                aspect_type=GlobalTagsClass,
+            )
+            if current_tags:
+                tags_to_add.extend(
+                    [current_tag.tag for current_tag in current_tags.tags]
+                )
+        else:
+            logger.warn("Could not connect to DatahubApi. No current tags to maintain")
+        # Remove duplicate tags
+        tags_to_add = list(set(tags_to_add))
+        new_tags = GlobalTagsClass(
+            tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
+        )
+        return new_tags
 
     def gen_folder_key(self, abs_path):
         return FolderKey(

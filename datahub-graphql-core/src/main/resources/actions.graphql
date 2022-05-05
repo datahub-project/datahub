@@ -70,6 +70,14 @@ input ListActionRequestsInput {
     action requests that the authenticated user is assigned to will be returned.
     """
     assignee: ActionRequestAssignee
+    """
+    An optional starting time to filter on
+    """
+    startTimestampMillis: Long
+    """
+    An optional ending time to filter on
+    """
+    endTimestampMillis: Long
 }
 
 input ActionRequestAssignee {

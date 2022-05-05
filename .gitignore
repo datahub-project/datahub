@@ -11,8 +11,11 @@
 *gma-create-all.sql
 *gma-drop-all.sql
 
-# Pegasus & Avro
+# Pegasus, Avro, & other schemas
 **/src/mainGenerated*
+**/src/generatedJsonSchema
+**/metadata-io/generated
+**/metadata-integration/java/datahub-client/generated
 **/src/testGenerated*
 metadata-events/mxe-registration/src/main/resources/**/*.avsc
 

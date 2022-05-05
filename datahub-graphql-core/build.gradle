@@ -31,7 +31,10 @@ graphqlCodegen {
         "$projectDir/src/main/resources/recommendation.graphql".toString(),
         "$projectDir/src/main/resources/ingestion.graphql".toString(),
         "$projectDir/src/main/resources/auth.graphql".toString(),
+        "$projectDir/src/main/resources/timeline.graphql".toString(),
+        // Actions not in OSS
         "$projectDir/src/main/resources/actions.graphql".toString(),
+        // Constraints not in OSS
         "$projectDir/src/main/resources/constraints.graphql".toString(),
     ]
     outputDir = new File("$projectDir/src/mainGeneratedGraphQL/java")
