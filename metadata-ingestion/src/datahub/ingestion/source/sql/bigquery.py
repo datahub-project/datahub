@@ -357,6 +357,7 @@ class BigQuerySource(SQLAlchemySource):
         logger.info(
             f"Built lineage map containing {len(self.lineage_metadata)} entries."
         )
+        logger.debug(f"lineage metadata is {self.lineage_metadata}")
 
     def _compute_bigquery_lineage_via_gcp_logging(
         self, lineage_client_project_id: Optional[str]
@@ -631,9 +632,6 @@ class BigQuerySource(SQLAlchemySource):
                 lineage_map[destination_table_str] = new_lineage_str
             if not (has_table or has_view):
                 self.report.num_skipped_lineage_entries_other += 1
-
-        if self.config.upstream_lineage_in_report:
-            self.report.upstream_lineage = lineage_map
         return lineage_map
 
     def get_latest_partition(
@@ -823,7 +821,7 @@ WHERE
         assert self.lineage_metadata
         for ref_table in self.lineage_metadata[str(bq_table)]:
             upstream_table = BigQueryTableRef.from_string_name(ref_table)
-            if upstream_table.is_temporary_table():
+            if upstream_table.is_temporary_table(self.config.temp_table_dataset_prefix):
                 # making sure we don't process a table twice and not get into a recursive loop
                 if ref_table in tables_seen:
                     logger.debug(
@@ -843,9 +841,11 @@ WHERE
         self, dataset_urn: str
     ) -> Optional[MetadataChangeProposalWrapper]:
         if self.lineage_metadata is None:
+            logger.debug("No lineage metadata so skipping getting mcp")
             return None
         dataset_key: Optional[DatasetKey] = mce_builder.dataset_urn_to_key(dataset_urn)
         if dataset_key is None:
+            logger.debug(f"No dataset_key for {dataset_urn} so skipping getting mcp")
             return None
         project_id, dataset_name, tablename = dataset_key.name.split(".")
         bq_table = BigQueryTableRef(project_id, dataset_name, tablename)
@@ -869,6 +869,12 @@ WHERE
                     ),
                     DatasetLineageTypeClass.TRANSFORMED,
                 )
+                if self.config.upstream_lineage_in_report:
+                    current_lineage_map: Set = self.report.upstream_lineage.get(
+                        str(bq_table), set()
+                    )
+                    current_lineage_map.add(str(upstream_table))
+                    self.report.upstream_lineage[str(bq_table)] = current_lineage_map
                 upstream_list.append(upstream_table_class)
 
             if upstream_list:
