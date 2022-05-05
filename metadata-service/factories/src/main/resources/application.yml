@@ -206,6 +206,19 @@ notifications:
         botToken: ${SLACK_BOT_TOKEN}
         defaultChannel: ${SLACK_DEFAULT_CHANNEL}
 
+# Mirroring events to external systems (e.g. Event Bridge)
+eventSinks:
+  entityChangeEvent:
+    # Set of optional change event sinks.
+    sinks:
+      - type: "com.linkedin.metadata.event.change.aws.AwsEventBridgeChangeEventSink"
+        enabled: ${AWS_EVENT_BRIDGE_EVENT_SYNC_ENABLED:false}
+        configs:
+          # URL to which event bridge instance should be sinked.
+          eventBus: ${AWS_EVENT_BRIDGE_BUS_ARN}
+          region: ${AWS_EVENT_BRIDGE_BUS_REGION}
+
 # experimental siblings config
 siblings:
   enabled: ${ENABLE_SIBLING_HOOK:false} # enable to turn on automatic sibling associations for dbt
+

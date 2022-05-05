@@ -36,6 +36,10 @@ dependencies {
   compile externalDependency.swaggerAnnotations
   swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
 
+  // acryl-main only
+  compile('software.amazon.awssdk:eventbridge:2.17.170')
+  compile('software.amazon.awssdk:apache-client:2.17.170')
+
   annotationProcessor externalDependency.lombok
 
   testCompile externalDependency.testng

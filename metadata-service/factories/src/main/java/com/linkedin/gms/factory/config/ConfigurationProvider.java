@@ -5,6 +5,7 @@ import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.telemetry.TelemetryConfiguration;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.config.events.EventSinksConfiguration;
 import com.linkedin.metadata.config.notification.NotificationConfiguration;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -41,4 +42,8 @@ public class ConfigurationProvider {
    * Telemetry related configs
    */
   private TelemetryConfiguration telemetry;
+  /**
+   * Event mirroring related configs
+   */
+  private EventSinksConfiguration eventSinks;
 }
