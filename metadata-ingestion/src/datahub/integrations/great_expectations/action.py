@@ -3,6 +3,7 @@ import logging
 import time
 from dataclasses import dataclass
 from datetime import timezone
+from decimal import Decimal
 from typing import Any, Dict, List, Optional, Union
 
 from great_expectations.checkpoint.actions import ValidationAction
@@ -260,6 +261,7 @@ class DataHubValidationAction(ValidationAction):
                 {
                     k: convert_to_string(v)
                     for k, v in validation_result_suite.evaluation_parameters.items()
+                    if k and v
                 }
                 if validation_result_suite.evaluation_parameters
                 else None
@@ -742,8 +744,24 @@ class DataHubStdAssertion:
     parameters: Optional[AssertionStdParameters] = None
 
 
-def convert_to_string(var):
-    return str(var) if isinstance(var, (str, int, float)) else json.dumps(var)
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, Decimal):
+            return str(o)
+        return super(DecimalEncoder, self).default(o)
+
+
+def convert_to_string(var: Any) -> str:
+    try:
+        tmp = (
+            str(var)
+            if isinstance(var, (str, int, float))
+            else json.dumps(var, cls=DecimalEncoder)
+        )
+    except TypeError as e:
+        logger.debug(e)
+        tmp = str(var)
+    return tmp
 
 
 def warn(msg):
