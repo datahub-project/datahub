@@ -67,6 +67,20 @@ kafka_common = {
     "fastavro>=1.2.0",
 }
 
+kafka_protobuf = (
+    {
+        "networkx>=2.6.2",
+        # Required to generate protobuf python modules from the schema downloaded from the schema registry
+        "grpcio==1.44.0",
+        "grpcio-tools==1.44.0",
+        "types-protobuf",
+    }
+    if is_py37_or_newer
+    else {
+        "types-protobuf",
+    }
+)
+
 sql_common = {
     # Required for all SQL sources.
     "sqlalchemy==1.3.24",
@@ -186,7 +200,7 @@ plugins: Dict[str, Set[str]] = {
         # - 0.6.12 adds support for Spark Thrift Server
         "acryl-pyhive[hive]>=0.6.13"
     },
-    "kafka": kafka_common,
+    "kafka": {*kafka_common, *kafka_protobuf},
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
@@ -309,7 +323,7 @@ base_dev_requirements = {
             "oracle",
             "postgres",
             "sagemaker",
-            "datahub-kafka",
+            "kafka",
             "datahub-rest",
             "redash",
             "redshift",
