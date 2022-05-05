@@ -2,11 +2,11 @@ import React, { useMemo, useState } from 'react';
 import { ColumnsType } from 'antd/es/table';
 import styled from 'styled-components';
 import {} from 'antd';
-
 import {
     EditableSchemaMetadata,
     ForeignKeyConstraint,
     SchemaField,
+    SchemaFieldBlame,
     SchemaMetadata,
     UsageQueryResult,
 } from '../../../../../../types.generated';
@@ -19,6 +19,8 @@ import ExpandIcon from './components/ExpandIcon';
 import { StyledTable } from '../../../components/styled/StyledTable';
 import { SchemaRow } from './components/SchemaRow';
 import { FkContext } from './utils/selectedFkContext';
+import useSchemaBlameRenderer from './utils/useSchemaBlameRenderer';
+import { ANTD_GRAY } from '../../../constants';
 
 const TableContainer = styled.div`
     &&& .ant-table-tbody > tr > .ant-table-cell-with-append {
@@ -41,6 +43,8 @@ export type Props = {
     editableSchemaMetadata?: EditableSchemaMetadata | null;
     editMode?: boolean;
     usageStats?: UsageQueryResult | null;
+    schemaFieldBlameList?: Array<SchemaFieldBlame> | null;
+    showSchemaBlame: boolean;
 };
 export default function SchemaTable({
     rows,
@@ -48,6 +52,8 @@ export default function SchemaTable({
     editableSchemaMetadata,
     usageStats,
     editMode = true,
+    schemaFieldBlameList,
+    showSchemaBlame,
 }: Props): JSX.Element {
     const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
 
@@ -66,6 +72,7 @@ export default function SchemaTable({
         showTerms: true,
     });
     const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, setSelectedFkFieldPath);
+    const schemaBlameRenderer = useSchemaBlameRenderer(schemaFieldBlameList);
 
     const onTagTermCell = (record: SchemaField, rowIndex: number | undefined) => ({
         onMouseEnter: () => {
@@ -84,7 +91,7 @@ export default function SchemaTable({
         title: 'Field',
         dataIndex: 'fieldPath',
         key: 'fieldPath',
-        width: 250,
+        width: 300,
         render: schemaTitleRenderer,
         filtered: true,
     };
@@ -122,10 +129,28 @@ export default function SchemaTable({
         width: 300,
     };
 
+    const blameColumn = {
+        dataIndex: 'fieldPath',
+        key: 'fieldPath',
+        width: 75,
+        render(record: SchemaField) {
+            return {
+                props: {
+                    style: { backgroundColor: ANTD_GRAY[2.5] },
+                },
+                children: schemaBlameRenderer(record),
+            };
+        },
+    };
+
     let allColumns: ColumnsType<ExtendedSchemaFields> = [fieldColumn, descriptionColumn, tagColumn, termColumn];
 
     if (hasUsageStats) {
         allColumns = [...allColumns, usageColumn];
+    }
+
+    if (showSchemaBlame) {
+        allColumns = [...allColumns, blameColumn];
     }
 
     return (

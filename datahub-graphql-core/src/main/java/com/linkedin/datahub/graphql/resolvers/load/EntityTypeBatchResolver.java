@@ -4,6 +4,7 @@ import com.google.common.collect.Iterables;
 import com.linkedin.datahub.graphql.generated.Entity;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -22,11 +23,11 @@ import org.dataloader.DataLoader;
  */
 public class EntityTypeBatchResolver implements DataFetcher<CompletableFuture<List<Entity>>> {
 
-    private final List<com.linkedin.datahub.graphql.types.EntityType<?>> _entityTypes;
+    private final List<com.linkedin.datahub.graphql.types.EntityType<?, ?>> _entityTypes;
     private final Function<DataFetchingEnvironment, List<Entity>> _entitiesProvider;
 
     public EntityTypeBatchResolver(
-        final List<com.linkedin.datahub.graphql.types.EntityType<?>> entityTypes,
+        final List<com.linkedin.datahub.graphql.types.EntityType<?, ?>> entityTypes,
         final Function<DataFetchingEnvironment, List<Entity>> entitiesProvider
     ) {
         _entityTypes = entityTypes;
@@ -34,18 +35,22 @@ public class EntityTypeBatchResolver implements DataFetcher<CompletableFuture<Li
     }
 
     @Override
-    public CompletableFuture get(DataFetchingEnvironment environment) {
+    public CompletableFuture<List<Entity>> get(DataFetchingEnvironment environment) {
         final List<Entity> entities = _entitiesProvider.apply(environment);
         if (entities.isEmpty()) {
             return CompletableFuture.completedFuture(Collections.emptyList());
         }
         // Assume all entities are of the same type
-        final com.linkedin.datahub.graphql.types.EntityType<?> filteredEntity =
+        final com.linkedin.datahub.graphql.types.EntityType filteredEntity =
             Iterables.getOnlyElement(_entityTypes.stream()
                 .filter(entity -> entities.get(0).getClass().isAssignableFrom(entity.objectClass()))
                 .collect(Collectors.toList()));
 
-        final DataLoader<String, Entity> loader = environment.getDataLoaderRegistry().getDataLoader(filteredEntity.name());
-        return loader.loadMany(entities.stream().map(Entity::getUrn).collect(Collectors.toList()));
+        final DataLoader loader = environment.getDataLoaderRegistry().getDataLoader(filteredEntity.name());
+        List keyList = new ArrayList();
+        for (Entity entity : entities) {
+            keyList.add(filteredEntity.getKeyProvider().apply(entity));
+        }
+        return loader.loadMany(keyList);
     }
 }

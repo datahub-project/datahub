@@ -7,7 +7,10 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "number_of_files": "1",
+                            "size_in_bytes": "1024"
+                        },
                         "externalUrl": null,
                         "name": "chord_progressions_avro.avro",
                         "qualifiedName": null,

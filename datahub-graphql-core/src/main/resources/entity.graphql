@@ -35,6 +35,11 @@ type Query {
     dataset(urn: String!): Dataset
 
     """
+    Fetch a Dataset by primary key (urn) at a point in time based on aspect versions (versionStamp)
+    """
+    versionedDataset(urn: String!, versionStamp: String): VersionedDataset
+
+    """
     Fetch a Dashboard by primary key (urn)
     """
     dashboard(urn: String!): Dashboard
@@ -860,6 +865,119 @@ type Dataset implements EntityWithRelationships & Entity {
     History of datajob runs that either produced or consumed this dataset
     """
     runs(start: Int, count: Int, direction: RelationshipDirection!): DataProcessInstanceResult
+}
+
+"""
+A Dataset entity, which encompasses Relational Tables, Document store collections, streaming topics, and other sets of data having an independent lifecycle
+"""
+type VersionedDataset implements Entity {
+    """
+    The primary key of the Dataset
+    """
+    urn: String!
+
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Standardized platform urn where the dataset is defined
+    """
+    platform: DataPlatform!
+
+    """
+    The parent container in which the entity resides
+    """
+    container: Container
+
+    """
+    Unique guid for dataset
+    No longer to be used as the Dataset display name. Use properties.name instead
+    """
+    name: String!
+
+    """
+    An additional set of read only properties
+    """
+    properties: DatasetProperties
+
+    """
+    An additional set of of read write properties
+    """
+    editableProperties: DatasetEditableProperties
+
+    """
+    Ownership metadata of the dataset
+    """
+    ownership: Ownership
+
+    """
+    The deprecation status of the dataset
+    """
+    deprecation: Deprecation
+
+    """
+    References to internal resources related to the dataset
+    """
+    institutionalMemory: InstitutionalMemory
+
+    """
+    Editable schema metadata of the dataset
+    """
+    editableSchemaMetadata: EditableSchemaMetadata
+
+    """
+    Status of the Dataset
+    """
+    status: Status
+
+    """
+    Tags used for searching dataset
+    """
+    tags: GlobalTags
+
+    """
+    The structured glossary terms associated with the dataset
+    """
+    glossaryTerms: GlossaryTerms
+
+    """
+    The Domain associated with the Dataset
+    """
+    domain: Domain
+
+    """
+    Experimental! The resolved health status of the Dataset
+    """
+    health: Health
+
+    """
+    Schema metadata of the dataset
+    """
+    schema: Schema
+
+    """
+    Sub Types that this entity implements
+    """
+    subTypes: SubTypes
+
+    """
+    View related properties. Only relevant if subtypes field contains view.
+    """
+    viewProperties: ViewProperties
+
+    """
+    Deprecated, see the properties field instead
+    Environment in which the dataset belongs to or where it was generated
+    Note that this field will soon be deprecated in favor of a more standardized concept of Environment
+    """
+    origin: FabricType! @deprecated
+
+    """
+    No-op, has to be included due to model
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult @deprecated
 }
 
 """
@@ -1733,6 +1851,16 @@ type Schema {
     Client provided list of fields that define primary keys to access record
     """
     primaryKeys: [String!]
+
+    """
+    Client provided list of foreign key constraints
+    """
+    foreignKeys: [ForeignKeyConstraint]
+
+    """
+    The time at which the schema metadata information was created
+    """
+    createdAt: Long
 }
 
 """

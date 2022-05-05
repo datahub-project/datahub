@@ -4,6 +4,7 @@ dependencies {
 
   compile project(':metadata-service:factories')
 
+  compile externalDependency.reflections
   compile externalDependency.springBoot
   compile externalDependency.springCore
   compile externalDependency.springDocUI
@@ -12,6 +13,10 @@ dependencies {
   compile externalDependency.springBeans
   compile externalDependency.springContext
   compile externalDependency.lombok
+  compile externalDependency.antlr4
 
   annotationProcessor externalDependency.lombok
+
+  testCompile externalDependency.testng
+  testCompile externalDependency.mockito
 }

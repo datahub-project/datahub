@@ -8,3 +8,8 @@ export interface ExtendedSchemaFields extends SchemaField {
     isNewRow?: boolean;
     isDeletedRow?: boolean;
 }
+
+export enum SchemaViewType {
+    NORMAL,
+    BLAME,
+}

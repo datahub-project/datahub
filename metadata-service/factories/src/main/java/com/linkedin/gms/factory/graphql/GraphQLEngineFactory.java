@@ -19,6 +19,7 @@ import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
+import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.version.GitVersion;
@@ -92,6 +93,10 @@ public class GraphQLEngineFactory {
   @Qualifier("gitVersion")
   private GitVersion _gitVersion;
 
+  @Autowired
+  @Qualifier("timelineService")
+  private TimelineService _timelineService;
+
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
@@ -114,8 +119,10 @@ public class GraphQLEngineFactory {
           _configProvider.getAuthentication(),
           _configProvider.getAuthorization(),
           _gitVersion,
+          _timelineService,
           _graphService.supportsMultiHop(),
-          _configProvider.getVisualConfig()
+          _configProvider.getVisualConfig(),
+          _configProvider.getTelemetry()
           ).builder().build();
     }
     return new GmsGraphQLEngine(
@@ -133,8 +140,10 @@ public class GraphQLEngineFactory {
         _configProvider.getAuthentication(),
         _configProvider.getAuthorization(),
         _gitVersion,
+        _timelineService,
         _graphService.supportsMultiHop(),
-        _configProvider.getVisualConfig()
+        _configProvider.getVisualConfig(),
+        _configProvider.getTelemetry()
     ).builder().build();
   }
 }

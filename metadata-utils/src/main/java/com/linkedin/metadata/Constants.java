@@ -179,6 +179,7 @@ public class Constants {
   public static final String ASSERTION_RUN_EVENT_STATUS_COMPLETE = "COMPLETE";
 
   // DataHub Ingestion Source
+  public static final String INGESTION_SOURCE_KEY_ASPECT_NAME = "dataHubIngestionSourceKey";
   public static final String INGESTION_INFO_ASPECT_NAME = "dataHubIngestionSourceInfo";
 
   // DataHub Secret

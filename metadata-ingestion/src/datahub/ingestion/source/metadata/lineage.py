@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Union
 
 from pydantic import validator
+from pydantic.fields import Field
 
 import datahub.metadata.schema_classes as models
 from datahub.cli.cli_utils import get_aspects_for_entity
@@ -19,6 +20,12 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 
@@ -55,8 +62,11 @@ EntityNodeConfig.update_forward_refs()
 
 
 class LineageFileSourceConfig(ConfigModel):
-    file: str
-    preserve_upstream: bool = True
+    file: str = Field(description="Path to lineage file to ingest.")
+    preserve_upstream: bool = Field(
+        default=True,
+        description="Whether we want to query datahub-gms for upstream data. False means it will hard replace upstream data for a given entity. True means it will query the backend for existing upstreams and include it in the ingestion run",
+    )
 
 
 class LineageConfig(VersionedConfig):
@@ -68,8 +78,15 @@ class LineageConfig(VersionedConfig):
             raise ValueError("Only version 1 is supported")
 
 
+@platform_name("File Based Lineage")
+@config_class(LineageFileSourceConfig)
+@support_status(SupportStatus.CERTIFIED)
 @dataclass
 class LineageFileSource(Source):
+    """
+    This plugin pulls lineage metadata from a yaml-formatted file. An example of one such file is located in the examples directory [here](../../../../metadata-ingestion/examples/bootstrap_data/file_lineage.yml).
+    """
+
     config: LineageFileSourceConfig
     report: SourceReport = field(default_factory=SourceReport)
 
