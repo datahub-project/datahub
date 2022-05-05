@@ -25,6 +25,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
@@ -119,8 +120,8 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         updateSystemMetadata(event.getSystemMetadata(), urn, aspectSpec, aspect);
       }
     } else if (event.getChangeType() == ChangeType.DELETE) {
-      if (!event.hasAspectName() || !event.hasAspect()) {
-        log.error("Aspect or aspect name is missing");
+      if (!event.hasAspectName() || !event.hasPreviousAspectValue()) {
+        log.error("Previous aspect or aspect name is missing");
         return;
       }
 
@@ -130,9 +131,8 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         return;
       }
 
-      RecordTemplate aspect =
-          GenericRecordUtils.deserializeAspect(event.getAspect().getValue(), event.getAspect().getContentType(),
-              aspectSpec);
+      RecordTemplate aspect = GenericRecordUtils.deserializeAspect(event.getPreviousAspectValue().getValue(),
+              event.getPreviousAspectValue().getContentType(), aspectSpec);
       Boolean isDeletingKey = event.getAspectName().equals(entitySpec.getKeyAspectName());
 
       if (!aspectSpec.isTimeseries()) {
@@ -198,15 +198,13 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       return;
     }
 
-    String docId;
-    try {
-      docId = URLEncoder.encode(urn.toString(), "UTF-8");
-    } catch (UnsupportedEncodingException e) {
-      log.error("Failed to encode the urn with error: {}", e.toString());
+    Optional<String> docId = SearchUtils.getDocId(urn);
+
+    if (!docId.isPresent()) {
       return;
     }
 
-    _entitySearchService.upsertDocument(entityName, searchDocument.get(), docId);
+    _entitySearchService.upsertDocument(entityName, searchDocument.get(), docId.get());
   }
 
   /**

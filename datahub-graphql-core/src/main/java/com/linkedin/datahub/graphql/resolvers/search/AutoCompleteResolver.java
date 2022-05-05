@@ -29,9 +29,9 @@ public class AutoCompleteResolver implements DataFetcher<CompletableFuture<AutoC
 
     private static final Logger _logger = LoggerFactory.getLogger(AutoCompleteResolver.class.getName());
 
-    private final Map<EntityType, SearchableEntityType<?>> _typeToEntity;
+    private final Map<EntityType, SearchableEntityType<?, ?>> _typeToEntity;
 
-    public AutoCompleteResolver(@Nonnull final List<SearchableEntityType<?>> searchableEntities) {
+    public AutoCompleteResolver(@Nonnull final List<SearchableEntityType<?, ?>> searchableEntities) {
         _typeToEntity = searchableEntities.stream().collect(Collectors.toMap(
                 SearchableEntityType::type,
                 entity -> entity

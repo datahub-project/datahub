@@ -24,6 +24,7 @@ import {
     ScenarioType,
     RecommendationRenderType,
     RelationshipDirection,
+    FabricType,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
@@ -32,6 +33,7 @@ import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossar
 import { GetEntityCountsDocument } from './graphql/app.generated';
 import { GetMeDocument } from './graphql/me.generated';
 import { ListRecommendationsDocument } from './graphql/recommendations.generated';
+import { FetchedEntity } from './app/lineage/types';
 
 const user1 = {
     username: 'sdas',
@@ -115,7 +117,7 @@ const dataPlatform = {
     },
 };
 
-const dataset1 = {
+export const dataset1 = {
     urn: 'urn:li:dataset:1',
     type: EntityType.Dataset,
     platform: {
@@ -208,9 +210,10 @@ const dataset1 = {
     deprecation: null,
     incidents: null,
     totalIncidents: null,
+    siblings: null,
 };
 
-const dataset2 = {
+export const dataset2 = {
     urn: 'urn:li:dataset:2',
     type: EntityType.Dataset,
     platform: {
@@ -233,6 +236,7 @@ const dataset2 = {
         name: 'Some Other Dataset',
         description: 'This is some other dataset, so who cares!',
         customProperties: [],
+        origin: 'PROD',
     },
     editableProperties: null,
     created: {
@@ -289,6 +293,7 @@ const dataset2 = {
     deprecation: null,
     incidents: null,
     totalIncidents: null,
+    siblings: null,
 };
 
 export const dataset3 = {
@@ -313,7 +318,7 @@ export const dataset3 = {
     properties: {
         name: 'Yet Another Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
-        origin: 'PROD',
+        origin: 'PROD' as FabricType,
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
         externalUrl: 'https://data.hub',
     },
@@ -499,6 +504,7 @@ export const dataset3 = {
     writeRuns: null,
     incidents: null,
     totalIncidents: null,
+    siblings: null,
 } as Dataset;
 
 export const dataset4 = {
@@ -508,7 +514,7 @@ export const dataset4 = {
     properties: {
         name: 'Fourth Test Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
-        origin: 'PROD',
+        origin: 'PROD' as FabricType,
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
         externalUrl: 'https://data.hub',
     },
@@ -1064,8 +1070,8 @@ export const dataJob1 = {
     editableProperties: null,
     inputOutput: {
         __typename: 'DataJobInputOutput',
-        inputDatasets: [dataset3],
-        outputDatasets: [dataset3],
+        inputDatasets: [dataset5],
+        outputDatasets: [dataset6],
         inputDatajobs: [],
     },
     globalTags: {
@@ -1306,6 +1312,28 @@ export const mlModel = {
     status: null,
     deprecation: null,
 } as MlModel;
+
+export const dataset1FetchedEntity = {
+    urn: dataset1.urn,
+    name: dataset1.name,
+    type: dataset1.type,
+    upstreamChildren: [],
+    downstreamChildren: [
+        { type: EntityType.Dataset, entity: dataset2 },
+        { type: EntityType.DataJob, entity: dataJob1 },
+    ],
+} as FetchedEntity;
+
+export const dataset2FetchedEntity = {
+    urn: dataset2.urn,
+    name: 'test name',
+    type: dataset2.type,
+    upstreamChildren: [
+        { type: EntityType.Dataset, entity: dataset1 },
+        { type: EntityType.DataJob, entity: dataJob1 },
+    ],
+    downstreamChildren: [],
+} as FetchedEntity;
 
 export const mlModelGroup = {
     __typename: 'MLModelGroup',

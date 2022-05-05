@@ -63,6 +63,7 @@ public class Constants {
   public static final String STATUS_ASPECT_NAME = "status";
   public static final String SUB_TYPES_ASPECT_NAME = "subTypes";
   public static final String DEPRECATION_ASPECT_NAME = "deprecation";
+  public static final String SIBLINGS_ASPECT_NAME = "siblings";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
@@ -193,6 +194,7 @@ public class Constants {
   public static final String INCIDENT_INFO_ASPECT_NAME = "incidentInfo";
 
   // DataHub Ingestion Source
+  public static final String INGESTION_SOURCE_KEY_ASPECT_NAME = "dataHubIngestionSourceKey";
   public static final String INGESTION_INFO_ASPECT_NAME = "dataHubIngestionSourceInfo";
 
   // DataHub Secret

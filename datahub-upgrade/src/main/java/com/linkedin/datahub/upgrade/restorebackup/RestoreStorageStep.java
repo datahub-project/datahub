@@ -14,7 +14,7 @@ import com.linkedin.datahub.upgrade.restorebackup.backupreader.LocalParquetReade
 import com.linkedin.datahub.upgrade.restorebackup.backupreader.S3BackupReader;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
-import com.linkedin.metadata.entity.ebean.EbeanUtils;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -93,7 +93,7 @@ public class RestoreStorageStep implements UpgradeStep {
 
         // 3. Create record from json aspect
         final RecordTemplate aspectRecord =
-            EbeanUtils.toAspectRecord(entityName, aspectName, aspect.getMetadata(), _entityRegistry);
+            EntityUtils.toAspectRecord(entityName, aspectName, aspect.getMetadata(), _entityRegistry);
 
         // 4. Verify that the aspect is a valid aspect associated with the entity
         AspectSpec aspectSpec;

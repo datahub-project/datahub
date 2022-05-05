@@ -14,6 +14,11 @@ message Department {
   The comment added after thought
 */
 message Person {
+  option deprecated = true;
+  option (meta.msg.deprecation_note) = "Deprecated for this other message.";
+  option (meta.msg.deprecation_note) = "Drop in replacement.";
+  option (meta.msg.deprecation_time) = 1649689387;
+
   option(meta.msg.data_steward) = "corpUser:datahub";
 
   string name = 1 [(meta.fld.classification) = "Classification.HighlyConfidential"]; // person name
@@ -29,8 +34,9 @@ message Person {
   Department dept = 4; // department name of the person
 
   string test_coverage = 5
-  [(meta.fld.product_type_bool) = true,
-    (meta.fld.product_type) = "my type",
-    (meta.fld.product_type_enum) = EVENT,
-    (meta.fld.tag_list) = "d, e, f"];
+  [deprecated = true,
+   (meta.fld.product_type_bool) = true,
+   (meta.fld.product_type) = "my type",
+   (meta.fld.product_type_enum) = EVENT,
+   (meta.fld.tag_list) = "d, e, f"];
 }

@@ -1,5 +1,5 @@
 import { Button, Form, message, Modal, Select, Tag, Typography } from 'antd';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
 import { useAddOwnerMutation } from '../../../../../../../graphql/mutations.generated';
@@ -189,6 +189,12 @@ export const AddOwnerModal = ({ urn, type, visible, hideOwnerType, defaultOwnerT
     const selectValue = (selectedActor && [selectedActor.displayName]) || [];
     const ownershipTypes = OWNERSHIP_DISPLAY_TYPES;
 
+    useEffect(() => {
+        if (ownershipTypes) {
+            setSelectedOwnerType(ownershipTypes[0].type);
+        }
+    }, [ownershipTypes]);
+
     // Handle the Enter press
     // TODO: Allow user to be selected prior to executed the save.
     // useEnterKeyListener({
@@ -240,7 +246,11 @@ export const AddOwnerModal = ({ urn, type, visible, hideOwnerType, defaultOwnerT
                     <Form.Item label={<Typography.Text strong>Type</Typography.Text>}>
                         <Typography.Paragraph>Choose an owner type</Typography.Paragraph>
                         <Form.Item name="type">
-                            <Select value={selectedOwnerType} onChange={onSelectOwnerType}>
+                            <Select
+                                defaultValue={selectedOwnerType}
+                                value={selectedOwnerType}
+                                onChange={onSelectOwnerType}
+                            >
                                 {ownershipTypes.map((ownerType) => (
                                     <Select.Option key={ownerType.type} value={ownerType.type}>
                                         <Typography.Text>{ownerType.name}</Typography.Text>

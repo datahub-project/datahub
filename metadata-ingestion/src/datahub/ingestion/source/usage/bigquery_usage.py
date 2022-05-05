@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import textwrap
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast
@@ -19,6 +20,12 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.usage.usage_common import GenericAggregatedDataset
@@ -253,9 +260,9 @@ class BigQueryTableRef:
             raise ValueError(f"invalid BigQuery table reference: {ref}")
         return cls(parts[1], parts[3], parts[5])
 
-    def is_temporary_table(self) -> bool:
+    def is_temporary_table(self, prefix: str) -> bool:
         # Temporary tables will have a dataset that begins with an underscore.
-        return self.dataset.startswith("_")
+        return self.dataset.startswith(prefix)
 
     def remove_extras(self) -> "BigQueryTableRef":
         # Handle partitioned and sharded tables.
@@ -608,7 +615,21 @@ def cleanup(config: BigQueryUsageConfig) -> None:
         os.unlink(config._credentials_path)
 
 
+@platform_name("BigQuery")
+@support_status(SupportStatus.CERTIFIED)
+@config_class(BigQueryUsageConfig)
 class BigQueryUsageSource(Source):
+    """
+    This plugin extracts the following:
+    * Statistics on queries issued and tables and columns accessed (excludes views)
+    * Aggregation of these statistics into buckets, by day or hour granularity
+
+    :::note
+    1. This source only does usage statistics. To get the tables, views, and schemas in your BigQuery project, use the `bigquery` plugin.
+    2. Depending on the compliance policies setup for the bigquery instance, sometimes logging.read permission is not sufficient. In that case, use either admin or private log viewer permission.
+    :::
+    """
+
     def __init__(self, config: BigQueryUsageConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.config: BigQueryUsageConfig = config
@@ -619,6 +640,10 @@ class BigQueryUsageSource(Source):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "BigQueryUsageSource":
         config = BigQueryUsageConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    # @staticmethod
+    # def get_config_class() -> Type[ConfigModel]:
+    #    return BigQueryUsageConfig
 
     def add_config_to_report(self):
         self.report.start_time = self.config.start_time
@@ -901,6 +926,7 @@ class BigQueryUsageSource(Source):
                     f"Failed to clean up destination table, {e}",
                 )
                 return None
+            reported_time: int = int(time.time() * 1000)
             last_updated_timestamp: int = int(event.timestamp.timestamp() * 1000)
             affected_datasets = []
             if event.referencedTables:
@@ -918,7 +944,7 @@ class BigQueryUsageSource(Source):
                             f"Failed to clean up table, {e}",
                         )
             operation_aspect = OperationClass(
-                timestampMillis=last_updated_timestamp,
+                timestampMillis=reported_time,
                 lastUpdatedTimestamp=last_updated_timestamp,
                 actor=builder.make_user_urn(event.actor_email.split("@")[0]),
                 operationType=OPERATION_STATEMENT_TYPES[event.statementType],
@@ -945,7 +971,8 @@ class BigQueryUsageSource(Source):
     ) -> Iterable[Union[ReadEvent, QueryEvent, MetadataWorkUnit]]:
         self.report.num_read_events = 0
         self.report.num_query_events = 0
-        self.report.num_filtered_events = 0
+        self.report.num_filtered_read_events = 0
+        self.report.num_filtered_query_events = 0
         for entry in entries:
             event: Optional[Union[ReadEvent, QueryEvent]] = None
 
@@ -953,7 +980,7 @@ class BigQueryUsageSource(Source):
             if missing_read_entry is None:
                 event = ReadEvent.from_entry(entry)
                 if not self._is_table_allowed(event.resource):
-                    self.report.num_filtered_events += 1
+                    self.report.num_filtered_read_events += 1
                     continue
                 self.report.num_read_events += 1
 
@@ -961,7 +988,7 @@ class BigQueryUsageSource(Source):
             if event is None and missing_query_entry is None:
                 event = QueryEvent.from_entry(entry)
                 if not self._is_table_allowed(event.destinationTable):
-                    self.report.num_filtered_events += 1
+                    self.report.num_filtered_query_events += 1
                     continue
                 self.report.num_query_events += 1
                 wu = self._create_operation_aspect_work_unit(event)
@@ -973,7 +1000,7 @@ class BigQueryUsageSource(Source):
             if event is None and missing_query_entry_v2 is None:
                 event = QueryEvent.from_entry_v2(entry)
                 if not self._is_table_allowed(event.destinationTable):
-                    self.report.num_filtered_events += 1
+                    self.report.num_filtered_query_events += 1
                     continue
                 self.report.num_query_events += 1
                 wu = self._create_operation_aspect_work_unit(event)
@@ -987,6 +1014,7 @@ class BigQueryUsageSource(Source):
                     f"Unable to parse {type(entry)} missing read {missing_query_entry}, missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {entry}",
                 )
             else:
+                logger.debug(f"Yielding {event} from log entries")
                 yield event
 
         logger.info(
@@ -1112,7 +1140,7 @@ class BigQueryUsageSource(Source):
                 logger.warning(f"Failed to process event {str(event.resource)}", e)
                 continue
 
-            if resource.is_temporary_table():
+            if resource.is_temporary_table(self.config.temp_table_dataset_prefix):
                 logger.debug(f"Dropping temporary table {resource}")
                 self.report.report_dropped(str(resource))
                 continue

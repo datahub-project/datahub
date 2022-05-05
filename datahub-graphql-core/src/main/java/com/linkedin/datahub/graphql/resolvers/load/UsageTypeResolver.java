@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.load;
 
 import com.linkedin.datahub.graphql.UsageStatsKey;
 
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.pegasus2avro.usage.UsageQueryResult;
 import com.linkedin.usage.UsageTimeRange;
@@ -27,7 +28,7 @@ public class UsageTypeResolver implements DataFetcher<CompletableFuture<UsageQue
     public CompletableFuture<UsageQueryResult> get(DataFetchingEnvironment environment) {
         final DataLoader<UsageStatsKey, UsageQueryResult> loader = environment.getDataLoaderRegistry().getDataLoader("UsageQueryResult");
 
-        String resource = environment.getArgument("resource");
+        final String resource = ((Entity) environment.getSource()).getUrn();
         UsageTimeRange duration = UsageTimeRange.valueOf(environment.getArgument("range"));
 
         UsageStatsKey key = new UsageStatsKey(resource, duration);
