@@ -343,17 +343,17 @@ export const EntityHeader = ({ showDeprecateOption }: Props) => {
                                                     message.info('Entity Profile Url copied', 1.2);
                                                 }}
                                             >
-                                                <LinkOutlined /> Copy Url
+                                                <LinkOutlined /> &nbsp; Copy Url
                                             </MenuItem>
                                         </Menu.Item>
                                         <Menu.Item key="1">
                                             {!entityData?.deprecation?.deprecated ? (
                                                 <MenuItem onClick={() => setShowAddDeprecationDetailsModal(true)}>
-                                                    <ExclamationCircleOutlined /> Mark as deprecated
+                                                    <ExclamationCircleOutlined /> &nbsp; Mark as deprecated
                                                 </MenuItem>
                                             ) : (
                                                 <MenuItem onClick={() => handleUpdateDeprecation(false)}>
-                                                    <ExclamationCircleOutlined /> Mark as un-deprecated
+                                                    <ExclamationCircleOutlined /> &nbsp; Mark as un-deprecated
                                                 </MenuItem>
                                             )}
                                         </Menu.Item>
