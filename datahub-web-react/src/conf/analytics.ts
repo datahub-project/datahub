@@ -3,12 +3,7 @@ const config: any = {
     // googleAnalytics: {
     //    trackingId: 'UA-24123123-01',
     // },
-    mixpanel:
-        (process.env.REACT_APP_MIXPANEL_EVENTS_ENABLED || 'false').toLowerCase() === 'true'
-            ? {
-                  token: process.env.REACT_APP_MIXPANEL_TOKEN,
-              }
-            : null,
+    mixpanel: '7cee38380de7a8469069c040a1fee320',
     // amplitude: {
     //    apiKey: 'c5c212632315d19c752ab083bc7c92ff',
     // },
