@@ -1268,10 +1268,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         return None, None
 
     # Override if you want to do additional checks
-    def is_dataset_eligable_profiling(
+    def is_dataset_eligible_for_profiling(
         self, dataset_name: str, sql_config: SQLAlchemyConfig
     ) -> bool:
-        return sql_config.profile_pattern.allowed(dataset_name)
+        return sql_config.table_pattern.allowed(
+            dataset_name
+        ) and sql_config.profile_pattern.allowed(dataset_name)
 
     def loop_profiler_requests(
         self,
@@ -1290,7 +1292,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             dataset_name = self.get_identifier(
                 schema=schema, entity=table, inspector=inspector
             )
-            if not self.is_dataset_eligable_profiling(dataset_name, sql_config):
+            if not self.is_dataset_eligible_for_profiling(dataset_name, sql_config):
                 self.report.report_dropped(f"profile of {dataset_name}")
                 continue
 
