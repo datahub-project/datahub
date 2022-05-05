@@ -8,6 +8,10 @@ import "google/protobuf/timestamp.proto";
   Clickstream impressions
 **/
 message Impression {
+  option deprecated = true;
+  option(meta.lifecycle.deprecation_note) = "Impression events are deprecated.";
+  option(meta.lifecycle.deprecation_time) = 1649693315;
+
   option(meta.message.type) = EVENT;
   option(meta.kafka.topics) = "clickstream_impressions";
 
@@ -36,5 +40,7 @@ message Impression {
    (meta.fieldTags.tag_list) = "a, b, c",
    (meta.securityField.classification_enum) = HighlyConfidential,
    (meta.securityField.classification) = "Classification.Sensitive"
-]; // event details
+  ]; // event details
+
+  string deprecated_field = 3 [deprecated = true];
 }

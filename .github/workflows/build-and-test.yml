@@ -33,8 +33,8 @@ jobs:
         # running build first without datahub-web-react:yarnBuild and then with it is 100% stable
         # datahub-frontend:unzipAssets depends on datahub-web-react:yarnBuild but gradle does not know about it
         run: |
-          ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x datahub-web-react:yarnBuild -x datahub-frontend:unzipAssets
-          ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x :metadata-integration:java:spark-lineage:test
+          ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x datahub-web-react:yarnBuild -x datahub-frontend:unzipAssets -x :metadata-io:test -x :metadata-integration:java:datahub-protobuf:build
+          ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x :metadata-integration:java:spark-lineage:test -x :metadata-io:test -x :metadata-integration:java:datahub-protobuf:build
       - uses: actions/upload-artifact@v2
         if: always()
         with:
@@ -75,7 +75,7 @@ jobs:
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Gradle build
-        run: ./gradlew build -x check -x docs-website:build
+        run: ./gradlew build -x check -x docs-website:build -x test -x yarnTest -x lint -x yarnLint -x testQuick -x :metadata-integration:java:spark-lineage:test
       - name: Smoke test
         run: ./smoke-test/smoke.sh
         env:
