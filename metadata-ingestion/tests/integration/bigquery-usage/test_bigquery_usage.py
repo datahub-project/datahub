@@ -32,8 +32,8 @@ def test_bq_usage_config():
             table_pattern={"allow": ["test-regex", "test-regex-1"], "deny": []},
         )
     )
-    assert config.get_allow_pattern_string() == "test-regex|test-regex-1"
-    assert config.get_deny_pattern_string() == ""
+    assert config.get_table_allow_pattern_string() == "test-regex|test-regex-1"
+    assert config.get_table_deny_pattern_string() == ""
     assert (config.end_time - config.start_time) == timedelta(hours=2)
     assert config.projects == ["sample-bigquery-project-name-1234"]
 
