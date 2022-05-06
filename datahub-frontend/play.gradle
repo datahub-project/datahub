@@ -1,4 +1,4 @@
-apply plugin: 'play'
+apply plugin: "org.gradle.playframework"
 
 // Change this to listen on a different port
 project.ext.httpPort = 9001
@@ -23,42 +23,56 @@ dependencies {
     play('org.springframework:spring-core:5.2.3.RELEASE')
     play('com.fasterxml.jackson.core:jackson-databind:2.9.10.4')
     play('com.nimbusds:nimbus-jose-jwt:7.9')
-    play('com.typesafe.akka:akka-actor_2.11:2.5.16')
+    play('com.typesafe.akka:akka-actor_2.12:2.5.16')
     play('net.minidev:json-smart:2.4.1')
     play('io.netty:netty-all:4.1.68.Final')
   }
-  play project(":datahub-graphql-core")
-  play project(":metadata-service:auth-api")
+  compile project(":datahub-graphql-core")
+  compile project(":metadata-service:auth-api")
 
-  play externalDependency.jettyJaas
-  play externalDependency.graphqlJava
-  play externalDependency.antlr4Runtime
-  play externalDependency.antlr4
+  implementation externalDependency.jettyJaas
+  implementation externalDependency.graphqlJava
+  implementation externalDependency.antlr4Runtime
+  implementation externalDependency.antlr4
 
-  play externalDependency.jerseyCore
-  play externalDependency.jerseyGuava
+  implementation externalDependency.jerseyCore
+  implementation externalDependency.jerseyGuava
 
-  play externalDependency.pac4j
-  play externalDependency.playPac4j
-  play externalDependency.shiroCore
-  play externalDependency.playCache
-  play externalDependency.playWs
-  play externalDependency.kafkaClients
+  implementation externalDependency.pac4j
+  implementation externalDependency.playPac4j
+  implementation externalDependency.shiroCore
+  implementation externalDependency.playCache
+  implementation externalDependency.playWs
+  implementation externalDependency.kafkaClients
 
-  playTest externalDependency.mockito
-  playTest externalDependency.playTest
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.playTest
 
-  playRun externalDependency.lombok
-  playRun externalDependency.guice
-  playRun externalDependency.playDocs
-  playRun externalDependency.playGuice
-  playRun externalDependency.logbackClassic
+  compileOnly externalDependency.lombok
+  runtime externalDependency.guice
+  runtime externalDependency.playDocs
+  runtime externalDependency.playGuice
+  runtime externalDependency.logbackClassic
+
+  annotationProcessor externalDependency.lombok
+}
+
+dist.dependsOn(':datahub-web-react:copyAssets')
+
+play {
+  platform {
+    playVersion = '2.7.6'
+    scalaVersion = '2.12'
+    javaVersion = JavaVersion.VERSION_1_8
+  }
+
+  injectedRoutesGenerator = true
 }
 
 model {
   components {
     play {
-      platform play: '2.6.18', scala: '2.11', java: '1.8'
+      platform play: '2.7.6', scala: '2.12', java: '1.8'
       injectedRoutesGenerator = true
 
       binaries.all {
@@ -71,11 +85,6 @@ model {
         binary.assets.addAssetDir moveAssets.destinationDir
         binary.assets.builtBy moveAssets
       }
-    }
-  }
-  distributions {
-    playBinary {
-      baseName = project.ext.playBinaryBaseName
     }
   }
 }
@@ -91,4 +100,15 @@ task unzipAssets(type: Copy, dependsOn: [configurations.assets, ':datahub-web-re
 task moveAssets(type: Copy, dependsOn: unzipAssets) {
   into "${buildDir}/assets"
   from ("${buildDir}/assets/assets")
+}
+
+clean {
+  delete 'public/platforms'
+  delete 'public/static'
+  delete 'public/asset-manifest.json'
+  delete 'public/manifest.json'
+  delete 'public/robots.txt'
+  delete 'public/logo.png'
+  delete 'public/index.html'
+  delete 'public/favicon.ico'
 }
