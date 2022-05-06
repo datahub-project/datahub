@@ -25,7 +25,7 @@ dependencies {
     play('com.nimbusds:nimbus-jose-jwt:7.9')
     play('com.typesafe.akka:akka-actor_2.11:2.5.16')
     play('net.minidev:json-smart:2.4.1')
-    play('io.netty:netty-all:4.1.44.Final')
+    play('io.netty:netty-all:4.1.68.Final')
   }
   play project(":datahub-graphql-core")
   play project(":metadata-service:auth-api")
