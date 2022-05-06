@@ -16,6 +16,7 @@ buildscript {
     }
     classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.30.0"
     classpath "com.palantir.gradle.gitversion:gradle-git-version:0.12.3"
+    classpath "org.gradle.playframework:gradle-playframework:0.12"
     classpath "gradle.plugin.org.hidetake:gradle-swagger-generator-plugin:2.18.1"
   }
 }
@@ -110,14 +111,14 @@ project.ext.externalDependency = [
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
     'parquet': 'org.apache.parquet:parquet-avro:1.12.2',
     'picocli': 'info.picocli:picocli:4.5.0',
-    'playCache': 'com.typesafe.play:play-cache_2.11:2.6.18',
-    'playWs': 'com.typesafe.play:play-ahc-ws-standalone_2.11:2.0.8',
-    'playDocs': 'com.typesafe.play:play-docs_2.11:2.6.18',
-    'playGuice': 'com.typesafe.play:play-guice_2.11:2.6.18',
-    'playJavaJdbc': 'com.typesafe.play:play-java-jdbc_2.11:2.6.18',
-    'playTest': 'com.typesafe.play:play-test_2.11:2.6.18',
+    'playCache': 'com.typesafe.play:play-cache_2.12:2.7.6',
+    'playWs': 'com.typesafe.play:play-ahc-ws-standalone_2.12:2.0.8',
+    'playDocs': 'com.typesafe.play:play-docs_2.12:2.7.6',
+    'playGuice': 'com.typesafe.play:play-guice_2.12:2.7.6',
+    'playJavaJdbc': 'com.typesafe.play:play-java-jdbc_2.12:2.7.6',
+    'playTest': 'com.typesafe.play:play-test_2.12:2.7.6',
     'pac4j': 'org.pac4j:pac4j-oidc:3.6.0',
-    'playPac4j': 'org.pac4j:play-pac4j_2.11:7.0.1',
+    'playPac4j': 'org.pac4j:play-pac4j_2.12:8.0.2',
     'postgresql': 'org.postgresql:postgresql:42.3.3',
     'protobuf': 'com.google.protobuf:protobuf-java:3.19.3',
     'reflections': 'org.reflections:reflections:0.9.9',
