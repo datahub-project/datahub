@@ -75,9 +75,7 @@ jobs:
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Gradle build
-        run: |
-          ./gradlew build -x check -x docs-website:build -x test -x yarnTest -x lint -x yarnLint -x testQuick -x :metadata-integration:java:spark-lineage:test
-          ./gradlew :datahub-frontend:dist
+        run: ./gradlew build -x check -x docs-website:build -x test -x yarnTest -x lint -x yarnLint -x testQuick -x :metadata-integration:java:spark-lineage:test
       - name: Smoke test
         run: ./smoke-test/smoke.sh
         env:
