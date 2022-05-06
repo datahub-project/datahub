@@ -32,6 +32,7 @@ base_requirements = {
 }
 
 framework_common = {
+    "pyorient @ git+https://github.com/OpenConjecture/pyorient.git",
     "click>=6.0.0",
     "click-default-group",
     "PyYAML",
@@ -124,6 +125,7 @@ data_lake_profiling = {
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
+    "pyorient": {"pyorient"},
     "datahub-kafka": kafka_common,
     "datahub-rest": {"requests"},
     # Integrations.
