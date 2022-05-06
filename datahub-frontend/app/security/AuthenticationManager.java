@@ -44,6 +44,7 @@ public class AuthenticationManager {
       NameCallback nc = null;
       PasswordCallback pc = null;
       for (Callback callback : callbacks) {
+        Logger.error("The submitted callback is of type: " + callback.getClass() + " : " + callback);
         if (callback instanceof NameCallback) {
           nc = (NameCallback) callback;
           nc.setName(this.username);
