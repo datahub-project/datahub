@@ -19,14 +19,14 @@ public class CentralLogoutController extends LogoutController {
   @Inject
   public CentralLogoutController(Config config) {
 
-    String authBaseUrl = config.hasPath(AUTH_BASE_URL_CONFIG_PATH)
+    String _authBaseUrl = config.hasPath(AUTH_BASE_URL_CONFIG_PATH)
             ? config.getString(AUTH_BASE_URL_CONFIG_PATH)
             : DEFAULT_BASE_URL_PATH;
 
     _isOidcEnabled = config.hasPath("auth.oidc.enabled") && config.getBoolean("auth.oidc.enabled");
 
-    setDefaultUrl(authBaseUrl);
-    setLogoutUrlPattern(authBaseUrl + ".*");
+    setDefaultUrl(_authBaseUrl);
+    setLogoutUrlPattern(_authBaseUrl + ".*");
     setLocalLogout(true);
     setCentralLogout(true);
 

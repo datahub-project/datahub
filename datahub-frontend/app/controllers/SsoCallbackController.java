@@ -58,8 +58,7 @@ public class SsoCallbackController extends CallbackController {
 
     private final OidcCallbackLogic _oidcCallbackLogic;
 
-    SsoCallbackLogic(final SsoManager ssoManager, final Authentication systemAuthentication,
-        final EntityClient entityClient, final AuthServiceClient authClient) {
+    SsoCallbackLogic(final SsoManager ssoManager, final Authentication systemAuthentication, final EntityClient entityClient, final AuthServiceClient authClient) {
       _oidcCallbackLogic = new OidcCallbackLogic(ssoManager, systemAuthentication, entityClient, authClient);
     }
 

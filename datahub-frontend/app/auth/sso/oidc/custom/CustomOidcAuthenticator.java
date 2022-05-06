@@ -71,12 +71,8 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
           chosenMethod = preferredMethod;
         } else {
           throw new TechnicalException(
-              "Preferred authentication method ("
-                  + preferredMethod
-                  + ") not supported "
-                  + "by provider according to provider metadata ("
-                  + metadataMethods
-                  + ").");
+              "Preferred authentication method (" + preferredMethod + ") not supported " +
+                  "by provider according to provider metadata (" + metadataMethods + ").");
         }
       } else {
         chosenMethod = firstSupportedMethod(metadataMethods);
@@ -87,13 +83,13 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
           chosenMethod);
     }
 
-    final ClientID clientID = new ClientID(configuration.getClientId());
+    final ClientID _clientID = new ClientID(configuration.getClientId());
     if (ClientAuthenticationMethod.CLIENT_SECRET_POST.equals(chosenMethod)) {
-      final Secret secret = new Secret(configuration.getSecret());
-      clientAuthentication = new ClientSecretPost(clientID, secret);
+      final Secret _secret = new Secret(configuration.getSecret());
+      clientAuthentication = new ClientSecretPost(_clientID, _secret);
     } else if (ClientAuthenticationMethod.CLIENT_SECRET_BASIC.equals(chosenMethod)) {
-      final Secret secret = new Secret(configuration.getSecret());
-      clientAuthentication = new ClientSecretBasic(clientID, secret);
+      final Secret _secret = new Secret(configuration.getSecret());
+      clientAuthentication = new ClientSecretBasic(_clientID, _secret);
     } else if (ClientAuthenticationMethod.NONE.equals(chosenMethod)) {
       clientAuthentication = null; // No client authentication in none mode
     } else {
@@ -132,8 +128,8 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
     if (firstSupported.isPresent()) {
       return firstSupported.get();
     } else {
-      throw new TechnicalException("None of the Token endpoint provider metadata authentication methods are supported: "
-          +  metadataMethods);
+      throw new TechnicalException("None of the Token endpoint provider metadata authentication methods are supported: " +
+          metadataMethods);
     }
   }
 
