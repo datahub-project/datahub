@@ -35,7 +35,7 @@ public class TrackingController extends Controller {
     private final Logger _logger = LoggerFactory.getLogger(TrackingController.class.getName());
 
     private static final List<String> KAFKA_SSL_PROTOCOLS = Collections.unmodifiableList(
-            Arrays.asList(SecurityProtocol.SSL.name(),SecurityProtocol.SASL_SSL.name(),
+            Arrays.asList(SecurityProtocol.SSL.name(), SecurityProtocol.SASL_SSL.name(),
             SecurityProtocol.SASL_PLAINTEXT.name()));
 
     private final Boolean _isEnabled;
@@ -81,7 +81,7 @@ public class TrackingController extends Controller {
              _producer.send(record);
              _producer.flush();
              return ok();
-        } catch(Exception e) {
+        } catch (Exception e) {
             _logger.error(String.format("Failed to emit product analytics event. actor: %s, event: %s", actor, event));
             return internalServerError(e.getMessage());
         }
