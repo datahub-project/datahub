@@ -174,6 +174,10 @@ class LookMLSourceConfig(LookerCommonConfig):
         None,
         description="Populates the [TransportOptions](https://github.com/looker-open-source/sdk-codegen/blob/94d6047a0d52912ac082eb91616c1e7c379ab262/python/looker_sdk/rtl/transport.py#L70) struct for looker client",
     )
+    missing_files_are_errors: bool = Field(
+        True,
+        description="If set to false, will only log warnings when it encounters missing view files in the git repo",
+    )
 
     @validator("platform_instance")
     def platform_instance_not_supported(cls, v: str) -> str:
@@ -258,6 +262,7 @@ class LookerModel:
         base_folder: str,
         path: str,
         reporter: LookMLSourceReport,
+        missing_files_are_errors: bool,
     ) -> "LookerModel":
         logger.debug(f"Loading model from {path}")
         connection = looker_model_dict["connection"]
@@ -267,6 +272,7 @@ class LookerModel:
             base_folder,
             path,
             reporter,
+            missing_files_are_errors,
             seen_so_far=set(),
             traversal_path=pathlib.Path(path).stem,
         )
@@ -286,6 +292,7 @@ class LookerModel:
         base_folder: str,
         path: str,
         reporter: LookMLSourceReport,
+        missing_files_are_errors: bool,  # set False to not report failure if datahub can't find the included files in base_folder
         seen_so_far: Set[str],
         traversal_path: str = "",  # a cosmetic parameter to aid debugging
     ) -> List[str]:
@@ -324,7 +331,10 @@ class LookerModel:
                 f"traversal_path={traversal_path}, included_files = {included_files}, seen_so_far: {seen_so_far}"
             )
             if "*" not in inc and not included_files:
-                reporter.report_failure(path, f"cannot resolve include {inc}")
+                if missing_files_are_errors:
+                    reporter.report_failure(path, f"cannot resolve include {inc}")
+                else:
+                    reporter.report_warning(path, f"cannot resolve include {inc}")
             elif not included_files:
                 reporter.report_failure(
                     path, f"did not resolve anything for wildcard include {inc}"
@@ -355,6 +365,7 @@ class LookerModel:
                                     base_folder,
                                     included_file,
                                     reporter,
+                                    missing_files_are_errors,
                                     seen_so_far,
                                     traversal_path=traversal_path
                                     + "."
@@ -389,6 +400,7 @@ class LookerViewFile:
         base_folder: str,
         raw_file_content: str,
         reporter: LookMLSourceReport,
+        missing_files_are_errors: bool,
     ) -> "LookerViewFile":
         logger.debug(f"Loading view file at {absolute_file_path}")
         includes = looker_view_file_dict.get("includes", [])
@@ -400,6 +412,7 @@ class LookerViewFile:
             base_folder,
             absolute_file_path,
             reporter,
+            missing_files_are_errors,
             seen_so_far=seen_so_far,
         )
         logger.debug(
@@ -429,10 +442,18 @@ class LookerViewFileLoader:
     This is to avoid reloading the same file off of disk many times during the recursive include resolution process
     """
 
-    def __init__(self, base_folder: str, reporter: LookMLSourceReport) -> None:
+    def __init__(
+        self,
+        base_folder: str,
+        reporter: LookMLSourceReport,
+        view_pattern: AllowDenyPattern,
+        missing_files_are_errors: bool,
+    ) -> None:
         self.viewfile_cache: Dict[str, LookerViewFile] = {}
         self._base_folder = base_folder
         self.reporter = reporter
+        self.view_pattern = view_pattern
+        self.missing_files_are_errors = missing_files_are_errors
 
     def is_view_seen(self, path: str) -> bool:
         return path in self.viewfile_cache
@@ -452,6 +473,10 @@ class LookerViewFileLoader:
         if self.is_view_seen(str(path)):
             return self.viewfile_cache[path]
 
+        if not self.view_pattern.allowed(pathlib.Path(path).stem.strip(".view")):
+            self.reporter.report_views_dropped(pathlib.Path(path).stem.strip(".view"))
+            return None
+
         try:
             with open(path, "r") as file:
                 raw_file_content = file.read()
@@ -468,6 +493,7 @@ class LookerViewFileLoader:
                     base_folder=self._base_folder,
                     raw_file_content=raw_file_content,
                     reporter=reporter,
+                    missing_files_are_errors=self.missing_files_are_errors,
                 )
                 logger.debug(f"adding viewfile for path {path} to the cache")
                 self.viewfile_cache[path] = looker_viewfile
@@ -824,7 +850,11 @@ class LookMLSource(Source):
             logger.debug(f"Loading model from file {path}")
             parsed = lkml.load(file)
             looker_model = LookerModel.from_looker_dict(
-                parsed, str(self.source_config.base_folder), path, self.reporter
+                parsed,
+                str(self.source_config.base_folder),
+                path,
+                self.reporter,
+                self.source_config.missing_files_are_errors,
             )
         return looker_model
 
@@ -1066,7 +1096,10 @@ class LookMLSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
         viewfile_loader = LookerViewFileLoader(
-            str(self.source_config.base_folder), self.reporter
+            str(self.source_config.base_folder),
+            self.reporter,
+            self.source_config.view_pattern,
+            self.source_config.missing_files_are_errors,
         )
 
         # some views can be mentioned by multiple 'include' statements, so this set is used to prevent
@@ -1141,31 +1174,24 @@ class LookMLSource(Source):
                             )
                             continue
                         if maybe_looker_view:
-                            if self.source_config.view_pattern.allowed(
-                                maybe_looker_view.id.view_name
-                            ):
-                                mce = self._build_dataset_mce(maybe_looker_view)
+                            mce = self._build_dataset_mce(maybe_looker_view)
+                            workunit = MetadataWorkUnit(
+                                id=f"lookml-view-{maybe_looker_view.id}",
+                                mce=mce,
+                            )
+                            self.reporter.report_workunit(workunit)
+                            processed_view_files.add(include)
+                            yield workunit
+
+                            for mcp in self._build_dataset_mcps(maybe_looker_view):
+                                # We want to treat mcp aspects as optional, so allowing failures in this aspect to be treated as warnings rather than failures
                                 workunit = MetadataWorkUnit(
-                                    id=f"lookml-view-{maybe_looker_view.id}",
-                                    mce=mce,
+                                    id=f"lookml-view-{mcp.aspectName}-{maybe_looker_view.id}",
+                                    mcp=mcp,
+                                    treat_errors_as_warnings=True,
                                 )
                                 self.reporter.report_workunit(workunit)
-                                processed_view_files.add(include)
                                 yield workunit
-
-                                for mcp in self._build_dataset_mcps(maybe_looker_view):
-                                    # We want to treat mcp aspects as optional, so allowing failures in this aspect to be treated as warnings rather than failures
-                                    workunit = MetadataWorkUnit(
-                                        id=f"lookml-view-{mcp.aspectName}-{maybe_looker_view.id}",
-                                        mcp=mcp,
-                                        treat_errors_as_warnings=True,
-                                    )
-                                    self.reporter.report_workunit(workunit)
-                                    yield workunit
-                            else:
-                                self.reporter.report_views_dropped(
-                                    str(maybe_looker_view.id)
-                                )
 
         if (
             self.source_config.tag_measures_and_dimensions
