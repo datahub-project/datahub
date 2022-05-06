@@ -8,13 +8,15 @@ import datahub.protobuf.visitors.VisitContext;
 
 import java.util.stream.Stream;
 
+import static datahub.protobuf.ProtobufUtils.getMessageOptions;
 
-public class ProtobufExtensionTagAssocVisitor implements ProtobufModelVisitor<TagAssociation> {
+
+public class TagAssociationVisitor implements ProtobufModelVisitor<TagAssociation> {
 
     @Override
     public Stream<TagAssociation> visitGraph(VisitContext context) {
-        return ProtobufExtensionUtil.extractTagPropertiesFromOptions(context.root().messageProto().getOptions()
-                        .getAllFields(), context.getGraph().getRegistry())
+        return ProtobufExtensionUtil.extractTagPropertiesFromOptions(getMessageOptions(context.root().messageProto()),
+                        context.getGraph().getRegistry())
                 .map(tag -> new TagAssociation().setTag(new TagUrn(tag.getName())));
     }
 }

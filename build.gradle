@@ -2,7 +2,7 @@ buildscript {
   ext.junitJupiterVersion = '5.6.1'
   ext.pegasusVersion = '29.22.16'
   ext.mavenVersion = '3.6.3'
-  ext.springVersion = '5.3.18'
+  ext.springVersion = '5.3.19'
   ext.springBootVersion = '2.5.12'
   apply from: './repositories.gradle'
   buildscript.repositories.addAll(project.repositories)
@@ -46,7 +46,7 @@ project.ext.externalDependency = [
     'assertJ': 'org.assertj:assertj-core:3.11.1',
     'avro_1_7': 'org.apache.avro:avro:1.7.7',
     'avroCompiler_1_7': 'org.apache.avro:avro-compiler:1.7.7',
-    'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.1',
+    'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.10',
     'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:1.1.1',
     'cacheApi' : 'javax.cache:cache-api:1.1.0',
     'commonsIo': 'commons-io:commons-io:2.4',
@@ -69,16 +69,16 @@ project.ext.externalDependency = [
     'guice': 'com.google.inject:guice:4.2.2',
     'guava': 'com.google.guava:guava:27.0.1-jre',
     'h2': 'com.h2database:h2:2.1.210',
-    'hadoopClient': 'org.apache.hadoop:hadoop-client:3.1.1',
+    'hadoopClient': 'org.apache.hadoop:hadoop-client:3.2.1',
     'hadoopCommon':'org.apache.hadoop:hadoop-common:2.7.2',
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
     'httpClient': 'org.apache.httpcomponents:httpclient:4.5.9',
     'httpAsyncClient': 'org.apache.httpcomponents:httpasyncclient:4.1.5',
     'iStackCommons': 'com.sun.istack:istack-commons-runtime:4.0.1',
-    'jacksonCore': 'com.fasterxml.jackson.core:jackson-core:2.9.10',
-    'jacksonDataBind': 'com.fasterxml.jackson.core:jackson-databind:2.9.10.7',
-    'jacksonDataFormatYaml': 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.10',
+    'jacksonCore': 'com.fasterxml.jackson.core:jackson-core:2.13.2',
+    'jacksonDataBind': 'com.fasterxml.jackson.core:jackson-databind:2.13.2.2',
+    'jacksonDataFormatYaml': 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.13.2',
     'javatuples': 'org.javatuples:javatuples:1.2',
     'javaxInject' : 'javax.inject:javax.inject:1',
     'javaxValidation' : 'javax.validation:validation-api:2.0.1.Final',
@@ -108,7 +108,7 @@ project.ext.externalDependency = [
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:1.0.0',
     'opentelemetryAnnotations': 'io.opentelemetry:opentelemetry-extension-annotations:1.0.0',
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
-    'parquet': 'org.apache.parquet:parquet-avro:1.12.0',
+    'parquet': 'org.apache.parquet:parquet-avro:1.12.2',
     'picocli': 'info.picocli:picocli:4.5.0',
     'playCache': 'com.typesafe.play:play-cache_2.11:2.6.18',
     'playWs': 'com.typesafe.play:play-ahc-ws-standalone_2.11:2.0.8',
@@ -166,7 +166,6 @@ configure(subprojects.findAll {it.name != 'spark-lineage'}) {
     exclude group: "io.netty", module: "netty"
     exclude group: "log4j", module: "log4j"
   }
-
 }
 
 subprojects {
@@ -187,10 +186,12 @@ subprojects {
     dependencies {
       testCompile externalDependency.testng
       constraints {
-        implementation('io.netty:netty-all:4.1.44.Final')
+        implementation('io.netty:netty-all:4.1.68.Final')
         implementation('org.apache.commons:commons-compress:1.21')
         implementation('org.apache.velocity:velocity-engine-core:2.3')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
+        implementation('com.fasterxml.jackson.core:jackson-databind:2.13.2.2')
+        implementation('com.fasterxml.jackson.core:jackson-dataformat-cbor:2.13.2')
       }
     }
 
