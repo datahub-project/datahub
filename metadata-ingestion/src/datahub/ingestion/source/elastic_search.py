@@ -4,7 +4,7 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from hashlib import md5
-from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type
+from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type, Union
 
 from elasticsearch import Elasticsearch
 from pydantic import validator
@@ -151,11 +151,12 @@ class ElasticToSchemaFieldConverter:
     @classmethod
     def get_schema_fields(
         cls, elastic_mappings: Dict[str, Any]
-    ) -> Generator[SchemaField, None, None]:
+    ) -> Union[Generator[SchemaField, None, None], List]:
         converter = cls()
         properties = elastic_mappings.get("properties")
         if not properties:
-            raise ValueError(
+            return []
+            logger.warning(
                 f"Missing 'properties' in elastic search mappings={json.dumps(elastic_mappings)}!"
             )
         yield from converter._get_schema_fields(properties)
@@ -320,6 +321,8 @@ class ElasticsearchSource(Source):
         schema_fields = list(
             ElasticToSchemaFieldConverter.get_schema_fields(index_mappings)
         )
+        if not schema_fields:
+            return
 
         # 1.2 Generate the SchemaMetadata aspect
         schema_metadata = SchemaMetadata(
