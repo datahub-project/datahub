@@ -171,8 +171,8 @@ OPERATION_STATEMENT_TYPES = {
 def bigquery_audit_metadata_query_template(
     dataset: str,
     use_date_sharded_tables: bool,
-    table_allow_filter: str = None,
-    dataset_allow_filter: str = None,
+    table_allow_filter: str,
+    dataset_allow_filter: str,
 ) -> str:
     """
     Receives a dataset (with project specified) and returns a query template that is used to query exported
