@@ -1,4 +1,4 @@
-# see https://datahubproject.io/docs/metadata-ingestion/source_docs/metabase for complete documentation
+# see https://datahubproject.io/docs/generated/ingestion/sources/metabase for complete documentation
 source:
   type: "tableau"
   config:

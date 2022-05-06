@@ -1,6 +1,6 @@
 # in this example, AWS creds are detected automatically
 
-# see https://datahubproject.io/docs/metadata-ingestion/source_docs/sagemaker/ for complete documentation
+# see https://datahubproject.io/docs/generated/ingestion/sources/sagemaker/ for complete documentation
 source:
   type: sagemaker
   config:

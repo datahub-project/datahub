@@ -25,7 +25,7 @@ const lookerConfig: SourceConfig = {
     type: 'looker',
     placeholderRecipe,
     displayName: 'Looker',
-    docsUrl: 'https://datahubproject.io/docs/metadata-ingestion/source_docs/looker/',
+    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/looker/',
     logoUrl: lookerLogo,
 };
 

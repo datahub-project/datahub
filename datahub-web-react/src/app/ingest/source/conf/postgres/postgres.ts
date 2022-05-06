@@ -34,7 +34,7 @@ const postgresConfig: SourceConfig = {
     type: 'postgres',
     placeholderRecipe,
     displayName: 'Postgres',
-    docsUrl: 'https://datahubproject.io/docs/metadata-ingestion/source_docs/postgres/',
+    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/postgres/',
     logoUrl: postgresLogo,
 };
 

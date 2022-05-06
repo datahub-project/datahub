@@ -30,7 +30,7 @@ const mongoConfig: SourceConfig = {
     type: 'mongodb',
     placeholderRecipe,
     displayName: 'MongoDB',
-    docsUrl: 'https://datahubproject.io/docs/metadata-ingestion/source_docs/mongodb/',
+    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/mongodb/',
     logoUrl: mongodbLogo,
 };
 

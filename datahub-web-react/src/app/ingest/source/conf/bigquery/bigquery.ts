@@ -32,7 +32,7 @@ const bigqueryConfig: SourceConfig = {
     type: 'bigquery',
     placeholderRecipe,
     displayName: 'BigQuery',
-    docsUrl: 'https://datahubproject.io/docs/metadata-ingestion/source_docs/bigquery/',
+    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/bigquery/',
     logoUrl: bigqueryLogo,
 };
 

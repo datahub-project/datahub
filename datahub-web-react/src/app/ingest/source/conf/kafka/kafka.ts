@@ -34,7 +34,7 @@ const kafkaConfig: SourceConfig = {
     type: 'kafka',
     placeholderRecipe,
     displayName: 'Kafka',
-    docsUrl: 'https://datahubproject.io/docs/metadata-ingestion/source_docs/kafka/',
+    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/kafka/',
     logoUrl: kafkaLogo,
 };
 

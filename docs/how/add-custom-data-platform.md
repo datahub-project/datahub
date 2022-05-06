@@ -67,7 +67,7 @@ You can also ingest a Data Platform at runtime using either a file-based ingesti
 
 ```
 ---
-# see https://datahubproject.io/docs/metadata-ingestion/source_docs/file for complete documentation
+# see https://datahubproject.io/docs/generated/ingestion/sources/file for complete documentation
 source:
   type: "file"
   config:

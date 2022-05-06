@@ -1,5 +1,5 @@
 ---
-# see https://datahubproject.io/docs/metadata-ingestion/source_docs/dbt for complete documentation
+# see https://datahubproject.io/docs/generated/ingestion/sources/dbt for complete documentation
 source:
   type: "dbt"
   config:
