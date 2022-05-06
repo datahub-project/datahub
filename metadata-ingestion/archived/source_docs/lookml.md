@@ -93,6 +93,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `connection_to_platform_map.<connection_name>.default_db` | ❓ if NOT using api         |           | Mappings between connection name in the model files to default database configured for this platform on Looker |
 | `connection_to_platform_map.<connection_name>.default_schema` | ❓ if NOT using api         |           | Mappings between connection name in the model files to default schema configured for this platform on Looker |
 | `platform_name`                                |          | `"looker"` | Platform to use in namespace when constructing URNs.                    |
+| `missing_files_are_errors`                   |          | `True`    | If set to false, will only log warnings when it encounters missing view files in the git repo.                                                         |
 | `model_pattern.allow`                          |          |            | List of regex patterns for models to include in ingestion.                       |
 | `model_pattern.deny`                           |          |            | List of regex patterns for models to exclude from ingestion.                     |
 | `model_pattern.ignoreCase`  |          | `True` | Whether to ignore case sensitivity during pattern matching.                                                                                                                                  |
