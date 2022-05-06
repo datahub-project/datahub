@@ -14,6 +14,7 @@ record PartitionSpec {
   /**
    * String representation of the partition
    */
+  @TimeseriesField = {}
   partition: string
 
   /**
