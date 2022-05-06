@@ -183,6 +183,38 @@ class ElasticsearchSourceConfig(DatasetSourceConfigBase):
     password: Optional[str] = Field(
         default=None, description="The password credential."
     )
+
+    use_ssl: bool = Field(
+        default=False, description="Whether to use SSL for the connection or not."
+    )
+
+    verify_certs: bool = Field(
+        default=False, description="Whether to verify SSL certificates."
+    )
+
+    ca_certs: Optional[str] = Field(
+        default=None, description="Path to a certificate authority (CA) certificate."
+    )
+
+    client_cert: Optional[str] = Field(
+        default=None,
+        description="Path to the file containing the private key and the certificate, or cert only if using client_key.",
+    )
+
+    client_key: Optional[str] = Field(
+        default=None,
+        description="Path to the file containing the private key if using separate cert and key files.",
+    )
+
+    ssl_assert_hostname: bool = Field(
+        default=False, description="Use hostname verification if not False."
+    )
+
+    ssl_assert_fingerprint: Optional[str] = Field(
+        default=None,
+        description="Verify the supplied certificate fingerprint if not None.",
+    )
+
     url_prefix: str = Field(
         default="",
         description="There are cases where an enterprise would have multiple elastic search clusters. One way for them to manage is to have a single endpoint for all the elastic search clusters and use url_prefix for routing requests to different clusters.",
@@ -246,6 +278,13 @@ class ElasticsearchSource(Source):
         self.client = Elasticsearch(
             self.source_config.host,
             http_auth=self.source_config.http_auth,
+            use_ssl=self.source_config.use_ssl,
+            verify_certs=self.source_config.verify_certs,
+            ca_certs=self.source_config.ca_certs,
+            client_cert=self.source_config.client_cert,
+            client_key=self.source_config.client_key,
+            ssl_assert_hostname=self.source_config.ssl_assert_hostname,
+            ssl_assert_fingerprint=self.source_config.ssl_assert_fingerprint,
             url_prefix=self.source_config.url_prefix,
         )
         self.report = ElasticsearchSourceReport()
