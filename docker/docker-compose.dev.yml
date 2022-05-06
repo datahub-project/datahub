@@ -55,4 +55,4 @@ services:
       args:
         APP_ENV: dev
     volumes:
-      - ../datahub-frontend/build/stage/playBinary:/datahub-frontend
+      - ../datahub-frontend/build/stage/datahub-frontend:/datahub-frontend
