@@ -670,7 +670,7 @@ class RedashSource(Source):
                 )
                 if not database_name:
                     continue
-                
+
                 self.report.report_item_scanned()
 
                 if (
