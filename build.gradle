@@ -84,7 +84,7 @@ project.ext.externalDependency = [
     'javaxValidation' : 'javax.validation:validation-api:2.0.1.Final',
     'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.25.1',
     'jerseyGuava': 'org.glassfish.jersey.bundles.repackaged:jersey-guava:2.25.1',
-    'jettyJaas': 'org.eclipse.jetty:jetty-jaas:9.4.32.v20200930',
+    'jettyJaas': 'org.eclipse.jetty:jetty-jaas:9.4.46.v20220331',
     'jgrapht': 'org.jgrapht:jgrapht-core:1.5.1',
     'jsonSchemaAvro': 'com.github.fge:json-schema-avro:0.1.4',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
