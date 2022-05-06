@@ -14,11 +14,11 @@ import static datahub.protobuf.TestFixtures.getVisitContextBuilder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 
-public class ProtobufExtensionTermAssocVisitorTest {
+public class TermAssociationVisitorTest {
 
     @Test
     public void extendedMessageTest() throws IOException {
-        ProtobufExtensionTermAssocVisitor test = new ProtobufExtensionTermAssocVisitor();
+        TermAssociationVisitor test = new TermAssociationVisitor();
         assertEquals(Set.of(
                     new GlossaryTermAssociation().setUrn(new GlossaryTermUrn("a")),
                     new GlossaryTermAssociation().setUrn(new GlossaryTermUrn("b")),
@@ -33,7 +33,7 @@ public class ProtobufExtensionTermAssocVisitorTest {
 
     @Test
     public void extendedFieldTest() throws IOException {
-        ProtobufExtensionTermAssocVisitor test = new ProtobufExtensionTermAssocVisitor();
+        TermAssociationVisitor test = new TermAssociationVisitor();
         assertEquals(
                 Set.of(),
                 getTestProtobufGraph("extended_protobuf", "messageB").

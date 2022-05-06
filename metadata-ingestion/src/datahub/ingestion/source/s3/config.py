@@ -14,7 +14,7 @@ from datahub.configuration.source_common import (
     PlatformSourceConfigBase,
 )
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
-from datahub.ingestion.source.aws.s3_util import is_s3_uri
+from datahub.ingestion.source.aws.s3_util import get_bucket_name, is_s3_uri
 from datahub.ingestion.source.s3.profiling import DataLakeProfilerConfig
 
 # hide annoying debug errors from py4j
@@ -39,6 +39,11 @@ class PathSpec(ConfigModel):
         default=SUPPORTED_FILE_TYPES,
         description="Files with extenstions specified here (subset of default value) only will be scanned to create dataset. Other files will be omitted.",
     )
+
+    default_extension: Optional[str] = Field(
+        description="For files without extension it will assume the specified file type. If it is not set the files without extensions will be skipped.",
+    )
+
     table_name: Optional[str] = Field(
         default=None,
         description="Display name of the dataset.Combination of named variableds from include path and strings",
@@ -66,7 +71,9 @@ class PathSpec(ConfigModel):
         logger.debug(f"{path} is not excluded")
         ext = os.path.splitext(path)[1].strip(".")
 
-        if ext != "*" and ext not in self.file_types:
+        if (ext == "" and self.default_extension is None) and (
+            ext != "*" and ext not in self.file_types
+        ):
             return False
 
         logger.debug(f"{path} had selected extension {ext}")
@@ -101,8 +108,18 @@ class PathSpec(ConfigModel):
                         f"file type {file_type} not in supported file types. Please specify one from {SUPPORTED_FILE_TYPES}"
                     )
 
+        if values.get("default_extension") is not None:
+            if values.get("default_extension") not in SUPPORTED_FILE_TYPES:
+                raise ValueError(
+                    f"default extension {values.get('default_extension')} not in supported default file extension. Please specify one from {SUPPORTED_FILE_TYPES}"
+                )
+
         include_ext = os.path.splitext(values["include"])[1].strip(".")
-        if include_ext not in values["file_types"] and include_ext != "*":
+        if (
+            include_ext not in values["file_types"]
+            and include_ext != "*"
+            and not values["default_extension"]
+        ):
             raise ValueError(
                 f"file type specified ({include_ext}) in path_spec.include is not in specified file "
                 f'types. Please select one from {values.get("file_types")} or specify ".*" to allow all types'
@@ -148,7 +165,12 @@ class PathSpec(ConfigModel):
 
 
 class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
-    path_spec: PathSpec = Field(description="")
+    path_specs: Optional[List[PathSpec]] = Field(
+        description="List of PathSpec. See below the details about PathSpec"
+    )
+    path_spec: Optional[PathSpec] = Field(
+        description="Path spec will be deprecated in favour of path_specs option."
+    )
     platform: str = Field(
         default="", description="The platform that this source connects to"
     )
@@ -192,21 +214,50 @@ class DataLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
         value = values.get("platform")
         if value is not None and value != "":
             return values
-        if values.get("path_spec") is not None and isinstance(
-            values.get("path_spec"), PathSpec
-        ):
-            if values["path_spec"].is_s3():
-                values["platform"] = "s3"
+
+        if not values.get("path_specs") and not values.get("path_spec"):
+            raise ValueError("Either path_specs or path_spec needs to be specified")
+
+        if values.get("path_specs") and values.get("path_spec"):
+            raise ValueError(
+                "Either path_specs or path_spec needs to be specified but not both"
+            )
+
+        if values.get("path_spec"):
+            logger.warning(
+                "path_spec config property is deprecated, please use path_specs instead of it."
+            )
+            values["path_specs"] = [values.get("path_spec")]
+
+        bucket_name: str = ""
+        for path_spec in values.get("path_specs", []):
+            if path_spec.is_s3():
+                platform = "s3"
             else:
                 if values.get("use_s3_object_tags") or values.get("use_s3_bucket_tags"):
                     raise ValueError(
                         "cannot grab s3 tags for platform != s3. Remove the flag or use s3."
                     )
-                values["platform"] = "file"
-            logger.debug(f'Setting config "platform": {values.get("platform")}')
-            return values
-        else:
-            raise ValueError("path_spec is not valid. Cannot autodetect platform")
+
+                platform = "file"
+
+            if values.get("platform", "") != "":
+                if values["platform"] != platform:
+                    raise ValueError("all path_spec should belong to the same platform")
+            else:
+                values["platform"] = platform
+                logger.debug(f'Setting config "platform": {values.get("platform")}')
+
+            if platform == "s3":
+                if bucket_name == "":
+                    bucket_name = get_bucket_name(path_spec.include)
+                else:
+                    if bucket_name != get_bucket_name(path_spec.include):
+                        raise ValueError(
+                            "all path_spec should reference the same s3 bucket"
+                        )
+
+        return values
 
     @pydantic.root_validator()
     def ensure_profiling_pattern_is_passed_to_profiling(

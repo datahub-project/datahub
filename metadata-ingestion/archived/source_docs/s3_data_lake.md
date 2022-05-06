@@ -74,11 +74,13 @@ sink:
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
 | Field                                                | Required                 | Default                                   | Description                                                                                                                                                                                                    |
-| ---------------------------------------------------- | ------------------------ | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `path_spec.include`                                  | ✅                       |                                           | Path to table (s3 or local file system). Name variable {table} is used to mark the folder with dataset. In absence of {table}, file level dataset will be created. Check below examples for more details.      |
-| `path_spec.exclude`                                  |                          |                                           | list of paths in glob pattern which will be excluded while scanning for the datasets                                                                                                                           |
-| `path_spec.table_name`                               |                          | {table}                                   | Display name of the dataset.Combination of named variableds from include path and strings                                                                                                                      |
-| `path_spec.file_types`                               |                          | ["csv", "tsv", "json", "parquet", "avro"] | Files with extenstions specified here (subset of default value) only will be scanned to create dataset. Other files will be omitted.                                                                           |
+|------------------------------------------------------|--------------------------|-------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `path_specs`                                         | ✅                        |                                           | List of PathSpec -> see below                                                                                                                                                                                  |
+| `path_specs[].include`                               | ✅                        |                                           | Path to table (s3 or local file system). Name variable {table} is used to mark the folder with dataset. In absence of {table}, file level dataset will be created. Check below examples for more details.      |
+| `path_specs[].exclude`                               |                          |                                           | list of paths in glob pattern which will be excluded while scanning for the datasets                                                                                                                           |
+| `path_specs[].table_name`                            |                          | {table}                                   | Display name of the dataset.Combination of named variableds from include path and strings                                                                                                                      |
+| `path_specs[].file_types`                            |                          | ["csv", "tsv", "json", "parquet", "avro"] | Files with extenstions specified here (subset of default value) only will be scanned to create dataset. Other files will be omitted.                                                                           |
+| `path_specs[].default_extension`                     |                          |                                           | For files without extension it will assume the specified file type. If it is not set the files without extensions will be skipped.                                                                             |
 | `env`                                                |                          | `PROD`                                    | Environment to use in namespace when constructing URNs.                                                                                                                                                        |
 | `platform`                                           |                          | Autodetected                              | Platform to use in namespace when constructing URNs. If left blank, local paths will correspond to `file` and S3 paths will correspond to `s3`.                                                                |
 | `platform_instance`                                  |                          |                                           | Platform instance for datasets and containers                                                                                                                                                                  |
@@ -108,6 +110,27 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `profiling.include_field_distinct_value_frequencies` |                          | `False`                                   | Whether to profile for distinct value frequencies.                                                                                                                                                             |
 | `profiling.include_field_histogram`                  |                          | `False`                                   | Whether to profile for the histogram for numeric fields.                                                                                                                                                       |
 | `profiling.include_field_sample_values`              |                          | `True`                                    | Whether to profile for the sample values for all columns.                                                                                                                                                      |
+
+## Sample recipe
+
+```yaml
+source:
+  type: s3
+  config:
+    env: "PROD"
+    path_specs:
+      -
+        include: "s3://mybucket/folder1/{table}/{partition_key[0]}/{partition_key[1]}/{partition_key[2]}/*.csv"
+      -
+        include: "s3://mybucket/folder2/{table}/{partition_key[0]}/{partition_key[1]}/{partition_key[2]}/*.parquet"
+    aws_config:
+     aws_region: "us-east-1"
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
+```
 
 ## Valid path_spec.include
 

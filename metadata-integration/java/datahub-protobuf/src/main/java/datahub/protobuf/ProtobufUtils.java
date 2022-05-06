@@ -4,10 +4,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.ExtensionRegistry;
+import com.linkedin.util.Pair;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
@@ -33,6 +38,93 @@ public class ProtobufUtils {
          * We essentially smash utf8 chars to ascii here
          */
         return new String(orig.getBytes(StandardCharsets.ISO_8859_1));
+    }
+
+    /*
+     * Reflection used to prevent an exception deep inside the protobuf library due to a getter method
+     * mutating the json name field and causing an equality check to fail between an instance that has and has not
+     * had the getter called.
+     *
+     * https://github.com/protocolbuffers/protobuf/blob/main/java/core/src/main/java/com/google/protobuf/Descriptors.java#L1105
+     *
+     * java.lang.IllegalArgumentException: FieldDescriptors can only be compared to other FieldDescriptors for fields of the same message type.
+     *      at com.google.protobuf.Descriptors$FieldDescriptor.compareTo(Descriptors.java:1344)
+     *      at com.google.protobuf.Descriptors$FieldDescriptor.compareTo(Descriptors.java:1057)
+     *      at java.base/java.util.TreeMap.put(TreeMap.java:566)
+     *      at java.base/java.util.AbstractMap.putAll(AbstractMap.java:281)
+     *      at java.base/java.util.TreeMap.putAll(TreeMap.java:325)
+     *      at com.google.protobuf.GeneratedMessageV3$ExtendableMessage.getAllFields(GeneratedMessageV3.java:1240)
+     *
+     */
+    private static final Method FIELD_OPT_EXT_FIELDS_METHOD;
+    private static final Method FIELD_OPT_ALL_FIELD_METHOD;
+    private static final Method MSG_OPT_EXT_FIELDS_METHOD;
+    private static final Method MSG_OPT_ALL_FIELD_METHOD;
+    static {
+        try {
+            FIELD_OPT_EXT_FIELDS_METHOD = DescriptorProtos.FieldOptions.class.getSuperclass()
+                    .getDeclaredMethod("getExtensionFields");
+            FIELD_OPT_EXT_FIELDS_METHOD.setAccessible(true);
+
+            FIELD_OPT_ALL_FIELD_METHOD = DescriptorProtos.FieldOptions.class.getSuperclass().getSuperclass()
+                    .getDeclaredMethod("getAllFieldsMutable", boolean.class);
+            FIELD_OPT_ALL_FIELD_METHOD.setAccessible(true);
+
+            MSG_OPT_EXT_FIELDS_METHOD = DescriptorProtos.MessageOptions.class.getSuperclass()
+                    .getDeclaredMethod("getExtensionFields");
+            MSG_OPT_EXT_FIELDS_METHOD.setAccessible(true);
+
+            MSG_OPT_ALL_FIELD_METHOD = DescriptorProtos.MessageOptions.class.getSuperclass().getSuperclass()
+                    .getDeclaredMethod("getAllFieldsMutable", boolean.class);
+            MSG_OPT_ALL_FIELD_METHOD.setAccessible(true);
+        } catch (NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static List<Pair<Descriptors.FieldDescriptor, Object>> getFieldOptions(DescriptorProtos.FieldDescriptorProto fieldProto) {
+        try {
+            LinkedList<Pair<Descriptors.FieldDescriptor, Object>> options = new LinkedList<>();
+
+            options.addAll(((Map<Descriptors.FieldDescriptor, Object>) FIELD_OPT_EXT_FIELDS_METHOD.invoke(fieldProto.getOptions()))
+                    .entrySet()
+                    .stream()
+                    .map(e -> Pair.of(e.getKey(), e.getValue()))
+                    .collect(Collectors.toList()));
+
+            options.addAll(((Map<Descriptors.FieldDescriptor, Object>) FIELD_OPT_ALL_FIELD_METHOD.invoke(fieldProto.getOptions(), false))
+                    .entrySet()
+                    .stream()
+                    .map(e -> Pair.of(e.getKey(), e.getValue()))
+                    .collect(Collectors.toList()));
+
+            return options;
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static List<Pair<Descriptors.FieldDescriptor, Object>> getMessageOptions(DescriptorProtos.DescriptorProto messageProto) {
+        try {
+            LinkedList<Pair<Descriptors.FieldDescriptor, Object>> options = new LinkedList<>();
+
+            options.addAll(((Map<Descriptors.FieldDescriptor, Object>) MSG_OPT_EXT_FIELDS_METHOD.invoke(messageProto.getOptions()))
+                    .entrySet()
+                    .stream()
+                    .map(e -> Pair.of(e.getKey(), e.getValue()))
+                    .collect(Collectors.toList()));
+
+            options.addAll(((Map<Descriptors.FieldDescriptor, Object>) MSG_OPT_ALL_FIELD_METHOD.invoke(messageProto.getOptions(),
+                    false))
+                    .entrySet()
+                    .stream()
+                    .map(e -> Pair.of(e.getKey(), e.getValue()))
+                    .collect(Collectors.toList()));
+
+            return options;
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static ExtensionRegistry buildRegistry(DescriptorProtos.FileDescriptorSet fileSet) {
@@ -94,7 +186,9 @@ public class ProtobufUtils {
 
         // Finally, construct the actual descriptor.
         Descriptors.FileDescriptor[] empty = new Descriptors.FileDescriptor[0];
-        return Descriptors.FileDescriptor.buildFrom(descriptorProto, dependencies.build().toArray(empty), false);
+        Descriptors.FileDescriptor descript = Descriptors.FileDescriptor.buildFrom(descriptorProto, dependencies.build().toArray(empty), false);
+        descriptorCache.put(descript.getName(), descript);
+        return descript;
     }
 
 }
