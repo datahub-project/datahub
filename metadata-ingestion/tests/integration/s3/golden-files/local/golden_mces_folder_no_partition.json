@@ -7,7 +7,10 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "number_of_files": "2",
+                            "size_in_bytes": "8412"
+                        },
                         "externalUrl": null,
                         "name": "food_parquet",
                         "qualifiedName": null,
@@ -779,7 +782,10 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "number_of_files": "2",
+                            "size_in_bytes": "3446"
+                        },
                         "externalUrl": null,
                         "name": "food_csv",
                         "qualifiedName": null,

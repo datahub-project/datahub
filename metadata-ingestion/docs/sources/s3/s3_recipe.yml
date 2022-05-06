@@ -1,8 +1,10 @@
 source:
   type: s3
   config:
-    path_spec:
-      include: "s3://covid19-lake/covid_knowledge_graph/csv/nodes/*.*"
+    path_specs:
+      -
+        include: "s3://covid19-lake/covid_knowledge_graph/csv/nodes/*.*"
+
     aws_config:
       aws_access_key_id: *****
       aws_secret_access_key: *****
@@ -11,5 +13,4 @@ source:
     profiling:
       enabled: false
 
-sink:
-  # sink configs
+# sink configs

@@ -7,7 +7,9 @@ apply plugin: 'java'
 
 dependencies {
   compile externalDependency.avro_1_7
-  compile externalDependency.avroCompiler_1_7
+  compile(externalDependency.avroCompiler_1_7) {
+    exclude group: 'org.apache.velocity', module: 'velocity'
+  }
   constraints {
     implementation('commons-collections:commons-collections:3.2.2') {
       because 'Vulnerability Issue'
