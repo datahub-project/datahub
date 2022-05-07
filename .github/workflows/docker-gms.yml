@@ -95,9 +95,9 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-upload@v1
         with:
-          image: "linkedin/datahub-gms:test"
+          image: "linkedin/datahub-gms:${ steps.docker_meta.outputs.tags }}"
       - name: Download image
         if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
-          image: "linkedin/datahub-gms:test"
+          image: "linkedin/datahub-gms:${ steps.docker_meta.outputs.tags }}"
