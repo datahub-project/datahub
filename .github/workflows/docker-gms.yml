@@ -62,6 +62,7 @@ jobs:
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
       - name: Set up QEMU
+        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
@@ -72,6 +73,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Build and Push image
+        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -79,11 +81,23 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
+      - name: Build and Push image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./docker/datahub-gms/Dockerfile
+          platforms: linux/amd64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          load: true
+          push: ${{ needs.setup.outputs.publish == 'true' }}
       - name: Upload image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-upload@v1
         with:
           image: "linkedin/datahub-gms:test"
       - name: Download image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: "linkedin/datahub-gms:test"
