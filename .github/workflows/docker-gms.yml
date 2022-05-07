@@ -82,8 +82,8 @@ jobs:
       - name: Upload image
         uses: ishworkh/docker-image-artifact-upload@v1
         with:
-          image: "linkedin/datahub-gms:${{ steps.docker_meta.outputs.tags }}"
+          image: "linkedin/datahub-gms:test"
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
         with:
-          image: "linkedin/datahub-gms:${{ steps.docker_meta.outputs.tags }}"
+          image: "linkedin/datahub-gms:test"
