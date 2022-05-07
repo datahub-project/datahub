@@ -79,7 +79,6 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
-          load: true
       - name: Upload image
         uses: ishworkh/docker-image-artifact-upload@v1
         with:
