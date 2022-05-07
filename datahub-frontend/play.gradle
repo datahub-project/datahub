@@ -37,7 +37,7 @@ dependencies {
   play externalDependency.graphqlJava
   play externalDependency.antlr4Runtime
   play externalDependency.antlr4
-
+  play externalDependency.playEhcache
   play externalDependency.jerseyCore
   play externalDependency.jerseyGuava
 
