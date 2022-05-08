@@ -11,19 +11,15 @@ import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.util.Configuration;
 import com.datahub.authentication.Authentication;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.Collections;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.client.Clients;
 import org.pac4j.core.config.Config;
 import org.pac4j.core.context.session.SessionStore;
 import org.pac4j.play.LogoutController;
 import org.pac4j.play.http.PlayHttpActionAdapter;
-import org.pac4j.play.store.PlayCookieSessionStore;
+import org.pac4j.play.store.PlayCacheSessionStore;
 import org.pac4j.play.store.PlaySessionStore;
-import org.pac4j.play.store.ShiroAesDataEncrypter;
 import play.Environment;
 
 import java.util.ArrayList;
@@ -33,6 +29,7 @@ import auth.sso.oidc.OidcConfigs;
 import auth.sso.SsoConfigs;
 import auth.sso.SsoManager;
 import controllers.SsoCallbackController;
+import play.cache.SyncCacheApi;
 import utils.ConfigUtil;
 
 import static auth.AuthUtils.*;
@@ -60,22 +57,10 @@ public class AuthModule extends AbstractModule {
 
     @Override
     protected void configure() {
-        PlayCookieSessionStore playCacheCookieStore;
-        try {
-            // To generate a valid encryption key from an input value, we first
-            // hash the input to generate a fixed-length string. Then, we convert
-            // it to hex and slice the first 16 bytes, because AES key length must strictly
-            // have a specific length.
-            final String aesKeyBase = _configs.getString(PAC4J_AES_KEY_BASE_CONF);
-            final String aesKeyHash = DigestUtils.sha1Hex(aesKeyBase.getBytes(StandardCharsets.UTF_8));
-            final String aesEncryptionKey = aesKeyHash.substring(0, 16);
-            playCacheCookieStore = new PlayCookieSessionStore(
-                new ShiroAesDataEncrypter(aesEncryptionKey));
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to instantiate Pac4j cookie session store!", e);
-        }
-        bind(SessionStore.class).toInstance(playCacheCookieStore);
-        bind(PlaySessionStore.class).toInstance(playCacheCookieStore);
+
+        final PlayCacheSessionStore playCacheSessionStore = new PlayCacheSessionStore(getProvider(SyncCacheApi.class));
+        bind(SessionStore.class).toInstance(playCacheSessionStore);
+        bind(PlaySessionStore.class).toInstance(playCacheSessionStore);
 
         try {
             bind(SsoCallbackController.class).toConstructor(SsoCallbackController.class.getConstructor(
