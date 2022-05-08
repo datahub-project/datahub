@@ -88,16 +88,16 @@ jobs:
           context: .
           file: ./docker/datahub-gms/Dockerfile
           platforms: linux/amd64
-          tags: ${{ steps.docker_meta.outputs.tags }}
+          tags: test
           load: true
           push: ${{ needs.setup.outputs.publish == 'true' }}
       - name: Upload image
         if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-upload@v1
         with:
-          image: "linkedin/datahub-gms:${{ steps.docker_meta.outputs.tags }}"
+          image: "linkedin/datahub-gms:test"
       - name: Download image
         if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
-          image: "linkedin/datahub-gms:${{ steps.docker_meta.outputs.tags }}"
+          image: "linkedin/datahub-gms:test"
