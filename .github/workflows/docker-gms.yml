@@ -87,9 +87,9 @@ jobs:
         with:
           context: .
           file: ./docker/datahub-gms/Dockerfile
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.docker_meta.outputs.tags }}
-          load: true
+          #load: true
           push: ${{ needs.setup.outputs.publish == 'true' }}
       - name: Upload image
         if: ${{ needs.setup.outputs.publish != 'true' }}
