@@ -16,8 +16,9 @@ source venv/bin/activate
 pip install --upgrade pip wheel setuptools
 pip install -r requirements.txt
 
+# --build-locally \
+echo "DATAHUB_VERSION = $DATAHUB_VERSION"
 datahub docker quickstart \
-	--build-locally \
 	--quickstart-compose-file ../docker/docker-compose-without-neo4j.yml \
 	--quickstart-compose-file ../docker/docker-compose-without-neo4j.override.yml \
 	--quickstart-compose-file ../docker/docker-compose.dev.yml \
