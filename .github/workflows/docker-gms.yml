@@ -62,7 +62,7 @@ jobs:
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
       - name: Set up QEMU
-        #if: ${{ needs.setup.outputs.publish == 'true' }}
+        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
@@ -72,25 +72,16 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-      - name: Build and Push image
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          file: ./docker/datahub-gms/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          push: ${{ needs.setup.outputs.publish == 'true' }}
-      - name: Build and Push image
+      - name: Build and Load Runner Platform image
         if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: docker/build-push-action@v2
         with:
           context: .
           file: ./docker/datahub-gms/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           tags: ${{ steps.docker_meta.outputs.tags }}
-          #load: true
-          push: ${{ needs.setup.outputs.publish == 'true' }}
+          load: true
+          push: false
       - name: Upload image
         if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-upload@v1
@@ -101,3 +92,17 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: ${{ steps.docker_meta.outputs.tags }}
+      - name: Scan image
+        uses: Azure/container-scan@v0
+        with:
+          image-name: ${{ steps.docker_meta.outputs.tags }}
+      - name: Build and Push MultiPlatform image
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./docker/datahub-gms/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          push: true
+
