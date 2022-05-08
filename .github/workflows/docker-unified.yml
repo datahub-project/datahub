@@ -220,7 +220,7 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: docker/build-push-action@v2
         with:
-          context: .
+          context: ./docker/kafka-setup
           file: ./docker/kafka-setup/Dockerfile
           platforms: linux/amd64
           tags: ${{ steps.docker_meta.outputs.tags }}
