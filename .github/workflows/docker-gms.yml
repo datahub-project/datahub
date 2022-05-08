@@ -107,11 +107,17 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: ${{ needs.push_to_registries.outputs.image_tag }}
-      - name: Scan image
-        uses: Azure/container-scan@v0
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
         with:
-          image-name: ${{ needs.push_to_registries.outputs.image_tag }}
-
+          image-ref: ${{ needs.push_to_registries.outputs.image_tag }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v1
+        if: always() 
+        with:
+          sarif_file: 'trivy-results.sarif'
 
 
 
