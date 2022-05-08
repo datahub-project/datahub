@@ -62,7 +62,7 @@ jobs:
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
       - name: Set up QEMU
-        if: ${{ needs.setup.outputs.publish == 'true' }}
+        #if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
