@@ -1,13 +1,13 @@
-package com.linkedin.metadata.entity;
+package com.linkedin.metadata.timeline;
 
 import com.datastax.driver.core.KeyspaceMetadata;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.cassandra.CassandraAspect;
 import com.linkedin.metadata.entity.cassandra.CassandraAspectDao;
-import com.linkedin.metadata.entity.cassandra.CassandraRetentionService;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import org.testcontainers.containers.CassandraContainer;
@@ -29,54 +29,12 @@ import java.util.stream.Collectors;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 
-
-public class CassandraEntityServiceTest extends EntityServiceTestBase<CassandraAspectDao, CassandraRetentionService> {
+public class CassandraTimelineServiceTest extends TimelineServiceTestBase<CassandraAspectDao> {
 
   private CassandraContainer _cassandraContainer;
   private static final String KEYSPACE_NAME = "test";
 
-  public CassandraEntityServiceTest() throws EntityRegistryException {
-  }
-
-  private CqlSession createTestSession() {
-    Map<String, String> sessionConfig = createTestServerConfig();
-    int port = Integer.parseInt(sessionConfig.get("port"));
-    List<InetSocketAddress> addresses = Arrays.stream(sessionConfig.get("hosts").split(","))
-        .map(host -> new InetSocketAddress(host, port))
-        .collect(Collectors.toList());
-
-    String dc = sessionConfig.get("datacenter");
-    String ks = sessionConfig.get("keyspace");
-    String username = sessionConfig.get("username");
-    String password = sessionConfig.get("password");
-
-    CqlSessionBuilder csb = CqlSession.builder()
-        .addContactPoints(addresses)
-        .withLocalDatacenter(dc)
-        .withKeyspace(ks)
-        .withAuthCredentials(username, password);
-
-    if (sessionConfig.containsKey("useSsl") && sessionConfig.get("useSsl").equals("true")) {
-      try {
-        csb = csb.withSslContext(SSLContext.getDefault());
-      } catch (Exception e) {
-        e.printStackTrace();
-      }
-    }
-
-    return csb.build();
-  }
-
-  private Map<String, String> createTestServerConfig() {
-    return new HashMap<String, String>() {{
-      put("keyspace", KEYSPACE_NAME);
-      put("username", _cassandraContainer.getUsername());
-      put("password", _cassandraContainer.getPassword());
-      put("hosts", _cassandraContainer.getHost());
-      put("port", _cassandraContainer.getMappedPort(9042).toString());
-      put("datacenter", "datacenter1");
-      put("useSsl", "false");
-    }};
+  public CassandraTimelineServiceTest() throws EntityRegistryException {
   }
 
   @BeforeClass
@@ -133,10 +91,9 @@ public class CassandraEntityServiceTest extends EntityServiceTestBase<CassandraA
 
     CqlSession session = createTestSession();
     _aspectDao = new CassandraAspectDao(session);
+    _entityTimelineService = new TimelineServiceImpl(_aspectDao);
     _mockProducer = mock(EventProducer.class);
     _entityService = new EntityService(_aspectDao, _mockProducer, _testEntityRegistry);
-    _retentionService = new CassandraRetentionService(_entityService, session, 1000);
-    _entityService.setRetentionService(_retentionService);
   }
 
   @Test
@@ -144,5 +101,46 @@ public class CassandraEntityServiceTest extends EntityServiceTestBase<CassandraA
     // We need this method to make test framework pick this class up.
     // All real tests are in the base class.
     Assert.assertTrue(true);
+  }
+
+  private CqlSession createTestSession() {
+    Map<String, String> sessionConfig = createTestServerConfig();
+    int port = Integer.parseInt(sessionConfig.get("port"));
+    List<InetSocketAddress> addresses = Arrays.stream(sessionConfig.get("hosts").split(","))
+        .map(host -> new InetSocketAddress(host, port))
+        .collect(Collectors.toList());
+
+    String dc = sessionConfig.get("datacenter");
+    String ks = sessionConfig.get("keyspace");
+    String username = sessionConfig.get("username");
+    String password = sessionConfig.get("password");
+
+    CqlSessionBuilder csb = CqlSession.builder()
+        .addContactPoints(addresses)
+        .withLocalDatacenter(dc)
+        .withKeyspace(ks)
+        .withAuthCredentials(username, password);
+
+    if (sessionConfig.containsKey("useSsl") && sessionConfig.get("useSsl").equals("true")) {
+      try {
+        csb = csb.withSslContext(SSLContext.getDefault());
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    }
+
+    return csb.build();
+  }
+
+  private Map<String, String> createTestServerConfig() {
+    return new HashMap<String, String>() {{
+      put("keyspace", KEYSPACE_NAME);
+      put("username", _cassandraContainer.getUsername());
+      put("password", _cassandraContainer.getPassword());
+      put("hosts", _cassandraContainer.getHost());
+      put("port", _cassandraContainer.getMappedPort(9042).toString());
+      put("datacenter", "datacenter1");
+      put("useSsl", "false");
+    }};
   }
 }

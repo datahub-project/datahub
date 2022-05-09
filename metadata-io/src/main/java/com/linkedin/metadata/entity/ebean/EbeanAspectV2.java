@@ -1,9 +1,11 @@
 package com.linkedin.metadata.entity.ebean;
 
-import com.linkedin.metadata.entity.EntityAspect;
+import com.linkedin.metadata.entity.aspect.EntityAspect;
+import com.linkedin.metadata.entity.aspect.UniqueKey;
 import io.ebean.Model;
 import io.ebean.annotation.Index;
 import java.sql.Timestamp;
+import javax.annotation.Nonnull;
 import javax.persistence.Column;
 import javax.persistence.Embeddable;
 import javax.persistence.EmbeddedId;
@@ -27,7 +29,7 @@ import lombok.Setter;
 @AllArgsConstructor
 @Entity
 @Table(name = "metadata_aspect_v2")
-public class EbeanAspectV2 extends Model implements EntityAspect {
+public class EbeanAspectV2 extends Model {
 
   private static final long serialVersionUID = 1L;
 
@@ -68,6 +70,14 @@ public class EbeanAspectV2 extends Model implements EntityAspect {
     @Index
     @Column(name = VERSION_COLUMN, nullable = false)
     private long version;
+
+    public static PrimaryKey fromUniqueKey(UniqueKey key) {
+      return new PrimaryKey(key.getUrn(), key.getAspect(), key.getVersion());
+    }
+
+    public UniqueKey toUniqueKey() {
+      return new UniqueKey(getUrn(), getAspect(), getVersion());
+    }
   }
 
   @NonNull
@@ -109,5 +119,32 @@ public class EbeanAspectV2 extends Model implements EntityAspect {
       String createdFor, String systemMetadata) {
     this(new PrimaryKey(urn, aspect, version), urn, aspect, version, metadata, createdOn, createdBy, createdFor,
         systemMetadata);
+  }
+
+  @Nonnull
+  public EntityAspect toEntityAspect() {
+    return new EntityAspect(
+        getUrn(),
+        getAspect(),
+        getVersion(),
+        getMetadata(),
+        getSystemMetadata(),
+        getCreatedOn(),
+        getCreatedBy(),
+        getCreatedFor()
+    );
+  }
+
+  public static EbeanAspectV2 fromEntityAspect(EntityAspect aspect) {
+    return new EbeanAspectV2(
+        aspect.getUrn(),
+        aspect.getAspect(),
+        aspect.getVersion(),
+        aspect.getMetadata(),
+        aspect.getCreatedOn(),
+        aspect.getCreatedBy(),
+        aspect.getCreatedFor(),
+        aspect.getSystemMetadata()
+    );
   }
 }

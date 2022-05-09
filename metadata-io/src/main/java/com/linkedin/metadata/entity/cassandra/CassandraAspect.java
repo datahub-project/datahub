@@ -1,7 +1,8 @@
 package com.linkedin.metadata.entity.cassandra;
 
 import com.datastax.oss.driver.api.core.cql.Row;
-import com.linkedin.metadata.entity.EntityAspect;
+import com.linkedin.metadata.entity.aspect.EntityAspect;
+import com.linkedin.metadata.entity.aspect.UniqueKey;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -17,7 +18,7 @@ import java.sql.Timestamp;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class CassandraAspect implements EntityAspect {
+public class CassandraAspect {
 
   @Getter
   @NoArgsConstructor
@@ -34,6 +35,10 @@ public class CassandraAspect implements EntityAspect {
           r.getString(CassandraAspect.URN_COLUMN),
           r.getString(CassandraAspect.ASPECT_COLUMN),
           r.getLong(CassandraAspect.VERSION_COLUMN));
+    }
+
+    public UniqueKey toUniqueKey() {
+      return new UniqueKey(getUrn(), getAspect(), getVersion());
     }
   }
 
@@ -79,5 +84,31 @@ public class CassandraAspect implements EntityAspect {
         r.getInstant(CassandraAspect.CREATED_ON_COLUMN) == null ? null : Timestamp.from(r.getInstant(CassandraAspect.CREATED_ON_COLUMN)),
         r.getString(CassandraAspect.CREATED_BY_COLUMN),
         r.getString(CassandraAspect.CREATED_FOR_COLUMN));
+  }
+
+  public EntityAspect toEntityAspect() {
+    return new EntityAspect(
+        getUrn(),
+        getAspect(),
+        getVersion(),
+        getMetadata(),
+        getSystemMetadata(),
+        getCreatedOn(),
+        getCreatedBy(),
+        getCreatedFor()
+    );
+  }
+
+  public static CassandraAspect fromEntityAspect(EntityAspect aspect) {
+    return new CassandraAspect(
+        aspect.getUrn(),
+        aspect.getAspect(),
+        aspect.getVersion(),
+        aspect.getMetadata(),
+        aspect.getSystemMetadata(),
+        aspect.getCreatedOn(),
+        aspect.getCreatedBy(),
+        aspect.getCreatedFor()
+    );
   }
 }

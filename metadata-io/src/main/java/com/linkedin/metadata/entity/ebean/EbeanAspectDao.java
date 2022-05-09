@@ -7,6 +7,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectStorageValidationUtil;
 import com.linkedin.metadata.entity.ListResult;
+import com.linkedin.metadata.entity.aspect.EntityAspect;
+import com.linkedin.metadata.entity.aspect.UniqueKey;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
@@ -22,6 +24,12 @@ import io.ebean.RawSqlBuilder;
 import io.ebean.Transaction;
 import io.ebean.TxScope;
 import io.ebean.annotation.TxIsolation;
+import lombok.extern.slf4j.Slf4j;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import javax.persistence.RollbackException;
+import javax.persistence.Table;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -30,15 +38,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import javax.persistence.RollbackException;
-import javax.persistence.Table;
-import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 
@@ -48,6 +50,10 @@ public class EbeanAspectDao implements AspectDao {
   private final EbeanServer _server;
   private boolean _connectionValidated = false;
   private final Clock _clock = Clock.systemUTC();
+
+  // Flag used to make sure the dao isn't writing aspects
+  // while its storage is being migrated
+  private boolean _canWrite = true;
 
   // Why 375? From tuning, this seems to be about the largest size we can get without having ebean batch issues.
   // This may be able to be moved up, 375 is a bit conservative. However, we should be careful to tweak this without
@@ -69,30 +75,13 @@ public class EbeanAspectDao implements AspectDao {
     return _server;
   }
 
-  // Flag used to make sure the dao isn't writing aspects
-  // while its storage is being migrated
-  private boolean _canWrite = true;
-
+  @Override
   public void setConnectionValidated(boolean validated) {
     _connectionValidated = validated;
     _canWrite = validated;
   }
 
-  private boolean validateConnection() {
-    if (_connectionValidated) {
-      return true;
-    }
-    if (!AspectStorageValidationUtil.checkV2TableExists(_server)) {
-      log.error("GMS is on a newer version than your storage layer. Please refer to "
-                    + "https://datahubproject.io/docs/advanced/no-code-upgrade to view the upgrade guide.");
-      _canWrite = false;
-      return false;
-    } else {
-      _connectionValidated = true;
-      return true;
-    }
-  }
-
+  @Override
   public long saveLatestAspect(
       @Nonnull final String urn,
       @Nonnull final String aspectName,
@@ -125,7 +114,8 @@ public class EbeanAspectDao implements AspectDao {
     return largestVersion;
   }
 
-  protected void saveAspect(
+  @Override
+  public void saveAspect(
       @Nonnull final String urn,
       @Nonnull final String aspectName,
       @Nonnull final String aspectMetadata,
@@ -147,25 +137,25 @@ public class EbeanAspectDao implements AspectDao {
       aspect.setCreatedFor(impersonator);
     }
 
-    saveAspect(aspect, insert);
+    saveAspectEbean(aspect, insert);
   }
 
-  protected void saveAspect(@Nonnull final EbeanAspectV2 ebeanAspect, final boolean insert) {
-    validateConnection();
-    if (insert) {
-      _server.insert(ebeanAspect);
-    } else {
-      _server.update(ebeanAspect);
-    }
+  @Override
+  public void saveAspect(@Nonnull final EntityAspect aspect, final boolean insert) {
+    EbeanAspectV2 ebeanAspect = EbeanAspectV2.fromEntityAspect(aspect);
+    saveAspectEbean(ebeanAspect, insert);
   }
 
+  @Override
   @Nullable
-  protected EbeanAspectV2 getLatestAspect(@Nonnull final String urn, @Nonnull final String aspectName) {
+  public EntityAspect getLatestAspect(@Nonnull final String urn, @Nonnull final String aspectName) {
     validateConnection();
     final EbeanAspectV2.PrimaryKey key = new EbeanAspectV2.PrimaryKey(urn, aspectName, ASPECT_LATEST_VERSION);
-    return _server.find(EbeanAspectV2.class, key);
+    EbeanAspectV2 ebeanAspect = _server.find(EbeanAspectV2.class, key);
+    return ebeanAspect == null ? null : ebeanAspect.toEntityAspect();
   }
 
+  @Override
   public long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
     List<EbeanAspectV2> result = _server.find(EbeanAspectV2.class)
         .where()
@@ -180,52 +170,273 @@ public class EbeanAspectDao implements AspectDao {
     return result.get(0).getKey().getVersion();
   }
 
+  @Override
   @Nullable
-  public EbeanAspectV2 getAspect(@Nonnull final String urn, @Nonnull final String aspectName, final long version) {
+  public EntityAspect getAspect(@Nonnull final String urn, @Nonnull final String aspectName, final long version) {
     validateConnection();
-    return getAspect(new EbeanAspectV2.PrimaryKey(urn, aspectName, version));
+    return getAspect(new UniqueKey(urn, aspectName, version));
   }
 
+  @Override
   @Nullable
-  public EbeanAspectV2 getAspect(@Nonnull final EbeanAspectV2.PrimaryKey primaryKey) {
+  public EntityAspect getAspect(@Nonnull final UniqueKey key) {
     validateConnection();
-    return _server.find(EbeanAspectV2.class, primaryKey);
+    EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(key.getUrn(), key.getAspect(), key.getVersion());
+    EbeanAspectV2 ebeanAspect = _server.find(EbeanAspectV2.class, primaryKey);
+    return ebeanAspect.toEntityAspect();
   }
 
+  @Override
   @Nullable
-  public boolean deleteAspect(@Nonnull final EbeanAspectV2 aspect) {
+  public boolean deleteAspect(@Nonnull final EntityAspect aspect) {
     validateConnection();
-    return _server.delete(aspect);
+    EbeanAspectV2 ebeanAspect = EbeanAspectV2.fromEntityAspect(aspect);
+    return _server.delete(ebeanAspect);
   }
 
+  @Override
   @Nullable
   public int deleteUrn(@Nonnull final String urn) {
-    return _server.createQuery(EbeanAspectV2.class).where().eq("urn", urn).delete();
+    return _server.createQuery(EbeanAspectV2.class).where().eq(EbeanAspectV2.URN_COLUMN, urn).delete();
   }
 
-  @Nullable
-  public Optional<EbeanAspectV2> getEarliestAspect(@Nonnull final String urn) {
-    return _server.createQuery(EbeanAspectV2.class).where().eq("urn", urn)
-        .orderBy()
-        .asc(EbeanAspectV2.CREATED_ON_COLUMN)
-        .setMaxRows(1)
-        .findList().stream().findFirst();
-  }
-
+  @Override
   @Nonnull
-  public Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGet(@Nonnull final Set<EbeanAspectV2.PrimaryKey> keys) {
+  public Map<UniqueKey, EntityAspect> batchGet(@Nonnull final Set<UniqueKey> keys) {
     validateConnection();
     if (keys.isEmpty()) {
       return Collections.emptyMap();
     }
 
+    final Set<EbeanAspectV2.PrimaryKey> ebeanKeys = keys.stream().map(EbeanAspectV2.PrimaryKey::fromUniqueKey).collect(Collectors.toSet());
     final List<EbeanAspectV2> records;
     if (_queryKeysCount == 0) {
-      records = batchGet(keys, keys.size());
+      records = batchGet(ebeanKeys, ebeanKeys.size());
     } else {
-      records = batchGet(keys, _queryKeysCount);
+      records = batchGet(ebeanKeys, _queryKeysCount);
     }
-    return records.stream().collect(Collectors.toMap(EbeanAspectV2::getKey, record -> record));
+    return records.stream().collect(Collectors.toMap(record -> record.getKey().toUniqueKey(), EbeanAspectV2::toEntityAspect));
+  }
+
+  @Override
+  @Nonnull
+  public ListResult<String> listUrns(
+      @Nonnull final String entityName,
+      @Nonnull final String aspectName,
+      final int start,
+      final int pageSize) {
+    validateConnection();
+
+    final String urnPrefixMatcher = "urn:li:" + entityName + ":%";
+    final PagedList<EbeanAspectV2> pagedList = _server.find(EbeanAspectV2.class)
+        .select(EbeanAspectV2.KEY_ID)
+        .where()
+        .like(EbeanAspectV2.URN_COLUMN, urnPrefixMatcher)
+        .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
+        .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
+        .setFirstRow(start)
+        .setMaxRows(pageSize)
+        .orderBy()
+        .asc(EbeanAspectV2.URN_COLUMN)
+        .findPagedList();
+
+    final List<String> urns = pagedList
+        .getList()
+        .stream()
+        .map(entry -> entry.getKey().getUrn())
+        .collect(Collectors.toList());
+
+    return toListResult(urns, null, pagedList, start);
+  }
+
+  @Override
+  @Nonnull
+  public ListResult<String> listLatestAspectMetadata(
+      @Nonnull final String entityName,
+      @Nonnull final String aspectName,
+      final int start,
+      final int pageSize) {
+    return listAspectMetadata(entityName, aspectName, ASPECT_LATEST_VERSION, start, pageSize);
+  }
+
+  @Override
+  @Nonnull
+  public ListResult<String> listAspectMetadata(
+      @Nonnull final String entityName,
+      @Nonnull final String aspectName,
+      final long version,
+      final int start,
+      final int pageSize) {
+    validateConnection();
+
+    final String urnPrefixMatcher = "urn:li:" + entityName + ":%";
+    final PagedList<EbeanAspectV2> pagedList = _server.find(EbeanAspectV2.class)
+        .select(EbeanAspectV2.ALL_COLUMNS)
+        .where()
+        .like(EbeanAspectV2.URN_COLUMN, urnPrefixMatcher)
+        .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
+        .eq(EbeanAspectV2.VERSION_COLUMN, version)
+        .setFirstRow(start)
+        .setMaxRows(pageSize)
+        .orderBy()
+        .asc(EbeanAspectV2.URN_COLUMN)
+        .findPagedList();
+
+    final List<String> aspects = pagedList.getList().stream().map(EbeanAspectV2::getMetadata).collect(Collectors.toList());
+    final ListResultMetadata listResultMetadata = toListResultMetadata(pagedList.getList().stream().map(
+        EbeanAspectDao::toExtraInfo).collect(Collectors.toList()));
+    return toListResult(aspects, listResultMetadata, pagedList, start);
+  }
+
+  @Override
+  @Nonnull
+  public <T> T runInTransactionWithRetry(@Nonnull final Supplier<T> block, final int maxTransactionRetry) {
+    validateConnection();
+    int retryCount = 0;
+    Exception lastException;
+
+    T result = null;
+    do {
+      try (Transaction transaction = _server.beginTransaction(TxScope.requiresNew().setIsolation(TxIsolation.REPEATABLE_READ))) {
+        transaction.setBatchMode(true);
+        result = block.get();
+        transaction.commit();
+        lastException = null;
+        break;
+      } catch (RollbackException | DuplicateKeyException exception) {
+        lastException = exception;
+      }
+    } while (++retryCount <= maxTransactionRetry);
+
+    if (lastException != null) {
+      throw new RetryLimitReached("Failed to add after " + maxTransactionRetry + " retries", lastException);
+    }
+
+    return result;
+  }
+
+  @Override
+  public long getNextVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
+    validateConnection();
+    final List<EbeanAspectV2.PrimaryKey> result = _server.find(EbeanAspectV2.class)
+        .where()
+        .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
+        .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
+        .orderBy()
+        .desc(EbeanAspectV2.VERSION_COLUMN)
+        .setMaxRows(1)
+        .findIds();
+
+    return result.isEmpty() ? 0 : result.get(0).getVersion() + 1L;
+  }
+
+  @Override
+  public Map<String, Long> getNextVersions(@Nonnull final String urn, @Nonnull final Set<String> aspectNames) {
+    Map<String, Long> result = new HashMap<>();
+    Junction<EbeanAspectV2> queryJunction = _server.find(EbeanAspectV2.class)
+        .select("aspect, max(version)")
+        .where()
+        .eq("urn", urn)
+        .or();
+
+    ExpressionList<EbeanAspectV2> exp = null;
+    for (String aspectName: aspectNames) {
+      if (exp == null) {
+        exp = queryJunction.eq("aspect", aspectName);
+      } else {
+        exp = exp.eq("aspect", aspectName);
+      }
+    }
+    if (exp == null) {
+      return result;
+    }
+    // Order by ascending version so that the results are correctly populated.
+    // TODO: Improve the below logic to be more explicit.
+    exp.orderBy().asc(EbeanAspectV2.VERSION_COLUMN);
+    List<EbeanAspectV2.PrimaryKey> dbResults = exp.endOr().findIds();
+
+    for (EbeanAspectV2.PrimaryKey key: dbResults) {
+      result.put(key.getAspect(), key.getVersion());
+    }
+
+    for (String aspectName: aspectNames) {
+      long nextVal = ASPECT_LATEST_VERSION;
+      if (result.containsKey(aspectName)) {
+        nextVal = result.get(aspectName) + 1L;
+      }
+      result.put(aspectName, nextVal);
+    }
+    return result;
+  }
+
+  @Override
+  public List<EntityAspect> getAspectsInRange(Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis) {
+    List<EbeanAspectV2> ebeanAspects = _server.find(EbeanAspectV2.class)
+        .select("*")
+        .where()
+        .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
+        .in(EbeanAspectV2.ASPECT_COLUMN, aspectNames)
+        .inRange("createdOn", new Timestamp(startTimeMillis), new Timestamp(endTimeMillis))
+        .findList();
+    return ebeanAspects.stream().map(EbeanAspectV2::toEntityAspect).collect(Collectors.toList());
+  }
+
+  private void saveAspectEbean(@Nonnull final EbeanAspectV2 ebeanAspect, final boolean insert) {
+    validateConnection();
+    if (insert) {
+      _server.insert(ebeanAspect);
+    } else {
+      _server.update(ebeanAspect);
+    }
+  }
+
+  private boolean validateConnection() {
+    if (_connectionValidated) {
+      return true;
+    }
+    if (!AspectStorageValidationUtil.checkV2TableExists(_server)) {
+      log.error("GMS is on a newer version than your storage layer. Please refer to "
+          + "https://datahubproject.io/docs/advanced/no-code-upgrade to view the upgrade guide.");
+      _canWrite = false;
+      return false;
+    } else {
+      _connectionValidated = true;
+      return true;
+    }
+  }
+
+  @Nonnull
+  private <T> ListResult<T> toListResult(
+      @Nonnull final List<T> values,
+      @Nullable final ListResultMetadata listResultMetadata,
+      @Nonnull final PagedList<?> pagedList,
+      @Nullable final Integer start) {
+    final int nextStart =
+        (start != null && pagedList.hasNext()) ? start + pagedList.getList().size() : ListResult.INVALID_NEXT_START;
+    return ListResult.<T>builder()
+        // Format
+        .values(values)
+        .metadata(listResultMetadata)
+        .nextStart(nextStart)
+        .hasNext(pagedList.hasNext())
+        .totalCount(pagedList.getTotalCount())
+        .totalPageCount(pagedList.getTotalPageCount())
+        .pageSize(pagedList.getPageSize())
+        .build();
+  }
+
+  @Nonnull
+  private static ExtraInfo toExtraInfo(@Nonnull final EbeanAspectV2 aspect) {
+    final ExtraInfo extraInfo = new ExtraInfo();
+    extraInfo.setVersion(aspect.getKey().getVersion());
+    extraInfo.setAudit(toAuditStamp(aspect));
+    try {
+      extraInfo.setUrn(Urn.createFromString(aspect.getKey().getUrn()));
+    } catch (URISyntaxException e) {
+      throw new ModelConversionException(e.getMessage());
+    }
+
+    return extraInfo;
   }
 
   /**
@@ -326,233 +537,6 @@ public class EbeanAspectDao implements AspectDao {
   }
 
   @Nonnull
-  public ListResult<Long> listVersions(
-      @Nonnull final String urn,
-      @Nonnull final String aspectName,
-      final int start,
-      final int pageSize) {
-    validateConnection();
-
-    final PagedList<EbeanAspectV2> pagedList = _server.find(EbeanAspectV2.class)
-        .select(EbeanAspectV2.KEY_ID)
-        .where()
-        .eq(EbeanAspectV2.URN_COLUMN, urn)
-        .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
-        .setFirstRow(start)
-        .setMaxRows(pageSize)
-        .orderBy()
-        .asc(EbeanAspectV2.VERSION_COLUMN)
-        .findPagedList();
-
-    List<Long> versions = pagedList.getList().stream().map(a -> a.getKey().getVersion()).collect(Collectors.toList());
-    return toListResult(versions, null, pagedList, start);
-  }
-
-  @Nonnull
-  public ListResult<String> listUrns(
-      @Nonnull final String entityName,
-      @Nonnull final String aspectName,
-      final int start,
-      final int pageSize) {
-    validateConnection();
-
-    final String urnPrefixMatcher = "urn:li:" + entityName + ":%";
-    final PagedList<EbeanAspectV2> pagedList = _server.find(EbeanAspectV2.class)
-        .select(EbeanAspectV2.KEY_ID)
-        .where()
-        .like(EbeanAspectV2.URN_COLUMN, urnPrefixMatcher)
-        .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
-        .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
-        .setFirstRow(start)
-        .setMaxRows(pageSize)
-        .orderBy()
-        .asc(EbeanAspectV2.URN_COLUMN)
-        .findPagedList();
-
-    final List<String> urns = pagedList
-        .getList()
-        .stream()
-        .map(entry -> entry.getKey().getUrn())
-        .collect(Collectors.toList());
-
-    return toListResult(urns, null, pagedList, start);
-  }
-
-  @Nonnull
-  public ListResult<String> listAspectMetadata(
-      @Nonnull final Urn urn,
-      @Nonnull final String aspectName,
-      final int start,
-      final int pageSize) {
-    validateConnection();
-
-    final PagedList<EbeanAspectV2> pagedList = _server.find(EbeanAspectV2.class)
-        .select(EbeanAspectV2.ALL_COLUMNS)
-        .where()
-        .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
-        .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
-        .setFirstRow(start)
-        .setMaxRows(pageSize)
-        .orderBy()
-        .asc(EbeanAspectV2.VERSION_COLUMN)
-        .findPagedList();
-
-    final List<String> aspects = pagedList.getList().stream().map(EbeanAspectV2::getMetadata).collect(Collectors.toList());
-    final ListResultMetadata listResultMetadata = toListResultMetadata(pagedList.getList().stream().map(
-        EbeanAspectDao::toExtraInfo).collect(Collectors.toList()));
-    return toListResult(aspects, listResultMetadata, pagedList, start);
-  }
-
-  @Nonnull
-  public ListResult<String> listLatestAspectMetadata(
-      @Nonnull final String entityName,
-      @Nonnull final String aspectName,
-      final int start,
-      final int pageSize) {
-    return listAspectMetadata(entityName, aspectName, ASPECT_LATEST_VERSION, start, pageSize);
-  }
-
-  @Nonnull
-  public ListResult<String> listAspectMetadata(
-      @Nonnull final String entityName,
-      @Nonnull final String aspectName,
-      final long version,
-      final int start,
-      final int pageSize) {
-    validateConnection();
-
-    final String urnPrefixMatcher = "urn:li:" + entityName + ":%";
-    final PagedList<EbeanAspectV2> pagedList = _server.find(EbeanAspectV2.class)
-        .select(EbeanAspectV2.ALL_COLUMNS)
-        .where()
-        .like(EbeanAspectV2.URN_COLUMN, urnPrefixMatcher)
-        .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
-        .eq(EbeanAspectV2.VERSION_COLUMN, version)
-        .setFirstRow(start)
-        .setMaxRows(pageSize)
-        .orderBy()
-        .asc(EbeanAspectV2.URN_COLUMN)
-        .findPagedList();
-
-    final List<String> aspects = pagedList.getList().stream().map(EbeanAspectV2::getMetadata).collect(Collectors.toList());
-    final ListResultMetadata listResultMetadata = toListResultMetadata(pagedList.getList().stream().map(
-        EbeanAspectDao::toExtraInfo).collect(Collectors.toList()));
-    return toListResult(aspects, listResultMetadata, pagedList, start);
-  }
-
-  @Nonnull
-  public <T> T runInTransactionWithRetry(@Nonnull final Supplier<T> block, final int maxTransactionRetry) {
-    validateConnection();
-    int retryCount = 0;
-    Exception lastException;
-
-    T result = null;
-    do {
-      try (Transaction transaction = _server.beginTransaction(TxScope.requiresNew().setIsolation(TxIsolation.REPEATABLE_READ))) {
-        transaction.setBatchMode(true);
-        result = block.get();
-        transaction.commit();
-        lastException = null;
-        break;
-      } catch (RollbackException | DuplicateKeyException exception) {
-        lastException = exception;
-      }
-    } while (++retryCount <= maxTransactionRetry);
-
-    if (lastException != null) {
-      throw new RetryLimitReached("Failed to add after " + maxTransactionRetry + " retries", lastException);
-    }
-
-    return result;
-  }
-
-  public long getNextVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
-    validateConnection();
-    final List<EbeanAspectV2.PrimaryKey> result = _server.find(EbeanAspectV2.class)
-        .where()
-        .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
-        .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
-        .orderBy()
-        .desc(EbeanAspectV2.VERSION_COLUMN)
-        .setMaxRows(1)
-        .findIds();
-
-    return result.isEmpty() ? 0 : result.get(0).getVersion() + 1L;
-  }
-
-  public Map<String, Long> getNextVersions(@Nonnull final String urn, @Nonnull final Set<String> aspectNames) {
-    Map<String, Long> result = new HashMap<>();
-    Junction<EbeanAspectV2> queryJunction = _server.find(EbeanAspectV2.class)
-        .select("aspect, max(version)")
-        .where()
-        .eq("urn", urn)
-        .or();
-
-    ExpressionList<EbeanAspectV2> exp = null;
-    for (String aspectName: aspectNames) {
-      if (exp == null) {
-        exp = queryJunction.eq("aspect", aspectName);
-      } else {
-        exp = exp.eq("aspect", aspectName);
-      }
-    }
-    if (exp == null) {
-      return result;
-    }
-    // Order by ascending version so that the results are correctly populated.
-    // TODO: Improve the below logic to be more explicit.
-    exp.orderBy().asc(EbeanAspectV2.VERSION_COLUMN);
-    List<EbeanAspectV2.PrimaryKey> dbResults = exp.endOr().findIds();
-
-    for (EbeanAspectV2.PrimaryKey key: dbResults) {
-      result.put(key.getAspect(), key.getVersion());
-    }
-
-    for (String aspectName: aspectNames) {
-      long nextVal = ASPECT_LATEST_VERSION;
-      if (result.containsKey(aspectName)) {
-        nextVal = result.get(aspectName) + 1L;
-      }
-      result.put(aspectName, nextVal);
-    }
-    return result;
-  }
-
-  @Nonnull
-  private <T> ListResult<T> toListResult(
-      @Nonnull final List<T> values,
-      @Nullable final ListResultMetadata listResultMetadata,
-      @Nonnull final PagedList<?> pagedList,
-      @Nullable final Integer start) {
-    final int nextStart =
-        (start != null && pagedList.hasNext()) ? start + pagedList.getList().size() : ListResult.INVALID_NEXT_START;
-    return ListResult.<T>builder()
-        // Format
-        .values(values)
-        .metadata(listResultMetadata)
-        .nextStart(nextStart)
-        .hasNext(pagedList.hasNext())
-        .totalCount(pagedList.getTotalCount())
-        .totalPageCount(pagedList.getTotalPageCount())
-        .pageSize(pagedList.getPageSize())
-        .build();
-  }
-
-  @Nonnull
-  private static ExtraInfo toExtraInfo(@Nonnull final EbeanAspectV2 aspect) {
-    final ExtraInfo extraInfo = new ExtraInfo();
-    extraInfo.setVersion(aspect.getKey().getVersion());
-    extraInfo.setAudit(toAuditStamp(aspect));
-    try {
-      extraInfo.setUrn(Urn.createFromString(aspect.getKey().getUrn()));
-    } catch (URISyntaxException e) {
-      throw new ModelConversionException(e.getMessage());
-    }
-
-    return extraInfo;
-  }
-
-  @Nonnull
   private static AuditStamp toAuditStamp(@Nonnull final EbeanAspectV2 aspect) {
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setTime(aspect.getCreatedOn().getTime());
@@ -573,16 +557,5 @@ public class EbeanAspectDao implements AspectDao {
     final ListResultMetadata listResultMetadata = new ListResultMetadata();
     listResultMetadata.setExtraInfos(new ExtraInfoArray(extraInfos));
     return listResultMetadata;
-  }
-
-  public List<EbeanAspectV2> getAspectsInRange(Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis) {
-    List<EbeanAspectV2> aspectV2s = _server.find(EbeanAspectV2.class)
-        .select("*")
-        .where()
-        .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
-        .in(EbeanAspectV2.ASPECT_COLUMN, aspectNames)
-        .inRange("createdOn", new Timestamp(startTimeMillis), new Timestamp(endTimeMillis))
-        .findList();
-    return aspectV2s;
   }
 }
