@@ -82,7 +82,7 @@ class OauthConfiguration(ConfigModel):
     client_id: Optional[str] = Field(
         description="client id of your registered application"
     )
-    scopes: List[Optional[str]] = Field(
+    scopes: List[str] = Field(
         description="scopes required to connect to snowflake"
     )
     use_certificate: Optional[str] = Field(
