@@ -81,7 +81,7 @@ jobs:
       - name: Smoke test
         run: ./smoke-test/smoke.sh
         env:
-          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY}}
+          CYPRESS_RECORD_KEY: ${{ secrets.ACRYL_CYPRESS_RECORD_KEY}}
       - uses: actions/upload-artifact@v2
         if: always()
         with:
