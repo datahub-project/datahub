@@ -74,6 +74,9 @@ public class AuthModule extends AbstractModule {
         // logout
         final LogoutController logoutController = new LogoutController();
         logoutController.setDefaultUrl("/");
+        final Config config = provideConfig(provideSsoManager());
+        config.setSessionStore(playCacheSessionStore);
+        logoutController.setConfig(config);
         bind(LogoutController.class).toInstance(logoutController);
     }
 
