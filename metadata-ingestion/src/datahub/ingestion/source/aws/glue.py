@@ -14,6 +14,7 @@ from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.source_common import PlatformSourceConfigBase
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
+    get_sys_time,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
@@ -41,6 +42,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
+from datahub.ingestion.source.glue_profiling_config import GlueProfilingConfig
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -57,13 +59,17 @@ from datahub.metadata.schema_classes import (
     DataJobInputOutputClass,
     DataJobSnapshotClass,
     DataPlatformInstanceClass,
+    DatasetFieldProfileClass,
     DatasetLineageTypeClass,
+    DatasetProfileClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
     MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    PartitionSpecClass,
+    PartitionTypeClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -77,7 +83,7 @@ DEFAULT_PLATFORM = "glue"
 VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
 
-class GlueSourceConfig(AwsSourceConfig, PlatformSourceConfigBase):
+class GlueSourceConfig(AwsSourceConfig, PlatformSourceConfigBase, GlueProfilingConfig):
 
     extract_owners: Optional[bool] = Field(
         default=True,
@@ -117,6 +123,10 @@ class GlueSourceConfig(AwsSourceConfig, PlatformSourceConfigBase):
     use_s3_object_tags: Optional[bool] = Field(
         default=False,
         description="If an S3 Objects Tags should be created for the Tables ingested by Glue.",
+    )
+    profiling: GlueProfilingConfig = Field(
+        default=None,
+        description="Configs to ingest data profiles from glue table",
     )
 
     @property
@@ -692,6 +702,136 @@ class GlueSource(Source):
                         return mcp
         return None
 
+    def _create_profile_mcp(
+        self,
+        mce: MetadataChangeEventClass,
+        table_stats: dict,
+        column_stats: dict,
+        partition_spec: Optional[str] = None,
+    ) -> Optional[MetadataChangeProposalWrapper]:
+        # instantiate profile class
+        dataset_profile = DatasetProfileClass(timestampMillis=get_sys_time())
+
+        # Inject table level stats
+        if self.source_config.profiling.row_count in table_stats:
+            dataset_profile.rowCount = int(
+                table_stats[self.source_config.profiling.row_count]
+            )
+        if self.source_config.profiling.row_count in table_stats:
+            dataset_profile.columnCount = int(
+                table_stats[self.source_config.profiling.column_count]
+            )
+
+        # inject column level stats
+        dataset_profile.fieldProfiles = []
+        for profile in column_stats:
+            column_name = profile["Name"]
+            column_params = profile["Parameters"]
+
+            logger.debug(f"column_name: {column_name}")
+            # instantiate column profile class for each column
+            column_profile = DatasetFieldProfileClass(fieldPath=column_name)
+
+            if self.source_config.profiling.unique_count in column_params:
+                column_profile.uniqueCount = int(
+                    column_params[self.source_config.profiling.unique_count]
+                )
+            if self.source_config.profiling.unique_proportion in column_params:
+                column_profile.uniqueProportion = float(
+                    column_params[self.source_config.profiling.unique_proportion]
+                )
+            if self.source_config.profiling.null_count in column_params:
+                column_profile.nullCount = int(
+                    column_params[self.source_config.profiling.null_count]
+                )
+            if self.source_config.profiling.null_proportion in column_params:
+                column_profile.nullProportion = float(
+                    column_params[self.source_config.profiling.null_proportion]
+                )
+            if self.source_config.profiling.min in column_params:
+                column_profile.min = column_params[self.source_config.profiling.min]
+            if self.source_config.profiling.max in column_params:
+                column_profile.max = column_params[self.source_config.profiling.max]
+            if self.source_config.profiling.mean in column_params:
+                column_profile.mean = column_params[self.source_config.profiling.mean]
+            if self.source_config.profiling.median in column_params:
+                column_profile.median = column_params[
+                    self.source_config.profiling.median
+                ]
+            if self.source_config.profiling.stdev in column_params:
+                column_profile.stdev = column_params[self.source_config.profiling.stdev]
+
+            dataset_profile.fieldProfiles.append(column_profile)
+
+        if partition_spec:
+            # inject partition level stats
+            dataset_profile.partitionSpec = PartitionSpecClass(
+                partition=partition_spec,
+                type=PartitionTypeClass.PARTITION,
+            )
+
+        mcp = MetadataChangeProposalWrapper(
+            entityType="dataset",
+            entityUrn=mce.proposedSnapshot.urn,
+            changeType=ChangeTypeClass.UPSERT,
+            aspectName="datasetProfile",
+            aspect=dataset_profile,
+        )
+        return mcp
+
+    def get_profile_if_enabled(
+        self, mce: MetadataChangeEventClass, database_name: str, table_name: str
+    ) -> List[Optional[MetadataChangeProposalWrapper]]:
+        if self.source_config.profiling.enabled:
+            if self.source_config.profiling.partitioned:
+                # for cross-account ingestion
+                if self.source_config.catalog_id:
+                    response = self.glue_client.get_partitions(
+                        DatabaseName=database_name,
+                        Name=table_name,
+                        CatalogId=self.source_config.catalog_id,
+                    )
+                else:
+                    response = self.glue_client.get_partitions(
+                        DatabaseName=database_name, Name=table_name
+                    )
+
+                partitions = response["partitions"]
+
+                mcps = []
+                for p in partitions:
+                    table_stats = p["Parameters"]
+                    column_stats = p["Table"]["StorageDescriptor"]["Columns"]
+                    # only support single partition key
+                    partition_spec = str(
+                        {self.source_config.profiling.partition_key: p["Values"][0]}
+                    )
+                    mcps.append(
+                        self._create_profile_mcp(
+                            mce, table_stats, column_stats, partition_spec
+                        )
+                    )
+                return mcps
+            else:
+                # for cross-account ingestion
+                if self.source_config.catalog_id:
+                    response = self.glue_client.get_table(
+                        DatabaseName=database_name,
+                        Name=table_name,
+                        CatalogId=self.source_config.catalog_id,
+                    )
+                else:
+                    response = self.glue_client.get_table(
+                        DatabaseName=database_name, Name=table_name
+                    )
+
+                table_stats = response["Table"]["Parameters"]
+                column_stats = response["Table"]["StorageDescriptor"]["Columns"]
+
+                return [self._create_profile_mcp(mce, table_stats, column_stats)]
+
+        return [None]
+
     def gen_database_key(self, database: str) -> DatabaseKey:
         return DatabaseKey(
             database=database,
@@ -794,6 +934,16 @@ class GlueSource(Source):
                 )
                 self.report.report_workunit(mcp_wu)
                 yield mcp_wu
+
+            mcps_profiling = self.get_profile_if_enabled(mce, database_name, table_name)
+            if mcps_profiling:
+                for mcp_index in range(len(mcps_profiling)):
+                    mcp_wu = MetadataWorkUnit(
+                        id=f"profile-{full_table_name}-partition-{mcp_index}",
+                        mcp=mcps_profiling[mcp_index],
+                    )
+                    self.report.report_workunit(mcp_wu)
+                    yield mcp_wu
 
         if self.extract_transforms:
             yield from self._transform_extraction()
