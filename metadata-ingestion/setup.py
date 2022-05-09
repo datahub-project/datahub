@@ -279,6 +279,7 @@ mypy_stubs = {
     # avrogen package requires this
     "types-pytz",
     "types-pyOpenSSL",
+    "msal
 }
 
 base_dev_requirements = {
