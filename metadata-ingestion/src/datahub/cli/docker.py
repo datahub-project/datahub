@@ -235,6 +235,7 @@ def quickstart(
         [
             *base_command,
             "pull",
+            "--ignore-pull-failures"
         ],
         check=True,
     )
