@@ -12,7 +12,8 @@ const SummaryHeader = styled.div`
     padding-top: 0px;
     display: flex;
     align-items: center;
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    margin-top: 16px;
+    margin-bottom: 16px;
 `;
 
 const SummaryContainer = styled.div``;

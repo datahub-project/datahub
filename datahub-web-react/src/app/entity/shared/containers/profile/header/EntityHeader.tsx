@@ -227,9 +227,7 @@ export const EntityHeader = ({ showDeprecateOption }: Props) => {
         (entityData?.deprecation?.decommissionTime &&
             `Scheduled to be decommissioned on ${moment
                 .unix(entityData?.deprecation?.decommissionTime)
-                .format('DD/MMM/YYYY')} at ${moment
-                .unix(entityData?.deprecation?.decommissionTime)
-                .format('HH:mm:ss')} (${localeTimezone})`) ||
+                .format('DD/MMM/YYYY')} (${localeTimezone})`) ||
         undefined;
     const decommissionTimeGMT =
         entityData?.deprecation?.decommissionTime &&
