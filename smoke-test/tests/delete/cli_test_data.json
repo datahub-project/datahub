@@ -34,13 +34,8 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-rollback,PROD)",
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-delete,PROD)",
         "aspects": [
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/prod/kafka/SampleKafkaDataset"]
-            }
-          },
           {
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
               "description": null,

@@ -40,9 +40,8 @@ def test_setup():
 @pytest.mark.dependency()
 def test_delete_reference():
     platform = "urn:li:dataPlatform:kafka"
-    dataset_name = (
-        "test-rollback"
-    )
+    dataset_name = "test-delete"
+
     env = "PROD"
     dataset_urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
     tag_urn = "urn:li:tag:NeedsDocumentation"
