@@ -37,7 +37,7 @@ const PlatformInfo = styled.div`
 `;
 
 const TitleContainer = styled.div`
-    margin-bottom: 0px;
+    margin-bottom: 5px;
     line-height: 30px;
 `;
 
