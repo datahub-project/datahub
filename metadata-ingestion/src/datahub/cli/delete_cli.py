@@ -131,7 +131,7 @@ def delete(
         entity_type = guess_entity_type(urn=urn)
         logger.info(f"DataHub configured with {host}")
 
-        references_count, related_aspects = _delete_references(
+        references_count, related_aspects = delete_references(
             urn, dry_run=True, cached_session_host=(session, host)
         )
         remove_references: bool = False
@@ -150,7 +150,7 @@ def delete(
             remove_references = click.confirm("Do you want to delete these references?")
 
         if remove_references:
-            _delete_references(urn, dry_run=False, cached_session_host=(session, host))
+            delete_references(urn, dry_run=False, cached_session_host=(session, host))
 
         deletion_result: DeletionResult = delete_one_urn_cmd(
             urn,
@@ -345,7 +345,7 @@ def delete_one_urn_cmd(
     )
 
 
-def _delete_references(
+def delete_references(
     urn: str,
     dry_run: bool = False,
     cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
