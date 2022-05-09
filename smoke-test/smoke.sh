@@ -8,6 +8,12 @@ set -euxo pipefail
 #   - The gradle build has already been run.
 #   - Python 3.6+ is installed and in the PATH.
 
+docker images | grep datahub-
+docker images | grep elastic
+docker images | grep kafka
+
+exit 0
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR"
 

@@ -350,7 +350,8 @@ jobs:
   smoke-test:
     name: Run Smoke Tests
     runs-on: ubuntu-latest
-    needs: [setup,gms_build,frontend_build,kafka_setup_build,mysql_setup_build,elastic_setup_build]
+    #needs: [setup,gms_build,frontend_build,kafka_setup_build,mysql_setup_build,elastic_setup_build]
+    needs: [setup,kafka_setup_build,mysql_setup_build,elastic_setup_build]
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -363,18 +364,14 @@ jobs:
           python-version: "3.6"
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Gradle build
-        run: |
-          ./gradlew build -x check -x docs-website:build -x test -x yarnTest -x lint -x yarnLint -x testQuick -x :metadata-integration:java:spark-lineage:test
-          ./gradlew :datahub-frontend:dist
-      - name: Download GMS image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: ${{ needs.gms_build.outputs.image_tag }}
-      - name: Download Frontend image
-        uses: ishworkh/docker-image-artifact-download@v1
-        with:
-          image: ${{ needs.frontend_build.outputs.image_tag }}
+      #- name: Download GMS image
+      #  uses: ishworkh/docker-image-artifact-download@v1
+      #  with:
+      #    image: ${{ needs.gms_build.outputs.image_tag }}
+      #- name: Download Frontend image
+      #  uses: ishworkh/docker-image-artifact-download@v1
+      #  with:
+      #    image: ${{ needs.frontend_build.outputs.image_tag }}
       - name: Download Kafka Setup image
         uses: ishworkh/docker-image-artifact-download@v1
         with:
