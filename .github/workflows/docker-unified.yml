@@ -279,6 +279,11 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           load: true
           push: false
+      - name: Upload image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: ${{ steps.docker_meta.outputs.tags }}
       - name: Build and Push image
         if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/build-push-action@v2
@@ -318,7 +323,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-      - name: Build and Load MySQL Runner Platform image
+      - name: Build and Load Elastic Runner Platform image
         if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: docker/build-push-action@v2
         with:
@@ -328,6 +333,11 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           load: true
           push: false
+      - name: Upload image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: ${{ steps.docker_meta.outputs.tags }}
       - name: Build and Push image
         if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/build-push-action@v2
