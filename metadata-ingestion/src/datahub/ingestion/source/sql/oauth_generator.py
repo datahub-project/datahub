@@ -17,7 +17,7 @@ class OauthTokenGenerator:
     def _get_token(
         self,
         credentials: Union[str, Dict[str, Any]],
-        scopes: List[str],
+        scopes: Optional[List[str]],
         check_cache: bool,
     ) -> str:
         token = getattr(self, "_get_{}_token".format(self.provider))(
@@ -47,7 +47,7 @@ class OauthTokenGenerator:
         self,
         private_key_content: str,
         public_key_content: str,
-        scopes: List[str],
+        scopes: Optional[List[str]],
         check_cache: bool = False,
     ) -> Any:
         decoded_private_key_content = base64.b64decode(private_key_content)
@@ -63,6 +63,6 @@ class OauthTokenGenerator:
         return self._get_token(CLIENT_CREDENTIAL, scopes, check_cache)
 
     def get_token_with_secret(
-        self, secret: str, scopes: List[str], check_cache: bool = False
+        self, secret: str, scopes: Optional[List[str]], check_cache: bool = False
     ) -> Any:
         return self._get_token(secret, scopes, check_cache)
