@@ -233,10 +233,7 @@ def quickstart(
     # Pull and possibly build the latest containers.
     try:
         subprocess.run(
-            [
-                *base_command,
-                "pull"
-            ],
+            [*base_command, "pull"],
             check=True,
         )
     except subprocess.CalledProcessError:
