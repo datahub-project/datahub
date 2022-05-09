@@ -156,9 +156,9 @@ def make_sqlalchemy_uri(
 ) -> str:
     url = f"{scheme}://"
     if username is not None:
-        url += f"{quote_plus(username)}"
+        url += f"{quote_plus(username)}:"
         if password is not None:
-            url += f":{quote_plus(password)}"
+            url += f"{quote_plus(password)}"
         url += "@"
     if at is not None:
         url += f"{at}"
