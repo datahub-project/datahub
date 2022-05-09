@@ -210,7 +210,10 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                         f"but should be set when using {v} authentication"
                     )
                 if values.get("oauth_config").use_certificate is True:
-                    if values.get("oauth_config").base64_encoded_oauth_private_key is None:
+                    if (
+                        values.get("oauth_config").base64_encoded_oauth_private_key
+                        is None
+                    ):
                         raise ValueError(
                             f"'base64_encoded_oauth_private_key' was none "
                             f"but should be set when using certificate for oauth_config"
@@ -239,7 +242,9 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
 
     def get_oauth_connection(self):
         generator = OauthTokenGenerator(
-            self.oauth_config.client_id, self.oauth_config.authority_url, self.oauth_config.provider
+            self.oauth_config.client_id,
+            self.oauth_config.authority_url,
+            self.oauth_config.provider,
         )
         if self.oauth_config.use_certificate is True:
             response = generator.get_token_with_certificate(
@@ -249,7 +254,8 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
             )
         else:
             response = generator.get_token_with_secret(
-                secret=str(self.oauth_config.client_secret), scopes=self.oauth_config.scopes
+                secret=str(self.oauth_config.client_secret),
+                scopes=self.oauth_config.scopes,
             )
         token = response["access_token"]
         return snowflake.connector.connect(
