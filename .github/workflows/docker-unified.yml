@@ -96,7 +96,7 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: true
   gms_scan:
-    name: Scan GMS images
+    name: [Monitoring] Scan GMS images for vulnerabilities
     runs-on: ubuntu-latest
     needs: gms_build
     steps:
@@ -109,7 +109,6 @@ jobs:
         with:
           image-ref: ${{ needs.gms_build.outputs.image_tag }}
           format: 'table'
-          exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
@@ -170,7 +169,7 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: true
   mae_consumer_scan:
-    name: Scan MAE consumer images
+    name: [Monitoring] Scan MAE consumer images for vulnerabilities
     runs-on: ubuntu-latest
     needs: mae_consumer_build
     steps:
@@ -183,7 +182,6 @@ jobs:
         with:
           image-ref: ${{ needs.mae_consumer_build.outputs.image_tag }}
           format: 'table'
-          exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
@@ -244,7 +242,7 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: true
   mce_consumer_scan:
-    name: Scan MCE consumer images
+    name: [Monitoring] Scan MCE consumer images for vulnerabilities
     runs-on: ubuntu-latest
     needs: mce_consumer_build
     steps:
@@ -257,7 +255,6 @@ jobs:
         with:
           image-ref: ${{ needs.mce_consumer_build.outputs.image_tag }}
           format: 'table'
-          exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
@@ -318,7 +315,7 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: true
   datahub_upgrade_scan:
-    name: Scan DataHub Upgrade images
+    name: [Monitoring] Scan DataHub Upgrade images for vulnerabilities
     runs-on: ubuntu-latest
     needs: datahub_upgrade_build
     steps:
@@ -331,7 +328,6 @@ jobs:
         with:
           image-ref: ${{ needs.datahub_upgrade_build.outputs.image_tag }}
           format: 'table'
-          exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
@@ -392,7 +388,7 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
   frontend_scan:
-    name: Scan Frontend images
+    name: [Monitoring] Scan Frontend images for vulnerabilities
     runs-on: ubuntu-latest
     needs: frontend_build
     steps:
@@ -405,7 +401,6 @@ jobs:
         with:
           image-ref: ${{ needs.frontend_build.outputs.image_tag }}
           format: 'table'
-          exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
