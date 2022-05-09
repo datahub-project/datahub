@@ -15,6 +15,7 @@ import datahub.event.UpsertAspectRequest;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -154,7 +155,12 @@ public class RestEmitter implements Emitter {
   @Override
   public Future<MetadataWriteResponse> emit(MetadataChangeProposalWrapper mcpw,
       Callback callback) throws IOException {
-    return emit(this.eventFormatter.convert(mcpw), callback);
+    try {
+      return emit(StringEscapeUtils.convert(mcpw), callback);
+    } catch (URISyntaxException e) {
+      log.error(e.toString());
+      throw new RuntimeException(e);
+    }
   }
 
   @Override
