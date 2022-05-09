@@ -215,19 +215,19 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                         is None
                     ):
                         raise ValueError(
-                            f"'base64_encoded_oauth_private_key' was none "
-                            f"but should be set when using certificate for oauth_config"
+                            "'base64_encoded_oauth_private_key' was none "
+                            "but should be set when using certificate for oauth_config"
                         )
                     if values.get("oauth").base64_encoded_oauth_public_key is None:
                         raise ValueError(
-                            f"'base64_encoded_oauth_public_key' was none"
-                            f"but should be set when using use_certificate true for oauth_config"
+                            "'base64_encoded_oauth_public_key' was none"
+                            "but should be set when using use_certificate true for oauth_config"
                         )
                 else:
                     if values.get("oauth_config").client_secret is None:
                         raise ValueError(
-                            f"'oauth_config.client_secret' was none "
-                            f"but should be set when using use_certificate false for oauth_config"
+                            "'oauth_config.client_secret' was none "
+                            "but should be set when using use_certificate false for oauth_config"
                         )
             logger.info(f"using authenticator type '{v}'")
         return v
