@@ -96,7 +96,7 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: true
   gms_scan:
-    name: [Monitoring] Scan GMS images for vulnerabilities
+    name: "[Monitoring] Scan GMS images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: gms_build
     steps:
@@ -169,7 +169,7 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: true
   mae_consumer_scan:
-    name: [Monitoring] Scan MAE consumer images for vulnerabilities
+    name: "[Monitoring] Scan MAE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: mae_consumer_build
     steps:
@@ -242,7 +242,7 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: true
   mce_consumer_scan:
-    name: [Monitoring] Scan MCE consumer images for vulnerabilities
+    name: "[Monitoring] Scan MCE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: mce_consumer_build
     steps:
@@ -315,7 +315,7 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: true
   datahub_upgrade_scan:
-    name: [Monitoring] Scan DataHub Upgrade images for vulnerabilities
+    name: "[Monitoring] Scan DataHub Upgrade images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: datahub_upgrade_build
     steps:
@@ -388,7 +388,7 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
   frontend_scan:
-    name: [Monitoring] Scan Frontend images for vulnerabilities
+    name: "[Monitoring] Scan Frontend images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: frontend_build
     steps:
@@ -568,7 +568,6 @@ jobs:
     name: Run Smoke Tests
     runs-on: ubuntu-latest
     needs: [setup,gms_build,frontend_build,kafka_setup_build,mysql_setup_build,elastic_setup_build]
-    #needs: [setup,kafka_setup_build,mysql_setup_build,elastic_setup_build]
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -585,22 +584,27 @@ jobs:
         run: |
           ./gradlew :metadata-ingestion:install
       - name: Download GMS image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: ${{ needs.gms_build.outputs.image_tag }}
       - name: Download Frontend image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: ${{ needs.frontend_build.outputs.image_tag }}
       - name: Download Kafka Setup image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: ${{ needs.kafka_setup_build.outputs.image_tag }}
       - name: Download Mysql Setup image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: ${{ needs.mysql_setup_build.outputs.image_tag }}
       - name: Download Elastic Setup image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: ${{ needs.elastic_setup_build.outputs.image_tag }}
