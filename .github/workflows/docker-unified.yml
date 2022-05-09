@@ -366,7 +366,7 @@ jobs:
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Build datahub cli
         run: |
-          ./gradlew :metadata-ingestion:installDev
+          ./gradlew :metadata-ingestion:install
       - name: Download GMS image
         uses: ishworkh/docker-image-artifact-download@v1
         with:

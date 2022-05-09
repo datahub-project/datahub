@@ -23,11 +23,7 @@ pip install -r requirements.txt
 
 # --build-locally \
 echo "DATAHUB_VERSION = $DATAHUB_VERSION"
-datahub docker quickstart \
-	--quickstart-compose-file ../docker/docker-compose-without-neo4j.yml \
-	--quickstart-compose-file ../docker/docker-compose-without-neo4j.override.yml \
-	--quickstart-compose-file ../docker/docker-compose.dev.yml \
-	--dump-logs-on-failure
+datahub docker quickstart
 
 (cd tests/cypress ; yarn install)
 
