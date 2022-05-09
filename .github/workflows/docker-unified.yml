@@ -191,6 +191,8 @@ jobs:
     name: Build and Push Kafka Setup Docker Image to Docker Hub
     runs-on: ubuntu-latest
     needs: setup
+    outputs:
+      image_tag: ${{ steps.docker_meta.outputs.tags }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -244,6 +246,8 @@ jobs:
     name: Build and Push Mysql-setup Docker Image to Docker Hub
     runs-on: ubuntu-latest
     needs: setup
+    outputs:
+      image_tag: ${{ steps.docker_meta.outputs.tags }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -287,6 +291,8 @@ jobs:
     name: Build and Push Elastic Setup Docker Image to Docker Hub
     runs-on: ubuntu-latest
     needs: setup
+    outputs:
+      image_tag: ${{ steps.docker_meta.outputs.tags }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -372,7 +378,9 @@ jobs:
         with:
           image: ${{ needs.elastic_setup_build.outputs.image_tag }}
       - name: Smoke test
-        run: ./smoke-test/smoke.sh
+        run: |
+          echo "$DATAHUB_VERSION"
+          ./smoke-test/smoke.sh
         env:
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
           CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY}}
