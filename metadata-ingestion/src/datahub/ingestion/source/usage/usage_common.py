@@ -86,6 +86,7 @@ class GenericAggregatedDataset(Generic[ResourceType]):
         display_top_sql_queries: bool = True,
     ) -> MetadataWorkUnit:
 
+        top_sql_queries = None
         if display_top_sql_queries:
             budget_per_query: int = int(
                 self.total_budget_for_query_list / top_n_queries
@@ -99,8 +100,6 @@ class GenericAggregatedDataset(Generic[ResourceType]):
                 )
                 for query, _ in self.queryFreq.most_common(top_n_queries)
             ]
-        else:
-            top_sql_queries = None
 
         usageStats = DatasetUsageStatisticsClass(
             timestampMillis=int(self.bucket_start_time.timestamp() * 1000),
