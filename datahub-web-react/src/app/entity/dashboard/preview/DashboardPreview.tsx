@@ -16,6 +16,7 @@ import { capitalizeFirstLetter } from '../../../shared/textUtil';
 export const DashboardPreview = ({
     urn,
     name,
+    platformInstanceId,
     description,
     platform,
     access,
@@ -29,6 +30,7 @@ export const DashboardPreview = ({
 }: {
     urn: string;
     platform: string;
+    platformInstanceId?: string;
     name?: string;
     description?: string | null;
     access?: AccessLevel | null;
@@ -50,6 +52,7 @@ export const DashboardPreview = ({
             description={description || ''}
             type="Dashboard"
             logoUrl={logoUrl || ''}
+            platformInstanceId={platformInstanceId}
             platform={capitalizedPlatform}
             qualifier={access}
             owners={owners}

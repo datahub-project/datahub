@@ -456,6 +456,11 @@ enum EntityType {
     An instance of an individual run of a data job or data flow
     """
     DATA_PROCESS_INSTANCE
+
+    """
+    Data Platform Instance Entity
+    """
+    DATA_PLATFORM_INSTANCE
 }
 
 """
@@ -760,6 +765,11 @@ type Dataset implements EntityWithRelationships & Entity {
     The structured glossary terms associated with the dataset
     """
     glossaryTerms: GlossaryTerms
+
+    """
+    The specific instance of the data platform that this entity belongs to
+    """
+    dataPlatformInstance: DataPlatformInstance
 
     """
     The Domain associated with the Dataset
@@ -1548,6 +1558,11 @@ type Container implements Entity {
     The deprecation status of the container
     """
     deprecation: Deprecation
+
+    """
+    The specific instance of the data platform that this entity belongs to
+    """
+    dataPlatformInstance: DataPlatformInstance
 
     """
     Children entities inside of the Container
@@ -3509,6 +3524,11 @@ type Notebook implements Entity {
     domain: Domain
 
     """
+    The specific instance of the data platform that this entity belongs to
+    """
+    dataPlatformInstance: DataPlatformInstance
+
+    """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -3754,6 +3774,11 @@ type Dashboard implements EntityWithRelationships & Entity {
     The Domain associated with the Dashboard
     """
     domain: Domain
+
+    """
+    The specific instance of the data platform that this entity belongs to
+    """
+    dataPlatformInstance: DataPlatformInstance
 
     """
     Granular API for querying edges extending from this entity
@@ -4007,6 +4032,11 @@ type Chart implements EntityWithRelationships & Entity {
     The Domain associated with the Chart
     """
     domain: Domain
+
+    """
+    The specific instance of the data platform that this entity belongs to
+    """
+    dataPlatformInstance: DataPlatformInstance
 
     """
     Granular API for querying edges extending from this entity
@@ -4331,6 +4361,11 @@ type DataFlow implements EntityWithRelationships & Entity {
     domain: Domain
 
     """
+    The specific instance of the data platform that this entity belongs to
+    """
+    dataPlatformInstance: DataPlatformInstance
+
+    """
     Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -4455,6 +4490,11 @@ type DataJob implements EntityWithRelationships & Entity {
     Additional read only properties associated with the Data Job
     """
     properties: DataJobProperties
+
+    """
+    The specific instance of the data platform that this entity belongs to
+    """
+    dataPlatformInstance: DataPlatformInstance
 
     """
     Additional read write properties associated with the Data Job
@@ -5077,6 +5117,11 @@ type Assertion implements EntityWithRelationships & Entity {
     Details about assertion
     """
     info: AssertionInfo
+
+    """
+    The specific instance of the data platform that this entity belongs to
+    """
+    dataPlatformInstance: DataPlatformInstance
 
     """
     Lifecycle events detailing individual runs of this assertion. If startTimeMillis & endTimeMillis are not provided, the most
@@ -6562,6 +6607,11 @@ type MLModel implements EntityWithRelationships & Entity {
     deprecation: Deprecation
 
     """
+    The specific instance of the data platform that this entity belongs to
+    """
+    dataPlatformInstance: DataPlatformInstance
+
+    """
     Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -6641,6 +6691,11 @@ type MLModelGroup implements EntityWithRelationships & Entity {
     Deprecation
     """
     deprecation: Deprecation
+
+    """
+    The specific instance of the data platform that this entity belongs to
+    """
+    dataPlatformInstance: DataPlatformInstance
 
     """
     Granular API for querying edges extending from this entity
@@ -6745,6 +6800,11 @@ type MLFeature implements EntityWithRelationships & Entity {
     Deprecation
     """
     deprecation: Deprecation
+
+    """
+    The specific instance of the data platform that this entity belongs to
+    """
+    dataPlatformInstance: DataPlatformInstance
 
     """
     Granular API for querying edges extending from this entity
@@ -6899,6 +6959,11 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     deprecation: Deprecation
 
     """
+    The specific instance of the data platform that this entity belongs to
+    """
+    dataPlatformInstance: DataPlatformInstance
+
+    """
     Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -6999,6 +7064,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity {
     Deprecation
     """
     deprecation: Deprecation
+
+    """
+    The specific instance of the data platform that this entity belongs to
+    """
+    dataPlatformInstance: DataPlatformInstance
 
     """
     Granular API for querying edges extending from this entity
@@ -7388,6 +7458,10 @@ type Domain implements Entity {
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
+
+
+
+
 
 """
 Properties about a domain

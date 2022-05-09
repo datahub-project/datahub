@@ -130,6 +130,7 @@ export class ContainerEntity implements Entity<Container> {
                 name={this.displayName(data)}
                 platformName={data.platform.properties?.displayName || data.platform.name}
                 platformLogo={data.platform.properties?.logoUrl}
+                platformInstanceId={data.dataPlatformInstance?.instanceId}
                 description={data.properties?.description}
                 owners={data.ownership?.owners}
                 subTypes={data.subTypes}

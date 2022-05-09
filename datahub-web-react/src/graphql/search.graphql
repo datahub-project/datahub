@@ -31,6 +31,9 @@ fragment searchResultFields on Entity {
         platform {
             ...platformFields
         }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
         editableProperties {
             description
         }
@@ -131,6 +134,9 @@ fragment searchResultFields on Entity {
         platform {
             ...platformFields
         }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
         domain {
             ...entityDomain
         }
@@ -171,6 +177,9 @@ fragment searchResultFields on Entity {
         platform {
             ...platformFields
         }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
         domain {
             ...entityDomain
         }
@@ -207,6 +216,9 @@ fragment searchResultFields on Entity {
         platform {
             ...platformFields
         }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
         domain {
             ...entityDomain
         }
@@ -242,6 +254,9 @@ fragment searchResultFields on Entity {
         }
         deprecation {
             ...deprecationFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
         }
     }
     ... on GlossaryTerm {
@@ -281,6 +296,9 @@ fragment searchResultFields on Entity {
         }
         platform {
             ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
         }
         editableProperties {
             description
@@ -333,6 +351,9 @@ fragment searchResultFields on Entity {
         deprecation {
             ...deprecationFields
         }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
     }
     ... on MLFeature {
         ...nonRecursiveMLFeature
@@ -353,6 +374,9 @@ fragment searchResultFields on Entity {
         deprecation {
             ...deprecationFields
         }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
     }
     ... on MLModelGroup {
         name
@@ -366,6 +390,9 @@ fragment searchResultFields on Entity {
         }
         deprecation {
             ...deprecationFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
         }
     }
     ... on Tag {
@@ -397,6 +424,9 @@ fragment facetFields on FacetMetadata {
             }
             ... on DataPlatform {
                 ...platformFields
+            }
+            ... on DataPlatformInstance {
+                ...dataPlatformInstanceFields
             }
             ... on Domain {
                 urn

@@ -162,6 +162,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 urn={data.urn}
                 platform={data.tool}
                 name={data.properties?.name}
+                platformInstanceId={data.dataPlatformInstance?.instanceId}
                 description={data.editableProperties?.description || data.properties?.description}
                 access={data.properties?.access}
                 tags={data.globalTags || undefined}

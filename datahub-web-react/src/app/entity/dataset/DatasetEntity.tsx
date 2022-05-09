@@ -234,6 +234,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={data.platform.properties?.displayName || data.platform.name}
                 platformLogo={data.platform.properties?.logoUrl}
+                platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 glossaryTerms={data.glossaryTerms}
@@ -253,6 +254,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={data.platform.properties?.displayName || data.platform.name}
                 platformLogo={data.platform.properties?.logoUrl}
+                platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 domain={data.domain}
