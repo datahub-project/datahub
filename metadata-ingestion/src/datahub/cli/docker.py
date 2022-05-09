@@ -231,14 +231,21 @@ def quickstart(
     ]
 
     # Pull and possibly build the latest containers.
-    subprocess.run(
-        [
-            *base_command,
-            "pull",
-            "--ignore-pull-failures"
-        ],
-        check=True,
-    )
+    try:
+        subprocess.run(
+            [
+                *base_command,
+                "pull"
+            ],
+            check=True,
+        )
+    except subprocess.CalledProcessError:
+        click.secho(
+            "Error while pulling images. Going to attempt to move on to docker-compose up assuming the images have "
+            "been built locally",
+            fg="red",
+        )
+
     if build_locally:
         subprocess.run(
             [
