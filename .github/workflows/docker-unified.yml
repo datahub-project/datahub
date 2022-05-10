@@ -1,0 +1,633 @@
+name: Unified Docker Workflow
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+  pull_request:
+    branches:
+      - master
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+  release:
+    types: [published, edited]
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      publish: ${{ steps.publish.outputs.publish }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Compute Tag
+        id: tag
+        run: |
+          echo "GITHUB_REF: $GITHUB_REF"
+          SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
+          TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/master,head\,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
+          echo "tag=$TAG"
+          echo "::set-output name=tag::$TAG"
+      - name: Check whether publishing enabled
+        id: publish
+        env:
+          ENABLE_PUBLISH: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
+          echo "::set-output name=publish::${{ env.ENABLE_PUBLISH != '' }}"
+  gms_build:
+    name: Build and Push DataHub GMS Docker Image
+    runs-on: ubuntu-latest
+    needs: setup
+    outputs:
+      image_tag: ${{ steps.docker_meta.outputs.tags }}
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Docker meta
+        id: docker_meta
+        uses: crazy-max/ghaction-docker-meta@v1
+        with:
+          # list of Docker images to use as base name for tags
+          images: |
+            linkedin/datahub-gms
+          # add git short SHA as Docker tag
+          tag-custom: ${{ needs.setup.outputs.tag }}
+          tag-custom-only: true
+      - name: Set up QEMU
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Login to DockerHub
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Build and Load Runner Platform image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./docker/datahub-gms/Dockerfile
+          platforms: linux/amd64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          load: true
+          push: false
+      - name: Upload image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: ${{ steps.docker_meta.outputs.tags }}
+      - name: Build and Push MultiPlatform image
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./docker/datahub-gms/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          push: true
+  gms_scan:
+    name: "[Monitoring] Scan GMS images for vulnerabilities"
+    runs-on: ubuntu-latest
+    needs: gms_build
+    steps:
+      - name: Download image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: ${{ needs.gms_build.outputs.image_tag }}
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ needs.gms_build.outputs.image_tag }}
+          format: 'table'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+  mae_consumer_build:
+    name: Build and Push DataHub MAE Consumer Docker Image
+    runs-on: ubuntu-latest
+    needs: setup
+    outputs:
+      image_tag: ${{ steps.docker_meta.outputs.tags }}
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Docker meta
+        id: docker_meta
+        uses: crazy-max/ghaction-docker-meta@v1
+        with:
+          # list of Docker images to use as base name for tags
+          images: |
+            linkedin/datahub-mae-consumer
+          # add git short SHA as Docker tag
+          tag-custom: ${{ needs.setup.outputs.tag }}
+          tag-custom-only: true
+      - name: Set up QEMU
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Login to DockerHub
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Build and Load Runner Platform image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./docker/datahub-mae-consumer/Dockerfile
+          platforms: linux/amd64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          load: true
+          push: false
+      - name: Upload image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: ${{ steps.docker_meta.outputs.tags }}
+      - name: Build and Push MultiPlatform image
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./docker/datahub-mae-consumer/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          push: true
+  mae_consumer_scan:
+    name: "[Monitoring] Scan MAE consumer images for vulnerabilities"
+    runs-on: ubuntu-latest
+    needs: mae_consumer_build
+    steps:
+      - name: Download image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: ${{ needs.mae_consumer_build.outputs.image_tag }}
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ needs.mae_consumer_build.outputs.image_tag }}
+          format: 'table'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+  mce_consumer_build:
+    name: Build and Push DataHub MCE Consumer Docker Image
+    runs-on: ubuntu-latest
+    needs: setup
+    outputs:
+      image_tag: ${{ steps.docker_meta.outputs.tags }}
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Docker meta
+        id: docker_meta
+        uses: crazy-max/ghaction-docker-meta@v1
+        with:
+          # list of Docker images to use as base name for tags
+          images: |
+            linkedin/datahub-mce-consumer
+          # add git short SHA as Docker tag
+          tag-custom: ${{ needs.setup.outputs.tag }}
+          tag-custom-only: true
+      - name: Set up QEMU
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Login to DockerHub
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Build and Load Runner Platform image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./docker/datahub-mce-consumer/Dockerfile
+          platforms: linux/amd64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          load: true
+          push: false
+      - name: Upload image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: ${{ steps.docker_meta.outputs.tags }}
+      - name: Build and Push MultiPlatform image
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./docker/datahub-mce-consumer/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          push: true
+  mce_consumer_scan:
+    name: "[Monitoring] Scan MCE consumer images for vulnerabilities"
+    runs-on: ubuntu-latest
+    needs: mce_consumer_build
+    steps:
+      - name: Download image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: ${{ needs.mce_consumer_build.outputs.image_tag }}
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ needs.mce_consumer_build.outputs.image_tag }}
+          format: 'table'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+  datahub_upgrade_build:
+    name: Build and Push DataHub Upgrade Docker Image
+    runs-on: ubuntu-latest
+    needs: setup
+    outputs:
+      image_tag: ${{ steps.docker_meta.outputs.tags }}
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Docker meta
+        id: docker_meta
+        uses: crazy-max/ghaction-docker-meta@v1
+        with:
+          # list of Docker images to use as base name for tags
+          images: |
+            linkedin/datahub-upgrade
+          # add git short SHA as Docker tag
+          tag-custom: ${{ needs.setup.outputs.tag }}
+          tag-custom-only: true
+      - name: Set up QEMU
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Login to DockerHub
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Build and Load Runner Platform image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./docker/datahub-upgrade/Dockerfile
+          platforms: linux/amd64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          load: true
+          push: false
+      - name: Upload image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: ${{ steps.docker_meta.outputs.tags }}
+      - name: Build and Push MultiPlatform image
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./docker/datahub-upgrade/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          push: true
+  datahub_upgrade_scan:
+    name: "[Monitoring] Scan DataHub Upgrade images for vulnerabilities"
+    runs-on: ubuntu-latest
+    needs: datahub_upgrade_build
+    steps:
+      - name: Download image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: ${{ needs.datahub_upgrade_build.outputs.image_tag }}
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ needs.datahub_upgrade_build.outputs.image_tag }}
+          format: 'table'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+  frontend_build:
+    name: Build and Push Frontend Docker Image to Docker Hub
+    runs-on: ubuntu-latest
+    needs: setup
+    outputs:
+      image_tag: ${{ steps.docker_meta.outputs.tags }}
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Docker meta
+        id: docker_meta
+        uses: crazy-max/ghaction-docker-meta@v1
+        with:
+          # list of Docker images to use as base name for tags
+          images: |
+            linkedin/datahub-frontend-react
+          # add git short SHA as Docker tag
+          tag-custom: ${{ needs.setup.outputs.tag }}
+          tag-custom-only: true
+      - name: Set up QEMU
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Login to DockerHub
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Build and Load Runner Platform image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./docker/datahub-frontend/Dockerfile
+          platforms: linux/amd64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          load: true
+          push: false
+      - name: Upload image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: ${{ steps.docker_meta.outputs.tags }}
+      - name: Build and Push MultiPlatform image
+        uses: docker/build-push-action@v2
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        with:
+          context: .
+          file: ./docker/datahub-frontend/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          push: ${{ needs.setup.outputs.publish == 'true' }}
+  frontend_scan:
+    name: "[Monitoring] Scan Frontend images for vulnerabilities"
+    runs-on: ubuntu-latest
+    needs: frontend_build
+    steps:
+      - name: Download image
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: ${{ needs.frontend_build.outputs.image_tag }}
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ needs.frontend_build.outputs.image_tag }}
+          format: 'table'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+  kafka_setup_build:
+    name: Build and Push Kafka Setup Docker Image to Docker Hub
+    runs-on: ubuntu-latest
+    needs: setup
+    outputs:
+      image_tag: ${{ steps.docker_meta.outputs.tags }}
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Docker meta
+        id: docker_meta
+        uses: crazy-max/ghaction-docker-meta@v1
+        with:
+          # list of Docker images to use as base name for tags
+          images: |
+            linkedin/datahub-kafka-setup
+          # add git short SHA as Docker tag
+          tag-custom: ${{ needs.setup.outputs.tag }}
+          tag-custom-only: true
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Login to DockerHub
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Build and Load Runner Platform image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: ./docker/kafka-setup
+          file: ./docker/kafka-setup/Dockerfile
+          platforms: linux/amd64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          load: true
+          push: false
+      - name: Upload image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: ${{ steps.docker_meta.outputs.tags }}
+      - name: Build and Push MultiPlatform image
+        uses: docker/build-push-action@v2
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        with:
+          file: ./docker/kafka-setup/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          context: ./docker/kafka-setup
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          push: ${{ needs.setup.outputs.publish == 'true' }}
+  mysql_setup_build:
+    name: Build and Push Mysql-setup Docker Image to Docker Hub
+    runs-on: ubuntu-latest
+    needs: setup
+    outputs:
+      image_tag: ${{ steps.docker_meta.outputs.tags }}
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Docker meta
+        id: docker_meta
+        uses: crazy-max/ghaction-docker-meta@v1
+        with:
+          # list of Docker images to use as base name for tags
+          images: |
+            acryldata/datahub-mysql-setup
+          # add git short SHA as Docker tag
+          tag-custom: ${{ needs.setup.outputs.tag }}
+          tag-custom-only: true
+      - name: Login to DockerHub
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.ORG_DOCKER_PASSWORD }}
+      - name: Build and Load MySQL Runner Platform image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./docker/mysql-setup/Dockerfile
+          platforms: linux/amd64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          load: true
+          push: false
+      - name: Upload image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: ${{ steps.docker_meta.outputs.tags }}
+      - name: Build and Push image
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./docker/mysql-setup/Dockerfile
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          push: ${{ needs.setup.outputs.publish == 'true' }}
+  elastic_setup_build:
+    name: Build and Push Elastic Setup Docker Image to Docker Hub
+    runs-on: ubuntu-latest
+    needs: setup
+    outputs:
+      image_tag: ${{ steps.docker_meta.outputs.tags }}
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Docker meta
+        id: docker_meta
+        uses: crazy-max/ghaction-docker-meta@v1
+        with:
+          # list of Docker images to use as base name for tags
+          images: |
+            linkedin/datahub-elasticsearch-setup
+          # add git short SHA as Docker tag
+          tag-custom: ${{ needs.setup.outputs.tag }}
+          tag-custom-only: true
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Login to DockerHub
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Build and Load Elastic Runner Platform image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./docker/elasticsearch-setup/Dockerfile
+          platforms: linux/amd64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          load: true
+          push: false
+      - name: Upload image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: ishworkh/docker-image-artifact-upload@v1
+        with:
+          image: ${{ steps.docker_meta.outputs.tags }}
+      - name: Build and Push image
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./docker/elasticsearch-setup/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          push: ${{ needs.setup.outputs.publish == 'true' }}
+  smoke-test:
+    name: Run Smoke Tests
+    runs-on: ubuntu-latest
+    needs: [setup,gms_build,frontend_build,kafka_setup_build,mysql_setup_build,elastic_setup_build]
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+      - name: Set up JDK 1.8
+        uses: actions/setup-java@v1
+        with:
+          java-version: 1.8
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.6"
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Build datahub cli
+        run: |
+          ./gradlew :metadata-ingestion:install
+      - name: Download GMS image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: ${{ needs.gms_build.outputs.image_tag }}
+      - name: Download Frontend image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: ${{ needs.frontend_build.outputs.image_tag }}
+      - name: Download Kafka Setup image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: ${{ needs.kafka_setup_build.outputs.image_tag }}
+      - name: Download Mysql Setup image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: ${{ needs.mysql_setup_build.outputs.image_tag }}
+      - name: Download Elastic Setup image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        uses: ishworkh/docker-image-artifact-download@v1
+        with:
+          image: ${{ needs.elastic_setup_build.outputs.image_tag }}
+      - name: Smoke test
+        run: |
+          echo "$DATAHUB_VERSION"
+          ./smoke-test/smoke.sh
+        env:
+          DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
+          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+      - uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: Test Results (smoke tests)
+          path: |
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+            **/junit.*.xml
+      - name: Slack failure notification
+        if: failure() && github.event_name == 'push'
+        uses: kpritam/slack-job-status-action@v1
+        with:
+          job-status: ${{ job.status }}
+          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
+          channel: github-activities
+
