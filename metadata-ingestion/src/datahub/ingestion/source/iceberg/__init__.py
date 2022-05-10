@@ -438,7 +438,7 @@ def _parse_basic_datatype(
             "type": "long",
             "logicalType": "timestamp-micros",
             # Commented out since Avro's Python implementation (1.11.0) does not support local-timestamp-micros, even though it exists in the spec.
-            # See bug report: https://issues.apache.org/jira/browse/AVRO-3476
+            # See bug report: https://issues.apache.org/jira/browse/AVRO-3476 and PR https://github.com/apache/avro/pull/1634
             # "logicalType": "timestamp-micros"
             # if timestamp_type.adjust_to_utc
             # else "local-timestamp-micros",

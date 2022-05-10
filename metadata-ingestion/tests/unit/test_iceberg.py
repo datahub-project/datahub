@@ -60,23 +60,38 @@ def assert_field(
 
 
 def test_adls_config_no_credential():
+    """
+    Test when no ADLS credential information is provided (SAS token, Account key).
+    """
     with pytest.raises(ConfigurationError):
         AdlsSourceConfig(account_name="test", container_name="test")
 
 
 def test_adls_config_with_sas_credential():
+    """
+    Test when a SAS token is used as an ADLS credential.
+    """
     AdlsSourceConfig(account_name="test", sas_token="test", container_name="test")
 
 
 def test_adls_config_with_key_credential():
+    """
+    Test when an account key is used as an ADLS credential.
+    """
     AdlsSourceConfig(account_name="test", account_key="test", container_name="test")
 
 
 def test_config_for_tests():
+    """
+    Test valid iceberg source that will be used in unit tests.
+    """
     with_iceberg_source()
 
 
 def test_config_no_filesystem():
+    """
+    Test when a SAS token is used as an ADLS credential.
+    """
     with pytest.raises(ConfigurationError):
         IcebergSource(
             ctx=PipelineContext(run_id="iceberg-source-test"),
@@ -85,6 +100,9 @@ def test_config_no_filesystem():
 
 
 def test_config_multiple_filesystems():
+    """
+    Test when more than 1 filesystem is configured.
+    """
     with pytest.raises(ConfigurationError):
         adls: AdlsSourceConfig = AdlsSourceConfig(
             account_name="test", container_name="test"
@@ -150,16 +168,47 @@ def test_iceberg_primitive_type_to_schema_field(
         )
 
 
-def test_iceberg_list_to_schema_field():
+@pytest.mark.parametrize(
+    "iceberg_type, expected_array_nested_type",
+    [
+        (IcebergTypes.BinaryType.get(), "bytes"),
+        (IcebergTypes.BooleanType.get(), "boolean"),
+        (IcebergTypes.DateType.get(), "date"),
+        (
+            IcebergTypes.DecimalType.of(3, 2),
+            "decimal",
+        ),
+        (IcebergTypes.DoubleType.get(), "double"),
+        (IcebergTypes.FixedType.of_length(4), "fixed"),
+        (IcebergTypes.FloatType.get(), "float"),
+        (IcebergTypes.IntegerType.get(), "int"),
+        (IcebergTypes.LongType.get(), "long"),
+        (IcebergTypes.StringType.get(), "string"),
+        (
+            IcebergTypes.TimestampType.with_timezone(),
+            "timestamp-micros",
+        ),
+        (
+            IcebergTypes.TimestampType.without_timezone(),
+            "timestamp-micros",
+        ),
+        (IcebergTypes.TimeType.get(), "timestamp-micros"),
+        (
+            IcebergTypes.UUIDType.get(),
+            "string",
+        ),
+    ],
+)
+def test_iceberg_list_to_schema_field(
+    iceberg_type: IcebergTypes.PrimitiveType, expected_array_nested_type: Any
+) -> None:
     """
-    This test is failing because avro does not keep the nestedType.
-    Here is a link to a Slack post that tries to describe the issue:
-    https://datahubspace.slack.com/archives/C02SRNN11EG/p1648687685930859?thread_ts=1647388015.115169&cid=C02SRNN11EG
+    Test converting a list typed Iceberg field to an ArrayType SchemaField, including the list nested type.
     """
     list_column: NestedField = NestedField.required(
         1,
         "listField",
-        IcebergTypes.ListType.of_required(2, IcebergTypes.StringType.get()),
+        IcebergTypes.ListType.of_required(2, iceberg_type),
         "documentation",
     )
     iceberg_source_instance = with_iceberg_source()
@@ -172,20 +221,53 @@ def test_iceberg_list_to_schema_field():
         schema_fields[0].type.type, ArrayType
     ), f"Field type {schema_fields[0].type.type} was expected to be {ArrayType}"
     arrayType: ArrayType = schema_fields[0].type.type
-    assert arrayType.nestedType == ["string"]
+    assert arrayType.nestedType == [
+        expected_array_nested_type
+    ], f"List Field nested type {arrayType.nestedType} was expected to be {expected_array_nested_type}"
 
 
-def test_iceberg_map_to_schema_field():
+@pytest.mark.parametrize(
+    "iceberg_type, expected_map_value_type",
+    [
+        (IcebergTypes.BinaryType.get(), "bytes"),
+        (IcebergTypes.BooleanType.get(), "boolean"),
+        (IcebergTypes.DateType.get(), "date"),
+        (
+            IcebergTypes.DecimalType.of(3, 2),
+            "decimal",
+        ),
+        (IcebergTypes.DoubleType.get(), "double"),
+        (IcebergTypes.FixedType.of_length(4), "fixed"),
+        (IcebergTypes.FloatType.get(), "float"),
+        (IcebergTypes.IntegerType.get(), "int"),
+        (IcebergTypes.LongType.get(), "long"),
+        (IcebergTypes.StringType.get(), "string"),
+        (
+            IcebergTypes.TimestampType.with_timezone(),
+            "timestamp-micros",
+        ),
+        (
+            IcebergTypes.TimestampType.without_timezone(),
+            "timestamp-micros",
+        ),
+        (IcebergTypes.TimeType.get(), "timestamp-micros"),
+        (
+            IcebergTypes.UUIDType.get(),
+            "string",
+        ),
+    ],
+)
+def test_iceberg_map_to_schema_field(
+    iceberg_type: IcebergTypes.PrimitiveType, expected_map_value_type: Any
+) -> None:
     """
-    This test is failing because avro does not keep the nestedType.
-    Here is a link to a Slack post that tries to describe the issue:
-    https://datahubspace.slack.com/archives/C02SRNN11EG/p1648687685930859?thread_ts=1647388015.115169&cid=C02SRNN11EG
+    Test converting a map typed Iceberg field to a MapType SchemaField, including the map value type.
     """
     map_column: NestedField = NestedField.required(
         1,
         "mapField",
         IcebergTypes.MapType.of_required(
-            11, 12, IcebergTypes.StringType.get(), IcebergTypes.IntegerType.get()
+            11, 12, IcebergTypes.StringType.get(), iceberg_type
         ),
         "documentation",
     )
@@ -197,8 +279,12 @@ def test_iceberg_map_to_schema_field():
         schema_fields[0].type.type, MapType
     ), f"Field type {schema_fields[0].type.type} was expected to be {MapType}"
     mapType: MapType = schema_fields[0].type.type
-    assert mapType.keyType == "string"
-    assert mapType.valueType == "int"
+    assert (
+        mapType.keyType == "string"
+    ), f"Map key type {mapType.keyType} should always be a string"
+    assert (
+        mapType.valueType == expected_map_value_type
+    ), f"Map value type {mapType.valueType} was expected to be {expected_map_value_type}"
 
 
 @pytest.mark.parametrize(
@@ -229,10 +315,15 @@ def test_iceberg_map_to_schema_field():
         (
             IcebergTypes.UUIDType.get(),
             StringTypeClass,
-        ),  # Is this the right mapping or it should be a FixedType?
+        ),
     ],
 )
-def test_iceberg_struct_to_schema_field(iceberg_type, expected_schema_field_type):
+def test_iceberg_struct_to_schema_field(
+    iceberg_type: IcebergTypes.PrimitiveType, expected_schema_field_type: Any
+) -> None:
+    """
+    Test converting a struct typed Iceberg field to a RecordType SchemaField.
+    """
     field1: NestedField = NestedField.required(
         11, "field1", iceberg_type, "field documentation"
     )
