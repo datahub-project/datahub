@@ -33,11 +33,11 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
-import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
-import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import lombok.extern.slf4j.Slf4j;
@@ -567,10 +567,16 @@ public class EbeanEntityService extends EntityService {
             // soft delete by setting status.removed=true (if applicable)
             final Status statusAspect = new Status();
             statusAspect.setRemoved(true);
-            final SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
-            final AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
 
-            this.ingestAspect(entityUrn, Constants.STATUS_ASPECT_NAME, statusAspect, auditStamp, systemMetadata);
+            final MetadataChangeProposal gmce = new MetadataChangeProposal();
+            gmce.setEntityUrn(entityUrn);
+            gmce.setChangeType(ChangeType.UPSERT);
+            gmce.setEntityType(entityUrn.getEntityType());
+            gmce.setAspectName(Constants.STATUS_ASPECT_NAME);
+            gmce.setAspect(GenericRecordUtils.serializeAspect(statusAspect));
+            final AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+
+            this.ingestProposal(gmce, auditStamp);
           }
         } else {
           // Else, only delete the specific aspect.
