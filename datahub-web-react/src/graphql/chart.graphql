@@ -68,6 +68,9 @@ query getChart($urn: String!) {
         status {
             removed
         }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
     }
 }
 

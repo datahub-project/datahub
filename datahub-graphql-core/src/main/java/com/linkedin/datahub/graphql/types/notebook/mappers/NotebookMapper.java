@@ -24,6 +24,7 @@ import com.linkedin.datahub.graphql.generated.QueryCell;
 import com.linkedin.datahub.graphql.generated.TextCell;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.ChangeAuditStampsMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
@@ -81,6 +82,7 @@ public class NotebookMapper implements ModelMapper<EntityResponse, Notebook> {
         .setType(EntityType.DATA_PLATFORM)
         .setUrn(dataPlatformInstance.getPlatform().toString())
         .build());
+    notebook.setDataPlatformInstance(DataPlatformInstanceAspectMapper.map(new DataPlatformInstance(dataMap)));
   }
 
   private void mapSubTypes(Notebook notebook, DataMap dataMap) {

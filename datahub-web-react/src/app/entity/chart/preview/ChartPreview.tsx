@@ -18,6 +18,7 @@ export const ChartPreview = ({
     name,
     description,
     platform,
+    platformInstanceId,
     access,
     owners,
     tags,
@@ -29,6 +30,7 @@ export const ChartPreview = ({
 }: {
     urn: string;
     platform: string;
+    platformInstanceId?: string;
     name?: string;
     description?: string | null;
     access?: AccessLevel | null;
@@ -51,6 +53,7 @@ export const ChartPreview = ({
             type="Chart"
             logoUrl={logoUrl || ''}
             platform={capitalizedPlatform}
+            platformInstanceId={platformInstanceId}
             qualifier={access}
             tags={tags}
             owners={owners}

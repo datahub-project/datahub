@@ -67,11 +67,6 @@ public class IngestPoliciesStep implements BootstrapStep {
           String.format("Found malformed policies file, expected an Array but found %s", policiesObj.getNodeType()));
     }
 
-    // If search index for policies is empty, send MCLs for all policies to ingest policies into the search index
-    if (_entitySearchService.docCount(Constants.POLICY_ENTITY_NAME) == 0) {
-      updatePolicyIndex();
-    }
-
     // 2. For each JSON object, cast into a DataHub Policy Info object.
     for (final JsonNode policyObj : policiesObj) {
       final Urn urn = Urn.createFromString(policyObj.get("urn").asText());
@@ -98,6 +93,11 @@ public class IngestPoliciesStep implements BootstrapStep {
           log.info(String.format("Skipping ingestion of editable policy with urn %s", urn));
         }
       }
+    }
+    // If search index for policies is empty, update the policy index with the ingested policies from previous step.
+    // Directly update the ES index, does not produce MCLs
+    if (_entitySearchService.docCount(Constants.POLICY_ENTITY_NAME) == 0) {
+      updatePolicyIndex();
     }
     log.info("Successfully ingested default access policies.");
   }
