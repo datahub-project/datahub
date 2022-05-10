@@ -172,9 +172,7 @@ def test_iceberg_list_to_schema_field():
         schema_fields[0].type.type, ArrayType
     ), f"Field type {schema_fields[0].type.type} was expected to be {ArrayType}"
     arrayType: ArrayType = schema_fields[0].type.type
-    assert isinstance(
-        arrayType.nestedType, StringTypeClass
-    ), f"List Field nested type {arrayType.nestedType} was expected to be {StringTypeClass}"
+    assert arrayType.nestedType == ["string"]
 
 
 def test_iceberg_map_to_schema_field():
@@ -199,12 +197,8 @@ def test_iceberg_map_to_schema_field():
         schema_fields[0].type.type, MapType
     ), f"Field type {schema_fields[0].type.type} was expected to be {MapType}"
     mapType: MapType = schema_fields[0].type.type
-    assert isinstance(
-        mapType.keyType, StringTypeClass
-    ), f"Map key type {mapType.keyType} was expected to be {StringTypeClass}"
-    assert isinstance(
-        mapType.valueType, NumberTypeClass
-    ), f"Map value type {mapType.valueType} was expected to be {NumberTypeClass}"
+    assert mapType.keyType == "string"
+    assert mapType.valueType == "int"
 
 
 @pytest.mark.parametrize(
