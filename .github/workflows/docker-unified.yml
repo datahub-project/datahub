@@ -101,6 +101,7 @@ jobs:
     needs: gms_build
     steps:
       - name: Download image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: ${{ needs.gms_build.outputs.image_tag }}
@@ -133,11 +134,6 @@ jobs:
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
-      - name: Set up QEMU
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        uses: docker/setup-qemu-action@v1
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
       - name: Login to DockerHub
         if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/login-action@v1
@@ -164,6 +160,7 @@ jobs:
     needs: mae_consumer_build
     steps:
       - name: Download image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: ${{ needs.mae_consumer_build.outputs.image_tag }}
@@ -196,11 +193,6 @@ jobs:
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
-      - name: Set up QEMU
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        uses: docker/setup-qemu-action@v1
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
       - name: Login to DockerHub
         if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/login-action@v1
@@ -227,6 +219,7 @@ jobs:
     needs: mce_consumer_build
     steps:
       - name: Download image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: ${{ needs.mce_consumer_build.outputs.image_tag }}
@@ -259,11 +252,6 @@ jobs:
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
-      - name: Set up QEMU
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        uses: docker/setup-qemu-action@v1
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
       - name: Login to DockerHub
         if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/login-action@v1
@@ -290,6 +278,7 @@ jobs:
     needs: datahub_upgrade_build
     steps:
       - name: Download image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: ${{ needs.datahub_upgrade_build.outputs.image_tag }}
@@ -363,6 +352,7 @@ jobs:
     needs: frontend_build
     steps:
       - name: Download image
+        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: ${{ needs.frontend_build.outputs.image_tag }}
