@@ -3,17 +3,21 @@ on:
   push:
     branches:
       - master
-    paths-ignore:
-      - "docs/**"
-      - "**.md"
+    paths:
+      - "**/*.gradle"
+      - "li-utils/**"
+      - "metadata-models/**"
+      - "metadata-io/**"
   pull_request:
     branches:
       - master
-    paths-ignore:
-      - "docs/**"
-      - "**.md"
+    paths:
+      - "**/*.gradle"
+      - "li-utils/**"
+      - "metadata-models/**"
+      - "metadata-io/**"
   release:
-    types: [published, edited]
+    types: [published]
 
 jobs:
   build:
