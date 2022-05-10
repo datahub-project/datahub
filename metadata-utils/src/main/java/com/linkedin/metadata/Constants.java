@@ -41,6 +41,7 @@ public class Constants {
   public static final String SECRETS_ENTITY_NAME = "dataHubSecret";
   public static final String EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest";
   public static final String NOTEBOOK_ENTITY_NAME = "notebook";
+  public static final String DATA_PLATFORM_INSTANCE_ENTITY_NAME = "dataPlatformInstance";
 
 
   /**
@@ -113,6 +114,10 @@ public class Constants {
   // DataPlatform
   public static final String DATA_PLATFORM_KEY_ASPECT_NAME = "dataPlatformKey";
   public static final String DATA_PLATFORM_INFO_ASPECT_NAME = "dataPlatformInfo";
+
+  // DataPlatformInstance
+  public static final String DATA_PLATFORM_INSTANCE_KEY_ASPECT_NAME = "dataPlatformInstanceKey";
+
 
   // ML Feature
   public static final String ML_FEATURE_KEY_ASPECT_NAME = "mlFeatureKey";
