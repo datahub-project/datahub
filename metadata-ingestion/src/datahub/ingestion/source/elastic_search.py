@@ -155,10 +155,10 @@ class ElasticToSchemaFieldConverter:
         converter = cls()
         properties = elastic_mappings.get("properties")
         if not properties:
-            return []
             logger.warning(
                 f"Missing 'properties' in elastic search mappings={json.dumps(elastic_mappings)}!"
             )
+            return []
         yield from converter._get_schema_fields(properties)
 
 
