@@ -132,6 +132,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
                 owners={data.ownership?.owners}
                 logoUrl={data.platform?.properties?.logoUrl}
                 platformName={data.platform?.displayName}
+                platformInstanceId={data.dataPlatformInstance?.instanceId}
             />
         );
     };

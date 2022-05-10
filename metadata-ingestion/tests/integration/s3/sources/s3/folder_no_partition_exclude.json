@@ -2,12 +2,12 @@
   "type": "s3",
   "config": {
     "env": "UAT",
-    "path_spec": {
+    "path_specs": [{
       "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/{table}/*.*",
       "exclude": [
         "**/food_csv/**"
       ]
-    },
+    }],
     "aws_config": {
       "aws_region": "us-east-1",
       "aws_access_key_id": "testing",

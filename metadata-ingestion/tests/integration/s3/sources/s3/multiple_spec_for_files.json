@@ -1,0 +1,23 @@
+{
+  "type": "s3",
+  "config": {
+    "path_specs": [
+      {
+        "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro"
+      },
+      {
+        "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv"
+      }
+    ],
+    "aws_config": {
+      "aws_region": "us-east-1",
+      "aws_access_key_id": "testing",
+      "aws_secret_access_key": "testing"
+    },
+    "profiling": {
+      "enabled": false
+    },
+    "use_s3_bucket_tags": true,
+    "use_s3_object_tags": true
+  }
+}
