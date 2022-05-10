@@ -657,7 +657,7 @@ def generate(
 
                 #                f.write("| Source Module | Documentation |\n")
                 #                f.write("| ------ | ---- |\n")
-                for plugin in platform_docs["plugins"]:
+                for plugin in sorted(platform_docs["plugins"]):
                     f.write("<tr>\n")
                     f.write(f"<td>\n\n`{plugin}`\n\n</td>\n")
                     f.write(
@@ -667,11 +667,12 @@ def generate(
                 #                    f.write(
                 #                        f"| `{plugin}` | {get_snippet(platform_docs['plugins'][plugin]['source_doc'])}[Read more...](#module-{plugin}) |\n"
                 #                    )
-                f.write("</table>\n")
+                f.write("</table>\n\n")
             # insert platform level custom docs before plugin section
             f.write(platform_docs.get("custom_docs") or "")
-            for plugin, plugin_docs in platform_docs["plugins"].items():
-                f.write(f"\n## Module `{plugin}`\n")
+            for plugin in sorted(platform_docs["plugins"]):
+                plugin_docs = platform_docs["plugins"][plugin]
+                f.write(f"\n\n## Module `{plugin}`\n")
                 if "support_status" in plugin_docs:
                     f.write(
                         get_support_status_badge(plugin_docs["support_status"]) + "\n\n"
@@ -694,7 +695,7 @@ def generate(
                     f.write("### Install the Plugin\n")
                     if plugin_docs["extra_deps"] != []:
                         f.write("```shell\n")
-                        f.write(f"pip install 'acryl-datahub[{plugin}]`\n")
+                        f.write(f"pip install 'acryl-datahub[{plugin}]'\n")
                         f.write("```\n")
                     else:
                         f.write(
