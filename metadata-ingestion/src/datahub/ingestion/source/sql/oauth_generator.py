@@ -1,6 +1,7 @@
 import base64
 import logging
 from typing import Any, Dict, List, Optional, Union
+
 import msal
 from OpenSSL.crypto import FILETYPE_PEM, load_certificate
 
