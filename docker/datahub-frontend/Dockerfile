@@ -20,7 +20,9 @@ ARG USE_SYSTEM_NODE="true"
 ENV CI=true
 ENV GRADLE_OPTS="-Xms256m -Xmx512m"
 COPY . datahub-src
-RUN cd datahub-src && ./gradlew :datahub-frontend:dist -PenableEmber=${ENABLE_EMBER} -PuseSystemNode=${USE_SYSTEM_NODE} -x test -x yarnTest -x yarnLint \
+RUN cd datahub-src \
+    && ./gradlew :datahub-web-react:build -x test -x yarnTest -x yarnLint \
+    && ./gradlew :datahub-frontend:dist -PenableEmber=${ENABLE_EMBER} -PuseSystemNode=${USE_SYSTEM_NODE} -x test -x yarnTest -x yarnLint \
     && cp datahub-frontend/build/distributions/datahub-frontend.zip ../datahub-frontend.zip \
     && cd .. && rm -rf datahub-src && unzip datahub-frontend.zip
 
