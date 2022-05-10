@@ -143,6 +143,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                 description={data.description || ''}
                 owners={data.ownership?.owners}
                 platform={platform}
+                platformInstanceId={data.dataPlatformInstance?.instanceId}
             />
         );
     };

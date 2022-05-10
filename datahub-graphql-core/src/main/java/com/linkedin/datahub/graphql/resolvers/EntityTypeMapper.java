@@ -32,6 +32,7 @@ public class EntityTypeMapper {
           .put(EntityType.CONTAINER, "container")
           .put(EntityType.DOMAIN, "domain")
           .put(EntityType.NOTEBOOK, "notebook")
+          .put(EntityType.DATA_PLATFORM_INSTANCE, "dataPlatformInstance")
           .build();
 
   private static final Map<String, EntityType> ENTITY_NAME_TO_TYPE =
