@@ -99,7 +99,9 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
     # Note: this config model is also used by the snowflake-usage source.
 
     scheme: str = "snowflake"
-    oauth_config: Optional[OauthConfiguration]
+    oauth_config: OauthConfiguration = pydantic.Field(
+        default=None, description="oauth configuration"
+    )
     username: Optional[str] = pydantic.Field(
         default=None, description="Snowflake username."
     )
