@@ -9,6 +9,7 @@ export const Preview = ({
     name,
     platformName,
     platformLogo,
+    platformInstanceId,
     description,
     owners,
     insights,
@@ -22,6 +23,7 @@ export const Preview = ({
     name: string;
     platformName: string;
     platformLogo?: string | null;
+    platformInstanceId?: string;
     description?: string | null;
     owners?: Array<Owner> | null;
     insights?: Array<SearchInsight> | null;
@@ -38,6 +40,7 @@ export const Preview = ({
             url={entityRegistry.getEntityUrl(EntityType.Container, urn)}
             name={name || ''}
             platform={platformName}
+            platformInstanceId={platformInstanceId}
             description={description || ''}
             type={typeName}
             owners={owners}

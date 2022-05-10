@@ -42,5 +42,9 @@ query getContainer($urn: String!) {
         deprecation {
             ...deprecationFields
         }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+
     }
 }

@@ -10,10 +10,12 @@ import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.container.ContainerProperties;
 import com.linkedin.container.EditableContainerProperties;
+import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
@@ -43,7 +45,9 @@ public class ContainerMapper {
 
     final EnvelopedAspect envelopedPlatformInstance = aspects.get(Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME);
     if (envelopedPlatformInstance != null) {
-      result.setPlatform(mapPlatform(new DataPlatformInstance(envelopedPlatformInstance.getValue().data())));
+      final DataMap data = envelopedPlatformInstance.getValue().data();
+      result.setPlatform(mapPlatform(new DataPlatformInstance(data)));
+      result.setDataPlatformInstance(DataPlatformInstanceAspectMapper.map(new DataPlatformInstance(data)));
     } else {
       final DataPlatform unknownPlatform = new DataPlatform();
       unknownPlatform.setUrn(UNKNOWN_DATA_PLATFORM);
