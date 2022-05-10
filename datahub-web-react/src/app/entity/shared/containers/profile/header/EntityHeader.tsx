@@ -176,6 +176,7 @@ export const EntityHeader = ({ showDeprecateOption }: Props) => {
     const basePlatformName = entityData?.platform?.properties?.displayName || entityData?.platform?.name;
     const platformName = capitalizeFirstLetterOnly(basePlatformName);
     const platformLogoUrl = entityData?.platform?.properties?.logoUrl;
+    const platformInstanceId = entityData?.dataPlatformInstance?.instanceId;
     const entityLogoComponent = entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT);
     const entityTypeCased =
         (entityData?.subTypes?.typeNames?.length && capitalizeFirstLetterOnly(entityData?.subTypes.typeNames[0])) ||
@@ -255,7 +256,10 @@ export const EntityHeader = ({ showDeprecateOption }: Props) => {
                                     entityLogoComponent}
                             </LogoContainer>
                         )}
-                        <PlatformText>{platformName}</PlatformText>
+                        <PlatformText>
+                            {platformName}
+                            {platformInstanceId && ` - ${platformInstanceId}`}
+                        </PlatformText>
                         {(platformLogoUrl || platformName) && <PlatformDivider />}
                         {typeIcon && <TypeIcon>{typeIcon}</TypeIcon>}
                         <PlatformText>{entityData?.entityTypeOverride || entityTypeCased}</PlatformText>
