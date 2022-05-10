@@ -27,7 +27,7 @@ dependencies {
     play('net.minidev:json-smart:2.4.1')
     play('io.netty:netty-all:4.1.68.Final')
   }
-  play project(":datahub-graphql-core")
+  play project(":metadata-service:restli-client")
   play project(":metadata-service:auth-api")
 
   play externalDependency.jettyJaas
