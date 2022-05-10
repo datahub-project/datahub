@@ -147,7 +147,7 @@ jobs:
           file: ./docker/datahub-mae-consumer/Dockerfile
           platforms: linux/amd64
           tags: ${{ steps.docker_meta.outputs.tags }}
-          load: true
+          load: ${{ needs.setup.outputs.publish != 'true' }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
       - name: Upload image
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -206,7 +206,7 @@ jobs:
           file: ./docker/datahub-mce-consumer/Dockerfile
           platforms: linux/amd64
           tags: ${{ steps.docker_meta.outputs.tags }}
-          load: true
+          load: ${{ needs.setup.outputs.publish != 'true' }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
       - name: Upload image
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -265,7 +265,7 @@ jobs:
           file: ./docker/datahub-upgrade/Dockerfile
           platforms: linux/amd64
           tags: ${{ steps.docker_meta.outputs.tags }}
-          load: true
+          load: ${{ needs.setup.outputs.publish != 'true' }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
       - name: Upload image
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -454,7 +454,7 @@ jobs:
           file: ./docker/mysql-setup/Dockerfile
           platforms: linux/amd64
           tags: ${{ steps.docker_meta.outputs.tags }}
-          load: true
+          load: ${{ needs.setup.outputs.publish != 'true' }}
           push: ${{ needs.setup.outputs.publish == 'true' }}
       - name: Upload image
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -500,7 +500,7 @@ jobs:
           file: ./docker/elasticsearch-setup/Dockerfile
           platforms: linux/amd64
           tags: ${{ steps.docker_meta.outputs.tags }}
-          load: true
+          load: ${{ needs.setup.outputs.publish != 'true' }}
           push: false
       - name: Upload image
         if: ${{ needs.setup.outputs.publish != 'true' }}
