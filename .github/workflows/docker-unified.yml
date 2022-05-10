@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
+      unique_tag: ${{ steps.tag.outputs.unique_tag }}
       publish: ${{ steps.publish.outputs.publish }}
     steps:
       - name: Checkout
@@ -30,8 +31,11 @@ jobs:
           echo "GITHUB_REF: $GITHUB_REF"
           SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
           TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/master,head\,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
+          UNIQUE_TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/master,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
           echo "tag=$TAG"
+          echo "unique_tag=$UNIQUE_TAG"
           echo "::set-output name=tag::$TAG"
+          echo "::set-output name=unique_tag::$UNIQUE_TAG"
       - name: Check whether publishing enabled
         id: publish
         env:
@@ -45,6 +49,7 @@ jobs:
     needs: setup
     outputs:
       image_tag: ${{ steps.docker_meta.outputs.tags }}
+      image_name: 'linkedin/datahub-gms'
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -98,17 +103,17 @@ jobs:
   gms_scan:
     name: "[Monitoring] Scan GMS images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: gms_build
+    needs: [setup, gms_build]
     steps:
       - name: Download image
         if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
-          image: ${{ needs.gms_build.outputs.image_tag }}
+          image: ${{ needs.gms_build.outputs.image_name }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ needs.gms_build.outputs.image_tag }}
+          image-ref: ${{ needs.gms_build.outputs.image_name }}:${{ needs.setup.outputs.unique_tag }}
           format: 'table'
           ignore-unfixed: true
           vuln-type: 'os,library'
