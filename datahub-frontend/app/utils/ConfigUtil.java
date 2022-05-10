@@ -6,6 +6,10 @@ import com.typesafe.config.Config;
 
 public class ConfigUtil {
 
+  private ConfigUtil() {
+
+  }
+
   // New configurations, provided via application.conf file.
   public static final String METADATA_SERVICE_HOST_CONFIG_PATH = "metadataService.host";
   public static final String METADATA_SERVICE_PORT_CONFIG_PATH = "metadataService.port";
