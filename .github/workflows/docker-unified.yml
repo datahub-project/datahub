@@ -135,7 +135,7 @@ jobs:
     needs: setup
     outputs:
       image_tag: ${{ steps.docker_meta.outputs.tags }}
-      image_name: ${{ env.DATAHUB_MAE_CONSUMER }}
+      image_name: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -147,7 +147,7 @@ jobs:
         with:
           # list of Docker images to use as base name for tags
           images: |
-            ${{ env.DATAHUB_MAE_CONSUMER }}
+            ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
