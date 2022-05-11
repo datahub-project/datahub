@@ -144,6 +144,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     platform {
         ...platformFields
     }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
     platformNativeType
     properties {
         name
@@ -301,6 +304,9 @@ fragment dataJobFields on DataJob {
     deprecation {
         ...deprecationFields
     }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
 }
 
 fragment dashboardFields on Dashboard {
@@ -351,6 +357,9 @@ fragment dashboardFields on Dashboard {
     }
     deprecation {
         ...deprecationFields
+    }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
     }
 }
 
@@ -403,6 +412,9 @@ fragment nonRecursiveMLFeature on MLFeature {
     }
     deprecation {
         ...deprecationFields
+    }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
     }
     featureTables: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 100 }) {
         relationships {
@@ -468,6 +480,9 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
     deprecation {
         ...deprecationFields
     }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
     featureTables: relationships(input: { types: ["KeyedBy"], direction: INCOMING, start: 0, count: 100 }) {
         relationships {
             type
@@ -488,6 +503,9 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     name
     platform {
         ...platformFields
+    }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
     }
     description
     properties {
@@ -607,6 +625,9 @@ fragment nonRecursiveMLModel on MLModel {
     platform {
         ...platformFields
     }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
     ownership {
         ...ownershipFields
     }
@@ -667,6 +688,9 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     origin
     platform {
         ...platformFields
+    }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
     }
     ownership {
         ...ownershipFields
@@ -729,6 +753,15 @@ fragment nonConflictingPlatformFields on DataPlatform {
         datasetNameDelimiter
         logoUrl
     }
+}
+
+fragment dataPlatformInstanceFields on DataPlatformInstance  {
+    urn
+    type
+    platform {
+        ...platformFields
+    }
+    instanceId
 }
 
 fragment entityContainer on Container {

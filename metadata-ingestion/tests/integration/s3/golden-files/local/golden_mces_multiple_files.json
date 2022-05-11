@@ -7,7 +7,10 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "number_of_files": "1",
+                            "size_in_bytes": "3575"
+                        },
                         "externalUrl": null,
                         "name": "NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv",
                         "qualifiedName": null,
@@ -1221,7 +1224,10 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "number_of_files": "1",
+                            "size_in_bytes": "1024"
+                        },
                         "externalUrl": null,
                         "name": "chord_progressions_avro.avro",
                         "qualifiedName": null,
@@ -1404,7 +1410,10 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "number_of_files": "1",
+                            "size_in_bytes": "604"
+                        },
                         "externalUrl": null,
                         "name": "chord_progressions_csv.csv",
                         "qualifiedName": null,
@@ -1587,7 +1596,10 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "number_of_files": "1",
+                            "size_in_bytes": "4646"
+                        },
                         "externalUrl": null,
                         "name": "countries_json.json",
                         "qualifiedName": null,
@@ -1738,7 +1750,10 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "number_of_files": "1",
+                            "size_in_bytes": "4206"
+                        },
                         "externalUrl": null,
                         "name": "food_parquet.parquet",
                         "qualifiedName": null,
@@ -1921,7 +1936,10 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "number_of_files": "1",
+                            "size_in_bytes": "172"
+                        },
                         "externalUrl": null,
                         "name": "small.csv",
                         "qualifiedName": null,
@@ -2104,7 +2122,10 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "number_of_files": "1",
+                            "size_in_bytes": "34056"
+                        },
                         "externalUrl": null,
                         "name": "wa_fn_usec_hr_employee_attrition_csv.csv",
                         "qualifiedName": null,

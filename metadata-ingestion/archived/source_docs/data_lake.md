@@ -4,8 +4,7 @@ For context on getting started with ingestion, check out our [metadata ingestion
 
 :::caution
 
-This source is in **Beta** and under active development. Not yet considered ready for production.
-
+This source is going to be deprecated. Please, use [S3 Data Lake](./s3_data_lake.md) instead of this.
 :::
 
 ## Setup
