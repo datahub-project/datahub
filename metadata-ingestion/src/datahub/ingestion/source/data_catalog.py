@@ -78,8 +78,8 @@ def map_column(column: Dict[str, str]) -> SchemaFieldClass:
         type_class = StringTypeClass()
 
     return SchemaFieldClass(
-        fieldPath=column["name"],
-        description=column["description"],
+        fieldPath=column.get("name", ""),
+        description=column.get("description", ""),
         type=SchemaFieldDataTypeClass(type=type_class),
         nativeDataType=data_type,
     )
@@ -127,7 +127,7 @@ class DataCatalogSource(Source):
             "outE('TableHasColumn').inV().toJson() as columns "
             "FROM Table "
             'WHERE externalType = "kafka_topic" AND deletedOn = 0 '
-            "LIMIT 1"
+            "LIMIT 100"
         )
         for table in self.client.query(query):
             yield map_snapshot(table)
