@@ -47,3 +47,20 @@ graphqlCodegen {
 tasks.withType(Checkstyle) {
   exclude "**/generated/**"
 }
+
+checkstyleMain.source = "app/"
+
+
+/*
+PLAY UPGRADE NOTE
+Generates the distribution jars under the expected names. The playFramework plugin only accepts certain name values
+for the resulting folders and files, so some changes were made to accommodate. Default distribution is main if these are excluded
+ */
+distributions {
+  create("datahub-frontend") {
+    distributionBaseName = project.ext.playBinaryBaseName
+  }
+  playBinary {
+    distributionBaseName = project.ext.playBinaryBaseName
+  }
+}

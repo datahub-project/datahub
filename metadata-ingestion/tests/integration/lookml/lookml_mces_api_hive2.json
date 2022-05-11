@@ -185,7 +185,6 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.content": "view: my_view {\n  derived_table: {\n    sql:\n        SELECT\n          is_latest,\n          country,\n          city,\n          timestamp,\n          measurement\n        FROM\n          my_table ;;\n  }\n\n  dimension: country {\n    type: string\n    description: \"The country\"\n    sql: ${TABLE}.country ;;\n  }\n\n  dimension: city {\n    type: string\n    description: \"City\"\n    sql: ${TABLE}.city ;;\n  }\n\n  dimension: is_latest {\n    type: yesno\n    description: \"Is latest data\"\n    sql: ${TABLE}.is_latest ;;\n  }\n\n  dimension_group: timestamp {\n    group_label: \"Timestamp\"\n    type: time\n    description: \"Timestamp of measurement\"\n    sql: ${TABLE}.timestamp ;;\n    timeframes: [hour, date, week, day_of_week]\n  }\n\n  measure: average_measurement {\n    group_label: \"Measurement\"\n    type: average\n    description: \"My measurement\"\n    sql: ${TABLE}.measurement ;;\n  }\n\n}\n",
                             "looker.file.path": "foo.view.lkml"
                         },
                         "externalUrl": null,
@@ -409,7 +408,6 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.content": "view: my_derived_view {\n  derived_table: {\n    sql:\n        SELECT\n          country,\n          city,\n          timestamp,\n          measurement\n        FROM\n          ${my_view.SQL_TABLE_NAME} AS my_view ;;\n  }\n\n  dimension: country {\n    type: string\n    description: \"The country\"\n    sql: ${TABLE}.country ;;\n  }\n\n  dimension: city {\n    type: string\n    description: \"City\"\n    sql: ${TABLE}.city ;;\n  }\n\n  dimension_group: timestamp {\n    group_label: \"Timestamp\"\n    type: time\n    description: \"Timestamp of measurement\"\n    sql: ${TABLE}.timestamp ;;\n    timeframes: [hour, date, week, day_of_week]\n  }\n\n  measure: average_measurement {\n    group_label: \"Measurement\"\n    type: average\n    description: \"My measurement\"\n    sql: ${TABLE}.measurement ;;\n  }\n\n}\n",
                             "looker.file.path": "bar.view.lkml"
                         },
                         "externalUrl": null,
@@ -507,7 +505,6 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.content": "view: include_able_view {\n  sql_table_name: looker_schema.include_able ;;\n}\n",
                             "looker.file.path": "included_view_file.view.lkml"
                         },
                         "externalUrl": null,
@@ -539,6 +536,25 @@
     "aspectName": "subTypes",
     "aspect": {
         "value": "{\"typeNames\": [\"view\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.include_able_view,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "value": "{\"materialized\": false, \"viewLogic\": \"view: include_able_view {\\n  sql_table_name: looker_schema.include_able ;;\\n}\\n\", \"viewLanguage\": \"lookml\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -586,7 +602,6 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.content": "include: \"/included_view_file.view\"\n\nview: looker_events {\n  sql_table_name: looker_schema.events ;;\n}\n\nview: extending_looker_events {\n  extends: [looker_events]\n\n  measure: additional_measure {\n    type: count\n  }\n}\n\nview: autodetect_sql_name_based_on_view_name {}\n\nview: test_include_external_view {\n  extends: [include_able_view]\n}\n",
                             "looker.file.path": "view_declarations.view.lkml"
                         },
                         "externalUrl": null,
@@ -618,6 +633,25 @@
     "aspectName": "subTypes",
     "aspect": {
         "value": "{\"typeNames\": [\"view\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.looker_events,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "value": "{\"materialized\": false, \"viewLogic\": \"include: \\\"/included_view_file.view\\\"\\n\\nview: looker_events {\\n  sql_table_name: looker_schema.events ;;\\n}\\n\\nview: extending_looker_events {\\n  extends: [looker_events]\\n\\n  measure: additional_measure {\\n    type: count\\n  }\\n}\\n\\nview: autodetect_sql_name_based_on_view_name {}\\n\\nview: test_include_external_view {\\n  extends: [include_able_view]\\n}\\n\", \"viewLanguage\": \"lookml\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -719,7 +753,6 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.content": "include: \"/included_view_file.view\"\n\nview: looker_events {\n  sql_table_name: looker_schema.events ;;\n}\n\nview: extending_looker_events {\n  extends: [looker_events]\n\n  measure: additional_measure {\n    type: count\n  }\n}\n\nview: autodetect_sql_name_based_on_view_name {}\n\nview: test_include_external_view {\n  extends: [include_able_view]\n}\n",
                             "looker.file.path": "view_declarations.view.lkml"
                         },
                         "externalUrl": null,
@@ -751,6 +784,25 @@
     "aspectName": "subTypes",
     "aspect": {
         "value": "{\"typeNames\": [\"view\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.extending_looker_events,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "value": "{\"materialized\": false, \"viewLogic\": \"include: \\\"/included_view_file.view\\\"\\n\\nview: looker_events {\\n  sql_table_name: looker_schema.events ;;\\n}\\n\\nview: extending_looker_events {\\n  extends: [looker_events]\\n\\n  measure: additional_measure {\\n    type: count\\n  }\\n}\\n\\nview: autodetect_sql_name_based_on_view_name {}\\n\\nview: test_include_external_view {\\n  extends: [include_able_view]\\n}\\n\", \"viewLanguage\": \"lookml\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -798,7 +850,6 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.content": "include: \"/included_view_file.view\"\n\nview: looker_events {\n  sql_table_name: looker_schema.events ;;\n}\n\nview: extending_looker_events {\n  extends: [looker_events]\n\n  measure: additional_measure {\n    type: count\n  }\n}\n\nview: autodetect_sql_name_based_on_view_name {}\n\nview: test_include_external_view {\n  extends: [include_able_view]\n}\n",
                             "looker.file.path": "view_declarations.view.lkml"
                         },
                         "externalUrl": null,
@@ -830,6 +881,25 @@
     "aspectName": "subTypes",
     "aspect": {
         "value": "{\"typeNames\": [\"view\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.autodetect_sql_name_based_on_view_name,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "value": "{\"materialized\": false, \"viewLogic\": \"include: \\\"/included_view_file.view\\\"\\n\\nview: looker_events {\\n  sql_table_name: looker_schema.events ;;\\n}\\n\\nview: extending_looker_events {\\n  extends: [looker_events]\\n\\n  measure: additional_measure {\\n    type: count\\n  }\\n}\\n\\nview: autodetect_sql_name_based_on_view_name {}\\n\\nview: test_include_external_view {\\n  extends: [include_able_view]\\n}\\n\", \"viewLanguage\": \"lookml\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -877,7 +947,6 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.content": "include: \"/included_view_file.view\"\n\nview: looker_events {\n  sql_table_name: looker_schema.events ;;\n}\n\nview: extending_looker_events {\n  extends: [looker_events]\n\n  measure: additional_measure {\n    type: count\n  }\n}\n\nview: autodetect_sql_name_based_on_view_name {}\n\nview: test_include_external_view {\n  extends: [include_able_view]\n}\n",
                             "looker.file.path": "view_declarations.view.lkml"
                         },
                         "externalUrl": null,
@@ -909,6 +978,25 @@
     "aspectName": "subTypes",
     "aspect": {
         "value": "{\"typeNames\": [\"view\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.test_include_external_view,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "value": "{\"materialized\": false, \"viewLogic\": \"include: \\\"/included_view_file.view\\\"\\n\\nview: looker_events {\\n  sql_table_name: looker_schema.events ;;\\n}\\n\\nview: extending_looker_events {\\n  extends: [looker_events]\\n\\n  measure: additional_measure {\\n    type: count\\n  }\\n}\\n\\nview: autodetect_sql_name_based_on_view_name {}\\n\\nview: test_include_external_view {\\n  extends: [include_able_view]\\n}\\n\", \"viewLanguage\": \"lookml\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -979,6 +1067,25 @@
                         },
                         "fields": [
                             {
+                                "fieldPath": "country",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": "",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NullType": {}
+                                    }
+                                },
+                                "nativeDataType": "unknown",
+                                "recursive": false,
+                                "globalTags": {
+                                    "tags": []
+                                },
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "jsonProps": null
+                            },
+                            {
                                 "fieldPath": "date",
                                 "jsonPath": null,
                                 "nullable": false,
@@ -1015,25 +1122,6 @@
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
                                 "jsonProps": null
-                            },
-                            {
-                                "fieldPath": "country",
-                                "jsonPath": null,
-                                "nullable": false,
-                                "description": "",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NullType": {}
-                                    }
-                                },
-                                "nativeDataType": "unknown",
-                                "recursive": false,
-                                "globalTags": {
-                                    "tags": []
-                                },
-                                "glossaryTerms": null,
-                                "isPartOfKey": false,
-                                "jsonProps": null
                             }
                         ],
                         "primaryKeys": [],
@@ -1044,7 +1132,6 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.content": "view: fragment_derived_view \n{ derived_table: \n  { \n    sql: date DATE encode ZSTD, \n         platform VARCHAR(20) encode ZSTD AS aliased_platform, \n         country VARCHAR(20) encode ZSTD\n         ;; \n  } \n}\n",
                             "looker.file.path": "nested/fragment_derived.view.lkml"
                         },
                         "externalUrl": null,
@@ -1126,7 +1213,6 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "looker.file.content": "view: customer_facts {\n  derived_table: {\nsql:\n      SELECT\n        customer_id,\n        SUM(sale_price) AS lifetime_spend\n      FROM\n        order\n      WHERE\n        {% condition order_region %} order.region {% endcondition %}\n      GROUP BY 1\n    ;;\n    }\n}\n",
                             "looker.file.path": "liquid.view.lkml"
                         },
                         "externalUrl": null,
