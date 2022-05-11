@@ -1,7 +1,6 @@
 package com.linkedin.metadata.search;
 
 import com.linkedin.common.urn.Urn;
-
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
@@ -27,7 +26,6 @@ public interface EntitySearchService {
    * @param entityName name of the entity
    */
   long docCount(@Nonnull String entityName);
-
 
   /**
    * Updates or inserts the given search document.
@@ -75,6 +73,24 @@ public interface EntitySearchService {
   @Nonnull
   SearchResult filter(@Nonnull String entityName, @Nullable Filter filters, @Nullable SortCriterion sortCriterion,
       int from, int size);
+
+  /**
+   * Scroll through documents that matches the input filters. By using the returned scroll ID, we can scroll through
+   * unlimited number of documents that match the input filters. HOWEVER, this is very resource intensive and is not
+   * meant for real-time queries
+   *
+   * @param entityName name of the entity
+   * @param filters the request map with fields and values to be applied as filters to the search query
+   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param size number of search hits to return
+   * @param scrollId Unique ID corresponding to the search context. Set as null for the initial request and then set as
+   *                 the returned scroll ID to continue retrieving documents for the initial search context
+   * @param keepAliveDuration duration the search context should be kept alive i.e. 10s, 1m
+   * @return a {@link ScrollResult} that contains a list of filtered documents and related search result metadata
+   */
+  @Nonnull
+  ScrollResult scroll(@Nonnull String entityName, @Nullable Filter filters, @Nullable SortCriterion sortCriterion,
+      int size, @Nullable String scrollId, @Nonnull String keepAliveDuration);
 
   /**
    * Returns a list of suggestions given type ahead query.
