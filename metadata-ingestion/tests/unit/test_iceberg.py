@@ -192,10 +192,10 @@ def test_iceberg_primitive_type_to_schema_field(
             IcebergTypes.TimestampType.without_timezone(),
             "timestamp-micros",
         ),
-        (IcebergTypes.TimeType.get(), "timestamp-micros"),
+        (IcebergTypes.TimeType.get(), "time-micros"),
         (
             IcebergTypes.UUIDType.get(),
-            "string",
+            "uuid",
         ),
     ],
 )
@@ -250,10 +250,10 @@ def test_iceberg_list_to_schema_field(
             IcebergTypes.TimestampType.without_timezone(),
             "timestamp-micros",
         ),
-        (IcebergTypes.TimeType.get(), "timestamp-micros"),
+        (IcebergTypes.TimeType.get(), "time-micros"),
         (
             IcebergTypes.UUIDType.get(),
-            "string",
+            "uuid",
         ),
     ],
 )
