@@ -2437,6 +2437,11 @@ def test_elastic_search_schema_conversion(
     assret_field_paths_match(actual_fields, expected_field_paths)
 
 
+def test_no_properties_in_mappings_schema() -> None:
+    fields = list(ElasticToSchemaFieldConverter.get_schema_fields({}))
+    assert fields == []
+
+
 def test_host_port_parsing() -> None:
     """ensure we handle different styles of host_port specifications correctly"""
     examples = [
