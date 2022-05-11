@@ -159,7 +159,7 @@ public class RestEmitter implements Emitter {
       return emit(StringEscapeUtils.convert(mcpw), callback);
     } catch (URISyntaxException e) {
       log.error(e.toString());
-      throw new RuntimeException(e);
+      throw new RuntimeException("Failed to emit Metadata Change Proposal!", e);
     }
   }
 
