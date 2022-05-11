@@ -1,4 +1,4 @@
-package com.linkedin.metadata.entity.aspect;
+package com.linkedin.metadata.entity;
 
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -13,7 +13,7 @@ import javax.annotation.Nonnull;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode
-public class AspectIdentity {
+public class EntityAspectIdentity {
 
   @Nonnull
   private String urn;

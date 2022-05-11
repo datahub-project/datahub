@@ -27,8 +27,6 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.entity.aspect.EntityAspect;
-import com.linkedin.metadata.entity.aspect.AspectIdentity;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -171,7 +169,7 @@ public class EntityService {
       @Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames) {
 
-    Map<AspectIdentity, EntityAspect> batchGetResults = getLatestAspect(urns, aspectNames);
+    Map<EntityAspectIdentity, EntityAspect> batchGetResults = getLatestAspect(urns, aspectNames);
 
     // Fetch from db and populate urn -> aspect map.
     final Map<Urn, List<RecordTemplate>> urnToAspects = new HashMap<>();
@@ -206,7 +204,7 @@ public class EntityService {
 
   @Nonnull
   public Map<String, RecordTemplate> getLatestAspectsForUrn(@Nonnull final Urn urn, @Nonnull final Set<String> aspectNames) {
-    Map<AspectIdentity, EntityAspect> batchGetResults = getLatestAspect(new HashSet<>(Arrays.asList(urn)), aspectNames);
+    Map<EntityAspectIdentity, EntityAspect> batchGetResults = getLatestAspect(new HashSet<>(Arrays.asList(urn)), aspectNames);
 
     final Map<String, RecordTemplate> result = new HashMap<>();
     batchGetResults.forEach((key, aspectEntry) -> {
@@ -234,7 +232,7 @@ public class EntityService {
     log.debug("Invoked getAspect with urn: {}, aspectName: {}, version: {}", urn, aspectName, version);
 
     version = calculateVersionNumber(urn, aspectName, version);
-    final AspectIdentity primaryKey = new AspectIdentity(urn.toString(), aspectName, version);
+    final EntityAspectIdentity primaryKey = new EntityAspectIdentity(urn.toString(), aspectName, version);
     final Optional<EntityAspect> maybeAspect = Optional.ofNullable(_aspectDao.getAspect(primaryKey));
     return maybeAspect.map(
         aspect -> EntityUtils.toAspectRecord(urn, aspectName, aspect.getMetadata(), getEntityRegistry())).orElse(null);
@@ -290,14 +288,14 @@ public class EntityService {
       @Nonnull Set<Urn> urns,
       @Nonnull Set<String> aspectNames) throws URISyntaxException {
 
-    final Set<AspectIdentity> dbKeys = urns.stream()
+    final Set<EntityAspectIdentity> dbKeys = urns.stream()
         .map(urn -> aspectNames.stream()
-            .map(aspectName -> new AspectIdentity(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
+            .map(aspectName -> new EntityAspectIdentity(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
             .collect(Collectors.toList()))
         .flatMap(List::stream)
         .collect(Collectors.toSet());
 
-    final Map<AspectIdentity, EnvelopedAspect> envelopedAspectMap = getEnvelopedAspects(dbKeys);
+    final Map<EntityAspectIdentity, EnvelopedAspect> envelopedAspectMap = getEnvelopedAspects(dbKeys);
 
     // Group result by Urn
     final Map<String, List<EnvelopedAspect>> urnToAspects = envelopedAspectMap.entrySet()
@@ -359,7 +357,7 @@ public class EntityService {
 
     version = calculateVersionNumber(urn, aspectName, version);
 
-    final AspectIdentity primaryKey = new AspectIdentity(urn.toString(), aspectName, version);
+    final EntityAspectIdentity primaryKey = new EntityAspectIdentity(urn.toString(), aspectName, version);
     return getEnvelopedAspects(ImmutableSet.of(primaryKey)).get(primaryKey);
   }
 
@@ -375,7 +373,7 @@ public class EntityService {
 
     version = calculateVersionNumber(urn, aspectName, version);
 
-    final AspectIdentity primaryKey = new AspectIdentity(urn.toString(), aspectName, version);
+    final EntityAspectIdentity primaryKey = new EntityAspectIdentity(urn.toString(), aspectName, version);
     final Optional<EntityAspect> maybeAspect = Optional.ofNullable(_aspectDao.getAspect(primaryKey));
     RecordTemplate aspectRecord =
         maybeAspect.map(aspect -> EntityUtils.toAspectRecord(urn, aspectName, aspect.getMetadata(), getEntityRegistry()))
@@ -1205,11 +1203,11 @@ public class EntityService {
 
   public Boolean exists(Urn urn) {
     final Set<String> aspectsToFetch = getEntityAspectNames(urn);
-    final List<AspectIdentity> dbKeys = aspectsToFetch.stream()
-        .map(aspectName -> new AspectIdentity(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
+    final List<EntityAspectIdentity> dbKeys = aspectsToFetch.stream()
+        .map(aspectName -> new EntityAspectIdentity(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
         .collect(Collectors.toList());
 
-    Map<AspectIdentity, EntityAspect> aspects = _aspectDao.batchGet(new HashSet(dbKeys));
+    Map<EntityAspectIdentity, EntityAspect> aspects = _aspectDao.batchGet(new HashSet(dbKeys));
     return aspects.values().stream().anyMatch(aspect -> aspect != null);
   }
 
@@ -1365,19 +1363,19 @@ public class EntityService {
   }
 
   @Nonnull
-  private Map<AspectIdentity, EntityAspect> getLatestAspect(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
+  private Map<EntityAspectIdentity, EntityAspect> getLatestAspect(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
 
     log.debug("Invoked getLatestAspects with urns: {}, aspectNames: {}", urns, aspectNames);
 
     // Create DB keys
-    final Set<AspectIdentity> dbKeys = urns.stream().map(urn -> {
+    final Set<EntityAspectIdentity> dbKeys = urns.stream().map(urn -> {
       final Set<String> aspectsToFetch = aspectNames.isEmpty() ? getEntityAspectNames(urn) : aspectNames;
       return aspectsToFetch.stream()
-          .map(aspectName -> new AspectIdentity(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
+          .map(aspectName -> new EntityAspectIdentity(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
           .collect(Collectors.toList());
     }).flatMap(List::stream).collect(Collectors.toSet());
 
-    Map<AspectIdentity, EntityAspect> batchGetResults = new HashMap<>();
+    Map<EntityAspectIdentity, EntityAspect> batchGetResults = new HashMap<>();
     Iterators.partition(dbKeys.iterator(), MAX_KEYS_PER_QUERY)
         .forEachRemaining(batch -> batchGetResults.putAll(_aspectDao.batchGet(ImmutableSet.copyOf(batch))));
     return batchGetResults;
@@ -1395,11 +1393,11 @@ public class EntityService {
     return version;
   }
 
-  private Map<AspectIdentity, EnvelopedAspect> getEnvelopedAspects(final Set<AspectIdentity> dbKeys) throws URISyntaxException {
-    final Map<AspectIdentity, EnvelopedAspect> result = new HashMap<>();
-    final Map<AspectIdentity, EntityAspect> dbEntries = _aspectDao.batchGet(dbKeys);
+  private Map<EntityAspectIdentity, EnvelopedAspect> getEnvelopedAspects(final Set<EntityAspectIdentity> dbKeys) throws URISyntaxException {
+    final Map<EntityAspectIdentity, EnvelopedAspect> result = new HashMap<>();
+    final Map<EntityAspectIdentity, EntityAspect> dbEntries = _aspectDao.batchGet(dbKeys);
 
-    for (AspectIdentity currKey : dbKeys) {
+    for (EntityAspectIdentity currKey : dbKeys) {
 
       final EntityAspect currAspectEntry = dbEntries.get(currKey);
 

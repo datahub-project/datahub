@@ -7,8 +7,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectStorageValidationUtil;
 import com.linkedin.metadata.entity.ListResult;
-import com.linkedin.metadata.entity.aspect.EntityAspect;
-import com.linkedin.metadata.entity.aspect.AspectIdentity;
+import com.linkedin.metadata.entity.EntityAspect;
+import com.linkedin.metadata.entity.EntityAspectIdentity;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
@@ -197,12 +197,12 @@ public class EbeanAspectDao implements AspectDao {
   @Override
   @Nullable
   public EntityAspect getAspect(@Nonnull final String urn, @Nonnull final String aspectName, final long version) {
-    return getAspect(new AspectIdentity(urn, aspectName, version));
+    return getAspect(new EntityAspectIdentity(urn, aspectName, version));
   }
 
   @Override
   @Nullable
-  public EntityAspect getAspect(@Nonnull final AspectIdentity key) {
+  public EntityAspect getAspect(@Nonnull final EntityAspectIdentity key) {
     validateConnection();
     EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(key.getUrn(), key.getAspect(), key.getVersion());
     EbeanAspectV2 ebeanAspect = _server.find(EbeanAspectV2.class, primaryKey);
@@ -225,7 +225,7 @@ public class EbeanAspectDao implements AspectDao {
 
   @Override
   @Nonnull
-  public Map<AspectIdentity, EntityAspect> batchGet(@Nonnull final Set<AspectIdentity> keys) {
+  public Map<EntityAspectIdentity, EntityAspect> batchGet(@Nonnull final Set<EntityAspectIdentity> keys) {
     validateConnection();
     if (keys.isEmpty()) {
       return Collections.emptyMap();

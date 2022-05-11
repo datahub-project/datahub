@@ -21,8 +21,8 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.ListResult;
-import com.linkedin.metadata.entity.aspect.EntityAspect;
-import com.linkedin.metadata.entity.aspect.AspectIdentity;
+import com.linkedin.metadata.entity.EntityAspect;
+import com.linkedin.metadata.entity.EntityAspectIdentity;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
@@ -138,7 +138,7 @@ public class CassandraAspectDao implements AspectDao {
   // TODO: look into supporting pagination
   @Override
   @Nonnull
-  public Map<AspectIdentity, EntityAspect> batchGet(@Nonnull final Set<AspectIdentity> keys) {
+  public Map<EntityAspectIdentity, EntityAspect> batchGet(@Nonnull final Set<EntityAspectIdentity> keys) {
     return keys.stream()
         .map(this::getAspect)
         .filter(Objects::nonNull)
@@ -147,7 +147,7 @@ public class CassandraAspectDao implements AspectDao {
 
   @Override
   @Nullable
-  public EntityAspect getAspect(@Nonnull AspectIdentity key) {
+  public EntityAspect getAspect(@Nonnull EntityAspectIdentity key) {
     return getAspect(key.getUrn(), key.getAspect(), key.getVersion());
   }
 

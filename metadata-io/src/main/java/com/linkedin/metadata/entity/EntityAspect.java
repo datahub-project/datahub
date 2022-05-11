@@ -1,4 +1,4 @@
-package com.linkedin.metadata.entity.aspect;
+package com.linkedin.metadata.entity;
 
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -35,7 +35,7 @@ public class EntityAspect {
 
     private String createdFor;
 
-    public AspectIdentity toAspectIdentity() {
-        return new AspectIdentity(getUrn(), getAspect(), getVersion());
+    public EntityAspectIdentity toAspectIdentity() {
+        return new EntityAspectIdentity(getUrn(), getAspect(), getVersion());
     }
 }
