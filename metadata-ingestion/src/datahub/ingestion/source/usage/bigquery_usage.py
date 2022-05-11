@@ -80,7 +80,7 @@ protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.da
 """,
     "BQ_FILTER_REGEX_DENY_TEMPLATE": """
 {logical_operator}
-protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.tableId !~ "{dataset_deny_pattern}"
+protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.tableId !~ "{table_deny_pattern}"
 """,
     "BQ_FILTER_RULE_TEMPLATE": """
 protoPayload.serviceName="bigquery.googleapis.com"
