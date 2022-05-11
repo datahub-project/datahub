@@ -2,7 +2,7 @@ package com.linkedin.metadata.entity;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.aspect.EntityAspect;
-import com.linkedin.metadata.entity.aspect.UniqueKey;
+import com.linkedin.metadata.entity.aspect.AspectIdentity;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -18,10 +18,10 @@ public interface AspectDao {
     EntityAspect getAspect(@Nonnull final String urn, @Nonnull final String aspectName, final long version);
 
     @Nullable
-    EntityAspect getAspect(@Nonnull final UniqueKey key);
+    EntityAspect getAspect(@Nonnull final AspectIdentity key);
 
     @Nonnull
-    Map<UniqueKey, EntityAspect> batchGet(@Nonnull final Set<UniqueKey> keys);
+    Map<AspectIdentity, EntityAspect> batchGet(@Nonnull final Set<AspectIdentity> keys);
 
     @Nonnull
     List<EntityAspect> getAspectsInRange(@Nonnull Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis);

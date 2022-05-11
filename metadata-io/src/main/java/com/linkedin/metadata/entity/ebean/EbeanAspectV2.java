@@ -1,7 +1,7 @@
 package com.linkedin.metadata.entity.ebean;
 
 import com.linkedin.metadata.entity.aspect.EntityAspect;
-import com.linkedin.metadata.entity.aspect.UniqueKey;
+import com.linkedin.metadata.entity.aspect.AspectIdentity;
 import io.ebean.Model;
 import io.ebean.annotation.Index;
 import java.sql.Timestamp;
@@ -71,12 +71,12 @@ public class EbeanAspectV2 extends Model {
     @Column(name = VERSION_COLUMN, nullable = false)
     private long version;
 
-    public static PrimaryKey fromUniqueKey(UniqueKey key) {
+    public static PrimaryKey fromAspectIdentity(AspectIdentity key) {
       return new PrimaryKey(key.getUrn(), key.getAspect(), key.getVersion());
     }
 
-    public UniqueKey toUniqueKey() {
-      return new UniqueKey(getUrn(), getAspect(), getVersion());
+    public AspectIdentity toAspectIdentity() {
+      return new AspectIdentity(getUrn(), getAspect(), getVersion());
     }
   }
 

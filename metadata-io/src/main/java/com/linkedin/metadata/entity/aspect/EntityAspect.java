@@ -35,7 +35,7 @@ public class EntityAspect {
 
     private String createdFor;
 
-    public UniqueKey toUniqueKey() {
-        return new UniqueKey(getUrn(), getAspect(), getVersion());
+    public AspectIdentity toAspectIdentity() {
+        return new AspectIdentity(getUrn(), getAspect(), getVersion());
     }
 }

@@ -13,7 +13,7 @@ import javax.annotation.Nonnull;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode
-public class UniqueKey {
+public class AspectIdentity {
 
   @Nonnull
   private String urn;

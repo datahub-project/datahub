@@ -22,7 +22,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.aspect.EntityAspect;
-import com.linkedin.metadata.entity.aspect.UniqueKey;
+import com.linkedin.metadata.entity.aspect.AspectIdentity;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
@@ -97,43 +97,38 @@ public class CassandraAspectDao implements AspectDao {
 
   @Override
   public void saveAspect(@Nonnull EntityAspect aspect, final boolean insert) {
-    CassandraAspect cassandraAspect = CassandraAspect.fromEntityAspect(aspect);
-    saveCassandraAspect(cassandraAspect, insert);
-  }
-
-  private void saveCassandraAspect(@Nonnull CassandraAspect cassandraAspect, final boolean insert) {
     String entity;
 
     try {
-      entity = (new Urn(cassandraAspect.getUrn())).getEntityType();
+      entity = (new Urn(aspect.getUrn())).getEntityType();
     } catch (URISyntaxException e) {
       throw new RuntimeException(e);
     }
 
     if (insert) {
       Insert ri = insertInto(CassandraAspect.TABLE_NAME)
-        .value(CassandraAspect.URN_COLUMN, literal(cassandraAspect.getUrn()))
-        .value(CassandraAspect.ASPECT_COLUMN, literal(cassandraAspect.getAspect()))
-        .value(CassandraAspect.VERSION_COLUMN, literal(cassandraAspect.getVersion()))
-        .value(CassandraAspect.SYSTEM_METADATA_COLUMN, literal(cassandraAspect.getSystemMetadata()))
-        .value(CassandraAspect.METADATA_COLUMN, literal(cassandraAspect.getMetadata()))
-        .value(CassandraAspect.CREATED_ON_COLUMN, literal(cassandraAspect.getCreatedOn().getTime()))
-        .value(CassandraAspect.CREATED_FOR_COLUMN, literal(cassandraAspect.getCreatedFor()))
+        .value(CassandraAspect.URN_COLUMN, literal(aspect.getUrn()))
+        .value(CassandraAspect.ASPECT_COLUMN, literal(aspect.getAspect()))
+        .value(CassandraAspect.VERSION_COLUMN, literal(aspect.getVersion()))
+        .value(CassandraAspect.SYSTEM_METADATA_COLUMN, literal(aspect.getSystemMetadata()))
+        .value(CassandraAspect.METADATA_COLUMN, literal(aspect.getMetadata()))
+        .value(CassandraAspect.CREATED_ON_COLUMN, literal(aspect.getCreatedOn().getTime()))
+        .value(CassandraAspect.CREATED_FOR_COLUMN, literal(aspect.getCreatedFor()))
         .value(CassandraAspect.ENTITY_COLUMN, literal(entity))
-        .value(CassandraAspect.CREATED_BY_COLUMN, literal(cassandraAspect.getCreatedBy()));
+        .value(CassandraAspect.CREATED_BY_COLUMN, literal(aspect.getCreatedBy()));
       _cqlSession.execute(ri.build());
     } else {
 
       UpdateWithAssignments uwa = update(CassandraAspect.TABLE_NAME)
-        .setColumn(CassandraAspect.METADATA_COLUMN, literal(cassandraAspect.getMetadata()))
-        .setColumn(CassandraAspect.SYSTEM_METADATA_COLUMN, literal(cassandraAspect.getSystemMetadata()))
-        .setColumn(CassandraAspect.CREATED_ON_COLUMN, literal(cassandraAspect.getCreatedOn().getTime()))
-        .setColumn(CassandraAspect.CREATED_BY_COLUMN, literal(cassandraAspect.getCreatedBy()))
-        .setColumn(CassandraAspect.CREATED_FOR_COLUMN, literal(cassandraAspect.getCreatedFor()));
+        .setColumn(CassandraAspect.METADATA_COLUMN, literal(aspect.getMetadata()))
+        .setColumn(CassandraAspect.SYSTEM_METADATA_COLUMN, literal(aspect.getSystemMetadata()))
+        .setColumn(CassandraAspect.CREATED_ON_COLUMN, literal(aspect.getCreatedOn().getTime()))
+        .setColumn(CassandraAspect.CREATED_BY_COLUMN, literal(aspect.getCreatedBy()))
+        .setColumn(CassandraAspect.CREATED_FOR_COLUMN, literal(aspect.getCreatedFor()));
 
-      Update u = uwa.whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(cassandraAspect.getUrn()))
-        .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(cassandraAspect.getAspect()))
-        .whereColumn(CassandraAspect.VERSION_COLUMN).isEqualTo(literal(cassandraAspect.getVersion()));
+      Update u = uwa.whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(aspect.getUrn()))
+        .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspect.getAspect()))
+        .whereColumn(CassandraAspect.VERSION_COLUMN).isEqualTo(literal(aspect.getVersion()));
 
       _cqlSession.execute(u.build());
     }
@@ -143,16 +138,16 @@ public class CassandraAspectDao implements AspectDao {
   // TODO: look into supporting pagination
   @Override
   @Nonnull
-  public Map<UniqueKey, EntityAspect> batchGet(@Nonnull final Set<UniqueKey> keys) {
+  public Map<AspectIdentity, EntityAspect> batchGet(@Nonnull final Set<AspectIdentity> keys) {
     return keys.stream()
         .map(this::getAspect)
         .filter(Objects::nonNull)
-        .collect(Collectors.toMap(EntityAspect::toUniqueKey, aspect -> aspect));
+        .collect(Collectors.toMap(EntityAspect::toAspectIdentity, aspect -> aspect));
   }
 
   @Override
   @Nullable
-  public EntityAspect getAspect(@Nonnull UniqueKey key) {
+  public EntityAspect getAspect(@Nonnull AspectIdentity key) {
     return getAspect(key.getUrn(), key.getAspect(), key.getVersion());
   }
 
@@ -191,13 +186,13 @@ public class CassandraAspectDao implements AspectDao {
 
     Page<Row> page = offsetPager.getPage(rs, pageNumber);
 
-    final List<CassandraAspect> aspects = page
+    final List<EntityAspect> aspects = page
       .getElements()
-      .stream().map(CassandraAspect::fromRow)
+      .stream().map(CassandraAspect::rowToEntityAspect)
       .collect(Collectors.toList());
 
     // TODO: address performance issue for getting total count
-    // https://www.datastax.com/blog/running-count-expensive-cassandra
+    //  https://www.datastax.com/blog/running-count-expensive-cassandra
     SimpleStatement ssCount = selectFrom(CassandraAspect.TABLE_NAME)
       .countAll()
       .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
@@ -210,7 +205,7 @@ public class CassandraAspectDao implements AspectDao {
 
     final List<String> aspectMetadatas = aspects
             .stream()
-            .map(CassandraAspect::getMetadata)
+            .map(EntityAspect::getMetadata)
             .collect(Collectors.toList());
 
     final ListResultMetadata listResultMetadata = toListResultMetadata(aspects
@@ -270,7 +265,7 @@ public class CassandraAspectDao implements AspectDao {
   }
 
   @Nonnull
-  private static ExtraInfo toExtraInfo(@Nonnull final CassandraAspect aspect) {
+  private static ExtraInfo toExtraInfo(@Nonnull final EntityAspect aspect) {
     final ExtraInfo extraInfo = new ExtraInfo();
     extraInfo.setVersion(aspect.getVersion());
     extraInfo.setAudit(toAuditStamp(aspect));
@@ -284,7 +279,7 @@ public class CassandraAspectDao implements AspectDao {
   }
 
   @Nonnull
-  private static AuditStamp toAuditStamp(@Nonnull final CassandraAspect aspect) {
+  private static AuditStamp toAuditStamp(@Nonnull final EntityAspect aspect) {
     final AuditStamp auditStamp = new AuditStamp();
     auditStamp.setTime(aspect.getCreatedOn().getTime());
 
@@ -324,14 +319,13 @@ public class CassandraAspectDao implements AspectDao {
 
   public List<EntityAspect> getAllAspects(String urn, String aspectName) {
     SimpleStatement ss = selectFrom(CassandraAspect.TABLE_NAME)
-            .all()
-            .whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(urn))
-            .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
-            .build();
+        .all()
+        .whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(urn))
+        .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
+        .build();
 
     ResultSet rs = _cqlSession.execute(ss);
-
-    return rs.all().stream().map(row -> CassandraAspect.fromRow(row).toEntityAspect()).collect(Collectors.toList());
+    return rs.all().stream().map(CassandraAspect::rowToEntityAspect).collect(Collectors.toList());
   }
 
   @Override
@@ -347,7 +341,7 @@ public class CassandraAspectDao implements AspectDao {
 
     ResultSet rs = _cqlSession.execute(ss);
     Row row = rs.one();
-    return row == null ? null : CassandraAspect.fromRow(row).toEntityAspect();
+    return row == null ? null : CassandraAspect.rowToEntityAspect(row);
   }
 
   @Override
@@ -361,7 +355,11 @@ public class CassandraAspectDao implements AspectDao {
     OffsetPager offsetPager = new OffsetPager(pageSize);
 
     SimpleStatement ss = selectFrom(CassandraAspect.TABLE_NAME)
-        .all()
+        .columns(
+            CassandraAspect.URN_COLUMN,
+            CassandraAspect.ASPECT_COLUMN,
+            CassandraAspect.VERSION_COLUMN
+        )
         .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
         .whereColumn(CassandraAspect.VERSION_COLUMN).isEqualTo(literal(ASPECT_LATEST_VERSION))
         .whereColumn(CassandraAspect.ENTITY_COLUMN).isEqualTo(literal(entityName))
@@ -375,9 +373,9 @@ public class CassandraAspectDao implements AspectDao {
     Page<Row> page = offsetPager.getPage(rs, pageNumber);
 
     final List<String> urns = page
-            .getElements()
-            .stream().map(r -> CassandraAspect.fromRow(r).getUrn())
-            .collect(Collectors.toList());
+        .getElements()
+        .stream().map(row -> CassandraAspect.rowToAspectIdentity(row).getUrn())
+        .collect(Collectors.toList());
 
     // TODO: address performance issue for getting total count
     // https://www.datastax.com/blog/running-count-expensive-cassandra
@@ -467,19 +465,18 @@ public class CassandraAspectDao implements AspectDao {
       final long version,
       final boolean insert) {
 
-    final CassandraAspect aspect = new CassandraAspect();
-    aspect.setUrn(urn);
-    aspect.setAspect(aspectName);
-    aspect.setVersion(version);
-    aspect.setMetadata(aspectMetadata);
-    aspect.setSystemMetadata(systemMetadata);
-    aspect.setCreatedOn(timestamp);
-    aspect.setCreatedBy(actor);
-    if (impersonator != null) {
-      aspect.setCreatedFor(impersonator);
-    }
+    final EntityAspect aspect = new EntityAspect(
+        urn,
+        aspectName,
+        version,
+        aspectMetadata,
+        systemMetadata,
+        timestamp,
+        actor,
+        impersonator
+    );
 
-    saveCassandraAspect(aspect, insert);
+    saveAspect(aspect, insert);
   }
 
   @Override
@@ -496,7 +493,7 @@ public class CassandraAspectDao implements AspectDao {
 
     ResultSet rs = _cqlSession.execute(ss);
 
-    return rs.all().stream().map(row -> CassandraAspect.fromRow(row).toEntityAspect()).collect(Collectors.toList());
+    return rs.all().stream().map(CassandraAspect::rowToEntityAspect).collect(Collectors.toList());
   }
 
   private Iterable<Term> aspectNamesToLiterals(Set<String> aspectNames) {

@@ -1,10 +1,9 @@
 package com.linkedin.metadata.entity.cassandra;
 
 import com.datastax.oss.driver.api.core.cql.Row;
+import com.linkedin.metadata.entity.aspect.AspectIdentity;
 import com.linkedin.metadata.entity.aspect.EntityAspect;
-import com.linkedin.metadata.entity.aspect.UniqueKey;
 import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -19,28 +18,6 @@ import java.sql.Timestamp;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CassandraAspect {
-
-  @Getter
-  @NoArgsConstructor
-  @AllArgsConstructor
-  @EqualsAndHashCode
-  public static class PrimaryKey {
-
-    private String urn;
-    private String aspect;
-    private long version;
-
-    public static PrimaryKey fromRow(Row r) {
-      return new CassandraAspect.PrimaryKey(
-          r.getString(CassandraAspect.URN_COLUMN),
-          r.getString(CassandraAspect.ASPECT_COLUMN),
-          r.getLong(CassandraAspect.VERSION_COLUMN));
-    }
-
-    public UniqueKey toUniqueKey() {
-      return new UniqueKey(getUrn(), getAspect(), getVersion());
-    }
-  }
 
   private String urn;
   private String aspect;
@@ -70,45 +47,25 @@ public class CassandraAspect {
         urn, aspect, version, metadata, createdOn, createdBy, createdFor, systemMetadata);
   }
 
-  public CassandraAspect.PrimaryKey toPrimaryKey() {
-    return new PrimaryKey(getUrn(), getAspect(), getVersion());
-  }
-
-  public static CassandraAspect fromRow(@Nonnull Row r) {
-    return new CassandraAspect(
-        r.getString(CassandraAspect.URN_COLUMN),
-        r.getString(CassandraAspect.ASPECT_COLUMN),
-        r.getLong(CassandraAspect.VERSION_COLUMN),
-        r.getString(CassandraAspect.METADATA_COLUMN),
-        r.getString(CassandraAspect.SYSTEM_METADATA_COLUMN),
-        r.getInstant(CassandraAspect.CREATED_ON_COLUMN) == null ? null : Timestamp.from(r.getInstant(CassandraAspect.CREATED_ON_COLUMN)),
-        r.getString(CassandraAspect.CREATED_BY_COLUMN),
-        r.getString(CassandraAspect.CREATED_FOR_COLUMN));
-  }
-
-  public EntityAspect toEntityAspect() {
+  @Nonnull
+  public static EntityAspect rowToEntityAspect(@Nonnull Row row) {
     return new EntityAspect(
-        getUrn(),
-        getAspect(),
-        getVersion(),
-        getMetadata(),
-        getSystemMetadata(),
-        getCreatedOn(),
-        getCreatedBy(),
-        getCreatedFor()
-    );
+        row.getString(CassandraAspect.URN_COLUMN),
+        row.getString(CassandraAspect.ASPECT_COLUMN),
+        row.getLong(CassandraAspect.VERSION_COLUMN),
+        row.getString(CassandraAspect.METADATA_COLUMN),
+        row.getString(CassandraAspect.SYSTEM_METADATA_COLUMN),
+        row.getInstant(CassandraAspect.CREATED_ON_COLUMN) == null ? null : Timestamp.from(row.getInstant(CassandraAspect.CREATED_ON_COLUMN)),
+        row.getString(CassandraAspect.CREATED_BY_COLUMN),
+        row.getString(CassandraAspect.CREATED_FOR_COLUMN));
   }
 
-  public static CassandraAspect fromEntityAspect(EntityAspect aspect) {
-    return new CassandraAspect(
-        aspect.getUrn(),
-        aspect.getAspect(),
-        aspect.getVersion(),
-        aspect.getMetadata(),
-        aspect.getSystemMetadata(),
-        aspect.getCreatedOn(),
-        aspect.getCreatedBy(),
-        aspect.getCreatedFor()
-    );
+  @Nonnull
+  public static AspectIdentity rowToAspectIdentity(@Nonnull Row row) {
+    return new AspectIdentity(
+        row.getString(CassandraAspect.URN_COLUMN),
+        row.getString(CassandraAspect.ASPECT_COLUMN),
+        row.getLong(CassandraAspect.VERSION_COLUMN));
   }
+
 }
