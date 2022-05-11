@@ -125,7 +125,7 @@ public class DatasetExtractor {
 
     PLAN_TO_DATASET.put(WriteToDataSourceV2.class, (p, ctx, datahubConfig) -> {
       WriteToDataSourceV2 cmd = (WriteToDataSourceV2) p;
-      if(!cmd.writer().toString().contains("IcebergWrite")) {
+      if (!cmd.writer().toString().contains("IcebergWrite")) {
         return Optional.empty();
       } else {
         String[] names = cmd.writer().toString().split(",")[0].split("\\.");
@@ -136,7 +136,7 @@ public class DatasetExtractor {
 
     PLAN_TO_DATASET.put(DataSourceV2Relation.class, (p, ctx, datahubConfig) -> {
       DataSourceV2Relation cmd = (DataSourceV2Relation) p;
-      if(!cmd.source().toString().contains("IcebergSource") && !cmd.source().toString().contains("iceberg")) {
+      if (!cmd.source().toString().contains("IcebergSource") && !cmd.source().toString().contains("iceberg")) {
         return Optional.empty();
       } else {
         String[] names = cmd.options().get("path").get().split("\\.");
@@ -147,7 +147,7 @@ public class DatasetExtractor {
 
     SPARKPLAN_TO_DATASET.put(DataSourceV2ScanExec.class, (sp, ctx, datahubConfig) -> {
       DataSourceV2ScanExec cmd = (DataSourceV2ScanExec) sp;
-      if(!sp.toString().contains("iceberg")) {
+      if (!sp.toString().contains("iceberg")) {
         return Optional.empty();
       } else {
         String[] names = cmd.options().get("path").get().split("\\.");
@@ -158,7 +158,8 @@ public class DatasetExtractor {
 
     SPARKPLAN_TO_DATASET.put(FileSourceScanExec.class, (sp, ctx, datahubConfig) -> {
       FileSourceScanExec cmd = (FileSourceScanExec) sp;
-      return Optional.of(new CatalogTableDataset("hive", cmd.tableIdentifier().get().table(), getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
+      String tableName = cmd.tableIdentifier().get().table();
+      return Optional.of(new CatalogTableDataset("hive", tableName, getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
     });
 
     REL_TO_DATASET.put(HadoopFsRelation.class, (r, ctx, datahubConfig) -> {

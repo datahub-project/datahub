@@ -115,8 +115,6 @@ dependencies {
   } // older version to allow older guava
 
   testImplementation(externalDependency.testContainersPostgresql)
-    compile project(':li-utils')
-    compile project(':metadata-models')
 }
 
 task checkShadowJar(type: Exec) {

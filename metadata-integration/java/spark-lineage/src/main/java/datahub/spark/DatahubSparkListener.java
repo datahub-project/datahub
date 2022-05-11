@@ -3,7 +3,14 @@ package datahub.spark;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Stack;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -112,7 +119,7 @@ public class DatahubSparkListener extends SparkListener {
           allInners.addAll(JavaConversions.asJavaCollection(plan.innerChildren()));
 
           //deal with sparkPlans in complex logical plan
-          if(plan instanceof InMemoryRelation) {
+          if (plan instanceof InMemoryRelation) {
             InMemoryRelation cmd = (InMemoryRelation) plan;
             allInmemoryRelationSparkPlan.add(cmd.cachedPlan());
           }
@@ -142,7 +149,7 @@ public class DatahubSparkListener extends SparkListener {
             inputDS.ifPresent(x -> lineage.addSource(x));
 
             //deal with sparkPlans in complex logical plan
-            if(plan instanceof InMemoryRelation) {
+            if (plan instanceof InMemoryRelation) {
               InMemoryRelation cmd = (InMemoryRelation) plan;
               allInmemoryRelationSparkPlan.add(cmd.cachedPlan());
             }
@@ -156,7 +163,7 @@ public class DatahubSparkListener extends SparkListener {
         });
       }
 
-      for(QueryPlan<?> qpInmemoryRelation : allInmemoryRelationSparkPlan) {
+      for (QueryPlan<?> qpInmemoryRelation : allInmemoryRelationSparkPlan) {
         if (!(qpInmemoryRelation instanceof SparkPlan)) {
           continue;
         }
@@ -169,7 +176,7 @@ public class DatahubSparkListener extends SparkListener {
             inputDSSp.ifPresent(x -> lineage.addSource(x));
             allInmemoryRelationInnersSparkPlan.addAll(JavaConversions.asJavaCollection(sp.innerChildren()));
 
-            if(sp instanceof InMemoryTableScanExec) {
+            if (sp instanceof InMemoryTableScanExec) {
               InMemoryTableScanExec cmd = (InMemoryTableScanExec) sp;
               allInmemoryRelationTableScanPlan.push(cmd);
             }
@@ -182,7 +189,7 @@ public class DatahubSparkListener extends SparkListener {
         });
       }
 
-      for(QueryPlan<?> qpInmemoryRelationInners : allInmemoryRelationInnersSparkPlan) {
+      for (QueryPlan<?> qpInmemoryRelationInners : allInmemoryRelationInnersSparkPlan) {
         if (!(qpInmemoryRelationInners instanceof SparkPlan)) {
           continue;
         }
@@ -194,7 +201,7 @@ public class DatahubSparkListener extends SparkListener {
             Optional<? extends SparkDataset> inputDSSp = DatasetExtractor.asDataset(sp, ctx, false);
             inputDSSp.ifPresent(x -> lineage.addSource(x));
 
-            if(sp instanceof InMemoryTableScanExec) {
+            if (sp instanceof InMemoryTableScanExec) {
               InMemoryTableScanExec cmd = (InMemoryTableScanExec) sp;
               allInmemoryRelationTableScanPlan.push(cmd);
             }
@@ -219,7 +226,7 @@ public class DatahubSparkListener extends SparkListener {
             inputDSSp.ifPresent(x -> lineage.addSource(x));
             allInnerPhysicalPlan.addAll(JavaConversions.asJavaCollection(sp.innerChildren()));
 
-            if(sp instanceof InMemoryTableScanExec) {
+            if (sp instanceof InMemoryTableScanExec) {
               InMemoryTableScanExec cmd = (InMemoryTableScanExec) sp;
               allInmemoryRelationTableScanPlan.push(cmd);
             }
@@ -231,7 +238,7 @@ public class DatahubSparkListener extends SparkListener {
           }
         });
 
-        for(QueryPlan<?> qpInner : allInnerPhysicalPlan) {
+        for (QueryPlan<?> qpInner : allInnerPhysicalPlan) {
           if (!(qpInner instanceof SparkPlan)) {
             continue;
           }
@@ -243,7 +250,7 @@ public class DatahubSparkListener extends SparkListener {
               Optional<? extends SparkDataset> inputDSSp = DatasetExtractor.asDataset(sp, ctx, false);
               inputDSSp.ifPresent(x -> lineage.addSource(x));
 
-              if(sp instanceof InMemoryTableScanExec) {
+              if (sp instanceof InMemoryTableScanExec) {
                 InMemoryTableScanExec cmd = (InMemoryTableScanExec) sp;
                 allInmemoryRelationTableScanPlan.push(cmd);
               }
