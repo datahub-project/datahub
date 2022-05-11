@@ -24,7 +24,8 @@ import javax.annotation.Nullable;
 public class SingleDomainDiffer implements AspectDiffer<Domains> {
   @Override
   public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
-                                           ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
+      ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
+
     // TODO: Migrate away from using getSemanticDiff.
     throw new UnsupportedOperationException();
   }

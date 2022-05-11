@@ -21,7 +21,8 @@ public class EntityKeyDiffer<K extends RecordTemplate> implements AspectDiffer<K
 
   @Override
   public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
-                                           ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
+      ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
+
     // TODO: Migrate callers to use getChangeEvents.
     throw new UnsupportedOperationException();
   }

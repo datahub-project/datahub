@@ -57,24 +57,25 @@ public class CassandraAspectDao implements AspectDao {
     _cqlSession = cqlSession;
   }
 
+  @Override
   public EntityAspect getLatestAspect(@Nonnull String urn, @Nonnull String aspectName) {
     return getAspect(urn, aspectName, ASPECT_LATEST_VERSION);
   }
 
+  @Override
   public long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
     Map<String, Long> result = getMaxVersions(urn, ImmutableSet.of(aspectName));
     return result.get(aspectName);
   }
 
   public Map<String, Long> getMaxVersions(@Nonnull final String urn, @Nonnull final Set<String> aspectNames) {
-    Set<Term> aspectNamesArg = aspectNames.stream().map(QueryBuilder::literal).collect(Collectors.toSet());
     SimpleStatement ss = selectFrom(CassandraAspect.TABLE_NAME)
         .selectors(
             Selector.column(CassandraAspect.URN_COLUMN),
             Selector.column(CassandraAspect.ASPECT_COLUMN),
             Selector.function("max", Selector.column(CassandraAspect.VERSION_COLUMN)).as(CassandraAspect.VERSION_COLUMN))
         .whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(urn))
-        .whereColumn(CassandraAspect.ASPECT_COLUMN).in(aspectNamesArg)
+        .whereColumn(CassandraAspect.ASPECT_COLUMN).in(aspectNamesToLiterals(aspectNames))
         .groupBy(ImmutableList.of(Selector.column(CassandraAspect.URN_COLUMN), Selector.column(CassandraAspect.ASPECT_COLUMN)))
         .build();
 
@@ -94,12 +95,13 @@ public class CassandraAspectDao implements AspectDao {
     return aspectVersions;
   }
 
-  public void saveAspect(EntityAspect aspect, final boolean insert) {
+  @Override
+  public void saveAspect(@Nonnull EntityAspect aspect, final boolean insert) {
     CassandraAspect cassandraAspect = CassandraAspect.fromEntityAspect(aspect);
-    saveAspectCassandra(cassandraAspect, insert);
+    saveCassandraAspect(cassandraAspect, insert);
   }
 
-  private void saveAspectCassandra(CassandraAspect cassandraAspect, final boolean insert) {
+  private void saveCassandraAspect(@Nonnull CassandraAspect cassandraAspect, final boolean insert) {
     String entity;
 
     try {
@@ -139,18 +141,22 @@ public class CassandraAspectDao implements AspectDao {
 
   // TODO: can further improve by running the sub queries in parallel
   // TODO: look into supporting pagination
+  @Override
   @Nonnull
   public Map<UniqueKey, EntityAspect> batchGet(@Nonnull final Set<UniqueKey> keys) {
     return keys.stream()
         .map(this::getAspect)
         .filter(Objects::nonNull)
-        .collect(Collectors.toMap(EntityAspect::toUniqueKey, record -> record));
+        .collect(Collectors.toMap(EntityAspect::toUniqueKey, aspect -> aspect));
   }
 
-  public EntityAspect getAspect(UniqueKey key) {
+  @Override
+  @Nullable
+  public EntityAspect getAspect(@Nonnull UniqueKey key) {
     return getAspect(key.getUrn(), key.getAspect(), key.getVersion());
   }
 
+  @Override
   @Nonnull
   public ListResult<String> listLatestAspectMetadata(
       @Nonnull final String entityName,
@@ -160,6 +166,7 @@ public class CassandraAspectDao implements AspectDao {
     return listAspectMetadata(entityName, aspectName, ASPECT_LATEST_VERSION, start, pageSize);
   }
 
+  @Override
   @Nonnull
   public ListResult<String> listAspectMetadata(
       @Nonnull final String entityName,
@@ -214,6 +221,7 @@ public class CassandraAspectDao implements AspectDao {
     return toListResult(aspectMetadatas, listResultMetadata, start, pageNumber, pageSize, totalCount);
   }
 
+  @Override
   @Nonnull
   public <T> T runInTransactionWithRetry(@Nonnull final Supplier<T> block, final int maxTransactionRetry) {
     int retryCount = 0;
@@ -291,6 +299,7 @@ public class CassandraAspectDao implements AspectDao {
     return auditStamp;
   }
 
+  @Override
   public boolean deleteAspect(@Nonnull final EntityAspect aspect) {
       SimpleStatement ss = deleteFrom(CassandraAspect.TABLE_NAME)
       .whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(aspect.getUrn()))
@@ -302,6 +311,7 @@ public class CassandraAspectDao implements AspectDao {
     return rs.getExecutionInfo().getErrors().size() == 0;
   }
 
+  @Override
   public int deleteUrn(@Nonnull final String urn) {
       SimpleStatement ss = deleteFrom(CassandraAspect.TABLE_NAME)
       .whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(urn))
@@ -321,9 +331,11 @@ public class CassandraAspectDao implements AspectDao {
 
     ResultSet rs = _cqlSession.execute(ss);
 
-    return rs.all().stream().map(record -> CassandraAspect.fromRow(record).toEntityAspect()).collect(Collectors.toList());
+    return rs.all().stream().map(row -> CassandraAspect.fromRow(row).toEntityAspect()).collect(Collectors.toList());
   }
 
+  @Override
+  @Nullable
   public EntityAspect getAspect(@Nonnull String urn, @Nonnull String aspectName, long version) {
     SimpleStatement ss = selectFrom(CassandraAspect.TABLE_NAME)
       .all()
@@ -333,17 +345,12 @@ public class CassandraAspectDao implements AspectDao {
       .limit(1)
       .build();
 
-
     ResultSet rs = _cqlSession.execute(ss);
-    Row r = rs.one();
-
-    if (r == null) {
-      return null;
-    }
-
-    return CassandraAspect.fromRow(r).toEntityAspect();
+    Row row = rs.one();
+    return row == null ? null : CassandraAspect.fromRow(row).toEntityAspect();
   }
 
+  @Override
   @Nonnull
   public ListResult<String> listUrns(
       @Nonnull final String entityName,
@@ -386,11 +393,13 @@ public class CassandraAspectDao implements AspectDao {
     return toListResult(urns, null, start, pageNumber, pageSize, totalCount);
   }
 
+  @Override
   public long getNextVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
     Map<String, Long> versions = getNextVersions(urn, ImmutableSet.of(aspectName));
     return versions.get(aspectName);
   }
 
+  @Override
   public Map<String, Long> getNextVersions(@Nonnull final String urn, @Nonnull final Set<String> aspectNames) {
     Map<String, Long> maxVersions = getMaxVersions(urn, aspectNames);
     Map<String, Long> nextVersions = new HashMap<>();
@@ -404,6 +413,7 @@ public class CassandraAspectDao implements AspectDao {
     return nextVersions;
   }
 
+  @Override
   public long saveLatestAspect(
       @Nonnull final String urn,
       @Nonnull final String aspectName,
@@ -435,14 +445,17 @@ public class CassandraAspectDao implements AspectDao {
     return largestVersion;
   }
 
+  @Override
   public void setWritable(boolean canWrite) {
     _canWrite = canWrite;
   }
 
+  @Override
   public void setConnectionValidated(boolean validated) {
     // TODO: implement connection validation
   }
 
+  @Override
   public void saveAspect(
       @Nonnull final String urn,
       @Nonnull final String aspectName,
@@ -466,10 +479,27 @@ public class CassandraAspectDao implements AspectDao {
       aspect.setCreatedFor(impersonator);
     }
 
-    saveAspectCassandra(aspect, insert);
+    saveCassandraAspect(aspect, insert);
   }
 
-  public List<EntityAspect> getAspectsInRange(Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis) {
-    return null;
+  @Override
+  @Nonnull
+  public List<EntityAspect> getAspectsInRange(@Nonnull Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis) {
+    SimpleStatement ss = selectFrom(CassandraAspect.TABLE_NAME)
+        .all()
+        .whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(urn.toString()))
+        .whereColumn(CassandraAspect.ASPECT_COLUMN).in(aspectNamesToLiterals(aspectNames))
+        .whereColumn(CassandraAspect.CREATED_ON_COLUMN).isLessThanOrEqualTo(literal(startTimeMillis))
+        .whereColumn(CassandraAspect.CREATED_ON_COLUMN).isGreaterThan(literal(endTimeMillis))
+        .allowFiltering()
+        .build();
+
+    ResultSet rs = _cqlSession.execute(ss);
+
+    return rs.all().stream().map(row -> CassandraAspect.fromRow(row).toEntityAspect()).collect(Collectors.toList());
+  }
+
+  private Iterable<Term> aspectNamesToLiterals(Set<String> aspectNames) {
+    return aspectNames.stream().map(QueryBuilder::literal).collect(Collectors.toSet());
   }
 }

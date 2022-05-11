@@ -96,10 +96,13 @@ public class CassandraTimelineServiceTest extends TimelineServiceTestBase<Cassan
     _entityService = new EntityService(_aspectDao, _mockProducer, _testEntityRegistry);
   }
 
+  /**
+   * Ideally, all tests would be in the base class, so they're reused between all implementations.
+   * When that's the case - test runner will ignore this class (and its base!) so we keep this dummy test
+   * to make sure this class will always be discovered.
+   */
   @Test
   public void obligatoryTest() throws Exception {
-    // We need this method to make test framework pick this class up.
-    // All real tests are in the base class.
     Assert.assertTrue(true);
   }
 

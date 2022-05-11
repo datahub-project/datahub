@@ -31,7 +31,6 @@ import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
-import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
@@ -87,6 +86,18 @@ abstract public class EntityServiceTestBase<T_AD extends AspectDao, T_RS extends
     protected EntityServiceTestBase() throws EntityRegistryException {
     }
 
+    // This test had to be split out because Cassandra relational databases have different result ordering restrictions
+    @Test
+    abstract public void testIngestListLatestAspects() throws Exception;
+
+    // This test had to be split out because Cassandra relational databases have different result ordering restrictions
+    @Test
+    abstract public void testIngestListUrns() throws Exception;
+
+    // This test had to be split out because Cassandra doesn't support nested transactions
+    @Test
+    abstract public void testNestedTransactions() throws Exception;
+
     @Test
     public void testIngestGetEntity() throws Exception {
         // Test Writing a CorpUser Entity
@@ -104,7 +115,7 @@ abstract public class EntityServiceTestBase<T_AD extends AspectDao, T_RS extends
         com.linkedin.entity.Entity readEntity = _entityService.getEntity(entityUrn, Collections.emptySet());
 
         // 3. Compare Entity Objects
-        assertEquals(2, readEntity.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
+        assertEquals(readEntity.getValue().getCorpUserSnapshot().getAspects().size(), 2); // Key + Info aspect.
         assertTrue(DataTemplateUtil.areEqual(writeEntity.getValue().getCorpUserSnapshot().getAspects().get(0),
             readEntity.getValue().getCorpUserSnapshot().getAspects().get(1)));
         CorpUserKey expectedKey = new CorpUserKey();
@@ -143,7 +154,7 @@ abstract public class EntityServiceTestBase<T_AD extends AspectDao, T_RS extends
         com.linkedin.entity.Entity readEntity = _entityService.getEntity(entityUrn, Collections.emptySet());
 
         // 3. Compare Entity Objects
-        assertEquals(2, readEntity.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
+        assertEquals(readEntity.getValue().getCorpUserSnapshot().getAspects().size(), 2); // Key + Info aspect.
         assertTrue(DataTemplateUtil.areEqual(writeEntity.getValue().getCorpUserSnapshot().getAspects().get(0),
             readEntity.getValue().getCorpUserSnapshot().getAspects().get(1)));
         CorpUserKey expectedKey = new CorpUserKey();
@@ -194,7 +205,7 @@ abstract public class EntityServiceTestBase<T_AD extends AspectDao, T_RS extends
 
         // Entity 1
         com.linkedin.entity.Entity readEntity1 = readEntities.get(entityUrn1);
-        assertEquals(2, readEntity1.getValue().getCorpUserSnapshot().getAspects().size()); // Key + Info aspect.
+        assertEquals(readEntity1.getValue().getCorpUserSnapshot().getAspects().size(), 2); // Key + Info aspect.
         assertTrue(DataTemplateUtil.areEqual(writeEntity1.getValue().getCorpUserSnapshot().getAspects().get(0),
             readEntity1.getValue().getCorpUserSnapshot().getAspects().get(1)));
         CorpUserKey expectedKey1 = new CorpUserKey();
@@ -276,7 +287,7 @@ abstract public class EntityServiceTestBase<T_AD extends AspectDao, T_RS extends
 
         // Entity 1
         EntityResponse readEntityResponse1 = readEntities.get(entityUrn1);
-        assertEquals(2, readEntityResponse1.getAspects().size()); // Key + Info aspect.
+        assertEquals(readEntityResponse1.getAspects().size(), 2); // Key + Info aspect.
         EnvelopedAspect envelopedAspect1 = readEntityResponse1.getAspects().get(aspectName);
         assertEquals(envelopedAspect1.getName(), aspectName);
         assertTrue(
@@ -289,7 +300,7 @@ abstract public class EntityServiceTestBase<T_AD extends AspectDao, T_RS extends
 
         // Entity 2
         EntityResponse readEntityResponse2 = readEntities.get(entityUrn2);
-        assertEquals(2, readEntityResponse2.getAspects().size()); // Key + Info aspect.
+        assertEquals(readEntityResponse2.getAspects().size(), 2); // Key + Info aspect.
         EnvelopedAspect envelopedAspect2 = readEntityResponse2.getAspects().get(aspectName);
         assertEquals(envelopedAspect2.getName(), aspectName);
         assertTrue(
@@ -770,93 +781,6 @@ abstract public class EntityServiceTestBase<T_AD extends AspectDao, T_RS extends
             Mockito.any(), Mockito.any(), Mockito.eq(MetadataAuditOperation.UPDATE));
 
         verifyNoMoreInteractions(_mockProducer);
-    }
-
-    @Test
-    public void testIngestListLatestAspects() throws Exception {
-        // TODO: this test should be in the base class but with current schema cassandra limitations make it difficult
-        //  to achieve the same ordering as in ebean land
-        Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
-        Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
-        Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
-
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
-
-        String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
-
-        // Ingest CorpUserInfo Aspect #1
-        CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
-        _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
-
-        // Ingest CorpUserInfo Aspect #2
-        CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
-        _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
-
-        // Ingest CorpUserInfo Aspect #3
-        CorpUserInfo writeAspect3 = createCorpUserInfo("email3@test.com");
-        _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
-
-        // List aspects
-        ListResult<RecordTemplate> batch1 = _entityService.listLatestAspects(entityUrn1.getEntityType(), aspectName, 0, 2);
-
-        assertEquals(2, batch1.getNextStart());
-        assertEquals(2, batch1.getPageSize());
-        assertEquals(3, batch1.getTotalCount());
-        assertEquals(2, batch1.getTotalPageCount());
-        assertEquals(2, batch1.getValues().size());
-        assertTrue(DataTemplateUtil.areEqual(writeAspect1, batch1.getValues().get(0)));
-        assertTrue(DataTemplateUtil.areEqual(writeAspect2, batch1.getValues().get(1)));
-
-        ListResult<RecordTemplate> batch2 = _entityService.listLatestAspects(entityUrn1.getEntityType(), aspectName, 2, 2);
-        assertEquals(1, batch2.getValues().size());
-        assertTrue(DataTemplateUtil.areEqual(writeAspect3, batch2.getValues().get(0)));
-    }
-
-    @Test
-    public void testIngestListUrns() throws Exception {
-        // TODO: this test should be in the base class but with current schema cassandra limitations make it difficult
-        //  to achieve the same ordering as in ebean land
-        Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
-        Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
-        Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
-
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
-
-        String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserKey().schema());
-
-        // Ingest CorpUserInfo Aspect #1
-        RecordTemplate writeAspect1 = createCorpUserKey(entityUrn1);
-        _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
-
-        // Ingest CorpUserInfo Aspect #2
-        RecordTemplate writeAspect2 = createCorpUserKey(entityUrn2);
-        _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
-
-        // Ingest CorpUserInfo Aspect #3
-        RecordTemplate writeAspect3 = createCorpUserKey(entityUrn3);
-        _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
-
-        // List aspects urns
-        ListUrnsResult batch1 = _entityService.listUrns(entityUrn1.getEntityType(), 0, 2);
-
-        assertEquals(0, (int) batch1.getStart());
-        assertEquals(2, (int) batch1.getCount());
-        assertEquals(3, (int) batch1.getTotal());
-        assertEquals(2, batch1.getEntities().size());
-        assertEquals(entityUrn1.toString(), batch1.getEntities().get(0).toString());
-        assertEquals(entityUrn2.toString(), batch1.getEntities().get(1).toString());
-
-        ListUrnsResult batch2 = _entityService.listUrns(entityUrn1.getEntityType(), 2, 2);
-
-        assertEquals(2, (int) batch2.getStart());
-        assertEquals(1, (int) batch2.getCount());
-        assertEquals(3, (int) batch2.getTotal());
-        assertEquals(1, batch2.getEntities().size());
-        assertEquals(entityUrn3.toString(), batch2.getEntities().get(0).toString());
     }
 
     @Test

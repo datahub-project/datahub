@@ -124,9 +124,9 @@ public class EbeanAspectV2 extends Model {
   @Nonnull
   public EntityAspect toEntityAspect() {
     return new EntityAspect(
-        getUrn(),
-        getAspect(),
-        getVersion(),
+        getKey().getUrn(),
+        getKey().getAspect(),
+        getKey().getVersion(),
         getMetadata(),
         getSystemMetadata(),
         getCreatedOn(),

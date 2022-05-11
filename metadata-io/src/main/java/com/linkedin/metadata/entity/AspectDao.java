@@ -23,7 +23,8 @@ public interface AspectDao {
     @Nonnull
     Map<UniqueKey, EntityAspect> batchGet(@Nonnull final Set<UniqueKey> keys);
 
-    List<EntityAspect> getAspectsInRange(Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis);
+    @Nonnull
+    List<EntityAspect> getAspectsInRange(@Nonnull Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis);
 
     @Nullable
     EntityAspect getLatestAspect(@Nonnull final String urn, @Nonnull final String aspectName);

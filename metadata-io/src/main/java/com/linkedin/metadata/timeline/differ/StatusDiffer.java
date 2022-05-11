@@ -21,7 +21,8 @@ import javax.annotation.Nullable;
 public class StatusDiffer implements AspectDiffer<Status> {
   @Override
   public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
-                                           ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
+      ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
+
     // TODO: Migrate away from using getSemanticDiff.
     throw new UnsupportedOperationException();
   }

@@ -218,7 +218,8 @@ public class EditableSchemaMetadataDiffer implements AspectDiffer<EditableSchema
 
   @Override
   public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
-                                           ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
+      ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
+
     if (!previousValue.getAspect().equals(EDITABLE_SCHEMA_METADATA_ASPECT_NAME) || !currentValue.getAspect()
         .equals(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)) {
       throw new IllegalArgumentException("Aspect is not " + EDITABLE_SCHEMA_METADATA_ASPECT_NAME);

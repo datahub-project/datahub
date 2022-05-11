@@ -114,7 +114,7 @@ public class CassandraRetentionService extends RetentionService {
       @Nonnull final Urn urn,
       @Nonnull final String aspectName,
       @Nonnull final VersionBasedRetention retention,
-      Optional<Long> maxVersionFromUpdate) {
+      @Nonnull Optional<Long> maxVersionFromUpdate) {
 
     long largestVersion = maxVersionFromUpdate.orElseGet(() -> getMaxVersion(urn, aspectName));
 
