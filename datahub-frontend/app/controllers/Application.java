@@ -14,7 +14,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
-import play.Play;
+import play.api.Play;
 import play.http.HttpEntity;
 import play.libs.ws.InMemoryBodyWritable;
 import play.libs.ws.StandaloneWSClient;
@@ -59,7 +59,7 @@ public class Application extends Controller {
    */
   @Nonnull
   private Result serveAsset(@Nullable String path) {
-    InputStream indexHtml = Play.application().classloader().getResourceAsStream("public/index.html");
+    InputStream indexHtml = Play.current().classloader().getResourceAsStream("public/index.html");
     response().setHeader("Cache-Control", "no-cache");
     return ok(indexHtml).as("text/html");
   }
@@ -114,7 +114,8 @@ public class Application extends Controller {
             .toMap()
             .entrySet()
             .stream()
-            .filter(entry -> !AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER.equals(entry.getKey())) // Remove X-DataHub-Actor to prevent malicious delegation.
+            // Remove X-DataHub-Actor to prevent malicious delegation.
+            .filter(entry -> !AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER.equals(entry.getKey()))
             .filter(entry -> !Http.HeaderNames.CONTENT_LENGTH.equals(entry.getKey()))
             .filter(entry -> !Http.HeaderNames.CONTENT_TYPE.equals(entry.getKey()))
             .filter(entry -> !Http.HeaderNames.AUTHORIZATION.equals(entry.getKey()))
