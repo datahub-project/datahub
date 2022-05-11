@@ -1,9 +1,10 @@
 import json
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Union
+from typing import Dict, Iterable, Union
 
 import pyorient
+from pyorient import OrientRecord
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.common import PipelineContext
@@ -26,7 +27,7 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
-def map_snapshot(table: Any) -> MetadataWorkUnit:
+def map_snapshot(table: OrientRecord) -> MetadataWorkUnit:
     if table.externalType == "kafka_topic":
         platform = "kafka"
     elif table.externalType == "mssql_table":
@@ -35,9 +36,9 @@ def map_snapshot(table: Any) -> MetadataWorkUnit:
         raise ValueError(f"Unknown external type: {table.externalType}")
 
     properties = DatasetPropertiesClass(
-        name=table.get("name"),
-        description=table.get("description"),
-        customProperties=table.get("customFields"),
+        name=table.name,
+        description=table.description,
+        customProperties=table.customFields,
     )
 
     # adjust parents for mssql
@@ -78,8 +79,8 @@ def map_column(column: Dict[str, str]) -> SchemaFieldClass:
         type_class = StringTypeClass()
 
     return SchemaFieldClass(
-        fieldPath=column.get("name", ""),
-        description=column.get("description", ""),
+        fieldPath=column["name"],
+        description=column.get("description"),
         type=SchemaFieldDataTypeClass(type=type_class),
         nativeDataType=data_type,
     )
@@ -126,8 +127,8 @@ class DataCatalogSource(Source):
             "inE('Has').outV().inE('Has').outV().inE('Has').outV().name[0] AS country, "
             "outE('TableHasColumn').inV().toJson() as columns "
             "FROM Table "
-            'WHERE externalType = "kafka_topic" AND deletedOn = 0 '
-            "LIMIT 100"
+            'WHERE externalType = "kafka_topic" AND deletedOn = 0 AND description IS NULL '
+            "LIMIT 1"
         )
         for table in self.client.query(query):
             yield map_snapshot(table)
