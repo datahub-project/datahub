@@ -18,12 +18,11 @@ The architecture of this metadata ingestion framework is heavily inspired by [Ap
 4. On Fedora (if using LDAP source integration): `sudo yum install openldap-devel`
 
 ### Set up your Python environment
-<details>
-  Assuming you are in the metadata-ingestion directory
- </details>
-  
+
+From the repository root: 
 
 ```shell
+cd metadata-ingestion
 ../gradlew :metadata-ingestion:installDev
 source venv/bin/activate
 datahub version  # should print "version: unavailable (installed via git)"
