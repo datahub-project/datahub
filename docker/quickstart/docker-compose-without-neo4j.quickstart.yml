@@ -33,7 +33,7 @@ services:
     - DATAHUB_SYSTEM_CLIENT_SECRET=JohnSnowKnowsNothing
     - KAFKA_PROPERTIES_SECURITY_PROTOCOL=PLAINTEXT
     hostname: actions
-    image: acryldata/acryl-datahub-actions:${ACTIONS_VERSION:-head}
+    image: acryldata/datahub-actions:${ACTIONS_VERSION:-head}
     restart: on-failure:5
   datahub-frontend-react:
     container_name: datahub-frontend-react
