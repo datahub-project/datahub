@@ -64,7 +64,7 @@ query getDataset($urn: String!) {
         container {
             ...entityContainer
         }
-        usageStats(resource: $urn, range: MONTH) {
+        usageStats(range: MONTH) {
             buckets {
                 bucket
                 duration
