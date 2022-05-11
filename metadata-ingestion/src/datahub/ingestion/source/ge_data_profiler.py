@@ -62,6 +62,7 @@ from datahub.utilities.sqlalchemy_query_combiner import (
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 P = ParamSpec("P")
 
@@ -873,6 +874,9 @@ class DatahubGEProfiler:
         ge_context.data_context.create_expectation_suite(
             expectation_suite_name=expectation_suite_name,
             overwrite_existing=True,
+        )
+        logger.info(
+            f"Creating ge dataset for {ge_context.datasource_name} {pretty_name} "
         )
         batch = ge_context.data_context.get_batch(
             expectation_suite_name=expectation_suite_name,

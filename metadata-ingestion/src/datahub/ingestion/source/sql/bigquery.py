@@ -35,6 +35,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
     SQLAlchemySource,
@@ -738,6 +739,20 @@ WHERE
             if shard:
                 return shard, None
         return None, None
+
+    def get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
+        url = self.config.get_sql_alchemy_url(for_run_sql=True)
+        logger.debug(f"sql_alchemy_url={url}")
+        engine = create_engine(url, **self.config.options)
+        with engine.connect() as conn:
+            inspector = inspect(conn)
+
+        return DatahubGEProfiler(
+            conn=inspector.bind,
+            report=self.report,
+            config=self.config.profiling,
+            platform=self.platform,
+        )
 
     def is_dataset_eligible_for_profiling(
         self, dataset_name: str, sql_config: SQLAlchemyConfig
