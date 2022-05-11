@@ -35,9 +35,9 @@ def map_snapshot(table: Any) -> MetadataWorkUnit:
         raise ValueError(f"Unknown external type: {table.externalType}")
 
     properties = DatasetPropertiesClass(
-        name=table.name,
-        description=table.description,
-        customProperties=table.customFields,
+        name=table.get("name"),
+        description=table.get("description"),
+        customProperties=table.get("customFields"),
     )
 
     # adjust parents for mssql
