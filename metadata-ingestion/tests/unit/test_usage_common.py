@@ -152,7 +152,7 @@ def test_make_usage_workunit():
         urn_builder=lambda x: x,
         top_n_queries=10,
         format_sql_queries=False,
-        exclude_top_sql_queries=False,
+        include_top_n_queries=True,
     )
 
     assert wu.id == "2020-01-01T00:00:00-test_db.test_schema.test_table"
@@ -184,7 +184,7 @@ def test_query_formatting():
         urn_builder=lambda x: x,
         top_n_queries=10,
         format_sql_queries=True,
-        exclude_top_sql_queries=False,
+        include_top_n_queries=True,
     )
     assert wu.id == "2020-01-01T00:00:00-test_db.test_schema.test_table"
     assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
@@ -215,7 +215,7 @@ def test_query_trimming():
         urn_builder=lambda x: x,
         top_n_queries=top_n_queries,
         format_sql_queries=False,
-        exclude_top_sql_queries=False,
+        include_top_n_queries=True,
     )
 
     assert wu.id == "2020-01-01T00:00:00-test_db.test_schema.test_table"
@@ -233,7 +233,7 @@ def test_top_n_queries_validator_fails():
     assert "top_n_queries is set to 2 but it can be maximum 1" in str(excinfo.value)
 
 
-def test_make_usage_workunit_exclude_top_n_queries():
+def test_make_usage_workunit_include_top_n_queries():
     test_email = "test_email@test.com"
     test_query = "select * from test"
     event_time = datetime(2020, 1, 1)
@@ -251,7 +251,7 @@ def test_make_usage_workunit_exclude_top_n_queries():
         urn_builder=lambda x: x,
         top_n_queries=10,
         format_sql_queries=False,
-        exclude_top_sql_queries=True,
+        include_top_n_queries=False,
     )
 
     assert wu.id == "2020-01-01T00:00:00-test_db.test_schema.test_table"

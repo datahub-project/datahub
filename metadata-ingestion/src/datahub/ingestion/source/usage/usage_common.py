@@ -83,11 +83,11 @@ class GenericAggregatedDataset(Generic[ResourceType]):
         urn_builder: Callable[[ResourceType], str],
         top_n_queries: int,
         format_sql_queries: bool,
-        exclude_top_sql_queries: bool,
+        include_top_n_queries: bool,
     ) -> MetadataWorkUnit:
 
         top_sql_queries = None
-        if not exclude_top_sql_queries:
+        if include_top_n_queries:
             budget_per_query: int = int(
                 self.total_budget_for_query_list / top_n_queries
             )
