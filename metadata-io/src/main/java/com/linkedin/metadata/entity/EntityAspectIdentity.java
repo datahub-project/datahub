@@ -1,26 +1,17 @@
 package com.linkedin.metadata.entity;
 
-import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.Value;
 
 import javax.annotation.Nonnull;
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@EqualsAndHashCode
+/**
+ * This class holds values required to construct a unique key to identify
+ * an entity aspect record in a database.
+ * Its existence started mainly for compatibility with {@link com.linkedin.metadata.entity.ebean.EbeanAspectV2.PrimaryKey}
+ */
+@Value
 public class EntityAspectIdentity {
-
-  @Nonnull
-  private String urn;
-
-  @Nonnull
-  private String aspect;
-
-  @Nonnull
-  private long version;
+  @Nonnull String urn;
+  @Nonnull String aspect;
+  @Nonnull long version;
 }
