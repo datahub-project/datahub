@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.chart.mappers;
 
 import com.linkedin.chart.EditableChartProperties;
+import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
@@ -22,6 +23,7 @@ import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
@@ -76,6 +78,8 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
         mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
         mappingHelper.mapToResult(DEPRECATION_ASPECT_NAME, (chart, dataMap) ->
             chart.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
+        mappingHelper.mapToResult(DATA_PLATFORM_INSTANCE_ASPECT_NAME, (dataset, dataMap) ->
+            dataset.setDataPlatformInstance(DataPlatformInstanceAspectMapper.map(new DataPlatformInstance(dataMap))));
 
         return mappingHelper.getResult();
     }

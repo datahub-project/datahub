@@ -173,6 +173,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={platformName}
                 platformLogo={data?.dataFlow?.platform?.properties?.logoUrl || ''}
+                platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 domain={data.domain}
