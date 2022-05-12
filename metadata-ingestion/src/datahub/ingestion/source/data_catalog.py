@@ -46,7 +46,7 @@ def map_snapshot(table: OrientRecord) -> MetadataWorkUnit:
     )
 
     browse_paths = BrowsePathsClass(
-        [f"/prod/{platform}/{'/'.join(parents)}"]
+        [f"/prod/{platform}/{'/'.join(parents)}/{name}"]
     )
 
     columns = json.loads(table.columns)
