@@ -140,6 +140,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
 
     return (
         <Modal
+            className="PolicyBuilderModal"
             title={isEditing ? 'Edit a Policy' : 'Create a new Policy'}
             visible={visible}
             onCancel={onClose}

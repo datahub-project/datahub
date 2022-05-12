@@ -12,12 +12,11 @@ interface OutsideAlerterType {
 export function useOutsideAlerter(ref, closeModal) {
     useEffect(() => {
         function handleClickOutside(event) {
-            if (ref.current && event.target.className === 'ant-modal-wrap') {
+            if (ref.current && event.target?.firstElementChild?.classList.contains('PolicyBuilderModal')) {
                 Modal.confirm({
-                    title: 'Delete',
+                    title: 'Exit Policy Editor',
                     content: `Are you sure you want to exit policy editor? All changes will be lost`,
                     onOk() {
-                        console.log('onOkay destroy called.');
                         closeModal();
                     },
                     onCancel() {},
