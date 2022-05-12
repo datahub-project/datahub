@@ -36,9 +36,9 @@ def map_snapshot(table: OrientRecord) -> MetadataWorkUnit:
         raise ValueError(f"Unknown external type: {table.externalType}")
 
     properties = DatasetPropertiesClass(
-        name=table.oRecordData["name"],
-        description=table.oRecordData["description"],
-        customProperties=table.oRecordData["customFields"],
+        name=table.oRecordData.get("name"),
+        description=table.oRecordData.get("description"),
+        customProperties=table.oRecordData.get("customFields"),
     )
 
     # adjust parents for mssql
