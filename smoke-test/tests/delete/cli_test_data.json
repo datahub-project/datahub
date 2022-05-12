@@ -3,7 +3,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
-        "urn": "urn:li:tag:NeedsDocumentation",
+        "urn": "urn:li:tag:NeedsDocs",
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.Ownership": {
@@ -122,7 +122,7 @@
                   },
                   "nativeDataType": "varchar(100)",
                   "globalTags": {
-                    "tags": [{ "tag": "urn:li:tag:NeedsDocumentation" }]
+                    "tags": [{ "tag": "urn:li:tag:NeedsDocs" }]
                   },
                   "recursive": false
                 },

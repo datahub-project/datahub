@@ -12,7 +12,7 @@ def test_setup():
     """Fixture to execute asserts before and after a test is run"""
 
     platform = "urn:li:dataPlatform:kafka"
-    dataset_name = "test-rollback"
+    dataset_name = "test-delete"
 
     env = "PROD"
     dataset_urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
@@ -22,7 +22,7 @@ def test_setup():
     assert "browsePaths" not in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["browsePaths"], typed=False)
     assert "editableDatasetProperties" not in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False)
 
-    ingested_dataset_run_id = ingest_file_via_rest("tests/cli/cli_test_data.json").config.run_id
+    ingested_dataset_run_id = ingest_file_via_rest("tests/delete/cli_test_data.json").config.run_id
 
     sleep(2)
 
@@ -44,7 +44,7 @@ def test_delete_reference():
 
     env = "PROD"
     dataset_urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
-    tag_urn = "urn:li:tag:NeedsDocumentation"
+    tag_urn = "urn:li:tag:NeedsDocs"
 
     session, gms_host = get_session_and_host()
 
