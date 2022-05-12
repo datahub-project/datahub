@@ -778,8 +778,9 @@ type Dataset implements EntityWithRelationships & Entity {
 
     """
     Statistics about how this Dataset is used
+    The first parameter, `resource`, is deprecated and no longer needs to be provided
     """
-    usageStats(resource: String!, range: TimeRange): UsageQueryResult
+    usageStats(resource: String, range: TimeRange): UsageQueryResult
 
     """
     Profile Stats resource that retrieves the events in a previous unit of time in descending order
