@@ -14,8 +14,12 @@ RUN apt-get update && apt-get install -y \
         libsasl2-dev \
         libsasl2-modules \
         ldap-utils \
+        wget \
+        rpm \
+        alien \
     && python -m pip install --upgrade pip wheel setuptools==57.5.0
-
+RUN wget -c https://download.oracle.com/otn_software/linux/instantclient/215000/oracle-instantclient-basic-21.5.0.0.0-1.el8.x86_64.rpm
+RUN alien -i oracle-instantclient-basic-21.5.0.0.0-1.el8.x86_64.rpm
 
 FROM openjdk:8 as prod-build
 COPY . /datahub-src
