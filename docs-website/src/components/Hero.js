@@ -12,7 +12,7 @@ const Hero = ({}) => (
     <div className="container">
       <div className="hero__alert alert alert--primary">
         <span>
-          <strong>🎉&nbsp; May 17th &amp; 18th 2020: Metadata Day, Governance as Code.</strong> Join us for expert panel discussions, lightning talks,
+          <strong>🎉&nbsp; May 17th &amp; 18th 2022: Metadata Day, Governance as Code.</strong> Join us for expert panel discussions, lightning talks,
           and our inaugural Hackathon!
         </span>
 
