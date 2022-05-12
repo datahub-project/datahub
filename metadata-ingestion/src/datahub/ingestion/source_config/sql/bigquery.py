@@ -79,7 +79,7 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
             )
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
 
-    def get_sql_alchemy_url(self, for_run_sql: bool = False):
+    def get_sql_alchemy_url(self, for_run_sql: bool = False) -> str:
         if (not for_run_sql) and self.storage_project_id:
             return f"{self.scheme}://{self.storage_project_id}"
         if self.project_id:
