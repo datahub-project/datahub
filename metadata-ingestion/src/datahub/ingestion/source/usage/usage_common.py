@@ -151,8 +151,8 @@ class BaseUsageConfig(BaseTimeWindowConfig):
     format_sql_queries: bool = Field(
         default=False, description="Whether to format sql queries"
     )
-    include_top_sql_queries: bool = Field(
-        default=True, description="Whether to ingest top SQL queries."
+    include_top_n_queries: bool = Field(
+        default=True, description="Whether to ingest the top_n_queries."
     )
 
     @pydantic.validator("top_n_queries")
