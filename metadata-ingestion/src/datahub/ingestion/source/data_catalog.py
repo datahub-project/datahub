@@ -1,7 +1,7 @@
 import json
 import logging
 from dataclasses import dataclass
-from typing import Dict, Iterable, Union
+from typing import Dict, Iterable, Union, Optional
 
 import pyorient
 from pyorient import OrientRecord
@@ -25,6 +25,37 @@ from datahub.metadata.schema_classes import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def get_query(external_type: str, rid: Optional[str], limit: int) -> str:
+    if external_type == "kafka_topic":
+        query = (
+            "SELECT *, "
+            "inE('Has').outV().name[0] AS db, "
+            "inE('Has').outV().inE('Has').outV().code[0] AS location, "
+            "outE('TableHasColumn').inV().toJson() as columns "
+            "FROM Table "
+            'WHERE externalType = "kafka_topic" AND deletedOn = 0 '
+        )
+    elif external_type == "mssql_table":
+        query = (
+            "SELECT *, "
+            "inE('Has').outV().name[0] AS schema, "
+            "inE('Has').outV().inE('Has').outV().name[0] AS db, "
+            "inE('Has').outV().inE('Has').outV().inE('Has').outV().code[0] AS location, "
+            "outE('TableHasColumn').inV().toJson() as columns "
+            "FROM Table "
+            'WHERE externalType = "mssql_table" AND deletedOn = 0 '
+        )
+    else:
+        raise ValueError(f"Unknown external type: {external_type}")
+
+    if rid is not None:
+        query += f"AND @rid > {rid} "
+
+    query += f"LIMIT {limit}"
+
+    return query
 
 
 def map_snapshot(table: OrientRecord) -> MetadataWorkUnit:
@@ -69,7 +100,11 @@ def map_snapshot(table: OrientRecord) -> MetadataWorkUnit:
 
 
 def map_column(column: Dict[str, str]) -> SchemaFieldClass:
-    data_type = column.get("dataType", "").lower()
+    data_type = column.get("dataType")
+    if data_type is str:
+        data_type = data_type.lower()
+    else:
+        data_type = "string"
 
     type_class: Union["StringTypeClass", "BooleanTypeClass", "NumberTypeClass"]
     if data_type == "string":
@@ -97,10 +132,13 @@ class DataCatalogSourceConfig(ConfigModel):
     databaseName: str
     databaseUser: str
     databasePassword: str
+    externalType: str
+    limit: Optional[int]
 
 
 @dataclass
 class DataCatalogSource(Source):
+    batch_size = 1000
     config: DataCatalogSourceConfig
     client: pyorient.OrientDB
     report: SourceReport
@@ -122,18 +160,16 @@ class DataCatalogSource(Source):
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
-        # adjust for mssql, remove limit
-        query = (
-            "SELECT *, "
-            "inE('Has').outV().name[0] AS db, "
-            "inE('Has').outV().inE('Has').outV().code[0] AS location, "
-            "inE('Has').outV().inE('Has').outV().inE('Has').outV().name[0] AS country, "
-            "outE('TableHasColumn').inV().toJson() as columns "
-            "FROM Table "
-            'WHERE externalType = "kafka_topic" AND deletedOn = 0 '
-        )
-        for table in self.client.query(query):
-            yield map_snapshot(table)
+        rs = self.client.query(get_query(self.config.externalType, None, self.batch_size))
+        total = 0
+        while len(rs) > 0:
+            for table in rs:
+                total += 1
+                if (self.config.limit is not None) and (total > self.config.limit):
+                    return
+                yield map_snapshot(table)
+            rid = rs[-1]._rid
+            rs = self.client.query(get_query(self.config.externalType, rid, self.batch_size))
 
     def get_report(self):
         return self.report
