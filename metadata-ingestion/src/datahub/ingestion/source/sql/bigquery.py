@@ -336,8 +336,8 @@ class BigQuerySource(SQLAlchemySource):
     def get_db_name(
         self, inspector: Inspector = None, for_sql_queries: bool = True
     ) -> str:
-        if for_sql_queries and self.config.lineage_client_project_id:
-            return self.config.lineage_client_project_id
+        if for_sql_queries and self.config.storage_project_id:
+            return self.config.storage_project_id
         elif self.config.project_id:
             return self.config.project_id
         else:

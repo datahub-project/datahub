@@ -10,6 +10,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Deprecations
   - #4875 Lookml view file contents will no longer be populated in custom_properties, instead view definitions will be always available in the View Definitions tab.
+  - #4834 `lineage_client_project_id` in `bigquery` source is deprecated. Use `storage_project_id` instead.
 
 ### Other notable Changes
 

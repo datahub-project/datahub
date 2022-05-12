@@ -19,8 +19,9 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
         default=None,
         description="Project ID to ingest from. If not specified, will infer from environment.",
     )
-    lineage_client_project_id: Optional[str] = pydantic.Field(
+    storage_project_id: Optional[str] = pydantic.Field(
         default=None,
+        alias="lineage_client_project_id",
         description="If you want to use a different ProjectId for the lineage collection you can set it here.",
     )
     log_page_size: pydantic.PositiveInt = pydantic.Field(
@@ -79,8 +80,8 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
 
     def get_sql_alchemy_url(self, for_run_sql: bool = False):
-        if (not for_run_sql) and self.lineage_client_project_id:
-            return f"{self.scheme}://{self.lineage_client_project_id}"
+        if (not for_run_sql) and self.storage_project_id:
+            return f"{self.scheme}://{self.storage_project_id}"
         if self.project_id:
             return f"{self.scheme}://{self.project_id}"
         # When project_id is not set, we will attempt to detect the project ID
