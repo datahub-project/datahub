@@ -124,9 +124,10 @@ export default function TagTermGroup({
     const removeTerm = (urnToRemove: string) => {
         onOpenModal?.();
         const termToRemove = editableGlossaryTerms?.terms?.find((term) => term.term.urn === urnToRemove);
+        const termName = termToRemove && entityRegistry.getDisplayName(termToRemove.term.type, termToRemove.term);
         Modal.confirm({
-            title: `Do you want to remove ${termToRemove?.term.name} term?`,
-            content: `Are you sure you want to remove the ${termToRemove?.term.name} term?`,
+            title: `Do you want to remove ${termName} term?`,
+            content: `Are you sure you want to remove the ${termName} term?`,
             onOk() {
                 if (entityUrn) {
                     removeTermMutation({

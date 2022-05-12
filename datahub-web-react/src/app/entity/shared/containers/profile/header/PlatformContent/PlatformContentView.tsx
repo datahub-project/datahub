@@ -116,7 +116,7 @@ function PlatformContentView(props: Props) {
         <PlatformContentWrapper>
             {typeIcon && <LogoIcon>{typeIcon}</LogoIcon>}
             <PlatformText>{entityType}</PlatformText>
-            <PlatformDivider />
+            {(!!platformName || !!instanceId || !!parentContainers?.length) && <PlatformDivider />}
             {platformName && (
                 <LogoIcon>
                     {(!!platformLogoUrl && <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />) ||

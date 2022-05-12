@@ -61,3 +61,7 @@ mutation addTags($input: AddTagsInput!) {
 mutation addTerms($input: AddTermsInput!) {
     addTerms(input: $input)
 }
+
+mutation updateName($input: UpdateNameInput!) {
+    updateName(input: $input)
+}
