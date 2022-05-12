@@ -86,7 +86,7 @@ def query_dataset_owner(token: str, dataset_urn: str, user: str):
         return True    
     group_owners = [item["owner"]["urn"] for item in owners_list if item["owner"]["__typename"]=="CorpGroup"]
     if len(group_owners) > 0:
-        groups = query_users_groups(token, query_endpoint)
+        groups = query_users_groups(token, query_endpoint, user_urn)
         log.debug(f"The list of groups for this user is {groups}")
         groups_urn = [item["entity"]["urn"] for item in groups]
         for item in groups_urn:
@@ -133,7 +133,7 @@ def query_dataset_ownership(token: str, dataset_urn:str, query_endpoint:str):
     owners_list = data_received["data"]["dataset"]["ownership"]["owners"]
     return owners_list
 
-def query_users_groups(token: str, query_endpoint: str):
+def query_users_groups(token: str, query_endpoint: str, user_urn: str):
     headers = {}
     headers["Authorization"] = f"Bearer {token}"
     headers["Content-Type"] = "application/json"
@@ -154,9 +154,10 @@ def query_users_groups(token: str, query_endpoint: str):
                 }
             }
         }
-    """    
+    """
+    variables = {"urn": user_urn}    
     resp = requests.post(
-        query_endpoint, headers=headers, json={"query": query }
+        query_endpoint, headers=headers, json={"query": query, "variables": variables}
     )
     log.debug(f"group membership resp.status_code is {resp.status_code}")
     if resp.status_code != 200:
