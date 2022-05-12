@@ -129,8 +129,17 @@ class AvroToMceSchemaConverter:
         }
 
     @staticmethod
-    def _get_type_name(avro_schema: avro.schema.Schema) -> str:
-        return str(getattr(avro_schema.type, "type", avro_schema.type))
+    def _get_type_name(
+        avro_schema: avro.schema.Schema, logical_if_present: bool = False
+    ) -> str:
+        logical_type_name: Optional[str] = None
+        if logical_if_present:
+            logical_type_name = getattr(
+                avro_schema, "logical_type", None
+            ) or avro_schema.props.get("logicalType")
+        return logical_type_name or str(
+            getattr(avro_schema.type, "type", avro_schema.type)
+        )
 
     @staticmethod
     def _get_column_type(
@@ -151,7 +160,9 @@ class AvroToMceSchemaConverter:
             avro_schema, avro.schema.ArraySchema
         ):
             dt.type.nestedType = [
-                AvroToMceSchemaConverter._get_type_name(avro_schema.items)
+                AvroToMceSchemaConverter._get_type_name(
+                    avro_schema.items, logical_if_present=True
+                )
             ]
         elif isinstance(dt.type, MapTypeClass) and isinstance(
             avro_schema, avro.schema.MapSchema
@@ -159,7 +170,7 @@ class AvroToMceSchemaConverter:
             # Avro map's key is always a string. See: https://avro.apache.org/docs/current/spec.html#Maps
             dt.type.keyType = "string"
             dt.type.valueType = AvroToMceSchemaConverter._get_type_name(
-                avro_schema.values
+                avro_schema.values, logical_if_present=True
             )
         return dt
 
