@@ -83,11 +83,11 @@ class GenericAggregatedDataset(Generic[ResourceType]):
         urn_builder: Callable[[ResourceType], str],
         top_n_queries: int,
         format_sql_queries: bool,
-        display_top_sql_queries: bool = True,
+        exclude_top_sql_queries: bool,
     ) -> MetadataWorkUnit:
 
         top_sql_queries = None
-        if display_top_sql_queries:
+        if not exclude_top_sql_queries:
             budget_per_query: int = int(
                 self.total_budget_for_query_list / top_n_queries
             )
@@ -150,6 +150,9 @@ class BaseUsageConfig(BaseTimeWindowConfig):
     )
     format_sql_queries: bool = Field(
         default=False, description="Whether to format sql queries"
+    )
+    exclude_top_sql_queries: bool = Field(
+        default=False, description="Excludes ingesting top SQL queries."
     )
 
     @pydantic.validator("top_n_queries")
