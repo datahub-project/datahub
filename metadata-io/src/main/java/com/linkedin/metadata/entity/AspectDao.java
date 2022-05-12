@@ -89,9 +89,6 @@ public interface AspectDao {
 
     void setWritable(boolean canWrite);
 
-    // TODO: probably remove. Only used in tests
-    void setConnectionValidated(boolean validated);
-
     @Nonnull
     <T> T runInTransactionWithRetry(@Nonnull final Supplier<T> block, final int maxTransactionRetry);
 }

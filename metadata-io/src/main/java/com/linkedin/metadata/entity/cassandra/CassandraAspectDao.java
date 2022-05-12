@@ -449,11 +449,6 @@ public class CassandraAspectDao implements AspectDao {
   }
 
   @Override
-  public void setConnectionValidated(boolean validated) {
-    // TODO: implement connection validation
-  }
-
-  @Override
   public void saveAspect(
       @Nonnull final String urn,
       @Nonnull final String aspectName,

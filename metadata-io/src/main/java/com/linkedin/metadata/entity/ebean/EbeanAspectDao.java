@@ -75,7 +75,6 @@ public class EbeanAspectDao implements AspectDao {
     return _server;
   }
 
-  @Override
   public void setConnectionValidated(boolean validated) {
     _connectionValidated = validated;
     _canWrite = validated;
@@ -95,6 +94,7 @@ public class EbeanAspectDao implements AspectDao {
       return true;
     }
   }
+
 
   @Override
   public long saveLatestAspect(
@@ -539,6 +539,13 @@ public class EbeanAspectDao implements AspectDao {
     return auditStamp;
   }
 
+  @Nonnull
+  private ListResultMetadata toListResultMetadata(@Nonnull final List<ExtraInfo> extraInfos) {
+    final ListResultMetadata listResultMetadata = new ListResultMetadata();
+    listResultMetadata.setExtraInfos(new ExtraInfoArray(extraInfos));
+    return listResultMetadata;
+  }
+
   @Override
   @Nonnull
   public List<EntityAspect> getAspectsInRange(@Nonnull Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis) {
@@ -550,12 +557,5 @@ public class EbeanAspectDao implements AspectDao {
         .inRange(EbeanAspectV2.CREATED_ON_COLUMN, new Timestamp(startTimeMillis), new Timestamp(endTimeMillis))
         .findList();
     return ebeanAspects.stream().map(EbeanAspectV2::toEntityAspect).collect(Collectors.toList());
-  }
-
-  @Nonnull
-  private ListResultMetadata toListResultMetadata(@Nonnull final List<ExtraInfo> extraInfos) {
-    final ListResultMetadata listResultMetadata = new ListResultMetadata();
-    listResultMetadata.setExtraInfos(new ExtraInfoArray(extraInfos));
-    return listResultMetadata;
   }
 }
