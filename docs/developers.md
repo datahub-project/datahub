@@ -43,7 +43,7 @@ We suggest partially compiling DataHub according to your needs:
 ```
  - Build Datahub's frontend:
 ```
-./gradlew :datahub-frontend:build -x yarnTest -x yarnLint
+./gradlew :datahub-frontend:dist -x yarnTest -x yarnLint
 ```
  - Build DataHub's command line tool:
 ```
