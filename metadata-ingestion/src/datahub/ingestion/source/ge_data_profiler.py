@@ -825,6 +825,10 @@ class DatahubGEProfiler:
                     ge_config,
                     pretty_name=pretty_name,
                 )
+                if batch.engine.dialect.name.lower() == "bigquery":
+                    # This is done as GE makes the name as DATASET.TABLE
+                    # but we want it to be PROJECT.DATASET.TABLE instead for multi-project setups
+                    batch._table = sa.text(pretty_name)
 
                 profile = _SingleDatasetProfiler(
                     batch,
