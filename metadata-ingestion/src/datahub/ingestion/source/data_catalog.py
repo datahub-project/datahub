@@ -131,7 +131,6 @@ class DataCatalogSource(Source):
             "outE('TableHasColumn').inV().toJson() as columns "
             "FROM Table "
             'WHERE externalType = "kafka_topic" AND deletedOn = 0 '
-            "LIMIT 1000"
         )
         for table in self.client.query(query):
             yield map_snapshot(table)
