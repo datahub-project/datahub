@@ -28,22 +28,25 @@ logger = logging.getLogger(__name__)
 
 
 def map_snapshot(table: OrientRecord) -> MetadataWorkUnit:
-    if table.externalType == "kafka_topic":
+    name = table.oRecordData.get("name")
+    external_type = table.oRecordData.get("externalType")
+    if external_type == "kafka_topic":
         platform = "kafka"
-    elif table.externalType == "mssql_table":
+        parents = [table.oRecordData.get('location'), table.oRecordData.get('db')]
+    elif external_type == "mssql_table":
         platform = "mssql"
+        parents = [table.oRecordData.get('location'), table.oRecordData.get('db'), table.oRecordData.get('schema')]
     else:
-        raise ValueError(f"Unknown external type: {table.externalType}")
+        raise ValueError(f"Unknown external type: {external_type}")
 
     properties = DatasetPropertiesClass(
-        name=table.oRecordData.get("name"),
+        name=name,
         description=table.oRecordData.get("description"),
         customProperties=table.oRecordData.get("customFields"),
     )
 
-    # adjust parents for mssql
     browse_paths = BrowsePathsClass(
-        [f"/prod/{platform}/{table.country}/{table.location}/{table.db}"]
+        [f"/prod/{platform}/{'/'.join(parents)}"]
     )
 
     columns = json.loads(table.columns)
@@ -57,7 +60,7 @@ def map_snapshot(table: OrientRecord) -> MetadataWorkUnit:
     )
 
     snapshot = DatasetSnapshot(
-        urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{table.name},PROD)",
+        urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{'.'.join(parents)}.{name},PROD)",
         aspects=[properties, browse_paths, schema],
     )
 
@@ -128,7 +131,7 @@ class DataCatalogSource(Source):
             "outE('TableHasColumn').inV().toJson() as columns "
             "FROM Table "
             'WHERE externalType = "kafka_topic" AND deletedOn = 0 '
-            "LIMIT 100"
+            "LIMIT 1000"
         )
         for table in self.client.query(query):
             yield map_snapshot(table)
