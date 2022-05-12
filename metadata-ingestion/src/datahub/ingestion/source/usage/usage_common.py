@@ -83,15 +83,15 @@ class GenericAggregatedDataset(Generic[ResourceType]):
         urn_builder: Callable[[ResourceType], str],
         top_n_queries: int,
         format_sql_queries: bool,
+        include_top_n_queries: bool,
     ) -> MetadataWorkUnit:
-        budget_per_query: int = int(self.total_budget_for_query_list / top_n_queries)
 
-        usageStats = DatasetUsageStatisticsClass(
-            timestampMillis=int(self.bucket_start_time.timestamp() * 1000),
-            eventGranularity=TimeWindowSizeClass(unit=bucket_duration, multiple=1),
-            uniqueUserCount=len(self.userFreq),
-            totalSqlQueries=self.queryCount,
-            topSqlQueries=[
+        top_sql_queries: Optional[List[str]] = None
+        if include_top_n_queries:
+            budget_per_query: int = int(
+                self.total_budget_for_query_list / top_n_queries
+            )
+            top_sql_queries = [
                 self.trim_query(
                     format_sql_query(query, keyword_case="upper", reindent_aligned=True)
                     if format_sql_queries
@@ -99,7 +99,14 @@ class GenericAggregatedDataset(Generic[ResourceType]):
                     budget_per_query,
                 )
                 for query, _ in self.queryFreq.most_common(top_n_queries)
-            ],
+            ]
+
+        usageStats = DatasetUsageStatisticsClass(
+            timestampMillis=int(self.bucket_start_time.timestamp() * 1000),
+            eventGranularity=TimeWindowSizeClass(unit=bucket_duration, multiple=1),
+            uniqueUserCount=len(self.userFreq),
+            totalSqlQueries=self.queryCount,
+            topSqlQueries=top_sql_queries,
             userCounts=[
                 DatasetUserUsageCountsClass(
                     user=builder.make_user_urn(user_email.split("@")[0]),
@@ -143,6 +150,9 @@ class BaseUsageConfig(BaseTimeWindowConfig):
     )
     format_sql_queries: bool = Field(
         default=False, description="Whether to format sql queries"
+    )
+    include_top_n_queries: bool = Field(
+        default=True, description="Whether to ingest the top_n_queries."
     )
 
     @pydantic.validator("top_n_queries")

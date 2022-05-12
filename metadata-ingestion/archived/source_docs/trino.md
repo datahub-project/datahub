@@ -130,6 +130,7 @@ By default, we extract usage stats for the last day, with the recommendation tha
 | `start_time`                    |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Earliest date of usage logs to consider.                        |
 | `end_time`                      |          | Last full day in UTC (or hour, depending on `bucket_duration`) | Latest date of usage logs to consider.                          |
 | `top_n_queries`                 |          | `10`                                                           | Number of top queries to save to each table.                    |
+| `include_top_sql_queries`       |          | `True`                                                         | Whether to ingest top_n_queries.                                |
 | `user_email_pattern.allow`      |          | *                                                              | List of regex patterns for user emails to include in usage.     |
 | `user_email_pattern.deny`       |          |                                                                | List of regex patterns for user emails to exclude from usage.   |
 | `user_email_pattern.ignoreCase` |          | `True`                                                         | Whether to ignore case sensitivity during pattern matching.     |
