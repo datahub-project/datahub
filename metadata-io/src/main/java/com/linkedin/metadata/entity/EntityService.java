@@ -9,6 +9,7 @@ import com.google.common.collect.Streams;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePaths;
 import com.linkedin.common.Status;
+import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.RecordDataSchema;
@@ -183,6 +184,23 @@ public abstract class EntityService {
   }
 
   /**
+   * Retrieves the aspects for the given set of urns and versions as dynamic aspect objects
+   * (Without having to define union objects)
+   *
+   * @param versionedUrns set of urns to fetch with versions of aspects specified in a specialized string
+   * @param aspectNames set of aspects to fetch
+   * @return a map of {@link Urn} to {@link Entity} object
+   */
+  public Map<Urn, EntityResponse> getEntitiesVersionedV2(
+      @Nonnull final Set<VersionedUrn> versionedUrns,
+      @Nonnull final Set<String> aspectNames) throws URISyntaxException {
+    return getVersionedEnvelopedAspects(versionedUrns, aspectNames)
+        .entrySet()
+        .stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> toEntityResponse(entry.getKey(), entry.getValue())));
+  }
+
+  /**
    * Retrieves the latest aspects for the given set of urns as a list of enveloped aspects
    *
    * @param entityName name of the entity to fetch
@@ -193,6 +211,17 @@ public abstract class EntityService {
   public abstract Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(
       @Nonnull final String entityName,
       @Nonnull final Set<Urn> urns,
+      @Nonnull final Set<String> aspectNames) throws URISyntaxException;
+
+  /**
+   * Retrieves the latest aspects for the given set of urns as a list of enveloped aspects
+   *
+   * @param versionedUrns set of urns to fetch with versions of aspects specified in a specialized string
+   * @param aspectNames set of aspects to fetch
+   * @return a map of {@link Urn} to {@link EnvelopedAspect} object
+   */
+  public abstract Map<Urn, List<EnvelopedAspect>> getVersionedEnvelopedAspects(
+      @Nonnull final Set<VersionedUrn> versionedUrns,
       @Nonnull final Set<String> aspectNames) throws URISyntaxException;
 
   /**

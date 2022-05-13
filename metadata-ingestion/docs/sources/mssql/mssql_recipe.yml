@@ -1,0 +1,41 @@
+source:
+  type: mssql
+  config:
+    # Coordinates
+    host_port: localhost:1433
+    database: DemoDatabase
+
+    # Credentials
+    username: user
+    password: pass
+
+sink:
+  # sink configs
+
+#------------------------------------------------------------------------
+#Example: using ingestion with ODBC and encryption
+#This requires you to have already installed the Microsoft ODBC Driver for SQL Server.
+#See https://docs.microsoft.com/en-us/sql/connect/python/pyodbc/step-1-configure-development-environment-for-pyodbc-python-development?view=sql-server-ver15
+# ------------------------------------------------------------------------
+
+source:
+  type: mssql
+  config:
+    # Coordinates
+    host_port: localhost:1433
+    database: DemoDatabase
+
+    # Credentials
+    username: admin
+    password: password
+
+    # Options
+    use_odbc: "True"
+    uri_args:
+      driver: "ODBC Driver 17 for SQL Server"
+      Encrypt: "yes"
+      TrustServerCertificate: "Yes"
+      ssl: "True"
+
+sink:
+  # sink configs

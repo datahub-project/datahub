@@ -1,0 +1,103 @@
+version: 1
+source: DataHub
+owners:
+  users:
+    - admin
+url: "https://github.com/datahub-project/datahub/"
+nodes:
+  - name: PII Impact Levels
+    description: The PII confidentiality impact level—low, moderate, or high— indicates the potential harm that could result to the subject individuals and/or the organization if PII were inappropriately accessed, used, or disclosed.
+    terms:
+      - name: Low
+        description: The potential impact is LOW if the loss of confidentiality, integrity, or availability could be expected to have a limited adverse effect on organizational operations, organizational assets, or individuals. A limited adverse effect means that, for example, the loss of confidentiality, integrity, or availability might (i) cause a degradation in mission capability to an extent and duration that the organization is able to perform its primary functions, but the effectiveness of the functions is noticeably reduced; (ii) result in minor damage to organizational assets; (iii) result in minor financial loss; or (iv) result in minor harm to individuals.
+      - name: Moderate
+        description: The potential impact is MODERATE if the loss of confidentiality, integrity, or availability could be expected to have a serious adverse effect on organizational operations, organizational assets, or individuals. A serious adverse effect means that, for example, the loss of confidentiality, integrity, or availability might (i) cause a significant degradation in mission capability to an extent and duration that the organization is able to perform its primary functions, but the effectiveness of the functions is significantly reduced; (ii) result in significant damage to organizational assets; (iii) result in significant financial loss; or (iv) result in significant harm to individuals that does not involve loss of life or serious life threatening injuries.
+      - name: High
+        description: The potential impact is HIGH if the loss of confidentiality, integrity, or availability could be expected to have a severe or catastrophic adverse effect on organizational operations, organizational assets, or individuals. A severe or catastrophic adverse effect means that, for example, the loss of confidentiality, integrity, or availability might (i) cause a severe degradation in or loss of mission capability to an extent and duration that the organization is not able to perform one or more of its primary functions; (ii) result in major damage to organizational assets; (iii) result in major financial loss; or (iv) result in severe or catastrophic harm to individuals involving loss of life or serious life threatening injuries.
+  - name: Personal Information Terms
+    description: All terms related to user information
+    terms:
+      - name: Email
+        description: An individual's email address
+        inherits:
+          - PII Impact Levels.Moderate
+      - name: Address
+        description: A physical address
+        inherits:
+          - PII Impact Levels.High
+      - name: Gender
+        description: The gender identity of the individual
+        inherits:
+          - PII Impact Levels.Low
+      - name: Health Insurance Policy ID
+        description: The health insurance policy ID for the individual
+        inherits:
+          - PII Impact Levels.High
+      - name: Driver's License Number
+        description: Driver's License Number
+        inherits:
+          - PII Impact Levels.High
+      - name: Social Security Number
+        description: Social Security Number
+        inherits:
+          - PII Impact Levels.High
+      - name: Passport Number
+        description: Passport Number
+        inherits:
+          - PII Impact Levels.High
+      - name: Credit Card Number
+        description: Credit Card Number
+        inherits:
+          - PII Impact Levels.High
+      - name: Credit Card Expiration Date
+        description: Credit Card Expiration Date
+        inherits:
+          - PII Impact Levels.High
+      - name: Vehicle Identification Number (VIN)
+        description: Vehicle Identification Number (VIN)
+        inherits:
+          - PII Impact Levels.
+      - name: Login Username
+        description: Login Username
+        inherits:
+          - PII Impact Levels.High
+      - name: IP Address
+        description: IP Address
+        inherits:
+          - PII Impact Levels.High
+      - name: Credit Card Security Code
+        description: Credit Card Security Code
+        inherits:
+          - PII Impact Levels.High
+      - name: Full Name
+        description: Full Name
+        inherits:
+          - PII Impact Levels.Moderate
+      - name: Date of Birth
+        description: Date of Birth
+        inherits:
+          - PII Impact Levels.Low
+      - name: Place of Birth
+        description: Place of Birth
+        inherits:
+          - PII Impact Levels.Low
+      - name: Mother's Maiden Name
+        description: Mother's Maiden Name
+        inherits:
+          - PII Impact Levels.Low
+      - name: Home Address
+        description: Home Address
+        inherits:
+          - PII Impact Levels.High
+      - name: Home Phone Number
+        description: Home Phone Number
+        inherits:
+          - PII Impact Levels.Low
+      - name: Mobile Phone Number
+        description: Mobile Phone Number
+        inherits:
+          - PII Impact Levels.High
+      - name: Gender
+        description: Gender
+        inherits:
+          - PII Impact Levels.Moderate

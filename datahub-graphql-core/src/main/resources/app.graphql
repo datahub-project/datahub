@@ -112,6 +112,11 @@ type AppConfig {
   Configurations related to visual appearance, allows styling the UI without rebuilding the bundle
   """
   visualConfig: VisualConfiguration!
+
+  """
+  Configurations related to tracking users in the app
+  """
+  telemetryConfig: TelemetryConfig!
 }
 
 """
@@ -122,6 +127,16 @@ type VisualConfiguration {
   Custom logo url for the homepage & top banner
   """
   logoUrl: String
+}
+
+"""
+Configurations related to tracking users in the app
+"""
+type TelemetryConfig {
+  """
+  Env variable for whether or not third party logging should be enabled for this instance
+  """
+  enableThirdPartyLogging: Boolean
 }
 
 """

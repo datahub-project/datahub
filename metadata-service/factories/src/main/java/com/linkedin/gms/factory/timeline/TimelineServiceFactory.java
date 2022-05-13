@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.timeline;
 
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeline.ebean.EbeanTimelineService;
 import javax.annotation.Nonnull;
@@ -16,9 +17,9 @@ import org.springframework.context.annotation.PropertySource;
 public class TimelineServiceFactory {
 
   @Bean(name = "timelineService")
-  @DependsOn({"ebeanServer", "entityService"})
+  @DependsOn({"ebeanServer", "entityService", "entityRegistry"})
   @Nonnull
-  protected TimelineService timelineService(EbeanAspectDao ebeanAspectDao) {
-    return new EbeanTimelineService(ebeanAspectDao);
+  protected TimelineService timelineService(EbeanAspectDao ebeanAspectDao, EntityRegistry entityRegistry) {
+    return new EbeanTimelineService(ebeanAspectDao, entityRegistry);
   }
 }

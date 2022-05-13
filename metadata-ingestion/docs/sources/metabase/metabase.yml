@@ -1,0 +1,20 @@
+source:
+  type: metabase
+  config:
+    # Coordinates
+    connect_uri: http://localhost:3000
+
+    # Credentials
+    username: user
+    password: pass
+
+    # Options
+    default_schema: public
+    database_alias_map:
+      h2: sample-dataset.db
+    # Optional mapping of platform types to instance ids
+    platform_instance_map: # optional
+      postgres: test_postgres    # optional
+
+sink:
+  # sink configs

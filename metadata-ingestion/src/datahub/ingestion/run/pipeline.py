@@ -88,7 +88,7 @@ class PipelineConfig(ConfigModel):
         cls, v: Optional[DatahubClientConfig], values: Dict[str, Any], **kwargs: Any
     ) -> Optional[DatahubClientConfig]:
         if v is None:
-            if "sink" in values and "type" in values["sink"]:
+            if "sink" in values and hasattr(values["sink"], "type"):
                 sink_type = values["sink"].type
                 if sink_type == "datahub-rest":
                     sink_config = values["sink"].config

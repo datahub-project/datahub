@@ -230,8 +230,8 @@ def load_test_resources(test_resources_dir):
     azure_ad_users_json_file = test_resources_dir / "azure_ad_users.json"
     azure_ad_groups_json_file = test_resources_dir / "azure_ad_groups.json"
     azure_ad_nested_group_json_file = test_resources_dir / "azure_ad_nested_group.json"
-    azure_ad_nested_groups_users_json_file = (
-        test_resources_dir / "azure_ad_nested_groups_users.json"
+    azure_ad_nested_groups_members_json_file = (
+        test_resources_dir / "azure_ad_nested_groups_members.json"
     )
 
     with azure_ad_users_json_file.open() as azure_ad_users_json:
@@ -243,7 +243,7 @@ def load_test_resources(test_resources_dir):
     with azure_ad_nested_group_json_file.open() as azure_ad_nested_group_json:
         reference_nested_group = json.loads(azure_ad_nested_group_json.read())
 
-    with azure_ad_nested_groups_users_json_file.open() as azure_ad_nested_groups_users_json:
+    with azure_ad_nested_groups_members_json_file.open() as azure_ad_nested_groups_users_json:
         reference_nested_groups_users = json.loads(
             azure_ad_nested_groups_users_json.read()
         )

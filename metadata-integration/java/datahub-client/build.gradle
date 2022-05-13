@@ -7,6 +7,7 @@ apply plugin: 'jacoco'
 apply plugin: 'signing'
 apply plugin: 'io.codearte.nexus-staging'
 apply plugin: 'maven-publish'
+apply plugin: 'org.hidetake.swagger.generator'
 import org.apache.tools.ant.filters.ReplaceTokens
 
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
@@ -16,12 +17,17 @@ dependencies {
     implementation project(':metadata-models')
     shadow externalDependency.httpAsyncClient // we want our clients to provide this
     implementation externalDependency.jacksonDataBind
+    implementation externalDependency.javaxValidation
+    implementation externalDependency.springContext
+    implementation externalDependency.swaggerAnnotations
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
     testCompile externalDependency.httpAsyncClient // needed as shadow excludes it
     testCompile externalDependency.mockito
     testCompile externalDependency.mockServer
     testCompile externalDependency.mockServerClient
+
+    swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
 }
 
 jacocoTestReport {
@@ -188,7 +194,6 @@ publishing {
   }
 }
 
-
 signing {
     def signingKey = findProperty("signingKey")
     def signingPassword = System.getenv("SIGNING_PASSWORD")
@@ -201,3 +206,29 @@ nexusStaging {
     username = System.getenv("NEXUS_USERNAME")
     password = System.getenv("NEXUS_PASSWORD")
 }
+
+tasks.register('generateOpenApiPojos', GenerateSwaggerCode) {
+  it.setInputFile(
+      file(
+          "${project(':metadata-models').projectDir}/src/generatedJsonSchema/combined/open-api.yaml"
+      )
+  )
+  it.setOutputDir(file("$projectDir/generated"))
+  it.setLanguage("spring")
+  it.setComponents(['models'])
+  it.setTemplateDir(file("$projectDir/src/main/resources/JavaSpring"))
+  it.setAdditionalProperties([
+      "group-id" : "io.datahubproject",
+      "dateLibrary" : "java8",
+      "java8" : "true",
+      "modelPropertyNaming" : "original",
+      "modelPackage" : "io.datahubproject.openapi.generated"] as Map<String, String>)
+
+  dependsOn ':metadata-models:generateJsonSchema'
+}
+
+compileJava.dependsOn generateOpenApiPojos
+sourceSets.main.java.srcDir "${generateOpenApiPojos.outputDir}/src/main/java"
+sourceSets.main.resources.srcDir "${generateOpenApiPojos.outputDir}/src/main/resources"
+
+checkstyleMain.exclude '**/generated/**'

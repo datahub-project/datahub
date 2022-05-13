@@ -866,7 +866,8 @@
         "addToFilters" : true,
         "fieldName" : "glossaryTerms",
         "fieldType" : "URN",
-        "filterNameOverride" : "Glossary Term"
+        "filterNameOverride" : "Glossary Term",
+        "hasValuesFieldName" : "hasGlossaryTerms"
       }
     } ]
   }, "com.linkedin.common.GlossaryTermUrn", {
@@ -2872,6 +2873,12 @@
                           "type" : "com.linkedin.common.GlobalTags",
                           "doc" : "Tags associated with the field",
                           "optional" : true,
+                          "Relationship" : {
+                            "/tags/*/tag" : {
+                              "entityTypes" : [ "tag" ],
+                              "name" : "FieldTaggedWith"
+                            }
+                          },
                           "Searchable" : {
                             "/tags/*/tag" : {
                               "boostScore" : 0.5,
@@ -2884,6 +2891,12 @@
                           "type" : "com.linkedin.common.GlossaryTerms",
                           "doc" : "Glossary terms associated with the field",
                           "optional" : true,
+                          "Relationship" : {
+                            "/terms/*/urn" : {
+                              "entityTypes" : [ "glossaryTerm" ],
+                              "name" : "FieldWithGlossaryTerm"
+                            }
+                          },
                           "Searchable" : {
                             "/terms/*/urn" : {
                               "boostScore" : 0.5,
@@ -2896,6 +2909,11 @@
                           "type" : "boolean",
                           "doc" : "For schema fields that are part of complex keys, set this field to true\nWe do this to easily distinguish between value and key fields",
                           "default" : false
+                        }, {
+                          "name" : "isPartitioningKey",
+                          "type" : "boolean",
+                          "doc" : "For Datasets which are partitioned, this determines the partitioning key.",
+                          "optional" : true
                         }, {
                           "name" : "jsonProps",
                           "type" : "string",
@@ -3042,6 +3060,12 @@
                           "type" : "com.linkedin.common.GlobalTags",
                           "doc" : "Tags associated with the field",
                           "optional" : true,
+                          "Relationship" : {
+                            "/tags/*/tag" : {
+                              "entityTypes" : [ "tag" ],
+                              "name" : "EditableFieldTaggedWith"
+                            }
+                          },
                           "Searchable" : {
                             "/tags/*/tag" : {
                               "boostScore" : 0.5,
@@ -3054,6 +3078,12 @@
                           "type" : "com.linkedin.common.GlossaryTerms",
                           "doc" : "Glossary terms associated with the field",
                           "optional" : true,
+                          "Relationship" : {
+                            "/terms/*/urn" : {
+                              "entityTypes" : [ "glossaryTerm" ],
+                              "name" : "EditableFieldWithGlossaryTerm"
+                            }
+                          },
                           "Searchable" : {
                             "/terms/*/urn" : {
                               "boostScore" : 0.5,
@@ -4570,7 +4600,10 @@
                   "fields" : [ {
                     "name" : "displayName",
                     "type" : "string",
-                    "doc" : "Display name of the Policy"
+                    "doc" : "Display name of the Policy",
+                    "Searchable" : {
+                      "fieldType" : "KEYWORD"
+                    }
                   }, {
                     "name" : "description",
                     "type" : "string",
@@ -5176,6 +5209,37 @@
     } ]
   }, {
     "type" : "record",
+    "name" : "DeleteReferencesResponse",
+    "namespace" : "com.linkedin.metadata.run",
+    "doc" : "The model for the result of a relationship query.\nUsed to get the relationships of a given entity run.",
+    "fields" : [ {
+      "name" : "relatedAspects",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "RelatedAspect",
+          "doc" : "Metadata about how an aspect is related to some urn",
+          "fields" : [ {
+            "name" : "entity",
+            "type" : "com.linkedin.common.Urn",
+            "doc" : " Urn of the entity containing a related aspect"
+          }, {
+            "name" : "aspect",
+            "type" : "string"
+          }, {
+            "name" : "relationship",
+            "type" : "string"
+          } ]
+        }
+      }
+    }, {
+      "name" : "total",
+      "type" : "int",
+      "doc" : "Total number of relationships that an entity urn has."
+    } ]
+  }, "com.linkedin.metadata.run.RelatedAspect", {
+    "type" : "record",
     "name" : "RollbackResponse",
     "namespace" : "com.linkedin.metadata.run",
     "fields" : [ {
@@ -5532,6 +5596,17 @@
           "optional" : true
         } ],
         "returns" : "com.linkedin.metadata.run.RollbackResponse"
+      }, {
+        "name" : "deleteReferences",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        }, {
+          "name" : "dryRun",
+          "type" : "boolean",
+          "optional" : true
+        } ],
+        "returns" : "com.linkedin.metadata.run.DeleteReferencesResponse"
       }, {
         "name" : "filter",
         "parameters" : [ {

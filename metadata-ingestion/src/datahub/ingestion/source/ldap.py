@@ -4,9 +4,16 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import ldap
 from ldap.controls import SimplePagedResultsControl
+from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -62,31 +69,45 @@ class LDAPSourceConfig(ConfigModel):
     """Config used by the LDAP Source."""
 
     # Server configuration.
-    ldap_server: str
-    ldap_user: str
-    ldap_password: str
+    ldap_server: str = Field(description="LDAP server URL.")
+    ldap_user: str = Field(description="LDAP user.")
+    ldap_password: str = Field(description="LDAP password.")
 
     # Extraction configuration.
-    base_dn: str
-    filter: str = "(objectClass=*)"
+    base_dn: str = Field(description="LDAP DN.")
+    filter: str = Field(default="(objectClass=*)", description="LDAP extractor filter.")
 
     # If set to true, any users without first and last names will be dropped.
-    drop_missing_first_last_name: bool = True
+    drop_missing_first_last_name: bool = Field(
+        default=True,
+        description="If set to true, any users without first and last names will be dropped.",
+    )
 
-    page_size: int = 20
+    page_size: int = Field(
+        default=20, description="Size of each page to fetch when extracting metadata."
+    )
 
 
 @dataclasses.dataclass
 class LDAPSourceReport(SourceReport):
+
     dropped_dns: List[str] = dataclasses.field(default_factory=list)
 
     def report_dropped(self, dn: str) -> None:
         self.dropped_dns.append(dn)
 
 
+@platform_name("LDAP")
+@config_class(LDAPSourceConfig)
+@support_status(SupportStatus.CERTIFIED)
 @dataclasses.dataclass
 class LDAPSource(Source):
-    """LDAP Source Class."""
+    """
+    This plugin extracts the following:
+    - People
+    - Names, emails, titles, and manager information for each person
+    - List of groups
+    """
 
     config: LDAPSourceConfig
     report: LDAPSourceReport

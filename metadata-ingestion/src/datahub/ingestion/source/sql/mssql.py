@@ -5,11 +5,20 @@ import pydantic
 
 # This import verifies that the dependencies are available.
 import sqlalchemy_pytds  # noqa: F401
+from pydantic.fields import Field
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.engine.result import ResultProxy, RowProxy
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.source.sql.sql_common import (
     BasicSQLAlchemyConfig,
     SQLAlchemySource,
@@ -18,10 +27,16 @@ from datahub.ingestion.source.sql.sql_common import (
 
 class SQLServerConfig(BasicSQLAlchemyConfig):
     # defaults
-    host_port: str = "localhost:1433"
-    scheme: str = "mssql+pytds"
-    use_odbc: bool = False
-    uri_args: Dict[str, str] = {}
+    host_port: str = Field(default="localhost:1433", description="MSSQL host URL.")
+    scheme: str = Field(default="mssql+pytds", description="", exclude=True)
+    use_odbc: bool = Field(
+        default=False,
+        description="See https://docs.sqlalchemy.org/en/14/dialects/mssql.html#module-sqlalchemy.dialects.mssql.pyodbc.",
+    )
+    uri_args: Dict[str, str] = Field(
+        default={},
+        desscription="Arguments to URL-encode when connecting. See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15.",
+    )
 
     @pydantic.validator("uri_args")
     def passwords_match(cls, v, values, **kwargs):
@@ -52,7 +67,31 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         return regular
 
 
+@platform_name("Microsoft SQL Server", id="mssql")
+@config_class(SQLServerConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
+@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@capability(
+    SourceCapability.USAGE_STATS,
+    "Not provided by this module, use `bigquery-usage` for that.",
+    supported=False,
+)
+@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 class SQLServerSource(SQLAlchemySource):
+    """
+    This plugin extracts the following:
+
+    - Metadata for databases, schemas, views and tables
+    - Column types associated with each table/view
+    - Table, row, and column statistics via optional SQL profiling
+
+    We have two options for the underlying library used to connect to SQL Server: (1) [python-tds](https://github.com/denisenkom/pytds) and (2) [pyodbc](https://github.com/mkleehammer/pyodbc). The TDS library is pure Python and hence easier to install, but only PyODBC supports encrypted connections.
+    """
+
     def __init__(self, config: SQLServerConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "mssql")
 

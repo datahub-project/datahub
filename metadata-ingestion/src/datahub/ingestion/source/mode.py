@@ -7,6 +7,7 @@ import dateutil.parser as dp
 import requests
 import tenacity
 from pydantic import validator
+from pydantic.fields import Field
 from requests.models import HTTPBasicAuth, HTTPError
 from sqllineage.runner import LineageRunner
 from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponential
@@ -15,6 +16,14 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -41,21 +50,38 @@ from datahub.utilities import config_clean
 
 
 class ModeAPIConfig(ConfigModel):
-    retry_backoff_multiplier: Union[int, float] = 2
-    max_retry_interval: Union[int, float] = 10
-    max_attempts: int = 5
+    retry_backoff_multiplier: Union[int, float] = Field(
+        default=2,
+        description="Multiplier for exponential backoff when waiting to retry",
+    )
+    max_retry_interval: Union[int, float] = Field(
+        default=10, description="Maximum interval to wait when retrying"
+    )
+    max_attempts: int = Field(
+        default=5, description="Maximum number of attempts to retry before failing"
+    )
 
 
 class ModeConfig(DatasetLineageProviderConfigBase):
     # See https://mode.com/developer/api-reference/authentication/
     # for authentication
-    connect_uri: str = "https://app.mode.com"
-    token: Optional[str] = None
-    password: Optional[str] = None
-    workspace: Optional[str] = None
-    default_schema: str = "public"
-    owner_username_instead_of_email: Optional[bool] = True
-    api_options: ModeAPIConfig = ModeAPIConfig()
+    connect_uri: str = Field(
+        default="https://app.mode.com", description="Mode host URL."
+    )
+    token: str = Field(default=None, description="Mode user token.")
+    password: str = Field(default=None, description="Mode password for authentication.")
+    workspace: Optional[str] = Field(default=None, description="")
+    default_schema: str = Field(
+        default="public",
+        description="Default schema to use when schema is not provided in an SQL query",
+    )
+    owner_username_instead_of_email: Optional[bool] = Field(
+        default=True, description="Use username for owner URN instead of Email"
+    )
+    api_options: ModeAPIConfig = Field(
+        default=ModeAPIConfig(),
+        description='Retry/Wait settings for Mode API to avoid "Too many Requests" error. See Mode API Options below',
+    )
 
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
@@ -66,7 +92,69 @@ class HTTPError429(HTTPError):
     pass
 
 
+@platform_name("Mode")
+@config_class(ModeConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 class ModeSource(Source):
+    """
+
+    This plugin extracts Charts, Reports, and associated metadata from a given Mode workspace. This plugin is in beta and has only been tested
+    on PostgreSQL database.
+
+    ### Report
+
+    [/api/{account}/reports/{report}](https://mode.com/developer/api-reference/analytics/reports/) endpoint is used to
+    retrieve the following report information.
+
+    - Title and description
+    - Last edited by
+    - Owner
+    - Link to the Report in Mode for exploration
+    - Associated charts within the report
+
+    ### Chart
+
+    [/api/{workspace}/reports/{report}/queries/{query}/charts'](https://mode.com/developer/api-reference/analytics/charts/#getChart) endpoint is used to
+    retrieve the following information.
+
+    - Title and description
+    - Last edited by
+    - Owner
+    - Link to the chart in Metabase
+    - Datasource and lineage information from Report queries.
+
+    The following properties for a chart are ingested in DataHub.
+
+    #### Chart Information
+    | Name      | Description                            |
+    |-----------|----------------------------------------|
+    | `Filters` | Filters applied to the chart           |
+    | `Metrics` | Fields or columns used for aggregation |
+    | `X`       | Fields used in X-axis                  |
+    | `X2`      | Fields used in second X-axis           |
+    | `Y`       | Fields used in Y-axis                  |
+    | `Y2`      | Fields used in second Y-axis           |
+
+
+    #### Table Information
+    | Name      | Description                  |
+    |-----------|------------------------------|
+    | `Columns` | Column names in a table      |
+    | `Filters` | Filters applied to the table |
+
+
+
+    #### Pivot Table Information
+    | Name      | Description                            |
+    |-----------|----------------------------------------|
+    | `Columns` | Column names in a table                |
+    | `Filters` | Filters applied to the table           |
+    | `Metrics` | Fields or columns used for aggregation |
+    | `Rows`    | Row names in a table                   |
+
+    """
+
     config: ModeConfig
     report: SourceReport
     tool = "mode"

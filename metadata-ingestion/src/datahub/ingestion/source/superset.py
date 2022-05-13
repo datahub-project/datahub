@@ -5,10 +5,17 @@ from typing import Dict, Iterable, Optional
 import dateutil.parser as dp
 import requests
 from pydantic.class_validators import validator
+from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql import sql_common
@@ -51,13 +58,19 @@ chart_type_from_viz_type = {
 class SupersetConfig(ConfigModel):
     # See the Superset /security/login endpoint for details
     # https://superset.apache.org/docs/rest-api
-    connect_uri: str = "localhost:8088"
-    username: Optional[str] = None
-    password: Optional[str] = None
-    provider: str = "db"
-    options: Dict = {}
-    env: str = DEFAULT_ENV
-    database_alias: Dict[str, str] = {}
+    connect_uri: str = Field(default="localhost:8088", description="Superset host URL.")
+    username: Optional[str] = Field(default=None, description="Superset username.")
+    password: Optional[str] = Field(default=None, description="Superset password.")
+    provider: str = Field(default="db", description="Superset provider.")
+    options: Dict = Field(default={}, description="")
+    env: str = Field(
+        default=DEFAULT_ENV,
+        description="Environment to use in namespace when constructing URNs",
+    )
+    database_alias: Dict[str, str] = Field(
+        default={},
+        description="Can be used to change mapping for database names in superset to what you have in datahub",
+    )
 
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
@@ -87,7 +100,17 @@ def get_filter_name(filter_obj):
     return f"{clause} {column} {operator} {comparator}"
 
 
+@platform_name("Superset")
+@config_class(SupersetConfig)
+@support_status(SupportStatus.CERTIFIED)
 class SupersetSource(Source):
+    """
+    This plugin extracts the following:
+    - Charts, dashboards, and associated metadata
+
+    See documentation for superset's /security/login at https://superset.apache.org/docs/rest-api for more details on superset's login api.
+    """
+
     config: SupersetConfig
     report: SourceReport
     platform = "superset"
