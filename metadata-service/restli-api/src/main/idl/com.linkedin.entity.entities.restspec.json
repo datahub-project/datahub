@@ -104,6 +104,17 @@
       } ],
       "returns" : "com.linkedin.metadata.run.RollbackResponse"
     }, {
+      "name" : "deleteReferences",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "dryRun",
+        "type" : "boolean",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.metadata.run.DeleteReferencesResponse"
+    }, {
       "name" : "filter",
       "parameters" : [ {
         "name" : "entity",

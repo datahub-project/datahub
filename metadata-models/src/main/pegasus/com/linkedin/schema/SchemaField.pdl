@@ -57,6 +57,12 @@ record SchemaField {
   /**
    * Tags associated with the field
    */
+  @Relationship = {
+    "/tags/*/tag": {
+      "name": "SchemaFieldTaggedWith",
+      "entityTypes": [ "tag" ]
+    }
+  }
   @Searchable = {
     "/tags/*/tag": {
       "fieldName": "fieldTags",
@@ -69,6 +75,12 @@ record SchemaField {
   /**
    * Glossary terms associated with the field
    */
+   @Relationship = {
+      "/terms/*/urn": {
+        "name": "SchemaFieldWithGlossaryTerm",
+        "entityTypes": [ "glossaryTerm" ]
+      }
+   }
    @Searchable = {
     "/terms/*/urn": {
       "fieldName": "fieldGlossaryTerms",
