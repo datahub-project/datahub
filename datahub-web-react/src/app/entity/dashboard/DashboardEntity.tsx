@@ -172,6 +172,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 logoUrl={data?.platform?.properties?.logoUrl || ''}
                 domain={data.domain}
                 container={data.container}
+                parentContainers={data.parentContainers}
             />
         );
     };

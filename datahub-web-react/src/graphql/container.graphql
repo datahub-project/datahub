@@ -36,6 +36,9 @@ query getContainer($urn: String!) {
         container {
             ...entityContainer
         }
+        parentContainers {
+            ...parentContainersFields
+        }
         domain {
             ...entityDomain
         }
