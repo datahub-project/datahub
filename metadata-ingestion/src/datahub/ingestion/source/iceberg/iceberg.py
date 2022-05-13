@@ -6,6 +6,8 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from iceberg.api import types as IcebergTypes
 from iceberg.api.table import Table
 from iceberg.api.types.types import NestedField
+from iceberg.core.base_table import BaseTable
+from iceberg.core.filesystem.filesystem_tables import FilesystemTables
 from iceberg.exceptions import NoSuchTableException
 
 from datahub.emitter.mce_builder import (
@@ -36,8 +38,8 @@ from datahub.ingestion.source.iceberg.iceberg_profiler import IcebergProfiler
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    OtherSchema,
     SchemaField,
-    SchemalessClass,
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
@@ -98,22 +100,20 @@ class IcebergSource(Source):
     be added fairly easily.
     """
 
-    config: IcebergSourceConfig
-    report: IcebergSourceReport = IcebergSourceReport()
-
-    def __init__(self, config: IcebergSourceConfig, ctx: PipelineContext):
+    def __init__(self, config: IcebergSourceConfig, ctx: PipelineContext) -> None:
         super().__init__(ctx)
-        self.config = config
-        self.PLATFORM = "iceberg"
-        self.iceberg_client = config.filesystem_tables
+        self.PLATFORM: str = "iceberg"
+        self.report: IcebergSourceReport = IcebergSourceReport()
+        self.config: IcebergSourceConfig = config
+        self.iceberg_client: FilesystemTables = config.filesystem_tables
 
     @classmethod
-    def create(cls, config_dict, ctx):
+    def create(cls, config_dict: Dict, ctx: PipelineContext) -> "IcebergSource":
         config = IcebergSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        for dataset_path, dataset_name in self.config.get_paths():
+        for dataset_path, dataset_name in self.config.get_paths():  # Tuple[str, str]
             try:
                 if not self.config.table_pattern.allowed(dataset_name):
                     # Path contained a valid Iceberg table, but is rejected by pattern.
@@ -122,23 +122,24 @@ class IcebergSource(Source):
 
                 # Try to load an Iceberg table.  Might not contain one, this will be caught by NoSuchTableException.
                 table: Table = self.iceberg_client.load(dataset_path)
-
                 yield from self._create_iceberg_workunit(dataset_name, table)
             except NoSuchTableException:
                 # Path did not contain a valid Iceberg table. Silently ignore this.
+                LOGGER.debug(
+                    f"Path {dataset_path} does not contain table{dataset_name}"
+                )
                 pass
             except Exception as e:
                 self.report.report_failure("general", f"Failed to create workunit: {e}")
                 LOGGER.exception(
                     f"Exception while processing table {dataset_path}, skipping it.",
-                    e,
                 )
 
     def _create_iceberg_workunit(
         self, dataset_name: str, table: Table
     ) -> Iterable[MetadataWorkUnit]:
         self.report.report_table_scanned(dataset_name)
-        dataset_urn = make_dataset_urn_with_platform_instance(
+        dataset_urn: str = make_dataset_urn_with_platform_instance(
             self.PLATFORM,
             dataset_name,
             self.config.platform_instance,
@@ -149,14 +150,19 @@ class IcebergSource(Source):
             aspects=[],
         )
 
-        custom_properties = dict(table.properties())
+        custom_properties: Dict = dict(table.properties())
         custom_properties["location"] = table.location()
-        # A table might not have any snapshots, i.e. no data.
-        if len(table.snapshots()) > 0:
-            custom_properties["snapshot-id"] = str(table.current_snapshot().snapshot_id)
-            custom_properties[
-                "manifest-list"
-            ] = table.current_snapshot().manifest_location
+        try:
+            if isinstance(table, BaseTable) and table.current_snapshot():
+                custom_properties["snapshot-id"] = str(
+                    table.current_snapshot().snapshot_id
+                )
+                custom_properties[
+                    "manifest-list"
+                ] = table.current_snapshot().manifest_location
+        except KeyError:
+            # The above API is not well implemented, and can throw KeyError when there is no data.
+            pass
         dataset_properties = DatasetPropertiesClass(
             tags=[],
             description=table.properties().get("comment", None),
@@ -218,7 +224,7 @@ class IcebergSource(Source):
                         source=None,
                     )
                 )
-        if len(owners) > 0:
+        if owners:
             # TODO: Consider using builder if I can provide OwnershipTypeClass:
             # return make_ownership_aspect_from_urn_list([make_user_urn(user_owner)], OwnershipTypeClass.TECHNICAL_OWNER)
             return OwnershipClass(owners=owners)
@@ -244,26 +250,27 @@ class IcebergSource(Source):
             wu = MetadataWorkUnit(id=f"{dataset_urn}-dataPlatformInstance", mcp=mcp)
             self.report.report_workunit(wu)
             return wu
-        else:
-            return None
+
+        return None
 
     def _create_schema_metadata(
         self, dataset_name: str, table: Table
     ) -> SchemaMetadata:
-        schema_fields = self._get_schema_fields(table.schema().columns())
-
+        schema_fields: List[SchemaField] = self._get_schema_fields(
+            table.schema().columns()
+        )
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
             platform=make_data_platform_urn(self.PLATFORM),
             version=0,
             hash="",
-            platformSchema=SchemalessClass(),  # TODO: Not sure what to use here...
+            platformSchema=OtherSchema(rawSchema=repr(table.schema())),
             fields=schema_fields,
         )
         return schema_metadata
 
     def _get_schema_fields(self, columns: Tuple) -> List[SchemaField]:
-        canonical_schema = []
+        canonical_schema: List[SchemaField] = []
         for column in columns:
             fields = self._get_schema_fields_for_column(column)
             canonical_schema.extend(fields)
@@ -274,30 +281,22 @@ class IcebergSource(Source):
         column: NestedField,
     ) -> List[SchemaField]:
         field_type: IcebergTypes.Type = column.type
-        if field_type.is_primitive_type():
-            avro_schema = self._get_avro_schema_from_data_type(column)
-            newfields = schema_util.avro_schema_to_mce_fields(
+        if field_type.is_primitive_type() or field_type.is_nested_type():
+            avro_schema: Dict = self._get_avro_schema_from_data_type(column)
+            schema_fields: List[SchemaField] = schema_util.avro_schema_to_mce_fields(
                 json.dumps(avro_schema), default_nullable=column.is_optional
             )
-            assert len(newfields) == 1
-            return newfields
-        elif field_type.is_nested_type():
-            # Get avro schema for subfields along with parent complex field
-            avro_schema = self._get_avro_schema_from_data_type(column)
-            newfields = schema_util.avro_schema_to_mce_fields(
-                json.dumps(avro_schema), default_nullable=column.is_optional
-            )
-            return newfields
-        else:
-            raise ValueError(f"Invalid Iceberg field type: {field_type}")
+            return schema_fields
+
+        raise ValueError(f"Invalid Iceberg field type: {field_type}")
 
     def _get_avro_schema_from_data_type(self, column: NestedField) -> Dict[str, Any]:
         """
         See Iceberg documentation for Avro mapping:
         https://iceberg.apache.org/#spec/#appendix-a-format-specific-requirements
         """
-        # Below Record structure represents the dataset level
-        # Inner fields represent the complex field (struct/array/map/union)
+        # The record structure represents the dataset level.
+        # The inner fields represent the complex field (struct/array/map/union).
         return {
             "type": "record",
             "name": "__struct_",

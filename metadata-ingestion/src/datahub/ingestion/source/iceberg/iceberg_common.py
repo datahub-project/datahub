@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass, field
-from typing import Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from azure.storage.filedatalake import FileSystemClient, PathProperties
 from iceberg.core.filesystem.abfss_filesystem import AbfssFileSystem
@@ -53,7 +53,7 @@ class IcebergSourceConfig(DatasetSourceConfigBase):
     )
     max_path_depth: int = Field(
         default=2,
-        description="Maximum folder depth to crawl for Iceberg tables.  Folders deeper that this value will be silently ignored.",
+        description="Maximum folder depth to crawl for Iceberg tables.  Folders deeper than this value will be silently ignored.",
     )
     table_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -69,7 +69,9 @@ class IcebergSourceConfig(DatasetSourceConfigBase):
     profiling: IcebergProfilingConfig = IcebergProfilingConfig()
 
     @root_validator()
-    def _ensure_one_filesystem_is_configured(cls, values):
+    def _ensure_one_filesystem_is_configured(
+        cls: "IcebergSourceConfig", values: Dict
+    ) -> Dict:
         if values.get("adls") and values.get("localfs"):
             raise ConfigurationError(
                 "Only one filesystem can be configured: adls or localfs"

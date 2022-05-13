@@ -5,7 +5,7 @@
 
 This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
-<!-- Remove all unnecessary/irrevant DataHub Concepts -->
+<!-- Remove all unnecessary/irrelevant DataHub Concepts -->
 
 | Source Concept | DataHub Concept | Notes |
 | -- | -- | -- |

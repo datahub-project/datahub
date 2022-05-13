@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, Iterable, Union
 
@@ -9,6 +8,7 @@ from iceberg.api.schema import Schema
 from iceberg.api.snapshot import Snapshot
 from iceberg.api.table import Table
 from iceberg.api.types import Conversions, NestedField, Type, TypeID
+from iceberg.core.base_table import BaseTable
 from iceberg.core.filesystem import FileSystemInputFile
 from iceberg.core.manifest_reader import ManifestReader
 from iceberg.exceptions.exceptions import FileSystemNotFound
@@ -27,19 +27,15 @@ from datahub.metadata.schema_classes import (
 )
 
 
-@dataclass
 class IcebergProfiler:
-    report: IcebergSourceReport
-    config: IcebergProfilingConfig
-
     def __init__(
         self,
         report: IcebergSourceReport,
         config: IcebergProfilingConfig,
-    ):
-        self.report = report
-        self.config = config
-        self.platform = "iceberg"
+    ) -> None:
+        self.report: IcebergSourceReport = report
+        self.config: IcebergProfilingConfig = config
+        self.platform: str = "iceberg"
 
     def _aggregate_counts(
         self,
@@ -102,8 +98,8 @@ class IcebergProfiler:
         Yields:
             Iterator[Iterable[MetadataWorkUnit]]: Workunits related to datasetProfile.
         """
-        if len(table.snapshots()) == 0:
-            # Table has no data, cannot profile.
+        if not table.snapshots() or not isinstance(table, BaseTable):
+            # Table has no data, cannot profile, or we can't get current_snapshot.
             return
 
         row_count = int(table.current_snapshot().summary["total-records"])
@@ -152,7 +148,7 @@ class IcebergProfiler:
         # TODO Work on error handling to provide better feedback.  Iceberg exceptions are weak...
         except FileSystemNotFound as e:
             raise Exception("Error loading table manifests") from e
-        if row_count is not None and row_count > 0:
+        if row_count:
             # Iterating through fieldPaths introduces unwanted stats for list element fields...
             for field_id, field_path in field_paths.items():
                 field: NestedField = table.schema().find_field(field_id)
