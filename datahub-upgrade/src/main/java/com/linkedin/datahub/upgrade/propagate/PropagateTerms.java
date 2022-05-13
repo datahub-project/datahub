@@ -5,7 +5,6 @@ import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,7 +32,8 @@ public class PropagateTerms implements Upgrade {
     return _steps;
   }
 
-  private List<UpgradeStep> buildSteps(final EntityService entityService, final EntitySearchService entitySearchService) {
+  private List<UpgradeStep> buildSteps(final EntityService entityService,
+      final EntitySearchService entitySearchService) {
     final List<UpgradeStep> steps = new ArrayList<>();
     steps.add(new PropagateTermsStep(entityService, entitySearchService));
     return steps;

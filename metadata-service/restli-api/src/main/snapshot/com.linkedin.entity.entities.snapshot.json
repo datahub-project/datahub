@@ -1026,8 +1026,14 @@
         "addToFilters" : true,
         "fieldName" : "glossaryTerms",
         "fieldType" : "URN",
-        "filterNameOverride" : "Glossary Term"
+        "filterNameOverride" : "Glossary Term",
+        "hasValuesFieldName" : "hasGlossaryTerms"
       }
+    }, {
+      "name" : "actor",
+      "type" : "Urn",
+      "doc" : "The user URN which will be credited for adding associating this term to the entity",
+      "optional" : true
     } ]
   }, "com.linkedin.common.GlossaryTermUrn", {
     "type" : "record",
