@@ -6,7 +6,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AddOwnersInput;
-import com.linkedin.datahub.graphql.generated.AddTermsInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.OwnershipType;

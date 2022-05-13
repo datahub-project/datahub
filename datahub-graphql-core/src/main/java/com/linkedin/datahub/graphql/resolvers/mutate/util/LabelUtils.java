@@ -24,9 +24,7 @@ import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaMetadata;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
