@@ -63,12 +63,14 @@ public class EbeanAspectDao implements AspectDao {
     _server = server;
   }
 
+  @Override
   public void setWritable(boolean canWrite) {
     _canWrite = canWrite;
   }
 
   /**
    * Return the {@link EbeanServer} server instance used for customized queries.
+   * Only used in tests.
    */
   public EbeanServer getServer() {
     return _server;
@@ -111,6 +113,7 @@ public class EbeanAspectDao implements AspectDao {
       @Nullable final String newSystemMetadata,
       final Long nextVersion
   ) {
+
     validateConnection();
     if (!_canWrite) {
       return 0;
@@ -139,6 +142,7 @@ public class EbeanAspectDao implements AspectDao {
       @Nonnull final String systemMetadata,
       final long version,
       final boolean insert) {
+
     validateConnection();
 
     final EbeanAspectV2 aspect = new EbeanAspectV2();
@@ -180,6 +184,7 @@ public class EbeanAspectDao implements AspectDao {
 
   @Override
   public long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
+    validateConnection();
     List<EbeanAspectV2> result = _server.find(EbeanAspectV2.class)
         .where()
         .eq("urn", urn)
@@ -195,6 +200,7 @@ public class EbeanAspectDao implements AspectDao {
 
   @Override
   public long countEntities() {
+    validateConnection();
     return _server.find(EbeanAspectV2.class)
         .setDistinct(true)
         .select(EbeanAspectV2.URN_COLUMN)
@@ -203,6 +209,7 @@ public class EbeanAspectDao implements AspectDao {
 
   @Override
   public boolean checkIfAspectExists(@Nonnull String aspectName) {
+    validateConnection();
     return _server.find(EbeanAspectV2.class)
         .where()
         .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
@@ -235,6 +242,7 @@ public class EbeanAspectDao implements AspectDao {
   @Override
   @Nullable
   public int deleteUrn(@Nonnull final String urn) {
+    validateConnection();
     return _server.createQuery(EbeanAspectV2.class).where().eq(EbeanAspectV2.URN_COLUMN, urn).delete();
   }
 
@@ -360,6 +368,7 @@ public class EbeanAspectDao implements AspectDao {
       @Nonnull final String aspectName,
       final int start,
       final int pageSize) {
+
     validateConnection();
 
     final String urnPrefixMatcher = "urn:li:" + entityName + ":%";
@@ -387,6 +396,7 @@ public class EbeanAspectDao implements AspectDao {
   @Override
   @Nonnull
   public Iterable<String> listAllUrns(int start, int pageSize) {
+    validateConnection();
     PagedList<EbeanAspectV2> ebeanAspects = _server.find(EbeanAspectV2.class)
         .setDistinct(true)
         .select(EbeanAspectV2.URN_COLUMN)
@@ -406,6 +416,7 @@ public class EbeanAspectDao implements AspectDao {
       final long version,
       final int start,
       final int pageSize) {
+
     validateConnection();
 
     final String urnPrefixMatcher = "urn:li:" + entityName + ":%";
@@ -434,6 +445,7 @@ public class EbeanAspectDao implements AspectDao {
       @Nonnull final String aspectName,
       final int start,
       final int pageSize) {
+
     return listAspectMetadata(entityName, aspectName, ASPECT_LATEST_VERSION, start, pageSize);
   }
 
@@ -481,6 +493,7 @@ public class EbeanAspectDao implements AspectDao {
 
   @Override
   public Map<String, Long> getNextVersions(@Nonnull final String urn, @Nonnull final Set<String> aspectNames) {
+    validateConnection();
     Map<String, Long> result = new HashMap<>();
     Junction<EbeanAspectV2> queryJunction = _server.find(EbeanAspectV2.class)
         .select("aspect, max(version)")
@@ -578,6 +591,7 @@ public class EbeanAspectDao implements AspectDao {
   @Override
   @Nonnull
   public List<EntityAspect> getAspectsInRange(@Nonnull Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis) {
+    validateConnection();
     List<EbeanAspectV2> ebeanAspects = _server.find(EbeanAspectV2.class)
         .select(EbeanAspectV2.ALL_COLUMNS)
         .where()
