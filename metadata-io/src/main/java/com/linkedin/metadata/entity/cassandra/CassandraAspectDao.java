@@ -7,6 +7,7 @@ import com.datastax.oss.driver.api.core.DriverException;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.core.metadata.schema.ClusteringOrder;
 import com.datastax.oss.driver.api.core.paging.OffsetPager;
 import com.datastax.oss.driver.api.core.paging.OffsetPager.Page;
 import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
@@ -20,9 +21,9 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.AspectDao;
-import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentity;
+import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
@@ -66,6 +67,29 @@ public class CassandraAspectDao implements AspectDao {
   public long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
     Map<String, Long> result = getMaxVersions(urn, ImmutableSet.of(aspectName));
     return result.get(aspectName);
+  }
+
+  @Override
+  public long countEntities() {
+    SimpleStatement ss = selectFrom(CassandraAspect.TABLE_NAME)
+        .distinct()
+        .column(CassandraAspect.URN_COLUMN)
+        .countAll()
+        .build();
+
+    return _cqlSession.execute(ss).one().getLong(0);
+  }
+
+  @Override
+  public boolean checkIfAspectExists(@Nonnull String aspectName) {
+    SimpleStatement ss = selectFrom(CassandraAspect.TABLE_NAME)
+        .column(CassandraAspect.URN_COLUMN)
+        .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
+        .limit(1)
+        .build();
+
+    ResultSet rs = _cqlSession.execute(ss);
+    return rs.all().size() > 0;
   }
 
   public Map<String, Long> getMaxVersions(@Nonnull final String urn, @Nonnull final Set<String> aspectNames) {
@@ -389,6 +413,26 @@ public class CassandraAspectDao implements AspectDao {
     long totalCount = _cqlSession.execute(ssCount).one().getLong(0);
 
     return toListResult(urns, null, start, pageNumber, pageSize, totalCount);
+  }
+
+  @Override
+  @Nonnull
+  public Iterable<String> listAllUrns(int start, int pageSize) {
+    SimpleStatement ss = selectFrom(CassandraAspect.TABLE_NAME)
+        .column(CassandraAspect.URN_COLUMN)
+        .orderBy(CassandraAspect.URN_COLUMN, ClusteringOrder.ASC)
+        .build();
+
+    ResultSet rs = _cqlSession.execute(ss);
+
+    int pageNumber = start / pageSize + 1;
+    OffsetPager offsetPager = new OffsetPager(pageSize);
+    Page<Row> page = offsetPager.getPage(rs, pageNumber);
+
+    return page
+        .getElements()
+        .stream().map(row -> row.getString(CassandraAspect.URN_COLUMN))
+        .collect(Collectors.toList());
   }
 
   @Override

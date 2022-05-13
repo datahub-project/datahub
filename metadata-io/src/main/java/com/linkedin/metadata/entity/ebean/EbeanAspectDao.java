@@ -195,6 +195,22 @@ public class EbeanAspectDao implements AspectDao {
   }
 
   @Override
+  public long countEntities() {
+    return _server.find(EbeanAspectV2.class)
+        .setDistinct(true)
+        .select(EbeanAspectV2.URN_COLUMN)
+        .findCount();
+  }
+
+  @Override
+  public boolean checkIfAspectExists(@Nonnull String aspectName) {
+    return _server.find(EbeanAspectV2.class)
+        .where()
+        .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
+        .exists();
+  }
+
+  @Override
   @Nullable
   public EntityAspect getAspect(@Nonnull final String urn, @Nonnull final String aspectName, final long version) {
     return getAspect(new EntityAspectIdentity(urn, aspectName, version));
@@ -367,6 +383,20 @@ public class EbeanAspectDao implements AspectDao {
         .collect(Collectors.toList());
 
     return toListResult(urns, null, pagedList, start);
+  }
+
+  @Override
+  @Nonnull
+  public Iterable<String> listAllUrns(int start, int pageSize) {
+    PagedList<EbeanAspectV2> ebeanAspects = _server.find(EbeanAspectV2.class)
+        .setDistinct(true)
+        .select(EbeanAspectV2.URN_COLUMN)
+        .orderBy()
+        .asc(EbeanAspectV2.URN_COLUMN)
+        .setFirstRow(start)
+        .setMaxRows(pageSize)
+        .findPagedList();
+    return ebeanAspects.getList().stream().map(EbeanAspectV2::getUrn).collect(Collectors.toList());
   }
 
   @Override

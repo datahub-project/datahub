@@ -64,6 +64,9 @@ public interface AspectDao {
         final int start,
         final int pageSize);
 
+    @Nonnull
+    Iterable<String> listAllUrns(final int start, final int pageSize);
+
     int deleteUrn(@Nonnull final String urn);
 
     @Nonnull
@@ -86,6 +89,10 @@ public interface AspectDao {
     Map<String, Long> getNextVersions(@Nonnull final String urn, @Nonnull final Set<String> aspectNames);
 
     long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName);
+
+    long countEntities();
+
+    boolean checkIfAspectExists(@Nonnull final String aspectName);
 
     void setWritable(boolean canWrite);
 
