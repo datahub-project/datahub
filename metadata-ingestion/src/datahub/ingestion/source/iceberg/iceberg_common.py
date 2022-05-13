@@ -90,7 +90,7 @@ class IcebergSourceConfig(DatasetSourceConfigBase):
         Returns:
             FileSystemClient: Azure Filesystem client instance to access storage account files and folders.
         """
-        if self.adls:  # Use local imports for abfss
+        if self.adls:  # TODO Use local imports for abfss
             AbfssFileSystem.get_instance().set_conf(self.adls.dict())
             return self.adls.get_filesystem_client()
         raise ConfigurationError("No ADLS filesystem client configured")

@@ -146,7 +146,8 @@ data_lake_profiling = {
 
 iceberg_common = {
     # Iceberg Python SDK
-    "acryl-iceberg-legacy==0.0.3"
+    "acryl-iceberg-legacy==0.0.4",
+    "azure-identity==1.10.0"
 }
 
 s3_base = {

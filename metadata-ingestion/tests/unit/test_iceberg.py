@@ -12,7 +12,7 @@ from iceberg.api.types.types import NestedField
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.azure.azure_common import AdlsSourceConfig
-from datahub.ingestion.source.iceberg import IcebergSource, IcebergSourceConfig
+from datahub.ingestion.source.iceberg.iceberg import IcebergSource, IcebergSourceConfig
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayType,
     MapType,
@@ -79,6 +79,46 @@ def test_adls_config_with_key_credential():
     Test when an account key is used as an ADLS credential.
     """
     AdlsSourceConfig(account_name="test", account_key="test", container_name="test")
+
+
+def test_adls_config_with_client_secret_credential():
+    """
+    Test when a client secret is used as an ADLS credential.
+    """
+    AdlsSourceConfig(
+        account_name="test",
+        tenant_id="test",
+        client_id="test",
+        client_secret="test",
+        container_name="test",
+    )
+
+    # Test when tenant_id is missing
+    with pytest.raises(ConfigurationError):
+        AdlsSourceConfig(
+            account_name="test",
+            client_id="test",
+            client_secret="test",
+            container_name="test",
+        )
+
+    # Test when client_id is missing
+    with pytest.raises(ConfigurationError):
+        AdlsSourceConfig(
+            account_name="test",
+            tenant_id="test",
+            client_secret="test",
+            container_name="test",
+        )
+
+    # Test when client_secret is missing
+    with pytest.raises(ConfigurationError):
+        AdlsSourceConfig(
+            account_name="test",
+            tenant_id="test",
+            client_id="test",
+            container_name="test",
+        )
 
 
 def test_config_for_tests():

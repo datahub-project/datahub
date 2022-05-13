@@ -1,5 +1,6 @@
-from typing import Optional
+from typing import Optional, Union
 
+from azure.identity import ClientSecretCredential, UsernamePasswordCredential
 from azure.storage.filedatalake import DataLakeServiceClient, FileSystemClient
 from pydantic import Field, root_validator
 
@@ -14,22 +15,30 @@ class AdlsSourceConfig(ConfigModel):
     https://docs.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-directory-file-acl-python
     """
 
-    # The following could be made optional when we add support for client_id/client_secret.  See above doc.
-    account_name: str = Field(
-        description="Name of the Azure storage account.  See [Microsoft official documentation on how to create a storage account.](https://docs.microsoft.com/en-us/azure/storage/blobs/create-data-lake-storage-account)",
-    )
-    account_key: Optional[str] = Field(
-        description="Azure storage account access key that can be used as a credential. **An account key or a SAS token needs to be provided.**",
-    )
-    sas_token: Optional[str] = Field(
-        description="Azure storage account Shared Access Signature (SAS) token that can be used as a credential. **An account key or a SAS token needs to be provided.**",
+    base_path: str = Field(
+        default="/",
+        description="Base folder in hierarchical namespaces to start from.",
     )
     container_name: str = Field(
         description="Azure storage account container name.",
     )
-    base_path: str = Field(
-        default="/",
-        description="Base folder in hierarchical namespaces to start from.",
+    account_name: str = Field(
+        description="Name of the Azure storage account.  See [Microsoft official documentation on how to create a storage account.](https://docs.microsoft.com/en-us/azure/storage/blobs/create-data-lake-storage-account)",
+    )
+    account_key: Optional[str] = Field(
+        description="Azure storage account access key that can be used as a credential. **An account key, a SAS token or a client secret is required for authentication.**",
+    )
+    sas_token: Optional[str] = Field(
+        description="Azure storage account Shared Access Signature (SAS) token that can be used as a credential. **An account key, a SAS token or a client secret is required for authentication.**",
+    )
+    client_secret: Optional[str] = Field(
+        description="Azure client secret that can be used as a credential. **An account key, a SAS token or a client secret is required for authentication.**",
+    )
+    client_id: Optional[str] = Field(
+        description="Azure client (Application) ID required when a `client_secret` is used as a credential.",
+    )
+    tenant_id: Optional[str] = Field(
+        description="Azure tenant (Directory) ID required when a `client_secret` is used as a credential.",
     )
 
     def get_abfss_url(self, folder_path: str = "") -> str:
@@ -46,11 +55,29 @@ class AdlsSourceConfig(ConfigModel):
             credential=self.get_credentials(),
         )
 
-    def get_credentials(self):
+    def get_credentials(
+        self,
+    ) -> Union[str, ClientSecretCredential, UsernamePasswordCredential]:
+        if self.client_id and self.client_secret and self.tenant_id:
+            return ClientSecretCredential(
+                tenant_id=self.tenant_id,
+                client_id=self.client_id,
+                client_secret=self.client_secret,
+            )
         return self.sas_token if self.sas_token is not None else self.account_key
 
     @root_validator()
-    def _check_sas_or_account_key(cls, values):
-        if not values.get("account_key") and not values.get("sas_token"):
-            raise ConfigurationError("either account_key or sas_token is required")
-        return values
+    def _check_credential_values(cls, values):
+        if (
+            values.get("account_key")
+            or values.get("sas_token")
+            or (
+                values.get("client_id")
+                and values.get("client_secret")
+                and values.get("tenant_id")
+            )
+        ):
+            return values
+        raise ConfigurationError(
+            "credentials missing, requires one combination of account_key or sas_token or (client_id and client_secret and tenant_id)"
+        )
