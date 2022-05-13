@@ -86,7 +86,7 @@ public class PropagateTermsStep implements UpgradeStep {
 //        context.report().addLine("Missing required arguments. This job requires SOURCE_FILTER");
 //        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
 //      }
-      Filter sourceFilter = QueryUtils.newFilter("platform.keyword", "urn:li:dataPlatform:mysql");
+      Filter sourceFilter = QueryUtils.newFilter("platform.keyword", "urn:li:dataPlatform:postgres");
 
       context.report().addLine("Fetching source entities to propagate from");
 
@@ -108,13 +108,13 @@ public class PropagateTermsStep implements UpgradeStep {
       int batch = 1;
       context.report().addLine(String.format("Fetching batch %d", batch));
       ScrollResult scrollResult =
-          _entitySearchService.scroll(Constants.DATASET_ENTITY_NAME, sourceFilter, null, 1000, null, "1m");
+          _entitySearchService.scroll(Constants.DATASET_ENTITY_NAME, null, null, 1000, null, "1m");
       while (scrollResult.getEntities().size() > 0) {
         context.report().addLine(String.format("Processing batch %d", batch));
         processBatch(scrollResult, sourceEntityDetails, runId);
         batch++;
         context.report().addLine(String.format("Fetching batch %d", batch));
-        scrollResult = _entitySearchService.scroll(Constants.DATASET_ENTITY_NAME, sourceFilter, null, 1000,
+        scrollResult = _entitySearchService.scroll(Constants.DATASET_ENTITY_NAME, null, null, 1000,
             scrollResult.getScrollId(), "1m");
       }
 

@@ -24,7 +24,7 @@ public class PropagateTerms implements Upgrade {
 
   @Override
   public String id() {
-    return "RestoreAspect";
+    return "PropagateTerms";
   }
 
   @Override
