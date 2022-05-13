@@ -2226,6 +2226,12 @@
               "type" : "com.linkedin.common.GlobalTags",
               "doc" : "Tags associated with the field",
               "optional" : true,
+              "Relationship" : {
+                "/tags/*/tag" : {
+                  "entityTypes" : [ "tag" ],
+                  "name" : "FieldTaggedWith"
+                }
+              },
               "Searchable" : {
                 "/tags/*/tag" : {
                   "boostScore" : 0.5,
@@ -2238,6 +2244,12 @@
               "type" : "com.linkedin.common.GlossaryTerms",
               "doc" : "Glossary terms associated with the field",
               "optional" : true,
+              "Relationship" : {
+                "/terms/*/urn" : {
+                  "entityTypes" : [ "glossaryTerm" ],
+                  "name" : "FieldWithGlossaryTerm"
+                }
+              },
               "Searchable" : {
                 "/terms/*/urn" : {
                   "boostScore" : 0.5,
@@ -2396,6 +2408,12 @@
               "type" : "com.linkedin.common.GlobalTags",
               "doc" : "Tags associated with the field",
               "optional" : true,
+              "Relationship" : {
+                "/tags/*/tag" : {
+                  "entityTypes" : [ "tag" ],
+                  "name" : "EditableFieldTaggedWith"
+                }
+              },
               "Searchable" : {
                 "/tags/*/tag" : {
                   "boostScore" : 0.5,
@@ -2408,6 +2426,12 @@
               "type" : "com.linkedin.common.GlossaryTerms",
               "doc" : "Glossary terms associated with the field",
               "optional" : true,
+              "Relationship" : {
+                "/terms/*/urn" : {
+                  "entityTypes" : [ "glossaryTerm" ],
+                  "name" : "EditableFieldWithGlossaryTerm"
+                }
+              },
               "Searchable" : {
                 "/terms/*/urn" : {
                   "boostScore" : 0.5,

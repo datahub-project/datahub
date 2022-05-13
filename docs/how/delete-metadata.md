@@ -33,6 +33,9 @@ This physically deletes all rows for all aspects of the entity. This action cann
 datahub delete --urn "<my urn>" --hard
 ```
 
+As of datahub v.0.8.35 doing a hard delete by urn will also provide you with a way to remove references to the urn being deleted across the metadata graph. This is important to use if you don't want to have ghost references in your metadata model and want to save space in the graph database.
+For now, this behaviour must be opted into by a prompt that will appear for you to manually accept or deny.
+
 You can optionally add `-n` or `--dry-run` to execute a dry run before issuing the final delete command.
 You can optionally add `-f` or `--force` to skip confirmations
 
