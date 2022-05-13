@@ -99,6 +99,7 @@ project.ext.externalDependency = [
     'lombok': 'org.projectlombok:lombok:1.18.12',
     'mariadbConnector': 'org.mariadb.jdbc:mariadb-java-client:2.6.0',
     'mavenArtifact': "org.apache.maven:maven-artifact:$mavenVersion",
+    'mixpanel': 'com.mixpanel:mixpanel-java:1.4.4',
     'mockito': 'org.mockito:mockito-core:3.0.0',
     'mockitoInline': 'org.mockito:mockito-inline:3.0.0',
     'mockServer': 'org.mock-server:mockserver-netty:5.11.2',
