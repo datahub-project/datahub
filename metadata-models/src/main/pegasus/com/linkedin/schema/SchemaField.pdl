@@ -97,6 +97,11 @@ record SchemaField {
   isPartOfKey: boolean = false
 
   /**
+   * For Datasets which are partitioned, this determines the partitioning key.
+   */
+  isPartitioningKey: optional boolean
+
+  /**
    * For schema fields that have other properties that are not modeled explicitly,
    * use this field to serialize those properties into a JSON string
    */

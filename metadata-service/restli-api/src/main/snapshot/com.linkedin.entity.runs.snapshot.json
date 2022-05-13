@@ -645,7 +645,8 @@
         "addToFilters" : true,
         "fieldName" : "glossaryTerms",
         "fieldType" : "URN",
-        "filterNameOverride" : "Glossary Term"
+        "filterNameOverride" : "Glossary Term",
+        "hasValuesFieldName" : "hasGlossaryTerms"
       }
     } ]
   }, "com.linkedin.common.GlossaryTermUrn", {
@@ -2262,6 +2263,11 @@
               "type" : "boolean",
               "doc" : "For schema fields that are part of complex keys, set this field to true\nWe do this to easily distinguish between value and key fields",
               "default" : false
+            }, {
+              "name" : "isPartitioningKey",
+              "type" : "boolean",
+              "doc" : "For Datasets which are partitioned, this determines the partitioning key.",
+              "optional" : true
             }, {
               "name" : "jsonProps",
               "type" : "string",

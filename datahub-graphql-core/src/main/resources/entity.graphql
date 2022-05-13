@@ -791,12 +791,12 @@ type Dataset implements EntityWithRelationships & Entity {
     Profile Stats resource that retrieves the events in a previous unit of time in descending order
     If no start or end time are provided, the most recent events will be returned
     """
-    datasetProfiles(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [DatasetProfile!]
+    datasetProfiles(startTimeMillis: Long, endTimeMillis: Long, filter: FilterInput, limit: Int): [DatasetProfile!]
 
     """
     Operational events for an entity.
     """
-    operations(startTimeMillis: Long, endTimeMillis: Long, limit: Int): [Operation!]
+    operations(startTimeMillis: Long, endTimeMillis: Long, filter: FilterInput, limit: Int): [Operation!]
 
     """
     Assertions associated with the Dataset
@@ -5168,7 +5168,7 @@ type Assertion implements EntityWithRelationships & Entity {
     Lifecycle events detailing individual runs of this assertion. If startTimeMillis & endTimeMillis are not provided, the most
     recent events will be returned.
     """
-    runEvents(status: AssertionRunStatus, startTimeMillis: Long, endTimeMillis: Long, limit: Int): AssertionRunEventsResult
+    runEvents(status: AssertionRunStatus, startTimeMillis: Long, endTimeMillis: Long, filter: FilterInput, limit: Int): AssertionRunEventsResult
 
     """
     Edges extending from this entity
