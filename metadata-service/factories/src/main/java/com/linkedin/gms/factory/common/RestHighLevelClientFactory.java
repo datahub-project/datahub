@@ -5,9 +5,11 @@ import javax.annotation.Nonnull;
 import javax.net.ssl.SSLContext;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.http.Header;
 import org.apache.http.HttpHost;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
+import org.apache.http.message.BasicHeader;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -23,6 +25,8 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.apache.http.auth.AuthScope;
 import org.springframework.context.annotation.PropertySource;
+
+import java.util.Base64;
 
 
 @Slf4j
@@ -65,9 +69,10 @@ public class RestHighLevelClientFactory {
     RestClientBuilder restClientBuilder;
     if (useSSL) {
       restClientBuilder = loadRestHttpsClient(host, port, pathPrefix, threadCount, connectionRequestTimeout, sslContext, username,
-          password);
+              password);
     } else {
-      restClientBuilder = loadRestHttpClient(host, port, pathPrefix, threadCount, connectionRequestTimeout);
+      restClientBuilder = loadRestHttpClient(host, port, pathPrefix, threadCount, connectionRequestTimeout, username,
+              password);
     }
 
     return new RestHighLevelClient(restClientBuilder);
@@ -75,24 +80,33 @@ public class RestHighLevelClientFactory {
 
   @Nonnull
   private static RestClientBuilder loadRestHttpClient(@Nonnull String host, int port, String pathPrefix, int threadCount,
-      int connectionRequestTimeout) {
+                                                      int connectionRequestTimeout, String username,
+                                                      String password) {
+
     RestClientBuilder builder = RestClient.builder(new HttpHost(host, port, "http"))
-        .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder
-            .setDefaultIOReactorConfig(IOReactorConfig.custom().setIoThreadCount(threadCount).build()));
+            .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder
+                    .setDefaultIOReactorConfig(IOReactorConfig.custom().setIoThreadCount(threadCount).build()));
 
     if (!StringUtils.isEmpty(pathPrefix)) {
       builder.setPathPrefix(pathPrefix);
     }
 
+    if (username != null && password != null) {
+      String CREDENTIALS_STRING = username + ":" + password;
+      String encodedBytes = Base64.getEncoder().encodeToString(CREDENTIALS_STRING.getBytes());
+      Header[] authHeaders = {new BasicHeader("Authorization", "Basic " + encodedBytes)};
+      builder.setDefaultHeaders(authHeaders);
+    }
+
     builder.setRequestConfigCallback(
-        requestConfigBuilder -> requestConfigBuilder.setConnectionRequestTimeout(connectionRequestTimeout));
+            requestConfigBuilder -> requestConfigBuilder.setConnectionRequestTimeout(connectionRequestTimeout));
 
     return builder;
   }
 
   @Nonnull
   private static RestClientBuilder loadRestHttpsClient(@Nonnull String host, int port, String pathPrefix, int threadCount,
-      int connectionRequestTimeout, @Nonnull SSLContext sslContext, String username, String password) {
+                                                       int connectionRequestTimeout, @Nonnull SSLContext sslContext, String username, String password) {
 
     final RestClientBuilder builder = RestClient.builder(new HttpHost(host, port, "https"));
 
@@ -103,7 +117,7 @@ public class RestHighLevelClientFactory {
     builder.setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
       public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpAsyncClientBuilder) {
         httpAsyncClientBuilder.setSSLContext(sslContext).setSSLHostnameVerifier(new NoopHostnameVerifier())
-            .setDefaultIOReactorConfig(IOReactorConfig.custom().setIoThreadCount(threadCount).build());
+                .setDefaultIOReactorConfig(IOReactorConfig.custom().setIoThreadCount(threadCount).build());
 
         if (username != null && password != null) {
           final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
@@ -116,7 +130,7 @@ public class RestHighLevelClientFactory {
     });
 
     builder.setRequestConfigCallback(
-        requestConfigBuilder -> requestConfigBuilder.setConnectionRequestTimeout(connectionRequestTimeout));
+            requestConfigBuilder -> requestConfigBuilder.setConnectionRequestTimeout(connectionRequestTimeout));
 
     return builder;
   }
