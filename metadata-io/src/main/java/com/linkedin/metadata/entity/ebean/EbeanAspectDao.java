@@ -5,7 +5,6 @@ import com.datahub.util.exception.RetryLimitReached;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.AspectDao;
-import com.linkedin.metadata.entity.AspectStorageValidationUtil;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentity;
