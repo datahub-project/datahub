@@ -154,10 +154,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
     const localeTimezone = getLocaleTimezone();
     const incidentCreatedTime =
         (incident.created &&
-            `${moment.utc(incident.created.time).local().format('DD MMM YYYY')}, ${moment
-                .utc(incident.created.time)
-                .local()
-                .format('HH:mm:ss')} (${localeTimezone})`) ||
+            `${moment.utc(incident.created.time).local().format('DD MMM YYYY')} (${localeTimezone})`) ||
         undefined;
 
     // Converting the created time into UTC
@@ -248,7 +245,13 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                 overlayStyle={{ maxWidth: 240 }}
                                 placement="left"
                                 title={<Typography.Text strong>Note</Typography.Text>}
-                                content={<Typography.Text type="secondary">{incident?.status.message}</Typography.Text>}
+                                content={
+                                    incident?.status.message === null ? (
+                                        <Typography.Text type="secondary">No additional details</Typography.Text>
+                                    ) : (
+                                        <Typography.Text type="secondary">{incident?.status.message}</Typography.Text>
+                                    )
+                                }
                             >
                                 <IncidentResolvedText>
                                     {incident?.status.lastUpdated &&
