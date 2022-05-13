@@ -63,6 +63,7 @@ import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
+import com.linkedin.datahub.graphql.resolvers.container.ParentContainersResolver;
 import com.linkedin.datahub.graphql.resolvers.container.ContainerEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetHealthResolver;
 import com.linkedin.datahub.graphql.resolvers.deprecation.UpdateDeprecationResolver;
@@ -482,6 +483,7 @@ public class GmsGraphQLEngine {
                             return container.getContainer() != null ? container.getContainer().getUrn() : null;
                         })
                 )
+                .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
                 .dataFetcher("dataPlatformInstance",
                     new LoadableTypeResolver<>(dataPlatformInstanceType,
                         (env) -> {
@@ -724,7 +726,8 @@ public class GmsGraphQLEngine {
                    this.entityClient,
                    "dataset",
                    "subTypes"))
-                .dataFetcher("runs", new EntityRunsResolver(entityClient)))
+                .dataFetcher("runs", new EntityRunsResolver(entityClient))
+                .dataFetcher("parentContainers", new ParentContainersResolver(entityClient)))
             .type("Owner", typeWiring -> typeWiring
                     .dataFetcher("owner", new OwnerTypeResolver<>(ownerTypes,
                         (env) -> ((Owner) env.getSource()).getOwner()))
@@ -854,6 +857,7 @@ public class GmsGraphQLEngine {
                         return dashboard.getContainer() != null ? dashboard.getContainer().getUrn() : null;
                     })
             )
+            .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
         );
         builder.type("DashboardInfo", typeWiring -> typeWiring
             .dataFetcher("charts", new LoadableTypeBatchResolver<>(chartType,
@@ -893,6 +897,7 @@ public class GmsGraphQLEngine {
                     return chart.getContainer() != null ? chart.getContainer().getUrn() : null;
                 })
             )
+            .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
         );
         builder.type("ChartInfo", typeWiring -> typeWiring
             .dataFetcher("inputs", new LoadableTypeBatchResolver<>(datasetType,
