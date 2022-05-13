@@ -277,7 +277,7 @@ async def delete_samples(item: delete_sample_params):
         )
         response = requests.post(
             "{es_host}/{profile_index}/_delete_by_query".format(
-                es_host=elastic_host
+                es_host=elastic_host, profile_index=profile_index
             ),
             headers=headers,
             data=data,
