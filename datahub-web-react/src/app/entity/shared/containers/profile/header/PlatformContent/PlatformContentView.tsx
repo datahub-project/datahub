@@ -7,7 +7,8 @@ import { Container } from '../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../constants';
 import ContainerLink from './ContainerLink';
 
-const LogoContainer = styled.span`
+const LogoIcon = styled.span`
+    display: flex;
     margin-right: 8px;
 `;
 
@@ -21,7 +22,7 @@ const PreviewImage = styled(Image)`
 const PlatformContentWrapper = styled.div`
     display: flex;
     align-items: center;
-    margin: 0 8px 8px 0;
+    margin: 0 8px 6px 0;
     flex-wrap: nowrap;
     flex: 1;
 `;
@@ -41,10 +42,6 @@ const PlatformDivider = styled.div`
     border-right: 1px solid ${ANTD_GRAY[4]};
     height: 18px;
     vertical-align: text-top;
-`;
-
-const TypeIcon = styled.span`
-    margin-right: 8px;
 `;
 
 const StyledRightOutlined = styled(RightOutlined)`
@@ -117,14 +114,14 @@ function PlatformContentView(props: Props) {
 
     return (
         <PlatformContentWrapper>
-            {typeIcon && <TypeIcon>{typeIcon}</TypeIcon>}
+            {typeIcon && <LogoIcon>{typeIcon}</LogoIcon>}
             <PlatformText>{entityType}</PlatformText>
             <PlatformDivider />
             {platformName && (
-                <LogoContainer>
+                <LogoIcon>
                     {(!!platformLogoUrl && <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />) ||
                         entityLogoComponent}
-                </LogoContainer>
+                </LogoIcon>
             )}
             <PlatformText>
                 {platformName}
