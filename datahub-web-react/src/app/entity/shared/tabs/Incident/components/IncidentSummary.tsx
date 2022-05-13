@@ -12,8 +12,8 @@ const SummaryHeader = styled.div`
     padding-top: 0px;
     display: flex;
     align-items: center;
-    margin-top: 16px;
-    margin-bottom: 16px;
+    padding-top: 20px;
+    padding-bottom: 20px;
 `;
 
 const SummaryContainer = styled.div``;
