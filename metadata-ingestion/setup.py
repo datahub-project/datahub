@@ -473,7 +473,7 @@ entry_points = {
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",
         "powerbi = datahub.ingestion.source.powerbi:PowerBiDashboardSource",
-        "iceberg = datahub.ingestion.source.iceberg:IcebergSource",
+        "iceberg = datahub.ingestion.source.iceberg.iceberg:IcebergSource",
         "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
     ],
