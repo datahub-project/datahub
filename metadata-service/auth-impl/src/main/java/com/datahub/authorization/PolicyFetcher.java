@@ -15,6 +15,7 @@ import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -39,10 +40,16 @@ public class PolicyFetcher {
 
   public PolicyFetchResult fetchPolicies(int start, int count, Authentication authentication)
       throws RemoteInvocationException, URISyntaxException {
+    return fetchPolicies(start, count, "*", authentication);
+  }
+
+  public PolicyFetchResult fetchPolicies(int start, int count, String query, Authentication authentication)
+      throws RemoteInvocationException, URISyntaxException {
     log.debug(String.format("Batch fetching policies. start: %s, count: %s ", start, count));
     // First fetch all policy urns from start - start + count
     SearchResult result =
-        _entityClient.search(POLICY_ENTITY_NAME, "*", null, POLICY_SORT_CRITERION, start, count, authentication);
+        _entityClient.search(POLICY_ENTITY_NAME, query, null, POLICY_SORT_CRITERION, start, count, authentication);
+    log.info(String.format("Result: %s", result));
     List<Urn> policyUrns = result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
 
     if (policyUrns.isEmpty()) {
