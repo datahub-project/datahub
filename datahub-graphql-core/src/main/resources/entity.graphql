@@ -211,6 +211,11 @@ type Mutation {
     addTag(input: TagAssociationInput!): Boolean
 
     """
+		Add multiple tags to a particular Entity or subresource
+    """
+    addTags(input: AddTagsInput!): Boolean
+
+    """
 		Remove a tag from a particular Entity or subresource
     """
     removeTag(input: TagAssociationInput!): Boolean
@@ -221,6 +226,11 @@ type Mutation {
     addTerm(input: TermAssociationInput!): Boolean
 
     """
+		Add multiple glossary terms to a particular Entity or subresource
+    """
+    addTerms(input: AddTermsInput!): Boolean
+
+    """
 		Remove a glossary term from a particular Entity or subresource
     """
     removeTerm(input: TermAssociationInput!): Boolean
@@ -229,6 +239,11 @@ type Mutation {
     Add an owner to a particular Entity
     """
     addOwner(input: AddOwnerInput!): Boolean
+
+    """
+    Add multiple owners to a particular Entity
+    """
+    addOwners(input: AddOwnersInput!): Boolean
 
     """
     Remove an owner from a particular Entity
@@ -5783,6 +5798,31 @@ input TermAssociationInput {
 }
 
 """
+Input provided when adding Terms to an asset
+"""
+input AddTermsInput {
+    """
+    The primary key of the Glossary Term to add or remove
+    """
+    termUrns: [String!]!
+
+    """
+    The target Metadata Entity to add or remove the Glossary Term from
+    """
+    resourceUrn: String!
+
+    """
+    An optional type of a sub resource to attach the Glossary Term to
+    """
+    subResourceType: SubResourceType
+
+    """
+    An optional sub resource identifier to attach the Glossary Term to
+    """
+    subResource: String
+}
+
+"""
 A type of Metadata Entity sub resource
 """
 enum SubResourceType {
@@ -5800,6 +5840,31 @@ input TagAssociationInput {
     The primary key of the Tag to add or remove
     """
     tagUrn: String!
+
+    """
+    The target Metadata Entity to add or remove the Tag to
+    """
+    resourceUrn: String!
+
+    """
+    An optional type of a sub resource to attach the Tag to
+    """
+    subResourceType: SubResourceType
+
+    """
+    An optional sub resource identifier to attach the Tag to
+    """
+    subResource: String
+}
+
+"""
+Input provided when adding tags to an asset
+"""
+input AddTagsInput {
+    """
+    The primary key of the Tags
+    """
+    tagUrns: [String!]!
 
     """
     The target Metadata Entity to add or remove the Tag to
@@ -5850,6 +5915,41 @@ input AddOwnerInput {
     The ownership type for the new owner. If none is provided, then a new NONE will be added.
     """
     type: OwnershipType
+
+    """
+    The urn of the resource or entity to attach or remove the owner from, for example a dataset urn
+    """
+    resourceUrn: String!
+}
+
+"""
+Input provided when adding an owner to an asset
+"""
+input OwnerInput {
+    """
+    The primary key of the Owner to add or remove
+    """
+    ownerUrn: String!
+
+    """
+    The owner type, either a user or group
+    """
+    ownerEntityType: OwnerEntityType!
+
+    """
+    The ownership type for the new owner. If none is provided, then a new NONE will be added.
+    """
+    type: OwnershipType
+}
+
+"""
+Input provided when adding multiple associations between a Metadata Entity and an user or group owner
+"""
+input AddOwnersInput {
+    """
+    The primary key of the Owner to add or remove
+    """
+    owners: [OwnerInput!]!
 
     """
     The urn of the resource or entity to attach or remove the owner from, for example a dataset urn
