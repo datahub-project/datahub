@@ -7,6 +7,7 @@ import PolicyActorForm from './PolicyActorForm';
 import { ActorFilter, Policy, PolicyType, ResourceFilter } from '../../types.generated';
 import { EMPTY_POLICY } from './policyUtils';
 import { useEnterKeyListener } from '../shared/useEnterKeyListener';
+import ClickOutside from './ClickOutside';
 
 type Props = {
     policy: Omit<Policy, 'urn'>;
@@ -139,38 +140,40 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
     });
 
     return (
-        <Modal
-            className="PolicyBuilderModal"
-            title={isEditing ? 'Edit a Policy' : 'Create a new Policy'}
-            visible={visible}
-            onCancel={onClose}
-            closable
-            width={750}
-            footer={null}
-        >
-            <Steps current={activeStepIndex}>
-                {policySteps.map((item) => (
-                    <Steps.Step key={item.title} title={item.title} />
-                ))}
-            </Steps>
-            <div className="steps-content">{activeStep.content}</div>
-            <StepsContainer>
-                <PrevButtonContainer>
-                    {activeStepIndex > 0 && <Button onClick={() => prev()}>Previous</Button>}
-                </PrevButtonContainer>
-                <NextButtonContainer>
-                    {activeStepIndex < policySteps.length - 1 && activeStep.complete && (
-                        <Button id="nextButton" type="primary" onClick={() => next()}>
-                            Next
-                        </Button>
-                    )}
-                    {activeStepIndex === policySteps.length - 1 && activeStep.complete && (
-                        <Button id="saveButton" type="primary" onClick={onSavePolicy}>
-                            Save
-                        </Button>
-                    )}
-                </NextButtonContainer>
-            </StepsContainer>
-        </Modal>
+        <ClickOutside onClickOutside={onClose} wrapperClassName="PolicyBuilderModal">
+            <Modal
+                wrapClassName="PolicyBuilderModal"
+                title={isEditing ? 'Edit a Policy' : 'Create a new Policy'}
+                visible={visible}
+                onCancel={onClose}
+                closable
+                width={750}
+                footer={null}
+            >
+                <Steps current={activeStepIndex}>
+                    {policySteps.map((item) => (
+                        <Steps.Step key={item.title} title={item.title} />
+                    ))}
+                </Steps>
+                <div className="steps-content">{activeStep.content}</div>
+                <StepsContainer>
+                    <PrevButtonContainer>
+                        {activeStepIndex > 0 && <Button onClick={() => prev()}>Previous</Button>}
+                    </PrevButtonContainer>
+                    <NextButtonContainer>
+                        {activeStepIndex < policySteps.length - 1 && activeStep.complete && (
+                            <Button id="nextButton" type="primary" onClick={() => next()}>
+                                Next
+                            </Button>
+                        )}
+                        {activeStepIndex === policySteps.length - 1 && activeStep.complete && (
+                            <Button id="saveButton" type="primary" onClick={onSavePolicy}>
+                                Save
+                            </Button>
+                        )}
+                    </NextButtonContainer>
+                </StepsContainer>
+            </Modal>
+        </ClickOutside>
     );
 }

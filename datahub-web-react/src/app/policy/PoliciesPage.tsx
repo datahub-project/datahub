@@ -31,7 +31,6 @@ import { StyledTable } from '../entity/shared/components/styled/StyledTable';
 import AvatarsGroup from './AvatarsGroup';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import PolicyOutsideAlerter from './PolicyOutsideAlerter';
 
 const PoliciesContainer = styled.div`
     padding-top: 20px;
@@ -444,15 +443,13 @@ export const PoliciesPage = () => {
                 />
             </PaginationContainer>
             {showPolicyBuilderModal && (
-                <PolicyOutsideAlerter closeModal={onClosePolicyBuilder}>
-                    <PolicyBuilderModal
-                        policy={focusPolicy || EMPTY_POLICY}
-                        setPolicy={setFocusPolicy}
-                        visible={showPolicyBuilderModal}
-                        onClose={onClosePolicyBuilder}
-                        onSave={onSavePolicy}
-                    />
-                </PolicyOutsideAlerter>
+                <PolicyBuilderModal
+                    policy={focusPolicy || EMPTY_POLICY}
+                    setPolicy={setFocusPolicy}
+                    visible={showPolicyBuilderModal}
+                    onClose={onClosePolicyBuilder}
+                    onSave={onSavePolicy}
+                />
             )}
             {showViewPolicyModal && (
                 <PolicyDetailsModal
