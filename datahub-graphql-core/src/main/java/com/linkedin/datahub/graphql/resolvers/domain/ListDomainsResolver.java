@@ -30,7 +30,7 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
 
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
-  private static final String DEFAULT_QUERY = "*";
+  private static final String DEFAULT_QUERY = "";
 
   private final EntityClient _entityClient;
 
