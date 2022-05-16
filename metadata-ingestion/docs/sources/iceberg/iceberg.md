@@ -11,9 +11,9 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 | -- | -- | -- |
 | `iceberg` | [Data Platform](docs/generated/metamodel/entities/dataPlatform.md) | |
 | Table | [Dataset](docs/generated/metamodel/entities/dataset.md) | Each Iceberg table maps to a Dataset named using the parent folders.  If a table is stored under `my/namespace/table`, the dataset name will be `my.namespace.table`.  If a [Platform Instance](https://datahubproject.io/docs/platform-instances/) is configured, it will be used as a prefix: `<platform_instance>.my.namespace.table`. |
-| [Table property](https://iceberg.apache.org/docs/latest/configuration/#table-properties) | [User (a.k.a CorpUser)](docs/generated/metamodel/entities/corpuser.md) | A configurable table property can be used as a source of CorpUser owner. |
-| [Table property](https://iceberg.apache.org/docs/latest/configuration/#table-properties) | CorpGroup | A configurable table property can be used as a source of CorpGroup owner. |
-| Parent folders| Container | Coming soon | 
+| [Table property](https://iceberg.apache.org/docs/latest/configuration/#table-properties) | [User (a.k.a CorpUser)](docs/generated/metamodel/entities/corpuser.md) | The value of a table property can be used as the name of a CorpUser owner.  This table property name can be configured with the source option `user_ownership_property`. |
+| [Table property](https://iceberg.apache.org/docs/latest/configuration/#table-properties) | CorpGroup | The value of a table property can be used as the name of a CorpGroup owner.  This table property name can be configured with the source option `group_ownership_property`. |
+| Table parent folders (excluding [warehouse catalog location](https://iceberg.apache.org/docs/latest/configuration/#catalog-properties)) | Container | Available in a future release | 
 | [Table schema](https://iceberg.apache.org/spec/#schemas-and-data-types) | SchemaField | Maps to the fields defined within the Iceberg table schema definition. | 
 
 ## Troubleshooting

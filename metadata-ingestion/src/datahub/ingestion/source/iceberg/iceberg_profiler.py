@@ -54,7 +54,7 @@ class IcebergProfiler:
         aggregated_values: Dict[int, Any],
         manifest_values: Dict[int, Any],
     ) -> None:
-        for field_id, value_encoded in manifest_values.items():
+        for field_id, value_encoded in manifest_values.items():  # type: int, Any
             field: NestedField = schema.find_field(field_id)
             # Bounds in manifests can reference historical field IDs that are not part of the current schema.
             # We simply not profile those since we only care about the current snapshot.

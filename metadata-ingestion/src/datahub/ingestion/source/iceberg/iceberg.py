@@ -126,7 +126,7 @@ class IcebergSource(Source):
             except NoSuchTableException:
                 # Path did not contain a valid Iceberg table. Silently ignore this.
                 LOGGER.debug(
-                    f"Path {dataset_path} does not contain table{dataset_name}"
+                    f"Path {dataset_path} does not contain table {dataset_name}"
                 )
                 pass
             except Exception as e:
@@ -169,18 +169,6 @@ class IcebergSource(Source):
             customProperties=custom_properties,
         )
         dataset_snapshot.aspects.append(dataset_properties)
-
-        # TODO: Should we use last-updated-ms instead?  YES
-        # last_updated_time_millis = (
-        #     table.current_snapshot().timestamp_millis
-        # )
-        # TODO: The following seems to go in OperationClass.  It is usually part of the "usage" source.  Should I create a new python module?
-        # operation_aspect = OperationClass(
-        #     timestampMillis=get_sys_time(),
-        #     lastUpdatedTimestamp=last_updated_time_millis,
-        #     operationType=OperationTypeClass.UNKNOWN,
-        # )
-        # TODO: How do I add an operation_aspect?
 
         dataset_ownership = self._get_ownership_aspect(table)
         if dataset_ownership:
@@ -225,8 +213,6 @@ class IcebergSource(Source):
                     )
                 )
         if owners:
-            # TODO: Consider using builder if I can provide OwnershipTypeClass:
-            # return make_ownership_aspect_from_urn_list([make_user_urn(user_owner)], OwnershipTypeClass.TECHNICAL_OWNER)
             return OwnershipClass(owners=owners)
         return None
 
@@ -348,8 +334,7 @@ def _parse_datatype(type: IcebergTypes.Type, nullable: bool = False) -> Dict[str
 
 def _parse_struct_fields(parts: Tuple[NestedField], nullable: bool) -> Dict[str, Any]:
     fields = []
-    nested_field: NestedField
-    for nested_field in parts:
+    for nested_field in parts:  # type: NestedField
         field_name = nested_field.name
         field_type = _parse_datatype(nested_field.type, nested_field.is_optional)
         fields.append({"name": field_name, "type": field_type, "doc": nested_field.doc})

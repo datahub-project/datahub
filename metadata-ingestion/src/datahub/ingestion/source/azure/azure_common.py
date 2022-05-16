@@ -1,6 +1,6 @@
 from typing import Dict, Optional, Union
 
-from azure.identity import ClientSecretCredential, UsernamePasswordCredential
+from azure.identity import ClientSecretCredential
 from azure.storage.filedatalake import DataLakeServiceClient, FileSystemClient
 from pydantic import Field, root_validator
 
@@ -57,7 +57,7 @@ class AdlsSourceConfig(ConfigModel):
 
     def get_credentials(
         self,
-    ) -> Union[Optional[str], ClientSecretCredential, UsernamePasswordCredential]:
+    ) -> Union[Optional[str], ClientSecretCredential]:
         if self.client_id and self.client_secret and self.tenant_id:
             return ClientSecretCredential(
                 tenant_id=self.tenant_id,
