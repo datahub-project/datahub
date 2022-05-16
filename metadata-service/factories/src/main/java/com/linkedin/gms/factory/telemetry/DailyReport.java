@@ -37,18 +37,7 @@ public class DailyReport {
     this._configurationProvider = configurationProvider;
     this._entityService = entityService;
     try {
-
-      // DB based
       String clientId = getClientId(entityService);
-
-      // File Based
-//      String configFilePath = _configurationProvider.getTelemetry().configPath + File.pathSeparator + CONFIG_FILE_NAME;
-//      File configFile = new File(configFilePath);
-//      if (!configFile.exists()) {
-//        createConfig(_configurationProvider.getTelemetry().configPath);
-//      } else {
-//        loadConfig(configFilePath);
-//      }
 
       // initialize MixPanel instance and message builder
       mixpanel = new MixpanelAPI();
