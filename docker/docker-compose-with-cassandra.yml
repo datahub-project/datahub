@@ -148,7 +148,7 @@ services:
       - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
   datahub-actions:
-    image: public.ecr.aws/datahub/acryl-datahub-actions:${ACTIONS_VERSION:-v0.0.1-beta.11}
+    image: acryldata/datahub-actions:${ACTIONS_VERSION:-head}
     hostname: actions
     env_file: datahub-actions/env/docker.env
     restart: on-failure:5

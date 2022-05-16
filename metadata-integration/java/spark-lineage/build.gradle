@@ -149,6 +149,7 @@ shadowJar {
   relocate 'mozilla', 'datahub.spark2.shaded.mozilla'
   relocate 'com.typesafe','datahub.spark2.shaded.typesafe'
   relocate 'io.opentracing','datahub.spark2.shaded.io.opentracing'
+  relocate 'io.netty','datahub.spark2.shaded.io.netty'
   finalizedBy checkShadowJar
 }
 
