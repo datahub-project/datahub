@@ -36,7 +36,7 @@ public class ListDomainsResolverTest {
 
     Mockito.when(mockClient.search(
         Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
-        Mockito.eq("*"),
+        Mockito.eq(""),
         Mockito.eq(Collections.emptyMap()),
         Mockito.eq(0),
         Mockito.eq(20),
@@ -94,7 +94,7 @@ public class ListDomainsResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.doThrow(RemoteInvocationException.class).when(mockClient).search(
         Mockito.any(),
-        Mockito.eq("*"),
+        Mockito.eq(""),
         Mockito.anyMap(),
         Mockito.anyInt(),
         Mockito.anyInt(),

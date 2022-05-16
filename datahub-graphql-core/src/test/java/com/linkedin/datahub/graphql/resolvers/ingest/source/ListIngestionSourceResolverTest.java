@@ -39,7 +39,7 @@ public class ListIngestionSourceResolverTest {
 
     Mockito.when(mockClient.search(
         Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
-        Mockito.eq("*"),
+        Mockito.eq(""),
         Mockito.eq(Collections.emptyMap()),
         Mockito.eq(0),
         Mockito.eq(20),
@@ -106,7 +106,7 @@ public class ListIngestionSourceResolverTest {
         Mockito.any(Authentication.class));
     Mockito.verify(mockClient, Mockito.times(0)).search(
         Mockito.any(),
-        Mockito.eq("*"),
+        Mockito.eq(""),
         Mockito.anyMap(),
         Mockito.anyInt(),
         Mockito.anyInt(),
