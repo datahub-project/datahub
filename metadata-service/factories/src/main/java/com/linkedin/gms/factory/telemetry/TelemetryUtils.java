@@ -17,7 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 
 
 @Slf4j
-final class TelemetryUtils {
+public final class TelemetryUtils {
 
     public static final String CLIENT_ID_URN = "urn:li:telemetry:clientId";
     public static final String CLIENT_ID_ASPECT = "clientId";
