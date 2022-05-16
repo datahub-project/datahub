@@ -26,7 +26,7 @@ public class DailyReport {
   private final ConfigurationProvider _configurationProvider;
   private final EntityService _entityService;
 
-  private final String MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a";
+  private static final String MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a";
   private MixpanelAPI mixpanel;
   private MessageBuilder mixpanelBuilder;
 

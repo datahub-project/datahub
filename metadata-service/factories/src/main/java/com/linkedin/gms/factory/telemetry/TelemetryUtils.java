@@ -6,11 +6,6 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import java.nio.charset.StandardCharsets;
-import org.apache.commons.io.IOUtils;
-import org.json.JSONObject;
-
-import java.io.*;
 import java.util.UUID;
 
 import lombok.extern.slf4j.Slf4j;
