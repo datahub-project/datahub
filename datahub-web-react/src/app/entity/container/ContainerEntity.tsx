@@ -137,6 +137,7 @@ export class ContainerEntity implements Entity<Container> {
                 container={data.container}
                 entityCount={data.entities?.total}
                 domain={data.domain}
+                parentContainers={data.parentContainers}
             />
         );
     };

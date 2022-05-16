@@ -64,6 +64,9 @@ query getDataset($urn: String!) {
         container {
             ...entityContainer
         }
+        parentContainers {
+            ...parentContainersFields
+        }
         usageStats(range: MONTH) {
             buckets {
                 bucket

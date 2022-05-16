@@ -1,12 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.AssertionResultType;
 import com.linkedin.datahub.graphql.generated.AssertionRunEvent;
 import com.linkedin.datahub.graphql.generated.AssertionRunEventsResult;
 import com.linkedin.datahub.graphql.generated.AssertionRunStatus;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.FilterInput;
 import com.linkedin.datahub.graphql.types.dataset.mappers.AssertionRunEventMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -19,10 +20,13 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 
 /**
@@ -47,6 +51,9 @@ public class AssertionRunEventResolver implements DataFetcher<CompletableFuture<
       final Long maybeStartTimeMillis = environment.getArgumentOrDefault("startTimeMillis", null);
       final Long maybeEndTimeMillis = environment.getArgumentOrDefault("endTimeMillis", null);
       final Integer maybeLimit = environment.getArgumentOrDefault("limit", null);
+      final FilterInput maybeFilters = environment.getArgument("filter") != null
+          ? bindArgument(environment.getArgument("filter"), FilterInput.class)
+          : null;
 
       try {
         // Step 1: Fetch aspects from GMS
@@ -58,7 +65,7 @@ public class AssertionRunEventResolver implements DataFetcher<CompletableFuture<
             maybeEndTimeMillis,
             maybeLimit,
             false,
-            buildStatusFilter(maybeStatus),
+            buildFilter(maybeFilters, maybeStatus),
             context.getAuthentication());
 
         // Step 2: Bind profiles into GraphQL strong types.
@@ -87,16 +94,19 @@ public class AssertionRunEventResolver implements DataFetcher<CompletableFuture<
   }
 
   @Nullable
-  private Filter buildStatusFilter(@Nullable final String status) {
-    if (status == null) {
+  private Filter buildFilter(@Nullable FilterInput filtersInput, @Nullable final String status) {
+    if (filtersInput == null && status == null) {
       return null;
     }
-    return new Filter().setOr(new ConjunctiveCriterionArray(ImmutableList.of(
-        new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(
-            new Criterion()
-              .setField("status")
-              .setValue(status)
-        )))
-    )));
+    List<FacetFilterInput> facetFilters = new ArrayList<>();
+    if (status != null) {
+      facetFilters.add(new FacetFilterInput("status", status));
+    }
+    if (filtersInput != null) {
+      facetFilters.addAll(filtersInput.getAnd());
+    }
+    return new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(facetFilters.stream()
+        .map(filter -> new Criterion().setField(filter.getField()).setValue(filter.getValue()))
+        .collect(Collectors.toList())))));
   }
 }
