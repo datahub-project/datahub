@@ -6336,6 +6336,11 @@ input ListPoliciesInput {
   The maximum number of Policies to be returned in the result set
   """
   count: Int
+
+  """
+  Optional search query
+  """
+  query: String
 }
 
 """
@@ -6416,6 +6421,11 @@ input ListUsersInput {
   The maximum number of Policies to be returned in the result set
   """
   count: Int
+
+  """
+  Optional search query
+  """
+  query: String
 }
 
 """
@@ -6456,6 +6466,11 @@ input ListGroupsInput {
   The maximum number of Policies to be returned in the result set
   """
   count: Int
+
+  """
+  Optional search query
+  """
+  query: String
 }
 
 type EntityCountResults {
@@ -7577,6 +7592,11 @@ input ListDomainsInput {
   The maximum number of Domains to be returned in the result set
   """
   count: Int
+
+  """
+  Optional search query
+  """
+  query: String
 }
 
 """
