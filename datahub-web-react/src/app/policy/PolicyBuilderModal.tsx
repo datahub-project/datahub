@@ -139,8 +139,23 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
         querySelectorToExecuteClick: '#saveButton',
     });
 
+    // modalClosePopup for outside policy modal click
+    const modalClosePopup = () => {
+        Modal.confirm({
+            title: 'Exit Policy Editor',
+            content: `Are you sure you want to exit policy editor? All changes will be lost`,
+            onOk() {
+                onClose();
+            },
+            onCancel() {},
+            okText: 'Yes',
+            maskClosable: true,
+            closable: true,
+        });
+    };
+
     return (
-        <ClickOutside onClickOutside={onClose} wrapperClassName="PolicyBuilderModal">
+        <ClickOutside onClickOutside={modalClosePopup} wrapperClassName="PolicyBuilderModal">
             <Modal
                 wrapClassName="PolicyBuilderModal"
                 title={isEditing ? 'Edit a Policy' : 'Create a new Policy'}
