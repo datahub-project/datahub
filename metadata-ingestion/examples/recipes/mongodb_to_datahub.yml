@@ -1,4 +1,4 @@
-# see https://datahubproject.io/docs/metadata-ingestion/source_docs/mongodb for complete documentation
+# see https://datahubproject.io/docs/generated/ingestion/sources/mongodb for complete documentation
 source:
   type: "mongodb"
   config:

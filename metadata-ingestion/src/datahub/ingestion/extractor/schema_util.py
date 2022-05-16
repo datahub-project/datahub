@@ -287,7 +287,15 @@ class AvroToMceSchemaConverter:
                     # Populate it with the simple native type for now.
                     nativeDataType=native_data_type,
                     type=self._converter._get_column_type(
-                        actual_schema.type, self._actual_schema.props.get("logicalType")
+                        actual_schema.type,
+                        (
+                            getattr(
+                                actual_schema, "logical_type", None
+                            )  # logicalType nested inside type
+                            or self._actual_schema.props.get(
+                                "logicalType"
+                            )  # bare logicalType
+                        ),
                     ),
                     description=description,
                     recursive=False,

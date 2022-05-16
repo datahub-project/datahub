@@ -1,0 +1,21 @@
+source:
+  type: bigquery-usage
+  config:
+    # Coordinates
+    projects:
+      - project_id_1
+      - project_id_2
+
+    # Options
+    top_n_queries: 10
+    dataset_pattern:
+      allow:
+        - marketing_db
+        - sales_db
+    table_pattern:
+      deny:
+        - .*feedback.*
+        - .*salary.*
+
+sink:
+  # sink configs

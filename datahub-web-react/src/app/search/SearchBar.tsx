@@ -14,6 +14,7 @@ import { CustomAvatar } from '../shared/avatar';
 import { StyledTag } from '../entity/shared/components/styled/StyledTag';
 import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
 import { useGetAuthenticatedUserUrn } from '../useGetAuthenticatedUser';
+import { getPlatformName } from '../entity/shared/utils';
 
 const SuggestionContainer = styled.div`
     display: flex;
@@ -109,7 +110,7 @@ const renderEntitySuggestion = (query: string, entity: Entity, registry: EntityR
         return renderTagSuggestion(entity as Tag, registry);
     }
     const genericEntityProps = registry.getGenericEntityProperties(entity.type, entity);
-    const platformName = genericEntityProps?.platform?.properties?.displayName || genericEntityProps?.platform?.name;
+    const platformName = getPlatformName(genericEntityProps);
     const platformLogoUrl = genericEntityProps?.platform?.properties?.logoUrl;
     const displayName =
         genericEntityProps?.properties?.qualifiedName ||

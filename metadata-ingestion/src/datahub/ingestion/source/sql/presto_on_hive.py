@@ -5,6 +5,8 @@ from collections import namedtuple
 from itertools import groupby
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
+from pydantic.fields import Field
+
 # This import verifies that the dependencies are available.
 from pyhive import hive  # noqa: F401
 from sqlalchemy import create_engine, text
@@ -13,6 +15,14 @@ from sqlalchemy.engine.reflection import Inspector
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp_builder import PlatformKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
     BasicSQLAlchemyConfig,
@@ -35,14 +45,38 @@ TableKey = namedtuple("TableKey", ["schema", "table"])
 
 
 class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
-    views_where_clause_suffix: str = ""
-    tables_where_clause_suffix: str = ""
-    schemas_where_clause_suffix: str = ""
-    host_port: str = "localhost:3306"
-    scheme: str = "mysql+pymysql"
+    views_where_clause_suffix: str = Field(
+        default="",
+        description="Where clause to specify what Presto views should be ingested.",
+    )
+    tables_where_clause_suffix: str = Field(
+        default="",
+        description="Where clause to specify what Hive tables should be ingested.",
+    )
+    schemas_where_clause_suffix: str = Field(
+        default="",
+        description="Where clause to specify what Hive schemas should be ingested.",
+    )
+    host_port: str = Field(
+        default="localhost:3306",
+        description="Host URL and port to connect to. Example: localhost:3306",
+    )
+    scheme: str = Field(default="mysql+pymysql", description="", exclude=True)
 
 
+@platform_name("Presto on Hive")
+@config_class(PrestoOnHiveConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 class PrestoOnHiveSource(SQLAlchemySource):
+    """
+    This plugin extracts the following:
+
+    - Metadata for Presto views and Hive tables (external / managed)
+    - Column types associated with each table / view
+    - Detailed table / view property info
+    """
 
     _TABLES_SQL_STATEMENT = """
     SELECT source.* FROM

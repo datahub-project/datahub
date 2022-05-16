@@ -56,7 +56,8 @@ public class AuthServiceClient {
     try {
 
       final String protocol = this.metadataServiceUseSsl ? "https" : "http";
-      final HttpPost request = new HttpPost(String.format("%s://%s:%s/%s", protocol, this.metadataServiceHost, this.metadataServicePort, GENERATE_SESSION_TOKEN_ENDPOINT));
+      final HttpPost request = new HttpPost(String.format("%s://%s:%s/%s", protocol, this.metadataServiceHost,
+          this.metadataServicePort, GENERATE_SESSION_TOKEN_ENDPOINT));
 
       // Build JSON request to generate a token on behalf of a user.
       String json = String.format("{ \"%s\":\"%s\" }", USER_ID_FIELD, userId);

@@ -87,6 +87,13 @@ class DbtTestConfig:
                         "config": {"term": "Finance_test"},
                     },
                 },
+                "query_tag_mapping": {
+                    "tag": {
+                        "match": ".*",
+                        "operation": "add_tag",
+                        "config": {"tag": "{{ $match }}"},
+                    }
+                },
             },
             **source_config_modifiers,
         )
