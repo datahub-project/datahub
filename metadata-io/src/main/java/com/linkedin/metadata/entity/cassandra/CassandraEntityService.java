@@ -351,7 +351,10 @@ public class CassandraEntityService extends EntityService {
         return ingestAspectToLocalDBNoTransaction(urn, aspectName, ignored -> newValue, auditStamp,
             internalSystemMetadata, latest, nextVersion);
       }
-      return null;
+      RecordTemplate oldValue = EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), getEntityRegistry());
+      SystemMetadata oldMetadata = EntityUtils.parseSystemMetadata(latest.getSystemMetadata());
+      return new UpdateAspectResult(urn, oldValue, oldValue, oldMetadata, oldMetadata, MetadataAuditOperation.UPDATE, auditStamp,
+          latest.getVersion());
     }, DEFAULT_MAX_TRANSACTION_RETRY);
 
     return sendEventForUpdateAspectResult(urn, aspectName, result);
