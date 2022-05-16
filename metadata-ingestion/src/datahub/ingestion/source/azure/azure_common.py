@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 from azure.identity import ClientSecretCredential, UsernamePasswordCredential
 from azure.storage.filedatalake import DataLakeServiceClient, FileSystemClient
@@ -49,7 +49,7 @@ class AdlsSourceConfig(ConfigModel):
     def get_filesystem_client(self) -> FileSystemClient:
         return self.get_service_client().get_file_system_client(self.container_name)
 
-    def get_service_client(self):
+    def get_service_client(self) -> DataLakeServiceClient:
         return DataLakeServiceClient(
             account_url=f"https://{self.account_name}.dfs.core.windows.net",
             credential=self.get_credentials(),
@@ -57,7 +57,7 @@ class AdlsSourceConfig(ConfigModel):
 
     def get_credentials(
         self,
-    ) -> Union[str, ClientSecretCredential, UsernamePasswordCredential]:
+    ) -> Union[Optional[str], ClientSecretCredential, UsernamePasswordCredential]:
         if self.client_id and self.client_secret and self.tenant_id:
             return ClientSecretCredential(
                 tenant_id=self.tenant_id,
@@ -67,7 +67,7 @@ class AdlsSourceConfig(ConfigModel):
         return self.sas_token if self.sas_token is not None else self.account_key
 
     @root_validator()
-    def _check_credential_values(cls, values):
+    def _check_credential_values(cls, values: Dict) -> Dict:
         if (
             values.get("account_key")
             or values.get("sas_token")
