@@ -52,13 +52,3 @@ class GlueProfilingConfig(ConfigModel):
         default=None,
         description="The parameter name for the standard deviation of a column.",
     )
-
-    # partitioning
-    partitioned: bool = Field(
-        default=False,
-        description="Whether to ingested partitioned glue profiles.",
-    )
-    partition_key: str = Field(
-        default=None,
-        description="The name of the partition column. It only supports single-key partitioning.",
-    )

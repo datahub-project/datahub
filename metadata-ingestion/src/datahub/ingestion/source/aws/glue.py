@@ -708,25 +708,34 @@ class GlueSource(Source):
         table_stats: dict,
         column_stats: dict,
         partition_spec: Optional[str] = None,
-    ) -> Optional[MetadataChangeProposalWrapper]:
+    ) -> MetadataChangeProposalWrapper:
         # instantiate profile class
         dataset_profile = DatasetProfileClass(timestampMillis=get_sys_time())
 
         # Inject table level stats
         if self.source_config.profiling.row_count in table_stats:
             dataset_profile.rowCount = int(
-                table_stats[self.source_config.profiling.row_count]
+                float(
+                    table_stats[self.source_config.profiling.row_count]
+                )
             )
         if self.source_config.profiling.row_count in table_stats:
             dataset_profile.columnCount = int(
-                table_stats[self.source_config.profiling.column_count]
+                float(
+                    table_stats[self.source_config.profiling.column_count]
+                )
             )
 
         # inject column level stats
         dataset_profile.fieldProfiles = []
         for profile in column_stats:
             column_name = profile["Name"]
-            column_params = profile["Parameters"]
+
+            # some columns may not be profiled
+            if "Parameters" in profile:
+                column_params = profile["Parameters"]
+            else:
+                continue
 
             logger.debug(f"column_name: {column_name}")
             # instantiate column profile class for each column
@@ -734,7 +743,9 @@ class GlueSource(Source):
 
             if self.source_config.profiling.unique_count in column_params:
                 column_profile.uniqueCount = int(
-                    column_params[self.source_config.profiling.unique_count]
+                    float(
+                        column_params[self.source_config.profiling.unique_count]
+                    )
                 )
             if self.source_config.profiling.unique_proportion in column_params:
                 column_profile.uniqueProportion = float(
@@ -742,7 +753,9 @@ class GlueSource(Source):
                 )
             if self.source_config.profiling.null_count in column_params:
                 column_profile.nullCount = int(
-                    column_params[self.source_config.profiling.null_count]
+                    float(
+                        column_params[self.source_config.profiling.null_count]
+                    )
                 )
             if self.source_config.profiling.null_proportion in column_params:
                 column_profile.nullProportion = float(
@@ -781,30 +794,39 @@ class GlueSource(Source):
 
     def get_profile_if_enabled(
         self, mce: MetadataChangeEventClass, database_name: str, table_name: str
-    ) -> List[Optional[MetadataChangeProposalWrapper]]:
+    ) -> List[MetadataChangeProposalWrapper]:
         if self.source_config.profiling.enabled:
-            if self.source_config.profiling.partitioned:
-                # for cross-account ingestion
-                if self.source_config.catalog_id:
-                    response = self.glue_client.get_partitions(
-                        DatabaseName=database_name,
-                        Name=table_name,
-                        CatalogId=self.source_config.catalog_id,
-                    )
-                else:
-                    response = self.glue_client.get_partitions(
-                        DatabaseName=database_name, Name=table_name
-                    )
+            # for cross-account ingestion
+            kwargs = dict(
+                DatabaseName=database_name,
+                Name=table_name,
+                CatalogId=self.source_config.catalog_id
+                )
+            response = self.glue_client.get_table(**{k: v for k, v in kwargs.items() if v})
 
-                partitions = response["partitions"]
+            partition_keys = response['Table']['PartitionKeys']
+
+            # check if this table is partitioned
+            if partition_keys:
+                # ingest data profile with partitions
+                # for cross-account ingestion
+                kwargs = dict(
+                    DatabaseName=database_name,
+                    TableName=table_name,
+                    CatalogId=self.source_config.catalog_id
+                    )
+                response = self.glue_client.get_partitions(**{k: v for k, v in kwargs.items() if v})
+
+                partitions = response["Partitions"]
+                partition_keys = [k['Name'] for k in partition_keys]
 
                 mcps = []
                 for p in partitions:
                     table_stats = p["Parameters"]
-                    column_stats = p["Table"]["StorageDescriptor"]["Columns"]
+                    column_stats = p["StorageDescriptor"]["Columns"]
                     # only support single partition key
                     partition_spec = str(
-                        {self.source_config.profiling.partition_key: p["Values"][0]}
+                        {partition_keys[0]: p["Values"][0]}
                     )
                     mcps.append(
                         self._create_profile_mcp(
@@ -813,24 +835,12 @@ class GlueSource(Source):
                     )
                 return mcps
             else:
-                # for cross-account ingestion
-                if self.source_config.catalog_id:
-                    response = self.glue_client.get_table(
-                        DatabaseName=database_name,
-                        Name=table_name,
-                        CatalogId=self.source_config.catalog_id,
-                    )
-                else:
-                    response = self.glue_client.get_table(
-                        DatabaseName=database_name, Name=table_name
-                    )
-
+                # ingest data profile without partition
                 table_stats = response["Table"]["Parameters"]
                 column_stats = response["Table"]["StorageDescriptor"]["Columns"]
-
                 return [self._create_profile_mcp(mce, table_stats, column_stats)]
 
-        return [None]
+        return []
 
     def gen_database_key(self, database: str) -> DatabaseKey:
         return DatabaseKey(
@@ -937,7 +947,7 @@ class GlueSource(Source):
 
             mcps_profiling = self.get_profile_if_enabled(mce, database_name, table_name)
             if mcps_profiling:
-                for mcp_index in range(len(mcps_profiling)):
+                for mcp_index, mcp in enumerate(mcps_profiling):
                     mcp_wu = MetadataWorkUnit(
                         id=f"profile-{full_table_name}-partition-{mcp_index}",
                         mcp=mcps_profiling[mcp_index],
