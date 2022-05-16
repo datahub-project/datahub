@@ -39,7 +39,7 @@ public class PolicyFetcher {
 
   public PolicyFetchResult fetchPolicies(int start, int count, Authentication authentication)
       throws RemoteInvocationException, URISyntaxException {
-    return fetchPolicies(start, count, "*", authentication);
+    return fetchPolicies(start, count, "", authentication);
   }
 
   public PolicyFetchResult fetchPolicies(int start, int count, String query, Authentication authentication)
