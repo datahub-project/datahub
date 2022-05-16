@@ -4,6 +4,7 @@ import com.datahub.util.exception.ModelConversionException;
 import com.datahub.util.exception.RetryLimitReached;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectStorageValidationUtil;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.query.ExtraInfo;
@@ -39,10 +40,10 @@ import javax.persistence.RollbackException;
 import javax.persistence.Table;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 
 @Slf4j
-public class EbeanAspectDao {
+public class EbeanAspectDao implements AspectDao {
 
   private final EbeanServer _server;
   private boolean _connectionValidated = false;
@@ -112,7 +113,7 @@ public class EbeanAspectDao {
       return 0;
     }
     // Save oldValue as the largest version + 1
-    long largestVersion = 0;
+    long largestVersion = ASPECT_LATEST_VERSION;
     if (oldAspectMetadata != null && oldTime != null) {
       largestVersion = nextVersion;
       saveAspect(urn, aspectName, oldAspectMetadata, oldActor, oldImpersonator, oldTime, oldSystemMetadata, largestVersion, true);
@@ -161,7 +162,7 @@ public class EbeanAspectDao {
   @Nullable
   protected EbeanAspectV2 getLatestAspect(@Nonnull final String urn, @Nonnull final String aspectName) {
     validateConnection();
-    final EbeanAspectV2.PrimaryKey key = new EbeanAspectV2.PrimaryKey(urn, aspectName, 0L);
+    final EbeanAspectV2.PrimaryKey key = new EbeanAspectV2.PrimaryKey(urn, aspectName, ASPECT_LATEST_VERSION);
     return _server.find(EbeanAspectV2.class, key);
   }
 
@@ -508,7 +509,7 @@ public class EbeanAspectDao {
     }
 
     for (String aspectName: aspectNames) {
-      long nextVal = 0L;
+      long nextVal = ASPECT_LATEST_VERSION;
       if (result.containsKey(aspectName)) {
         nextVal = result.get(aspectName) + 1L;
       }

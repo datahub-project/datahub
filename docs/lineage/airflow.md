@@ -1,6 +1,11 @@
-# Lineage with Airflow
+# Airflow Integration
 
-There's a couple ways to get lineage information from Airflow into DataHub.
+DataHub supports integration of 
+- Airflow Pipeline (DAG) metadata
+- DAG and Task run information as well as 
+- Lineage information when present
+
+There are a few ways to enable these integrations from Airflow into DataHub.
 
 
 ## Using Datahub's Airflow lineage backend (recommended)
@@ -11,9 +16,10 @@ The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+.
 
 :::
 
-## Running on Docker locally
+:::note
 
 If you are looking to run Airflow and DataHub using docker locally, follow the guide [here](../../docker/airflow/local_airflow.md). Otherwise proceed to follow the instructions below.
+:::
 
 ## Setting up Airflow to use DataHub as Lineage Backend
 
@@ -49,7 +55,7 @@ If you are looking to run Airflow and DataHub using docker locally, follow the g
    - `cluster` (defaults to "prod"): The "cluster" to associate Airflow DAGs and tasks with.
    - `capture_ownership_info` (defaults to true): If true, the owners field of the DAG will be capture as a DataHub corpuser.
    - `capture_tags_info` (defaults to true): If true, the tags field of the DAG will be captured as DataHub tags.
-   - `capture_executions` (defaults to false): If true, it captures task runs as DataHub DatprocessInstances. **This feature only works with Datahub GMS version v0.8.33 or greater.**
+   - `capture_executions` (defaults to false): If true, it captures task runs as DataHub DataProcessInstances. **This feature only works with Datahub GMS version v0.8.33 or greater.**
    - `graceful_exceptions` (defaults to true): If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions.
 4. Configure `inlets` and `outlets` for your Airflow operators. For reference, look at the sample DAG in [`lineage_backend_demo.py`](../../metadata-ingestion/src/datahub_provider/example_dags/lineage_backend_demo.py), or reference [`lineage_backend_taskflow_demo.py`](../../metadata-ingestion/src/datahub_provider/example_dags/lineage_backend_taskflow_demo.py) if you're using the [TaskFlow API](https://airflow.apache.org/docs/apache-airflow/stable/concepts/taskflow.html).
 5. [optional] Learn more about [Airflow lineage](https://airflow.apache.org/docs/apache-airflow/stable/lineage.html), including shorthand notation and some automation.

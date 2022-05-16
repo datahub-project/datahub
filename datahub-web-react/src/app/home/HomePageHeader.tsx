@@ -17,6 +17,7 @@ import analytics, { EventType } from '../analytics';
 import { AdminHeaderLinks } from '../shared/admin/AdminHeaderLinks';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { useAppConfig } from '../useAppConfig';
+import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
 
 const Background = styled.div`
     width: 100%;
@@ -196,7 +197,11 @@ export const HomePageHeader = () => {
             </Row>
             <HeaderContainer>
                 <Image
-                    src={appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl}
+                    src={
+                        appConfig.config !== DEFAULT_APP_CONFIG
+                            ? appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl
+                            : undefined
+                    }
                     preview={false}
                     style={styles.logoImage}
                 />

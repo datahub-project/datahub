@@ -1,5 +1,6 @@
 package datahub.protobuf.visitors.dataset;
 
+import com.linkedin.common.Deprecation;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.GlossaryTermAssociationArray;
@@ -30,6 +31,7 @@ import lombok.Builder;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -53,6 +55,8 @@ public class DatasetVisitor implements ProtobufModelVisitor<MetadataChangePropos
     private final String protocBase64 = "";
     @Builder.Default
     private final ProtobufModelVisitor<String> descriptionVisitor = new DescriptionVisitor();
+    @Builder.Default
+    private final ProtobufModelVisitor<Deprecation> deprecationVisitor = new DeprecationVisitor();
 
     @Override
     public Stream<MetadataChangeProposalWrapper<? extends RecordTemplate>> visitGraph(VisitContext context) {
@@ -90,7 +94,10 @@ public class DatasetVisitor implements ProtobufModelVisitor<MetadataChangePropos
                         )).setLastModified(context.getAuditStamp()), "ownership"),
                 new MetadataChangeProposalWrapper<>(DatasetUrn.ENTITY_TYPE, datasetUrn, ChangeType.UPSERT,
                         new Domains(new DataMap(Map.of("domains",
-                                new UrnArray(g.accept(context, domainVisitors).collect(Collectors.toList())).data()))), "domains")
-        );
+                                new UrnArray(g.accept(context, domainVisitors).collect(Collectors.toList())).data()))), "domains"),
+                g.accept(context, List.of(deprecationVisitor)).findFirst()
+                        .map(dep -> new MetadataChangeProposalWrapper<>(DatasetUrn.ENTITY_TYPE, datasetUrn, ChangeType.UPSERT,
+                                dep, "deprecation")).orElse(null)
+        ).filter(Objects::nonNull);
     }
 }

@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 
 import pydantic
 from pandas import DataFrame
+from pydantic.fields import Field
 from pydeequ.analyzers import (
     AnalysisRunBuilder,
     AnalysisRunner,
@@ -60,25 +61,64 @@ def null_str(value: Any) -> Optional[str]:
 
 
 class DataLakeProfilerConfig(ConfigModel):
-    enabled: bool = False
+    enabled: bool = Field(
+        default=False, description="Whether profiling should be done."
+    )
 
     # These settings will override the ones below.
-    profile_table_level_only: bool = False
+    profile_table_level_only: bool = Field(
+        default=False,
+        description="Whether to perform profiling at table-level only or include column-level profiling as well.",
+    )
 
-    allow_deny_patterns: AllowDenyPattern = AllowDenyPattern.allow_all()
+    allow_deny_patterns: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(), description=""
+    )
 
-    max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = None
+    max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = Field(
+        default=None,
+        description="A positive integer that specifies the maximum number of columns to profile for any table. `None` implies all columns. The cost of profiling goes up significantly as the number of columns to profile goes up.",
+    )
 
-    include_field_null_count: bool = True
-    include_field_min_value: bool = True
-    include_field_max_value: bool = True
-    include_field_mean_value: bool = True
-    include_field_median_value: bool = True
-    include_field_stddev_value: bool = True
-    include_field_quantiles: bool = True
-    include_field_distinct_value_frequencies: bool = True
-    include_field_histogram: bool = True
-    include_field_sample_values: bool = True
+    include_field_null_count: bool = Field(
+        default=True,
+        description="Whether to profile for the number of nulls for each column.",
+    )
+    include_field_min_value: bool = Field(
+        default=True,
+        description="Whether to profile for the min value of numeric columns.",
+    )
+    include_field_max_value: bool = Field(
+        default=True,
+        description="Whether to profile for the max value of numeric columns.",
+    )
+    include_field_mean_value: bool = Field(
+        default=True,
+        description="Whether to profile for the mean value of numeric columns.",
+    )
+    include_field_median_value: bool = Field(
+        default=True,
+        description="Whether to profile for the median value of numeric columns.",
+    )
+    include_field_stddev_value: bool = Field(
+        default=True,
+        description="Whether to profile for the standard deviation of numeric columns.",
+    )
+    include_field_quantiles: bool = Field(
+        default=True,
+        description="Whether to profile for the quantiles of numeric columns.",
+    )
+    include_field_distinct_value_frequencies: bool = Field(
+        default=True, description="Whether to profile for distinct value frequencies."
+    )
+    include_field_histogram: bool = Field(
+        default=True,
+        description="Whether to profile for the histogram for numeric fields.",
+    )
+    include_field_sample_values: bool = Field(
+        default=True,
+        description="Whether to profile for the sample values for all columns.",
+    )
 
     @pydantic.root_validator()
     def ensure_field_level_settings_are_normalized(

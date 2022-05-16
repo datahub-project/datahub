@@ -1,6 +1,6 @@
-# Protobuf Integration
+# Protobuf Schemas
 
-This module is designed to be used with the Java Emitter, the input is a compiled protobuf binary `*.protoc` files and optionally the corresponding `*.proto` source code. In addition, you can supply the root message in cases where a single protobuf source file includes multiple non-nested messages.
+The `datahub-protobuf` module is designed to be used with the Java Emitter, the input is a compiled protobuf binary `*.protoc` files and optionally the corresponding `*.proto` source code. In addition, you can supply the root message in cases where a single protobuf source file includes multiple non-nested messages.
 
 ## Supported Features
 
@@ -134,6 +134,7 @@ enum DataHubMetadataType {
   TERM            = 3; // Datahub Term
   OWNER           = 4; // Datahub Owner
   DOMAIN          = 5; // Datahub Domain
+  DEPRECATION     = 6; // Datahub Deprecation
 }
 
 /*
@@ -210,20 +211,24 @@ message msg {
     meta.MetaEnumExample type = 60004 [(meta.fld.type) = TAG, (meta.fld.type) = PROPERTY];
     bool bool_feature = 60005 [(meta.fld.type) = TAG];
     string alert_channel = 60007 [(meta.fld.type) = PROPERTY];
+
+    repeated string deprecation_note = 60008 [(meta.fld.type) = DEPRECATION, (meta.fld.type) = PROPERTY];
+    uint64 deprecation_time          = 60009 [(meta.fld.type) = DEPRECATION, (meta.fld.type) = PROPERTY];
   }
 }
 ```
 
 #### DataHubMetadataType
 
-| DataHubMetadataType | String | Bool | Enum | Repeated |
-|---------------------|--------|------|------|----------|
-| PROPERTY            | X      | X    | X    | X        |
-| TAG                 | X      | X    | X    |          |
-| TAG_LIST            | X      |      |      |          |
-| TERM                | X      |      | X    |          |
-| OWNER               | X      |      |      | X        |
-| DOMAIN              | X      |      |      | X        |
+| DataHubMetadataType | String    | Bool | Enum | Repeated  | Uint64   |
+|---------------------|-----------|------|------|-----------|----------|
+| PROPERTY            | X         | X    | X    | X         |          |
+| TAG                 | X         | X    | X    |           |          |
+| TAG_LIST            | X         |      |      |           |          |
+| TERM                | X         |      | X    |           |          |
+| OWNER               | X         |      |      | X         |          |
+| DOMAIN              | X         |      |      | X         |          |
+| DEPRECATION         | X (notes) |      |      | X (notes) | X (time) |
 
 ##### PROPERTY
 
@@ -361,6 +366,33 @@ The dot delimited prefix also works with enum types where the prefix is the enum
   }
 ```
 
+In addition, tags can be added to fields as well as messages. The following is a consolidated example for all the possible tag options on fields.
+
+```protobuf
+  enum MetaEnumExample {
+    UNKNOWN = 0;
+    ENTITY = 1;
+    EVENT = 2;
+  }
+
+   message fld {
+     extend google.protobuf.FieldOptions {
+       string tags             = 6000 [(meta.fld.type) = TAG_LIST];
+       string tagString        = 6001 [(meta.fld.type) = TAG];
+       bool tagBool            = 6002 [(meta.fld.type) = TAG];
+       MetaEnumExample tagEnum = 6003 [(meta.fld.type) = TAG];
+    }
+  }
+  
+  message Message {
+    uint32 my_field = 1
+        [(meta.fld.tags) = "a, b, c",
+         (meta.fld.tagString) = "myTag",
+         (meta.fld.tagBool) = true,
+         (meta.fld.tagEnum) = ENTITY];
+  }
+```
+
 ##### TERM
 
 Terms are specified by either a fully qualified string value or an enum where the enum type's name is the first element in the fully qualified term name.
@@ -384,6 +416,29 @@ The following example shows both methods, either of which would result in the te
   message Message {
     option(meta.msg.term) = HighlyConfidential;
     option(meta.msg.class) = "Classification.HighlyConfidential";
+  }
+```
+
+The following is a consolidated example for the possible field level term options.
+
+```protobuf
+   enum Classification {
+    HighlyConfidential = 0;
+    Confidential = 1;
+    Sensitive = 2;
+  }
+
+   message fld {
+     extend google.protobuf.FieldOptions {
+       Classification term = 5000 [(meta.fld.type) = TERM];
+       string class = 5001 [(meta.fld.type) = TERM];
+    }
+  }
+  
+  message Message {
+    uint32 my_field = 1
+        [(meta.fld.term) = HighlyConfidential,
+         (meta.fld.class) = "Classification.HighlyConfidential"];
   }
 ```
 
@@ -436,6 +491,36 @@ Set the domain id for the dataset. The domain should exist already. Note that th
   message Message {
     option(meta.msg.domain) = "engineering";
   }
+```
+
+##### DEPRECATION
+
+Deprecation of fields and messages are natively supported by protobuf options.
+The standard "Deprecation" aspect is used for a dataset generated from a protobuf `message`.
+Field deprecation adds a tag with the following urn `urn:li:tag:deprecated` (red, #FF000).
+
+```protobuf
+   message msg {
+     extend google.protobuf.MessageOptions {
+       repeated string deprecation_note = 5620 [(meta.fld.type) = DEPRECATION];
+       uint64 deprecation_time          = 5621 [(meta.fld.type) = DEPRECATION];
+    }
+  }
+  
+  message Message {
+    option deprecated = true;
+    option (meta.msg.deprecation_note) = "Deprecated for this other message.";
+    option (meta.msg.deprecation_note) = "Drop in replacement.";
+    option (meta.msg.deprecation_time) = 1649689387;
+  }
+```
+
+The field deprecation tag works without definition in `meta.proto` using the native protobuf option.
+
+```protobuf
+message Message {
+  uint32 my_field = 1 [deprecated = true];
+}
 ```
 
 ## Gradle Integration

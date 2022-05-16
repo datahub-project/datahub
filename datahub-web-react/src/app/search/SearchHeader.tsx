@@ -10,6 +10,7 @@ import EntityRegistry from '../entity/EntityRegistry';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { AdminHeaderLinks } from '../shared/admin/AdminHeaderLinks';
 import { useAppConfig } from '../useAppConfig';
+import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
 
 const { Header } = Layout;
 
@@ -82,7 +83,11 @@ export const SearchHeader = ({
             <LogoSearchContainer>
                 <Link to="/">
                     <LogoImage
-                        src={appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl}
+                        src={
+                            appConfig.config !== DEFAULT_APP_CONFIG
+                                ? appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl
+                                : undefined
+                        }
                         preview={false}
                     />
                 </Link>

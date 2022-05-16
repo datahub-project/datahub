@@ -20,6 +20,7 @@ from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_colum
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.type_helpers import PytestConfig
 from tests.unit.test_glue_source_stubs import (
+    get_bucket_tagging,
     get_databases_response,
     get_dataflow_graph_response_1,
     get_dataflow_graph_response_2,
@@ -28,6 +29,7 @@ from tests.unit.test_glue_source_stubs import (
     get_object_body_2,
     get_object_response_1,
     get_object_response_2,
+    get_object_tagging,
     get_tables_response_1,
     get_tables_response_2,
 )
@@ -42,6 +44,8 @@ def glue_source(platform_instance: Optional[str] = None) -> GlueSource:
             aws_region="us-west-2",
             extract_transforms=True,
             platform_instance=platform_instance,
+            use_s3_bucket_tags=True,
+            use_s3_object_tags=True,
         ),
     )
 
@@ -116,6 +120,19 @@ def test_glue_ingest(
         )
 
         with Stubber(glue_source_instance.s3_client) as s3_stubber:
+
+            for _ in range(
+                len(get_tables_response_1["TableList"])
+                + len(get_tables_response_2["TableList"])
+            ):
+                s3_stubber.add_response(
+                    "get_bucket_tagging",
+                    get_bucket_tagging(),
+                )
+                s3_stubber.add_response(
+                    "get_object_tagging",
+                    get_object_tagging(),
+                )
 
             s3_stubber.add_response(
                 "get_object",
