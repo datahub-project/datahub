@@ -12,7 +12,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -32,7 +31,6 @@ import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd;
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart;
 
 import com.google.common.base.Splitter;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.typesafe.config.Config;
 
 import datahub.spark.consumer.impl.McpEmitter;
@@ -54,7 +52,6 @@ import scala.runtime.AbstractPartialFunction;
 @Slf4j
 public class DatahubSparkListener extends SparkListener {
 
-  private static final int THREAD_CNT = 16;
   public static final String CONSUMER_TYPE_KEY = "spark.datahub.lineage.consumerTypes";
   public static final String DATAHUB_EMITTER = "mcpEmitter";
   public static final String  DATABRICKS_CLUSTER_KEY = "databricks.cluster";
@@ -63,7 +60,6 @@ public class DatahubSparkListener extends SparkListener {
   
   private final Map<String, AppStartEvent> appDetails = new ConcurrentHashMap<>();
   private final Map<String, Map<Long, SQLQueryExecStartEvent>> appSqlDetails = new ConcurrentHashMap<>();
-  private final Map<String, ExecutorService> appPoolDetails = new ConcurrentHashMap<>();
   private final Map<String, McpEmitter> appEmitters = new ConcurrentHashMap<>();
   private final Map<String, Config> appConfig = new ConcurrentHashMap<>();
   
@@ -71,7 +67,7 @@ public class DatahubSparkListener extends SparkListener {
     log.info("DatahubSparkListener initialised.");
   }
 
-  private class SqlStartTask implements Runnable {
+  private class SqlStartTask {
 
     private final SparkListenerSQLExecutionStart sqlStart;
     private final SparkContext ctx;
@@ -83,7 +79,6 @@ public class DatahubSparkListener extends SparkListener {
       this.ctx = ctx;
     }
 
-    @Override
     public void run() {
       appSqlDetails.get(ctx.applicationId())
           .put(sqlStart.executionId(),
@@ -169,7 +164,7 @@ public class DatahubSparkListener extends SparkListener {
 
         @Override
         public Void apply(SparkContext sc) {
-          getOrCreateApplicationSetup(sc);
+          checkOrCreateApplicationSetup(sc);
           return null;
         }
       });
@@ -193,7 +188,6 @@ public class DatahubSparkListener extends SparkListener {
         public Void apply(SparkContext sc) {
           log.info("Application ended : {} {}", sc.appName(), sc.applicationId());
           AppStartEvent start = appDetails.remove(sc.applicationId());
-          appPoolDetails.remove(sc.applicationId()).shutdown();
           appSqlDetails.remove(sc.applicationId());
           if (start == null) {
             log.error("Application end event received, but start event missing for appId " + sc.applicationId());
@@ -280,7 +274,7 @@ public class DatahubSparkListener extends SparkListener {
     });
   }
   
-  private synchronized ExecutorService getOrCreateApplicationSetup(SparkContext ctx) {
+  private synchronized void checkOrCreateApplicationSetup(SparkContext ctx) {
 
     ExecutorService pool = null;
     String appId = ctx.applicationId();
@@ -296,16 +290,7 @@ public class DatahubSparkListener extends SparkListener {
       consumers().forEach(c -> c.accept(evt));
       appDetails.put(appId, evt);
       appSqlDetails.put(appId, new ConcurrentHashMap<>());
-      pool = Executors.newFixedThreadPool(THREAD_CNT,
-          new ThreadFactoryBuilder().setNameFormat("datahub-emit-pool").build());
-      appPoolDetails.put(appId, pool);
-      log.debug("Execution thread pool initialised for {}", appId);
-    } else {
-      pool = appPoolDetails.get(appId);
-    }
-
-    return pool;
-
+    } 
   }
 
   private String getPipelineName(SparkContext cx) {
@@ -333,8 +318,7 @@ public class DatahubSparkListener extends SparkListener {
     LogicalPlan plan = queryExec.optimizedPlan();
     SparkSession sess = queryExec.sparkSession();
     SparkContext ctx = sess.sparkContext();
-    ExecutorService pool = getOrCreateApplicationSetup(ctx);
-    pool.execute(new SqlStartTask(sqlStart, plan, ctx));
+    (new SqlStartTask(sqlStart, plan, ctx)).run();
   }
   private List<LineageConsumer> consumers() {
       SparkConf conf = SparkEnv.get().conf();
