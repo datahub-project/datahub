@@ -7,4 +7,4 @@ To effectively build and maintain the DataHub Project, we must understand how en
 Deployments are assigned a UUID which is sent along with event details, Java version, OS, and timestamp; telemetry collection is disabled by default and can be disabled by setting `DATAHUB_TELEMETRY_ENABLED=false` in your Docker Compose config.
 
 
-The source code is available [here](datahub/metadata-service/factories/src/main/java/com/linkedin/gms/factory/telemetry/TelemetryUtils.java).
+The source code is available [here](../../datahub/metadata-service/factories/src/main/java/com/linkedin/gms/factory/telemetry/TelemetryUtils.java).
