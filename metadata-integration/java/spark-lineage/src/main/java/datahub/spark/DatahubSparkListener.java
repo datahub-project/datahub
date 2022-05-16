@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Stack;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -28,6 +29,9 @@ import org.apache.spark.sql.catalyst.plans.QueryPlan;
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan;
 import org.apache.spark.sql.execution.QueryExecution;
 import org.apache.spark.sql.execution.SQLExecution;
+import org.apache.spark.sql.execution.SparkPlan;
+import org.apache.spark.sql.execution.columnar.InMemoryRelation;
+import org.apache.spark.sql.execution.columnar.InMemoryTableScanExec;
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd;
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart;
 
@@ -101,6 +105,9 @@ public class DatahubSparkListener extends SparkListener {
 
       DatasetLineage lineage = new DatasetLineage(sqlStart.description(), plan.toString(), outputDS.get());
       Collection<QueryPlan<?>> allInners = new ArrayList<>();
+      Collection<QueryPlan<?>> allInmemoryRelationSparkPlan = new ArrayList<>();
+      Collection<QueryPlan<?>> allInmemoryRelationInnersSparkPlan = new ArrayList<>();
+      Stack<QueryPlan<?>> allInmemoryRelationTableScanPlan = new Stack<>();
 
       plan.collect(new AbstractPartialFunction<LogicalPlan, Void>() {
 
@@ -110,6 +117,12 @@ public class DatahubSparkListener extends SparkListener {
           Optional<? extends SparkDataset> inputDS = DatasetExtractor.asDataset(plan, ctx, false);
           inputDS.ifPresent(x -> lineage.addSource(x));
           allInners.addAll(JavaConversions.asJavaCollection(plan.innerChildren()));
+
+          //deal with sparkPlans in complex logical plan
+          if (plan instanceof InMemoryRelation) {
+            InMemoryRelation cmd = (InMemoryRelation) plan;
+            allInmemoryRelationSparkPlan.add(cmd.cachedPlan());
+          }
           return null;
         }
 
@@ -134,6 +147,12 @@ public class DatahubSparkListener extends SparkListener {
             inputDS.ifPresent(
                 x -> log.debug("source added for " + ctx.appName() + "/" + sqlStart.executionId() + ": " + x));
             inputDS.ifPresent(x -> lineage.addSource(x));
+
+            //deal with sparkPlans in complex logical plan
+            if (plan instanceof InMemoryRelation) {
+              InMemoryRelation cmd = (InMemoryRelation) plan;
+              allInmemoryRelationSparkPlan.add(cmd.cachedPlan());
+            }
             return null;
           }
 
@@ -142,6 +161,107 @@ public class DatahubSparkListener extends SparkListener {
             return true;
           }
         });
+      }
+
+      for (QueryPlan<?> qpInmemoryRelation : allInmemoryRelationSparkPlan) {
+        if (!(qpInmemoryRelation instanceof SparkPlan)) {
+          continue;
+        }
+        SparkPlan sparkPlan = (SparkPlan) qpInmemoryRelation;
+        sparkPlan.collect(new AbstractPartialFunction<SparkPlan, Void>() {
+
+          @Override
+          public Void apply(SparkPlan sp) {
+            Optional<? extends SparkDataset> inputDSSp = DatasetExtractor.asDataset(sp, ctx, false);
+            inputDSSp.ifPresent(x -> lineage.addSource(x));
+            allInmemoryRelationInnersSparkPlan.addAll(JavaConversions.asJavaCollection(sp.innerChildren()));
+
+            if (sp instanceof InMemoryTableScanExec) {
+              InMemoryTableScanExec cmd = (InMemoryTableScanExec) sp;
+              allInmemoryRelationTableScanPlan.push(cmd);
+            }
+            return null;
+          }
+          @Override
+          public boolean isDefinedAt(SparkPlan x) {
+            return true;
+          }
+        });
+      }
+
+      for (QueryPlan<?> qpInmemoryRelationInners : allInmemoryRelationInnersSparkPlan) {
+        if (!(qpInmemoryRelationInners instanceof SparkPlan)) {
+          continue;
+        }
+        SparkPlan sparkPlan = (SparkPlan) qpInmemoryRelationInners;
+        sparkPlan.collect(new AbstractPartialFunction<SparkPlan, Void>() {
+
+          @Override
+          public Void apply(SparkPlan sp) {
+            Optional<? extends SparkDataset> inputDSSp = DatasetExtractor.asDataset(sp, ctx, false);
+            inputDSSp.ifPresent(x -> lineage.addSource(x));
+
+            if (sp instanceof InMemoryTableScanExec) {
+              InMemoryTableScanExec cmd = (InMemoryTableScanExec) sp;
+              allInmemoryRelationTableScanPlan.push(cmd);
+            }
+            return null;
+          }
+          @Override
+          public boolean isDefinedAt(SparkPlan x) {
+            return true;
+          }
+        });
+      }
+
+      while (!allInmemoryRelationTableScanPlan.isEmpty()) {
+        QueryPlan<?> qpInmemoryRelationTableScan = allInmemoryRelationTableScanPlan.pop();
+        InMemoryTableScanExec imPlan = (InMemoryTableScanExec) qpInmemoryRelationTableScan;
+        Collection<QueryPlan<?>> allInnerPhysicalPlan = new ArrayList<>();
+        imPlan.relation().cachedPlan().collect(new AbstractPartialFunction<SparkPlan, Void>() {
+
+          @Override
+          public Void apply(SparkPlan sp) {
+            Optional<? extends SparkDataset> inputDSSp = DatasetExtractor.asDataset(sp, ctx, false);
+            inputDSSp.ifPresent(x -> lineage.addSource(x));
+            allInnerPhysicalPlan.addAll(JavaConversions.asJavaCollection(sp.innerChildren()));
+
+            if (sp instanceof InMemoryTableScanExec) {
+              InMemoryTableScanExec cmd = (InMemoryTableScanExec) sp;
+              allInmemoryRelationTableScanPlan.push(cmd);
+            }
+            return null;
+          }
+          @Override
+          public boolean isDefinedAt(SparkPlan x) {
+            return true;
+          }
+        });
+
+        for (QueryPlan<?> qpInner : allInnerPhysicalPlan) {
+          if (!(qpInner instanceof SparkPlan)) {
+            continue;
+          }
+          SparkPlan sparkPlan = (SparkPlan) qpInner;
+          sparkPlan.collect(new AbstractPartialFunction<SparkPlan, Void>() {
+
+            @Override
+            public Void apply(SparkPlan sp) {
+              Optional<? extends SparkDataset> inputDSSp = DatasetExtractor.asDataset(sp, ctx, false);
+              inputDSSp.ifPresent(x -> lineage.addSource(x));
+
+              if (sp instanceof InMemoryTableScanExec) {
+                InMemoryTableScanExec cmd = (InMemoryTableScanExec) sp;
+                allInmemoryRelationTableScanPlan.push(cmd);
+              }
+              return null;
+            }
+            @Override
+            public boolean isDefinedAt(SparkPlan x) {
+              return true;
+            }
+          });
+        }
       }
 
       SQLQueryExecStartEvent evt =
