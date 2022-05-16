@@ -74,7 +74,6 @@
         "react-router": "^5.2.0",
         "react-router-dom": "^5.1.6",
         "react-scripts": "4.0.3",
-        "react-split-pane": "^0.1.92",
         "react-syntax-highlighter": "^15.4.4",
         "react-timezone-select": "^1.1.15",
         "react-visibility-sensor": "^5.1.1",

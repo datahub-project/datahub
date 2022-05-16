@@ -7,6 +7,10 @@ record GlossaryTermAssociation {
  /**
   * Urn of the applied glossary term
   */
+  @Relationship = {
+    "name": "TermedWith",
+    "entityTypes": [ "glossaryTerm" ]
+  }
   @Searchable = {
     "fieldName": "glossaryTerms",
     "fieldType": "URN",

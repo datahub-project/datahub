@@ -9,10 +9,12 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
@@ -23,6 +25,7 @@ import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.AspectRowSummaryArray;
 import com.linkedin.metadata.run.DeleteEntityResponse;
+import com.linkedin.metadata.run.DeleteReferencesResponse;
 import com.linkedin.metadata.run.RollbackResponse;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchResult;
@@ -61,23 +64,9 @@ import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
-import static com.linkedin.metadata.entity.ValidationUtils.validateOrThrow;
-import static com.linkedin.metadata.resources.restli.RestliConstants.ACTION_AUTOCOMPLETE;
-import static com.linkedin.metadata.resources.restli.RestliConstants.ACTION_BROWSE;
-import static com.linkedin.metadata.resources.restli.RestliConstants.ACTION_GET_BROWSE_PATHS;
-import static com.linkedin.metadata.resources.restli.RestliConstants.ACTION_INGEST;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_ASPECTS;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_DIRECTION;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_FIELD;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_FILTER;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_INPUT;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_LIMIT;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_PATH;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_QUERY;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_SORT;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_START;
-import static com.linkedin.metadata.resources.restli.RestliConstants.PARAM_URN;
-import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
+import static com.linkedin.metadata.entity.ValidationUtils.*;
+import static com.linkedin.metadata.resources.restli.RestliConstants.*;
+import static com.linkedin.metadata.utils.PegasusUtils.*;
 
 
 /**
@@ -126,6 +115,14 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Named("kafkaEventProducer")
   private EventProducer _eventProducer;
 
+  @Inject
+  @Named("graphService")
+  private GraphService _graphService;
+
+  @Inject
+  @Named("deleteEntityService")
+  private DeleteEntityService _deleteEntityService;
+
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
    */
@@ -152,7 +149,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @WithSpan
   public Task<Map<String, AnyRecord>> batchGet(@Nonnull Set<String> urnStrs,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) throws URISyntaxException {
-    log.info("BATCH GET {}", urnStrs.toString());
+    log.info("BATCH GET {}", urnStrs);
     final Set<Urn> urns = new HashSet<>();
     for (final String urnStr : urnStrs) {
       urns.add(Urn.createFromString(urnStr));
@@ -330,7 +327,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @WithSpan
   public Task<StringArray> getBrowsePaths(
       @ActionParam(value = PARAM_URN, typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
-    log.info("GET BROWSE PATHS for {}", urn.toString());
+    log.info("GET BROWSE PATHS for {}", urn);
     return RestliUtil.toTask(() -> new StringArray(_entitySearchService.getBrowsePaths(urnToEntityName(urn), urn)),
         MetricRegistry.name(this.getClass(), "getBrowsePaths"));
   }
@@ -341,7 +338,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     if (size < ELASTIC_MAX_PAGE_SIZE) {
       return String.valueOf(size);
     } else {
-      return "at least " + String.valueOf(size);
+      return "at least " + size;
     }
   }
 
@@ -401,7 +398,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     Urn urn = Urn.createFromString(urnStr);
     return RestliUtil.toTask(() -> {
       DeleteEntityResponse response = new DeleteEntityResponse();
-
       RollbackRunResult result = _entityService.deleteUrn(urn);
 
       response.setUrn(urnStr);
@@ -409,6 +405,18 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
       return response;
     }, MetricRegistry.name(this.getClass(), "delete"));
+  }
+
+  @Action(name = "deleteReferences")
+  @Nonnull
+  @WithSpan
+  public Task<DeleteReferencesResponse> deleteReferencesTo(@ActionParam(PARAM_URN) @Nonnull String urnStr,
+      @ActionParam("dryRun") @Optional Boolean dry)
+      throws URISyntaxException {
+    boolean dryRun = dry != null ? dry : false;
+
+    Urn urn = Urn.createFromString(urnStr);
+    return RestliUtil.toTask(() -> _deleteEntityService.deleteReferencesTo(urn, dryRun), MetricRegistry.name(this.getClass(), "deleteReferences"));
   }
 
   /*

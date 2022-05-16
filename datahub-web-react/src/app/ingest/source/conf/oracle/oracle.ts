@@ -29,7 +29,7 @@ const oracleConfig: SourceConfig = {
     type: 'oracle',
     placeholderRecipe,
     displayName: 'Oracle',
-    docsUrl: 'https://datahubproject.io/docs/metadata-ingestion/source_docs/oracle/',
+    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/oracle/',
     logoUrl: oracleLogo,
 };
 
