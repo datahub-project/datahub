@@ -22,7 +22,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityAspect;
-import com.linkedin.metadata.entity.EntityAspectIdentity;
+import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
@@ -186,17 +186,17 @@ public class CassandraAspectDao implements AspectDao {
   // TODO: look into supporting pagination
   @Override
   @Nonnull
-  public Map<EntityAspectIdentity, EntityAspect> batchGet(@Nonnull final Set<EntityAspectIdentity> keys) {
+  public Map<EntityAspectIdentifier, EntityAspect> batchGet(@Nonnull final Set<EntityAspectIdentifier> keys) {
     validateConnection();
     return keys.stream()
         .map(this::getAspect)
         .filter(Objects::nonNull)
-        .collect(Collectors.toMap(EntityAspect::toAspectIdentity, aspect -> aspect));
+        .collect(Collectors.toMap(EntityAspect::toAspectIdentifier, aspect -> aspect));
   }
 
   @Override
   @Nullable
-  public EntityAspect getAspect(@Nonnull EntityAspectIdentity key) {
+  public EntityAspect getAspect(@Nonnull EntityAspectIdentifier key) {
     validateConnection();
     return getAspect(key.getUrn(), key.getAspect(), key.getVersion());
   }
@@ -428,7 +428,7 @@ public class CassandraAspectDao implements AspectDao {
 
     final List<String> urns = page
         .getElements()
-        .stream().map(row -> CassandraAspect.rowToAspectIdentity(row).getUrn())
+        .stream().map(row -> CassandraAspect.rowToAspectIdentifier(row).getUrn())
         .collect(Collectors.toList());
 
     // TODO: address performance issue for getting total count

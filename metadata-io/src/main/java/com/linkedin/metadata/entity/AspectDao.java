@@ -16,10 +16,10 @@ public interface AspectDao {
     EntityAspect getAspect(@Nonnull final String urn, @Nonnull final String aspectName, final long version);
 
     @Nullable
-    EntityAspect getAspect(@Nonnull final EntityAspectIdentity key);
+    EntityAspect getAspect(@Nonnull final EntityAspectIdentifier key);
 
     @Nonnull
-    Map<EntityAspectIdentity, EntityAspect> batchGet(@Nonnull final Set<EntityAspectIdentity> keys);
+    Map<EntityAspectIdentifier, EntityAspect> batchGet(@Nonnull final Set<EntityAspectIdentifier> keys);
 
     @Nonnull
     List<EntityAspect> getAspectsInRange(@Nonnull Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis);

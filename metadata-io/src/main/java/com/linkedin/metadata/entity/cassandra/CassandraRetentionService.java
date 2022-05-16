@@ -12,7 +12,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
-import com.linkedin.metadata.entity.EntityAspectIdentity;
+import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;
@@ -74,13 +74,13 @@ public class CassandraRetentionService extends RetentionService {
   public void batchApplyRetention(@Nullable String entityName, @Nullable String aspectName) {
     // TODO: This method is not actually batching anything. Cassandra makes it complicated.
     log.debug("Applying retention to all records");
-    List<EntityAspectIdentity> candidates = queryCandidates(entityName, aspectName);
+    List<EntityAspectIdentifier> candidates = queryCandidates(entityName, aspectName);
     int numCandidates = candidates.size();
     log.info("Found {} urn, aspect pairs with more than 1 version", numCandidates);
     Map<String, DataHubRetentionConfig> retentionPolicyMap = getAllRetentionPolicies();
 
     long i = 0;
-    for (EntityAspectIdentity id : candidates) {
+    for (EntityAspectIdentifier id : candidates) {
       // Only run for cases where there's multiple versions of the aspect
       if (id.getVersion() == 0) {
         continue;
@@ -156,7 +156,7 @@ public class CassandraRetentionService extends RetentionService {
     _cqlSession.execute(ss);
   }
 
-  private List<EntityAspectIdentity> queryCandidates(@Nullable String entityName, @Nullable String aspectName) {
+  private List<EntityAspectIdentifier> queryCandidates(@Nullable String entityName, @Nullable String aspectName) {
     Select select = selectFrom(CassandraAspect.TABLE_NAME)
         .selectors(
             Selector.column(CassandraAspect.URN_COLUMN),
@@ -173,7 +173,7 @@ public class CassandraRetentionService extends RetentionService {
     select = select.groupBy(ImmutableList.of(Selector.column(CassandraAspect.URN_COLUMN), Selector.column(CassandraAspect.ASPECT_COLUMN)));
     SimpleStatement ss = select.build();
     ResultSet rs = _cqlSession.execute(ss);
-    return rs.all().stream().map(CassandraAspect::rowToAspectIdentity).collect(Collectors.toList());
+    return rs.all().stream().map(CassandraAspect::rowToAspectIdentifier).collect(Collectors.toList());
   }
 
   private Map<String, DataHubRetentionConfig> getAllRetentionPolicies() {

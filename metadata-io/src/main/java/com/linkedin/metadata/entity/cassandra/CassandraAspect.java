@@ -1,7 +1,7 @@
 package com.linkedin.metadata.entity.cassandra;
 
 import com.datastax.oss.driver.api.core.cql.Row;
-import com.linkedin.metadata.entity.EntityAspectIdentity;
+import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.EntityAspect;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -61,8 +61,8 @@ public class CassandraAspect {
   }
 
   @Nonnull
-  public static EntityAspectIdentity rowToAspectIdentity(@Nonnull Row row) {
-    return new EntityAspectIdentity(
+  public static EntityAspectIdentifier rowToAspectIdentifier(@Nonnull Row row) {
+    return new EntityAspectIdentifier(
         row.getString(CassandraAspect.URN_COLUMN),
         row.getString(CassandraAspect.ASPECT_COLUMN),
         row.getLong(CassandraAspect.VERSION_COLUMN));

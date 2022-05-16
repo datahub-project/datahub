@@ -10,8 +10,8 @@ import javax.annotation.Nonnull;
  * Its existence started mainly for compatibility with {@link com.linkedin.metadata.entity.ebean.EbeanAspectV2.PrimaryKey}
  */
 @Value
-public class EntityAspectIdentity {
+public class EntityAspectIdentifier {
   @Nonnull String urn;
   @Nonnull String aspect;
-  @Nonnull long version;
+  long version;
 }

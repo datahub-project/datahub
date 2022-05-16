@@ -7,7 +7,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.EntityAspect;
-import com.linkedin.metadata.entity.EntityAspectIdentity;
+import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
@@ -219,12 +219,12 @@ public class EbeanAspectDao implements AspectDao {
   @Override
   @Nullable
   public EntityAspect getAspect(@Nonnull final String urn, @Nonnull final String aspectName, final long version) {
-    return getAspect(new EntityAspectIdentity(urn, aspectName, version));
+    return getAspect(new EntityAspectIdentifier(urn, aspectName, version));
   }
 
   @Override
   @Nullable
-  public EntityAspect getAspect(@Nonnull final EntityAspectIdentity key) {
+  public EntityAspect getAspect(@Nonnull final EntityAspectIdentifier key) {
     validateConnection();
     EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(key.getUrn(), key.getAspect(), key.getVersion());
     EbeanAspectV2 ebeanAspect = _server.find(EbeanAspectV2.class, primaryKey);
@@ -248,20 +248,20 @@ public class EbeanAspectDao implements AspectDao {
 
   @Override
   @Nonnull
-  public Map<EntityAspectIdentity, EntityAspect> batchGet(@Nonnull final Set<EntityAspectIdentity> keys) {
+  public Map<EntityAspectIdentifier, EntityAspect> batchGet(@Nonnull final Set<EntityAspectIdentifier> keys) {
     validateConnection();
     if (keys.isEmpty()) {
       return Collections.emptyMap();
     }
 
-    final Set<EbeanAspectV2.PrimaryKey> ebeanKeys = keys.stream().map(EbeanAspectV2.PrimaryKey::fromAspectIdentity).collect(Collectors.toSet());
+    final Set<EbeanAspectV2.PrimaryKey> ebeanKeys = keys.stream().map(EbeanAspectV2.PrimaryKey::fromAspectIdentifier).collect(Collectors.toSet());
     final List<EbeanAspectV2> records;
     if (_queryKeysCount == 0) {
       records = batchGet(ebeanKeys, ebeanKeys.size());
     } else {
       records = batchGet(ebeanKeys, _queryKeysCount);
     }
-    return records.stream().collect(Collectors.toMap(record -> record.getKey().toAspectIdentity(), EbeanAspectV2::toEntityAspect));
+    return records.stream().collect(Collectors.toMap(record -> record.getKey().toAspectIdentifier(), EbeanAspectV2::toEntityAspect));
   }
 
   /**

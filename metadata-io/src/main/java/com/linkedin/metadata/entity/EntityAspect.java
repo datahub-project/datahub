@@ -22,7 +22,6 @@ public class EntityAspect {
     @Nonnull
     private String aspect;
 
-    @Nonnull
     private long version;
 
     private String metadata;
@@ -35,7 +34,7 @@ public class EntityAspect {
 
     private String createdFor;
 
-    public EntityAspectIdentity toAspectIdentity() {
-        return new EntityAspectIdentity(getUrn(), getAspect(), getVersion());
+    public EntityAspectIdentifier toAspectIdentifier() {
+        return new EntityAspectIdentifier(getUrn(), getAspect(), getVersion());
     }
 }
