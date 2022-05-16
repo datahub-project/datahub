@@ -26,8 +26,6 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
-import org.apache.commons.lang.UnhandledException;
-
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
@@ -49,18 +47,40 @@ public class StringEscapeUtils {
   private final static JacksonDataTemplateCodec DATA_TEMPLATE_CODEC = new JacksonDataTemplateCodec(
       OBJECT_MAPPER.getFactory());
 
+  /**
+   * This method converts mcpw to mcp by decoding UTF_8 characters.
+   * @param mcpw
+   * @return mcp
+   * @throws IOException
+   * @throws URISyntaxException
+   */
   public static MetadataChangeProposal convert(MetadataChangeProposalWrapper mcpw)
-      throws IOException, URISyntaxException {
+      throws IOException {
     String serializedAspect = escapeJava(DATA_TEMPLATE_CODEC.dataTemplateToString(mcpw.getAspect()));
-    MetadataChangeProposal mcp = new MetadataChangeProposal().setEntityType(mcpw.getEntityType())
-        .setAspectName(mcpw.getAspectName()).setEntityUrn(Urn.createFromString(mcpw.getEntityUrn()))
-        .setChangeType(mcpw.getChangeType());
+    MetadataChangeProposal mcp;
+    try {
+      mcp = new MetadataChangeProposal().setEntityType(mcpw.getEntityType())
+          .setAspectName(mcpw.getAspectName()).setEntityUrn(Urn.createFromString(mcpw.getEntityUrn()))
+          .setChangeType(mcpw.getChangeType());
+      mcp.setAspect(new GenericAspect().setContentType("application/json")
+          .setValue(ByteString.unsafeWrap(serializedAspect.getBytes(StandardCharsets.UTF_8))));
+      return mcp;
+    } catch (URISyntaxException e) {
+      throw new RuntimeException(e);
+    }
 
-    mcp.setAspect(new GenericAspect().setContentType("application/json")
-        .setValue(ByteString.unsafeWrap(serializedAspect.getBytes(StandardCharsets.UTF_8))));
-    return mcp;
+    
   }
-
+  
+  /**
+   * Worker method for the {@link #escapeJavaScript(String)} method.
+   * 
+   * @param out write to receieve the escaped string
+   * @param str String to escape values in, may be null
+   * @param escapeSingleQuote escapes single quotes if <code>true</code>
+   * @param escapeForwardSlash TODO
+   * @throws IOException if an IOException occurs
+   */
   private static void escapeJavaStyleString(Writer out, String str, boolean escapeSingleQuote,
       boolean escapeForwardSlash) throws IOException {
     if (out == null) {
@@ -116,25 +136,56 @@ public class StringEscapeUtils {
     }
   }
 
+  /**
+   * Returns an upper case hexadecimal <code>String</code> for the given
+   * character.
+   *
+   * @param ch The character to convert.
+   * @return An upper case hexadecimal <code>String</code>
+   */
   private static String hex(char ch) {
     return Integer.toHexString(ch).toUpperCase(Locale.ENGLISH);
   }
 
-  private static String escapeJavaStyleString(String str, boolean escapeSingleQuotes, boolean escapeForwardSlash) {
+  /**
+   * Worker method for the {@link #escapeJavaScript(String)} method.
+   *
+   * @param str String to escape values in, may be null
+   * @param escapeSingleQuotes escapes single quotes if <code>true</code>
+   * @param escapeForwardSlash TODO
+   * @return the escaped string
+   */
+  private static String escapeJavaStyleString(String str, boolean escapeSingleQuotes, boolean escapeForwardSlash) throws IOException {
     if (str == null) {
       return null;
     } else {
-      try {
-        StringWriter writer = new StringWriter(str.length() * 2);
-        escapeJavaStyleString(writer, str, escapeSingleQuotes, escapeForwardSlash);
-        return writer.toString();
-      } catch (IOException var4) {
-        throw new UnhandledException(var4);
-      }
+      StringWriter writer = new StringWriter(str.length() * 2);
+      escapeJavaStyleString(writer, str, escapeSingleQuotes, escapeForwardSlash);
+      return writer.toString();
+       
     }
   }
-
-  public static String escapeJava(String str) {
+  
+  /**
+   * Escapes the characters in a <code>String</code> using Java String rules.
+   * <p>
+   * Deals correctly with quotes and control-chars (tab, backslash, cr, ff, etc.)
+   * <p>
+   * So a tab becomes the characters <code>'\\'</code> and <code>'t'</code>.
+   * <p>
+   * The only difference between Java strings and JavaScript strings
+   * is that in JavaScript, a single quote must be escaped.
+   * <p>
+   * Example:
+   * <pre>
+   * input string: He didn't say, "Stop!"
+   * output string: He didn't say, \"Stop!\"
+   * </pre>
+   *
+   * @param str  String to escape values in, may be null
+   * @return String with escaped values, <code>null</code> if null string input
+   */
+  public static String escapeJava(String str) throws IOException {
     return escapeJavaStyleString(str, false, false);
   }
 }

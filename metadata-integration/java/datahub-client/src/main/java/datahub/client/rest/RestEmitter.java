@@ -155,12 +155,7 @@ public class RestEmitter implements Emitter {
   @Override
   public Future<MetadataWriteResponse> emit(MetadataChangeProposalWrapper mcpw,
       Callback callback) throws IOException {
-    try {
       return emit(StringEscapeUtils.convert(mcpw), callback);
-    } catch (URISyntaxException e) {
-      log.error(e.toString());
-      throw new RuntimeException("Failed to emit Metadata Change Proposal!", e);
-    }
   }
 
   @Override
