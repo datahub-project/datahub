@@ -32,13 +32,13 @@ num_ingested = 0
 
 
 class IngestUser(HttpUser):
-    wait_time = constant(1)
+    # wait_time = constant(1)
     num_children = 1
-    total = 3000
+    total = 10000
     # platforms = ["snowflake", "bigquery", "redshift"]
-    platforms = ["postgres"]
+    platforms = ["hive"]
     # prefix = f"breadth{num_children}"
-    prefix = "propogation_source"
+    prefix = "propogation_destination"
 
     @task
     def config(self):
@@ -80,7 +80,7 @@ class IngestUser(HttpUser):
                 # self._build_upstream(id),
                 self._build_browsepaths(id),
                 self._build_schema_metadata(id),
-                self._build_editable_schema_metadata(id),
+                # self._build_editable_schema_metadata(id),
             ],
         )
 
@@ -107,7 +107,7 @@ class IngestUser(HttpUser):
         )
 
     def _build_schema_metadata(self, id: int):
-        schema = [SchemaField(f"dataset_{id}_field_{i}", SchemaFieldDataType(
+        schema = [SchemaField(f"dataset_{id % 3000}_field_{i}", SchemaFieldDataType(
             FixedType()), "int") for i in range(1, 10)]
         return SchemaMetadata(
             f"schema_{id}",
