@@ -45,6 +45,8 @@ transformers:
 
 We can also append a series of tags to specific schema fields. To do so, we can use the `pattern_add_dataset_schema_tags` module. This will match the regex pattern to each schema field path and assign the respective tags urns given in the array.
 
+Note that the tags from the first matching pattern will be applied, not all matching patterns.
+
 The config would look like this:
 
 ```yaml
@@ -138,6 +140,7 @@ transformers:
 ### Adding glossary terms by schema field pattern
 
 Similar to the above example with tags applied to schema fields, we can add glossary terms to schema fields based on a regex filter.
+Again, note that only terms from the first matching pattern will be applied.
 
 ```yaml
 transformers:
