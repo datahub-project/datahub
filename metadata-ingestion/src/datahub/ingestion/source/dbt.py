@@ -3,6 +3,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, cast
+from urllib.parse import urlparse
 
 import dateutil.parser
 import requests
@@ -23,6 +24,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.ingestion_job_state_provider import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 from datahub.ingestion.source.sql.sql_types import (
     BIGQUERY_TYPES_MAP,
     POSTGRES_TYPES_MAP,
@@ -103,7 +105,7 @@ class DBTSourceReport(StatefulIngestionReport):
         self.soft_deleted_stale_entities.append(urn)
 
 
-class DBTConfig(StatefulIngestionConfigBase):
+class DBTConfig(AwsSourceConfig, StatefulIngestionConfigBase):
     manifest_path: str = Field(
         description="Path to dbt manifest JSON. See https://docs.getdbt.com/reference/artifacts/manifest-json Note this can be a local file or a URI."
     )
@@ -172,6 +174,11 @@ class DBTConfig(StatefulIngestionConfigBase):
         default=None,
         description='Regex string to extract owner from the dbt node using the `(?P<name>...) syntax` of the [match object](https://docs.python.org/3/library/re.html#match-objects), where the group name must be `owner`. Examples: (1)`r"(?P<owner>(.*)): (\w+) (\w+)"` will extract `jdoe` as the owner from `"jdoe: John Doe"` (2) `r"@(?P<owner>(.*))"` will extract `alice` as the owner from `"@alice"`.',  # noqa: W605
     )
+    aws_region: str = Field(default=None, description="AWS region code.")
+
+    @property
+    def s3_client(self):
+        return self.get_s3_client()
 
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[DBTStatefulIngestionConfig] = Field(
@@ -387,9 +394,14 @@ def extract_dbt_entities(
     return dbt_entities
 
 
-def load_file_as_json(uri: str) -> Any:
+# s3://data-analysis.pelotime.com/dbt-artifacts/data-engineering-dbt/catalog.json
+def load_file_as_json(uri: str, s3_client: "botocore.client.S3") -> Any:
     if re.match("^https?://", uri):
         return json.loads(requests.get(uri).text)
+    elif re.match("^s3://", uri):
+        u = urlparse(uri)
+        response = s3_client.get_object(Bucket=u.netloc, Key=u.path.lstrip("/"))
+        return json.loads(response["Body"].read().decode("utf-8"))
     else:
         with open(uri, "r") as f:
             return json.load(f)
@@ -405,6 +417,7 @@ def loadManifestAndCatalog(
     node_type_pattern: AllowDenyPattern,
     report: DBTSourceReport,
     node_name_pattern: AllowDenyPattern,
+    s3_client: "botocore.client.S3",
 ) -> Tuple[
     List[DBTNode],
     Optional[str],
@@ -413,12 +426,12 @@ def loadManifestAndCatalog(
     Optional[str],
     Dict[str, Dict[str, Any]],
 ]:
-    dbt_manifest_json = load_file_as_json(manifest_path)
+    dbt_manifest_json = load_file_as_json(manifest_path, s3_client)
 
-    dbt_catalog_json = load_file_as_json(catalog_path)
+    dbt_catalog_json = load_file_as_json(catalog_path, s3_client)
 
     if sources_path is not None:
-        dbt_sources_json = load_file_as_json(sources_path)
+        dbt_sources_json = load_file_as_json(sources_path, s3_client)
         sources_results = dbt_sources_json["results"]
     else:
         sources_results = {}
@@ -709,6 +722,7 @@ class DBTSource(StatefulIngestionSourceBase):
         self.platform: str = platform
         self.report: DBTSourceReport = DBTSourceReport()
         self.compiled_owner_extraction_pattern: Optional[Any] = None
+        self.s3_client = config.s3_client
         if self.config.owner_extraction_pattern:
             self.compiled_owner_extraction_pattern = re.compile(
                 self.config.owner_extraction_pattern
@@ -785,6 +799,7 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.node_type_pattern,
             self.report,
             self.config.node_name_pattern,
+            self.s3_client,
         )
 
         additional_custom_props = {
@@ -1342,7 +1357,7 @@ class DBTSource(StatefulIngestionSourceBase):
         """
 
         project_id = (
-            load_file_as_json(self.config.manifest_path)
+            load_file_as_json(self.config.manifest_path, self.s3_client)
             .get("metadata", {})
             .get("project_id")
         )
