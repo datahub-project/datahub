@@ -22,6 +22,7 @@ logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
 SUPPORTED_FILE_TYPES = ["csv", "tsv", "json", "parquet", "avro"]
+SUPPORTED_COMPRESSIONS = ["gz", "bz2"]
 
 
 class PathSpec(ConfigModel):
@@ -47,6 +48,16 @@ class PathSpec(ConfigModel):
     table_name: Optional[str] = Field(
         default=None,
         description="Display name of the dataset.Combination of named variableds from include path and strings",
+    )
+
+    enable_compression: Optional[bool] = Field(
+        default=True,
+        description="Enable or disable processing compressed files. Currenly .gz and .bz files are supported.",
+    )
+
+    sample_files: Optional[bool] = Field(
+        default=True,
+        description="Not listing all the files but only taking a handful amount of sample file to infer the schema. File count and file size calculation will be disabled. This can affect performance significantly if enabled",
     )
 
     # to be set internally
@@ -119,6 +130,7 @@ class PathSpec(ConfigModel):
             include_ext not in values["file_types"]
             and include_ext != "*"
             and not values["default_extension"]
+            and include_ext not in SUPPORTED_COMPRESSIONS
         ):
             raise ValueError(
                 f"file type specified ({include_ext}) in path_spec.include is not in specified file "
