@@ -20,7 +20,7 @@ pip install --upgrade pip wheel setuptools
 pip install -r requirements.txt
 
 echo "DATAHUB_VERSION = $DATAHUB_VERSION"
-datahub docker quickstart
+datahub docker quickstart --dump-logs-on-failure
 
 (cd tests/cypress ; yarn install)
 
