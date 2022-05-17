@@ -1,6 +1,6 @@
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 
 
 class GlueProfilingConfig(ConfigModel):
@@ -51,4 +51,8 @@ class GlueProfilingConfig(ConfigModel):
     stdev: str = Field(
         default=None,
         description="The parameter name for the standard deviation of a column.",
+    )
+    partition_patterns: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for filtering of tables or table columns to profile.",
     )

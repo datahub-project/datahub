@@ -715,15 +715,11 @@ class GlueSource(Source):
         # Inject table level stats
         if self.source_config.profiling.row_count in table_stats:
             dataset_profile.rowCount = int(
-                float(
-                    table_stats[self.source_config.profiling.row_count]
-                )
+                float(table_stats[self.source_config.profiling.row_count])
             )
         if self.source_config.profiling.row_count in table_stats:
             dataset_profile.columnCount = int(
-                float(
-                    table_stats[self.source_config.profiling.column_count]
-                )
+                float(table_stats[self.source_config.profiling.column_count])
             )
 
         # inject column level stats
@@ -743,9 +739,7 @@ class GlueSource(Source):
 
             if self.source_config.profiling.unique_count in column_params:
                 column_profile.uniqueCount = int(
-                    float(
-                        column_params[self.source_config.profiling.unique_count]
-                    )
+                    float(column_params[self.source_config.profiling.unique_count])
                 )
             if self.source_config.profiling.unique_proportion in column_params:
                 column_profile.uniqueProportion = float(
@@ -753,9 +747,7 @@ class GlueSource(Source):
                 )
             if self.source_config.profiling.null_count in column_params:
                 column_profile.nullCount = int(
-                    float(
-                        column_params[self.source_config.profiling.null_count]
-                    )
+                    float(column_params[self.source_config.profiling.null_count])
                 )
             if self.source_config.profiling.null_proportion in column_params:
                 column_profile.nullProportion = float(
@@ -800,11 +792,13 @@ class GlueSource(Source):
             kwargs = dict(
                 DatabaseName=database_name,
                 Name=table_name,
-                CatalogId=self.source_config.catalog_id
-                )
-            response = self.glue_client.get_table(**{k: v for k, v in kwargs.items() if v})
+                CatalogId=self.source_config.catalog_id,
+            )
+            response = self.glue_client.get_table(
+                **{k: v for k, v in kwargs.items() if v}
+            )
 
-            partition_keys = response['Table']['PartitionKeys']
+            partition_keys = response["Table"]["PartitionKeys"]
 
             # check if this table is partitioned
             if partition_keys:
@@ -813,26 +807,33 @@ class GlueSource(Source):
                 kwargs = dict(
                     DatabaseName=database_name,
                     TableName=table_name,
-                    CatalogId=self.source_config.catalog_id
-                    )
-                response = self.glue_client.get_partitions(**{k: v for k, v in kwargs.items() if v})
+                    CatalogId=self.source_config.catalog_id,
+                )
+                response = self.glue_client.get_partitions(
+                    **{k: v for k, v in kwargs.items() if v}
+                )
 
                 partitions = response["Partitions"]
-                partition_keys = [k['Name'] for k in partition_keys]
+                partition_keys = [k["Name"] for k in partition_keys]
 
                 mcps = []
                 for p in partitions:
                     table_stats = p["Parameters"]
                     column_stats = p["StorageDescriptor"]["Columns"]
+
                     # only support single partition key
-                    partition_spec = str(
-                        {partition_keys[0]: p["Values"][0]}
-                    )
-                    mcps.append(
-                        self._create_profile_mcp(
-                            mce, table_stats, column_stats, partition_spec
+                    partition_spec = str({partition_keys[0]: p["Values"][0]})
+
+                    if self.source_config.profiling.partition_patterns.allowed(
+                        partition_spec
+                    ):
+                        mcps.append(
+                            self._create_profile_mcp(
+                                mce, table_stats, column_stats, partition_spec
+                            )
                         )
-                    )
+                    else:
+                        continue
                 return mcps
             else:
                 # ingest data profile without partition
