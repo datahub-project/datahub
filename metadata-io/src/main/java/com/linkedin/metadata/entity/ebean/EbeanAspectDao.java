@@ -5,6 +5,7 @@ import com.datahub.util.exception.RetryLimitReached;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
@@ -44,7 +45,7 @@ import java.util.stream.Collectors;
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 
 @Slf4j
-public class EbeanAspectDao implements AspectDao {
+public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   private final EbeanServer _server;
   private boolean _connectionValidated = false;
@@ -233,10 +234,10 @@ public class EbeanAspectDao implements AspectDao {
 
   @Override
   @Nullable
-  public boolean deleteAspect(@Nonnull final EntityAspect aspect) {
+  public void deleteAspect(@Nonnull final EntityAspect aspect) {
     validateConnection();
     EbeanAspectV2 ebeanAspect = EbeanAspectV2.fromEntityAspect(aspect);
-    return _server.delete(ebeanAspect);
+    _server.delete(ebeanAspect);
   }
 
   @Override

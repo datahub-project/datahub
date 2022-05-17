@@ -11,7 +11,7 @@ import com.linkedin.metadata.boot.steps.IngestDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRootUserStep;
-import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -48,8 +48,8 @@ public class BootstrapManagerFactory {
   private SearchDocumentTransformer _searchDocumentTransformer;
 
   @Autowired
-  @Qualifier("entityAspectDao")
-  private AspectDao _aspectDao;
+  @Qualifier("entityAspectMigrationsDao")
+  private AspectMigrationsDao _migrationsDao;
 
   @Autowired
   @Qualifier("ingestRetentionPoliciesStep")
@@ -64,7 +64,7 @@ public class BootstrapManagerFactory {
         new IngestPoliciesStep(_entityRegistry, _entityService, _entitySearchService, _searchDocumentTransformer);
     final IngestDataPlatformsStep ingestDataPlatformsStep = new IngestDataPlatformsStep(_entityService);
     final IngestDataPlatformInstancesStep ingestDataPlatformInstancesStep =
-        new IngestDataPlatformInstancesStep(_entityService, _aspectDao);
+        new IngestDataPlatformInstancesStep(_entityService, _migrationsDao);
     return new BootstrapManager(ImmutableList.of(ingestRootUserStep, ingestPoliciesStep, ingestDataPlatformsStep,
         ingestDataPlatformInstancesStep, _ingestRetentionPoliciesStep));
   }

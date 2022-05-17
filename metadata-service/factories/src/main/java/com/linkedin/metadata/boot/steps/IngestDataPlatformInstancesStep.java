@@ -6,7 +6,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
-import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
@@ -25,7 +25,7 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
   private static final int BATCH_SIZE = 1000;
 
   private final EntityService _entityService;
-  private final AspectDao _aspectDao;
+  private final AspectMigrationsDao _migrationsDao;
 
   @Override
   public String name() {
@@ -47,18 +47,18 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
   @Override
   public void execute() throws Exception {
     log.info("Checking for DataPlatformInstance");
-    if (_aspectDao.checkIfAspectExists(PLATFORM_INSTANCE_ASPECT_NAME)) {
+    if (_migrationsDao.checkIfAspectExists(PLATFORM_INSTANCE_ASPECT_NAME)) {
       log.info("DataPlaformInstance aspect exists. Skipping step");
       return;
     }
 
-    long numEntities = _aspectDao.countEntities();
+    long numEntities = _migrationsDao.countEntities();
     int start = 0;
 
     while (start < numEntities) {
       log.info("Reading urns {} to {} from the aspects table to generate dataplatform instance aspects", start,
           start + BATCH_SIZE);
-      Iterable<String> urns = _aspectDao.listAllUrns(start, start + BATCH_SIZE);
+      Iterable<String> urns = _migrationsDao.listAllUrns(start, start + BATCH_SIZE);
       for (String urnStr : urns) {
         Urn urn = Urn.createFromString(urnStr);
         Optional<DataPlatformInstance> dataPlatformInstance = getDataPlatformInstance(urn);

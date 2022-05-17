@@ -47,8 +47,6 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
-import lombok.Getter;
-import lombok.Setter;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
@@ -136,10 +134,8 @@ public class EntityService {
   private final EventProducer _producer;
   private final EntityRegistry _entityRegistry;
   private final Map<String, Set<String>> _entityToValidAspects;
-  @Getter
-  @Setter
-  private RetentionService retentionService;
-  private Boolean _alwaysEmitAuditEvent = false;
+  private RetentionService _retentionService;
+  private final Boolean _alwaysEmitAuditEvent = false;
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
   public static final String BROWSE_PATHS = "browsePaths";
   public static final String DATA_PLATFORM_INSTANCE = "dataPlatformInstance";
@@ -587,8 +583,8 @@ public class EntityService {
     final SystemMetadata updatedSystemMetadata = result.getNewSystemMetadata();
 
     // Apply retention policies asynchronously if there was an update to existing aspect value
-    if (oldValue != updatedValue && oldValue != null && retentionService != null) {
-      retentionService.applyRetention(urn, aspectName,
+    if (oldValue != updatedValue && oldValue != null && _retentionService != null) {
+      _retentionService.applyRetention(urn, aspectName,
               Optional.of(new RetentionService.RetentionContext(Optional.of(result.maxVersion))));
     }
 
@@ -678,13 +674,13 @@ public class EntityService {
       newAspect = result.getNewValue();
       newSystemMetadata = result.getNewSystemMetadata();
       // Apply retention policies asynchronously if there was an update to existing aspect value
-      if (oldAspect != newAspect && oldAspect != null && retentionService != null) {
-        retentionService.applyRetention(entityUrn, aspectSpec.getName(),
+      if (oldAspect != newAspect && oldAspect != null && _retentionService != null) {
+        _retentionService.applyRetention(entityUrn, aspectSpec.getName(),
             Optional.of(new RetentionService.RetentionContext(Optional.of(result.maxVersion))));
       }
     }
 
-    if (oldAspect != newAspect || getAlwaysEmitAuditEvent()) {
+    if (oldAspect != newAspect || _alwaysEmitAuditEvent) {
       log.debug("Producing MetadataChangeLog for ingested aspect {}, urn {}", metadataChangeProposal.getAspectName(), entityUrn);
 
       final MetadataChangeLog metadataChangeLog = new MetadataChangeLog(metadataChangeProposal.data());
@@ -1108,16 +1104,12 @@ public class EntityService {
             entry -> entry.getAspectSpecs().stream().map(AspectSpec::getName).collect(Collectors.toSet())));
   }
 
-  public Boolean getAlwaysEmitAuditEvent() {
-    return _alwaysEmitAuditEvent;
-  }
-
-  public void setAlwaysEmitAuditEvent(Boolean alwaysEmitAuditEvent) {
-    _alwaysEmitAuditEvent = alwaysEmitAuditEvent;
-  }
-
   public EntityRegistry getEntityRegistry() {
     return _entityRegistry;
+  }
+
+  public void setRetentionService(RetentionService retentionService) {
+    _retentionService = retentionService;
   }
 
   protected Set<String> getEntityAspectNames(final Urn entityUrn) {

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.ListResult;
@@ -49,7 +50,7 @@ import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.update;
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 
 @Slf4j
-public class CassandraAspectDao implements AspectDao {
+public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
   private final CqlSession _cqlSession;
   private boolean _canWrite = true;
@@ -346,16 +347,15 @@ public class CassandraAspectDao implements AspectDao {
   }
 
   @Override
-  public boolean deleteAspect(@Nonnull final EntityAspect aspect) {
+  public void deleteAspect(@Nonnull final EntityAspect aspect) {
     validateConnection();
     SimpleStatement ss = deleteFrom(CassandraAspect.TABLE_NAME)
         .whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(aspect.getUrn()))
         .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspect.getAspect()))
         .whereColumn(CassandraAspect.VERSION_COLUMN).isEqualTo(literal(aspect.getVersion()))
         .build();
-    ResultSet rs = _cqlSession.execute(ss);
 
-    return rs.getExecutionInfo().getErrors().size() == 0;
+    _cqlSession.execute(ss);
   }
 
   @Override
