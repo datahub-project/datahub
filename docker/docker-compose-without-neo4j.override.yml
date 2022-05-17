@@ -32,7 +32,7 @@ services:
     depends_on:
       - mysql
     volumes:
-      - ${HOME}/.datahub:/etc/datahub
+      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
 volumes:
   mysqldata:
