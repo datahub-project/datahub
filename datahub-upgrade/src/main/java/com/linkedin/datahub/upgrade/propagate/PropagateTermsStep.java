@@ -114,8 +114,9 @@ public class PropagateTermsStep implements UpgradeStep {
         processBatch(scrollResult, sourceEntityDetails, runId);
         batch++;
         context.report().addLine(String.format("Fetching batch %d", batch));
-        scrollResult = _entitySearchService.scroll(Constants.DATASET_ENTITY_NAME, null, null, 1000,
-            scrollResult.getScrollId(), "1m");
+        scrollResult =
+            _entitySearchService.scroll(Constants.DATASET_ENTITY_NAME, null, null, 1000, scrollResult.getScrollId(),
+                "1m");
       }
 
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
@@ -127,7 +128,7 @@ public class PropagateTermsStep implements UpgradeStep {
   }
 
   private boolean validSource(EntityDetails entityDetails) {
-    if (entityDetails.getSchemaMetadata() == null || entityDetails.getSchemaMetadata().getFields().isEmpty()) {
+    if (entityDetails.getSchemaMetadata() == null || entityDetails.getSchemaMetadata().getFields().size() <= 2) {
       return false;
     }
     boolean hasTerms = entityDetails.getSchemaMetadata()
@@ -197,10 +198,10 @@ public class PropagateTermsStep implements UpgradeStep {
           destinationEntity.getUrn());
       return;
     }
-
+    AuditStamp auditStamp = new AuditStamp().setActor(PROPAGATION_ACTOR).setTime(System.currentTimeMillis());
     EditableSchemaMetadata aspectToPush =
-        buildSchemaMetadata(destinationEntity.getEditableSchemaMetadata(), sourceFieldGlossaryTerms);
-    produceEditableSchemaMetadataProposal(destinationEntity.getUrn(), aspectToPush, runId);
+        buildSchemaMetadata(destinationEntity.getEditableSchemaMetadata(), sourceFieldGlossaryTerms, auditStamp);
+    produceEditableSchemaMetadataProposal(destinationEntity.getUrn(), aspectToPush, runId, auditStamp);
   }
 
   private Map<String, Set<Urn>> getGlossaryTermsForEachField(EntityDetails entityDetails) {
@@ -222,7 +223,7 @@ public class PropagateTermsStep implements UpgradeStep {
     }
     for (EditableSchemaFieldInfo field : entityDetails.getEditableSchemaMetadata().getEditableSchemaFieldInfo()) {
       if (field.hasGlossaryTerms() && !field.getGlossaryTerms().getTerms().isEmpty()) {
-        if (result.containsKey(field.getFieldPath())) {
+        if (!result.containsKey(field.getFieldPath())) {
           result.put(field.getFieldPath(), field.getGlossaryTerms()
               .getTerms()
               .stream()
@@ -238,7 +239,7 @@ public class PropagateTermsStep implements UpgradeStep {
   }
 
   private EditableSchemaMetadata buildSchemaMetadata(@Nullable EditableSchemaMetadata oldAspect,
-      @Nonnull Map<String, Set<Urn>> termsToAddPerField) {
+      @Nonnull Map<String, Set<Urn>> termsToAddPerField, @Nonnull AuditStamp auditStamp) {
     List<EditableSchemaFieldInfo> resultFields = new ArrayList<>();
     List<EditableSchemaFieldInfo> originalFields =
         oldAspect != null ? oldAspect.getEditableSchemaFieldInfo() : Collections.emptyList();
@@ -248,30 +249,33 @@ public class PropagateTermsStep implements UpgradeStep {
         Set<Urn> termsToAdd = termsToAddPerField.get(field.getFieldPath());
         GlossaryTerms glossaryTerms = field.getGlossaryTerms();
         if (glossaryTerms == null) {
-          field.setGlossaryTerms(buildGlossaryTerms(termsToAdd));
+          field.setGlossaryTerms(buildGlossaryTerms(termsToAdd, auditStamp));
         } else {
           termsToAdd.forEach(term -> glossaryTerms.getTerms().add(buildGlossaryTermAssociation(term)));
         }
         termsToAddPerField.remove(field.getFieldPath());
       }
+      resultFields.add(field);
     }
 
     // Add remaining fields
     for (String fieldPath : termsToAddPerField.keySet()) {
-      resultFields.add(buildSchemaFieldInfo(fieldPath, termsToAddPerField.get(fieldPath)));
+      resultFields.add(buildSchemaFieldInfo(fieldPath, termsToAddPerField.get(fieldPath), auditStamp));
     }
 
     return new EditableSchemaMetadata().setEditableSchemaFieldInfo(new EditableSchemaFieldInfoArray(resultFields));
   }
 
-  private EditableSchemaFieldInfo buildSchemaFieldInfo(@Nonnull String fieldPath, @Nonnull Set<Urn> terms) {
-    return new EditableSchemaFieldInfo().setFieldPath(fieldPath).setGlossaryTerms(buildGlossaryTerms(terms));
+  private EditableSchemaFieldInfo buildSchemaFieldInfo(@Nonnull String fieldPath, @Nonnull Set<Urn> terms,
+      @Nonnull AuditStamp auditStamp) {
+    return new EditableSchemaFieldInfo().setFieldPath(fieldPath)
+        .setGlossaryTerms(buildGlossaryTerms(terms, auditStamp));
   }
 
-  private GlossaryTerms buildGlossaryTerms(@Nonnull Set<Urn> terms) {
+  private GlossaryTerms buildGlossaryTerms(@Nonnull Set<Urn> terms, @Nonnull AuditStamp auditStamp) {
     GlossaryTermAssociationArray termAssociations = new GlossaryTermAssociationArray();
     terms.forEach(term -> termAssociations.add(buildGlossaryTermAssociation(term)));
-    return new GlossaryTerms().setTerms(termAssociations);
+    return new GlossaryTerms().setTerms(termAssociations).setAuditStamp(auditStamp);
   }
 
   @SneakyThrows
@@ -280,7 +284,7 @@ public class PropagateTermsStep implements UpgradeStep {
   }
 
   private void produceEditableSchemaMetadataProposal(@Nonnull Urn urn,
-      @Nonnull EditableSchemaMetadata editableSchemaMetadata, @Nonnull String runId) {
+      @Nonnull EditableSchemaMetadata editableSchemaMetadata, @Nonnull String runId, @Nonnull AuditStamp auditStamp) {
     MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
     proposal.setEntityType(Constants.DATASET_ENTITY_NAME);
@@ -291,7 +295,6 @@ public class PropagateTermsStep implements UpgradeStep {
     SystemMetadata systemMetadata = new SystemMetadata().setRunId(runId);
     proposal.setSystemMetadata(systemMetadata);
 
-    _entityService.ingestProposal(proposal,
-        new AuditStamp().setActor(PROPAGATION_ACTOR).setTime(System.currentTimeMillis()));
+    _entityService.ingestProposal(proposal, auditStamp);
   }
 }
