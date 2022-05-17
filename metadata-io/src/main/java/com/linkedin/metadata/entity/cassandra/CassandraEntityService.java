@@ -336,7 +336,7 @@ public class CassandraEntityService extends EntityService {
   @Nullable
   @Override
   public RecordTemplate ingestAspectIfNotPresent(@Nonnull Urn urn, @Nonnull String aspectName,
-      @Nonnull RecordTemplate newValue, @Nonnull AuditStamp auditStamp, SystemMetadata systemMetadata) {
+      @Nonnull RecordTemplate newValue, @Nonnull AuditStamp auditStamp, @Nonnull SystemMetadata systemMetadata) {
     log.debug("Invoked ingestAspectIfNotPresent with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
 
     final SystemMetadata internalSystemMetadata = generateSystemMetadataIfEmpty(systemMetadata);
