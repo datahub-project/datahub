@@ -49,3 +49,15 @@ mutation setTagColor($urn: String!, $colorHex: String!) {
 mutation updateDeprecation($input: UpdateDeprecationInput!) {
     updateDeprecation(input: $input)
 }
+
+mutation addOwners($input: AddOwnersInput!) {
+    addOwners(input: $input)
+}
+
+mutation addTags($input: AddTagsInput!) {
+    addTags(input: $input)
+}
+
+mutation addTerms($input: AddTermsInput!) {
+    addTerms(input: $input)
+}
