@@ -1,8 +1,8 @@
 package io.datahubproject.telemetry;
 
-import com.linkedin.common.ClientId;
 import com.linkedin.gms.factory.telemetry.TelemetryUtils;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.telemetry.TelemetryClientId;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -18,7 +18,7 @@ public class TelemetryUtilsTest {
   @BeforeMethod
   public void init() {
     _entityService = Mockito.mock(EntityService.class);
-    Mockito.when(_entityService.getLatestAspect(any(), anyString())).thenReturn(new ClientId().setClientId("1234"));
+    Mockito.when(_entityService.getLatestAspect(any(), anyString())).thenReturn(new TelemetryClientId().setClientId("1234"));
   }
 
   @Test
