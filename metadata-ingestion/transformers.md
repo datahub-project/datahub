@@ -41,6 +41,22 @@ transformers:
           ".*example2.*": ["urn:li:tag:NeedsDocumentation"]
 ```
 
+### Adding tags by schema field pattern
+
+We can also append a series of tags to specific schema fields. To do so, we can use the `pattern_add_dataset_schema_tags` module. This will match the regex pattern to each schema field path and assign the respective tags urns given in the array.
+
+The config would look like this:
+
+```yaml
+transformers:
+  - type: "pattern_add_dataset_schema_tags"
+    config:
+      tag_pattern:
+        rules:
+          ".*email.*": ["urn:li:tag:Email"]
+          ".*name.*": ["urn:li:tag:Name"]
+```
+
 ### Add your own custom Transformer
 
 If you'd like to add more complex logic for assigning tags, you can use the more generic add_dataset_tags transformer, which calls a user-provided function to determine the tags for each dataset.
@@ -117,6 +133,20 @@ transformers:
         rules:
           ".*example1.*": ["urn:li:glossaryTerm:Email", "urn:li:glossaryTerm:Address"]
           ".*example2.*": ["urn:li:glossaryTerm:PostalCode"]
+```
+
+### Adding glossary terms by schema field pattern
+
+Similar to the above example with tags applied to schema fields, we can add glossary terms to schema fields based on a regex filter.
+
+```yaml
+transformers:
+  - type: "pattern_add_dataset_schema_terms"
+    config:
+      term_pattern:
+        rules:
+          ".*email.*": ["urn:li:glossaryTerm:Email"]
+          ".*name.*": ["urn:li:glossaryTerm:Name"]
 ```
 
 ### Change owners
