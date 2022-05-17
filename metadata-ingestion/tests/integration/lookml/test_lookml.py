@@ -125,9 +125,7 @@ def test_lookml_ingest_offline_with_model_deny(pytestconfig, tmp_path, mock_time
                     },
                     "parse_table_names_from_sql": True,
                     "project_name": "lkml_samples",
-                    "model_pattern": {
-                        "deny": ["data"]
-                    }
+                    "model_pattern": {"deny": ["data"]},
                 },
             },
             "sink": {
