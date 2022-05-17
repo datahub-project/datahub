@@ -110,7 +110,7 @@ services:
       - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
   datahub-actions:
-    image: acryldata/acryl-datahub-actions:${ACTIONS_VERSION:-head}
+    image: acryldata/datahub-actions:${ACTIONS_VERSION:-head}
     hostname: actions
     env_file: datahub-actions/env/docker.env
     restart: on-failure:5

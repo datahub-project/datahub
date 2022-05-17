@@ -1,4 +1,4 @@
-# see https://datahubproject.io/docs/metadata-ingestion/source_docs/ldap for complete documentation
+# see https://datahubproject.io/docs/generated/ingestion/sources/ldap for complete documentation
 source:
   type: "ldap"
   config:

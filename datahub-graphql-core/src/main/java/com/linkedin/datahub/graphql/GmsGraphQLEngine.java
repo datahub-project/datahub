@@ -63,6 +63,7 @@ import com.linkedin.datahub.graphql.resolvers.auth.GetAccessTokenResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowsePathsResolver;
 import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
+import com.linkedin.datahub.graphql.resolvers.container.ParentContainersResolver;
 import com.linkedin.datahub.graphql.resolvers.container.ContainerEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetHealthResolver;
 import com.linkedin.datahub.graphql.resolvers.deprecation.UpdateDeprecationResolver;
@@ -103,8 +104,11 @@ import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.UsageTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnerResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnersResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTagResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.AddTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.AddTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveOwnerResolver;
@@ -482,6 +486,7 @@ public class GmsGraphQLEngine {
                             return container.getContainer() != null ? container.getContainer().getUrn() : null;
                         })
                 )
+                .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
                 .dataFetcher("dataPlatformInstance",
                     new LoadableTypeResolver<>(dataPlatformInstanceType,
                         (env) -> {
@@ -582,14 +587,17 @@ public class GmsGraphQLEngine {
             .dataFetcher("updateCorpUserProperties", new MutableTypeResolver<>(corpUserType))
             .dataFetcher("updateCorpGroupProperties", new MutableTypeResolver<>(corpGroupType))
             .dataFetcher("addTag", new AddTagResolver(entityService))
+            .dataFetcher("addTags", new AddTagsResolver(entityService))
             .dataFetcher("removeTag", new RemoveTagResolver(entityService))
             .dataFetcher("addTerm", new AddTermResolver(entityService))
+            .dataFetcher("addTerms", new AddTermsResolver(entityService))
             .dataFetcher("removeTerm", new RemoveTermResolver(entityService))
             .dataFetcher("createPolicy", new UpsertPolicyResolver(this.entityClient))
             .dataFetcher("updatePolicy", new UpsertPolicyResolver(this.entityClient))
             .dataFetcher("deletePolicy", new DeletePolicyResolver(this.entityClient))
             .dataFetcher("updateDescription", new UpdateDescriptionResolver(entityService))
             .dataFetcher("addOwner", new AddOwnerResolver(entityService))
+            .dataFetcher("addOwners", new AddOwnersResolver(entityService))
             .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService))
             .dataFetcher("addLink", new AddLinkResolver(entityService))
             .dataFetcher("removeLink", new RemoveLinkResolver(entityService))
@@ -724,7 +732,8 @@ public class GmsGraphQLEngine {
                    this.entityClient,
                    "dataset",
                    "subTypes"))
-                .dataFetcher("runs", new EntityRunsResolver(entityClient)))
+                .dataFetcher("runs", new EntityRunsResolver(entityClient))
+                .dataFetcher("parentContainers", new ParentContainersResolver(entityClient)))
             .type("Owner", typeWiring -> typeWiring
                     .dataFetcher("owner", new OwnerTypeResolver<>(ownerTypes,
                         (env) -> ((Owner) env.getSource()).getOwner()))
@@ -854,6 +863,7 @@ public class GmsGraphQLEngine {
                         return dashboard.getContainer() != null ? dashboard.getContainer().getUrn() : null;
                     })
             )
+            .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
         );
         builder.type("DashboardInfo", typeWiring -> typeWiring
             .dataFetcher("charts", new LoadableTypeBatchResolver<>(chartType,
@@ -893,6 +903,7 @@ public class GmsGraphQLEngine {
                     return chart.getContainer() != null ? chart.getContainer().getUrn() : null;
                 })
             )
+            .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
         );
         builder.type("ChartInfo", typeWiring -> typeWiring
             .dataFetcher("inputs", new LoadableTypeBatchResolver<>(datasetType,

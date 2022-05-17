@@ -1,5 +1,5 @@
 ---
-# see https://datahubproject.io/docs/metadata-ingestion/source_docs/snowflake/#config-details-1 for complete documentation
+# see https://datahubproject.io/docs/generated/ingestion/sources/snowflake/#config-details-1 for complete documentation
 source:
   type: snowflake-usage
   config:

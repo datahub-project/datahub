@@ -261,6 +261,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 glossaryTerms={data.glossaryTerms}
                 subtype={data.subTypes?.typeNames?.[0]}
                 container={data.container}
+                parentContainers={data.parentContainers}
                 snippet={
                     // Add match highlights only if all the matched fields are in the FIELDS_TO_HIGHLIGHT
                     result.matchedFields.length > 0 &&
