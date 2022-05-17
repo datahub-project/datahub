@@ -470,7 +470,12 @@ def get_db_fqn(database: Optional[str], schema: str, name: str) -> str:
 
 
 def get_urn_from_dbtNode(
-    database: Optional[str], schema: str, name: str, target_platform: str, env: str, data_platform_instance: Optional[str]
+    database: Optional[str],
+    schema: str,
+    name: str,
+    target_platform: str,
+    env: str,
+    data_platform_instance: Optional[str],
 ) -> str:
     db_fqn = get_db_fqn(database, schema, name)
     if data_platform_instance is not None:
