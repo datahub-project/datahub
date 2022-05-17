@@ -132,7 +132,7 @@ export const EditSampleForm = () => {
     };
     const deleteProfile = async () => {
         const deleteSubmission = {
-            requestor: userUrn,
+            requestor: currUser,
             user_token: userToken,
             timestamp: selectedValue,
             dataset_name: currDataset,

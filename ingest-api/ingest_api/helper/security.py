@@ -163,8 +163,8 @@ def query_users_groups(token: str, query_endpoint: str, user_urn: str):
     if resp.status_code != 200:
         return []
     data_received = json.loads(resp.text)
-    if len(data_received)>0:
-        groups_list = data_received["data"]["CorpUser"]["relationships"]["relationships"]
+    if data_received["data"]["corpUser"]["relationships"]["count"]>0:
+        groups_list = data_received["data"]["corpUser"]["relationships"]["relationships"]
         return groups_list
     log.debug(f"group membership list is empty")
     return []

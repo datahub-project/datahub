@@ -282,9 +282,10 @@ async def delete_samples(item: delete_sample_params):
             headers=headers,
             data=data,
         )
-        
+        results = response.json()
+        rootLogger.error(f"ES delete outcome: {results}")
         return JSONResponse(
-            content={"message": response.get("message", "")}, status_code=response["status_code"]
+            content={"message": ""}, status_code=response.status_code
         )        
     else:
         rootLogger.error(
