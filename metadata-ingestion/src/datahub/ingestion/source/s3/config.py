@@ -55,7 +55,7 @@ class PathSpec(ConfigModel):
         description="Enable or disable processing compressed files. Currenly .gz and .bz files are supported.",
     )
 
-    sample_files: Optional[bool] = Field(
+    sample_files: bool = Field(
         default=True,
         description="Not listing all the files but only taking a handful amount of sample file to infer the schema. File count and file size calculation will be disabled. This can affect performance significantly if enabled",
     )
@@ -172,6 +172,9 @@ class PathSpec(ConfigModel):
                     )
 
         values["_is_s3"] = is_s3_uri(values["include"])
+        if not values["_is_s3"]:
+            # Sampling only makes sense on s3 currently
+            values["sample_files"] = False
         logger.debug(f'Setting _is_s3: {values.get("_is_s3")}')
         return values
 

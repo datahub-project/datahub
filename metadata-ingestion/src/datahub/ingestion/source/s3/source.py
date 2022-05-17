@@ -617,16 +617,19 @@ class S3Source(Source):
             aspects=[],
         )
 
+        customProperties: Optional[Dict[str, str]] = None
         if not path_spec.sample_files:
-            dataset_properties = DatasetPropertiesClass(
-                description="",
-                name=table_data.display_name,
-                customProperties={
-                    "number_of_files": str(table_data.number_of_files),
-                    "size_in_bytes": str(table_data.size_in_bytes),
-                },
-            )
-            dataset_snapshot.aspects.append(dataset_properties)
+            customProperties = {
+                "number_of_files": str(table_data.number_of_files),
+                "size_in_bytes": str(table_data.size_in_bytes),
+            }
+
+        dataset_properties = DatasetPropertiesClass(
+            description="",
+            name=table_data.display_name,
+            customProperties=customProperties if customProperties else None,
+        )
+        dataset_snapshot.aspects.append(dataset_properties)
 
         fields = self.get_fields(table_data, path_spec)
         schema_metadata = SchemaMetadata(
@@ -822,7 +825,8 @@ class S3Source(Source):
         prefix = self.get_prefix(get_bucket_relative_path(path_spec.include))
         logger.debug(f"Scanning objects with prefix:{prefix}")
         matches = re.finditer(r"{\s*\w+\s*}", path_spec.include, re.MULTILINE)
-        if matches and path_spec.sample_files:
+        matches_list = list(matches)
+        if len(matches_list) > 0 and path_spec.sample_files:
             # Replace the patch_spec include's templates with star because later we want to resolve all the stars
             # to actual directories.
             # For example:
@@ -834,7 +838,7 @@ class S3Source(Source):
             max_start = -1
             include = path_spec.include
             max_match = ""
-            for match in matches:
+            for match in matches_list:
                 pos = include.find(match.group())
                 if pos > max_start:
                     if max_match:
@@ -855,6 +859,10 @@ class S3Source(Source):
                         logger.debug(f"Samping file: {s3_path}")
                         yield s3_path, obj.last_modified, obj.size,
         else:
+            logger.debug(
+                "No template in the pathspec can't do sampling, fallbacking to do full scan"
+            )
+            path_spec.sample_files = False
             for obj in bucket.objects.filter(Prefix=prefix).page_size(1000):
                 s3_path = f"s3://{obj.bucket_name}/{obj.key}"
                 logger.debug(f"Path: {s3_path}")
