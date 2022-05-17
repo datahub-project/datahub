@@ -1,7 +1,7 @@
 namespace com.linkedin.metadata.key
 
 /**
- * Key for a Tag
+ * Key for the telemetry client ID, only one should ever exist
  */
 @Aspect = {
   "name": "telemetryKey"

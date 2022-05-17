@@ -213,5 +213,5 @@ entities:
     category: internal
     keyAspect: telemetryKey
     aspects:
-      - clientId
+      - telemetryClientId
 events:

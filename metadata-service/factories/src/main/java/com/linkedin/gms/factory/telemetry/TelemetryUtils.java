@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.telemetry;
 
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.ClientId;
+import com.linkedin.telemetry.TelemetryClientId;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.Constants;
@@ -24,14 +24,14 @@ public final class TelemetryUtils {
             createClientIdIfNotPresent(entityService);
             RecordTemplate clientIdTemplate = entityService.getLatestAspect(UrnUtils.getUrn(CLIENT_ID_URN), CLIENT_ID_ASPECT);
             // Should always be present here from above, so no need for null check
-            _clientId = ((ClientId) clientIdTemplate).getClientId();
+            _clientId = ((TelemetryClientId) clientIdTemplate).getClientId();
         }
         return _clientId;
     }
 
     private static void createClientIdIfNotPresent(EntityService entityService) {
         String uuid = UUID.randomUUID().toString();
-        ClientId clientId = new ClientId().setClientId(uuid);
+        TelemetryClientId clientId = new TelemetryClientId().setClientId(uuid);
         final AuditStamp clientIdStamp = new AuditStamp();
         clientIdStamp.setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR));
         clientIdStamp.setTime(System.currentTimeMillis());
