@@ -46,6 +46,7 @@ telemetry:
   enabledCli: ${CLI_TELEMETRY_ENABLED:true}
   enabledIngestion: ${INGESTION_REPORTING_ENABLED:false}
   enableThirdPartyLogging: ${ENABLE_THIRD_PARTY_LOGGING:false}
+  enabledServer: ${DATAHUB_TELEMETRY_ENABLED:true}
 
 secretService:
   encryptionKey: ${SECRET_SERVICE_ENCRYPTION_KEY:ENCRYPTION_KEY}
