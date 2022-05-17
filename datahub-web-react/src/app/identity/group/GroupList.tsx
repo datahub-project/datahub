@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Empty, List, message, Pagination } from 'antd';
 import styled from 'styled-components';
+import { useLocation } from 'react-router';
+import * as QueryString from 'query-string';
 import { UsergroupAddOutlined } from '@ant-design/icons';
 import { CorpGroup } from '../../../types.generated';
 import { Message } from '../../shared/Message';
@@ -8,6 +10,8 @@ import { useListGroupsQuery } from '../../../graphql/group.generated';
 import GroupListItem from './GroupListItem';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import CreateGroupModal from './CreateGroupModal';
+import { SearchBar } from '../../search/SearchBar';
+import { useEntityRegistry } from '../../useEntityRegistry';
 
 const GroupContainer = styled.div``;
 
@@ -26,6 +30,13 @@ const GroupPaginationContainer = styled.div`
 const DEFAULT_PAGE_SIZE = 25;
 
 export const GroupList = () => {
+    const entityRegistry = useEntityRegistry();
+    const location = useLocation();
+    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+    const paramsQuery = (params?.query as string) || undefined;
+    const [query, setQuery] = useState<undefined | string>(undefined);
+    useEffect(() => setQuery(paramsQuery), [paramsQuery]);
+
     const [page, setPage] = useState(1);
     const [isCreatingGroup, setIsCreatingGroup] = useState(false);
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
@@ -39,6 +50,7 @@ export const GroupList = () => {
             input: {
                 start,
                 count: pageSize,
+                query,
             },
         },
         fetchPolicy: 'no-cache',
@@ -72,6 +84,22 @@ export const GroupList = () => {
                             <UsergroupAddOutlined /> Create group
                         </Button>
                     </div>
+                    <SearchBar
+                        initialQuery={query || ''}
+                        placeholderText="Search groups..."
+                        suggestions={[]}
+                        style={{
+                            maxWidth: 220,
+                            padding: 0,
+                        }}
+                        inputStyle={{
+                            height: 32,
+                            fontSize: 12,
+                        }}
+                        onSearch={() => null}
+                        onQueryChange={(q) => setQuery(q)}
+                        entityRegistry={entityRegistry}
+                    />
                 </TabToolbar>
                 <GroupStyledList
                     bordered
