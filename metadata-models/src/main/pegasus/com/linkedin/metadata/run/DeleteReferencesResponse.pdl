@@ -1,0 +1,18 @@
+namespace com.linkedin.metadata.run
+
+/**
+ * The model for the result of a relationship query.
+ * Used to get the relationships of a given entity run.
+ */
+record DeleteReferencesResponse {
+
+  /**
+   *
+   */
+  relatedAspects: array[RelatedAspect]
+
+  /**
+   * Total number of relationships that an entity urn has.
+   */
+  total: int
+}

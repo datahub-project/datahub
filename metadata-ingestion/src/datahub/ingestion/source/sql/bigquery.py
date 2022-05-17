@@ -747,14 +747,14 @@ WHERE
                 return shard, None
         return None, None
 
-    def is_dataset_eligable_profiling(
+    def is_dataset_eligible_for_profiling(
         self, dataset_name: str, sql_config: SQLAlchemyConfig
     ) -> bool:
         """
         Method overrides default profiling filter which checks profiling eligibility based on allow-deny pattern.
         This one also don't profile those sharded tables which are not the latest.
         """
-        if not super().is_dataset_eligable_profiling(dataset_name, sql_config):
+        if not super().is_dataset_eligible_for_profiling(dataset_name, sql_config):
             return False
 
         (project_id, schema, table) = dataset_name.split(".")

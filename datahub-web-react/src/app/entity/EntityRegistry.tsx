@@ -129,11 +129,11 @@ export default class EntityRegistry {
         return (
             ({
                 ...entity.getLineageVizConfig?.(data),
-                downstreamChildren: allDownstreams.map((relatedEntity) => ({
+                downstreamChildren: allDownstreams.filter((relatedEntity) => !relatedEntity?.['status']?.removed).map((relatedEntity) => ({
                     entity: relatedEntity as EntityInterface,
                     type: (relatedEntity as EntityInterface).type,
                 })),
-                upstreamChildren: allUpstreams.map((relatedEntity) => ({
+                upstreamChildren: allUpstreams.filter((relatedEntity) => !relatedEntity?.['status']?.removed).map((relatedEntity) => ({
                     entity: relatedEntity as EntityInterface,
                     type: (relatedEntity as EntityInterface).type,
                 })),
