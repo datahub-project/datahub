@@ -1,0 +1,11 @@
+namespace com.linkedin.metadata.run
+
+/**
+ *  This record serves as a holder of information for entities that were unsafe to fully delete as part of a rollback operation.
+ */
+record UnsafeEntityInfo {
+    /**
+     * Name of the entity this aspect information instance refers to.
+     */
+    urn: string
+}

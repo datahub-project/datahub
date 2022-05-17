@@ -20,6 +20,69 @@ CONFIG_FILE = DATAHUB_FOLDER / "telemetry-config.json"
 
 # also fall back to environment variable if config file is not found
 ENV_ENABLED = os.environ.get("DATAHUB_TELEMETRY_ENABLED", "true").lower() == "true"
+
+# see
+# https://adamj.eu/tech/2020/03/09/detect-if-your-tests-are-running-on-ci/
+# https://github.com/watson/ci-info
+CI_ENV_VARS = {
+    "APPCENTER",
+    "APPCIRCLE",
+    "APPCIRCLEAZURE_PIPELINES",
+    "APPVEYOR",
+    "AZURE_PIPELINES",
+    "BAMBOO",
+    "BITBUCKET",
+    "BITRISE",
+    "BUDDY",
+    "BUILDKITE",
+    "BUILD_ID",
+    "CI",
+    "CIRCLE",
+    "CIRCLECI",
+    "CIRRUS",
+    "CIRRUS_CI",
+    "CI_NAME",
+    "CODEBUILD",
+    "CODEBUILD_BUILD_ID",
+    "CODEFRESH",
+    "CODESHIP",
+    "CYPRESS_HOST",
+    "DRONE",
+    "DSARI",
+    "EAS_BUILD",
+    "GITHUB_ACTIONS",
+    "GITLAB",
+    "GITLAB_CI",
+    "GOCD",
+    "HEROKU_TEST_RUN_ID",
+    "HUDSON",
+    "JENKINS",
+    "JENKINS_URL",
+    "LAYERCI",
+    "MAGNUM",
+    "NETLIFY",
+    "NEVERCODE",
+    "RENDER",
+    "SAIL",
+    "SCREWDRIVER",
+    "SEMAPHORE",
+    "SHIPPABLE",
+    "SOLANO",
+    "STRIDER",
+    "TASKCLUSTER",
+    "TEAMCITY",
+    "TEAMCITY_VERSION",
+    "TF_BUILD",
+    "TRAVIS",
+    "VERCEL",
+    "WERCKER_ROOT",
+    "bamboo.buildKey",
+}
+
+# disable when running in any CI
+if any(var in os.environ for var in CI_ENV_VARS):
+    ENV_ENABLED = False
+
 TIMEOUT = int(os.environ.get("DATAHUB_TELEMETRY_TIMEOUT", "10"))
 MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
 
@@ -32,13 +95,12 @@ class Telemetry:
 
     def __init__(self):
 
-        # init the client ID and config if it doesn't exist
-        if not CONFIG_FILE.exists():
+        # try loading the config if it exists, update it if that fails
+        if not CONFIG_FILE.exists() or not self.load_config():
+            # set up defaults
             self.client_id = str(uuid.uuid4())
+            self.enabled = self.enabled & ENV_ENABLED
             self.update_config()
-
-        else:
-            self.load_config()
 
         # send updated user-level properties
         self.mp = None
@@ -50,32 +112,40 @@ class Telemetry:
             except Exception as e:
                 logger.debug(f"Error connecting to mixpanel: {e}")
 
-    def update_config(self) -> None:
+    def update_config(self) -> bool:
         """
         Update the config file with the current client ID and enabled status.
+        Return True if the update succeeded, False otherwise
         """
         logger.debug("Updating telemetry config")
 
-        if not DATAHUB_FOLDER.exists():
-            os.makedirs(DATAHUB_FOLDER)
         try:
-            with open(CONFIG_FILE, "w") as f:
-                json.dump(
-                    {"client_id": self.client_id, "enabled": self.enabled}, f, indent=2
-                )
-        except IOError as x:
-            if x.errno == errno.ENOENT:
-                logger.debug(
-                    f"{CONFIG_FILE} does not exist and could not be created. Please check permissions on the parent folder."
-                )
-            elif x.errno == errno.EACCES:
-                logger.debug(
-                    f"{CONFIG_FILE} cannot be read. Please check the permissions on this file."
-                )
-            else:
-                logger.debug(
-                    f"{CONFIG_FILE} had an IOError, please inspect this file for issues."
-                )
+            os.makedirs(DATAHUB_FOLDER, exist_ok=True)
+            try:
+                with open(CONFIG_FILE, "w") as f:
+                    json.dump(
+                        {"client_id": self.client_id, "enabled": self.enabled},
+                        f,
+                        indent=2,
+                    )
+                return True
+            except IOError as x:
+                if x.errno == errno.ENOENT:
+                    logger.debug(
+                        f"{CONFIG_FILE} does not exist and could not be created. Please check permissions on the parent folder."
+                    )
+                elif x.errno == errno.EACCES:
+                    logger.debug(
+                        f"{CONFIG_FILE} cannot be read. Please check the permissions on this file."
+                    )
+                else:
+                    logger.debug(
+                        f"{CONFIG_FILE} had an IOError, please inspect this file for issues."
+                    )
+        except Exception as e:
+            logger.debug(f"Failed to update config file at {CONFIG_FILE} due to {e}")
+
+        return False
 
     def enable(self) -> None:
         """
@@ -93,9 +163,10 @@ class Telemetry:
         self.enabled = False
         self.update_config()
 
-    def load_config(self):
+    def load_config(self) -> bool:
         """
         Load the saved config for the telemetry client ID and enabled status.
+        Returns True if config was correctly loaded, False otherwise.
         """
 
         try:
@@ -103,6 +174,7 @@ class Telemetry:
                 config = json.load(f)
                 self.client_id = config["client_id"]
                 self.enabled = config["enabled"] & ENV_ENABLED
+                return True
         except IOError as x:
             if x.errno == errno.ENOENT:
                 logger.debug(
@@ -116,6 +188,10 @@ class Telemetry:
                 logger.debug(
                     f"{CONFIG_FILE} had an IOError, please inspect this file for issues."
                 )
+        except Exception as e:
+            logger.debug(f"Failed to load {CONFIG_FILE} due to {e}")
+
+        return False
 
     def init_tracking(self) -> None:
         if not self.enabled or self.mp is None or self.tracking_init is True:

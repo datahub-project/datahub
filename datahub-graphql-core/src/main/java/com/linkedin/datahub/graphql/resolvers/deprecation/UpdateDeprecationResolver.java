@@ -16,7 +16,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -69,7 +69,7 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
         proposal.setEntityUrn(entityUrn);
         proposal.setEntityType(entityUrn.getEntityType());
         proposal.setAspectName(Constants.DEPRECATION_ASPECT_NAME);
-        proposal.setAspect(GenericAspectUtils.serializeAspect(deprecation));
+        proposal.setAspect(GenericRecordUtils.serializeAspect(deprecation));
         proposal.setChangeType(ChangeType.UPSERT);
         _entityClient.ingestProposal(proposal, context.getAuthentication());
         return true;

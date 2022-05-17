@@ -4,8 +4,10 @@ import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.metadata.models.DefaultEntitySpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
+import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.snapshot.Snapshot;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -53,7 +55,18 @@ public class SnapshotEntityRegistry implements EntityRegistry {
   public Map<String, EntitySpec> getEntitySpecs() {
     return entityNameToSpec;
   }
-  
+
+  @Nonnull
+  @Override
+  public Map<String, EventSpec> getEventSpecs() {
+    return new HashMap<>();
+  }
+
+  @Override
+  public EventSpec getEventSpec(final String ignored) {
+    return null;
+  }
+
   public static SnapshotEntityRegistry getInstance() {
     return INSTANCE;
   }

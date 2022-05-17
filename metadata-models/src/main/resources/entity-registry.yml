@@ -32,12 +32,23 @@ entities:
       - datahubIngestionCheckpoint
       - domains
       - deprecation
+      - versionInfo
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
     aspects:
       - domains
       - deprecation
+      - versionInfo
+  - name: dataProcessInstance
+    doc: DataProcessInstance represents an instance of a datajob/jobflow run
+    keyAspect: dataProcessInstanceKey
+    aspects:
+      - dataProcessInstanceInput
+      - dataProcessInstanceOutput
+      - dataProcessInstanceProperties
+      - dataProcessInstanceRelationships
+      - dataProcessInstanceRunEvent
   - name: chart
     keyAspect: chartKey
     aspects:
@@ -158,3 +169,44 @@ entities:
     keyAspect: dataHubRetentionKey
     aspects:
       - dataHubRetentionConfig
+  - name: dataPlatformInstance
+    category: internal
+    keyAspect: dataPlatformInstanceKey
+    aspects:
+      - status
+  - name: mlModel
+    category: core
+    keyAspect: mlModelKey
+    aspects:
+      - glossaryTerms
+      - editableMlModelProperties
+      - domains
+  - name: mlModelGroup
+    category: core
+    keyAspect: mlModelGroupKey
+    aspects:
+      - glossaryTerms
+      - editableMlModelGroupProperties
+      - domains
+  - name: mlFeatureTable
+    category: core
+    keyAspect: mlFeatureTableKey
+    aspects:
+      - glossaryTerms
+      - editableMlFeatureTableProperties
+      - domains
+  - name: mlFeature
+    category: core
+    keyAspect: mlFeatureKey
+    aspects:
+      - glossaryTerms
+      - editableMlFeatureProperties
+      - domains
+  - name: mlPrimaryKey
+    category: core
+    keyAspect: mlPrimaryKeyKey
+    aspects:
+      - glossaryTerms
+      - editableMlPrimaryKeyProperties
+      - domains
+events:

@@ -10,7 +10,7 @@ import com.linkedin.datahub.graphql.generated.PartitionType;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.datahub.graphql.types.mappers.TimeSeriesAspectMapper;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import javax.annotation.Nonnull;
 
 
@@ -29,7 +29,7 @@ public class AssertionRunEventMapper
       @Nonnull final EnvelopedAspect envelopedAspect) {
 
     AssertionRunEvent gmsAssertionRunEvent =
-        GenericAspectUtils.deserializeAspect(envelopedAspect.getAspect().getValue(),
+        GenericRecordUtils.deserializeAspect(envelopedAspect.getAspect().getValue(),
             envelopedAspect.getAspect().getContentType(), AssertionRunEvent.class);
 
     final com.linkedin.datahub.graphql.generated.AssertionRunEvent assertionRunEvent =

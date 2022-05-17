@@ -1,0 +1,32 @@
+# Override to use Cassandra as a backing store for datahub-gms.
+---
+version: '3.8'
+services:
+  cassandra:
+    container_name: cassandra
+    hostname: cassandra
+    image: cassandra:3.11
+    ports:
+      - '9042:9042'
+    healthcheck:
+      test: ["CMD", "cqlsh", "-u cassandra", "-p cassandra" ,"-e describe keyspaces"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    volumes:
+      - cassandradata:/var/lib/cassandra
+  cassandra-load-keyspace:
+    container_name: cassandra-setup
+    image: cassandra:3.11
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ./cassandra/init.cql:/init.cql
+    command: /bin/bash -c "cqlsh cassandra -f /init.cql"
+  datahub-gms:
+    env_file: datahub-gms/env/docker.cassandra.env
+    depends_on:
+      - cassandra
+volumes:
+  cassandradata:

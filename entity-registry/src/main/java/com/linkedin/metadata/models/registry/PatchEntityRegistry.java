@@ -7,8 +7,11 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
+import com.linkedin.metadata.models.EventSpec;
+import com.linkedin.metadata.models.EventSpecBuilder;
 import com.linkedin.metadata.models.registry.config.Entities;
 import com.linkedin.metadata.models.registry.config.Entity;
+import com.linkedin.metadata.models.registry.config.Event;
 import com.linkedin.util.Pair;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -37,7 +40,8 @@ public class PatchEntityRegistry implements EntityRegistry {
 
   private final DataSchemaFactory dataSchemaFactory;
   private final Map<String, EntitySpec> entityNameToSpec;
-  private final List<EntitySpec> entitySpecs;
+  private final Map<String, EventSpec> eventNameToSpec;
+
   private final String registryName;
   private final ComparableVersion registryVersion;
   private final String identifier;
@@ -55,6 +59,11 @@ public class PatchEntityRegistry implements EntityRegistry {
             .append(
                 entry.getValue().getAspectSpecs().stream().map(spec -> spec.getName()).collect(Collectors.joining(",")))
             .append("]]"));
+    eventNameToSpec.entrySet()
+        .stream()
+        .forEach(entry -> sb.append("[eventName=")
+            .append(entry.getKey())
+            .append("]"));
     return sb.toString();
   }
 
@@ -121,6 +130,8 @@ public class PatchEntityRegistry implements EntityRegistry {
     } else {
       identifier = "Unknown";
     }
+
+    // Build Entity Specs
     EntitySpecBuilder entitySpecBuilder = new EntitySpecBuilder();
     for (Entity entity : entities.getEntities()) {
       log.info("Discovered entity {} with aspects {}", entity.getName(),
@@ -132,7 +143,7 @@ public class PatchEntityRegistry implements EntityRegistry {
         // aspectSpecs.add(getAspectSpec(entity.getKeyAspect(), entitySpecBuilder));
       }
       entity.getAspects().forEach(aspect -> {
-        AspectSpec aspectSpec = getAspectSpec(aspect, entitySpecBuilder);
+        AspectSpec aspectSpec = buildAspectSpec(aspect, entitySpecBuilder);
         log.info("Adding aspect {} with spec {}", aspect, aspectSpec);
         aspectSpecs.add(aspectSpec);
       });
@@ -142,24 +153,20 @@ public class PatchEntityRegistry implements EntityRegistry {
 
       entityNameToSpec.put(entity.getName().toLowerCase(), entitySpec);
     }
-    entitySpecs = new ArrayList<>(entityNameToSpec.values());
+
+    // Build Event Specs
+    eventNameToSpec = new HashMap<>();
+    if (entities.getEvents() != null) {
+      for (Event event : entities.getEvents()) {
+        EventSpec eventSpec = buildEventSpec(event.getName());
+        eventNameToSpec.put(event.getName().toLowerCase(), eventSpec);
+      }
+    }
   }
 
   @Override
   public String getIdentifier() {
     return this.identifier;
-  }
-
-  private AspectSpec getAspectSpec(String aspectName, EntitySpecBuilder entitySpecBuilder) {
-    Optional<DataSchema> aspectSchema = dataSchemaFactory.getAspectSchema(aspectName);
-    Optional<Class> aspectClass = dataSchemaFactory.getAspectClass(aspectName);
-    if (!aspectSchema.isPresent()) {
-      throw new IllegalArgumentException(String.format("Aspect %s does not exist", aspectName));
-    }
-    AspectSpec aspectSpec = entitySpecBuilder.buildAspectSpec(aspectSchema.get(), aspectClass.get());
-    aspectSpec.setRegistryName(this.registryName);
-    aspectSpec.setRegistryVersion(this.registryVersion);
-    return aspectSpec;
   }
 
   @Nonnull
@@ -175,7 +182,45 @@ public class PatchEntityRegistry implements EntityRegistry {
 
   @Nonnull
   @Override
+  public EventSpec getEventSpec(@Nonnull String eventName) {
+    String lowercaseEventName = eventName.toLowerCase();
+    if (!eventNameToSpec.containsKey(lowercaseEventName)) {
+      throw new IllegalArgumentException(
+          String.format("Failed to find event with name %s in EntityRegistry", eventName));
+    }
+    return eventNameToSpec.get(lowercaseEventName);
+  }
+
+  @Nonnull
+  @Override
   public Map<String, EntitySpec> getEntitySpecs() {
     return entityNameToSpec;
   }
+
+  @Nonnull
+  @Override
+  public Map<String, EventSpec> getEventSpecs() {
+    return eventNameToSpec;
+  }
+
+  private AspectSpec buildAspectSpec(String aspectName, EntitySpecBuilder entitySpecBuilder) {
+    Optional<DataSchema> aspectSchema = dataSchemaFactory.getAspectSchema(aspectName);
+    Optional<Class> aspectClass = dataSchemaFactory.getAspectClass(aspectName);
+    if (!aspectSchema.isPresent()) {
+      throw new IllegalArgumentException(String.format("Aspect %s does not exist", aspectName));
+    }
+    AspectSpec aspectSpec = entitySpecBuilder.buildAspectSpec(aspectSchema.get(), aspectClass.get());
+    aspectSpec.setRegistryName(this.registryName);
+    aspectSpec.setRegistryVersion(this.registryVersion);
+    return aspectSpec;
+  }
+
+  private EventSpec buildEventSpec(String eventName) {
+    Optional<DataSchema> eventSchema = dataSchemaFactory.getEventSchema(eventName);
+    if (!eventSchema.isPresent()) {
+      throw new IllegalArgumentException(String.format("Event %s does not exist", eventName));
+    }
+    return new EventSpecBuilder().buildEventSpec(eventName, eventSchema.get());
+  }
+
 }

@@ -1,7 +1,24 @@
 import * as React from 'react';
+import styled from 'styled-components';
 import { useEffect, useState } from 'react';
 import { FacetMetadata } from '../../types.generated';
 import { SearchFilter } from './SearchFilter';
+
+export const SearchFilterWrapper = styled.div`
+    max-height: 100%;
+    overflow: auto;
+
+    &::-webkit-scrollbar {
+        height: 12px;
+        width: 1px;
+        background: #f2f2f2;
+    }
+    &::-webkit-scrollbar-thumb {
+        background: #cccccc;
+        -webkit-border-radius: 1ex;
+        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
+    }
+`;
 
 interface Props {
     facets: Array<FacetMetadata>;
@@ -46,7 +63,7 @@ export const SearchFilters = ({ facets, selectedFilters, onFilterSelect, loading
     };
 
     return (
-        <>
+        <SearchFilterWrapper>
             {cachedProps.facets.map((facet) => (
                 <SearchFilter
                     key={`${facet.displayName}-${facet.field}`}
@@ -55,6 +72,6 @@ export const SearchFilters = ({ facets, selectedFilters, onFilterSelect, loading
                     onFilterSelect={onFilterSelectAndSetCache}
                 />
             ))}
-        </>
+        </SearchFilterWrapper>
     );
 };

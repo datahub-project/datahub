@@ -48,6 +48,8 @@ public class SearchDocumentTransformerTest {
     assertEquals(browsePaths.size(), 2);
     assertEquals(browsePaths.get(0).asText(), "/a/b/c");
     assertEquals(browsePaths.get(1).asText(), "d/e/f");
+    assertEquals(parsedJson.get("feature1").asInt(), 2);
+    assertEquals(parsedJson.get("feature2").asInt(), 1);
   }
 
   @Test
@@ -67,5 +69,7 @@ public class SearchDocumentTransformerTest {
     parsedJson.get("browsePaths").getNodeType().equals(JsonNodeType.NULL);
     parsedJson.get("nestedArrayStringField").getNodeType().equals(JsonNodeType.NULL);
     parsedJson.get("nestedIntegerField").getNodeType().equals(JsonNodeType.NULL);
+    parsedJson.get("feature1").getNodeType().equals(JsonNodeType.NULL);
+    parsedJson.get("feature2").getNodeType().equals(JsonNodeType.NULL);
   }
 }

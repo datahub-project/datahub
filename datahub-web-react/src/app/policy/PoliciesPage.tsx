@@ -1,11 +1,23 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button, Empty, message, Modal, Pagination, Tag, Typography } from 'antd';
 import styled from 'styled-components';
+import * as QueryString from 'query-string';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { useLocation } from 'react-router';
 
 import { SearchablePage } from '../search/SearchablePage';
 import PolicyBuilderModal from './PolicyBuilderModal';
-import { Policy, PolicyUpdateInput, PolicyState, PolicyType, Maybe } from '../../types.generated';
+import {
+    Policy,
+    PolicyUpdateInput,
+    PolicyState,
+    PolicyType,
+    Maybe,
+    ResourceFilterInput,
+    PolicyMatchFilter,
+    PolicyMatchFilterInput,
+    PolicyMatchCriterionInput,
+} from '../../types.generated';
 import { useAppConfig } from '../useAppConfig';
 import PolicyDetailsModal from './PolicyDetailsModal';
 import {
@@ -21,6 +33,7 @@ import { StyledTable } from '../entity/shared/components/styled/StyledTable';
 import AvatarsGroup from './AvatarsGroup';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ANTD_GRAY } from '../entity/shared/constants';
+import { SearchBar } from '../search/SearchBar';
 
 const PoliciesContainer = styled.div`
     padding-top: 20px;
@@ -80,6 +93,18 @@ type PrivilegeOptionType = {
     name?: Maybe<string>;
 };
 
+const toFilterInput = (filter: PolicyMatchFilter): PolicyMatchFilterInput => {
+    return {
+        criteria: filter.criteria?.map((criterion): PolicyMatchCriterionInput => {
+            return {
+                field: criterion.field,
+                values: criterion.values.map((criterionValue) => criterionValue.value),
+                condition: criterion.condition,
+            };
+        }),
+    };
+};
+
 const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyUpdateInput => {
     let policyInput: PolicyUpdateInput = {
         type: policy.type,
@@ -96,14 +121,18 @@ const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyUpdateInput => {
         },
     };
     if (policy.resources !== null && policy.resources !== undefined) {
+        let resourceFilter: ResourceFilterInput = {
+            type: policy.resources.type,
+            resources: policy.resources.resources,
+            allResources: policy.resources.allResources,
+        };
+        if (policy.resources.filter) {
+            resourceFilter = { ...resourceFilter, filter: toFilterInput(policy.resources.filter) };
+        }
         // Add the resource filters.
         policyInput = {
             ...policyInput,
-            resources: {
-                type: policy.resources.type,
-                resources: policy.resources.resources,
-                allResources: policy.resources.allResources,
-            },
+            resources: resourceFilter,
         };
     }
     return policyInput;
@@ -112,6 +141,12 @@ const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyUpdateInput => {
 // TODO: Cleanup the styling.
 export const PoliciesPage = () => {
     const entityRegistry = useEntityRegistry();
+    const location = useLocation();
+    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+    const paramsQuery = (params?.query as string) || undefined;
+    const [query, setQuery] = useState<undefined | string>(undefined);
+    useEffect(() => setQuery(paramsQuery), [paramsQuery]);
+
     const {
         config: { policiesConfig },
     } = useAppConfig();
@@ -137,25 +172,24 @@ export const PoliciesPage = () => {
         loading: policiesLoading,
         error: policiesError,
         data: policiesData,
+        refetch: policiesRefetch,
     } = useListPoliciesQuery({
         fetchPolicy: 'no-cache',
-        variables: { input: { start, count: pageSize } },
+        variables: {
+            input: {
+                start,
+                count: pageSize,
+                query,
+            },
+        },
     });
-
-    const listPoliciesQuery = 'listPolicies';
 
     // Any time a policy is removed, edited, or created, refetch the list.
-    const [createPolicy, { error: createPolicyError }] = useCreatePolicyMutation({
-        refetchQueries: () => [listPoliciesQuery],
-    });
+    const [createPolicy, { error: createPolicyError }] = useCreatePolicyMutation();
 
-    const [updatePolicy, { error: updatePolicyError }] = useUpdatePolicyMutation({
-        refetchQueries: () => [listPoliciesQuery],
-    });
+    const [updatePolicy, { error: updatePolicyError }] = useUpdatePolicyMutation();
 
-    const [deletePolicy, { error: deletePolicyError }] = useDeletePolicyMutation({
-        refetchQueries: () => [listPoliciesQuery],
-    });
+    const [deletePolicy, { error: deletePolicyError }] = useDeletePolicyMutation();
 
     const updateError = createPolicyError || updatePolicyError || deletePolicyError;
 
@@ -187,17 +221,15 @@ export const PoliciesPage = () => {
                     return { type: platformPrivilege.type, name: platformPrivilege.displayName };
                 });
         } else {
-            const privilegeData = resourcePrivileges.filter(
-                (resourcePrivilege) => resourcePrivilege.resourceType === policy?.resources?.type,
+            const allResourcePriviliges = resourcePrivileges.find(
+                (resourcePrivilege) => resourcePrivilege.resourceType === 'all',
             );
             privileges =
-                (privilegeData.length > 0 &&
-                    privilegeData[0]?.privileges
-                        .filter((resourcePrivilege) => policy.privileges.includes(resourcePrivilege.type))
-                        .map((b) => {
-                            return { type: b.type, name: b.displayName };
-                        })) ||
-                [];
+                allResourcePriviliges?.privileges
+                    .filter((resourcePrivilege) => policy.privileges.includes(resourcePrivilege.type))
+                    .map((b) => {
+                        return { type: b.type, name: b.displayName };
+                    }) || [];
         }
         return privileges;
     };
@@ -220,6 +252,9 @@ export const PoliciesPage = () => {
             content: `Are you sure you want to remove policy?`,
             onOk() {
                 deletePolicy({ variables: { urn: policy?.urn as string } }); // There must be a focus policy urn.
+                setTimeout(function () {
+                    policiesRefetch();
+                }, 2000);
                 onCancelViewPolicy();
             },
             onCancel() {},
@@ -258,6 +293,9 @@ export const PoliciesPage = () => {
             createPolicy({ variables: { input: toPolicyInput(savePolicy) } });
         }
         message.success('Successfully saved policy.');
+        setTimeout(function () {
+            policiesRefetch();
+        }, 2000);
         onClosePolicyBuilder();
     };
 
@@ -379,7 +417,9 @@ export const PoliciesPage = () => {
 
     return (
         <SearchablePage>
-            {policiesLoading && <Message type="loading" content="Loading policies..." />}
+            {policiesLoading && !policiesData && (
+                <Message type="loading" content="Loading policies..." style={{ marginTop: '10%' }} />
+            )}
             {policiesError && message.error('Failed to load policies :(')}
             {updateError && message.error('Failed to update the Policy :(')}
             <PoliciesContainer>
@@ -397,6 +437,22 @@ export const PoliciesPage = () => {
                             <PlusOutlined /> Create new policy
                         </Button>
                     </div>
+                    <SearchBar
+                        initialQuery={query || ''}
+                        placeholderText="Search policies..."
+                        suggestions={[]}
+                        style={{
+                            maxWidth: 220,
+                            padding: 0,
+                        }}
+                        inputStyle={{
+                            height: 32,
+                            fontSize: 12,
+                        }}
+                        onSearch={() => null}
+                        onQueryChange={(q) => setQuery(q)}
+                        entityRegistry={entityRegistry}
+                    />
                 </TabToolbar>
                 <StyledTable
                     columns={tableColumns}

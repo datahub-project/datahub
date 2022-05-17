@@ -14,25 +14,25 @@ import javax.annotation.Nonnull;
 public class AuthorizationUtils {
 
   public static boolean canManageUsersAndGroups(@Nonnull QueryContext context) {
-    final Authorizer authorizer = context.getAuthorizer();
-    final String actor = context.getActorUrn();
-    final ConjunctivePrivilegeGroup andGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.MANAGE_USERS_AND_GROUPS_PRIVILEGE.getType()));
-    return isAuthorized(authorizer, actor, new DisjunctivePrivilegeGroup(ImmutableList.of(andGroup)));
+    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_USERS_AND_GROUPS_PRIVILEGE);
   }
 
   public static boolean canGeneratePersonalAccessToken(@Nonnull QueryContext context) {
-    final Authorizer authorizer = context.getAuthorizer();
-    final String actor = context.getActorUrn();
-    final ConjunctivePrivilegeGroup andGroup = new ConjunctivePrivilegeGroup(
-        ImmutableList.of(PoliciesConfig.GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE.getType()));
-    return isAuthorized(authorizer, actor, new DisjunctivePrivilegeGroup(ImmutableList.of(andGroup)));
+    return isAuthorized(context, Optional.empty(), PoliciesConfig.GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE);
   }
 
   public static boolean canManageDomains(@Nonnull QueryContext context) {
+    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_DOMAINS_PRIVILEGE);
+  }
+
+  public static boolean isAuthorized(
+      @Nonnull QueryContext context,
+      @Nonnull Optional<ResourceSpec> resourceSpec,
+      @Nonnull PoliciesConfig.Privilege privilege) {
     final Authorizer authorizer = context.getAuthorizer();
     final String actor = context.getActorUrn();
-    final ConjunctivePrivilegeGroup andGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.MANAGE_DOMAINS_PRIVILEGE.getType()));
-    return isAuthorized(authorizer, actor, new DisjunctivePrivilegeGroup(ImmutableList.of(andGroup)));
+    final ConjunctivePrivilegeGroup andGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(privilege.getType()));
+    return isAuthorized(authorizer, actor, resourceSpec, new DisjunctivePrivilegeGroup(ImmutableList.of(andGroup)));
   }
 
   public static boolean isAuthorized(

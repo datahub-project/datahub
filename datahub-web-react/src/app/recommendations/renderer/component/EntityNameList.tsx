@@ -10,6 +10,7 @@ import { capitalizeFirstLetter } from '../../../shared/textUtil';
 const StyledList = styled(List)`
     margin-top: -1px;
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    flex: 1;
     .ant-list-items > .ant-list-item {
         padding-right: 0px;
         padding-left: 0px;
@@ -23,6 +24,16 @@ const StyledList = styled(List)`
         border-bottom: none;
         padding-bottom: 0px;
         padding-top: 15px;
+    }
+    &::-webkit-scrollbar {
+        height: 12px;
+        width: 5px;
+        background: #f2f2f2;
+    }
+    &::-webkit-scrollbar-thumb {
+        background: #cccccc;
+        -webkit-border-radius: 1ex;
+        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
     }
 ` as typeof List;
 

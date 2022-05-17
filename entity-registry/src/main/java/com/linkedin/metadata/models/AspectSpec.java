@@ -18,6 +18,7 @@ public class AspectSpec {
 
   private final AspectAnnotation _aspectAnnotation;
   private final Map<String, SearchableFieldSpec> _searchableFieldSpecs;
+  private final Map<String, SearchScoreFieldSpec> _searchScoreFieldSpecs;
   private final Map<String, RelationshipFieldSpec> _relationshipFieldSpecs;
   private final Map<String, TimeseriesFieldSpec> _timeseriesFieldSpecs;
   private final Map<String, TimeseriesFieldCollectionSpec> _timeseriesFieldCollectionSpecs;
@@ -32,6 +33,7 @@ public class AspectSpec {
 
   public AspectSpec(@Nonnull final AspectAnnotation aspectAnnotation,
       @Nonnull final List<SearchableFieldSpec> searchableFieldSpecs,
+      @Nonnull final List<SearchScoreFieldSpec> searchScoreFieldSpecs,
       @Nonnull final List<RelationshipFieldSpec> relationshipFieldSpecs,
       @Nonnull final List<TimeseriesFieldSpec> timeseriesFieldSpecs,
       @Nonnull final List<TimeseriesFieldCollectionSpec> timeseriesFieldCollectionSpecs,
@@ -39,6 +41,8 @@ public class AspectSpec {
       final Class<RecordTemplate> aspectClass) {
     _aspectAnnotation = aspectAnnotation;
     _searchableFieldSpecs = searchableFieldSpecs.stream()
+        .collect(Collectors.toMap(spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
+    _searchScoreFieldSpecs = searchScoreFieldSpecs.stream()
         .collect(Collectors.toMap(spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
     _relationshipFieldSpecs = relationshipFieldSpecs.stream()
         .collect(Collectors.toMap(spec -> spec.getPath().toString(), spec -> spec, (val1, val2) -> val1));
@@ -72,6 +76,10 @@ public class AspectSpec {
     return _searchableFieldSpecs;
   }
 
+  public Map<String, SearchScoreFieldSpec> getSearchScoreFieldSpecMap() {
+    return _searchScoreFieldSpecs;
+  }
+
   public Map<String, RelationshipFieldSpec> getRelationshipFieldSpecMap() {
     return _relationshipFieldSpecs;
   }
@@ -86,6 +94,10 @@ public class AspectSpec {
 
   public List<SearchableFieldSpec> getSearchableFieldSpecs() {
     return new ArrayList<>(_searchableFieldSpecs.values());
+  }
+
+  public List<SearchScoreFieldSpec> getSearchScoreFieldSpecs() {
+    return new ArrayList<>(_searchScoreFieldSpecs.values());
   }
 
   public List<RelationshipFieldSpec> getRelationshipFieldSpecs() {

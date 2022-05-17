@@ -1,0 +1,11 @@
+namespace com.linkedin.policy
+
+/**
+ * The matching condition in a filter criterion
+ */
+enum PolicyMatchCondition {
+  /**
+   * Whether the field matches the value
+   */
+  EQUALS
+}

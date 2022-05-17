@@ -97,7 +97,7 @@ DataHub is an API- and stream-first platform, empowering developers to implement
 | Microsoft SQL Server | Supported |
 | MySQL | Supported |
 | Oracle | Supported |
-| PostreSQL | Supported |
+| PostgreSQL | Supported |
 | Redshift | Supported |
 | s3 | Supported |
 | Snowflake | Supported |

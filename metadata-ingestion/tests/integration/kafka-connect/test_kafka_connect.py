@@ -178,8 +178,26 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
         )
         assert r.status_code == 201  # Created
 
+        # Creating Postgresql source
+        r = requests.post(
+            "http://localhost:58083/connectors",
+            headers={"Content-Type": "application/json"},
+            data="""{
+                    "name": "postgres_source",
+                    "config": {
+                        "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+                        "mode": "incrementing",
+                        "incrementing.column.name": "id",
+                        "table.whitelist": "member",
+                        "topic.prefix": "test-postgres-jdbc-",
+                        "tasks.max": "1",
+                        "connection.url": "${env:POSTGRES_CONNECTION_URL}"
+                    }
+                }""",
+        )
+        assert r.status_code == 201  # Created
         # Give time for connectors to process the table data
-        time.sleep(45)
+        time.sleep(60)
 
         # Run the metadata ingestion pipeline.
         config_file = (test_resources_dir / "kafka_connect_to_file.yml").resolve()

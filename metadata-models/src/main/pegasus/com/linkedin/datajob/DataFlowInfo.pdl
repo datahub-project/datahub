@@ -2,6 +2,7 @@ namespace com.linkedin.datajob
 
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
+import com.linkedin.common.Urn
 
 /**
  * Information about a Data processing flow

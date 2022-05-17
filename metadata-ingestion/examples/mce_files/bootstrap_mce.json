@@ -1582,7 +1582,7 @@
               "name": "adlsGen1",
               "displayName": "Azure Data Lake (Gen 1)",
               "type": "FILE_SYSTEM",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/adlslogo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/adlslogo.png"
             }
           }
         ]
@@ -1602,7 +1602,7 @@
               "name": "adlsGen2",
               "displayName": "Azure Data Lake (Gen 2)",
               "type": "FILE_SYSTEM",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/adlslogo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/adlslogo.png"
             }
           }
         ]
@@ -1641,7 +1641,7 @@
               "name": "couchbase",
               "displayName": "Couchbase",
               "type": "KEY_VALUE_STORE",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/couchbaselogo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/couchbaselogo.png"
             }
           }
         ]
@@ -1680,7 +1680,7 @@
               "name": "hdfs",
               "displayName": "HDFS",
               "type": "FILE_SYSTEM",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/hadooplogo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/hadooplogo.png"
             }
           }
         ]
@@ -1700,7 +1700,7 @@
               "name": "hive",
               "displayName": "Hive",
               "type": "FILE_SYSTEM",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/hivelogo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/hivelogo.png"
             }
           }
         ]
@@ -1720,7 +1720,7 @@
               "name": "s3",
               "displayName": "AWS S3",
               "type": "FILE_SYSTEM",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/s3.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/s3.png"
             }
           }
         ]
@@ -1740,7 +1740,7 @@
               "name": "kafka",
               "displayName": "Kafka",
               "type": "MESSAGE_BROKER",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/kafkalogo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/kafkalogo.png"
             }
           }
         ]
@@ -1760,7 +1760,7 @@
               "name": "kusto",
               "displayName": "Kusto",
               "type": "OLAP_DATASTORE",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/kustologo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/kustologo.png"
             }
           }
         ]
@@ -1780,7 +1780,7 @@
               "name": "mongodb",
               "displayName": "MongoDB",
               "type": "KEY_VALUE_STORE",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/mongodblogo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/mongodblogo.png"
             }
           }
         ]
@@ -1800,7 +1800,7 @@
               "name": "mysql",
               "displayName": "MySQL",
               "type": "RELATIONAL_DB",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/mysqllogo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/mysqllogo.png"
             }
           }
         ]
@@ -1820,7 +1820,7 @@
               "name": "oracle",
               "displayName": "Oracle",
               "type": "RELATIONAL_DB",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/oraclelogo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/oraclelogo.png"
             }
           }
         ]
@@ -1840,7 +1840,7 @@
               "name": "pinot",
               "displayName": "Pinot",
               "type": "OLAP_DATASTORE",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/pinotlogo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/pinotlogo.png"
             }
           }
         ]
@@ -1860,7 +1860,7 @@
               "name": "postgres",
               "displayName": "PostgreSQL",
               "type": "RELATIONAL_DB",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/postgreslogo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/postgreslogo.png"
             }
           }
         ]
@@ -1880,7 +1880,7 @@
               "name": "presto",
               "displayName": "Presto",
               "type": "QUERY_ENGINE",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/prestologo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/prestologo.png"
             }
           }
         ]
@@ -1900,7 +1900,7 @@
               "name": "teradata",
               "displayName": "Teradata",
               "type": "RELATIONAL_DB",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/teradatalogo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/teradatalogo.png"
             }
           }
         ]
@@ -1939,7 +1939,7 @@
               "name": "snowflake",
               "displayName": "Snowflake",
               "type": "RELATIONAL_DB",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/snowflakelogo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/snowflakelogo.png"
             }
           }
         ]
@@ -1959,7 +1959,7 @@
               "name": "redshift",
               "displayName": "Redshift",
               "type": "RELATIONAL_DB",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/redshiftlogo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/redshiftlogo.png"
             }
           }
         ]
@@ -1979,7 +1979,7 @@
               "name": "mssql",
               "displayName": "SQL Server",
               "type": "RELATIONAL_DB",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/mssqllogo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/mssqllogo.png"
             }
           }
         ]
@@ -1999,7 +1999,7 @@
               "name": "bigquery",
               "displayName": "BigQuery",
               "type": "RELATIONAL_DB",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/bigquerylogo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/bigquerylogo.png"
             }
           }
         ]
@@ -2019,7 +2019,7 @@
               "name": "druid",
               "displayName": "Druid",
               "type": "OLAP_DATASTORE",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/druidlogo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/druidlogo.png"
             }
           }
         ]
@@ -2039,7 +2039,7 @@
               "name": "looker",
               "displayName": "Looker",
               "type": "OTHERS",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/lookerlogo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/lookerlogo.png"
             }
           }
         ]
@@ -2059,7 +2059,7 @@
               "name": "feast",
               "displayName": "Feast",
               "type": "OTHERS",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/feastlogo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/feastlogo.png"
             }
           }
         ]
@@ -2079,7 +2079,7 @@
               "name": "sagemaker",
               "displayName": "SageMaker",
               "type": "OTHERS",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/sagemakerlogo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/sagemakerlogo.png"
             }
           }
         ]
@@ -2099,7 +2099,7 @@
               "name": "glue",
               "displayName": "Glue",
               "type": "OTHERS",
-              "logoUrl": "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/gluelogo.png"
+              "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/gluelogo.png"
             }
           }
         ]

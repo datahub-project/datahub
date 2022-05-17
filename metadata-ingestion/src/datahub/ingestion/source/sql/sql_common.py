@@ -2,11 +2,13 @@ import datetime
 import logging
 import traceback
 from abc import abstractmethod
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
     Dict,
     Iterable,
     List,
@@ -20,6 +22,7 @@ from typing import (
 from urllib.parse import quote_plus
 
 import pydantic
+from pydantic.fields import Field
 from sqlalchemy import create_engine, dialects, inspect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError
@@ -55,6 +58,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -77,9 +81,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DataPlatformInstanceClass,
+    DatasetLineageTypeClass,
     DatasetPropertiesClass,
     JobStatusClass,
     SubTypesClass,
+    UpstreamClass,
     ViewPropertiesClass,
 )
 from datahub.telemetry import telemetry
@@ -94,38 +100,49 @@ if TYPE_CHECKING:
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+def _platform_alchemy_uri_tester_gen(
+    platform: str, opt_starts_with: Optional[str] = None
+) -> Tuple[str, Callable[[str], bool]]:
+    return platform, lambda x: x.startswith(
+        platform if not opt_starts_with else opt_starts_with
+    )
+
+
+PLATFORM_TO_SQLALCHEMY_URI_TESTER_MAP: Dict[str, Callable[[str], bool]] = OrderedDict(
+    [
+        _platform_alchemy_uri_tester_gen("athena", "awsathena"),
+        _platform_alchemy_uri_tester_gen("bigquery"),
+        _platform_alchemy_uri_tester_gen("clickhouse"),
+        _platform_alchemy_uri_tester_gen("druid"),
+        _platform_alchemy_uri_tester_gen("hive"),
+        _platform_alchemy_uri_tester_gen("mongodb"),
+        _platform_alchemy_uri_tester_gen("mssql"),
+        _platform_alchemy_uri_tester_gen("mysql"),
+        _platform_alchemy_uri_tester_gen("oracle"),
+        _platform_alchemy_uri_tester_gen("pinot"),
+        _platform_alchemy_uri_tester_gen("presto"),
+        (
+            "redshift",
+            lambda x: (
+                x.startswith(("jdbc:postgres:", "postgresql"))
+                and x.find("redshift.amazonaws") > 0
+            )
+            or x.startswith("redshift"),
+        ),
+        # Don't move this before redshift.
+        _platform_alchemy_uri_tester_gen("postgres", "postgresql"),
+        _platform_alchemy_uri_tester_gen("snowflake"),
+        _platform_alchemy_uri_tester_gen("trino"),
+    ]
+)
+
+
 def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
-    if sqlalchemy_uri.startswith("bigquery"):
-        return "bigquery"
-    if sqlalchemy_uri.startswith("clickhouse"):
-        return "clickhouse"
-    if sqlalchemy_uri.startswith("druid"):
-        return "druid"
-    if sqlalchemy_uri.startswith("mssql"):
-        return "mssql"
-    if (
-        sqlalchemy_uri.startswith(("jdbc:postgres:", "postgresql"))
-        and sqlalchemy_uri.find("redshift.amazonaws") > 0
-    ) or sqlalchemy_uri.startswith("redshift"):
-        return "redshift"
-    if sqlalchemy_uri.startswith("snowflake"):
-        return "snowflake"
-    if sqlalchemy_uri.startswith("presto"):
-        return "presto"
-    if sqlalchemy_uri.startswith("postgresql"):
-        return "postgres"
-    if sqlalchemy_uri.startswith("pinot"):
-        return "pinot"
-    if sqlalchemy_uri.startswith("oracle"):
-        return "oracle"
-    if sqlalchemy_uri.startswith("mysql"):
-        return "mysql"
-    if sqlalchemy_uri.startswith("mongodb"):
-        return "mongodb"
-    if sqlalchemy_uri.startswith("hive"):
-        return "hive"
-    if sqlalchemy_uri.startswith("awsathena"):
-        return "athena"
+
+    for platform, tester in PLATFORM_TO_SQLALCHEMY_URI_TESTER_MAP.items():
+        if tester(sqlalchemy_uri):
+            return platform
+
     return "external"
 
 
@@ -205,7 +222,10 @@ class SQLAlchemyStatefulIngestionConfig(StatefulIngestionConfig):
     in the SQLAlchemyConfig.
     """
 
-    remove_stale_metadata: bool = True
+    remove_stale_metadata: bool = Field(
+        default=True,
+        description="Soft-deletes the tables and views that were found in the last successful run but missing in the current run with stateful_ingestion enabled.",
+    )
 
 
 class SQLAlchemyConfig(StatefulIngestionConfigBase):
@@ -214,14 +234,33 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
     # having another option to allow/deny on schema level is an optimization for the case when there is a large number
     # of schemas that one wants to skip and you want to avoid the time to needlessly fetch those tables only to filter
     # them out afterwards via the table_pattern.
-    schema_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    profile_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    domain: Dict[str, AllowDenyPattern] = dict()
+    schema_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for schemas to filter in ingestion.",
+    )
+    table_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for tables to filter in ingestion.",
+    )
+    view_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for views to filter in ingestion.",
+    )
+    profile_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for profiles to filter in ingestion, allowed by the `table_pattern`.",
+    )
+    domain: Dict[str, AllowDenyPattern] = Field(
+        default=dict(),
+        description=' regex patterns for tables/schemas to descide domain_key domain key (domain_key can be any string like "sales".) There can be multiple domain key specified.',
+    )
 
-    include_views: Optional[bool] = True
-    include_tables: Optional[bool] = True
+    include_views: Optional[bool] = Field(
+        default=True, description="Whether views should be ingested."
+    )
+    include_tables: Optional[bool] = Field(
+        default=True, description="Whether tables should be ingested."
+    )
 
     from datahub.ingestion.source.ge_data_profiler import GEProfilingConfig
 
@@ -244,19 +283,28 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
 
 
 class BasicSQLAlchemyConfig(SQLAlchemyConfig):
-    username: Optional[str] = None
-    password: Optional[pydantic.SecretStr] = None
-    host_port: str
-    database: Optional[str] = None
-    database_alias: Optional[str] = None
-    scheme: str
+    username: Optional[str] = Field(default=None, description="username")
+    password: Optional[pydantic.SecretStr] = Field(default=None, description="password")
+    host_port: str = Field(description="host URL")
+    database: Optional[str] = Field(default=None, description="database (catalog)")
+    database_alias: Optional[str] = Field(
+        default=None, description="Alias to apply to database when ingesting."
+    )
+    scheme: str = Field(description="scheme")
+    sqlalchemy_uri: Optional[str] = Field(
+        default=None,
+        description="URI of database to connect to. See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls. Takes precedence over other connection parameters.",
+    )
 
-    def get_sql_alchemy_url(self, uri_opts=None):
-        return make_sqlalchemy_uri(
-            self.scheme,
+    def get_sql_alchemy_url(self, uri_opts: Optional[Dict[str, Any]] = None) -> str:
+        if not ((self.host_port and self.scheme) or self.sqlalchemy_uri):
+            raise ValueError("host_port and schema or connect_uri required.")
+
+        return self.sqlalchemy_uri or make_sqlalchemy_uri(
+            self.scheme,  # type: ignore
             self.username,
             self.password.get_secret_value() if self.password else None,
-            self.host_port,
+            self.host_port,  # type: ignore
             self.database,
             uri_opts=uri_opts,
         )
@@ -846,13 +894,36 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     BaseSQLAlchemyCheckpointState, cur_checkpoint.state
                 )
                 checkpoint_state.add_table_urn(dataset_urn)
-        description, properties = self.get_table_properties(inspector, schema, table)
+
+        description, properties, location_urn = self.get_table_properties(
+            inspector, schema, table
+        )
         dataset_properties = DatasetPropertiesClass(
             name=table,
             description=description,
             customProperties=properties,
         )
         dataset_snapshot.aspects.append(dataset_properties)
+
+        if location_urn:
+            external_upstream_table = UpstreamClass(
+                dataset=location_urn,
+                type=DatasetLineageTypeClass.COPY,
+            )
+            lineage_mcpw = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_snapshot.urn,
+                aspectName="upstreamLineage",
+                aspect=UpstreamLineage(upstreams=[external_upstream_table]),
+            )
+            lineage_wu = MetadataWorkUnit(
+                id=f"{self.platform}-{lineage_mcpw.entityUrn}-{lineage_mcpw.aspectName}",
+                mcp=lineage_mcpw,
+            )
+            self.report.report_workunit(lineage_wu)
+            yield lineage_wu
+
         pk_constraints: dict = inspector.get_pk_constraint(table, schema)
         foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, table)
         schema_fields = self.get_schema_fields(dataset_name, columns, pk_constraints)
@@ -885,6 +956,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 aspect=SubTypesClass(typeNames=["table"]),
             ),
         )
+        self.report.report_workunit(subtypes_aspect)
         yield subtypes_aspect
 
         yield from self._get_domain_wu(
@@ -896,8 +968,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
-    ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
+    ) -> Tuple[Optional[str], Optional[Dict[str, str]], Optional[str]]:
         try:
+            location: Optional[str] = None
             # SQLALchemy stubs are incomplete and missing this method.
             # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
             table_info: dict = inspector.get_table_comment(table, schema)  # type: ignore
@@ -918,7 +991,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
             # The "properties" field is a non-standard addition to SQLAlchemy's interface.
             properties = table_info.get("properties", {})
-        return description, properties
+        return description, properties, location
 
     def get_dataplatform_instance_aspect(
         self, dataset_urn: str
@@ -1139,13 +1212,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 aspect=SubTypesClass(typeNames=["view"]),
             ),
         )
+        self.report.report_workunit(subtypes_aspect)
         yield subtypes_aspect
         if "view_definition" in properties:
             view_definition_string = properties["view_definition"]
             view_properties_aspect = ViewPropertiesClass(
                 materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
             )
-            yield MetadataWorkUnit(
+            view_properties_wu = MetadataWorkUnit(
                 id=f"{view}-viewProperties",
                 mcp=MetadataChangeProposalWrapper(
                     entityType="dataset",
@@ -1155,6 +1229,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     aspect=view_properties_aspect,
                 ),
             )
+            self.report.report_workunit(view_properties_wu)
+            yield view_properties_wu
 
         yield from self._get_domain_wu(
             dataset_name=dataset_name,
@@ -1192,10 +1268,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         return None, None
 
     # Override if you want to do additional checks
-    def is_dataset_eligable_profiling(
+    def is_dataset_eligible_for_profiling(
         self, dataset_name: str, sql_config: SQLAlchemyConfig
     ) -> bool:
-        return sql_config.profile_pattern.allowed(dataset_name)
+        return sql_config.table_pattern.allowed(
+            dataset_name
+        ) and sql_config.profile_pattern.allowed(dataset_name)
 
     def loop_profiler_requests(
         self,
@@ -1214,7 +1292,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             dataset_name = self.get_identifier(
                 schema=schema, entity=table, inspector=inspector
             )
-            if not self.is_dataset_eligable_profiling(dataset_name, sql_config):
+            if not self.is_dataset_eligible_for_profiling(dataset_name, sql_config):
                 self.report.report_dropped(f"profile of {dataset_name}")
                 continue
 

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.utils;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -14,8 +15,11 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.utils.SearchUtil;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -38,6 +42,15 @@ public class SearchUtils {
 
   private SearchUtils() {
 
+  }
+
+  public static Optional<String> getDocId(@Nonnull Urn urn) {
+    try {
+      return Optional.of(URLEncoder.encode(urn.toString(), "UTF-8"));
+    } catch (UnsupportedEncodingException e) {
+      log.error("Failed to encode the urn with error: {}", e.toString());
+      return Optional.empty();
+    }
   }
 
   /**

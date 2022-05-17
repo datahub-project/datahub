@@ -43,7 +43,7 @@ public final class KafkaEtl implements CommandLineRunner {
   private static final DataPlatformUrn KAFKA_URN = new DataPlatformUrn("kafka");
 
   @Inject
-  @Named("kafkaEventProducer")
+  @Named("kafkaProducer")
   private Producer<String, GenericRecord> _producer;
 
   @Inject

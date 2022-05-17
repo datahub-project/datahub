@@ -2,10 +2,12 @@ package com.linkedin.metadata.timeline.differ;
 
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.InstitutionalMemoryMetadata;
 import com.linkedin.common.InstitutionalMemoryMetadataArray;
 import com.linkedin.common.url.Url;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
@@ -15,11 +17,13 @@ import com.linkedin.metadata.timeline.data.SemanticChangeType;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import javax.annotation.Nonnull;
 
 import static com.linkedin.metadata.Constants.*;
 
 
-public class InstitutionalMemoryDiffer implements Differ {
+public class InstitutionalMemoryDiffer implements AspectDiffer<InstitutionalMemory> {
+
   private static final String INSTITUTIONAL_MEMORY_ADDED_FORMAT =
       "Institutional Memory '%s' with documentation of '%s' has been added: '%s'";
   private static final String INSTITUTIONAL_MEMORY_REMOVED_FORMAT =
@@ -28,7 +32,7 @@ public class InstitutionalMemoryDiffer implements Differ {
       "Documentation of Institutional Memory '%s' of  '%s' has been changed from '%s' to '%s'.";
 
   private static List<ChangeEvent> computeDiffs(InstitutionalMemory baseInstitutionalMemory,
-      InstitutionalMemory targetInstitutionalMemory, String entityUrn) {
+      InstitutionalMemory targetInstitutionalMemory, String entityUrn, AuditStamp auditStamp) {
     List<ChangeEvent> changeEvents = new ArrayList<>();
 
     sortElementsByUrl(baseInstitutionalMemory);
@@ -50,13 +54,14 @@ public class InstitutionalMemoryDiffer implements Differ {
         if (!baseElement.getDescription().equals(targetElement.getDescription())) {
           // InstitutionalMemory description has changed.
           changeEvents.add(ChangeEvent.builder()
-              .elementId(baseElement.getUrl().toString())
-              .target(entityUrn)
+              .modifier(baseElement.getUrl().toString())
+              .entityUrn(entityUrn)
               .category(ChangeCategory.DOCUMENTATION)
-              .changeType(ChangeOperation.MODIFY)
+              .operation(ChangeOperation.MODIFY)
               .semVerChange(SemanticChangeType.PATCH)
               .description(String.format(INSTITUTIONAL_MEMORY_MODIFIED_FORMAT, baseElement.getUrl(), entityUrn,
                   baseElement.getDescription(), targetElement.getDescription()))
+              .auditStamp(auditStamp)
               .build());
         }
         ++baseIdx;
@@ -64,27 +69,29 @@ public class InstitutionalMemoryDiffer implements Differ {
       } else if (comparison < 0) {
         // InstitutionalMemory got removed.
         changeEvents.add(ChangeEvent.builder()
-            .elementId(baseElement.getUrl().toString())
-            .target(entityUrn)
+            .modifier(baseElement.getUrl().toString())
+            .entityUrn(entityUrn)
             .category(ChangeCategory.DOCUMENTATION)
-            .changeType(ChangeOperation.REMOVE)
+            .operation(ChangeOperation.REMOVE)
             .semVerChange(SemanticChangeType.MINOR)
             .description(
                 String.format(INSTITUTIONAL_MEMORY_REMOVED_FORMAT, baseElement.getUrl(), entityUrn,
                     baseElement.getDescription()))
+            .auditStamp(auditStamp)
             .build());
         ++baseIdx;
       } else {
         // InstitutionalMemory got added..
         changeEvents.add(ChangeEvent.builder()
-            .elementId(targetElement.getUrl().toString())
-            .target(entityUrn)
+            .modifier(targetElement.getUrl().toString())
+            .entityUrn(entityUrn)
             .category(ChangeCategory.DOCUMENTATION)
-            .changeType(ChangeOperation.ADD)
+            .operation(ChangeOperation.ADD)
             .semVerChange(SemanticChangeType.MINOR)
             .description(
                 String.format(INSTITUTIONAL_MEMORY_ADDED_FORMAT, targetElement.getUrl(), entityUrn,
                     targetElement.getDescription()))
+            .auditStamp(auditStamp)
             .build());
         ++targetIdx;
       }
@@ -94,14 +101,15 @@ public class InstitutionalMemoryDiffer implements Differ {
       // InstitutionalMemory got removed.
       InstitutionalMemoryMetadata baseElement = baseElements.get(baseIdx);
       changeEvents.add(ChangeEvent.builder()
-          .elementId(baseElement.getUrl().toString())
-          .target(entityUrn)
+          .modifier(baseElement.getUrl().toString())
+          .entityUrn(entityUrn)
           .category(ChangeCategory.DOCUMENTATION)
-          .changeType(ChangeOperation.REMOVE)
+          .operation(ChangeOperation.REMOVE)
           .semVerChange(SemanticChangeType.MINOR)
           .description(
               String.format(INSTITUTIONAL_MEMORY_REMOVED_FORMAT, baseElement.getUrl(), entityUrn,
                   baseElement.getDescription()))
+          .auditStamp(auditStamp)
           .build());
       ++baseIdx;
     }
@@ -110,14 +118,15 @@ public class InstitutionalMemoryDiffer implements Differ {
       InstitutionalMemoryMetadata targetElement = targetElements.get(targetIdx);
       // InstitutionalMemory got added..
       changeEvents.add(ChangeEvent.builder()
-          .elementId(targetElement.getUrl().toString())
-          .target(entityUrn)
+          .modifier(targetElement.getUrl().toString())
+          .entityUrn(entityUrn)
           .category(ChangeCategory.DOCUMENTATION)
-          .changeType(ChangeOperation.ADD)
+          .operation(ChangeOperation.ADD)
           .semVerChange(SemanticChangeType.MINOR)
           .description(
               String.format(INSTITUTIONAL_MEMORY_ADDED_FORMAT, targetElement.getUrl(), entityUrn,
                   targetElement.getDescription()))
+          .auditStamp(auditStamp)
           .build());
       ++targetIdx;
     }
@@ -152,7 +161,7 @@ public class InstitutionalMemoryDiffer implements Differ {
     InstitutionalMemory targetInstitutionalMemory = getInstitutionalMemoryFromAspect(currentValue);
     List<ChangeEvent> changeEvents = new ArrayList<>();
     if (element == ChangeCategory.DOCUMENTATION) {
-      changeEvents.addAll(computeDiffs(baseInstitutionalMemory, targetInstitutionalMemory, currentValue.getUrn()));
+      changeEvents.addAll(computeDiffs(baseInstitutionalMemory, targetInstitutionalMemory, currentValue.getUrn(), null));
     }
 
     // Assess the highest change at the transaction(schema) level.
@@ -170,5 +179,16 @@ public class InstitutionalMemoryDiffer implements Differ {
         .rawDiff(rawDiffsRequested ? rawDiff : null)
         .actor(currentValue.getCreatedBy())
         .build();
+  }
+
+  @Override
+  public List<ChangeEvent> getChangeEvents(
+      @Nonnull Urn urn,
+      @Nonnull String entity,
+      @Nonnull String aspect,
+      @Nonnull Aspect<InstitutionalMemory> from,
+      @Nonnull Aspect<InstitutionalMemory> to,
+      @Nonnull AuditStamp auditStamp) {
+    return computeDiffs(from.getValue(), to.getValue(), urn.toString(), auditStamp);
   }
 }

@@ -1,0 +1,167 @@
+# Docker compose file covering DataHub's default configuration, which is to run all containers on a single host.
+
+# Please see the README.md for instructions as to how to use and customize.
+
+# NOTE: This file does not build! No dockerfiles are set. See the README.md in this directory.
+---
+version: '3.8'
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:5.4.0
+    env_file: zookeeper/env/docker.env
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    volumes:
+      - zkdata:/var/opt/zookeeper
+
+  broker:
+    image: confluentinc/cp-kafka:5.4.0
+    env_file: broker/env/docker.env
+    hostname: broker
+    container_name: broker
+    depends_on:
+      - zookeeper
+    ports:
+      - "29092:29092"
+      - "9092:9092"
+    volumes:
+      - broker:/var/lib/kafka/data/
+
+  # This "container" is a workaround to pre-create topics
+  kafka-setup:
+    build:
+      context: kafka-setup
+    image: linkedin/datahub-kafka-setup:${DATAHUB_VERSION:-head}
+    env_file: kafka-setup/env/docker.env
+    hostname: kafka-setup
+    container_name: kafka-setup
+    depends_on:
+      - broker
+      - schema-registry
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:5.4.0
+    env_file: schema-registry/env/docker.env
+    hostname: schema-registry
+    container_name: schema-registry
+    depends_on:
+      - zookeeper
+      - broker
+    ports:
+      - "8081:8081"
+
+  elasticsearch:
+    image: elasticsearch:7.9.3
+    env_file: elasticsearch/env/docker.env
+    container_name: elasticsearch
+    hostname: elasticsearch
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sS --fail 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=0s' || exit 1"]
+      start_period: 2m
+      retries: 4
+
+  neo4j:
+    image: neo4j:4.0.6
+    env_file: neo4j/env/docker.env
+    hostname: neo4j
+    container_name: neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4jdata:/data
+
+  # This "container" is a workaround to pre-create search indices
+  elasticsearch-setup:
+    build:
+      context: ../
+      dockerfile: docker/elasticsearch-setup/Dockerfile
+    image: linkedin/datahub-elasticsearch-setup:${DATAHUB_VERSION:-head}
+    env_file: elasticsearch-setup/env/docker.env
+    hostname: elasticsearch-setup
+    container_name: elasticsearch-setup
+    depends_on:
+      - elasticsearch
+
+  cassandra:
+    container_name: cassandra
+    hostname: cassandra
+    image: cassandra:3.11
+    ports:
+      - '9042:9042'
+    healthcheck:
+      test: ["CMD", "cqlsh", "-u cassandra", "-p cassandra" ,"-e describe keyspaces"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    volumes:
+      - cassandradata:/var/lib/cassandra
+
+  cassandra-setup:
+    container_name: cassandra-setup
+    image: cassandra:3.11
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ./cassandra/init.cql:/init.cql
+    command: /bin/bash -c "cqlsh cassandra -f /init.cql"
+
+  datahub-gms:
+    build:
+        context: ../
+        dockerfile: docker/datahub-gms/Dockerfile
+    image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
+    env_file: ./datahub-gms/env/docker.cassandra.env
+    hostname: datahub-gms
+    container_name: datahub-gms
+    ports:
+      - "8080:8080"
+    depends_on:
+      - elasticsearch-setup
+      - kafka-setup
+      - cassandra-setup
+      - neo4j
+
+  datahub-frontend-react:
+    build:
+      context: ../
+      dockerfile: docker/datahub-frontend/Dockerfile
+    image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
+    env_file: datahub-frontend/env/docker.env
+    hostname: datahub-frontend-react
+    container_name: datahub-frontend-react
+    ports:
+      - "9002:9002"
+    depends_on:
+      - datahub-gms
+    volumes:
+      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+
+  datahub-actions:
+    image: acryldata/datahub-actions:${ACTIONS_VERSION:-head}
+    hostname: actions
+    env_file: datahub-actions/env/docker.env
+    restart: on-failure:5
+    depends_on:
+      - datahub-gms
+
+networks:
+  default:
+    name: datahub_network
+
+volumes:
+  cassandradata:
+  esdata:
+  neo4jdata:
+  zkdata:
+  broker:
