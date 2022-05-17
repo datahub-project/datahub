@@ -104,8 +104,11 @@ import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.UsageTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnerResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnersResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTagResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.AddTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.AddTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveOwnerResolver;
@@ -584,14 +587,17 @@ public class GmsGraphQLEngine {
             .dataFetcher("updateCorpUserProperties", new MutableTypeResolver<>(corpUserType))
             .dataFetcher("updateCorpGroupProperties", new MutableTypeResolver<>(corpGroupType))
             .dataFetcher("addTag", new AddTagResolver(entityService))
+            .dataFetcher("addTags", new AddTagsResolver(entityService))
             .dataFetcher("removeTag", new RemoveTagResolver(entityService))
             .dataFetcher("addTerm", new AddTermResolver(entityService))
+            .dataFetcher("addTerms", new AddTermsResolver(entityService))
             .dataFetcher("removeTerm", new RemoveTermResolver(entityService))
             .dataFetcher("createPolicy", new UpsertPolicyResolver(this.entityClient))
             .dataFetcher("updatePolicy", new UpsertPolicyResolver(this.entityClient))
             .dataFetcher("deletePolicy", new DeletePolicyResolver(this.entityClient))
             .dataFetcher("updateDescription", new UpdateDescriptionResolver(entityService))
             .dataFetcher("addOwner", new AddOwnerResolver(entityService))
+            .dataFetcher("addOwners", new AddOwnersResolver(entityService))
             .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService))
             .dataFetcher("addLink", new AddLinkResolver(entityService))
             .dataFetcher("removeLink", new RemoveLinkResolver(entityService))
