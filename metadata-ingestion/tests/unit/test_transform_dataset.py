@@ -25,8 +25,12 @@ from datahub.ingestion.transformer.add_dataset_properties import (
     AddDatasetPropertiesResolverBase,
     SimpleAddDatasetProperties,
 )
-from datahub.ingestion.transformer.add_dataset_schema_tags import PatternAddDatasetSchemaTags
-from datahub.ingestion.transformer.add_dataset_schema_terms import PatternAddDatasetSchemaTerms
+from datahub.ingestion.transformer.add_dataset_schema_tags import (
+    PatternAddDatasetSchemaTags,
+)
+from datahub.ingestion.transformer.add_dataset_schema_terms import (
+    PatternAddDatasetSchemaTerms,
+)
 from datahub.ingestion.transformer.add_dataset_tags import (
     AddDatasetTags,
     PatternAddDatasetTags,
@@ -1412,35 +1416,47 @@ def test_old_transformers_working_as_before(mock_time):
 
 def test_pattern_dataset_schema_terms_transformation(mock_time):
     dataset_mce = make_generic_dataset(
-        aspects=[models.SchemaMetadataClass(
-            schemaName="customer",  # not used
-            platform=builder.make_data_platform_urn("hive"),  # important <- platform must be an urn
-            version=0,
-            # when the source system has a notion of versioning of schemas, insert this in, otherwise leave as 0
-            hash="",
-            # when the source system has a notion of unique schemas identified via hash, include a hash, else leave it as empty string
-            platformSchema=models.OtherSchemaClass(rawSchema="__insert raw schema here__"),
-            fields=[
-                models.SchemaFieldClass(
-                    fieldPath="address",
-                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
-                    nativeDataType="VARCHAR(100)",
-                    # use this to provide the type of the field in the source system's vernacular
+        aspects=[
+            models.SchemaMetadataClass(
+                schemaName="customer",  # not used
+                platform=builder.make_data_platform_urn(
+                    "hive"
+                ),  # important <- platform must be an urn
+                version=0,
+                # when the source system has a notion of versioning of schemas, insert this in, otherwise leave as 0
+                hash="",
+                # when the source system has a notion of unique schemas identified via hash, include a hash, else leave it as empty string
+                platformSchema=models.OtherSchemaClass(
+                    rawSchema="__insert raw schema here__"
                 ),
-                models.SchemaFieldClass(
-                    fieldPath="first_name",
-                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
-                    nativeDataType="VARCHAR(100)",
-                    # use this to provide the type of the field in the source system's vernacular
-                ),
-                models.SchemaFieldClass(
-                    fieldPath="last_name",
-                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
-                    nativeDataType="VARCHAR(100)",
-                    # use this to provide the type of the field in the source system's vernacular
-                ),
-            ],
-        )]
+                fields=[
+                    models.SchemaFieldClass(
+                        fieldPath="address",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.StringTypeClass()
+                        ),
+                        nativeDataType="VARCHAR(100)",
+                        # use this to provide the type of the field in the source system's vernacular
+                    ),
+                    models.SchemaFieldClass(
+                        fieldPath="first_name",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.StringTypeClass()
+                        ),
+                        nativeDataType="VARCHAR(100)",
+                        # use this to provide the type of the field in the source system's vernacular
+                    ),
+                    models.SchemaFieldClass(
+                        fieldPath="last_name",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.StringTypeClass()
+                        ),
+                        nativeDataType="VARCHAR(100)",
+                        # use this to provide the type of the field in the source system's vernacular
+                    ),
+                ],
+            )
+        ]
     )
 
     transformer = PatternAddDatasetSchemaTerms.create(
@@ -1477,44 +1493,64 @@ def test_pattern_dataset_schema_terms_transformation(mock_time):
     assert schema_aspect.fields[0].fieldPath == "address"
     assert schema_aspect.fields[0].glossaryTerms is None
     assert schema_aspect.fields[1].fieldPath == "first_name"
-    assert schema_aspect.fields[1].glossaryTerms.terms[0].urn == builder.make_term_urn("Name")
-    assert schema_aspect.fields[1].glossaryTerms.terms[1].urn == builder.make_term_urn("FirstName")
+    assert schema_aspect.fields[1].glossaryTerms.terms[0].urn == builder.make_term_urn(
+        "Name"
+    )
+    assert schema_aspect.fields[1].glossaryTerms.terms[1].urn == builder.make_term_urn(
+        "FirstName"
+    )
     assert schema_aspect.fields[2].fieldPath == "last_name"
-    assert schema_aspect.fields[2].glossaryTerms.terms[0].urn == builder.make_term_urn("Name")
-    assert schema_aspect.fields[2].glossaryTerms.terms[1].urn == builder.make_term_urn("LastName")
+    assert schema_aspect.fields[2].glossaryTerms.terms[0].urn == builder.make_term_urn(
+        "Name"
+    )
+    assert schema_aspect.fields[2].glossaryTerms.terms[1].urn == builder.make_term_urn(
+        "LastName"
+    )
 
 
 def test_pattern_dataset_schema_tags_transformation(mock_time):
     dataset_mce = make_generic_dataset(
-        aspects=[models.SchemaMetadataClass(
-            schemaName="customer",  # not used
-            platform=builder.make_data_platform_urn("hive"),  # important <- platform must be an urn
-            version=0,
-            # when the source system has a notion of versioning of schemas, insert this in, otherwise leave as 0
-            hash="",
-            # when the source system has a notion of unique schemas identified via hash, include a hash, else leave it as empty string
-            platformSchema=models.OtherSchemaClass(rawSchema="__insert raw schema here__"),
-            fields=[
-                models.SchemaFieldClass(
-                    fieldPath="address",
-                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
-                    nativeDataType="VARCHAR(100)",
-                    # use this to provide the type of the field in the source system's vernacular
+        aspects=[
+            models.SchemaMetadataClass(
+                schemaName="customer",  # not used
+                platform=builder.make_data_platform_urn(
+                    "hive"
+                ),  # important <- platform must be an urn
+                version=0,
+                # when the source system has a notion of versioning of schemas, insert this in, otherwise leave as 0
+                hash="",
+                # when the source system has a notion of unique schemas identified via hash, include a hash, else leave it as empty string
+                platformSchema=models.OtherSchemaClass(
+                    rawSchema="__insert raw schema here__"
                 ),
-                models.SchemaFieldClass(
-                    fieldPath="first_name",
-                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
-                    nativeDataType="VARCHAR(100)",
-                    # use this to provide the type of the field in the source system's vernacular
-                ),
-                models.SchemaFieldClass(
-                    fieldPath="last_name",
-                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
-                    nativeDataType="VARCHAR(100)",
-                    # use this to provide the type of the field in the source system's vernacular
-                ),
-            ],
-        )]
+                fields=[
+                    models.SchemaFieldClass(
+                        fieldPath="address",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.StringTypeClass()
+                        ),
+                        nativeDataType="VARCHAR(100)",
+                        # use this to provide the type of the field in the source system's vernacular
+                    ),
+                    models.SchemaFieldClass(
+                        fieldPath="first_name",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.StringTypeClass()
+                        ),
+                        nativeDataType="VARCHAR(100)",
+                        # use this to provide the type of the field in the source system's vernacular
+                    ),
+                    models.SchemaFieldClass(
+                        fieldPath="last_name",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.StringTypeClass()
+                        ),
+                        nativeDataType="VARCHAR(100)",
+                        # use this to provide the type of the field in the source system's vernacular
+                    ),
+                ],
+            )
+        ]
     )
 
     transformer = PatternAddDatasetSchemaTags.create(
@@ -1551,8 +1587,16 @@ def test_pattern_dataset_schema_tags_transformation(mock_time):
     assert schema_aspect.fields[0].fieldPath == "address"
     assert schema_aspect.fields[0].globalTags is None
     assert schema_aspect.fields[1].fieldPath == "first_name"
-    assert schema_aspect.fields[1].globalTags.tags[0].tag == builder.make_tag_urn("Name")
-    assert schema_aspect.fields[1].globalTags.tags[1].tag == builder.make_tag_urn("FirstName")
+    assert schema_aspect.fields[1].globalTags.tags[0].tag == builder.make_tag_urn(
+        "Name"
+    )
+    assert schema_aspect.fields[1].globalTags.tags[1].tag == builder.make_tag_urn(
+        "FirstName"
+    )
     assert schema_aspect.fields[2].fieldPath == "last_name"
-    assert schema_aspect.fields[2].globalTags.tags[0].tag == builder.make_tag_urn("Name")
-    assert schema_aspect.fields[2].globalTags.tags[1].tag == builder.make_tag_urn("LastName")
+    assert schema_aspect.fields[2].globalTags.tags[0].tag == builder.make_tag_urn(
+        "Name"
+    )
+    assert schema_aspect.fields[2].globalTags.tags[1].tag == builder.make_tag_urn(
+        "LastName"
+    )

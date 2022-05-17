@@ -1,12 +1,18 @@
-from typing import Callable, List, Union, Optional
+from typing import Callable, List, Optional, Union
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel, KeyValuePattern
 from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.transformer.base_transformer import SingleAspectTransformer, BaseTransformer
+from datahub.ingestion.transformer.base_transformer import (
+    BaseTransformer,
+    SingleAspectTransformer,
+)
 from datahub.metadata.schema_classes import (
-    DatasetSnapshotClass, SchemaMetadataClass, SchemaFieldClass, TagAssociationClass, GlobalTagsClass,
+    GlobalTagsClass,
+    SchemaFieldClass,
+    SchemaMetadataClass,
+    TagAssociationClass,
 )
 
 
@@ -14,8 +20,8 @@ class AddDatasetSchemaTagsConfig(ConfigModel):
     # Workaround for https://github.com/python/mypy/issues/708.
     # Suggested by https://stackoverflow.com/a/64528725/5004662.
     get_tags_to_add: Union[
-        Callable[[DatasetSnapshotClass], List[TagAssociationClass]],
-        Callable[[DatasetSnapshotClass], List[TagAssociationClass]],
+        Callable[[str], List[TagAssociationClass]],
+        Callable[[str], List[TagAssociationClass]],
     ]
 
     _resolve_tag_fn = pydantic_resolve_key("get_tags_to_add")
@@ -39,15 +45,19 @@ class AddDatasetSchemaTags(BaseTransformer, SingleAspectTransformer):
         return ["dataset"]
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetTags":
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetSchemaTags":
         config = AddDatasetSchemaTagsConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def extend_field(self, schema_field: SchemaFieldClass):
+    def extend_field(self, schema_field: SchemaFieldClass) -> SchemaFieldClass:
         tags_to_add = self.config.get_tags_to_add(schema_field.fieldPath)
         if len(tags_to_add) > 0:
-            new_tags = schema_field.globalTags if schema_field.globalTags is not None else GlobalTagsClass(
-                tags=[],
+            new_tags = (
+                schema_field.globalTags
+                if schema_field.globalTags is not None
+                else GlobalTagsClass(
+                    tags=[],
+                )
             )
             new_tags.tags.extend(tags_to_add)
             schema_field.globalTags = new_tags
@@ -55,7 +65,7 @@ class AddDatasetSchemaTags(BaseTransformer, SingleAspectTransformer):
         return schema_field
 
     def transform_aspect(
-            self, entity_urn: str, aspect_name: str, aspect: Optional[builder.Aspect]
+        self, entity_urn: str, aspect_name: str, aspect: Optional[builder.Aspect]
     ) -> Optional[builder.Aspect]:
         assert aspect is None or isinstance(aspect, SchemaMetadataClass)
 
@@ -65,11 +75,10 @@ class AddDatasetSchemaTags(BaseTransformer, SingleAspectTransformer):
         schema_metadata_aspect: SchemaMetadataClass = aspect
 
         schema_metadata_aspect.fields = [
-            self.extend_field(field)
-            for field in schema_metadata_aspect.fields
+            self.extend_field(field) for field in schema_metadata_aspect.fields
         ]
 
-        return schema_metadata_aspect
+        return schema_metadata_aspect  # type: ignore
 
 
 class PatternDatasetTagsConfig(ConfigModel):
@@ -83,8 +92,7 @@ class PatternAddDatasetSchemaTags(AddDatasetSchemaTags):
         tag_pattern = config.tag_pattern
         generic_config = AddDatasetSchemaTagsConfig(
             get_tags_to_add=lambda path: [
-                TagAssociationClass(tag=urn)
-                for urn in tag_pattern.value(path)
+                TagAssociationClass(tag=urn) for urn in tag_pattern.value(path)
             ],
         )
         super().__init__(generic_config, ctx)
