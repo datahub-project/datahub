@@ -11,8 +11,14 @@ import lombok.Setter;
 import javax.annotation.Nonnull;
 import java.sql.Timestamp;
 
-// Dumb object for now
-
+/**
+ * This class represents entity aspect records stored in Cassandra database.
+ * It's also aware of {@link EntityAspect} which is a shared in-memory representation of an aspect record and knows
+ * how to translate itself to it.
+ *
+ * TODO: Consider using datastax java driver `@Entity`
+ *       (see: https://docs.datastax.com/en/developer/java-driver/4.13/manual/mapper/entities/)
+ */
 @Getter
 @Setter
 @NoArgsConstructor

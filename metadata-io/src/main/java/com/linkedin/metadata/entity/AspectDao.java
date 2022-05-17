@@ -10,6 +10,20 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 
+/**
+ * An interface specifying create, update, and read operations against metadata entity aspects.
+ * This interface is meant to abstract away the storage concerns of these pieces of metadata, permitting any underlying
+ * storage system to be used.
+ *
+ * Requirements for any implementation:
+ *    1. Being able to map its internal storage representation to {@link EntityAspect};
+ *    2. Honor the internal versioning semantics. The latest version of any aspect is set to 0 for efficient retrieval.
+ *       In most cases only the latest state of an aspect will be fetched. See {@link EntityService} for more details.
+ *
+ * TODO: This interface exposes {@link #runInTransactionWithRetry(Supplier, int)} because {@link EntityService} concerns
+ * itself with batching multiple commands into a single transaction. It exposes storage concerns somewhat and it'd be
+ * worth looking into ways to move this responsibility inside {@link AspectDao} implementations.
+ */
 public interface AspectDao {
 
     @Nullable

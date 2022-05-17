@@ -74,18 +74,18 @@ import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 
 /**
- * An abstract base class specifying create, update, and read operations against metadata entities and aspects
+ * A class specifying create, update, and read operations against metadata entities and aspects
  * by primary key (urn).
  *
  * This interface is meant to abstract away the storage concerns of these pieces of metadata, permitting
  * any underlying storage system to be used in materializing GMS domain objects, which are implemented using Pegasus
  * {@link RecordTemplate}s.
  *
- * A key requirement of any implementation is being able to bind what is persisted in storage to an aspect
- * {@link RecordTemplate}, using help from the {@link EntityRegistry}.
+ * Internal versioning semantics
+ * =============================
  *
- * Another requirement is that any implementation honors the internal versioning semantics. The latest version of any aspect
- * is set to 0 for efficient retrieval; in most cases the latest state of an aspect will be the only fetched.
+ * The latest version of any aspect is set to 0 for efficient retrieval; in most cases the latest state of an aspect
+ * will be the only fetched.
  *
  * As such, 0 is treated as a special number. Once an aspect is no longer the latest, versions will increment
  * monotonically, starting from 1. Thus, the second-to-last version of an aspect will be equal to total # versions
@@ -100,7 +100,6 @@ import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
  * SystemMetadata, SystemMetadata, AuditStamp, ChangeType)}.
  *
  * TODO: Consider whether we can abstract away virtual versioning semantics to subclasses of this class.
- * TODO: Extract out a nested 'AspectService'.
  */
 @Slf4j
 public class EntityService {

@@ -9,6 +9,12 @@ import lombok.Setter;
 import javax.annotation.Nonnull;
 import java.sql.Timestamp;
 
+/**
+ * This is an internal representation of an entity aspect record {@link EntityService} and {@link AspectDao}
+ * implementations are using. While {@link AspectDao} implementations have their own aspect record implementations,
+ * they cary implementation details that should not leak outside. Therefore, this is the type to use in public
+ * {@link AspectDao} methods.
+ */
 @Getter
 @Setter
 @NoArgsConstructor
