@@ -73,17 +73,17 @@ const PlatformDivider = styled.div`
 
 const DescriptionContainer = styled.div`
     color: ${ANTD_GRAY[7]};
+    margin-bottom: 8px;
 `;
 
 const AvatarContainer = styled.div`
-    margin-top: 6px;
     margin-right: 32px;
 `;
 
 const TagContainer = styled.div`
     display: inline-flex;
     margin-left: 0px;
-    margin-top: 5px;
+    margin-top: 3px;
 `;
 
 const TagSeparator = styled.div`
