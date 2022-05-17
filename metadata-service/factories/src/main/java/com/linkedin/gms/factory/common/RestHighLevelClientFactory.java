@@ -27,6 +27,7 @@ import org.apache.http.auth.AuthScope;
 import org.springframework.context.annotation.PropertySource;
 
 import java.util.Base64;
+import java.util.StringJoiner;
 
 
 @Slf4j
@@ -92,7 +93,8 @@ public class RestHighLevelClientFactory {
     }
 
     if (username != null && password != null) {
-      String CREDENTIALS_STRING = username + ":" + password;
+      StringJoiner stringJoiner = new StringJoiner(":").add(username).add(password);
+      String CREDENTIALS_STRING = stringJoiner.toString();
       String encodedBytes = Base64.getEncoder().encodeToString(CREDENTIALS_STRING.getBytes());
       Header[] authHeaders = {new BasicHeader("Authorization", "Basic " + encodedBytes)};
       builder.setDefaultHeaders(authHeaders);
