@@ -830,7 +830,7 @@ class LookerDashboardSource(Source):
             max_workers=self.source_config.max_threads
         ) as async_executor:
             async_workunits = [
-                async_executor.submit(self.process_dashboard, dashboard_id)
+                async_executor.submit(self.process_dashboard, str(dashboard_id))
                 for dashboard_id in dashboard_ids
             ]
             for async_workunit in concurrent.futures.as_completed(async_workunits):
