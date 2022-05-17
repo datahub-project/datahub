@@ -2,13 +2,13 @@ name: Unified Docker Workflow
 on:
   push:
     branches:
-      - master
+      - acryl-main
     paths-ignore:
       - 'docs/**'
       - '**.md'
   pull_request:
     branches:
-      - master
+      - acryl-main
     paths-ignore:
       - 'docs/**'
       - '**.md'
@@ -16,14 +16,14 @@ on:
     types: [published, edited]
 
 env:
-  DATAHUB_GMS_IMAGE: 'linkedin/datahub-gms'
-  DATAHUB_FRONTEND_IMAGE: 'linkedin/datahub-frontend-react'
-  DATAHUB_MAE_CONSUMER_IMAGE: 'linkedin/datahub-mae-consumer'
-  DATAHUB_MCE_CONSUMER_IMAGE: 'linkedin/datahub-mce-consumer'
-  DATAHUB_KAFKA_SETUP_IMAGE: 'linkedin/datahub-kafka-setup'
-  DATAHUB_ELASTIC_SETUP_IMAGE: 'linkedin/datahub-elasticsearch-setup'
-  DATAHUB_MYSQL_SETUP_IMAGE: 'acryldata/datahub-mysql-setup'
-  DATAHUB_UPGRADE_IMAGE: 'linkedin/datahub-upgrade'
+  DATAHUB_GMS_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-gms'
+  DATAHUB_FRONTEND_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-frontend-react'
+  DATAHUB_MAE_CONSUMER_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-mae-consumer'
+  DATAHUB_MCE_CONSUMER_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-mce-consumer'
+  DATAHUB_KAFKA_SETUP_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-kafka-setup'
+  DATAHUB_ELASTIC_SETUP_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-elasticsearch-setup'
+  DATAHUB_MYSQL_SETUP_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-mysql-setup'
+  DATAHUB_UPGRADE_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-upgrade'
   
 
 jobs:
@@ -41,8 +41,8 @@ jobs:
         run: |
           echo "GITHUB_REF: $GITHUB_REF"
           SHORT_SHA=$(git rev-parse --short "$GITHUB_SHA")
-          TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/master,head\,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
-          UNIQUE_TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/master,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
+          TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/acryl-main,head\,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
+          UNIQUE_TAG=$(echo ${GITHUB_REF} | sed -e "s,refs/heads/acryl-main,${SHORT_SHA},g" -e 's,refs/tags/,,g' -e 's,refs/pull/\([0-9]*\).*,pr\1,g')
           echo "tag=$TAG"
           echo "unique_tag=$UNIQUE_TAG"
           echo "::set-output name=tag::$TAG"
@@ -81,12 +81,12 @@ jobs:
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
-      - name: Login to DockerHub
-        if: ${{ needs.setup.outputs.publish == 'true' }}
+      - name: Login to AWS ECR
         uses: docker/login-action@v1
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
       - name: Build and Load Runner Platform image
         if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: docker/build-push-action@v2
@@ -122,7 +122,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@acryl-main
         with:
           image-ref: ${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
           format: 'table'
@@ -151,12 +151,12 @@ jobs:
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
-      - name: Login to DockerHub
-        if: ${{ needs.setup.outputs.publish == 'true' }}
+      - name: Login to AWS ECR
         uses: docker/login-action@v1
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
       - name: Build and optionally Push MAE Consumer image
         uses: docker/build-push-action@v2
         with:
@@ -182,7 +182,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@acryl-main
         with:
           image-ref: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
           format: 'table'
@@ -210,12 +210,12 @@ jobs:
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
-      - name: Login to DockerHub
-        if: ${{ needs.setup.outputs.publish == 'true' }}
+      - name: Login to AWS ECR
         uses: docker/login-action@v1
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
       - name: Build and Optionally Push MCE Consumer image
         uses: docker/build-push-action@v2
         with:
@@ -241,7 +241,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@acryl-main
         with:
           image-ref: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
           format: 'table'
@@ -269,12 +269,12 @@ jobs:
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
-      - name: Login to DockerHub
-        if: ${{ needs.setup.outputs.publish == 'true' }}
+      - name: Login to AWS ECR
         uses: docker/login-action@v1
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
       - name: Build and Optionally Push DataHub Upgrade image
         uses: docker/build-push-action@v2
         with:
@@ -300,7 +300,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@acryl-main
         with:
           image-ref: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
           format: 'table'
@@ -333,12 +333,12 @@ jobs:
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
-      - name: Login to DockerHub
-        if: ${{ needs.setup.outputs.publish == 'true' }}
+      - name: Login to AWS ECR
         uses: docker/login-action@v1
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
       - name: Build and Load Runner Platform image
         if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: docker/build-push-action@v2
@@ -374,7 +374,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@acryl-main
         with:
           image-ref: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
           format: 'table'
@@ -406,12 +406,12 @@ jobs:
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
-      - name: Login to DockerHub
-        if: ${{ needs.setup.outputs.publish == 'true' }}
+      - name: Login to AWS ECR
         uses: docker/login-action@v1
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
       - name: Build and Load Runner Platform image
         if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: docker/build-push-action@v2
@@ -457,12 +457,12 @@ jobs:
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
-      - name: Login to DockerHub
-        if: ${{ needs.setup.outputs.publish == 'true' }}
+      - name: Login to AWS ECR
         uses: docker/login-action@v1
         with:
-          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
       - name: Build and Load MySQL Runner Platform image
         if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: docker/build-push-action@v2
@@ -503,12 +503,12 @@ jobs:
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
-      - name: Login to DockerHub
-        if: ${{ needs.setup.outputs.publish == 'true' }}
+      - name: Login to AWS ECR
         uses: docker/login-action@v1
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
       - name: Build and Load Elastic Runner Platform image
         if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: docker/build-push-action@v2
