@@ -473,7 +473,7 @@ def get_urn_from_dbtNode(
     database: Optional[str], schema: str, name: str, target_platform: str, env: str, data_platform_instance: Optional[str]
 ) -> str:
     db_fqn = get_db_fqn(database, schema, name)
-    if data_platform_instance != None:
+    if data_platform_instance is not None:
         db_fqn = f"{data_platform_instance}.{db_fqn}"
     return mce_builder.make_dataset_urn(target_platform, db_fqn, env)
 
