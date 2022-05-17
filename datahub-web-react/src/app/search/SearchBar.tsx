@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Input, AutoComplete, Image, Typography } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
@@ -185,6 +185,7 @@ export const SearchBar = ({
     const history = useHistory();
     const [searchQuery, setSearchQuery] = useState<string>();
     const [selected, setSelected] = useState<string>();
+    useEffect(() => setSelected(initialQuery), [initialQuery]);
     const searchEntityTypes = entityRegistry.getSearchEntityTypes();
     const userUrn = useGetAuthenticatedUserUrn();
     const { data } = useListRecommendationsQuery({

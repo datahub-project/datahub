@@ -27,4 +27,7 @@ dependencies {
   annotationProcessor externalDependency.lombok
 
   compile spec.product.pegasus.restliSpringBridge
+
+  testCompile externalDependency.mockito
+  testCompile externalDependency.testng
 }

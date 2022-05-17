@@ -9,15 +9,18 @@ import com.linkedin.common.OwnershipSource;
 import com.linkedin.common.OwnershipSourceType;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
+import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
+import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -46,6 +49,23 @@ public class OwnerUtils {
         entityService,
         new Ownership());
     addOwner(ownershipAspect, ownerUrn, type);
+    persistAspect(resourceUrn, Constants.OWNERSHIP_ASPECT_NAME, ownershipAspect, actor, entityService);
+  }
+
+  public static void addOwners(
+      List<OwnerInput> owners,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService entityService
+  ) {
+    Ownership ownershipAspect = (Ownership) getAspectFromEntity(
+        resourceUrn.toString(),
+        Constants.OWNERSHIP_ASPECT_NAME,
+        entityService,
+        new Ownership());
+    for (OwnerInput input : owners) {
+      addOwner(ownershipAspect, UrnUtils.getUrn(input.getOwnerUrn()), OwnershipType.valueOf(input.getType().toString()));
+    }
     persistAspect(resourceUrn, Constants.OWNERSHIP_ASPECT_NAME, ownershipAspect, actor, entityService);
   }
 
@@ -107,6 +127,24 @@ public class OwnerUtils {
   }
 
   public static Boolean validateAddInput(
+      List<OwnerInput> owners,
+      Urn resourceUrn,
+      EntityService entityService
+  ) {
+    for (OwnerInput owner : owners) {
+      boolean result = validateAddInput(
+          UrnUtils.getUrn(owner.getOwnerUrn()),
+          owner.getOwnerEntityType(),
+          resourceUrn,
+          entityService);
+      if (!result) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  public static Boolean validateAddInput(
       Urn ownerUrn,
       OwnerEntityType ownerEntityType,
       Urn resourceUrn,
@@ -123,6 +161,10 @@ public class OwnerUtils {
 
     if (!entityService.exists(resourceUrn)) {
       throw new IllegalArgumentException(String.format("Failed to change ownership for resource %s. Resource does not exist.", resourceUrn));
+    }
+
+    if (!entityService.exists(ownerUrn)) {
+      throw new IllegalArgumentException(String.format("Failed to change ownership for resource %s. Owner does not exist.", resourceUrn));
     }
 
     return true;
