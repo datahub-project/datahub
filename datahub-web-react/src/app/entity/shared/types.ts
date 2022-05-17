@@ -80,11 +80,8 @@ export type GenericEntityProperties = {
     health?: Maybe<Health>;
     status?: Maybe<Status>;
     deprecation?: Maybe<Deprecation>;
-<<<<<<< HEAD
     siblings?: Maybe<SiblingProperties>;
-=======
     parentContainers?: Maybe<ParentContainersResult>;
->>>>>>> master
 };
 
 export type GenericEntityUpdate = {
