@@ -145,11 +145,6 @@ shadowJar {
   relocate 'com.typesafe','datahub.spark2.shaded.typesafe'
   relocate 'io.opentracing','datahub.spark2.shaded.io.opentracing'
   relocate 'io.netty','datahub.spark2.shaded.io.netty'
-  finalizedBy checkShadowJar
-}
-
-checkShadowJar {
-   dependsOn shadowJar
 }
 
 
