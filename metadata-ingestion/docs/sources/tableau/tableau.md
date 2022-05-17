@@ -20,15 +20,15 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 
 | Source Concept | DataHub Concept | Notes |
 | -- | -- | -- |
-| `Tableau` | [Data Platform](../../metamodel/entities/dataPlatform.md) | |
-| Embedded DataSource | [Dataset](../../metamodel/entities/dataset.md) | |
-| Published DataSource | [Dataset](../../metamodel/entities/dataset.md) | |
-| Custom SQL Table | [Dataset](../../metamodel/entities/dataset.md) | |
+| `"Tableau"` | [Data Platform](../../metamodel/entities/dataPlatform.md) | |
+| Embedded DataSource | [Dataset](../../metamodel/entities/dataset.md) | SubType `"Embedded Data Source"` |
+| Published DataSource | [Dataset](../../metamodel/entities/dataset.md) | SubType `"Published Data Source"` |
+| Custom SQL Table | [Dataset](../../metamodel/entities/dataset.md) | SubTypes `"View"`, `"Custom SQL"` |
 | Embedded or External Tables | [Dataset](../../metamodel/entities/dataset.md) | |
 | Sheet | [Chart](../../metamodel/entities/chart.md) | |
 | Dashboard | [Dashboard](../../metamodel/entities/dashboard.md) | |
 | User | [User (a.k.a CorpUser)](../../metamodel/entities/corpuser.md) | |
-| Workbook | [Container](../../metamodel/entities/container.md) | | 
+| Workbook | [Container](../../metamodel/entities/container.md) | SubType `"Workbook"` | 
 | Tag | [Tag](../../metamodel/entities/tag.md) | | 
 
 
@@ -410,4 +410,6 @@ Lineage is emitted as received from Tableau's metadata API for
 
 ### Why are only some workbooks ingested from the specified project?
 
-This happens when the Tableau API returns NODE_LIMIT_EXCEEDED error and returns partial results with message "Showing partial results. , The request exceeded the ‘n’ node limit. Use pagination, additional filtering, or both in the query to adjust results." To resolve this, reduce the page size using the `workbooks_page_size` config param (Defaults to 10).
+This may happen when the Tableau API returns NODE_LIMIT_EXCEEDED error in response to metadata query and returns partial results with message "Showing partial results. , The request exceeded the ‘n’ node limit. Use pagination, additional filtering, or both in the query to adjust results." To resolve this, consider 
+- reducing the page size using the `workbooks_page_size` config param in datahub recipe (Defaults to 10).
+- increasing tableau configuration [metadata query node limit](https://help.tableau.com/current/server/en-us/cli_configuration-set_tsm.htm#metadata_nodelimit) to higher value. 
