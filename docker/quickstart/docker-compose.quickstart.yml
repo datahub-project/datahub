@@ -65,8 +65,7 @@ services:
     depends_on:
     - mysql
     environment:
-    - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED}
-    - DATAHUB_FOLDER_PATH=/etc/datahub
+    - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
     - DATASET_ENABLE_SCSI=false
     - EBEAN_DATASOURCE_USERNAME=datahub
     - EBEAN_DATASOURCE_PASSWORD=datahub
