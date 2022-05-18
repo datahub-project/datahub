@@ -29,6 +29,9 @@ services:
     env_file: datahub-gms/env/docker.env
     depends_on:
       - mysql
+    environment:
+      - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED}
+      - DATAHUB_FOLDER_PATH=/etc/datahub
     volumes:
       - ${HOME}/.datahub/plugins/:/etc/datahub/plugins
 

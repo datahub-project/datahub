@@ -1,7 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button, Empty, message, Modal, Pagination, Tag, Typography } from 'antd';
 import styled from 'styled-components';
+import * as QueryString from 'query-string';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { useLocation } from 'react-router';
 
 import { SearchablePage } from '../search/SearchablePage';
 import PolicyBuilderModal from './PolicyBuilderModal';
@@ -31,6 +33,7 @@ import { StyledTable } from '../entity/shared/components/styled/StyledTable';
 import AvatarsGroup from './AvatarsGroup';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ANTD_GRAY } from '../entity/shared/constants';
+import { SearchBar } from '../search/SearchBar';
 
 const PoliciesContainer = styled.div`
     padding-top: 20px;
@@ -138,6 +141,12 @@ const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyUpdateInput => {
 // TODO: Cleanup the styling.
 export const PoliciesPage = () => {
     const entityRegistry = useEntityRegistry();
+    const location = useLocation();
+    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+    const paramsQuery = (params?.query as string) || undefined;
+    const [query, setQuery] = useState<undefined | string>(undefined);
+    useEffect(() => setQuery(paramsQuery), [paramsQuery]);
+
     const {
         config: { policiesConfig },
     } = useAppConfig();
@@ -166,7 +175,13 @@ export const PoliciesPage = () => {
         refetch: policiesRefetch,
     } = useListPoliciesQuery({
         fetchPolicy: 'no-cache',
-        variables: { input: { start, count: pageSize } },
+        variables: {
+            input: {
+                start,
+                count: pageSize,
+                query,
+            },
+        },
     });
 
     // Any time a policy is removed, edited, or created, refetch the list.
@@ -402,7 +417,9 @@ export const PoliciesPage = () => {
 
     return (
         <SearchablePage>
-            {policiesLoading && <Message type="loading" content="Loading policies..." style={{ marginTop: '10%' }} />}
+            {policiesLoading && !policiesData && (
+                <Message type="loading" content="Loading policies..." style={{ marginTop: '10%' }} />
+            )}
             {policiesError && message.error('Failed to load policies :(')}
             {updateError && message.error('Failed to update the Policy :(')}
             <PoliciesContainer>
@@ -420,6 +437,22 @@ export const PoliciesPage = () => {
                             <PlusOutlined /> Create new policy
                         </Button>
                     </div>
+                    <SearchBar
+                        initialQuery={query || ''}
+                        placeholderText="Search policies..."
+                        suggestions={[]}
+                        style={{
+                            maxWidth: 220,
+                            padding: 0,
+                        }}
+                        inputStyle={{
+                            height: 32,
+                            fontSize: 12,
+                        }}
+                        onSearch={() => null}
+                        onQueryChange={(q) => setQuery(q)}
+                        entityRegistry={entityRegistry}
+                    />
                 </TabToolbar>
                 <StyledTable
                     columns={tableColumns}

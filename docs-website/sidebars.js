@@ -289,6 +289,7 @@ module.exports = {
       "docs/deploy/aws",
       "docs/deploy/gcp",
       "docs/deploy/confluent-cloud",
+      "docs/deploy/telemetry",
       // Purposely not including the following:
       // - "docker/datahub-frontend/README",
       // - "docker/datahub-gms/README",
