@@ -77,7 +77,6 @@ jobs:
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
       - name: Build and Load Runner Platform image
-        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -96,7 +95,6 @@ jobs:
     needs: [setup, gms_build]
     steps:
       - name: Download image
-        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: ${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
@@ -111,25 +109,23 @@ jobs:
   gms_push:
     name: Build and Push DataHub GMS Docker Image
     runs-on: ubuntu-latest
-    needs: [gms_build, gms_scan, smoke_test]
+    needs: [setup, gms_build, gms_scan, smoke_test]
+    if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
       - name: Set up QEMU
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
       - name: Login to DockerHub
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Build and Push MultiPlatform image
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -160,7 +156,6 @@ jobs:
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
       - name: Build and Load Runner Platform image
-        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -179,7 +174,6 @@ jobs:
     needs: [setup,mae_consumer_build]
     steps:
       - name: Download image
-        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
@@ -194,25 +188,23 @@ jobs:
   mae_consumer_push:
     name: Push DataHub MAE Consumer Docker Image
     runs-on: ubuntu-latest
-    needs: [mae_consumer_build, mae_consumer_scan, smoke_test]
+    needs: [setup, mae_consumer_build, mae_consumer_scan, smoke_test]
+    if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
       - name: Set up QEMU
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
       - name: Login to DockerHub
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Build and Push MultiPlatform image
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -243,7 +235,6 @@ jobs:
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
       - name: Build and Load Runner Platform image
-        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -262,7 +253,6 @@ jobs:
     needs: [setup,mce_consumer_build]
     steps:
       - name: Download image
-        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
@@ -277,25 +267,23 @@ jobs:
   mce_consumer_push:
     name: Push DataHub MCE Consumer Docker Image
     runs-on: ubuntu-latest
-    needs: [mce_consumer_build, mce_consumer_scan, smoke_test]
+    needs: [setup, mce_consumer_build, mce_consumer_scan, smoke_test]
+    if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
       - name: Set up QEMU
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
       - name: Login to DockerHub
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Build and Push MultiPlatform image
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -326,7 +314,6 @@ jobs:
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
       - name: Build and Load Runner Platform image
-        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -345,7 +332,6 @@ jobs:
     needs: [setup, datahub_upgrade_build]
     steps:
       - name: Download image
-        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
@@ -360,25 +346,23 @@ jobs:
   datahub_upgrade_push:
     name: Build and Push DataHub Upgrade Docker Image
     runs-on: ubuntu-latest
-    needs: [datahub_upgrade_build, datahub_upgrade_scan, smoke_test]
+    needs: [setup, datahub_upgrade_build, datahub_upgrade_scan, smoke_test]
+    if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
       - name: Set up QEMU
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
       - name: Login to DockerHub
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
       - name: Build and Push MultiPlatform image
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -409,7 +393,6 @@ jobs:
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
       - name: Build and Load Runner Platform image
-        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -428,7 +411,6 @@ jobs:
     needs: [setup, frontend_build]
     steps:
       - name: Download image
-        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
@@ -443,25 +425,23 @@ jobs:
   frontend_push:
     name: Build and Push DataHub Frontend Docker Image
     runs-on: ubuntu-latest
-    needs: [frontend_build, frontend_scan, smoke_test]
+    needs: [setup, frontend_build, frontend_scan, smoke_test]
+    if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
       - name: Set up QEMU
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
       - name: Login to DockerHub
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Build and Push MultiPlatform image
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -492,7 +472,6 @@ jobs:
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
       - name: Build and Load Runner Platform image
-        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: docker/build-push-action@v2
         with:
           context: ./docker/kafka-setup
@@ -508,25 +487,23 @@ jobs:
   kafka_setup_push:
     name: Build and Push DataHub Kafka Setup Docker Image
     runs-on: ubuntu-latest
-    needs: [kafka_setup_build, smoke_test]
+    needs: [setup, kafka_setup_build, smoke_test]
+    if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
       - name: Set up QEMU
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
       - name: Login to DockerHub
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Build and Push MultiPlatform image
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/build-push-action@v2
         with:
           context: ./docker/kafka-setup
@@ -557,7 +534,6 @@ jobs:
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
       - name: Build and Load Runner Platform image
-        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -573,25 +549,23 @@ jobs:
   mysql_setup_push:
     name: Build and Push DataHub MySQL Setup Docker Image
     runs-on: ubuntu-latest
-    needs: [mysql_setup_build, smoke_test]
+    needs: [setup, mysql_setup_build, smoke_test]
+    if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
       - name: Set up QEMU
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
       - name: Login to DockerHub
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
       - name: Build and Push MultiPlatform image
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -622,7 +596,6 @@ jobs:
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
       - name: Build and Load Runner Platform image
-        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -638,25 +611,23 @@ jobs:
   elasticsearch_setup_push:
     name: Build and Push DataHub Elasticsearch Setup Docker Image
     runs-on: ubuntu-latest
-    needs: [elasticsearch_setup_build, smoke_test]
+    needs: [setup, elasticsearch_setup_build, smoke_test]
+    if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
       - name: Set up QEMU
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
       - name: Login to DockerHub
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Build and Push MultiPlatform image
-        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -684,27 +655,22 @@ jobs:
         run: |
           ./gradlew :metadata-ingestion:install
       - name: Download GMS image
-        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: ${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download Frontend image
-        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image:  ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download Kafka Setup image
-        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download Mysql Setup image
-        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: ${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download Elastic Setup image
-        if: ${{ needs.setup.outputs.publish != 'true' }}
         uses: ishworkh/docker-image-artifact-download@v1
         with:
           image: ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
