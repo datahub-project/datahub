@@ -92,7 +92,7 @@ jobs:
   gms_scan:
     name: "[Monitoring] Scan GMS images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [setup, gms_build]
+    needs: [gms_build]
     outputs:
       image_tag: ${{ needs.gms_build.outputs.image_tag }}
     steps:
@@ -111,8 +111,8 @@ jobs:
   gms_push:
     name: Build and Push DataHub GMS Docker Image
     runs-on: ubuntu-latest
-    needs: [setup, gms_scan, smoke_test]
-    if: ${{ needs.setup.outputs.publish == 'true' }}
+    needs: [gms_scan, smoke_test]
+    if: ${{ needs.smoke_test.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -173,7 +173,7 @@ jobs:
   mae_consumer_scan:
     name: "[Monitoring] Scan MAE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [setup,mae_consumer_build]
+    needs: [mae_consumer_build]
     outputs:
       image_tag: ${{ needs.mae_consumer_build.outputs.image_tag }}
     steps:
@@ -192,8 +192,8 @@ jobs:
   mae_consumer_push:
     name: Push DataHub MAE Consumer Docker Image
     runs-on: ubuntu-latest
-    needs: [setup, mae_consumer_scan, smoke_test]
-    if: ${{ needs.setup.outputs.publish == 'true' }}
+    needs: [mae_consumer_scan, smoke_test]
+    if: ${{ needs.smoke_test.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -254,7 +254,7 @@ jobs:
   mce_consumer_scan:
     name: "[Monitoring] Scan MCE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [setup,mce_consumer_build]
+    needs: [mce_consumer_build]
     outputs:
       image_tag: ${{ needs.mce_consumer_build.outputs.image_tag }}
     steps:
@@ -273,8 +273,8 @@ jobs:
   mce_consumer_push:
     name: Push DataHub MCE Consumer Docker Image
     runs-on: ubuntu-latest
-    needs: [setup, mce_consumer_scan, smoke_test]
-    if: ${{ needs.setup.outputs.publish == 'true' }}
+    needs: [mce_consumer_scan, smoke_test]
+    if: ${{ needs.smoke_test.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -335,7 +335,7 @@ jobs:
   datahub_upgrade_scan:
     name: "[Monitoring] Scan DataHub Upgrade images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [setup, datahub_upgrade_build]
+    needs: [datahub_upgrade_build]
     outputs:
       image_tag: ${{ needs.datahub_upgrade_build.outputs.image_tag }}
     steps:
@@ -354,8 +354,8 @@ jobs:
   datahub_upgrade_push:
     name: Build and Push DataHub Upgrade Docker Image
     runs-on: ubuntu-latest
-    needs: [setup, datahub_upgrade_scan, smoke_test]
-    if: ${{ needs.setup.outputs.publish == 'true' }}
+    needs: [datahub_upgrade_scan, smoke_test]
+    if: ${{ needs.smoke_test.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -416,7 +416,7 @@ jobs:
   frontend_scan:
     name: "[Monitoring] Scan Frontend images for vulnerabilities"
     runs-on: ubuntu-latest
-    needs: [setup, frontend_build]
+    needs: [frontend_build]
     outputs:
       image_tag: ${{ needs.frontend_build.outputs.image_tag }}
     steps:
@@ -435,8 +435,8 @@ jobs:
   frontend_push:
     name: Build and Push DataHub Frontend Docker Image
     runs-on: ubuntu-latest
-    needs: [setup, frontend_scan, smoke_test]
-    if: ${{ needs.setup.outputs.publish == 'true' }}
+    needs: [frontend_scan, smoke_test]
+    if: ${{ needs.smoke_test.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -497,8 +497,8 @@ jobs:
   kafka_setup_push:
     name: Build and Push DataHub Kafka Setup Docker Image
     runs-on: ubuntu-latest
-    needs: [setup, kafka_setup_build, smoke_test]
-    if: ${{ needs.setup.outputs.publish == 'true' }}
+    needs: [kafka_setup_build, smoke_test]
+    if: ${{ needs.smoke_test.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -559,8 +559,8 @@ jobs:
   mysql_setup_push:
     name: Build and Push DataHub MySQL Setup Docker Image
     runs-on: ubuntu-latest
-    needs: [setup, mysql_setup_build, smoke_test]
-    if: ${{ needs.setup.outputs.publish == 'true' }}
+    needs: [mysql_setup_build, smoke_test]
+    if: ${{ needs.smoke_test.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -621,8 +621,8 @@ jobs:
   elasticsearch_setup_push:
     name: Build and Push DataHub Elasticsearch Setup Docker Image
     runs-on: ubuntu-latest
-    needs: [setup, elasticsearch_setup_build, smoke_test]
-    if: ${{ needs.setup.outputs.publish == 'true' }}
+    needs: [elasticsearch_setup_build, smoke_test]
+    if: ${{ needs.smoke_test.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -649,6 +649,8 @@ jobs:
     name: Run Smoke Tests
     runs-on: ubuntu-latest
     needs: [setup,gms_build,frontend_build,kafka_setup_build,mysql_setup_build,elastic_setup_build]
+    outputs:
+      publish: ${{ needs.setup.outputs.publish }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
