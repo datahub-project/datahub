@@ -29,9 +29,6 @@ RUN cd datahub-src \
 FROM base as prod-install
 
 COPY --from=prod-build /datahub-frontend /datahub-frontend/
-COPY --from=prod-build /scripts /scripts/
-
-RUN chmod +x /scripts/start.sh
 RUN chown -R datahub:datahub /datahub-frontend && chmod 755 /datahub-frontend
 
 FROM base as dev-install
