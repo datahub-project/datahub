@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataflow.mappers;
 
+import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
@@ -14,6 +15,7 @@ import com.linkedin.datahub.graphql.generated.DataFlowProperties;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
@@ -65,6 +67,8 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
         mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
         mappingHelper.mapToResult(DEPRECATION_ASPECT_NAME, (dataFlow, dataMap) ->
             dataFlow.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
+        mappingHelper.mapToResult(DATA_PLATFORM_INSTANCE_ASPECT_NAME, (dataset, dataMap) ->
+            dataset.setDataPlatformInstance(DataPlatformInstanceAspectMapper.map(new DataPlatformInstance(dataMap))));
 
         return mappingHelper.getResult();
     }

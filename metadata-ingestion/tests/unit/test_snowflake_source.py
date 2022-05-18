@@ -88,3 +88,18 @@ def test_snowflake_uri_key_pair_authentication():
         == "snowflake://user@acctname/?authenticator=SNOWFLAKE_JWT&warehouse=COMPUTE_WH&role"
         "=sysadmin&application=acryl_datahub"
     )
+
+
+def test_options_contain_connect_args():
+    config = SnowflakeConfig.parse_obj(
+        {
+            "username": "user",
+            "password": "password",
+            "host_port": "acctname",
+            "database_pattern": {"allow": {"^demo$"}},
+            "warehouse": "COMPUTE_WH",
+            "role": "sysadmin",
+        }
+    )
+    connect_args = config.get_options().get("connect_args")
+    assert connect_args is not None

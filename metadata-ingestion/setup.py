@@ -23,7 +23,9 @@ def get_long_description():
 base_requirements = {
     # Compatability.
     "dataclasses>=0.6; python_version < '3.7'",
-    "typing_extensions>=3.10.0.2",
+    # Typing extension should be >=3.10.0.2 ideally but we can't restrict due to Airflow 2.0.2 dependency conflict
+    "typing_extensions>=3.7.4.3 ;  python_version < '3.8'",
+    "typing_extensions>=3.10.0.2 ;  python_version >= '3.8'",
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
@@ -67,11 +69,25 @@ kafka_common = {
     "fastavro>=1.2.0",
 }
 
+kafka_protobuf = (
+    {
+        "networkx>=2.6.2",
+        # Required to generate protobuf python modules from the schema downloaded from the schema registry
+        "grpcio==1.44.0",
+        "grpcio-tools==1.44.0",
+        "types-protobuf",
+    }
+    if is_py37_or_newer
+    else {
+        "types-protobuf",
+    }
+)
+
 sql_common = {
     # Required for all SQL sources.
     "sqlalchemy==1.3.24",
     # Required for SQL profiling.
-    "great-expectations>=0.14.11",
+    "great-expectations>=0.14.11,<0.15.3",
     # datahub does not depend on Jinja2 directly but great expectations does. With Jinja2 3.1.0 GE 0.14.11 is breaking
     "Jinja2<3.1.0",
     "greenlet",
@@ -181,9 +197,9 @@ plugins: Dict[str, Set[str]] = {
         # - 0.6.11 adds support for table comments and column comments,
         #   and also releases HTTP and HTTPS transport schemes
         # - 0.6.12 adds support for Spark Thrift Server
-        "acryl-pyhive[hive]>=0.6.12"
+        "acryl-pyhive[hive]>=0.6.13"
     },
-    "kafka": kafka_common,
+    "kafka": {*kafka_common, *kafka_protobuf},
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
@@ -203,6 +219,7 @@ plugins: Dict[str, Set[str]] = {
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
     "presto-on-hive": sql_common
     | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
+    "pulsar": {"requests"},
     "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.4"},
     "redshift": sql_common
     | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.4"},
@@ -305,7 +322,7 @@ base_dev_requirements = {
             "oracle",
             "postgres",
             "sagemaker",
-            "datahub-kafka",
+            "kafka",
             "datahub-rest",
             "redash",
             "redshift",
@@ -337,7 +354,7 @@ if is_py37_or_newer:
             for dependency in plugins[plugin]
         }
     )
-    
+
     # These plugins are compatible with Airflow 1.
     base_dev_requirements_airflow_1 = base_dev_requirements_airflow_1.union(
         {
@@ -449,6 +466,7 @@ entry_points = {
         "nifi = datahub.ingestion.source.nifi:NifiSource",
         "powerbi = datahub.ingestion.source.powerbi:PowerBiDashboardSource",
         "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
+        "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",

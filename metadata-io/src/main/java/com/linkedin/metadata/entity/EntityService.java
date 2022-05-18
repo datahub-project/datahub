@@ -12,13 +12,16 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePaths;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
+import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.common.urn.VersionedUrnUtils;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
+import com.linkedin.entity.AspectType;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -35,12 +38,10 @@ import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.search.utils.BrowsePathUtils;
 import com.linkedin.metadata.snapshot.Snapshot;
-import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
-import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -160,6 +161,7 @@ public class EntityService {
    * @param aspectNames aspects to fetch for each urn in urns set
    * @return a map of provided {@link Urn} to a List containing the requested aspects.
    */
+  @Nonnull
   public Map<Urn, List<RecordTemplate>> getLatestAspects(
       @Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames) {
@@ -259,11 +261,30 @@ public class EntityService {
    * @param aspectNames set of aspects to fetch
    * @return a map of {@link Urn} to {@link Entity} object
    */
+  @Nonnull
   public Map<Urn, EntityResponse> getEntitiesV2(
       @Nonnull final String entityName,
       @Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames) throws URISyntaxException {
     return getLatestEnvelopedAspects(entityName, urns, aspectNames)
+        .entrySet()
+        .stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> toEntityResponse(entry.getKey(), entry.getValue())));
+  }
+
+  /**
+   * Retrieves the aspects for the given set of urns and versions as dynamic aspect objects
+   * (Without having to define union objects)
+   *
+   * @param versionedUrns set of urns to fetch with versions of aspects specified in a specialized string
+   * @param aspectNames set of aspects to fetch
+   * @return a map of {@link Urn} to {@link Entity} object
+   */
+  @Nonnull
+  public Map<Urn, EntityResponse> getEntitiesVersionedV2(
+      @Nonnull final Set<VersionedUrn> versionedUrns,
+      @Nonnull final Set<String> aspectNames) throws URISyntaxException {
+    return getVersionedEnvelopedAspects(versionedUrns, aspectNames)
         .entrySet()
         .stream()
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> toEntityResponse(entry.getKey(), entry.getValue())));
@@ -277,6 +298,7 @@ public class EntityService {
    * @param aspectNames set of aspects to fetch
    * @return a map of {@link Urn} to {@link EnvelopedAspect} object
    */
+  @Nonnull
   public Map<Urn, List<EnvelopedAspect>> getLatestEnvelopedAspects(
       // TODO: entityName is unused, can we remove this as a param?
       @Nonnull String entityName,
@@ -290,27 +312,47 @@ public class EntityService {
         .flatMap(List::stream)
         .collect(Collectors.toSet());
 
-    final Map<EntityAspectIdentifier, EnvelopedAspect> envelopedAspectMap = getEnvelopedAspects(dbKeys);
+    return getCorrespondingAspects(dbKeys, urns);
+  }
 
-    // Group result by Urn
-    final Map<String, List<EnvelopedAspect>> urnToAspects = envelopedAspectMap.entrySet()
-        .stream()
-        .collect(Collectors.groupingBy(entry -> entry.getKey().getUrn(),
-            Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
+  /**
+   * Retrieves the latest aspects for the given set of urns as a list of enveloped aspects
+   *
+   * @param versionedUrns set of urns to fetch with versions of aspects specified in a specialized string
+   * @param aspectNames set of aspects to fetch
+   * @return a map of {@link Urn} to {@link EnvelopedAspect} object
+   */
+  public Map<Urn, List<EnvelopedAspect>> getVersionedEnvelopedAspects(
+      @Nonnull Set<VersionedUrn> versionedUrns,
+      @Nonnull Set<String> aspectNames) throws URISyntaxException {
 
-    // For each input urn, get the aspects corresponding to the urn. If empty, return the key aspect
-    final Map<Urn, List<EnvelopedAspect>> result = new HashMap<>();
-    for (Urn urn : urns) {
-      List<EnvelopedAspect> aspects = urnToAspects.getOrDefault(urn.toString(), Collections.emptyList());
-      EnvelopedAspect keyAspect = getKeyEnvelopedAspect(urn);
-      // Add key aspect if it does not exist in the returned aspects
-      if (aspects.isEmpty() || aspects.stream().noneMatch(aspect -> keyAspect.getName().equals(aspect.getName()))) {
-        result.put(urn, ImmutableList.<EnvelopedAspect>builder().addAll(aspects).add(keyAspect).build());
-      } else {
-        result.put(urn, aspects);
-      }
-    }
-    return result;
+    Map<String, Map<String, Long>> urnAspectVersionMap = versionedUrns.stream()
+        .collect(Collectors.toMap(versionedUrn -> versionedUrn.getUrn().toString(),
+            versionedUrn -> VersionedUrnUtils.convertVersionStamp(versionedUrn.getVersionStamp())));
+
+    // Cover full/partial versionStamp
+    final Set<EntityAspectIdentifier> dbKeys = urnAspectVersionMap.entrySet().stream()
+        .filter(entry -> !entry.getValue().isEmpty())
+        .map(entry -> aspectNames.stream()
+            .filter(aspectName -> entry.getValue().containsKey(aspectName))
+            .map(aspectName -> new EntityAspectIdentifier(entry.getKey(), aspectName,
+                entry.getValue().get(aspectName)))
+            .collect(Collectors.toList()))
+        .flatMap(List::stream)
+        .collect(Collectors.toSet());
+
+    // Cover empty versionStamp
+    dbKeys.addAll(urnAspectVersionMap.entrySet().stream()
+        .filter(entry -> entry.getValue().isEmpty())
+        .map(entry -> aspectNames.stream()
+            .map(aspectName -> new EntityAspectIdentifier(entry.getKey(), aspectName, 0L))
+            .collect(Collectors.toList()))
+        .flatMap(List::stream)
+        .collect(Collectors.toSet()));
+
+    return getCorrespondingAspects(dbKeys, versionedUrns.stream()
+        .map(versionedUrn -> versionedUrn.getUrn().toString())
+        .map(UrnUtils::getUrn).collect(Collectors.toSet()));
   }
 
   /**
@@ -332,6 +374,32 @@ public class EntityService {
         .orElse(null);
   }
 
+  @Nonnull
+  private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspectIdentifier> dbKeys, Set<Urn> urns)
+      throws URISyntaxException {
+
+    final Map<EntityAspectIdentifier, EnvelopedAspect> envelopedAspectMap = getEnvelopedAspects(dbKeys);
+
+    // Group result by Urn
+    final Map<String, List<EnvelopedAspect>> urnToAspects = envelopedAspectMap.entrySet()
+        .stream()
+        .collect(Collectors.groupingBy(entry -> entry.getKey().getUrn(),
+            Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
+
+    final Map<Urn, List<EnvelopedAspect>> result = new HashMap<>();
+    for (Urn urn : urns) {
+      List<EnvelopedAspect> aspects = urnToAspects.getOrDefault(urn.toString(), Collections.emptyList());
+      EnvelopedAspect keyAspect = getKeyEnvelopedAspect(urn);
+      // Add key aspect if it does not exist in the returned aspects
+      if (aspects.isEmpty() || aspects.stream().noneMatch(aspect -> keyAspect.getName().equals(aspect.getName()))) {
+        result.put(urn, ImmutableList.<EnvelopedAspect>builder().addAll(aspects).add(keyAspect).build());
+      } else {
+        result.put(urn, aspects);
+      }
+    }
+    return result;
+  }
+
   /**
    * Retrieves the specific version of the aspect for the given urn
    *
@@ -341,11 +409,13 @@ public class EntityService {
    * @return {@link EnvelopedAspect} object, or null if one cannot be found
    */
   public EnvelopedAspect getEnvelopedAspect(
+      // TODO: entityName is only used for a debug statement, can we remove this as a param?
+      @Nonnull String entityName,
       @Nonnull Urn urn,
       @Nonnull String aspectName,
       long version) throws Exception {
     log.debug(String.format("Invoked getEnvelopedAspect with entityName: %s, urn: %s, aspectName: %s, version: %s",
-        urn.getEntityType(),
+        entityName,
         urn,
         aspectName,
         version));
@@ -442,7 +512,7 @@ public class EntityService {
     return ingestAspectsToLocalDB(urn, aspectRecordsToIngest, auditStamp, providedSystemMetadata);
   }
 
-  private void validateAspect(Urn urn, RecordTemplate aspect) {
+  private void validateAspect(@Nonnull Urn urn, RecordTemplate aspect) {
     EntityRegistryUrnValidator validator = new EntityRegistryUrnValidator(_entityRegistry);
     validator.setCurrentEntitySpec(_entityRegistry.getEntitySpec(urn.getEntityType()));
     RecordTemplateValidator.validate(aspect, validationResult -> {
@@ -751,6 +821,7 @@ public class EntityService {
    * @param start the start offset
    * @param count the count
    */
+  @Nonnull
   public ListUrnsResult listUrns(@Nonnull final String entityName, final int start, final int count) {
     log.debug("Invoked listUrns with entityName: {}, start: {}, count: {}", entityName, start, count);
 
@@ -1287,10 +1358,15 @@ public class EntityService {
             // soft delete by setting status.removed=true (if applicable)
             final Status statusAspect = new Status();
             statusAspect.setRemoved(true);
-            final SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
-            final AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
 
-            this.ingestAspect(entityUrn, Constants.STATUS_ASPECT_NAME, statusAspect, auditStamp, systemMetadata);
+            final MetadataChangeProposal gmce = new MetadataChangeProposal();
+            gmce.setEntityUrn(entityUrn);
+            gmce.setChangeType(ChangeType.UPSERT);
+            gmce.setEntityType(entityUrn.getEntityType());
+            gmce.setAspectName(Constants.STATUS_ASPECT_NAME);
+            gmce.setAspect(GenericRecordUtils.serializeAspect(statusAspect));
+            final AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+            this.ingestProposal(gmce, auditStamp);
           }
         } else {
           // Else, only delete the specific aspect.
@@ -1403,6 +1479,9 @@ public class EntityService {
       final EnvelopedAspect envelopedAspect = new EnvelopedAspect();
       envelopedAspect.setName(currAspectEntry.getAspect());
       envelopedAspect.setVersion(currAspectEntry.getVersion());
+      // TODO: I think we can assume this here, adding as it's a required field so object mapping barfs when trying to access it,
+      //    since nowhere else is using it should be safe for now at least
+      envelopedAspect.setType(AspectType.VERSIONED);
       envelopedAspect.setValue(aspect);
       envelopedAspect.setCreated(new AuditStamp()
           .setActor(Urn.createFromString(currAspectEntry.getCreatedBy()))
@@ -1424,6 +1503,9 @@ public class EntityService {
     envelopedAspect.setName(keySpec.getName());
     envelopedAspect.setVersion(ASPECT_LATEST_VERSION);
     envelopedAspect.setValue(aspect);
+    // TODO: I think we can assume this here, adding as it's a required field so object mapping barfs when trying to access it,
+    //    since nowhere else is using it should be safe for now at least
+    envelopedAspect.setType(AspectType.VERSIONED);
     envelopedAspect.setCreated(
         new AuditStamp().setActor(Urn.createFromString(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()));
 

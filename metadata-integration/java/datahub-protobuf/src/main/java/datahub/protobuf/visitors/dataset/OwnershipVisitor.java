@@ -15,13 +15,15 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
 
+import static datahub.protobuf.ProtobufUtils.getMessageOptions;
+
 public class OwnershipVisitor implements ProtobufModelVisitor<Owner> {
 
     @Override
     public Stream<Owner> visitGraph(VisitContext context) {
-        return ProtobufExtensionUtil.filterByDataHubType(context.root().messageProto()
-                        .getOptions().getAllFields(), context.getGraph().getRegistry(), ProtobufExtensionUtil.DataHubMetadataType.OWNER)
-                .entrySet().stream()
+        return ProtobufExtensionUtil.filterByDataHubType(getMessageOptions(context.root().messageProto()), context.getGraph().getRegistry(),
+                        ProtobufExtensionUtil.DataHubMetadataType.OWNER)
+                .stream()
                 .flatMap(extEntry -> {
                     if (extEntry.getKey().isRepeated()) {
                         return ((Collection<String>) extEntry.getValue()).stream().map(v -> Map.entry(extEntry.getKey(), v));

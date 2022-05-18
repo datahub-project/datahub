@@ -57,7 +57,6 @@ class Source(Closeable, metaclass=ABCMeta):
     ctx: PipelineContext
 
     @classmethod
-    @abstractmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
         pass
 

@@ -21,6 +21,7 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
 
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
+  private static final String DEFAULT_QUERY = "";
 
   private final PolicyFetcher _policyFetcher;
 
@@ -37,12 +38,13 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
       final ListPoliciesInput input = bindArgument(environment.getArgument("input"), ListPoliciesInput.class);
       final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
       final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
+      final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
       return CompletableFuture.supplyAsync(() -> {
         try {
           // First, get all policy Urns.
           final PolicyFetcher.PolicyFetchResult policyFetchResult =
-              _policyFetcher.fetchPolicies(start, count, context.getAuthentication());
+              _policyFetcher.fetchPolicies(start, count, query, context.getAuthentication());
 
           // Now that we have entities we can bind this to a result.
           final ListPoliciesResult result = new ListPoliciesResult();

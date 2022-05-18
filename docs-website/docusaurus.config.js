@@ -71,6 +71,11 @@ module.exports = {
           position: "right",
         },
         {
+          href: "http://metadataday.datahubproject.io/",
+          label: "Metadata Day 2022",
+          position: "right",
+        },
+        {
           href: "https://slack.datahubproject.io",
           "aria-label": "Slack",
           position: "right",
