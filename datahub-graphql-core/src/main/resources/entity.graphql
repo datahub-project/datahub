@@ -3154,6 +3154,11 @@ type GlossaryTermAssociation {
     The glossary term itself
     """
     term: GlossaryTerm!
+
+    """
+    The actor who is responsible for the term being added"
+    """
+    actor: CorpUser
 }
 
 """

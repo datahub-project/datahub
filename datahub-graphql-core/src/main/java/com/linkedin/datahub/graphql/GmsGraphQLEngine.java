@@ -36,6 +36,7 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipLegacy;
 import com.linkedin.datahub.graphql.generated.ForeignKeyConstraint;
+import com.linkedin.datahub.graphql.generated.GlossaryTermAssociation;
 import com.linkedin.datahub.graphql.generated.GlossaryTermProposalParams;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
 import com.linkedin.datahub.graphql.generated.LineageRelationship;
@@ -655,6 +656,14 @@ public class GmsGraphQLEngine {
 
     private void configureGenericEntityResolvers(final RuntimeWiring.Builder builder) {
         builder
+            .type("GlossaryTermAssociation", typeWiring -> typeWiring
+                .dataFetcher("actor", new LoadableTypeResolver<>(corpUserType,
+                    (env) -> {
+                        final GlossaryTermAssociation association = env.getSource();
+                        return association.getActor() != null ? association.getActor().getUrn() : null;
+                    }
+                ))
+            )
             .type("SearchResult", typeWiring -> typeWiring
                 .dataFetcher("entity", new EntityTypeResolver(entityTypes,
                     (env) -> ((SearchResult) env.getSource()).getEntity()))

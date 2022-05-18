@@ -20,6 +20,9 @@ fragment glossaryTerms on GlossaryTerms {
                 name
             }
         }
+        actor {
+            urn
+        }
     }
 }
 

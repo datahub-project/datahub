@@ -21,6 +21,12 @@ import { TagProfileDrawer } from './TagProfileDrawer';
 import { useAcceptProposalMutation, useRejectProposalMutation } from '../../../graphql/actionRequest.generated';
 import ProposalModal from './ProposalModal';
 
+const StyledLabel = styled(Tag)<{ isPropagated: boolean }>`
+    ${(props) =>
+        props.isPropagated &&
+        '&&& { -webkit-box-shadow: 0px 0px 5px 1px rgba(0, 143, 100, 0.95); -moz-box-shadow: 0px 0px 5px 1px rgba(0, 143, 100, 0.95); box-shadow: 0px 0px 5px 1px rgba(0, 143, 100, 0.95); }'}
+`;
+
 type Props = {
     uneditableTags?: GlobalTags | null;
     editableTags?: GlobalTags | null;
@@ -71,6 +77,8 @@ const ProposedTerm = styled(Tag)`
     opacity: 0.7;
     border-style: dashed;
 `;
+
+const PROPAGATOR_URN = 'urn:li:corpuser:__datahub_propagator';
 
 export default function TagTermGroup({
     uneditableTags,
@@ -253,16 +261,17 @@ export default function TagTermGroup({
                         to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
                         key={term.term.urn}
                     >
-                        <Tag closable={false}>
+                        <StyledLabel isPropagated={term.actor?.urn === PROPAGATOR_URN} closable={false}>
                             <BookOutlined style={{ marginRight: '3%' }} />
                             {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
-                        </Tag>
+                        </StyledLabel>
                     </TermLink>
                 );
             })}
             {editableGlossaryTerms?.terms?.map((term) => (
                 <TermLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
-                    <Tag
+                    <StyledLabel
+                        isPropagated={term.actor?.urn === PROPAGATOR_URN}
                         closable={canRemove}
                         onClose={(e) => {
                             e.preventDefault();
@@ -271,7 +280,7 @@ export default function TagTermGroup({
                     >
                         <BookOutlined style={{ marginRight: '3%' }} />
                         {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
-                    </Tag>
+                    </StyledLabel>
                 </TermLink>
             ))}
             {proposedGlossaryTerms?.map((actionRequest) => (
