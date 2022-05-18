@@ -517,7 +517,7 @@ jobs:
     needs: setup
     outputs:
       image_tag: ${{ steps.docker_meta.outputs.tags }}
-      image_name: ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}
+      image_name: ${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -529,7 +529,7 @@ jobs:
         with:
           # list of Docker images to use as base name for tags
           images: |
-            ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}
+            ${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
@@ -579,7 +579,7 @@ jobs:
     needs: setup
     outputs:
       image_tag: ${{ steps.docker_meta.outputs.tags }}
-      image_name: ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}
+      image_name: ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@v2
@@ -591,7 +591,7 @@ jobs:
         with:
           # list of Docker images to use as base name for tags
           images: |
-            ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}
+            ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
