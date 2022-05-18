@@ -30,7 +30,7 @@ def _make_curl_command(
         *itertools.chain(
             *[
                 ("-X", method),
-                *[("-H", f"{k}: {v}") for (k, v) in session.headers.items()],
+                *[("-H", f"{k!s}: {v!s}") for (k, v) in session.headers.items()],
                 ("--data", payload),
             ]
         ),
