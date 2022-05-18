@@ -30,7 +30,14 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 
-public class EbeanEntityServiceTest extends EntityServiceTestBase<EbeanAspectDao, EbeanRetentionService> {
+/**
+ * A class that knows how to configure {@link EntityServiceTest} to run integration tests against a relational database.
+ *
+ * This class also contains all the test methods where realities of an underlying storage leak into the
+ * {@link EntityService} in the form of subtle behavior differences. Ideally that should never happen, and it'd be
+ * great to address captured differences.
+ */
+public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, EbeanRetentionService> {
 
   public EbeanEntityServiceTest() throws EntityRegistryException {
   }

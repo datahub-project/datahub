@@ -29,7 +29,14 @@ import java.util.stream.Collectors;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 
-public class CassandraTimelineServiceTest extends TimelineServiceTestBase<CassandraAspectDao> {
+/**
+ * A class that knows how to configure {@link TimelineServiceTest} to run integration tests against a Cassandra database.
+ *
+ * This class also contains all the test methods where realities of an underlying storage leak into the
+ * {@link TimelineServiceImpl} in the form of subtle behavior differences. Ideally that should never happen, and it'd be
+ * great to address captured differences.
+ */
+public class CassandraTimelineServiceTest extends TimelineServiceTest<CassandraAspectDao> {
 
   private CassandraContainer _cassandraContainer;
   private static final String KEYSPACE_NAME = "test";
