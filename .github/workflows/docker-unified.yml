@@ -122,7 +122,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@acryl-main
+        uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
           format: 'table'
@@ -182,7 +182,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@acryl-main
+        uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
           format: 'table'
@@ -241,7 +241,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@acryl-main
+        uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
           format: 'table'
@@ -300,7 +300,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@acryl-main
+        uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
           format: 'table'
@@ -374,7 +374,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@acryl-main
+        uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
           format: 'table'
