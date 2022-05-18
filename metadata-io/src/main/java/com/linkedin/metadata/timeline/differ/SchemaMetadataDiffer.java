@@ -13,6 +13,8 @@ import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
 import com.linkedin.metadata.timeline.data.dataset.DatasetSchemaFieldChangeEvent;
+import com.linkedin.metadata.timeline.data.dataset.schema.DatasetPlatformChangeEvent;
+import com.linkedin.metadata.timeline.data.dataset.schema.DatasetSchemaNameChangeEvent;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaFieldArray;
 import com.linkedin.schema.SchemaMetadata;
@@ -369,26 +371,36 @@ public class SchemaMetadataDiffer implements AspectDiffer<SchemaMetadata> {
           .build();
   }
 
-  private static ChangeEvent getIncompatibleChangeEvent(SchemaMetadata baseSchema, SchemaMetadata targetSchema,
-      AuditStamp auditStamp) {
+  private static List<ChangeEvent> getIncompatibleChangeEvents(SchemaMetadata baseSchema, SchemaMetadata targetSchema,
+      String datasetUrn) {
+    List<ChangeEvent> changeEvents = new ArrayList<>();
     if (baseSchema != null && targetSchema != null) {
       if (!baseSchema.getPlatform().equals(targetSchema.getPlatform())) {
-        return ChangeEvent.builder()
-            .semVerChange(SemanticChangeType.EXCEPTIONAL)
-            .description("Incompatible schema types," + baseSchema.getPlatform() + ", " + targetSchema.getPlatform())
-            .auditStamp(auditStamp)
-            .build();
+        changeEvents.add(DatasetPlatformChangeEvent.datasetPlatformChangeEventBuilder()
+            .category(ChangeCategory.TECHNICAL_SCHEMA)
+            .modifier(targetSchema.getPlatform().toString())
+            .entityUrn(datasetUrn)
+            .operation(ChangeOperation.MODIFY)
+            .semVerChange(SemanticChangeType.MAJOR)
+            .description(String.format("%s the platform being changed from '%s' to '%s'.", BACKWARDS_INCOMPATIBLE_DESC,
+                baseSchema.getPlatform(), targetSchema.getPlatform()))
+            .platform(baseSchema.getPlatform())
+            .build());
       }
-      if (!baseSchema.getSchemaName().equals(targetSchema.getSchemaName())) {
-        return ChangeEvent.builder()
-            .semVerChange(SemanticChangeType.EXCEPTIONAL)
-            .description(
-                "Schema names are not same," + baseSchema.getSchemaName() + ", " + targetSchema.getSchemaName())
-            .auditStamp(auditStamp)
-            .build();
+      if (!StringUtils.equals(baseSchema.getSchemaName(), targetSchema.getSchemaName())) {
+        changeEvents.add(DatasetSchemaNameChangeEvent.datasetSchemaChangeEventBuilder()
+            .category(ChangeCategory.TECHNICAL_SCHEMA)
+            .modifier(targetSchema.getSchemaName())
+            .entityUrn(datasetUrn)
+            .operation(ChangeOperation.MODIFY)
+            .semVerChange(SemanticChangeType.MAJOR)
+            .description(String.format("%s the schema name being changed from '%s' to '%s'.", BACKWARDS_INCOMPATIBLE_DESC,
+                baseSchema.getSchemaName(), targetSchema.getSchemaName()))
+            .schemaName(baseSchema.getSchemaName())
+            .build());
       }
     }
-    return null;
+    return changeEvents;
   }
 
   @SuppressWarnings("ConstantConditions")
@@ -456,16 +468,15 @@ public class SchemaMetadataDiffer implements AspectDiffer<SchemaMetadata> {
     SchemaMetadata targetSchema = getSchemaMetadataFromAspect(currentValue);
     assert (targetSchema != null);
     List<ChangeEvent> changeEvents = new ArrayList<>();
-    ChangeEvent incompatibleChangeEvent = getIncompatibleChangeEvent(baseSchema, targetSchema, null);
-    if (incompatibleChangeEvent != null) {
-      changeEvents.add(incompatibleChangeEvent);
-    } else {
-      try {
-        changeEvents.addAll(
-            computeDiffs(baseSchema, targetSchema, DatasetUrn.createFromString(currentValue.getUrn()), changeCategory, null));
-      } catch (URISyntaxException e) {
-        throw new IllegalArgumentException("Malformed DatasetUrn " + currentValue.getUrn());
-      }
+    List<ChangeEvent> incompatibleChangeEvents = getIncompatibleChangeEvents(baseSchema, targetSchema, currentValue.getUrn());
+    if (!incompatibleChangeEvents.isEmpty()) {
+      changeEvents.addAll(incompatibleChangeEvents);
+    }
+    try {
+      changeEvents.addAll(
+          computeDiffs(baseSchema, targetSchema, DatasetUrn.createFromString(currentValue.getUrn()), changeCategory, null));
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("Malformed DatasetUrn " + currentValue.getUrn());
     }
 
     // Assess the highest change at the transaction(schema) level.
