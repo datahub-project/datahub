@@ -10,17 +10,22 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.datahub.upgrade.UpgradeUtils;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.datahub.upgrade.propagate.comparator.EntityMatcher;
 import com.linkedin.datahub.upgrade.propagate.comparator.SchemaBasedMatcher;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -30,6 +35,7 @@ import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaField;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -55,6 +61,8 @@ public class PropagateTermsStep implements UpgradeStep {
   private final EntityFetcher _entityFetcher;
 
   private static final Urn PROPAGATION_ACTOR = UrnUtils.getUrn("urn:li:corpuser:__datahub_propagator");
+  private static final String CRITERIA_DELIMITER = ";";
+  private static final String KEY_VALUE_DELIMITER = "-";
 
   public PropagateTermsStep(EntityService entityService, EntitySearchService entitySearchService) {
     _entityService = entityService;
@@ -81,12 +89,13 @@ public class PropagateTermsStep implements UpgradeStep {
 
       context.report().addLine(String.format("Starting term propagation (Run ID: %s)...", runId));
 
-//      Optional<String> sourceFilter = context.parsedArgs().get("SOURCE_FILTER");
-//      if (!sourceFilter.isPresent()) {
-//        context.report().addLine("Missing required arguments. This job requires SOURCE_FILTER");
-//        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
-//      }
-      Filter sourceFilter = QueryUtils.newFilter("platform.keyword", "urn:li:dataPlatform:postgres");
+      List<String> sourceFiltersStr = UpgradeUtils.parseListArgs(context.args(), "SOURCE_FILTER");
+      if (sourceFiltersStr.isEmpty()) {
+        context.report()
+            .addLine("Missing required arguments. This job requires at least one instance of SOURCE_FILTER argument");
+        return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+      }
+      Filter sourceFilter = buildFilter(sourceFiltersStr);
 
       context.report().addLine("Fetching source entities to propagate from");
 
@@ -106,21 +115,49 @@ public class PropagateTermsStep implements UpgradeStep {
       context.report().addLine("Fetching all other entities");
 
       int batch = 1;
+      int numAspectsProduced = 0;
       context.report().addLine(String.format("Fetching batch %d", batch));
       ScrollResult scrollResult =
           _entitySearchService.scroll(Constants.DATASET_ENTITY_NAME, null, null, 1000, null, "1m");
       while (scrollResult.getEntities().size() > 0) {
         context.report().addLine(String.format("Processing batch %d", batch));
-        processBatch(scrollResult, sourceEntityDetails, runId);
+        int numAspectsProducedInBatch = processBatch(scrollResult, sourceEntityDetails, runId);
+        numAspectsProduced += numAspectsProducedInBatch;
         batch++;
         context.report().addLine(String.format("Fetching batch %d", batch));
         scrollResult =
             _entitySearchService.scroll(Constants.DATASET_ENTITY_NAME, null, null, 1000, scrollResult.getScrollId(),
                 "1m");
       }
+      context.report().addLine(String.format("Batch %d is empty. Finishing job.", batch));
+
+      context.report()
+          .addLine(
+              String.format("Finished term propagation (Run ID: %s). Ingested %d aspects", runId, numAspectsProduced));
 
       return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);
     };
+  }
+
+  // Convert a list of source filters into a Filter object
+  // Each source filter is combined conjunctively (or operation)
+  // Each filter needs to be of format key1-value1;key2-value2 (each key-value pair is applied with an and operation)
+  private Filter buildFilter(List<String> sourceFilters) {
+    ConjunctiveCriterionArray conjunctiveCriteria = new ConjunctiveCriterionArray();
+    for (String sourceFilter : sourceFilters) {
+      List<String> criteriaStr = Arrays.asList(sourceFilter.split(CRITERIA_DELIMITER));
+      CriterionArray criteria = new CriterionArray();
+      for (String criterion : criteriaStr) {
+        List<String> keyValue = Arrays.asList(criterion.split(KEY_VALUE_DELIMITER, 2));
+        if (keyValue.size() != 2) {
+          throw new IllegalArgumentException(
+              String.format("Invalid source filter %s. Needs to be of format key1-value1;key2-value2", sourceFilter));
+        }
+        criteria.add(QueryUtils.newCriterion(keyValue.get(0) + ESUtils.KEYWORD_SUFFIX, keyValue.get(1)));
+      }
+      conjunctiveCriteria.add(new ConjunctiveCriterion().setAnd(criteria));
+    }
+    return new Filter().setOr(conjunctiveCriteria);
   }
 
   private String createRunId() {
@@ -153,7 +190,8 @@ public class PropagateTermsStep implements UpgradeStep {
         .anyMatch(e -> true);
   }
 
-  private void processBatch(@Nonnull ScrollResult scrollResult, @Nonnull Map<Urn, EntityDetails> sourceEntityDetails,
+  // Process batch of entities and return number of aspects ingested as a result
+  private int processBatch(@Nonnull ScrollResult scrollResult, @Nonnull Map<Urn, EntityDetails> sourceEntityDetails,
       @Nonnull String runId) {
     Set<Urn> batch = scrollResult.getEntities()
         .stream()
@@ -161,6 +199,8 @@ public class PropagateTermsStep implements UpgradeStep {
         .filter(entity -> !sourceEntityDetails.containsKey(entity))
         .collect(Collectors.toSet());
     log.info("Fetching schema for batch of {} urns", batch.size());
+    int numMatched = 0;
+    int numProduced = 0;
 
     Map<Urn, EntityDetails> entityDetails = _entityFetcher.fetchSchema(batch);
     for (Urn destUrn : entityDetails.keySet()) {
@@ -170,18 +210,27 @@ public class PropagateTermsStep implements UpgradeStep {
       if (matchResult == null) {
         continue;
       }
-      processMatch(destinationEntity, matchResult, runId);
+      numMatched++;
+      boolean producedAspect = processMatch(destinationEntity, matchResult, runId);
+      if (producedAspect) {
+        numProduced++;
+      }
     }
+
+    log.info("Among {} entities in this batch {} entities had a match, and produced {} editable schema aspects",
+        batch.size(), numMatched, numProduced);
+    return numProduced;
   }
 
-  private void processMatch(@Nonnull EntityDetails destinationEntity,
+  // Process matched result. Return true if it produces a new editable schema metadata
+  private boolean processMatch(@Nonnull EntityDetails destinationEntity,
       @Nonnull EntityMatcher.EntityMatchResult entityMatchResult, @Nonnull String runId) {
-    log.info("Processing match for source {} destination {}", entityMatchResult.getMatchedEntity().getUrn(),
+    log.debug("Processing match for source {} destination {}", entityMatchResult.getMatchedEntity().getUrn(),
         destinationEntity.getUrn());
     if (entityMatchResult.getMatchingFields().isEmpty()) {
-      log.info("No matching fields for source {} destination {}", entityMatchResult.getMatchedEntity().getUrn(),
+      log.debug("No matching fields for source {} destination {}", entityMatchResult.getMatchedEntity().getUrn(),
           destinationEntity.getUrn());
-      return;
+      return false;
     }
 
     Map<String, Set<Urn>> sourceFieldGlossaryTerms = getGlossaryTermsForEachField(entityMatchResult.getMatchedEntity());
@@ -194,14 +243,17 @@ public class PropagateTermsStep implements UpgradeStep {
     sourceFieldGlossaryTerms.values().removeIf(Set::isEmpty);
 
     if (sourceFieldGlossaryTerms.isEmpty()) {
-      log.info("No terms to propagate for source {} destination {}", entityMatchResult.getMatchedEntity().getUrn(),
+      log.debug("No terms to propagate for source {} destination {}", entityMatchResult.getMatchedEntity().getUrn(),
           destinationEntity.getUrn());
-      return;
+      return false;
     }
-    AuditStamp auditStamp = new AuditStamp().setActor(PROPAGATION_ACTOR).setTime(System.currentTimeMillis());
+    AuditStamp auditStamp = new AuditStamp().setActor(PROPAGATION_ACTOR)
+        .setTime(System.currentTimeMillis())
+        .setMessage(String.format("Propagated from %s", entityMatchResult.getMatchedEntity().getUrn()));
     EditableSchemaMetadata aspectToPush =
         buildSchemaMetadata(destinationEntity.getEditableSchemaMetadata(), sourceFieldGlossaryTerms, auditStamp);
     produceEditableSchemaMetadataProposal(destinationEntity.getUrn(), aspectToPush, runId, auditStamp);
+    return true;
   }
 
   private Map<String, Set<Urn>> getGlossaryTermsForEachField(EntityDetails entityDetails) {
@@ -292,7 +344,7 @@ public class PropagateTermsStep implements UpgradeStep {
     proposal.setAspect(GenericRecordUtils.serializeAspect(editableSchemaMetadata));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    SystemMetadata systemMetadata = new SystemMetadata().setRunId(runId);
+    SystemMetadata systemMetadata = new SystemMetadata().setRunId(runId).setLastObserved(System.currentTimeMillis());
     proposal.setSystemMetadata(systemMetadata);
 
     _entityService.ingestProposal(proposal, auditStamp);
