@@ -1,4 +1,4 @@
-# see https://datahubproject.io/docs/metadata-ingestion/source_docs/feast for complete documentation
+# see https://datahubproject.io/docs/generated/ingestion/sources/feast for complete documentation
 source:
   type: feast
   config:
