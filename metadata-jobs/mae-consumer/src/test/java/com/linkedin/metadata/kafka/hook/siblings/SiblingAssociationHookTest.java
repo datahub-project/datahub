@@ -43,7 +43,7 @@ public class SiblingAssociationHookTest {
   }
 
   @Test
-  public void testInvokeWhenThereIsAPair() throws Exception {
+  public void testInvokeWhenThereIsAPairBetweenDbtAndSource() throws Exception {
     SearchResult returnSearchResult = new SearchResult();
     SearchEntityArray returnEntityArray = new SearchEntityArray();
     SearchEntity returnArrayValue = new SearchEntity();
@@ -58,6 +58,93 @@ public class SiblingAssociationHookTest {
         _mockSearchService.search(
             anyString(), anyString(), any(), any(), anyInt(), anyInt(), any()
         )).thenReturn(returnSearchResult);
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(DATASET_PROPERTIES_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    final DatasetProperties dbtProperties = new DatasetProperties();
+    dbtProperties.setName("dbt display name");
+    dbtProperties.setTags(new StringArray());
+
+    event.setAspect(GenericRecordUtils.serializeAspect(dbtProperties));
+    event.setEntityUrn(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.jaffle_shop.customers,PROD)"));
+    _siblingAssociationHook.invoke(event);
+
+    final Siblings dbtSiblingsAspect = new Siblings()
+        .setSiblings(new UrnArray(ImmutableList.of(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)"))))
+        .setPrimary(true);
+
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.jaffle_shop.customers,PROD)"));
+    proposal.setEntityType(DATASET_ENTITY_NAME);
+    proposal.setAspectName(SIBLINGS_ASPECT_NAME);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(dbtSiblingsAspect));
+    proposal.setChangeType(ChangeType.UPSERT);
+
+    Mockito.verify(_mockEntityService, Mockito.times(1)).ingestProposal(
+        Mockito.eq(proposal),
+        Mockito.any(AuditStamp.class)
+    );
+
+    final Siblings sourceSiblingsAspect = new Siblings()
+        .setSiblings(new UrnArray(ImmutableList.of(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.jaffle_shop.customers,PROD)"))))
+        .setPrimary(false);
+
+    final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
+    proposal2.setEntityUrn(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)"));
+    proposal2.setEntityType(DATASET_ENTITY_NAME);
+    proposal2.setAspectName(SIBLINGS_ASPECT_NAME);
+    proposal2.setAspect(GenericRecordUtils.serializeAspect(sourceSiblingsAspect));
+    proposal2.setChangeType(ChangeType.UPSERT);
+
+    Mockito.verify(_mockEntityService, Mockito.times(1)).ingestProposal(
+        Mockito.eq(proposal2),
+        Mockito.any(AuditStamp.class)
+    );
+
+    final Status sourceStatusAspect = new Status().setRemoved(true);
+
+    final MetadataChangeProposal proposal3 = new MetadataChangeProposal();
+    proposal3.setEntityUrn(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)"));
+    proposal3.setEntityType(DATASET_ENTITY_NAME);
+    proposal3.setAspectName(STATUS_ASPECT_NAME);
+    proposal3.setAspect(GenericRecordUtils.serializeAspect(sourceStatusAspect));
+    proposal3.setChangeType(ChangeType.UPSERT);
+
+    Mockito.verify(_mockEntityService, Mockito.times(1)).ingestProposal(
+        Mockito.eq(proposal3),
+        Mockito.any(AuditStamp.class)
+    );
+  }
+
+  @Test
+  public void testInvokeWhenThereIsAPairBetweenDbtAndDbt() throws Exception {
+    SearchResult returnSearchResult = new SearchResult();
+    SearchEntityArray returnEntityArray = new SearchEntityArray();
+    SearchEntity returnArrayValue = new SearchEntity();
+    returnArrayValue.setEntity(
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:dbt,other-data-platform-instance.my-proj.jaffle_shop.customers,PROD)")
+    );
+    returnEntityArray.add(returnArrayValue);
+
+    returnSearchResult.setEntities(returnEntityArray);
+
+    Mockito.when(
+        _mockSearchService.search(
+            anyString(), anyString(), any(), any(), anyInt(), anyInt(), any()
+        )).thenReturn(returnSearchResult);
+
+    Siblings mockSiblingsAspectOfCorrespondingDbtNodeInOtherPlatform = new Siblings();
+    mockSiblingsAspectOfCorrespondingDbtNodeInOtherPlatform.setSiblings(new UrnArray(
+        ImmutableList.of(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)"))
+    ));
+
+    Mockito.when(
+        _mockEntityService.getLatestAspect(
+            Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:dbt,other-data-platform-instance.my-proj.jaffle_shop.customers,PROD)"),
+            "siblings"
+        )).thenReturn(mockSiblingsAspectOfCorrespondingDbtNodeInOtherPlatform);
 
     MetadataChangeLog event = new MetadataChangeLog();
     event.setEntityType(DATASET_ENTITY_NAME);
@@ -184,6 +271,84 @@ public class SiblingAssociationHookTest {
     proposal3.setChangeType(ChangeType.UPSERT);
 
     Mockito.verify(_mockEntityService, Mockito.times(0)).ingestProposal(
+        Mockito.eq(proposal3),
+        Mockito.any(AuditStamp.class)
+    );
+  }
+
+
+  @Test
+  public void testInvokeWhenThereIsAPairBetweenSourceAndDbt() throws Exception {
+    SearchResult returnSearchResult = new SearchResult();
+    SearchEntityArray returnEntityArray = new SearchEntityArray();
+    SearchEntity returnArrayValue = new SearchEntity();
+    returnArrayValue.setEntity(
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.jaffle_shop.customers,PROD)")
+    );
+    returnEntityArray.add(returnArrayValue);
+
+    returnSearchResult.setEntities(returnEntityArray);
+
+    Mockito.when(
+        _mockSearchService.search(
+            anyString(), anyString(), any(), any(), anyInt(), anyInt(), any()
+        )).thenReturn(returnSearchResult);
+
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(DATASET_PROPERTIES_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    final DatasetProperties dbtProperties = new DatasetProperties();
+    dbtProperties.setName("bigquery display name");
+    dbtProperties.setTags(new StringArray());
+
+    event.setAspect(GenericRecordUtils.serializeAspect(dbtProperties));
+    event.setEntityUrn(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)"));
+    _siblingAssociationHook.invoke(event);
+
+    final Siblings dbtSiblingsAspect = new Siblings()
+        .setSiblings(new UrnArray(ImmutableList.of(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)"))))
+        .setPrimary(true);
+
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.jaffle_shop.customers,PROD)"));
+    proposal.setEntityType(DATASET_ENTITY_NAME);
+    proposal.setAspectName(SIBLINGS_ASPECT_NAME);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(dbtSiblingsAspect));
+    proposal.setChangeType(ChangeType.UPSERT);
+
+    Mockito.verify(_mockEntityService, Mockito.times(1)).ingestProposal(
+        Mockito.eq(proposal),
+        Mockito.any(AuditStamp.class)
+    );
+
+    final Siblings sourceSiblingsAspect = new Siblings()
+        .setSiblings(new UrnArray(ImmutableList.of(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.jaffle_shop.customers,PROD)"))))
+        .setPrimary(false);
+
+    final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
+    proposal2.setEntityUrn(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)"));
+    proposal2.setEntityType(DATASET_ENTITY_NAME);
+    proposal2.setAspectName(SIBLINGS_ASPECT_NAME);
+    proposal2.setAspect(GenericRecordUtils.serializeAspect(sourceSiblingsAspect));
+    proposal2.setChangeType(ChangeType.UPSERT);
+
+    Mockito.verify(_mockEntityService, Mockito.times(1)).ingestProposal(
+        Mockito.eq(proposal2),
+        Mockito.any(AuditStamp.class)
+    );
+
+    final Status sourceStatusAspect = new Status().setRemoved(true);
+
+    final MetadataChangeProposal proposal3 = new MetadataChangeProposal();
+    proposal3.setEntityUrn(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)"));
+    proposal3.setEntityType(DATASET_ENTITY_NAME);
+    proposal3.setAspectName(STATUS_ASPECT_NAME);
+    proposal3.setAspect(GenericRecordUtils.serializeAspect(sourceStatusAspect));
+    proposal3.setChangeType(ChangeType.UPSERT);
+
+    Mockito.verify(_mockEntityService, Mockito.times(1)).ingestProposal(
         Mockito.eq(proposal3),
         Mockito.any(AuditStamp.class)
     );
