@@ -38,8 +38,14 @@ import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-
-public class CassandraEntityServiceTest extends EntityServiceTestBase<CassandraAspectDao, CassandraRetentionService> {
+/**
+ * A class that knows how to configure {@link EntityServiceTest} to run integration tests against a Cassandra database.
+ *
+ * This class also contains all the test methods where realities of an underlying storage leak into the
+ * {@link EntityService} in the form of subtle behavior differences. Ideally that should never happen, and it'd be
+ * great to address captured differences.
+ */
+public class CassandraEntityServiceTest extends EntityServiceTest<CassandraAspectDao, CassandraRetentionService> {
 
   private CassandraContainer _cassandraContainer;
   private static final String KEYSPACE_NAME = "test";

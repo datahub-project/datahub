@@ -68,8 +68,21 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-
-abstract public class EntityServiceTestBase<T_AD extends AspectDao, T_RS extends RetentionService> {
+/**
+ * A class to test {@link EntityService}
+ *
+ * This class is generic to allow same integration tests to be reused to test all supported storage backends.
+ * If you're adding another storage backend - you should create a new test class that extends this one providing
+ * hard implementations of {@link AspectDao} and {@link RetentionService} and implements {@code @BeforeMethod} etc
+ * to set up and tear down state.
+ *
+ * If you realise that a feature you want to test, sadly, has divergent behaviours between different storage implementations,
+ * that you can't rectify - you should make the test method abstract and implement it in all implementations of this class.
+ *
+ * @param <T_AD> {@link AspectDao} implementation.
+ * @param <T_RS> {@link RetentionService} implementation.
+ */
+abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends RetentionService> {
 
     protected EntityService _entityService;
     protected T_AD _aspectDao;
@@ -83,7 +96,7 @@ abstract public class EntityServiceTestBase<T_AD extends AspectDao, T_RS extends
         new MergedEntityRegistry(_snapshotEntityRegistry).apply(_configEntityRegistry);
     protected EventProducer _mockProducer;
 
-    protected EntityServiceTestBase() throws EntityRegistryException {
+    protected EntityServiceTest() throws EntityRegistryException {
     }
 
     // This test had to be split out because Cassandra relational databases have different result ordering restrictions

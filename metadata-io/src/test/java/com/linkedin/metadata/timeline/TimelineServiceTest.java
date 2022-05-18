@@ -36,7 +36,19 @@ import java.util.Map;
 import java.util.Set;
 
 
-abstract public class TimelineServiceTestBase<T_AD extends AspectDao> {
+/**
+ * A class to test {@link TimelineServiceImpl}
+ *
+ * This class is generic to allow same integration tests to be reused to test all supported storage backends.
+ * If you're adding another storage backend - you should create a new test class that extends this one providing
+ * hard implementations of {@link AspectDao} and implements {@code @BeforeMethod} etc to set up and tear down state.
+ *
+ * If you realise that a feature you want to test, sadly, has divergent behaviours between different storage implementations,
+ * that you can't rectify - you should make the test method abstract and implement it in all implementations of this class.
+ *
+ * @param <T_AD> {@link AspectDao} implementation.
+ */
+abstract public class TimelineServiceTest<T_AD extends AspectDao> {
 
   protected T_AD _aspectDao;
 
@@ -49,7 +61,7 @@ abstract public class TimelineServiceTestBase<T_AD extends AspectDao> {
   protected EntityService _entityService;
   protected EventProducer _mockProducer;
 
-  protected TimelineServiceTestBase() throws EntityRegistryException {
+  protected TimelineServiceTest() throws EntityRegistryException {
   }
 
   @Test

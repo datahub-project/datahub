@@ -16,7 +16,14 @@ import javax.annotation.Nonnull;
 
 import static org.mockito.Mockito.mock;
 
-public class EbeanTimelineServiceTest extends TimelineServiceTestBase<EbeanAspectDao> {
+/**
+ * A class that knows how to configure {@link TimelineServiceTest} to run integration tests against a relational database.
+ *
+ * This class also contains all the test methods where realities of an underlying storage leak into the
+ * {@link TimelineServiceImpl} in the form of subtle behavior differences. Ideally that should never happen, and it'd be
+ * great to address captured differences.
+ */
+public class EbeanTimelineServiceTest extends TimelineServiceTest<EbeanAspectDao> {
 
   public EbeanTimelineServiceTest() throws EntityRegistryException {
   }
