@@ -174,6 +174,7 @@ class DBTConfig(AwsSourceConfig, StatefulIngestionConfigBase):
         default=None,
         description='Regex string to extract owner from the dbt node using the `(?P<name>...) syntax` of the [match object](https://docs.python.org/3/library/re.html#match-objects), where the group name must be `owner`. Examples: (1)`r"(?P<owner>(.*)): (\w+) (\w+)"` will extract `jdoe` as the owner from `"jdoe: John Doe"` (2) `r"@(?P<owner>(.*))"` will extract `alice` as the owner from `"@alice"`.',  # noqa: W605
     )
+    # Overwrite the aws_region inherited from AwsSourceConfig with default value, in case users don't use s3 and don't input this field. 
     aws_region: str = Field(default=None, description="AWS region code.")
 
     @property
@@ -395,7 +396,7 @@ def extract_dbt_entities(
 
 
 # s3://data-analysis.pelotime.com/dbt-artifacts/data-engineering-dbt/catalog.json
-def load_file_as_json(uri: str, s3_client: "botocore.client.S3") -> Any:
+def load_file_as_json(uri: str, s3_client: "S3Client") -> Any:
     if re.match("^https?://", uri):
         return json.loads(requests.get(uri).text)
     elif re.match("^s3://", uri):
@@ -417,7 +418,7 @@ def loadManifestAndCatalog(
     node_type_pattern: AllowDenyPattern,
     report: DBTSourceReport,
     node_name_pattern: AllowDenyPattern,
-    s3_client: "botocore.client.S3",
+    s3_client: "S3Client",
 ) -> Tuple[
     List[DBTNode],
     Optional[str],
