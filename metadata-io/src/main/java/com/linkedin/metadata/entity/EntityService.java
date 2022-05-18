@@ -30,6 +30,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -630,7 +631,7 @@ public class EntityService {
    * @return the {@link RecordTemplate} representation of the written aspect object
    */
   public RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, SystemMetadata systemMetadata) {
+      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, @Nonnull SystemMetadata systemMetadata) {
 
     log.debug("Invoked ingestAspect with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
 
@@ -638,6 +639,48 @@ public class EntityService {
 
     Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectToLocalDB").time();
     UpdateAspectResult result = wrappedIngestAspectToLocalDB(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata);
+    ingestToLocalDBTimer.stop();
+
+    return sendEventForUpdateAspectResult(urn, aspectName, result);
+  }
+
+  /**
+   * Ingests (inserts) a new version of an entity aspect & emits a {@link com.linkedin.mxe.MetadataAuditEvent}.
+   *
+   * This method runs a read -> write atomically in a single transaction, this is to prevent multiple IDs from being created.
+   *
+   * Note that in general, this should not be used externally. It is currently serving upgrade scripts and
+   * is as such public.
+   *
+   * @param urn an urn associated with the new aspect
+   * @param aspectName name of the aspect being inserted
+   * @param newValue value of the aspect being inserted
+   * @param auditStamp an {@link AuditStamp} containing metadata about the writer & current time
+   * @param systemMetadata
+   * @return the {@link RecordTemplate} representation of the written aspect object
+   */
+  @Nullable
+  public RecordTemplate ingestAspectIfNotPresent(@Nonnull Urn urn, @Nonnull String aspectName,
+      @Nonnull RecordTemplate newValue, @Nonnull AuditStamp auditStamp, @Nonnull SystemMetadata systemMetadata) {
+    log.debug("Invoked ingestAspectIfNotPresent with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
+
+    final SystemMetadata internalSystemMetadata = generateSystemMetadataIfEmpty(systemMetadata);
+
+    Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectToLocalDB").time();
+    UpdateAspectResult result = _aspectDao.runInTransactionWithRetry(() -> {
+      final String urnStr = urn.toString();
+      final EntityAspect latest = _aspectDao.getLatestAspect(urnStr, aspectName);
+      if (latest == null) {
+        long nextVersion = _aspectDao.getNextVersion(urnStr, aspectName);
+
+        return ingestAspectToLocalDBNoTransaction(urn, aspectName, ignored -> newValue, auditStamp,
+            internalSystemMetadata, latest, nextVersion);
+      }
+      RecordTemplate oldValue = EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), getEntityRegistry());
+      SystemMetadata oldMetadata = EntityUtils.parseSystemMetadata(latest.getSystemMetadata());
+      return new UpdateAspectResult(urn, oldValue, oldValue, oldMetadata, oldMetadata, MetadataAuditOperation.UPDATE, auditStamp,
+          latest.getVersion());
+    }, DEFAULT_MAX_TRANSACTION_RETRY);
     ingestToLocalDBTimer.stop();
 
     return sendEventForUpdateAspectResult(urn, aspectName, result);
