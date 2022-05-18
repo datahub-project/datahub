@@ -369,28 +369,6 @@ public class SchemaMetadataDiffer implements AspectDiffer<SchemaMetadata> {
           .build();
   }
 
-  private static ChangeEvent getIncompatibleChangeEvent(SchemaMetadata baseSchema, SchemaMetadata targetSchema,
-      AuditStamp auditStamp) {
-    if (baseSchema != null && targetSchema != null) {
-      if (!baseSchema.getPlatform().equals(targetSchema.getPlatform())) {
-        return ChangeEvent.builder()
-            .semVerChange(SemanticChangeType.EXCEPTIONAL)
-            .description("Incompatible schema types," + baseSchema.getPlatform() + ", " + targetSchema.getPlatform())
-            .auditStamp(auditStamp)
-            .build();
-      }
-      if (!baseSchema.getSchemaName().equals(targetSchema.getSchemaName())) {
-        return ChangeEvent.builder()
-            .semVerChange(SemanticChangeType.EXCEPTIONAL)
-            .description(
-                "Schema names are not same," + baseSchema.getSchemaName() + ", " + targetSchema.getSchemaName())
-            .auditStamp(auditStamp)
-            .build();
-      }
-    }
-    return null;
-  }
-
   @SuppressWarnings("ConstantConditions")
   private static SchemaMetadata getSchemaMetadataFromAspect(EbeanAspectV2 ebeanAspectV2) {
     if (ebeanAspectV2 != null && ebeanAspectV2.getMetadata() != null) {
@@ -456,16 +434,11 @@ public class SchemaMetadataDiffer implements AspectDiffer<SchemaMetadata> {
     SchemaMetadata targetSchema = getSchemaMetadataFromAspect(currentValue);
     assert (targetSchema != null);
     List<ChangeEvent> changeEvents = new ArrayList<>();
-    ChangeEvent incompatibleChangeEvent = getIncompatibleChangeEvent(baseSchema, targetSchema, null);
-    if (incompatibleChangeEvent != null) {
-      changeEvents.add(incompatibleChangeEvent);
-    } else {
-      try {
-        changeEvents.addAll(
-            computeDiffs(baseSchema, targetSchema, DatasetUrn.createFromString(currentValue.getUrn()), changeCategory, null));
-      } catch (URISyntaxException e) {
-        throw new IllegalArgumentException("Malformed DatasetUrn " + currentValue.getUrn());
-      }
+    try {
+      changeEvents.addAll(
+          computeDiffs(baseSchema, targetSchema, DatasetUrn.createFromString(currentValue.getUrn()), changeCategory, null));
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("Malformed DatasetUrn " + currentValue.getUrn());
     }
 
     // Assess the highest change at the transaction(schema) level.
