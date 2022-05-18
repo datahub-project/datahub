@@ -13,6 +13,7 @@ import { EntityHeader } from './header/EntityHeader';
 import { EntityTabs } from './header/EntityTabs';
 import { EntitySidebar } from './sidebar/EntitySidebar';
 import EntityContext from '../../EntityContext';
+import EntityAuthorizationContext from '../../EntityAuthorizationContext';
 import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import LineageExplorer from '../../../../lineage/LineageExplorer';
@@ -113,6 +114,24 @@ const defaultSidebarSection = {
 const INITIAL_SIDEBAR_WIDTH = 400;
 const MAX_SIDEBAR_WIDTH = 800;
 const MIN_SIDEBAR_WIDTH = 200;
+
+// Initial Privileges
+const PRIVILEGES = {
+    commonPrivileges: {
+        editOwners: true,
+        editDocumentation: false,
+        editGlossaryTerms: true,
+        editTags: true,
+        editDomain: false,
+        editLinks: true,
+        editDeprecation: false,
+    },
+    dataSets: {
+        editSchemaFieldDescription: true,
+        editSchemaFieldTags: true,
+        editSchemaFieldGlossaryTerms: false,
+    },
+};
 
 /**
  * Container for display of the Entity Page
@@ -243,7 +262,8 @@ export const EntityProfile = <T, U>({
                 lineage,
             }}
         >
-            <>
+            {/* TODO: Add EntityAuthorizationContext.Provider */}
+            <EntityAuthorizationContext.Provider value={PRIVILEGES}>
                 {showBrowseBar && <EntityProfileNavBar urn={urn} entityType={entityType} />}
                 {entityData?.status?.removed === true && (
                     <Alert
@@ -286,7 +306,7 @@ export const EntityProfile = <T, U>({
                         </>
                     )}
                 </ContentContainer>
-            </>
+            </EntityAuthorizationContext.Provider>
         </EntityContext.Provider>
     );
 };

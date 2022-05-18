@@ -6,6 +6,7 @@ import StripMarkdownText from '../../../components/styled/StripMarkdownText';
 
 import { EMPTY_MESSAGES } from '../../../constants';
 import { useEntityData, useRefetch, useRouteToTab } from '../../../EntityContext';
+import { useEntityCommonPrivileges } from '../../../EntityAuthorizationContext';
 import { SidebarHeader } from './SidebarHeader';
 import { AddLinkModal } from '../../../components/styled/AddLinkModal';
 
@@ -40,7 +41,9 @@ export const SidebarAboutSection = () => {
     const { entityData } = useEntityData();
     const refetch = useRefetch();
     const routeToTab = useRouteToTab();
+    const { commonPrivileges } = useEntityCommonPrivileges();
 
+    const { editDocumentation } = commonPrivileges;
     const description = entityData?.editableProperties?.description || entityData?.properties?.description;
     const links = entityData?.institutionalMemory?.elements || [];
 
@@ -51,7 +54,8 @@ export const SidebarAboutSection = () => {
             <SidebarHeader
                 title="About"
                 actions={
-                    !isUntouched && (
+                    !isUntouched &&
+                    editDocumentation && (
                         <Button
                             onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
                             type="text"
@@ -103,11 +107,13 @@ export const SidebarAboutSection = () => {
                             {link.description || link.label}
                         </LinkButton>
                     ))}
-                    <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />
+                    {editDocumentation && <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />}
                 </SidebarLinkList>
             ) : (
                 <SidebarLinkList>
-                    {!isUntouched && <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />}
+                    {!isUntouched && editDocumentation && (
+                        <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />
+                    )}
                 </SidebarLinkList>
             )}
         </div>

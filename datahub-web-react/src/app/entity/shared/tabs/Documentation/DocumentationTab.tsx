@@ -14,6 +14,7 @@ import { DescriptionEditor } from './components/DescriptionEditor';
 import { LinkList } from './components/LinkList';
 
 import { useEntityData, useRefetch, useRouteToTab } from '../../EntityContext';
+import { useEntityCommonPrivileges } from '../../EntityAuthorizationContext';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../utils';
 
 const DocumentationContainer = styled.div`
@@ -33,6 +34,9 @@ export const DocumentationTab = () => {
     const routeToTab = useRouteToTab();
     const isEditing = queryString.parse(useLocation().search, { parseBooleans: true }).editing;
 
+    const { commonPrivileges } = useEntityCommonPrivileges();
+    const { editDocumentation } = commonPrivileges;
+
     useEffect(() => {
         const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
         if (editedDescriptions.hasOwnProperty(urn)) {
@@ -48,17 +52,21 @@ export const DocumentationTab = () => {
         <>
             {description || links.length ? (
                 <>
-                    <TabToolbar>
-                        <div>
-                            <Button
-                                type="text"
-                                onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}
-                            >
-                                <EditOutlined /> Edit
-                            </Button>
-                            <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />
-                        </div>
-                    </TabToolbar>
+                    {editDocumentation && (
+                        <TabToolbar>
+                            <div>
+                                <Button
+                                    type="text"
+                                    onClick={() =>
+                                        routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })
+                                    }
+                                >
+                                    <EditOutlined /> Edit
+                                </Button>
+                                <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />
+                            </div>
+                        </TabToolbar>
+                    )}
                     <DocumentationContainer>
                         {description ? (
                             <MDEditor.Markdown style={{ fontWeight: 400 }} source={description} />
