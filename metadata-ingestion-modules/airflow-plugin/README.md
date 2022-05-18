@@ -16,6 +16,11 @@ DataHub supports integration of
     pip install acryl-datahub-airflow-plugin
   ```
 
+::: note
+
+We recommend you use the lineage plugin if you are on Airflow version >= 2.0.2 or on MWAA with an Airflow version >= 2.0.2
+:::
+
 2. Disable lazy plugin load in your airflow.cfg
 
   ```yaml

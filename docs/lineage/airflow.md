@@ -10,10 +10,9 @@ There are a few ways to enable these integrations from Airflow into DataHub.
 
 ## Using Datahub's Airflow lineage plugin (new)
 
-:::caution
+::: note
 
-The Airflow lineage backend is only supported in Airflow 1.10.15+ and 2.0.2+.
-
+We recommend you use the lineage plugin if you are on Airflow version >= 2.0.2 or on MWAA with an Airflow version >= 2.0.2
 :::
 
 1. You need to install the required dependency in your airflow.
