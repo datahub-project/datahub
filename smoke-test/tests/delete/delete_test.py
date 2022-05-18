@@ -37,7 +37,8 @@ def test_setup():
     assert "browsePaths" not in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["browsePaths"], typed=False)
     assert "editableDatasetProperties" not in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False)
 
-@pytest.mark.dependency()
+
+@pytest.mark.dependency(depends=["test_setup"])
 def test_delete_reference():
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = "test-delete"
