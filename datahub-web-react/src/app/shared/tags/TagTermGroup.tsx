@@ -261,26 +261,36 @@ export default function TagTermGroup({
                         to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
                         key={term.term.urn}
                     >
-                        <StyledLabel isPropagated={term.actor?.urn === PROPAGATOR_URN} closable={false}>
-                            <BookOutlined style={{ marginRight: '3%' }} />
-                            {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
-                        </StyledLabel>
+                        <Tooltip
+                            title="This term was propagated from a related dataset."
+                            visible={term.actor?.urn === PROPAGATOR_URN ? undefined : false}
+                        >
+                            <StyledLabel isPropagated={term.actor?.urn === PROPAGATOR_URN} closable={false}>
+                                <BookOutlined style={{ marginRight: '3%' }} />
+                                {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
+                            </StyledLabel>
+                        </Tooltip>
                     </TermLink>
                 );
             })}
             {editableGlossaryTerms?.terms?.map((term) => (
                 <TermLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
-                    <StyledLabel
-                        isPropagated={term.actor?.urn === PROPAGATOR_URN}
-                        closable={canRemove}
-                        onClose={(e) => {
-                            e.preventDefault();
-                            removeTerm(term.term.urn);
-                        }}
+                    <Tooltip
+                        title="This term was propagated from a related dataset."
+                        visible={term.actor?.urn === PROPAGATOR_URN ? undefined : false}
                     >
-                        <BookOutlined style={{ marginRight: '3%' }} />
-                        {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
-                    </StyledLabel>
+                        <StyledLabel
+                            isPropagated={term.actor?.urn === PROPAGATOR_URN}
+                            closable={canRemove}
+                            onClose={(e) => {
+                                e.preventDefault();
+                                removeTerm(term.term.urn);
+                            }}
+                        >
+                            <BookOutlined style={{ marginRight: '3%' }} />
+                            {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
+                        </StyledLabel>
+                    </Tooltip>
                 </TermLink>
             ))}
             {proposedGlossaryTerms?.map((actionRequest) => (
