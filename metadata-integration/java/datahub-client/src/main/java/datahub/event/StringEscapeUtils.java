@@ -17,24 +17,16 @@
  *  under the License.
  */
 
-package datahub.client.rest;
+package datahub.event;
 
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
-import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedin.common.urn.Urn;
-import com.linkedin.data.ByteString;
 import com.linkedin.data.template.JacksonDataTemplateCodec;
-import com.linkedin.mxe.GenericAspect;
-import com.linkedin.mxe.MetadataChangeProposal;
-
-import datahub.event.MetadataChangeProposalWrapper;
 
 public class StringEscapeUtils {
 
@@ -47,31 +39,7 @@ public class StringEscapeUtils {
   private final static JacksonDataTemplateCodec DATA_TEMPLATE_CODEC = new JacksonDataTemplateCodec(
       OBJECT_MAPPER.getFactory());
 
-  /**
-   * This method converts mcpw to mcp by decoding UTF_8 characters.
-   * @param mcpw
-   * @return mcp
-   * @throws IOException
-   * @throws URISyntaxException
-   */
-  public static MetadataChangeProposal convert(MetadataChangeProposalWrapper mcpw)
-      throws IOException {
-    String serializedAspect = escapeJava(DATA_TEMPLATE_CODEC.dataTemplateToString(mcpw.getAspect()));
-    MetadataChangeProposal mcp;
-    try {
-      mcp = new MetadataChangeProposal().setEntityType(mcpw.getEntityType())
-          .setAspectName(mcpw.getAspectName()).setEntityUrn(Urn.createFromString(mcpw.getEntityUrn()))
-          .setChangeType(mcpw.getChangeType());
-      mcp.setAspect(new GenericAspect().setContentType("application/json")
-          .setValue(ByteString.unsafeWrap(serializedAspect.getBytes(StandardCharsets.UTF_8))));
-      return mcp;
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(e);
-    }
-
-    
-  }
-  
+   
   /**
    * Worker method for the {@link #escapeJavaScript(String)} method.
    * 

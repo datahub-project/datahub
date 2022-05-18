@@ -92,39 +92,6 @@ public class RestEmitterTest {
   }
   
   @Test
-  public void testUtf8Encoding() throws URISyntaxException, IOException {
-
-    RestEmitter emitter = RestEmitter.create(b -> b.asyncHttpClientBuilder(mockHttpClientFactory));
-    MetadataChangeProposalWrapper mcpw = MetadataChangeProposalWrapper.builder()
-        .entityType("dataset")
-        .entityUrn("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.user-table,PROD)")
-        .upsert()
-        .aspect(new DatasetProperties().setDescription("This is the canonical User profile dataset œ∑´´†¥¨ˆˆπ“‘åß∂ƒ©˙∆˚¬…æΩ≈ç√∫˜˜≤≥ç"))
-        .build();
-
-    emitter.emit(mcpw, null);
-    Mockito.verify(mockClient).execute(postArgumentCaptor.capture(), callbackCaptor.capture());
-    FutureCallback callback = callbackCaptor.getValue();
-    Assert.assertNotNull(callback);
-    HttpPost testPost = postArgumentCaptor.getValue();
-    Assert.assertEquals("2.0.0", testPost.getFirstHeader("X-RestLi-Protocol-Version").getValue());
-    InputStream is = testPost.getEntity().getContent();
-    byte[] contentBytes = new byte[(int) testPost.getEntity().getContentLength()];
-    is.read(contentBytes);
-    String contentString = new String(contentBytes, StandardCharsets.UTF_8);
-    String expectedContent = "{\"proposal\":{\"aspectName\":\"datasetProperties\","
-        + "\"entityUrn\":\"urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.user-table,PROD)\","
-        + "\"entityType\":\"dataset\",\"changeType\":\"UPSERT\",\"aspect\":{\"contentType\":\"application/json\""
-        + ",\"value\":\"{\\\"description\\\":\\\"This is the canonical User profile dataset "
-        + "\\\\u0153\\\\u2211\\\\u00B4\\\\u00B4\\\\u2020\\\\u00A5\\\\u00A8\\\\u02C6\\\\u02C6\\\\u03C0\\\\u201C"
-        + "\\\\u2018\\\\u00E5\\\\u00DF\\\\u2202\\\\u0192\\\\u00A9\\\\u02D9\\\\u2206\\\\u02DA\\\\u00AC\\\\u2026"
-        + "\\\\u00E6\\\\u03A9\\\\u2248\\\\u00E7\\\\u221A\\\\u222B\\\\u02DC\\\\u02DC\\\\u2264\\\\u2265\\\\u00E7"
-        + "\\\"}\"}}}"
-        + "";
-    Assert.assertEquals(expectedContent, contentString);
-  }
-
-  @Test
   public void testExceptions() throws URISyntaxException, IOException, ExecutionException, InterruptedException {
 
     RestEmitter emitter = RestEmitter.create($ -> $.asyncHttpClientBuilder(mockHttpClientFactory));
