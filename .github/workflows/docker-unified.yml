@@ -109,7 +109,7 @@ jobs:
   gms_push:
     name: Build and Push DataHub GMS Docker Image
     runs-on: ubuntu-latest
-    needs: [setup, gms_build, gms_scan, smoke_test]
+    needs: [setup, gms_build, gms_scan]
     if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
@@ -188,7 +188,7 @@ jobs:
   mae_consumer_push:
     name: Push DataHub MAE Consumer Docker Image
     runs-on: ubuntu-latest
-    needs: [setup, mae_consumer_build, mae_consumer_scan, smoke_test]
+    needs: [setup, mae_consumer_build, mae_consumer_scan]
     if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
@@ -267,7 +267,7 @@ jobs:
   mce_consumer_push:
     name: Push DataHub MCE Consumer Docker Image
     runs-on: ubuntu-latest
-    needs: [setup, mce_consumer_build, mce_consumer_scan, smoke_test]
+    needs: [setup, mce_consumer_build, mce_consumer_scan]
     if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
@@ -346,7 +346,7 @@ jobs:
   datahub_upgrade_push:
     name: Build and Push DataHub Upgrade Docker Image
     runs-on: ubuntu-latest
-    needs: [setup, datahub_upgrade_build, datahub_upgrade_scan, smoke_test]
+    needs: [setup, datahub_upgrade_build, datahub_upgrade_scan]
     if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
@@ -425,7 +425,7 @@ jobs:
   frontend_push:
     name: Build and Push DataHub Frontend Docker Image
     runs-on: ubuntu-latest
-    needs: [setup, frontend_build, frontend_scan, smoke_test]
+    needs: [setup, frontend_build, frontend_scan]
     if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
@@ -487,7 +487,7 @@ jobs:
   kafka_setup_push:
     name: Build and Push DataHub Kafka Setup Docker Image
     runs-on: ubuntu-latest
-    needs: [setup, kafka_setup_build, smoke_test]
+    needs: [setup, kafka_setup_build]
     if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
@@ -549,7 +549,7 @@ jobs:
   mysql_setup_push:
     name: Build and Push DataHub MySQL Setup Docker Image
     runs-on: ubuntu-latest
-    needs: [setup, mysql_setup_build, smoke_test]
+    needs: [setup, mysql_setup_build]
     if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
@@ -611,7 +611,7 @@ jobs:
   elasticsearch_setup_push:
     name: Build and Push DataHub Elasticsearch Setup Docker Image
     runs-on: ubuntu-latest
-    needs: [setup, elasticsearch_setup_build, smoke_test]
+    needs: [setup, elasticsearch_setup_build]
     if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
