@@ -19,7 +19,10 @@ The architecture of this metadata ingestion framework is heavily inspired by [Ap
 
 ### Set up your Python environment
 
+From the repository root: 
+
 ```shell
+cd metadata-ingestion
 ../gradlew :metadata-ingestion:installDev
 source venv/bin/activate
 datahub version  # should print "version: unavailable (installed via git)"

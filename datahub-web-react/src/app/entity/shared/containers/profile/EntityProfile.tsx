@@ -1,6 +1,5 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Alert, Divider } from 'antd';
-import SplitPane from 'react-split-pane';
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
 import styled from 'styled-components';
 import { useHistory } from 'react-router';
@@ -20,6 +19,7 @@ import LineageExplorer from '../../../../lineage/LineageExplorer';
 import CompactContext from '../../../../shared/CompactContext';
 import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
 import analytics, { EventType } from '../../../../analytics';
+import { ProfileSidebarResizer } from './sidebar/ProfileSidebarResizer';
 
 type Props<T, U> = {
     urn: string;
@@ -50,12 +50,11 @@ const ContentContainer = styled.div`
     display: flex;
     height: auto;
     min-height: 100%;
-    align-items: stretch;
     flex: 1;
 `;
 
 const HeaderAndTabs = styled.div`
-    flex-basis: 70%;
+    flex-grow: 1;
     min-width: 640px;
     height: 100%;
 `;
@@ -81,10 +80,10 @@ const HeaderAndTabsFlex = styled.div`
         -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
     }
 `;
-const Sidebar = styled.div`
+const Sidebar = styled.div<{ $width: number }>`
     max-height: 100%;
     overflow: auto;
-    flex-basis: 30%;
+    flex-basis: ${(props) => props.$width}px;
     padding-left: 20px;
     padding-right: 20px;
 `;
@@ -102,14 +101,6 @@ const TabContent = styled.div`
     overflow: auto;
 `;
 
-const resizerStyles = {
-    borderLeft: `1px solid #E9E9E9`,
-    width: '2px',
-    cursor: 'col-resize',
-    margin: '0 5px',
-    height: '100%',
-};
-
 const defaultTabDisplayConfig = {
     visible: (_, _1) => true,
     enabled: (_, _1) => true,
@@ -118,6 +109,10 @@ const defaultTabDisplayConfig = {
 const defaultSidebarSection = {
     visible: (_, _1) => true,
 };
+
+const INITIAL_SIDEBAR_WIDTH = 400;
+const MAX_SIDEBAR_WIDTH = 800;
+const MIN_SIDEBAR_WIDTH = 200;
 
 /**
  * Container for display of the Entity Page
@@ -141,6 +136,8 @@ export const EntityProfile = <T, U>({
         ...sidebarSection,
         display: { ...defaultSidebarSection, ...sidebarSection.display },
     }));
+
+    const [sidebarWidth, setSidebarWidth] = useState(INITIAL_SIDEBAR_WIDTH);
 
     const routeToTab = useCallback(
         ({
@@ -262,18 +259,7 @@ export const EntityProfile = <T, U>({
                     {isLineageMode ? (
                         <LineageExplorer type={entityType} urn={urn} />
                     ) : (
-                        <SplitPane
-                            split="vertical"
-                            minSize={window.innerWidth - 400}
-                            maxSize={window.innerWidth - 250}
-                            defaultSize={window.innerWidth - 400}
-                            resizerStyle={resizerStyles}
-                            style={{
-                                position: 'inherit',
-                                height: 'auto',
-                                overflow: 'auto',
-                            }}
-                        >
+                        <>
                             <HeaderAndTabs>
                                 <HeaderAndTabsFlex>
                                     <Header>
@@ -288,10 +274,16 @@ export const EntityProfile = <T, U>({
                                     </TabContent>
                                 </HeaderAndTabsFlex>
                             </HeaderAndTabs>
-                            <Sidebar>
+                            <ProfileSidebarResizer
+                                setSidePanelWidth={(width) =>
+                                    setSidebarWidth(Math.min(Math.max(width, MIN_SIDEBAR_WIDTH), MAX_SIDEBAR_WIDTH))
+                                }
+                                initialSize={sidebarWidth}
+                            />
+                            <Sidebar $width={sidebarWidth}>
                                 <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
                             </Sidebar>
-                        </SplitPane>
+                        </>
                     )}
                 </ContentContainer>
             </>

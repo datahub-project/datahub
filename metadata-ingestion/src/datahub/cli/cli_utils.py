@@ -289,6 +289,25 @@ def post_rollback_endpoint(
     )
 
 
+def post_delete_references_endpoint(
+    payload_obj: dict,
+    path: str,
+    cached_session_host: Optional[Tuple[Session, str]] = None,
+) -> Tuple[int, List[Dict]]:
+    if not cached_session_host:
+        session, gms_host = get_session_and_host()
+    else:
+        session, gms_host = cached_session_host
+    url = gms_host + path
+
+    payload = json.dumps(payload_obj)
+    response = session.post(url, payload)
+    summary = parse_run_restli_response(response)
+    reference_count = summary.get("total", 0)
+    related_aspects = summary.get("relatedAspects", [])
+    return reference_count, related_aspects
+
+
 def post_delete_endpoint(
     payload_obj: dict,
     path: str,
@@ -533,7 +552,7 @@ def get_entity(
         )
     endpoint: str = f"/entitiesV2/{encoded_urn}"
 
-    if aspect:
+    if aspect and len(aspect):
         endpoint = endpoint + "?aspects=List(" + ",".join(aspect) + ")"
 
     response = session.get(gms_host + endpoint)
@@ -670,7 +689,7 @@ def get_latest_timeseries_aspect_values(
 
 def get_aspects_for_entity(
     entity_urn: str,
-    aspects: List[str],
+    aspects: List[str] = [],
     typed: bool = False,
     cached_session_host: Optional[Tuple[Session, str]] = None,
 ) -> Dict[str, Union[dict, DictWrapper]]:
