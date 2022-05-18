@@ -22,11 +22,15 @@ import static org.testng.Assert.assertEquals;
 
 public class CassandraTestUtils {
 
+  private CassandraTestUtils() {
+  }
+
   private static final String KEYSPACE_NAME = "test";
+  private static final String IMAGE_NAME = "cassandra:3.11";
 
   public static CassandraContainer setupContainer() {
     final DockerImageName imageName = DockerImageName
-        .parse("cassandra:3.11")
+        .parse(IMAGE_NAME)
         .asCompatibleSubstituteFor("cassandra");
 
     CassandraContainer container = new CassandraContainer(imageName);
