@@ -130,5 +130,37 @@
       "contentType":"application/json"
     },
     "systemMetadata":null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
+        "urn": "urn:li:corpuser:jdoe",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+              "active": true,
+              "displayName": {
+                "string": "John Doe"
+              },
+              "email": "jdoe@linkedin.com",
+              "title": {
+                "string": "Software Engineer"
+              },
+              "managerUrn": null,
+              "departmentId": null,
+              "departmentName": null,
+              "firstName": null,
+              "lastName": null,
+              "fullName": {
+                "string": "John Doe"
+              },
+              "countryCode": null
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
   }
 ]
