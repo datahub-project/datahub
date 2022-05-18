@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import com.linkedin.metadata.event.EventProducer;
@@ -13,17 +14,12 @@ import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.SystemMetadata;
 import io.ebean.EbeanServer;
-import io.ebean.EbeanServerFactory;
 import io.ebean.Transaction;
 import io.ebean.TxScope;
 import io.ebean.annotation.TxIsolation;
-import io.ebean.config.ServerConfig;
-import io.ebean.datasource.DataSourceConfig;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import javax.annotation.Nonnull;
 
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
@@ -42,26 +38,9 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
   public EbeanEntityServiceTest() throws EntityRegistryException {
   }
 
-  @Nonnull
-  private static ServerConfig createTestingH2ServerConfig() {
-    DataSourceConfig dataSourceConfig = new DataSourceConfig();
-    dataSourceConfig.setUsername("tester");
-    dataSourceConfig.setPassword("");
-    dataSourceConfig.setUrl("jdbc:h2:mem:;IGNORECASE=TRUE;");
-    dataSourceConfig.setDriver("org.h2.Driver");
-
-    ServerConfig serverConfig = new ServerConfig();
-    serverConfig.setName("gma");
-    serverConfig.setDataSourceConfig(dataSourceConfig);
-    serverConfig.setDdlGenerate(true);
-    serverConfig.setDdlRun(true);
-
-    return serverConfig;
-  }
-
   @BeforeMethod
   public void setupTest() {
-    EbeanServer server = EbeanServerFactory.create(createTestingH2ServerConfig());
+    EbeanServer server = EbeanTestUtils.createTestServer();
     _mockProducer = mock(EventProducer.class);
     _aspectDao = new EbeanAspectDao(server);
     _aspectDao.setConnectionValidated(true);
@@ -80,6 +59,7 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
     Assert.assertTrue(true);
   }
 
+  @Override
   @Test
   public void testIngestListLatestAspects() throws Exception {
 
