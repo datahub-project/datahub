@@ -93,6 +93,8 @@ jobs:
     name: "[Monitoring] Scan GMS images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, gms_build]
+    outputs:
+      image_tag: ${{ needs.gms_build.outputs.image_tag }}
     steps:
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
@@ -109,7 +111,7 @@ jobs:
   gms_push:
     name: Build and Push DataHub GMS Docker Image
     runs-on: ubuntu-latest
-    needs: [setup, gms_build, gms_scan, smoke_test]
+    needs: [setup, gms_scan, smoke_test]
     if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
@@ -131,7 +133,7 @@ jobs:
           context: .
           file: ./docker/datahub-gms/Dockerfile
           platforms: linux/amd64,linux/arm64
-          tags: ${{ needs.gms_build.outputs.image_tag }}
+          tags: ${{ needs.gms_scan.outputs.image_tag }}
           push: true
   mae_consumer_build:
     name: Build DataHub MAE Consumer Docker Image for testing
@@ -172,6 +174,8 @@ jobs:
     name: "[Monitoring] Scan MAE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup,mae_consumer_build]
+    outputs:
+      image_tag: ${{ needs.mae_consumer_build.outputs.image_tag }}
     steps:
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
@@ -188,7 +192,7 @@ jobs:
   mae_consumer_push:
     name: Push DataHub MAE Consumer Docker Image
     runs-on: ubuntu-latest
-    needs: [setup, mae_consumer_build, mae_consumer_scan, smoke_test]
+    needs: [setup, mae_consumer_scan, smoke_test]
     if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
@@ -210,7 +214,7 @@ jobs:
           context: .
           file: ./docker/datahub-gms/Dockerfile
           platforms: linux/amd64,linux/arm64
-          tags: ${{ needs.mae_consumer_build.outputs.image_tag }}
+          tags: ${{ needs.mae_consumer_scan.outputs.image_tag }}
           push: true
   mce_consumer_build:
     name: Build DataHub MCE Consumer Docker Image for testing
@@ -251,6 +255,8 @@ jobs:
     name: "[Monitoring] Scan MCE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup,mce_consumer_build]
+    outputs:
+      image_tag: ${{ needs.mce_consumer_build.outputs.image_tag }}
     steps:
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
@@ -267,7 +273,7 @@ jobs:
   mce_consumer_push:
     name: Push DataHub MCE Consumer Docker Image
     runs-on: ubuntu-latest
-    needs: [setup, mce_consumer_build, mce_consumer_scan, smoke_test]
+    needs: [setup, mce_consumer_scan, smoke_test]
     if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
@@ -289,7 +295,7 @@ jobs:
           context: .
           file: ./docker/datahub-gms/Dockerfile
           platforms: linux/amd64,linux/arm64
-          tags: ${{ needs.mce_consumer_build.outputs.image_tag }}
+          tags: ${{ needs.mce_consumer_scan.outputs.image_tag }}
           push: true
   datahub_upgrade_build:
     name: Build DataHub Upgrade Docker Image for testing
@@ -330,6 +336,8 @@ jobs:
     name: "[Monitoring] Scan DataHub Upgrade images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, datahub_upgrade_build]
+    outputs:
+      image_tag: ${{ needs.datahub_upgrade_build.outputs.image_tag }}
     steps:
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
@@ -346,7 +354,7 @@ jobs:
   datahub_upgrade_push:
     name: Build and Push DataHub Upgrade Docker Image
     runs-on: ubuntu-latest
-    needs: [setup, datahub_upgrade_build, datahub_upgrade_scan, smoke_test]
+    needs: [setup, datahub_upgrade_scan, smoke_test]
     if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
@@ -368,7 +376,7 @@ jobs:
           context: .
           file: ./docker/datahub-upgrade/Dockerfile
           platforms: linux/amd64,linux/arm64
-          tags: ${{ needs.datahub_upgrade_build.outputs.image_tag }}
+          tags: ${{ needs.datahub_upgrade_scan.outputs.image_tag }}
           push: true
   frontend_build:
     name: Build DataHub Frontend Docker Image for testing
@@ -409,6 +417,8 @@ jobs:
     name: "[Monitoring] Scan Frontend images for vulnerabilities"
     runs-on: ubuntu-latest
     needs: [setup, frontend_build]
+    outputs:
+      image_tag: ${{ needs.frontend_build.outputs.image_tag }}
     steps:
       - name: Download image
         uses: ishworkh/docker-image-artifact-download@v1
@@ -425,7 +435,7 @@ jobs:
   frontend_push:
     name: Build and Push DataHub Frontend Docker Image
     runs-on: ubuntu-latest
-    needs: [setup, frontend_build, frontend_scan, smoke_test]
+    needs: [setup, frontend_scan, smoke_test]
     if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
@@ -447,7 +457,7 @@ jobs:
           context: .
           file: ./docker/datahub-frontend/Dockerfile
           platforms: linux/amd64,linux/arm64
-          tags: ${{ needs.frontend_build.outputs.image_tag }}
+          tags: ${{ needs.frontend_scan.outputs.image_tag }}
           push: true
   kafka_setup_build:
     name: Build DataHub Kafka Setup Docker Image for testing
