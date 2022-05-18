@@ -76,7 +76,7 @@ jobs:
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
-      - name: Build and Load Runner Platform image
+      - name: Build and Load image for testing
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -155,7 +155,7 @@ jobs:
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
-      - name: Build and Load Runner Platform image
+      - name: Build and Load image for testing
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -234,7 +234,7 @@ jobs:
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
-      - name: Build and Load Runner Platform image
+      - name: Build and Load image for testing
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -313,7 +313,7 @@ jobs:
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
-      - name: Build and Load Runner Platform image
+      - name: Build and Load image for testing
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -392,7 +392,7 @@ jobs:
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
-      - name: Build and Load Runner Platform image
+      - name: Build and Load image for testing
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -471,7 +471,7 @@ jobs:
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
-      - name: Build and Load Runner Platform image
+      - name: Build and Load image for testing
         uses: docker/build-push-action@v2
         with:
           context: ./docker/kafka-setup
@@ -533,7 +533,7 @@ jobs:
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
-      - name: Build and Load Runner Platform image
+      - name: Build and Load image for testing
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -595,7 +595,7 @@ jobs:
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
-      - name: Build and Load Runner Platform image
+      - name: Build and Load image for testing
         uses: docker/build-push-action@v2
         with:
           context: .
