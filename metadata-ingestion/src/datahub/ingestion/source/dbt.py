@@ -470,9 +470,16 @@ def get_db_fqn(database: Optional[str], schema: str, name: str) -> str:
 
 
 def get_urn_from_dbtNode(
-    database: Optional[str], schema: str, name: str, target_platform: str, env: str
+    database: Optional[str],
+    schema: str,
+    name: str,
+    target_platform: str,
+    env: str,
+    data_platform_instance: Optional[str],
 ) -> str:
     db_fqn = get_db_fqn(database, schema, name)
+    if data_platform_instance is not None:
+        db_fqn = f"{data_platform_instance}.{db_fqn}"
     return mce_builder.make_dataset_urn(target_platform, db_fqn, env)
 
 
@@ -502,6 +509,7 @@ def get_upstreams(
     target_platform: str,
     environment: str,
     disable_dbt_node_creation: bool,
+    platform_instance: Optional[str],
 ) -> List[str]:
     upstream_urns = []
 
@@ -547,6 +555,7 @@ def get_upstreams(
                 name,
                 platform_value,
                 environment,
+                platform_instance if platform_value == DBT_PLATFORM else None,
             )
         )
     return upstream_urns
@@ -877,6 +886,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 node.name,
                 mce_platform,
                 self.config.env,
+                self.config.platform_instance if mce_platform == DBT_PLATFORM else None,
             )
             self.save_checkpoint(node_datahub_urn)
 
@@ -928,6 +938,7 @@ class DBTSource(StatefulIngestionSourceBase):
                             node.name,
                             DBT_PLATFORM,
                             self.config.env,
+                            self.config.platform_instance,
                         )
                         upstreams_lineage_class = get_upstream_lineage(
                             [upstream_dbt_urn]
@@ -1215,6 +1226,7 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.target_platform,
             self.config.env,
             self.config.disable_dbt_node_creation,
+            None,
         )
 
         # if a node is of type source in dbt, its upstream lineage should have the corresponding table/view
@@ -1227,6 +1239,7 @@ class DBTSource(StatefulIngestionSourceBase):
                     node.name,
                     self.config.target_platform,
                     self.config.env,
+                    self.config.platform_instance,
                 )
             )
         if upstream_urns:
@@ -1247,6 +1260,7 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.target_platform,
             self.config.env,
             self.config.disable_dbt_node_creation,
+            None,
         )
         if upstream_urns:
             return get_upstream_lineage(upstream_urns)
