@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { message, Button, Modal, Select, Typography } from 'antd';
+import { message, Button, Modal, Select, Typography, Tag as CustomTag } from 'antd';
 import styled from 'styled-components';
 
 import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
@@ -18,6 +18,7 @@ import { IconStyleType } from '../../entity/Entity';
 import { useAddTagsMutation, useAddTermsMutation } from '../../../graphql/mutations.generated';
 import analytics, { EventType, EntityActionType } from '../../analytics';
 import { useEnterKeyListener } from '../useEnterKeyListener';
+import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
 
 type AddTagsModalProps = {
     globalTags?: GlobalTags | null;
@@ -56,13 +57,23 @@ const getSelectedValue = (rawValue: string) => {
     };
 };
 
-const renderItem = (suggestion: string, icon: JSX.Element, type: string) => ({
+const renderTerm = (suggestion: string, icon: JSX.Element, type: string) => ({
     value: suggestion,
     label: (
         <SuggestionContainer>
             <span>{icon}</span>
             <SuggestionText>{suggestion}</SuggestionText>
         </SuggestionContainer>
+    ),
+    type,
+});
+
+const renderTag = (suggestion: string, $colorHash, $color, type: string) => ({
+    value: suggestion,
+    label: (
+        <StyledTag $colorHash={$colorHash} $color={$color} closable={false} style={{ border: 'none' }}>
+            {suggestion}
+        </StyledTag>
     ),
     type,
 });
@@ -109,14 +120,25 @@ export default function AddTagsTermsModal({
             result.entity.type === EntityType.Tag
                 ? (result.entity as Tag).name
                 : (result.entity as GlossaryTerm).hierarchicalName;
-        const item = renderItem(
+        const term = renderTerm(
             displayName,
             entityRegistry.getIcon(result.entity.type, 14, IconStyleType.ACCENT),
             result.entity.type,
         );
-        return (
-            <Select.Option value={`${item.value}${NAME_TYPE_SEPARATOR}${item.type}`} key={item.value}>
-                {item.label}
+
+        const tag = renderTag(
+            displayName,
+            (result.entity as Tag).urn,
+            (result.entity as Tag).properties?.colorHex,
+            result.entity.type,
+        );
+        return result.entity.type === EntityType.Tag ? (
+            <Select.Option value={`${tag.value}${NAME_TYPE_SEPARATOR}${tag.type}`} key={tag.value}>
+                {tag.label}
+            </Select.Option>
+        ) : (
+            <Select.Option value={`${term.value}${NAME_TYPE_SEPARATOR}${term.type}`} key={term.value}>
+                {term.label}
             </Select.Option>
         );
     };
@@ -137,6 +159,31 @@ export default function AddTagsTermsModal({
             </Select.Option>,
         );
     }
+
+    const tagRender = (props) => {
+        // eslint-disable-next-line react/prop-types
+        const { label, closable, onClose } = props;
+        const onPreventMouseDown = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+        };
+        return (
+            <CustomTag
+                onMouseDown={onPreventMouseDown}
+                closable={closable}
+                onClose={onClose}
+                style={{
+                    marginRight: 3,
+                    color: 'black',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                }}
+            >
+                {label}
+            </CustomTag>
+        );
+    };
 
     // Handle the Enter press
     useEnterKeyListener({
@@ -216,7 +263,7 @@ export default function AddTagsTermsModal({
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: `Added ${type === EntityType.GlossaryTerm ? 'Term' : 'Tag'}!`,
+                        content: `Added ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'}!`,
                         duration: 2,
                     });
                 }
@@ -290,6 +337,7 @@ export default function AddTagsTermsModal({
                     setInputValue(value.trim());
                 }}
                 onChange={handleChange}
+                tagRender={tagRender}
             >
                 {tagSearchOptions}
             </TagSelect>

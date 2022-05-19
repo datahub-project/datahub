@@ -21,18 +21,16 @@ const SearchResultContainer = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px;
+    padding: 2px;
 `;
 
 const SearchResultContent = styled.div`
     display: flex;
-    justify-content: start;
+    justify-content: center;
     align-items: center;
 `;
 
-const SearchResultDisplayName = styled.div`
-    margin-left: 12px;
-`;
+const SearchResultDisplayName = styled.div``;
 
 type Props = {
     urn: string;
@@ -111,30 +109,50 @@ export const AddOwnersModal = ({
         const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
         return (
             <SearchResultContainer>
-                <SearchResultContent>
-                    <CustomAvatar
-                        size={32}
-                        name={displayName}
-                        photoUrl={avatarUrl}
-                        isGroup={result.entity.type === EntityType.CorpGroup}
-                    />
-                    <SearchResultDisplayName>
-                        <div>
-                            <Typography.Text type="secondary">
-                                {entityRegistry.getEntityName(result.entity.type)}
-                            </Typography.Text>
-                        </div>
-                        <div>{displayName}</div>
-                    </SearchResultDisplayName>
-                </SearchResultContent>
                 <Link
                     target="_blank"
                     rel="noopener noreferrer"
                     to={() => `/${entityRegistry.getPathName(result.entity.type)}/${result.entity.urn}`}
                 >
-                    View
-                </Link>{' '}
+                    <SearchResultContent>
+                        <CustomAvatar
+                            size={18}
+                            name={displayName}
+                            photoUrl={avatarUrl}
+                            isGroup={result.entity.type === EntityType.CorpGroup}
+                        />
+                        <SearchResultDisplayName>
+                            <div>{displayName}</div>
+                        </SearchResultDisplayName>
+                    </SearchResultContent>
+                </Link>
             </SearchResultContainer>
+        );
+    };
+
+    const tagRender = (props) => {
+        // eslint-disable-next-line react/prop-types
+        const { label, closable, onClose } = props;
+        const onPreventMouseDown = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+        };
+        return (
+            <Tag
+                onMouseDown={onPreventMouseDown}
+                closable={closable}
+                onClose={onClose}
+                style={{
+                    marginRight: 3,
+                    color: 'black',
+                    lineHeight: 0,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                }}
+            >
+                {label}
+            </Tag>
         );
     };
 
@@ -144,12 +162,12 @@ export const AddOwnersModal = ({
     };
 
     // When user get selected, set the owners
-    const handleChange = (value: string[]) => {
+    const handleChange = (values: string[]) => {
         if (inputEl && inputEl.current) {
             (inputEl.current as any).blur();
         }
         // eslint-disable-next-line array-callback-return
-        value.map((urnId) => {
+        values.map((urnId) => {
             const filteredActors = combinedSearchResults
                 .filter((result) => result.entity.urn === urnId)
                 .map((result) => result.entity);
@@ -174,11 +192,14 @@ export const AddOwnersModal = ({
         if (selectedActors.length === 0) {
             return;
         }
+        const inputs = selectedActors.map((selectedActor) => {
+            return { ...selectedActor, type: selectedOwnerType };
+        });
         try {
             await addOwnersMutation({
                 variables: {
                     input: {
-                        owners: selectedActors,
+                        owners: inputs,
                         resourceUrn: urn,
                     },
                 },
@@ -196,30 +217,8 @@ export const AddOwnersModal = ({
                 message.error({ content: `Failed to add owner: \n ${e.message || ''}`, duration: 3 });
             }
         }
-        setSelectedActors([]);
         refetch?.();
         onCloseModal();
-    };
-
-    // TODO
-    const tagRender = (props) => {
-        // eslint-disable-next-line react/prop-types
-        const { value, closable, onClose } = props;
-        const onPreventMouseDown = (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-        };
-        return (
-            <Tag
-                color={value}
-                onMouseDown={onPreventMouseDown}
-                closable={closable}
-                onClose={onClose}
-                style={{ marginRight: 3, color: 'black' }}
-            >
-                {value}
-            </Tag>
-        );
     };
 
     return (
