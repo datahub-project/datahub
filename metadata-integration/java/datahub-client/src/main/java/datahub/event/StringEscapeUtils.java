@@ -24,21 +24,11 @@ import java.io.StringWriter;
 import java.io.Writer;
 import java.util.Locale;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedin.data.template.JacksonDataTemplateCodec;
-
 public class StringEscapeUtils {
 
   private StringEscapeUtils() {
 
   }
-
-  private final static ObjectMapper OBJECT_MAPPER = new ObjectMapper()
-      .setSerializationInclusion(JsonInclude.Include.NON_NULL);
-  private final static JacksonDataTemplateCodec DATA_TEMPLATE_CODEC = new JacksonDataTemplateCodec(
-      OBJECT_MAPPER.getFactory());
-
    
   /**
    * Worker method for the {@link #escapeJavaScript(String)} method.
