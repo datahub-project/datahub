@@ -20,7 +20,8 @@ ARG USE_SYSTEM_NODE="true"
 ENV CI=true
 ENV GRADLE_OPTS="-Xms256m -Xmx512m"
 COPY . datahub-src
-RUN cd datahub-src \
+RUN mkdir /scripts && cp datahub-src/docker/datahub-frontend/start.sh /scripts/start.sh \
+    && cd datahub-src \
     && ./gradlew :datahub-web-react:build -x test -x yarnTest -x yarnLint \
     && ./gradlew :datahub-frontend:dist -PenableEmber=${ENABLE_EMBER} -PuseSystemNode=${USE_SYSTEM_NODE} -x test -x yarnTest -x yarnLint \
     && cp datahub-frontend/build/distributions/datahub-frontend.zip ../datahub-frontend.zip \
@@ -29,6 +30,9 @@ RUN cd datahub-src \
 FROM base as prod-install
 
 COPY --from=prod-build /datahub-frontend /datahub-frontend/
+COPY --from=prod-build /scripts /scripts/
+
+RUN chmod +x /scripts/start.sh
 RUN chown -R datahub:datahub /datahub-frontend && chmod 755 /datahub-frontend
 
 FROM base as dev-install
@@ -55,4 +59,5 @@ ENV JAVA_OPTS=" \
    -Dlogback.configurationFile=datahub-frontend/conf/logback.xml \
    -Dlogback.debug=false \
    -Dpidfile.path=/dev/null"
-CMD ["datahub-frontend/bin/datahub-frontend"]
+
+CMD /scripts/start.sh
