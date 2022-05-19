@@ -7,6 +7,7 @@ export const REDESIGN_COLORS = {
 export const ANTD_GRAY = {
     1: '#FFFFFF',
     2: '#FAFAFA',
+    2.5: '#F8F8F8',
     3: '#F5F5F5',
     4: '#F0F0F0',
     4.5: '#E9E9E9',

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
 
 import pydantic
+from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
 from datahub.metadata.schema_classes import CalendarIntervalClass
@@ -31,13 +32,16 @@ def get_bucket_duration_delta(bucketing: BucketDuration) -> timedelta:
 
 
 class BaseTimeWindowConfig(ConfigModel):
-    bucket_duration: BucketDuration = BucketDuration.DAY
+    bucket_duration: BucketDuration = Field(
+        default=BucketDuration.DAY,
+        description="Size of the time window to aggregate usage stats.",
+    )
 
     # `start_time` and `end_time` will be populated by the pre-validators.
     # However, we must specify a "default" value here or pydantic will complain
     # if those fields are not set by the user.
-    end_time: datetime = None  # type: ignore
-    start_time: datetime = None  # type: ignore
+    end_time: datetime = Field(default=None, description="Latest date of usage to consider. Default: Last full day in UTC (or hour, depending on `bucket_duration`)")  # type: ignore
+    start_time: datetime = Field(default=None, description="Earliest date of usage to consider. Default: Last full day in UTC (or hour, depending on `bucket_duration`)")  # type: ignore
 
     @pydantic.validator("end_time", pre=True, always=True)
     def default_end_time(

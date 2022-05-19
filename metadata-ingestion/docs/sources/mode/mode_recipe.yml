@@ -1,0 +1,21 @@
+source:
+  type: mode
+  config:
+    # Coordinates
+    connect_uri: http://app.mode.com
+
+    # Credentials
+    token: token
+    password: pass
+
+    # Options
+    workspace: "datahub"
+    default_schema: "public"
+    owner_username_instead_of_email: False
+    api_options:
+      retry_backoff_multiplier: 2
+      max_retry_interval: 10
+      max_attempts: 5
+
+sink:
+  # sink configs

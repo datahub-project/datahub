@@ -92,7 +92,7 @@ public class CassandraTimelineServiceTest extends TimelineServiceTestBase<Cassan
     CqlSession session = createTestSession();
     _aspectDao = new CassandraAspectDao(session);
     _aspectDao.setConnectionValidated(true);
-    _entityTimelineService = new TimelineServiceImpl(_aspectDao);
+    _entityTimelineService = new TimelineServiceImpl(_aspectDao, _testEntityRegistry);
     _mockProducer = mock(EventProducer.class);
     _entityService = new EntityService(_aspectDao, _mockProducer, _testEntityRegistry);
   }

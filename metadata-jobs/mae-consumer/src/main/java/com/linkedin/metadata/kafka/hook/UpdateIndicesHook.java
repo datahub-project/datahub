@@ -13,12 +13,12 @@ import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.gms.factory.search.SearchDocumentTransformerFactory;
 import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
+import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
@@ -120,8 +120,8 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         updateSystemMetadata(event.getSystemMetadata(), urn, aspectSpec, aspect);
       }
     } else if (event.getChangeType() == ChangeType.DELETE) {
-      if (!event.hasAspectName() || !event.hasAspect()) {
-        log.error("Aspect or aspect name is missing");
+      if (!event.hasAspectName() || !event.hasPreviousAspectValue()) {
+        log.error("Previous aspect or aspect name is missing");
         return;
       }
 
@@ -131,9 +131,8 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         return;
       }
 
-      RecordTemplate aspect =
-          GenericRecordUtils.deserializeAspect(event.getAspect().getValue(), event.getAspect().getContentType(),
-              aspectSpec);
+      RecordTemplate aspect = GenericRecordUtils.deserializeAspect(event.getPreviousAspectValue().getValue(),
+              event.getPreviousAspectValue().getContentType(), aspectSpec);
       Boolean isDeletingKey = event.getAspectName().equals(entitySpec.getKeyAspectName());
 
       if (!aspectSpec.isTimeseries()) {

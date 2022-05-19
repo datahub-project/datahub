@@ -1,0 +1,13 @@
+source:
+  type: "nifi"
+  config:
+    # Coordinates
+    site_url: "https://localhost:8443/nifi/"
+
+    # Credentials
+    auth: SINGLE_USER
+    username: admin
+    password: password
+
+sink:
+  # sink configs

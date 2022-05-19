@@ -26,7 +26,7 @@ public class EbeanTimelineServiceTest extends TimelineServiceTestBase<EbeanAspec
     EbeanServer server = EbeanServerFactory.create(createTestingH2ServerConfig());
     _aspectDao = new EbeanAspectDao(server);
     _aspectDao.setConnectionValidated(true);
-    _entityTimelineService = new TimelineServiceImpl(_aspectDao);
+    _entityTimelineService = new TimelineServiceImpl(_aspectDao, _testEntityRegistry);
     _mockProducer = mock(EventProducer.class);
     _entityService = new EntityService(_aspectDao, _mockProducer, _testEntityRegistry);
   }

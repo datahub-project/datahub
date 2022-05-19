@@ -146,6 +146,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
             <Preview
                 urn={data.urn}
                 name={data.properties?.name || ''}
+                platformInstanceId={data.dataPlatformInstance?.instanceId}
                 description={data.editableProperties?.description || data.properties?.description || ''}
                 platformName={platformName}
                 platformLogo={data?.platform?.properties?.logoUrl || ''}

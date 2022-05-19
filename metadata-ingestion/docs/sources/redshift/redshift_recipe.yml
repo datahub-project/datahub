@@ -1,0 +1,39 @@
+source:
+  type: redshift
+  config:
+    # Coordinates
+    host_port: example.something.us-west-2.redshift.amazonaws.com:5439
+    database: DemoDatabase
+
+    # Credentials
+    username: user
+    password: pass
+
+    # Options
+    options:
+      # driver_option: some-option
+
+    include_views: True # whether to include views, defaults to True
+    include_tables: True # whether to include views, defaults to True
+
+sink:
+  # sink configs
+
+#------------------------------------------------------------------------------
+# Extra options when running Redshift behind a proxy</summary>
+# This requires you to have already installed the Microsoft ODBC Driver for SQL Server.
+# See https://docs.microsoft.com/en-us/sql/connect/python/pyodbc/step-1-configure-development-environment-for-pyodbc-python-development?view=sql-server-ver15
+#------------------------------------------------------------------------------
+
+source:
+  type: redshift
+  config:
+    host_port: my-proxy-hostname:5439
+
+    options:
+      connect_args:
+        sslmode: "prefer" # or "require" or "verify-ca"
+        sslrootcert: ~ # needed to unpin the AWS Redshift certificate
+
+sink:
+  # sink configs

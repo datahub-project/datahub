@@ -17,6 +17,19 @@ type Props = {
     onFilterSelect: (selected: boolean, field: string, value: string) => void;
 };
 
+const SearchFilterWrapper = styled.div`
+    padding: 0 25px 15px 25px;
+`;
+
+const Title = styled.div`
+    font-weight: bold;
+    margin-bottom: 10px;
+`;
+
+const CheckBox = styled(Checkbox)`
+    margin: 5px 0;
+`;
+
 const ExpandButton = styled(Button)`
     &&& {
         padding: 4px;
@@ -30,19 +43,16 @@ export const SearchFilter = ({ facet, selectedFilters, onFilterSelect }: Props) 
         FILTERS_TO_TRUNCATE.indexOf(facet.field) > -1 && facet.aggregations.length > TRUNCATED_FILTER_LENGTH;
 
     return (
-        // TODO(gabe-lyons): fix up styes to use styled-components
-        <div key={facet.field} style={{ padding: '0px 25px 15px 25px' }}>
-            <div style={{ fontWeight: 'bold', marginBottom: '10px' }}>{facet?.displayName}</div>
+        <SearchFilterWrapper key={facet.field}>
+            <Title>{facet?.displayName}</Title>
             {facet.aggregations.map((aggregation, i) => {
                 if (i >= TRUNCATED_FILTER_LENGTH && !expanded && shouldTruncate) {
                     return null;
                 }
                 return (
                     <span key={`${facet.field}-${aggregation.value}`}>
-                        <Checkbox
+                        <CheckBox
                             data-testid={`facet-${facet.field}-${aggregation.value}`}
-                            // TODO(gabe-lyons): fix up styling to use styled-components
-                            style={{ margin: '5px 0px' }}
                             checked={
                                 selectedFilters.find(
                                     (f) => f.field === facet.field && f.value === aggregation.value,
@@ -53,7 +63,7 @@ export const SearchFilter = ({ facet, selectedFilters, onFilterSelect }: Props) 
                             }
                         >
                             <SearchFilterLabel field={facet.field} aggregation={aggregation} />
-                        </Checkbox>
+                        </CheckBox>
                         <br />
                     </span>
                 );
@@ -63,6 +73,6 @@ export const SearchFilter = ({ facet, selectedFilters, onFilterSelect }: Props) 
                     {expanded ? '- Less' : '+ More'}
                 </ExpandButton>
             )}
-        </div>
+        </SearchFilterWrapper>
     );
 };

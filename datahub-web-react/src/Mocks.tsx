@@ -24,6 +24,7 @@ import {
     ScenarioType,
     RecommendationRenderType,
     RelationshipDirection,
+    Container,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
@@ -32,6 +33,7 @@ import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossar
 import { GetEntityCountsDocument } from './graphql/app.generated';
 import { GetMeDocument } from './graphql/me.generated';
 import { ListRecommendationsDocument } from './graphql/recommendations.generated';
+import { FetchedEntity } from './app/lineage/types';
 
 const user1 = {
     username: 'sdas',
@@ -115,7 +117,7 @@ const dataPlatform = {
     },
 };
 
-const dataset1 = {
+export const dataset1 = {
     urn: 'urn:li:dataset:1',
     type: EntityType.Dataset,
     platform: {
@@ -129,6 +131,7 @@ const dataset1 = {
             logoUrl: '',
         },
     },
+    dataPlatformInstance: null,
     platformNativeType: 'TABLE',
     name: 'The Great Test Dataset',
     origin: 'PROD',
@@ -208,7 +211,7 @@ const dataset1 = {
     deprecation: null,
 };
 
-const dataset2 = {
+export const dataset2 = {
     urn: 'urn:li:dataset:2',
     type: EntityType.Dataset,
     platform: {
@@ -222,6 +225,7 @@ const dataset2 = {
         },
         type: EntityType.DataPlatform,
     },
+    dataPlatformInstance: null,
     platformNativeType: 'TABLE',
     name: 'Some Other Dataset',
     origin: 'PROD',
@@ -231,6 +235,7 @@ const dataset2 = {
         name: 'Some Other Dataset',
         description: 'This is some other dataset, so who cares!',
         customProperties: [],
+        origin: 'PROD',
     },
     editableProperties: null,
     created: {
@@ -302,6 +307,7 @@ export const dataset3 = {
         },
         type: EntityType.DataPlatform,
     },
+    dataPlatformInstance: null,
     platformNativeType: 'STREAM',
     name: 'Yet Another Dataset',
     origin: 'PROD',
@@ -312,6 +318,10 @@ export const dataset3 = {
         origin: 'PROD',
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
         externalUrl: 'https://data.hub',
+    },
+    parentContainers: {
+        count: 0,
+        containers: [],
     },
     editableProperties: null,
     created: {
@@ -753,6 +763,29 @@ export const dataset7WithSelfReferentialLineage = {
         ],
     },
 };
+
+export const container1 = {
+    urn: 'urn:li:container:DATABASE',
+    type: EntityType.Container,
+    platform: dataPlatform,
+    properties: {
+        name: 'database1',
+        __typename: 'ContainerProperties',
+    },
+    __typename: 'Container',
+} as Container;
+
+export const container2 = {
+    urn: 'urn:li:container:SCHEMA',
+    type: EntityType.Container,
+    platform: dataPlatform,
+    properties: {
+        name: 'schema1',
+        __typename: 'ContainerProperties',
+    },
+    __typename: 'Container',
+} as Container;
+
 const glossaryTerm1 = {
     urn: 'urn:li:glossaryTerm:1',
     type: EntityType.GlossaryTerm,
@@ -1055,8 +1088,8 @@ export const dataJob1 = {
     editableProperties: null,
     inputOutput: {
         __typename: 'DataJobInputOutput',
-        inputDatasets: [dataset3],
-        outputDatasets: [dataset3],
+        inputDatasets: [dataset5],
+        outputDatasets: [dataset6],
         inputDatajobs: [],
     },
     globalTags: {
@@ -1297,6 +1330,28 @@ export const mlModel = {
     status: null,
     deprecation: null,
 } as MlModel;
+
+export const dataset1FetchedEntity = {
+    urn: dataset1.urn,
+    name: dataset1.name,
+    type: dataset1.type,
+    upstreamChildren: [],
+    downstreamChildren: [
+        { type: EntityType.Dataset, entity: dataset2 },
+        { type: EntityType.DataJob, entity: dataJob1 },
+    ],
+} as FetchedEntity;
+
+export const dataset2FetchedEntity = {
+    urn: dataset2.urn,
+    name: 'test name',
+    type: dataset2.type,
+    upstreamChildren: [
+        { type: EntityType.Dataset, entity: dataset1 },
+        { type: EntityType.DataJob, entity: dataJob1 },
+    ],
+    downstreamChildren: [],
+} as FetchedEntity;
 
 export const mlModelGroup = {
     __typename: 'MLModelGroup',

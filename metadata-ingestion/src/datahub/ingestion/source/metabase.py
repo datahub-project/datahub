@@ -5,12 +5,21 @@ from typing import Dict, Iterable, Optional
 import dateutil.parser as dp
 import requests
 from pydantic import validator
+from pydantic.fields import Field
 from requests.models import HTTPError
 from sqllineage.runner import LineageRunner
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -38,19 +47,68 @@ from datahub.utilities import config_clean
 class MetabaseConfig(DatasetLineageProviderConfigBase):
     # See the Metabase /api/session endpoint for details
     # https://www.metabase.com/docs/latest/api-documentation.html#post-apisession
-    connect_uri: str = "localhost:3000"
-    username: Optional[str] = None
-    password: Optional[str] = None
-    database_alias_map: Optional[dict] = None
-    engine_platform_map: Optional[Dict[str, str]] = None
-    default_schema: str = "public"
+    connect_uri: str = Field(default="localhost:3000", description="Metabase host URL.")
+    username: str = Field(default=None, description="Metabase username.")
+    password: str = Field(default=None, description="Metabase password.")
+    database_alias_map: Optional[dict] = Field(
+        default=None,
+        description="Database name map to use when constructing dataset URN.",
+    )
+    engine_platform_map: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="Custom mappings between metabase database engines and DataHub platforms",
+    )
+    default_schema: str = Field(
+        default="public",
+        description="Default schema name to use when schema is not provided in an SQL query",
+    )
 
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 
 
+@platform_name("Metabase")
+@config_class(MetabaseConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 class MetabaseSource(Source):
+    """
+    This plugin extracts Charts, dashboards, and associated metadata. This plugin is in beta and has only been tested
+    on PostgreSQL and H2 database.
+    ### Dashboard
+
+    [/api/dashboard](https://www.metabase.com/docs/latest/api-documentation.html#dashboard) endpoint is used to
+    retrieve the following dashboard information.
+
+    - Title and description
+    - Last edited by
+    - Owner
+    - Link to the dashboard in Metabase
+    - Associated charts
+
+    ### Chart
+
+    [/api/card](https://www.metabase.com/docs/latest/api-documentation.html#card) endpoint is used to
+    retrieve the following information.
+
+    - Title and description
+    - Last edited by
+    - Owner
+    - Link to the chart in Metabase
+    - Datasource and lineage
+
+    The following properties for a chart are ingested in DataHub.
+
+    | Name          | Description                                     |
+    | ------------- | ----------------------------------------------- |
+    | `Dimensions`  | Column names                                    |
+    | `Filters`     | Any filters applied to the chart                |
+    | `Metrics`     | All columns that are being used for aggregation |
+
+
+    """
+
     config: MetabaseConfig
     report: SourceReport
     platform = "metabase"
