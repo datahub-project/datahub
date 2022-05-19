@@ -1213,6 +1213,13 @@ public class GmsGraphQLEngine {
                             return entity.getDataPlatformInstance() != null ? entity.getDataPlatformInstance().getUrn() : null;
                         })
                 )
+                .dataFetcher("dataPlatformInstance",
+                    new LoadableTypeResolver<>(dataPlatformInstanceType,
+                        (env) -> {
+                            final MLModelGroup entity = env.getSource();
+                            return entity.getDataPlatformInstance() != null ? entity.getDataPlatformInstance().getUrn() : null;
+                        })
+                )
                 .dataFetcher("domain",
                     new LoadableTypeResolver<>(
                         domainType,

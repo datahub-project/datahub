@@ -730,7 +730,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     )
 
             if profiler and profile_requests:
-                yield from self.loop_profiler(profile_requests, profiler)
+                yield from self.loop_profiler(
+                    profile_requests, profiler, platform=self.platform
+                )
 
         if self.is_stateful_ingestion_configured():
             # Clean up stale entities.
@@ -1329,10 +1331,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             )
 
     def loop_profiler(
-        self, profile_requests: List["GEProfilerRequest"], profiler: "DatahubGEProfiler"
+        self,
+        profile_requests: List["GEProfilerRequest"],
+        profiler: "DatahubGEProfiler",
+        platform: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         for request, profile in profiler.generate_profiles(
-            profile_requests, self.config.profiling.max_workers
+            profile_requests, self.config.profiling.max_workers, platform=platform
         ):
             if profile is None:
                 continue

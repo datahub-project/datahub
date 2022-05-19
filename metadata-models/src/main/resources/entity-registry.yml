@@ -236,5 +236,11 @@ entities:
     keyAspect: globalSettingsKey
     aspects:
       - globalSettingsInfo
+  - name: telemetry
+    category: internal
+    keyAspect: telemetryKey
+    aspects:
+      - telemetryClientId
+
 events:
   - name: notificationRequest
