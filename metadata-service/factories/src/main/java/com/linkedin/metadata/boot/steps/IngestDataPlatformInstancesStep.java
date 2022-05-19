@@ -48,7 +48,7 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
   public void execute() throws Exception {
     log.info("Checking for DataPlatformInstance");
     if (_migrationsDao.checkIfAspectExists(PLATFORM_INSTANCE_ASPECT_NAME)) {
-      log.info("DataPlaformInstance aspect exists. Skipping step");
+      log.info("DataPlatformInstance aspect exists. Skipping step");
       return;
     }
 
