@@ -1,7 +1,7 @@
 #!/bin/bash
 
 CURRENT_DIR=$(pwd)
-BUILD_DIR=../build/stage/datahub-frontend
+BUILD_DIR=../build/stage/playBinary
 CONF_DIR=$BUILD_DIR/conf
 
 set -a
@@ -18,4 +18,4 @@ export JAVA_OPTS="
 	-Dlogback.debug=true
 	-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"
 
-$BUILD_DIR/bin/playBinary
+$BUILD_DIR/bin/datahub-frontend
