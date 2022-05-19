@@ -514,6 +514,7 @@
                             "urn:li:chart:(tableau,692a2da4-2a82-32c1-f713-63b8e4325d86)",
                             "urn:li:chart:(tableau,f4317efd-c3e6-6ace-8fe6-e71b590bbbcc)"
                         ],
+                        "datasets": [],
                         "lastModified": {
                             "created": {
                                 "time": 1640200234000,
@@ -3283,6 +3284,7 @@
                         "charts": [
                             "urn:li:chart:(tableau,8a6a269a-d6de-fae4-5050-513255b40ffc)"
                         ],
+                        "datasets": [],
                         "lastModified": {
                             "created": {
                                 "time": 1639773866000,
@@ -3368,6 +3370,7 @@
                         "title": "Story 1",
                         "description": "",
                         "charts": [],
+                        "datasets": [],
                         "lastModified": {
                             "created": {
                                 "time": 1639773866000,
@@ -7311,6 +7314,7 @@
                             "urn:li:chart:(tableau,e70a540d-55ed-b9cc-5a3c-01ebe81a1274)",
                             "urn:li:chart:(tableau,f76d3570-23b8-f74b-d85c-cc5484c2079c)"
                         ],
+                        "datasets": [],
                         "lastModified": {
                             "created": {
                                 "time": 1639768450000,
