@@ -55,7 +55,7 @@ jobs:
           echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
           echo "::set-output name=publish::${{ env.ENABLE_PUBLISH != '' }}"
   gms_build:
-    name: Build DataHub GMS Docker Image for testing
+    name: Build and Push DataHub GMS Docker Image
     runs-on: ubuntu-latest
     needs: setup
     outputs:
@@ -131,7 +131,7 @@ jobs:
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
   mae_consumer_build:
-    name: Build DataHub MAE Consumer Docker Image for testing
+    name: Build and Push DataHub MAE Consumer Docker Image
     runs-on: ubuntu-latest
     needs: setup
     outputs:
@@ -207,7 +207,7 @@ jobs:
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
   mce_consumer_build:
-    name: Build DataHub MCE Consumer Docker Image for testing
+    name: Build and Push DataHub MCE Consumer Docker Image
     runs-on: ubuntu-latest
     needs: setup
     outputs:
@@ -283,7 +283,7 @@ jobs:
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
   datahub_upgrade_build:
-    name: Build DataHub Upgrade Docker Image for testing
+    name: Build and Push DataHub Upgrade Docker Image
     runs-on: ubuntu-latest
     needs: setup
     outputs:
@@ -359,7 +359,7 @@ jobs:
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
   frontend_build:
-    name: Build DataHub Frontend Docker Image for testing
+    name: Build and Push DataHub Frontend Docker Image
     runs-on: ubuntu-latest
     needs: setup
     outputs:
@@ -435,7 +435,7 @@ jobs:
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
   kafka_setup_build:
-    name: Build DataHub Kafka Setup Docker Image for testing
+    name: Build and Push DataHub Kafka Setup Docker Image
     runs-on: ubuntu-latest
     needs: setup
     outputs:
@@ -493,7 +493,7 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: true
   mysql_setup_build:
-    name: Build DataHub MySQL Setup Docker Image for testing
+    name: Build and Push DataHub MySQL Setup Docker Image
     runs-on: ubuntu-latest
     needs: setup
     outputs:
@@ -551,7 +551,7 @@ jobs:
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: true
   elasticsearch_setup_build:
-    name: Build DataHub Elasticsearch Setup Docker Image for testing
+    name: Build and Push DataHub Elasticsearch Setup Docker Image
     runs-on: ubuntu-latest
     needs: setup
     outputs:
