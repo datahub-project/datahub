@@ -1,6 +1,9 @@
 package com.linkedin.metadata.resources.entity;
 
 import com.codahale.metrics.MetricRegistry;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
@@ -13,6 +16,7 @@ import com.linkedin.metadata.run.IngestionRunSummaryArray;
 import com.linkedin.metadata.run.RollbackResponse;
 import com.linkedin.metadata.run.UnsafeEntityInfo;
 import com.linkedin.metadata.run.UnsafeEntityInfoArray;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.server.annotations.Action;
@@ -81,7 +85,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
       }
       RollbackResponse response = new RollbackResponse();
       List<AspectRowSummary> aspectRowsToDelete;
-      aspectRowsToDelete = _systemMetadataService.findByRunId(runId, doHardDelete);
+      aspectRowsToDelete = _systemMetadataService.findByRunId(runId, doHardDelete, 0, ESUtils.MAX_RESULT_SIZE);
 
       log.info("found {} rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
       if (dryRun) {
@@ -107,7 +111,8 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
         }
         // Compute the aspects that exist referencing the key aspects we are deleting
         final List<AspectRowSummary> affectedAspectsList = keyAspects.stream()
-            .map((AspectRowSummary urn) -> _systemMetadataService.findByUrn(urn.getUrn(), false))
+            .map((AspectRowSummary urn) -> _systemMetadataService.findByUrn(urn.getUrn(), false, 0,
+                ESUtils.MAX_RESULT_SIZE))
             .flatMap(List::stream)
             .filter(row -> !row.getRunId().equals(runId) && !row.isKeyAspect() && !row.getAspectName()
                 .equals(Constants.STATUS_ASPECT_NAME))
@@ -142,7 +147,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
       // since elastic limits how many rows we can access at once, we need to iteratively delete
       while (aspectRowsToDelete.size() >= ELASTIC_MAX_PAGE_SIZE) {
         sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
-        aspectRowsToDelete = _systemMetadataService.findByRunId(runId, doHardDelete);
+        aspectRowsToDelete = _systemMetadataService.findByRunId(runId, doHardDelete, 0, ESUtils.MAX_RESULT_SIZE);
         log.info("{} remaining rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
         log.info("deleting...");
         rollbackRunResult = _entityService.rollbackRun(aspectRowsToDelete, runId, doHardDelete);
@@ -168,7 +173,8 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
       log.info("computing aspects affected by this rollback...");
       // Compute the aspects that exist referencing the key aspects we are deleting
       final List<AspectRowSummary> affectedAspectsList = keyAspects.stream()
-          .map((AspectRowSummary urn) -> _systemMetadataService.findByUrn(urn.getUrn(), false))
+          .map((AspectRowSummary urn) -> _systemMetadataService.findByUrn(urn.getUrn(), false, 0,
+              ESUtils.MAX_RESULT_SIZE))
           .flatMap(List::stream)
           .filter(row -> !row.getRunId().equals(runId) && !row.isKeyAspect() && !row.getAspectName()
               .equals(Constants.STATUS_ASPECT_NAME))
@@ -239,19 +245,33 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
   @Action(name = "describe")
   @Nonnull
   @WithSpan
-  public Task<IngestionRunSummaryArray> describe(@ActionParam("runId") @Nonnull String runId,
-      @ActionParam("pageOffset") @Optional @Nullable Integer pageOffset,
-      @ActionParam("pageSize") @Optional @Nullable Integer pageSize,
+  public Task<AspectRowSummaryArray> describe(@ActionParam("runId") @Nonnull String runId,
+      @ActionParam("start") Integer start, @ActionParam("count") Integer count,
+      @ActionParam("includeSoft") @Optional @Nullable Boolean includeSoft,
       @ActionParam("includeAspect") @Optional @Nullable Boolean includeAspect) {
-    log.info("LIST RUNS offset: {} size: {}", pageOffset, pageSize);
+    log.info("DESCRIBE RUN runId: {}, start: {}, count: {}", runId, start, count);
 
     return RestliUtil.toTask(() -> {
-      List<IngestionRunSummary> summaries =
-          _systemMetadataService.listRuns(pageOffset != null ? pageOffset : DEFAULT_OFFSET,
-              pageSize != null ? pageSize : DEFAULT_PAGE_SIZE,
-              includeSoft != null ? includeSoft : DEFAULT_INCLUDE_SOFT_DELETED);
+      List<AspectRowSummary> summaries =
+          _systemMetadataService.findByRunId(runId, includeSoft != null && includeSoft, start, count);
 
-      return new IngestionRunSummaryArray(summaries);
-    }, MetricRegistry.name(this.getClass(), "list"));
+      if (includeAspect != null && includeAspect) {
+        summaries.forEach(summary -> {
+          Urn urn = UrnUtils.getUrn(summary.getUrn());
+          try {
+            EnvelopedAspect aspect =
+                _entityService.getLatestEnvelopedAspect(urn.getEntityType(), urn, summary.getAspectName());
+            if (aspect == null) {
+              log.error("Aspect for summary {} not found", summary);
+            } else {
+              summary.setAspect(aspect.getValue());
+            }
+          } catch (Exception e) {
+            log.error("Error while fetching aspect for summary {}", summary, e);
+          }
+        });
+      }
+      return new AspectRowSummaryArray(summaries);
+    }, MetricRegistry.name(this.getClass(), "describe"));
   }
 }
