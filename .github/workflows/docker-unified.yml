@@ -123,13 +123,6 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-      - name: Login to AWS ECR
-        uses: docker/login-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
-          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
-          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
-          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
@@ -138,6 +131,10 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-west-2
   mae_consumer_build:
     name: Build and Push DataHub MAE Consumer Docker Image
     runs-on: ubuntu-latest
@@ -207,13 +204,6 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-      - name: Login to AWS ECR
-        uses: docker/login-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
-          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
-          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
-          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
@@ -222,6 +212,10 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-west-2
   mce_consumer_build:
     name: Build and Push DataHub MCE Consumer Docker Image
     runs-on: ubuntu-latest
@@ -291,13 +285,6 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-      - name: Login to AWS ECR
-        uses: docker/login-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
-          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
-          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
-          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
@@ -306,6 +293,10 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-west-2
   datahub_upgrade_build:
     name: Build and Push DataHub Upgrade Docker Image
     runs-on: ubuntu-latest
@@ -375,13 +366,6 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-      - name: Login to AWS ECR
-        uses: docker/login-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
-          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
-          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
-          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
@@ -390,6 +374,10 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-west-2
   frontend_build:
     name: Build and Push DataHub Frontend Docker Image
     runs-on: ubuntu-latest
@@ -459,13 +447,6 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-      - name: Login to AWS ECR
-        uses: docker/login-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
-          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
-          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
-          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
@@ -474,6 +455,10 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-west-2
   kafka_setup_build:
     name: Build and Push DataHub Kafka Setup Docker Image
     runs-on: ubuntu-latest
