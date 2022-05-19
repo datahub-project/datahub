@@ -4,6 +4,7 @@ import com.linkedin.metadata.ElasticTestUtils;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchServiceTest;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.mxe.SystemMetadata;
@@ -137,7 +138,7 @@ public class ElasticSearchSystemMetadataServiceTest {
 
     syncAfterWrite(_searchClient, _indexName);
 
-    List<AspectRowSummary> rows = _client.findByRunId("abc-456", false);
+    List<AspectRowSummary> rows = _client.findByRunId("abc-456", false, 0, ESUtils.MAX_RESULT_SIZE);
 
     assertEquals(rows.size(), 4);
     rows.forEach(row -> assertEquals(row.getRunId(), "abc-456"));
@@ -169,7 +170,7 @@ public class ElasticSearchSystemMetadataServiceTest {
 
     syncAfterWrite(_searchClient, _indexName);
 
-    List<AspectRowSummary> rows = _client.findByRunId("abc-456", false);
+    List<AspectRowSummary> rows = _client.findByRunId("abc-456", false, 0, ESUtils.MAX_RESULT_SIZE);
 
     assertEquals(rows.size(), 2);
     rows.forEach(row -> assertEquals(row.getRunId(), "abc-456"));

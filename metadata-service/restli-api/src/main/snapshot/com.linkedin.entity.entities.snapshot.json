@@ -2105,6 +2105,12 @@
     }
   }, {
     "type" : "record",
+    "name" : "Aspect",
+    "namespace" : "com.linkedin.entity",
+    "doc" : "Placeholder PDL record to store the aspect in the response. By using this place-holder, metadata-service can return\nany type of aspect without having to define a single union class",
+    "fields" : [ ]
+  }, {
+    "type" : "record",
     "name" : "Entity",
     "namespace" : "com.linkedin.entity",
     "fields" : [ {
@@ -5373,6 +5379,10 @@
     }, {
       "name" : "keyAspect",
       "type" : "boolean"
+    }, {
+      "name" : "aspect",
+      "type" : "com.linkedin.entity.Aspect",
+      "optional" : true
     } ]
   }, {
     "type" : "record",

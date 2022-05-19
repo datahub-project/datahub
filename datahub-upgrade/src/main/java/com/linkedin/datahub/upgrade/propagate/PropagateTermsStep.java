@@ -40,6 +40,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -97,6 +98,12 @@ public class PropagateTermsStep implements UpgradeStep {
       }
       Filter sourceFilter = buildFilter(sourceFiltersStr);
 
+      List<String> destFiltersStr = UpgradeUtils.parseListArgs(context.args(), "DESTINATION_FILTER");
+      Filter destinationFilter = buildFilter(destFiltersStr);
+
+      Optional<String> allowedNodesStr = context.parsedArgs().getOrDefault("ALLOWED_GLOSSARY_NODES", Optional.empty());
+      
+
       context.report().addLine("Fetching source entities to propagate from");
 
       SearchResult sourceSearchResults =
@@ -109,6 +116,7 @@ public class PropagateTermsStep implements UpgradeStep {
           sourceSearchResults.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toSet()))
           .entrySet()
           .stream()
+          .peek(entry -> removePropagatedTerms(entry.getValue()))
           .filter(entry -> validSource(entry.getValue()))
           .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
@@ -118,16 +126,15 @@ public class PropagateTermsStep implements UpgradeStep {
       int numAspectsProduced = 0;
       context.report().addLine(String.format("Fetching batch %d", batch));
       ScrollResult scrollResult =
-          _entitySearchService.scroll(Constants.DATASET_ENTITY_NAME, null, null, 1000, null, "1m");
+          _entitySearchService.scroll(Constants.DATASET_ENTITY_NAME, destinationFilter, null, 1000, null, "1m");
       while (scrollResult.getEntities().size() > 0) {
         context.report().addLine(String.format("Processing batch %d", batch));
         int numAspectsProducedInBatch = processBatch(scrollResult, sourceEntityDetails, runId);
         numAspectsProduced += numAspectsProducedInBatch;
         batch++;
         context.report().addLine(String.format("Fetching batch %d", batch));
-        scrollResult =
-            _entitySearchService.scroll(Constants.DATASET_ENTITY_NAME, null, null, 1000, scrollResult.getScrollId(),
-                "1m");
+        scrollResult = _entitySearchService.scroll(Constants.DATASET_ENTITY_NAME, destinationFilter, null, 1000,
+            scrollResult.getScrollId(), "1m");
       }
       context.report().addLine(String.format("Batch %d is empty. Finishing job.", batch));
 
@@ -142,9 +149,9 @@ public class PropagateTermsStep implements UpgradeStep {
   // Convert a list of source filters into a Filter object
   // Each source filter is combined conjunctively (or operation)
   // Each filter needs to be of format key1-value1;key2-value2 (each key-value pair is applied with an and operation)
-  private Filter buildFilter(List<String> sourceFilters) {
+  private Filter buildFilter(List<String> orFilters) {
     ConjunctiveCriterionArray conjunctiveCriteria = new ConjunctiveCriterionArray();
-    for (String sourceFilter : sourceFilters) {
+    for (String sourceFilter : orFilters) {
       List<String> criteriaStr = Arrays.asList(sourceFilter.split(CRITERIA_DELIMITER));
       CriterionArray criteria = new CriterionArray();
       for (String criterion : criteriaStr) {
@@ -162,6 +169,27 @@ public class PropagateTermsStep implements UpgradeStep {
 
   private String createRunId() {
     return "term_propagation_" + System.currentTimeMillis() + "_" + RandomStringUtils.randomAlphabetic(4);
+  }
+
+  private void removePropagatedTerms(EntityDetails entityDetails) {
+    if (entityDetails.getSchemaMetadata() != null) {
+      entityDetails.getSchemaMetadata().getFields().forEach(field -> {
+        if (field.getGlossaryTerms() != null) {
+          removePropagatedTerms(field.getGlossaryTerms());
+        }
+      });
+    }
+    if (entityDetails.getEditableSchemaMetadata() != null) {
+      entityDetails.getEditableSchemaMetadata().getEditableSchemaFieldInfo().forEach(field -> {
+        if (field.getGlossaryTerms() != null) {
+          removePropagatedTerms(field.getGlossaryTerms());
+        }
+      });
+    }
+  }
+
+  private void removePropagatedTerms(GlossaryTerms glossaryTerms) {
+    glossaryTerms.getTerms().removeIf(term -> term.getActor() != null && term.getActor().equals(PROPAGATION_ACTOR));
   }
 
   private boolean validSource(EntityDetails entityDetails) {

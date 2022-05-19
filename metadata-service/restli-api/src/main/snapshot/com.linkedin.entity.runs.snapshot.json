@@ -1437,6 +1437,12 @@
     }
   }, {
     "type" : "record",
+    "name" : "Aspect",
+    "namespace" : "com.linkedin.entity",
+    "doc" : "Placeholder PDL record to store the aspect in the response. By using this place-holder, metadata-service can return\nany type of aspect without having to define a single union class",
+    "fields" : [ ]
+  }, {
+    "type" : "record",
     "name" : "GlossaryNodeInfo",
     "namespace" : "com.linkedin.glossary",
     "doc" : "Properties associated with a GlossaryNode",
@@ -3186,6 +3192,10 @@
     }, {
       "name" : "keyAspect",
       "type" : "boolean"
+    }, {
+      "name" : "aspect",
+      "type" : "com.linkedin.entity.Aspect",
+      "optional" : true
     } ]
   }, {
     "type" : "record",
@@ -3259,6 +3269,27 @@
       },
       "supports" : [ ],
       "actions" : [ {
+        "name" : "describe",
+        "parameters" : [ {
+          "name" : "runId",
+          "type" : "string"
+        }, {
+          "name" : "start",
+          "type" : "int"
+        }, {
+          "name" : "count",
+          "type" : "int"
+        }, {
+          "name" : "includeSoft",
+          "type" : "boolean",
+          "optional" : true
+        }, {
+          "name" : "includeAspect",
+          "type" : "boolean",
+          "optional" : true
+        } ],
+        "returns" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.run.AspectRowSummary\" }"
+      }, {
         "name" : "list",
         "doc" : "Retrieves the value for an entity that is made up of latest versions of specified aspects.",
         "parameters" : [ {
