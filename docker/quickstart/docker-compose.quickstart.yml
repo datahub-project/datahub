@@ -87,7 +87,7 @@ services:
     - MCE_CONSUMER_ENABLED=true
     - PE_CONSUMER_ENABLED=true
     - UI_INGESTION_ENABLED=true
-    - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.35.1
+    - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.35
     hostname: datahub-gms
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
     ports:
