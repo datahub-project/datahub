@@ -118,12 +118,12 @@ const MIN_SIDEBAR_WIDTH = 200;
 // Initial Privileges
 const PRIVILEGES = {
     commonPrivileges: {
-        editOwners: true,
+        editOwners: false,
         editDocumentation: false,
-        editGlossaryTerms: true,
-        editTags: true,
+        editGlossaryTerms: false,
+        editTags: false,
         editDomain: false,
-        editLinks: true,
+        editLinks: false,
         editDeprecation: false,
     },
     dataSets: {

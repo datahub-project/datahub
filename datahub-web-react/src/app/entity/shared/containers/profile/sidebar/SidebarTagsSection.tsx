@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import TagTermGroup from '../../../../../shared/tags/TagTermGroup';
 import { SidebarHeader } from './SidebarHeader';
 import { useEntityData, useRefetch } from '../../../EntityContext';
+import { useEntityCommonPrivileges } from '../../../EntityAuthorizationContext';
 
 const TermSection = styled.div`
     margin-top: 20px;
@@ -14,6 +15,9 @@ export const SidebarTagsSection = ({ properties }: { properties?: any }) => {
     const canAddTerm = properties?.hasTerms;
 
     const { urn, entityType, entityData } = useEntityData();
+    const { commonPrivileges } = useEntityCommonPrivileges();
+
+    const { editTags, editGlossaryTerms } = commonPrivileges;
     const refetch = useRefetch();
 
     return (
@@ -21,8 +25,8 @@ export const SidebarTagsSection = ({ properties }: { properties?: any }) => {
             <SidebarHeader title="Tags" />
             <TagTermGroup
                 editableTags={entityData?.globalTags}
-                canAddTag={canAddTag}
-                canRemove
+                canAddTag={editTags && canAddTag}
+                canRemove={editTags}
                 showEmptyMessage
                 entityUrn={urn}
                 entityType={entityType}
@@ -32,8 +36,8 @@ export const SidebarTagsSection = ({ properties }: { properties?: any }) => {
                 <SidebarHeader title="Glossary Terms" />
                 <TagTermGroup
                     editableGlossaryTerms={entityData?.glossaryTerms}
-                    canAddTerm={canAddTerm}
-                    canRemove
+                    canAddTerm={editGlossaryTerms && canAddTerm}
+                    canRemove={editGlossaryTerms}
                     showEmptyMessage
                     entityUrn={urn}
                     entityType={entityType}
