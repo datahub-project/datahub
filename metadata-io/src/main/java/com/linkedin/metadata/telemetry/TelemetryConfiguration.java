@@ -7,7 +7,7 @@ import lombok.Data;
 @Data
 public class TelemetryConfiguration {
     /**
-    * Whether cli telemtry is enabled
+    * Whether cli telemetry is enabled
     */
     public boolean enabledCli;
     /**
@@ -18,4 +18,9 @@ public class TelemetryConfiguration {
      * Whether or not third party logging should be enabled for this instance
      */
     public boolean enableThirdPartyLogging;
+
+    /**
+     * Whether or not server telemetry should be enabled
+     */
+    public boolean enabledServer;
 }
