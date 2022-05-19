@@ -7,7 +7,7 @@ import PolicyActorForm from './PolicyActorForm';
 import { ActorFilter, Policy, PolicyType, ResourceFilter } from '../../types.generated';
 import { EMPTY_POLICY } from './policyUtils';
 import { useEnterKeyListener } from '../shared/useEnterKeyListener';
-import ClickOutside from './ClickOutside';
+import ClickOutside from '../shared/ClickOutside';
 
 type Props = {
     policy: Omit<Policy, 'urn'>;

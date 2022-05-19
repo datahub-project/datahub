@@ -14,7 +14,7 @@ export default function ClickOutside({ children, onClickOutside, wrapperClassNam
             if (event.target && event.target.classList.contains(wrapperClassName)) {
                 onClickOutside();
             }
-        } else if (!(wrapperRef.current as HTMLSpanElement).contains((event.target as Node) || null)) {
+        } else if (!(wrapperRef.current as HTMLDivElement).contains((event.target as Node) || null)) {
             onClickOutside();
         }
     }
