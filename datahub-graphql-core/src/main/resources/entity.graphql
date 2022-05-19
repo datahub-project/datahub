@@ -5737,14 +5737,25 @@ enum OperationType {
     When data is updated.
     """
     UPDATE
+
     """
     When data is deleted.
     """
     DELETE
+
     """
     When data is created.
     """
     CREATE
+
+    """
+    When data is dropped
+    """
+    DROP
+    """
+    Unknown operation
+    """
+    UNKNOWN
 }
 
 """
