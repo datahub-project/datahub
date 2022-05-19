@@ -5744,14 +5744,20 @@ enum OperationType {
     DELETE
 
     """
-    When data is created.
+    When table is created.
     """
     CREATE
 
     """
-    When data is dropped
+    When table is altered
+    """
+    ALTER
+
+    """
+    When table is dropped
     """
     DROP
+    
     """
     Unknown operation
     """

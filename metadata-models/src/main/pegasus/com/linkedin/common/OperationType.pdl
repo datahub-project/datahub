@@ -8,6 +8,7 @@ enum OperationType {
   UPDATE
   DELETE
   CREATE
+  ALTER
   DROP
   UNKNOWN
 }
