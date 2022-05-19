@@ -398,12 +398,14 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
   /**
    * Retrieves the specific version of the aspect for the given urn
    *
+   * @param entityName name of the entity to fetch
    * @param urn urn to fetch
    * @param aspectName name of the aspect to fetch
    * @param version version to fetch
    * @return {@link EnvelopedAspect} object, or null if one cannot be found
    */
   public EnvelopedAspect getEnvelopedAspect(
+      // TODO: entityName is only used for a debug statement, can we remove this as a param?
       String entityName,
       @Nonnull Urn urn,
       @Nonnull String aspectName,
