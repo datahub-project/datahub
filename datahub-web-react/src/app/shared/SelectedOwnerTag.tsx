@@ -18,7 +18,7 @@ export default function SelectedOwnerTag({ closable, onClose, label }: Props) {
             closable={closable}
             onClose={onClose}
             style={{
-                padding: '2px 7px 2px 0px',
+                padding: '0px 7px 0px 0px',
                 marginRight: 3,
                 borderRadius: '100em',
                 lineHeight: 0,

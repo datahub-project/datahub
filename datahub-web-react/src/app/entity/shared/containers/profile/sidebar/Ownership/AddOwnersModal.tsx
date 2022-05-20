@@ -142,7 +142,7 @@ export const AddOwnersModal = ({
                 >
                     <SearchResultContent>
                         <CustomAvatar
-                            size={18}
+                            size={24}
                             name={displayName}
                             photoUrl={avatarUrl}
                             isGroup={result.entity.type === EntityType.CorpGroup}
