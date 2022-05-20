@@ -100,7 +100,8 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
 
     scheme: str = "snowflake"
     oauth_config: OauthConfiguration = pydantic.Field(
-        default=None, description="oauth configuration - https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-with-oauth"
+        default=None,
+        description="oauth configuration - https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-with-oauth",
     )
     username: Optional[str] = pydantic.Field(
         default=None, description="Snowflake username."
