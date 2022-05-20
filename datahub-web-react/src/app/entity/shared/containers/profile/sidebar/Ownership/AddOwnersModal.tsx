@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Form, message, Modal, Select, Typography } from 'antd';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
@@ -59,16 +59,16 @@ export const AddOwnersModal = ({
     refetch,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
-    const [groupSearch, { data: groupSearchData }] = useGetSearchResultsLazyQuery();
     const [addOwnersMutation] = useAddOwnersMutation();
     const ownershipTypes = OWNERSHIP_DISPLAY_TYPES;
-    const inputEl = useRef(null);
-
-    const [selectedActors, setSelectedActors] = useState<SelectedActor[]>([]);
+    const [owners, setOwners] = useState<string[]>([]);
     const [selectedOwnerType, setSelectedOwnerType] = useState<OwnershipType>(defaultOwnerType || OwnershipType.None);
 
+    const [selectedActors, setSelectedActors] = useState<SelectedActor[]>([]);
+
     // User and group dropdown search results!
+    const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
+    const [groupSearch, { data: groupSearchData }] = useGetSearchResultsLazyQuery();
     const userSearchResults = userSearchData?.search?.searchResults || [];
     const groupSearchResults = groupSearchData?.search?.searchResults || [];
     const combinedSearchResults = [...userSearchResults, ...groupSearchResults];
@@ -78,6 +78,31 @@ export const AddOwnersModal = ({
             setSelectedOwnerType(ownershipTypes[0].type);
         }
     }, [ownershipTypes]);
+
+    const onModalClose = () => {
+        onCloseModal();
+        setOwners([]);
+    };
+
+    // When a owner search result is selected, add the urn to the Owners
+    const onSelectOwner = (newOwner: string) => {
+        const newOwners = [...(owners || []), newOwner];
+        setOwners(newOwners);
+    };
+
+    // When a owner search result is deselected, remove the urn from the Owners
+    const onDeselectOwner = (user: string) => {
+        const newOwners = owners?.filter((owner) => owner !== user);
+        setOwners(newOwners);
+    };
+
+    // Select dropdown values.
+    const ownerSelectedValues = owners || [];
+
+    // When a user type is selected, set the type as selected type.
+    const onSelectOwnerType = (newType: OwnershipType) => {
+        setSelectedOwnerType(newType);
+    };
 
     // Invokes the search API as the user types
     const handleSearch = (entityType: EntityType, text: string, searchQuery: any) => {
@@ -117,7 +142,7 @@ export const AddOwnersModal = ({
                 >
                     <SearchResultContent>
                         <CustomAvatar
-                            size={24}
+                            size={18}
                             name={displayName}
                             photoUrl={avatarUrl}
                             isGroup={result.entity.type === EntityType.CorpGroup}
@@ -131,17 +156,8 @@ export const AddOwnersModal = ({
         );
     };
 
-    // When a user type is selected, set the type as selected type.
-    const onSelectOwnerType = (newType: OwnershipType) => {
-        setSelectedOwnerType(newType);
-    };
-
     // When user get selected, set the owners
     const handleChange = (values: string[]) => {
-        if (inputEl && inputEl.current) {
-            (inputEl.current as any).blur();
-        }
-        console.log('values:: ', values);
         // eslint-disable-next-line array-callback-return
         values.map((urnId) => {
             const filteredActors = combinedSearchResults
@@ -194,7 +210,7 @@ export const AddOwnersModal = ({
             }
         } finally {
             refetch?.();
-            onCloseModal();
+            onModalClose();
         }
     };
 
@@ -202,11 +218,11 @@ export const AddOwnersModal = ({
         <Modal
             title="Add Owners"
             visible={visible}
-            onCancel={onCloseModal}
+            onCancel={onModalClose}
             keyboard
             footer={
                 <>
-                    <Button onClick={onCloseModal} type="text">
+                    <Button onClick={onModalClose} type="text">
                         Cancel
                     </Button>
                     <Button id="addOwnerButton" disabled={selectedActors.length === 0} onClick={onOk}>
@@ -221,11 +237,14 @@ export const AddOwnersModal = ({
                     <Form.Item name="owner">
                         <Select
                             autoFocus
-                            filterOption={false}
+                            value={ownerSelectedValues}
                             mode="multiple"
-                            ref={inputEl}
+                            filterOption={false}
                             placeholder="Search for users or groups..."
+                            onSelect={(asset: any) => onSelectOwner(asset)}
+                            onDeselect={(asset: any) => onDeselectOwner(asset)}
                             onSearch={handleActorSearch}
+                            onChange={handleChange}
                             tagRender={(tagProps) => (
                                 <SelectedOwnerTag
                                     closable={tagProps.closable}
@@ -233,7 +252,6 @@ export const AddOwnersModal = ({
                                     label={tagProps.label}
                                 />
                             )}
-                            onChange={handleChange}
                         >
                             {combinedSearchResults?.map((result) => (
                                 <Select.Option key={result?.entity?.urn} value={result.entity.urn}>

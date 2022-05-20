@@ -1,5 +1,5 @@
 import React from 'react';
-import { Form, Select, Switch, Tag, Typography } from 'antd';
+import { Form, Select, Switch, Typography } from 'antd';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
 
@@ -249,9 +249,11 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     onSearch={handleGroupSearch}
                     filterOption={false}
                     tagRender={(tagProps) => (
-                        <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                            {tagProps.value}
-                        </Tag>
+                        <SelectedOwnerTag
+                            closable={tagProps.closable}
+                            onClose={tagProps.onClose}
+                            label={tagProps.label}
+                        />
                     )}
                 >
                     {groupSearchResults?.map((result) => (

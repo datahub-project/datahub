@@ -20,9 +20,10 @@ export default function SelectedOwnerTag({ closable, onClose, label }: Props) {
             style={{
                 padding: '2px 7px 2px 0px',
                 marginRight: 3,
+                borderRadius: '100em',
                 lineHeight: 0,
                 display: 'flex',
-                justifyContent: 'center',
+                justifyContent: 'start',
                 alignItems: 'center',
             }}
         >

@@ -307,8 +307,6 @@ export default function TagTermGroup({
             {showAddModal && !!entityUrn && !!entityType && (
                 <AddTagsTermsModal
                     type={addModalType}
-                    globalTags={editableTags}
-                    glossaryTerms={editableGlossaryTerms}
                     visible
                     onCloseModal={() => {
                         onOpenModal?.();
