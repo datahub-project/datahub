@@ -65,6 +65,9 @@ fragment searchResultFields on Entity {
         container {
             ...entityContainer
         }
+        parentContainers {
+            ...parentContainersFields
+        }
         deprecation {
             ...deprecationFields
         }
@@ -146,6 +149,9 @@ fragment searchResultFields on Entity {
         deprecation {
             ...deprecationFields
         }
+        parentContainers {
+            ...parentContainersFields
+        }
     }
     ... on Chart {
         urn
@@ -188,6 +194,9 @@ fragment searchResultFields on Entity {
         }
         deprecation {
             ...deprecationFields
+        }
+        parentContainers {
+            ...parentContainersFields
         }
     }
     ... on DataFlow {
@@ -326,6 +335,9 @@ fragment searchResultFields on Entity {
         }
         deprecation {
             ...deprecationFields
+        }
+        parentContainers {
+            ...parentContainersFields
         }
     }
     ... on MLFeatureTable {

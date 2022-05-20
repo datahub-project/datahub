@@ -1,4 +1,4 @@
-# see https://datahubproject.io/docs/metadata-ingestion/source_docs/glue for complete documentation
+# see https://datahubproject.io/docs/generated/ingestion/sources/glue for complete documentation
 source:
   type: glue
   config:

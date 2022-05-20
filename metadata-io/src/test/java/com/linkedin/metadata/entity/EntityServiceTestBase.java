@@ -727,6 +727,43 @@ abstract public class EntityServiceTestBase<T_AD extends AspectDao, T_ES extends
         assertEquals(_entityService.listLatestAspects(entityUrn.getEntityType(), aspectName2, 0, 10).getTotalCount(), 1);
     }
 
+    @Test
+    public void testIngestAspectIfNotPresent() throws Exception {
+        Urn entityUrn = Urn.createFromString("urn:li:corpuser:test1");
+
+        SystemMetadata metadata1 = new SystemMetadata();
+        metadata1.setLastObserved(1625792689);
+        metadata1.setRunId("run-123");
+
+        String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
+
+        // Ingest CorpUserInfo Aspect
+        CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
+        _entityService.ingestAspectIfNotPresent(entityUrn, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+        CorpUserInfo writeAspect1a = createCorpUserInfo("email_a@test.com");
+        _entityService.ingestAspectIfNotPresent(entityUrn, aspectName, writeAspect1a, TEST_AUDIT_STAMP, metadata1);
+        CorpUserInfo writeAspect1b = createCorpUserInfo("email_b@test.com");
+        _entityService.ingestAspectIfNotPresent(entityUrn, aspectName, writeAspect1b, TEST_AUDIT_STAMP, metadata1);
+
+        String aspectName2 = PegasusUtils.getAspectNameFromSchema(new Status().schema());
+        // Ingest Status Aspect
+        Status writeAspect2 = new Status().setRemoved(true);
+        _entityService.ingestAspectIfNotPresent(entityUrn, aspectName2, writeAspect2, TEST_AUDIT_STAMP, metadata1);
+        Status writeAspect2a = new Status().setRemoved(false);
+        _entityService.ingestAspectIfNotPresent(entityUrn, aspectName2, writeAspect2a, TEST_AUDIT_STAMP, metadata1);
+        Status writeAspect2b = new Status().setRemoved(true);
+        _entityService.ingestAspectIfNotPresent(entityUrn, aspectName2, writeAspect2b, TEST_AUDIT_STAMP, metadata1);
+
+        assertEquals(_entityService.getAspect(entityUrn, aspectName, 0), writeAspect1);
+        assertEquals(_entityService.getAspect(entityUrn, aspectName2, 0), writeAspect2);
+
+        assertNull(_entityService.getAspect(entityUrn, aspectName, 1));
+        assertNull(_entityService.getAspect(entityUrn, aspectName2, 1));
+
+        assertEquals(_entityService.listLatestAspects(entityUrn.getEntityType(), aspectName, 0, 10).getTotalCount(), 1);
+        assertEquals(_entityService.listLatestAspects(entityUrn.getEntityType(), aspectName2, 0, 10).getTotalCount(), 1);
+    }
+
     protected static AuditStamp createTestAuditStamp() {
         try {
             return new AuditStamp().setTime(123L).setActor(Urn.createFromString("urn:li:principal:tester"));
