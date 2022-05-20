@@ -82,6 +82,7 @@ const columns = [
         dataIndex: 'status',
         key: 'status',
         render: (status: any, row) => {
+            console.log();
             const statusForStyling = getStatusForStyling(status, row?.resultType);
             const Icon = getExecutionRequestStatusIcon(statusForStyling);
             const text = getExecutionRequestStatusDisplayText(statusForStyling);
