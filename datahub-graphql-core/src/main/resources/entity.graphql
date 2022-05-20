@@ -994,6 +994,21 @@ type ParentContainersResult {
 }
 
 """
+All of the parent containers for a given entity
+"""
+type ParentContainersResult {
+    """
+    The number of containers bubbling up for this entity
+    """
+    count: Int!
+
+    """
+    A list of parent containers in order from direct parent, to parent's parent etc. If there are no containers, return an emty list
+    """
+    containers: [Container!]!
+}
+
+"""
 A Dataset entity, which encompasses Relational Tables, Document store collections, streaming topics, and other sets of data having an independent lifecycle
 """
 type VersionedDataset implements Entity {
@@ -5868,14 +5883,25 @@ enum OperationType {
     When data is updated.
     """
     UPDATE
+
     """
     When data is deleted.
     """
     DELETE
+
     """
     When data is created.
     """
     CREATE
+
+    """
+    When data is dropped
+    """
+    DROP
+    """
+    Unknown operation
+    """
+    UNKNOWN
 }
 
 """
