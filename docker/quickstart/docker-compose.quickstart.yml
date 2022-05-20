@@ -30,7 +30,7 @@ services:
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - SCHEMA_REGISTRY_URL=http://schema-registry:8081
     hostname: actions
-    image: acryldata/datahub-actions:${ACTIONS_VERSION:-head}
+    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-actions:${ACTIONS_VERSION:-head}
     restart: on-failure:5
   datahub-frontend-react:
     container_name: datahub-frontend-react
@@ -52,7 +52,7 @@ services:
     - ELASTIC_CLIENT_PORT=9200
     - ADMIN_PASSWORD=mypass
     hostname: datahub-frontend-react
-    image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
+    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-frontend-react:${DATAHUB_VERSION:-head}
     ports:
     - 9002:9002
     volumes:
@@ -86,7 +86,7 @@ services:
     - UI_INGESTION_ENABLED=true
     - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.35.1
     hostname: datahub-gms
-    image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
+    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-gms:${DATAHUB_VERSION:-head}
     ports:
     - 8080:8080
     volumes:
@@ -120,7 +120,7 @@ services:
     - ELASTICSEARCH_PORT=9200
     - ELASTICSEARCH_PROTOCOL=http
     hostname: elasticsearch-setup
-    image: linkedin/datahub-elasticsearch-setup:${DATAHUB_VERSION:-head}
+    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-elasticsearch-setup:${DATAHUB_VERSION:-head}
   kafka-setup:
     container_name: kafka-setup
     depends_on:
@@ -130,7 +130,7 @@ services:
     - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     hostname: kafka-setup
-    image: linkedin/datahub-kafka-setup:${DATAHUB_VERSION:-head}
+    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-kafka-setup:${DATAHUB_VERSION:-head}
   mysql:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin
     container_name: mysql
@@ -157,7 +157,7 @@ services:
     - MYSQL_PASSWORD=datahub
     - DATAHUB_DB_NAME=datahub
     hostname: mysql-setup
-    image: acryldata/datahub-mysql-setup:head
+    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-mysql-setup:head
   neo4j:
     container_name: neo4j
     environment:
