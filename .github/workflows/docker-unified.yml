@@ -690,7 +690,7 @@ jobs:
       - name: Smoke test
         env:
           DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
-          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          CYPRESS_RECORD_KEY: ${{ secrets.ACRYL_CYPRESS_RECORD_KEY}}
         run: |
           echo "$DATAHUB_VERSION"
           ./smoke-test/smoke.sh
