@@ -30,7 +30,7 @@ services:
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - SCHEMA_REGISTRY_URL=http://schema-registry:8081
     hostname: actions
-    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-actions:${ACTIONS_VERSION:-head}
+    image: acryldata/datahub-actions:${ACTIONS_VERSION:-head}
     restart: on-failure:5
   datahub-frontend-react:
     container_name: datahub-frontend-react
