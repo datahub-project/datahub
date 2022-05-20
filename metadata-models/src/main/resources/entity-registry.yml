@@ -209,4 +209,9 @@ entities:
       - glossaryTerms
       - editableMlPrimaryKeyProperties
       - domains
+  - name: telemetry
+    category: internal
+    keyAspect: telemetryKey
+    aspects:
+      - telemetryClientId
 events:
