@@ -4,6 +4,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import { ExpandedOwner } from '../../../../components/styled/ExpandedOwner';
 import { EMPTY_MESSAGES } from '../../../../constants';
 import { useEntityData, useRefetch } from '../../../../EntityContext';
+import { useEntityCommonPrivileges } from '../../../../EntityAuthorizationContext';
 import { SidebarHeader } from '../SidebarHeader';
 import { AddOwnerModal } from './AddOwnerModal';
 
@@ -12,13 +13,22 @@ export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
     const refetch = useRefetch();
     const [showAddModal, setShowAddModal] = useState(false);
     const ownersEmpty = !entityData?.ownership?.owners?.length;
+    const { commonPrivileges } = useEntityCommonPrivileges();
+
+    const { editOwners } = commonPrivileges;
 
     return (
         <div>
             <SidebarHeader title="Owners" />
             <div>
                 {entityData?.ownership?.owners?.map((owner) => (
-                    <ExpandedOwner key={owner.owner.urn} entityUrn={urn} owner={owner} refetch={refetch} />
+                    <ExpandedOwner
+                        key={owner.owner.urn}
+                        entityUrn={urn}
+                        owner={owner}
+                        refetch={refetch}
+                        isEditOwner={editOwners}
+                    />
                 ))}
                 {ownersEmpty && (
                     <Typography.Paragraph type="secondary">
@@ -26,9 +36,11 @@ export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
                     </Typography.Paragraph>
                 )}
 
-                <Button type={ownersEmpty ? 'default' : 'text'} onClick={() => setShowAddModal(true)}>
-                    <PlusOutlined /> Add Owner
-                </Button>
+                {editOwners && (
+                    <Button type={ownersEmpty ? 'default' : 'text'} onClick={() => setShowAddModal(true)}>
+                        <PlusOutlined /> Add Owner
+                    </Button>
+                )}
             </div>
             <AddOwnerModal
                 urn={urn}

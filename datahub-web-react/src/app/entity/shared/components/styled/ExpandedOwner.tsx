@@ -16,6 +16,7 @@ type Props = {
     owner: Owner;
     hidePopOver?: boolean | undefined;
     refetch?: () => Promise<any>;
+    isEditOwner?: boolean;
 };
 
 const OwnerTag = styled(Tag)`
@@ -26,7 +27,7 @@ const OwnerTag = styled(Tag)`
     align-items: center;
 `;
 
-export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch }: Props) => {
+export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, isEditOwner }: Props) => {
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityData();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
@@ -84,7 +85,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch }: Props)
     };
 
     return (
-        <OwnerTag onClose={onClose} closable>
+        <OwnerTag onClose={onClose} closable={isEditOwner}>
             <Link to={`/${entityRegistry.getPathName(owner.owner.type)}/${owner.owner.urn}`}>
                 <CustomAvatar name={name} photoUrl={pictureLink} useDefaultAvatar={false} />
                 {(hidePopOver && <>{name}</>) || (

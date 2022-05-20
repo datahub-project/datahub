@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { EditOutlined } from '@ant-design/icons';
 import { EMPTY_MESSAGES } from '../../../../constants';
 import { useEntityData, useRefetch } from '../../../../EntityContext';
+import { useEntityCommonPrivileges } from '../../../../EntityAuthorizationContext';
 import { SidebarHeader } from '../SidebarHeader';
 import { SetDomainModal } from './SetDomainModal';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
@@ -16,6 +17,9 @@ export const SidebarDomainSection = () => {
     const refetch = useRefetch();
     const [unsetDomainMutation] = useUnsetDomainMutation();
     const [showModal, setShowModal] = useState(false);
+    const { commonPrivileges } = useEntityCommonPrivileges();
+
+    const { editDomain } = commonPrivileges;
     const domain = entityData?.domain;
 
     const removeDomain = () => {
@@ -54,7 +58,7 @@ export const SidebarDomainSection = () => {
                     <DomainLink
                         urn={domain.urn}
                         name={entityRegistry.getDisplayName(EntityType.Domain, domain)}
-                        closable
+                        closable={editDomain}
                         onClose={(e) => {
                             e.preventDefault();
                             onRemoveDomain();
@@ -66,9 +70,11 @@ export const SidebarDomainSection = () => {
                         <Typography.Paragraph type="secondary">
                             {EMPTY_MESSAGES.domain.title}. {EMPTY_MESSAGES.domain.description}
                         </Typography.Paragraph>
-                        <Button type="default" onClick={() => setShowModal(true)}>
-                            <EditOutlined /> Set Domain
-                        </Button>
+                        {editDomain && (
+                            <Button type="default" onClick={() => setShowModal(true)}>
+                                <EditOutlined /> Set Domain
+                            </Button>
+                        )}
                     </>
                 )}
             </div>

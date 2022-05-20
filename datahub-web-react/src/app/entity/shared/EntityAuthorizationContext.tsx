@@ -40,6 +40,8 @@ const EntityAuthorizationContext = React.createContext({
         editSchemaFieldGlossaryTerms: false,
     },
 });
+// display name set to context
+EntityAuthorizationContext.displayName = 'AuthorizationContext';
 
 export default EntityAuthorizationContext;
 
