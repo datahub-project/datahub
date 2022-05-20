@@ -30,6 +30,14 @@ fragment deprecationFields on Deprecation {
     decommissionTime
 }
 
+fragment parentContainersFields on ParentContainersResult {
+    count
+    containers {
+        ...entityContainer
+    }
+}
+
+
 fragment ownershipFields on Ownership {
     owners {
         owner {
@@ -351,6 +359,9 @@ fragment dashboardFields on Dashboard {
     }
     container {
         ...entityContainer
+    }
+    parentContainers {
+        ...parentContainersFields
     }
     status {
         removed

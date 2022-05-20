@@ -156,14 +156,8 @@ class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
             )
         return v
 
-    def get_table_allow_pattern_string(self) -> str:
+    def get_allow_pattern_string(self) -> str:
         return "|".join(self.table_pattern.allow) if self.table_pattern else ""
 
-    def get_table_deny_pattern_string(self) -> str:
+    def get_deny_pattern_string(self) -> str:
         return "|".join(self.table_pattern.deny) if self.table_pattern else ""
-
-    def get_dataset_allow_pattern_string(self) -> str:
-        return "|".join(self.dataset_pattern.allow) if self.table_pattern else ""
-
-    def get_dataset_deny_pattern_string(self) -> str:
-        return "|".join(self.dataset_pattern.deny) if self.table_pattern else ""

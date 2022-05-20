@@ -1,5 +1,13 @@
 import React from 'react';
-import { Container, EntityType, Owner, SearchInsight, SubTypes, Domain } from '../../../../types.generated';
+import {
+    Container,
+    EntityType,
+    Owner,
+    SearchInsight,
+    SubTypes,
+    Domain,
+    ParentContainersResult,
+} from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
@@ -18,6 +26,7 @@ export const Preview = ({
     container,
     entityCount,
     domain,
+    parentContainers,
 }: {
     urn: string;
     name: string;
@@ -32,6 +41,7 @@ export const Preview = ({
     container?: Container | null;
     entityCount?: number;
     domain?: Domain | null;
+    parentContainers?: ParentContainersResult | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const typeName = (subTypes?.typeNames?.length && subTypes?.typeNames[0]) || 'Container';
@@ -51,6 +61,7 @@ export const Preview = ({
             typeIcon={entityRegistry.getIcon(EntityType.Container, 12, IconStyleType.ACCENT)}
             entityCount={entityCount}
             domain={domain || undefined}
+            parentContainers={parentContainers}
         />
     );
 };

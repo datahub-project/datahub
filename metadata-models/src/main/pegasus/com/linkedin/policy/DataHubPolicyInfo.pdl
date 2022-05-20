@@ -12,13 +12,16 @@ record DataHubPolicyInfo {
    * Display name of the Policy
    */
   @Searchable = {
-    "fieldType": "KEYWORD"
+    "fieldType": "TEXT_PARTIAL"
   }
   displayName: string
 
   /**
    * Description of the Policy
    */
+  @Searchable = {
+    "fieldType": "TEXT"
+  }
   description: string
 
   /**

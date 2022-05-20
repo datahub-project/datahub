@@ -9,7 +9,7 @@ set -euxo pipefail
 #   - Python 3.6+ is installed and in the PATH.
 
 # Log the locally loaded images
-docker images | grep "datahub-"
+# docker images | grep "datahub-"
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR"
@@ -20,7 +20,7 @@ pip install --upgrade pip wheel setuptools
 pip install -r requirements.txt
 
 echo "DATAHUB_VERSION = $DATAHUB_VERSION"
-datahub docker quickstart
+datahub docker quickstart --quickstart-compose-file ../docker/quickstart/docker-compose-without-neo4j.quickstart.yml --dump-logs-on-failure
 
 (cd tests/cypress ; yarn install)
 

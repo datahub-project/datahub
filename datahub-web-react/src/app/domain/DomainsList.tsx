@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Empty, List, message, Pagination, Typography } from 'antd';
+import { useLocation } from 'react-router';
 import styled from 'styled-components';
+import * as QueryString from 'query-string';
 import { PlusOutlined } from '@ant-design/icons';
 import { Domain } from '../../types.generated';
 import { useListDomainsQuery } from '../../graphql/domain.generated';
@@ -8,6 +10,8 @@ import CreateDomainModal from './CreateDomainModal';
 import { Message } from '../shared/Message';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
 import DomainListItem from './DomainListItem';
+import { SearchBar } from '../search/SearchBar';
+import { useEntityRegistry } from '../useEntityRegistry';
 
 const DomainsContainer = styled.div``;
 
@@ -37,6 +41,13 @@ const PaginationInfo = styled(Typography.Text)`
 const DEFAULT_PAGE_SIZE = 25;
 
 export const DomainsList = () => {
+    const entityRegistry = useEntityRegistry();
+    const location = useLocation();
+    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+    const paramsQuery = (params?.query as string) || undefined;
+    const [query, setQuery] = useState<undefined | string>(undefined);
+    useEffect(() => setQuery(paramsQuery), [paramsQuery]);
+
     const [page, setPage] = useState(1);
     const [isCreatingDomain, setIsCreatingDomain] = useState(false);
 
@@ -48,6 +59,7 @@ export const DomainsList = () => {
             input: {
                 start,
                 count: pageSize,
+                query,
             },
         },
         fetchPolicy: 'no-cache',
@@ -76,6 +88,22 @@ export const DomainsList = () => {
                             <PlusOutlined /> New Domain
                         </Button>
                     </div>
+                    <SearchBar
+                        initialQuery={query || ''}
+                        placeholderText="Search domains..."
+                        suggestions={[]}
+                        style={{
+                            maxWidth: 220,
+                            padding: 0,
+                        }}
+                        inputStyle={{
+                            height: 32,
+                            fontSize: 12,
+                        }}
+                        onSearch={() => null}
+                        onQueryChange={(q) => setQuery(q)}
+                        entityRegistry={entityRegistry}
+                    />
                 </TabToolbar>
                 <DomainsStyledList
                     bordered
