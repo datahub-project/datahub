@@ -155,9 +155,10 @@ class ElasticToSchemaFieldConverter:
         converter = cls()
         properties = elastic_mappings.get("properties")
         if not properties:
-            raise ValueError(
+            logger.warning(
                 f"Missing 'properties' in elastic search mappings={json.dumps(elastic_mappings)}!"
             )
+            return
         yield from converter._get_schema_fields(properties)
 
 
@@ -359,6 +360,8 @@ class ElasticsearchSource(Source):
         schema_fields = list(
             ElasticToSchemaFieldConverter.get_schema_fields(index_mappings)
         )
+        if not schema_fields:
+            return
 
         # 1.2 Generate the SchemaMetadata aspect
         schema_metadata = SchemaMetadata(

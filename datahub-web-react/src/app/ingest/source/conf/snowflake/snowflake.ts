@@ -58,7 +58,7 @@ const snowflakeConfig: SourceConfig = {
     type: 'snowflake',
     placeholderRecipe,
     displayName: 'Snowflake',
-    docsUrl: 'https://datahubproject.io/docs/metadata-ingestion/source_docs/snowflake/',
+    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/snowflake/',
     logoUrl: snowflakeLogo,
 };
 
