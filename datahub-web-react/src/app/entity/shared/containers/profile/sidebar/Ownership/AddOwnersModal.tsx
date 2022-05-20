@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Button, Form, message, Modal, Select, Tag, Typography } from 'antd';
+import { Button, Form, message, Modal, Select, Typography } from 'antd';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
 
@@ -16,6 +16,7 @@ import analytics, { EventType, EntityActionType } from '../../../../../../analyt
 import { OWNERSHIP_DISPLAY_TYPES } from './ownershipUtils';
 import { useAddOwnersMutation } from '../../../../../../../graphql/mutations.generated';
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
+import SelectedOwnerTag from '../../../../../../shared/SelectedOwnerTag';
 
 const SearchResultContainer = styled.div`
     display: flex;
@@ -116,7 +117,7 @@ export const AddOwnersModal = ({
                 >
                     <SearchResultContent>
                         <CustomAvatar
-                            size={18}
+                            size={24}
                             name={displayName}
                             photoUrl={avatarUrl}
                             isGroup={result.entity.type === EntityType.CorpGroup}
@@ -130,32 +131,6 @@ export const AddOwnersModal = ({
         );
     };
 
-    const tagRender = (props) => {
-        // eslint-disable-next-line react/prop-types
-        const { label, closable, onClose } = props;
-        const onPreventMouseDown = (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-        };
-        return (
-            <Tag
-                onMouseDown={onPreventMouseDown}
-                closable={closable}
-                onClose={onClose}
-                style={{
-                    marginRight: 3,
-                    color: 'black',
-                    lineHeight: 0,
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                }}
-            >
-                {label}
-            </Tag>
-        );
-    };
-
     // When a user type is selected, set the type as selected type.
     const onSelectOwnerType = (newType: OwnershipType) => {
         setSelectedOwnerType(newType);
@@ -166,6 +141,7 @@ export const AddOwnersModal = ({
         if (inputEl && inputEl.current) {
             (inputEl.current as any).blur();
         }
+        console.log('values:: ', values);
         // eslint-disable-next-line array-callback-return
         values.map((urnId) => {
             const filteredActors = combinedSearchResults
@@ -216,9 +192,10 @@ export const AddOwnersModal = ({
             if (e instanceof Error) {
                 message.error({ content: `Failed to add owner: \n ${e.message || ''}`, duration: 3 });
             }
+        } finally {
+            refetch?.();
+            onCloseModal();
         }
-        refetch?.();
-        onCloseModal();
     };
 
     return (
@@ -249,7 +226,13 @@ export const AddOwnersModal = ({
                             ref={inputEl}
                             placeholder="Search for users or groups..."
                             onSearch={handleActorSearch}
-                            tagRender={tagRender}
+                            tagRender={(tagProps) => (
+                                <SelectedOwnerTag
+                                    closable={tagProps.closable}
+                                    onClose={tagProps.onClose}
+                                    label={tagProps.label}
+                                />
+                            )}
                             onChange={handleChange}
                         >
                             {combinedSearchResults?.map((result) => (

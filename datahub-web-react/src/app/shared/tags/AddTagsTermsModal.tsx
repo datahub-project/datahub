@@ -174,7 +174,6 @@ export default function AddTagsTermsModal({
                 onClose={onClose}
                 style={{
                     marginRight: 3,
-                    color: 'black',
                     display: 'flex',
                     justifyContent: 'center',
                     alignItems: 'center',

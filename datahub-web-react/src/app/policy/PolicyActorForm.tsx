@@ -1,10 +1,13 @@
 import React from 'react';
 import { Form, Select, Switch, Tag, Typography } from 'antd';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import { Link } from 'react-router-dom';
+
 import { useEntityRegistry } from '../useEntityRegistry';
-import { ActorFilter, EntityType, PolicyType, SearchResult } from '../../types.generated';
+import { ActorFilter, CorpUser, EntityType, PolicyType, SearchResult } from '../../types.generated';
 import { useGetSearchResultsLazyQuery } from '../../graphql/search.generated';
+import { CustomAvatar } from '../shared/avatar';
+import SelectedOwnerTag from '../shared/SelectedOwnerTag';
 
 type Props = {
     policyType: PolicyType;
@@ -16,7 +19,7 @@ const SearchResultContainer = styled.div`
     display: flex;f
     justify-content: space-between;
     align-items: center;
-    padding: 12px;
+    padding: 2px;
 `;
 
 const ActorForm = styled(Form)`
@@ -29,7 +32,13 @@ const ActorFormHeader = styled.div`
     margin-bottom: 28px;
 `;
 
-const ActorName = styled.div`
+const SearchResultContent = styled.div`
+    display: flex;
+    justify-content: center;
+    align-items: center;
+`;
+
+const SearchResultDisplayName = styled.div`
     margin-right: 8px;
 `;
 
@@ -144,15 +153,29 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
 
     // Renders a search result in the select dropdown.
     const renderSearchResult = (result: SearchResult) => {
+        const avatarUrl =
+            result.entity.type === EntityType.CorpUser
+                ? (result.entity as CorpUser).editableProperties?.pictureLink || undefined
+                : undefined;
+        const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
         return (
             <SearchResultContainer>
-                <ActorName>{entityRegistry.getDisplayName(result.entity.type, result.entity)}</ActorName>
                 <Link
                     target="_blank"
                     rel="noopener noreferrer"
                     to={() => `/${entityRegistry.getPathName(result.entity.type)}/${result.entity.urn}`}
                 >
-                    View
+                    <SearchResultContent>
+                        <CustomAvatar
+                            size={18}
+                            name={displayName}
+                            photoUrl={avatarUrl}
+                            isGroup={result.entity.type === EntityType.CorpGroup}
+                        />
+                        <SearchResultDisplayName>
+                            <div>{displayName}</div>
+                        </SearchResultDisplayName>
+                    </SearchResultContent>
                 </Link>
             </SearchResultContainer>
         );
@@ -199,9 +222,11 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     onDeselect={(asset: any) => onDeselectUserActor(asset)}
                     onSearch={handleUserSearch}
                     tagRender={(tagProps) => (
-                        <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
-                            {tagProps.value}
-                        </Tag>
+                        <SelectedOwnerTag
+                            closable={tagProps.closable}
+                            onClose={tagProps.onClose}
+                            label={tagProps.label}
+                        />
                     )}
                 >
                     {userSearchResults?.map((result) => (
