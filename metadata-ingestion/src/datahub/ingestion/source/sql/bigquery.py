@@ -457,7 +457,12 @@ class BigQuerySource(SQLAlchemySource):
             f"Start loading log entries from BigQuery start_time={start_time} and end_time={end_time}"
         )
         for client in clients:
-            with RateLimiter(max_calls=self.config.requests_per_min, period=60):
+            if self.config.rate_limit:
+                with RateLimiter(max_calls=self.config.requests_per_min, period=60):
+                    entries = client.list_entries(
+                        filter_=filter, page_size=self.config.log_page_size
+                    )
+            else:
                 entries = client.list_entries(
                     filter_=filter, page_size=self.config.log_page_size
                 )
@@ -521,7 +526,10 @@ class BigQuerySource(SQLAlchemySource):
                 f"Finished loading log entries from BigQueryAuditMetadata in {dataset}"
             )
 
-            with RateLimiter(max_calls=self.config.requests_per_min, period=60):
+            if self.config.rate_limit:
+                with RateLimiter(max_calls=self.config.requests_per_min, period=60):
+                    yield from query_job
+            else:
                 yield from query_job
 
     # Currently we only parse JobCompleted events but in future we would want to parse other

@@ -818,7 +818,10 @@ class BigQueryUsageSource(Source):
             logger.info(
                 f"Finished loading log entries from BigQueryAuditMetadata in {dataset}"
             )
-            with RateLimiter(max_calls=self.config.requests_per_min, period=60):
+            if self.config.rate_limit:
+                with RateLimiter(max_calls=self.config.requests_per_min, period=60):
+                    yield from query_job
+            else:
                 yield from query_job
 
     def _get_entry_timestamp(
@@ -886,10 +889,14 @@ class BigQueryUsageSource(Source):
         ] = list()
         for client in clients:
             try:
-                with RateLimiter(max_calls=self.config.requests_per_min, period=60):
-                    list_entries: Iterable[
-                        Union[AuditLogEntry, BigQueryAuditMetadata]
-                    ] = client.list_entries(
+                list_entries: Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]
+                if self.config.rate_limit:
+                    with RateLimiter(max_calls=self.config.requests_per_min, period=60):
+                        list_entries = client.list_entries(
+                            filter_=filter, page_size=self.config.log_page_size
+                        )
+                else:
+                    list_entries = client.list_entries(
                         filter_=filter, page_size=self.config.log_page_size
                     )
                 list_entry_generators_across_clients.append(list_entries)
