@@ -102,7 +102,14 @@ public class PropagateTermsStep implements UpgradeStep {
       Filter destinationFilter = buildFilter(destFiltersStr);
 
       Optional<String> allowedNodesStr = context.parsedArgs().getOrDefault("ALLOWED_GLOSSARY_NODES", Optional.empty());
-      
+      Optional<Set<Urn>> allowedTerms;
+      if (allowedNodesStr.isPresent()) {
+        Set<String> allowedNodes = Arrays.stream(allowedNodesStr.get().split(";")).collect(Collectors.toSet());
+        TermFetcher termFetcher = new TermFetcher(_entityService, _entitySearchService, allowedNodes);
+        allowedTerms = Optional.of(termFetcher.fetchAllowedTerms());
+      } else {
+        allowedTerms = Optional.empty();
+      }
 
       context.report().addLine("Fetching source entities to propagate from");
 
@@ -116,7 +123,7 @@ public class PropagateTermsStep implements UpgradeStep {
           sourceSearchResults.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toSet()))
           .entrySet()
           .stream()
-          .peek(entry -> removePropagatedTerms(entry.getValue()))
+          .peek(entry -> filterTerms(entry.getValue(), allowedTerms))
           .filter(entry -> validSource(entry.getValue()))
           .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
@@ -171,25 +178,32 @@ public class PropagateTermsStep implements UpgradeStep {
     return "term_propagation_" + System.currentTimeMillis() + "_" + RandomStringUtils.randomAlphabetic(4);
   }
 
-  private void removePropagatedTerms(EntityDetails entityDetails) {
+  // Filter terms from the entity details that have been propagated
+  // If allowedTerms is set, only filter for terms in the allowed list
+  private void filterTerms(EntityDetails entityDetails, Optional<Set<Urn>> allowedTerms) {
     if (entityDetails.getSchemaMetadata() != null) {
       entityDetails.getSchemaMetadata().getFields().forEach(field -> {
         if (field.getGlossaryTerms() != null) {
-          removePropagatedTerms(field.getGlossaryTerms());
+          filterTerms(field.getGlossaryTerms(), allowedTerms);
         }
       });
     }
     if (entityDetails.getEditableSchemaMetadata() != null) {
       entityDetails.getEditableSchemaMetadata().getEditableSchemaFieldInfo().forEach(field -> {
         if (field.getGlossaryTerms() != null) {
-          removePropagatedTerms(field.getGlossaryTerms());
+          filterTerms(field.getGlossaryTerms(), allowedTerms);
         }
       });
     }
   }
 
-  private void removePropagatedTerms(GlossaryTerms glossaryTerms) {
-    glossaryTerms.getTerms().removeIf(term -> term.getActor() != null && term.getActor().equals(PROPAGATION_ACTOR));
+  // Filter terms from the entity details that have been propagated
+  // If allowedTerms is set, only filter for terms in the allowed list
+  private void filterTerms(GlossaryTerms glossaryTerms, Optional<Set<Urn>> allowedTerms) {
+    glossaryTerms.getTerms()
+        .removeIf(
+            term -> (term.getActor() != null && term.getActor().equals(PROPAGATION_ACTOR)) || (allowedTerms.isPresent()
+                && !allowedTerms.get().contains(term.getUrn())));
   }
 
   private boolean validSource(EntityDetails entityDetails) {

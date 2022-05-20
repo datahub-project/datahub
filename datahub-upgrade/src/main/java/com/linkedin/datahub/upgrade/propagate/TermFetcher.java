@@ -27,7 +27,7 @@ class TermFetcher {
 
   private static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME);
 
-  private Set<Urn> fetchAllowedTerms() {
+  public Set<Urn> fetchAllowedTerms() {
     log.info("Fetching all terms");
     Set<Urn> allowedTerms = new HashSet<>();
     int batch = 1;
