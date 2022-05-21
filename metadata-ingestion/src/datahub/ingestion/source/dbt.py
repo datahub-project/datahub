@@ -2,7 +2,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, cast
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Type, cast
 from urllib.parse import urlparse
 
 import dateutil.parser
@@ -82,6 +82,10 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.utilities.mapping import Constants, OperationProcessor
+
+if TYPE_CHECKING:
+    from mypy_boto3_s3 import S3Client
+
 
 logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
@@ -174,7 +178,7 @@ class DBTConfig(AwsSourceConfig, StatefulIngestionConfigBase):
         default=None,
         description='Regex string to extract owner from the dbt node using the `(?P<name>...) syntax` of the [match object](https://docs.python.org/3/library/re.html#match-objects), where the group name must be `owner`. Examples: (1)`r"(?P<owner>(.*)): (\w+) (\w+)"` will extract `jdoe` as the owner from `"jdoe: John Doe"` (2) `r"@(?P<owner>(.*))"` will extract `alice` as the owner from `"@alice"`.',  # noqa: W605
     )
-    # Overwrite the aws_region inherited from AwsSourceConfig with default value, in case users don't use s3 and don't input this field. 
+    # Overwrite the aws_region inherited from AwsSourceConfig with default value, in case users don't use s3 and don't input this field.
     aws_region: str = Field(default=None, description="AWS region code.")
 
     @property
