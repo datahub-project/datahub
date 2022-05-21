@@ -53,6 +53,13 @@ public class PoliciesConfig {
       "Generate personal access tokens for use with DataHub APIs.");
 
 
+  public static final Privilege MANAGE_ALL_ACCESS_TOKENS_PRIVILEGE = Privilege.of(
+      "MANAGE_ALL_ACCESS_TOKENS_PRIVILEGE",
+      "Manage All Access Tokens",
+      "Create, list and revoke access tokens on behalf of users in DataHub. Be careful - Actors with this "
+          + "privilege are effectively super users that can impersonate other users."
+  );
+
   public static final Privilege MANAGE_DOMAINS_PRIVILEGE = Privilege.of(
       "MANAGE_DOMAINS",
       "Manage Domains",
@@ -65,7 +72,8 @@ public class PoliciesConfig {
       MANAGE_DOMAINS_PRIVILEGE,
       MANAGE_INGESTION_PRIVILEGE,
       MANAGE_SECRETS_PRIVILEGE,
-      GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE
+      GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
+      MANAGE_ALL_ACCESS_TOKENS_PRIVILEGE
   );
 
   // Resource Privileges //

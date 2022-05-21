@@ -3,13 +3,16 @@ package com.datahub.authentication.authenticator;
 import com.datahub.authentication.Actor;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationConstants;
 import com.datahub.authentication.AuthenticationExpiredException;
 import com.datahub.authentication.AuthenticatorContext;
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.Authenticator;
+import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.token.TokenClaims;
 import com.datahub.authentication.token.TokenExpiredException;
-import com.datahub.authentication.token.TokenService;
+import com.datahub.authentication.token.StatelessTokenService;
+import com.linkedin.metadata.entity.EntityService;
 import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Objects;
@@ -23,27 +26,37 @@ import static com.datahub.authentication.AuthenticationConstants.*;
  *
  * This authenticator requires the following configurations:
  *
- *  - signingAlgorithm (optional): the algorithm used to verify JWT's. This should be THE SAME ONE used by the {@link TokenService}. Defaults to HS256.
+ *  - signingAlgorithm (optional): the algorithm used to verify JWT's. This should be THE SAME ONE used by the {@link StatelessTokenService}. Defaults to HS256.
  *  - signingKey: a key used to sign all JWT tokens using the provided signingAlgorithm
  */
 @Slf4j
 public class DataHubTokenAuthenticator implements Authenticator {
 
   static final String SIGNING_KEY_CONFIG_NAME = "signingKey";
+  static final String SALTING_KEY_CONFIG_NAME = "saltingKey";
   static final String SIGNING_ALG_CONFIG_NAME = "signingAlg";
   static final String DEFAULT_SIGNING_ALG = "HS256";
   static final String DEFAULT_ISSUER = "datahub-metadata-service";
 
   // Package-Visible for testing.
-  TokenService tokenService;
+  StatefulTokenService _statefulTokenService;
 
   @Override
-  public void init(@Nonnull final Map<String, Object> config) {
+  public void init(@Nonnull final Map<String, Object> config, @Nonnull final Map<String, Object> context) {
     Objects.requireNonNull(config, "Config parameter cannot be null");
     final String signingKey = Objects.requireNonNull((String) config.get(SIGNING_KEY_CONFIG_NAME), "signingKey is a required config");
+    final String saltingKey = Objects.requireNonNull((String) config.get(SALTING_KEY_CONFIG_NAME), "saltingKey is a required config");
     final String signingAlgorithm = (String) config.getOrDefault(SIGNING_ALG_CONFIG_NAME, DEFAULT_SIGNING_ALG);
     log.debug(String.format("Creating TokenService using signing algorithm %s", signingAlgorithm));
-    this.tokenService = new TokenService(signingKey, signingAlgorithm, DEFAULT_ISSUER);
+    if (!context.containsKey(AuthenticationConstants.ENTITY_SERVICE)) {
+      throw new RuntimeException("Unable to initialize DataHubTokenAuthenticator, entity service reference not found.");
+    }
+    final Object entityService = context.get(ENTITY_SERVICE);
+    if (!(entityService instanceof EntityService)) {
+      throw new RuntimeException("Unable to initialize DataHubTokenAuthenticator, entity service reference is not of type: EntityService.");
+    }
+    this._statefulTokenService = new StatefulTokenService(signingKey, signingAlgorithm, DEFAULT_ISSUER,
+        (EntityService) entityService, saltingKey);
   }
 
   @Override
@@ -64,7 +77,7 @@ public class DataHubTokenAuthenticator implements Authenticator {
     log.debug("Found authentication token. Verifying...");
     final String token = credentials.substring(7);
     try {
-      final TokenClaims claims = this.tokenService.validateAccessToken(token);
+      final TokenClaims claims = this._statefulTokenService.validateAccessToken(token);
       return new Authentication(
           new Actor(claims.getActorType(), claims.getActorId()),
           credentials,

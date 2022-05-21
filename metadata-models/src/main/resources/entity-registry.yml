@@ -15,10 +15,14 @@ entities:
       - datasetUsageStatistics
       - operation
       - domains
+      - proposals
+      - schemaProposals
       - schemaMetadata
       - status
       - container
       - deprecation
+      - usageFeatures
+      - siblings
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -209,9 +213,10 @@ entities:
       - glossaryTerms
       - editableMlPrimaryKeyProperties
       - domains
-  - name: telemetry
+  - name: dataHubAccessToken
     category: internal
-    keyAspect: telemetryKey
+    keyAspect: dataHubAccessTokenKey
     aspects:
-      - telemetryClientId
+      - dataHubAccessTokenInfo
 events:
+  - name: notificationRequest

@@ -10,6 +10,7 @@ import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.datahub.authentication.AuthenticationConstants.*;
@@ -40,7 +41,7 @@ public class DataHubSystemAuthenticator implements Authenticator {
   private String systemClientSecret;
 
   @Override
-  public void init(@Nonnull final Map<String, Object> config) {
+  public void init(@Nonnull final Map<String, Object> config, @Nullable final Map<String, Object> context) {
     Objects.requireNonNull(config, "Config parameter cannot be null");
     this.systemClientId = Objects.requireNonNull((String) config.get(SYSTEM_CLIENT_ID_CONFIG),
         String.format("Missing required config %s", SYSTEM_CLIENT_ID_CONFIG));

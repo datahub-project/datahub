@@ -20,7 +20,7 @@ public interface Authenticator {
    * @param authenticatorConfig config provided to the authenticator derived from the Metadata Service YAML config. This
    *                            config comes from the "authentication.authenticators.config" configuration.
    */
-  void init(@Nonnull final Map<String, Object> authenticatorConfig);
+  void init(@Nonnull final Map<String, Object> authenticatorConfig, final Map<String, Object> context);
 
   /**
    * Authenticates an inbound request given an instance of the {@link AuthenticatorContext}.

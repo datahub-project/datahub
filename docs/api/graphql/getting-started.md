@@ -70,7 +70,7 @@ The same auth restrictions described in the section above apply to these endpoin
 
 Once you've gotten the API deployed and responding, proceed to [Querying Entities](./querying-entities.md) to learn how to read and write the Entities
 on your Metadata Graph.
-
+If you're interested in administrative actions considering have a look at [Token Management](./token-management.md) to learn how to generate, list & revoke access tokens for programmatic use in DataHub.
 
 ## Feedback, Feature Requests, & Support
 
