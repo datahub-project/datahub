@@ -108,6 +108,19 @@ class DataHubGraph(DatahubRestEmitter):
             aspect_type_name=aspect_type_name,
         )
 
+    def _re_namespace(self, object: Any, from_namespace_prefix: str, to_namespace_prefix: str, is_key: bool) -> Any:
+        #breakpoint()
+        if isinstance(object, dict):
+            return {self._re_namespace(k, from_namespace_prefix, to_namespace_prefix, is_key=True): self._re_namespace(v, from_namespace_prefix, to_namespace_prefix, is_key=False) for k,v in object.items()}
+        elif isinstance(object, str):
+            if is_key and object.startswith(from_namespace_prefix) and not object.startswith(to_namespace_prefix):
+                object = object.replace(from_namespace_prefix, to_namespace_prefix)
+            return object
+        elif isinstance(object, list):
+            return [self._re_namespace(elem, from_namespace_prefix, to_namespace_prefix, is_key=False) for elem in object]
+        else:
+            return object
+
     def get_aspect_v2(
         self,
         entity_urn: str,
@@ -145,7 +158,9 @@ class DataHubGraph(DatahubRestEmitter):
                 aspect_type_name = record_schema.fullname.replace(".pegasus2avro", "")
         aspect_json = response_json.get("aspect", {}).get(aspect_type_name)
         if aspect_json:
-            return aspect_type.from_obj(aspect_json, tuples=True)
+            aspect_json = self._re_namespace(aspect_json, "com.linkedin.", "com.linkedin.pegasus2avro.", is_key=False)
+            breakpoint()
+            return aspect_type.from_obj(aspect_json)
         else:
             raise OperationalError(
                 f"Failed to find {aspect_type_name} in response {response_json}"
