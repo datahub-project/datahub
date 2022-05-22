@@ -8,10 +8,10 @@ from deprecated import deprecated
 from requests.adapters import Response
 from requests.models import HTTPError
 
-from datahub.emitter.serialization_helper import post_json_transform
 from datahub.configuration.common import ConfigModel, OperationalError
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
     GlobalTagsClass,
