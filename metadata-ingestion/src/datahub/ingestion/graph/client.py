@@ -8,6 +8,7 @@ from deprecated import deprecated
 from requests.adapters import Response
 from requests.models import HTTPError
 
+from datahub.emitter.serialization_helper import post_json_transform
 from datahub.configuration.common import ConfigModel, OperationalError
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.rest_emitter import DatahubRestEmitter
@@ -108,19 +109,6 @@ class DataHubGraph(DatahubRestEmitter):
             aspect_type_name=aspect_type_name,
         )
 
-    def _re_namespace(self, object: Any, from_namespace_prefix: str, to_namespace_prefix: str, is_key: bool) -> Any:
-        #breakpoint()
-        if isinstance(object, dict):
-            return {self._re_namespace(k, from_namespace_prefix, to_namespace_prefix, is_key=True): self._re_namespace(v, from_namespace_prefix, to_namespace_prefix, is_key=False) for k,v in object.items()}
-        elif isinstance(object, str):
-            if is_key and object.startswith(from_namespace_prefix) and not object.startswith(to_namespace_prefix):
-                object = object.replace(from_namespace_prefix, to_namespace_prefix)
-            return object
-        elif isinstance(object, list):
-            return [self._re_namespace(elem, from_namespace_prefix, to_namespace_prefix, is_key=False) for elem in object]
-        else:
-            return object
-
     def get_aspect_v2(
         self,
         entity_urn: str,
@@ -158,9 +146,9 @@ class DataHubGraph(DatahubRestEmitter):
                 aspect_type_name = record_schema.fullname.replace(".pegasus2avro", "")
         aspect_json = response_json.get("aspect", {}).get(aspect_type_name)
         if aspect_json:
-            aspect_json = self._re_namespace(aspect_json, "com.linkedin.", "com.linkedin.pegasus2avro.", is_key=False)
-            breakpoint()
-            return aspect_type.from_obj(aspect_json)
+            # need to apply a transform to the response to match rest.li and avro serialization
+            post_json_obj = post_json_transform(aspect_json)
+            return aspect_type.from_obj(post_json_obj)
         else:
             raise OperationalError(
                 f"Failed to find {aspect_type_name} in response {response_json}"
