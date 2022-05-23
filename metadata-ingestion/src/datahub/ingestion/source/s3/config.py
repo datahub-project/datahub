@@ -21,8 +21,8 @@ from datahub.ingestion.source.s3.profiling import DataLakeProfilerConfig
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
-SUPPORTED_FILE_TYPES = ["csv", "tsv", "json", "parquet", "avro"]
-SUPPORTED_COMPRESSIONS = ["gz", "bz2"]
+SUPPORTED_FILE_TYPES: List[str] = ["csv", "tsv", "json", "parquet", "avro"]
+SUPPORTED_COMPRESSIONS: List[str] = ["gz", "bz2"]
 
 
 class PathSpec(ConfigModel):
@@ -50,7 +50,7 @@ class PathSpec(ConfigModel):
         description="Display name of the dataset.Combination of named variableds from include path and strings",
     )
 
-    enable_compression: Optional[bool] = Field(
+    enable_compression: bool = Field(
         default=True,
         description="Enable or disable processing compressed files. Currenly .gz and .bz files are supported.",
     )

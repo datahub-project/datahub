@@ -430,13 +430,11 @@ class S3Source(Source):
         )
 
         # Dataset is in the root folder
-        if not parent_folder_path:
-            if parent_key is None:
-                logger.warning(
-                    f"Failed to associate Dataset ({dataset_urn}) with container"
-                )
-                return
-            yield from add_dataset_to_container(parent_key, dataset_urn)
+        if not parent_folder_path and parent_key is None:
+            logger.warning(
+                f"Failed to associate Dataset ({dataset_urn}) with container"
+            )
+            return
 
         for folder in parent_folder_path.split("/"):
             abs_path = folder
@@ -455,6 +453,8 @@ class S3Source(Source):
                 parent_container_key=parent_key,
             )
             parent_key = folder_key
+
+        assert parent_key is not None
         yield from add_dataset_to_container(parent_key, dataset_urn)
 
     def get_fields(self, table_data: TableData, path_spec: PathSpec) -> List:
@@ -625,7 +625,7 @@ class S3Source(Source):
         dataset_properties = DatasetPropertiesClass(
             description="",
             name=table_data.display_name,
-            customProperties=customProperties if customProperties else None,
+            customProperties=customProperties,
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
@@ -789,12 +789,13 @@ class S3Source(Source):
         return table_data
 
     def resolve_templated_folders(self, bucket_name: str, prefix: str) -> Iterable[str]:
-        folder_split = prefix.split("*", 1)
+        folder_split: list[str] = prefix.split("*", 1)
+        # If the len of split is 1 it means we don't have * in the prefix
         if len(folder_split) == 1:
             yield prefix
             return
 
-        folders = self.list_folders(bucket_name, folder_split[0])
+        folders: Iterable[str] = self.list_folders(bucket_name, folder_split[0])
         for folder in folders:
             yield from self.resolve_templated_folders(
                 bucket_name, f"{folder}{folder_split[1]}"
@@ -824,7 +825,7 @@ class S3Source(Source):
         logger.debug(f"Scanning objects with prefix:{prefix}")
         matches = re.finditer(r"{\s*\w+\s*}", path_spec.include, re.MULTILINE)
         matches_list = list(matches)
-        if len(matches_list) > 0 and path_spec.sample_files:
+        if matches_list and path_spec.sample_files:
             # Replace the patch_spec include's templates with star because later we want to resolve all the stars
             # to actual directories.
             # For example:
