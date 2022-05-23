@@ -556,6 +556,7 @@ def get_entity(
         endpoint = endpoint + "?aspects=List(" + ",".join(aspect) + ")"
 
     response = session.get(gms_host + endpoint)
+    response.raise_for_status()
     return response.json()
 
 
