@@ -34,6 +34,7 @@ from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
+    make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
@@ -83,12 +84,15 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    GlobalTagsClass,
     JobStatusClass,
     SubTypesClass,
+    TagAssociationClass,
     UpstreamClass,
     ViewPropertiesClass,
 )
 from datahub.telemetry import telemetry
+from datahub.utilities.mapping import Constants
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
 
 if TYPE_CHECKING:
@@ -868,6 +872,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         except Exception as e:
             self.report.report_failure(f"{schema}", f"Tables error: {e}")
 
+    def get_extra_tags(
+        self, inspector: Inspector, schema: str, table: str
+    ) -> Optional[Dict[str, List[str]]]:
+        return None
+
     def _process_table(
         self,
         dataset_name: str,
@@ -926,9 +935,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             self.report.report_workunit(lineage_wu)
             yield lineage_wu
 
+        extra_tags = self.get_extra_tags(inspector, schema, table)
         pk_constraints: dict = inspector.get_pk_constraint(table, schema)
         foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, table)
-        schema_fields = self.get_schema_fields(dataset_name, columns, pk_constraints)
+        schema_fields = self.get_schema_fields(
+            dataset_name, columns, pk_constraints, tags=extra_tags
+        )
         schema_metadata = get_schema_metadata(
             self.report,
             dataset_name,
@@ -1050,19 +1062,40 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         return foreign_keys
 
     def get_schema_fields(
-        self, dataset_name: str, columns: List[dict], pk_constraints: dict = None
+        self,
+        dataset_name: str,
+        columns: List[dict],
+        pk_constraints: dict = None,
+        tags: Optional[Dict[str, List[str]]] = None,
     ) -> List[SchemaField]:
         canonical_schema = []
         for column in columns:
+            column_tags: Optional[List[str]] = None
+            if tags:
+                column_tags = tags.get(column["name"], [])
             fields = self.get_schema_fields_for_column(
-                dataset_name, column, pk_constraints
+                dataset_name, column, pk_constraints, tags=column_tags
             )
             canonical_schema.extend(fields)
         return canonical_schema
 
     def get_schema_fields_for_column(
-        self, dataset_name: str, column: dict, pk_constraints: dict = None
+        self,
+        dataset_name: str,
+        column: dict,
+        pk_constraints: dict = None,
+        tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
+        gtc: Optional[GlobalTagsClass] = None
+        is_partition_key: Optional[bool] = None
+        if tags:
+            if Constants.TAG_PARTITION_KEY in tags:
+                is_partition_key = True
+            else:
+                is_partition_key = False
+            tags_str = [make_tag_urn(t) for t in tags]
+            tags_tac = [TagAssociationClass(t) for t in tags_str]
+            gtc = GlobalTagsClass(tags_tac)
         field = SchemaField(
             fieldPath=column["name"],
             type=get_column_type(self.report, dataset_name, column["type"]),
@@ -1070,6 +1103,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             description=column.get("comment", None),
             nullable=column["nullable"],
             recursive=False,
+            globalTags=gtc,
+            isPartitioningKey=is_partition_key,
         )
         if (
             pk_constraints is not None

@@ -64,6 +64,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.utilities.bigquery_sql_parser import BigQuerySQLParser
+from datahub.utilities.mapping import Constants
 
 logger = logging.getLogger(__name__)
 
@@ -701,6 +702,17 @@ class BigQuerySource(SQLAlchemySource):
             )
         else:
             return True
+
+    def get_extra_tags(
+        self, inspector: Inspector, schema: str, table: str
+    ) -> Dict[str, List[str]]:
+        extra_tags: Dict[str, List[str]] = {}
+        partition: Optional[BigQueryPartitionColumn] = self.get_latest_partition(
+            schema, table
+        )
+        if partition:
+            extra_tags[partition.column_name] = [Constants.TAG_PARTITION_KEY]
+        return extra_tags
 
     def generate_partition_profiler_query(
         self, schema: str, table: str, partition_datetime: Optional[datetime.datetime]
