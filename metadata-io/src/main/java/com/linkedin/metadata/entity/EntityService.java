@@ -444,7 +444,8 @@ public abstract class EntityService {
       // For legacy reasons, keep producing to the MAE event stream without blocking ingest
       try {
         Timer.Context produceMAETimer = MetricUtils.timer(this.getClass(), "produceMAE").time();
-        produceMetadataAuditEvent(urn, aspectName, oldValue, updatedValue, result.getOldSystemMetadata(), result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
+        produceMetadataAuditEvent(urn, aspectName, oldValue, updatedValue, result.getOldSystemMetadata(),
+            result.getNewSystemMetadata(), MetadataAuditOperation.UPDATE);
         produceMAETimer.stop();
       } catch (Exception e) {
         log.warn("Unable to produce legacy MAE, entity may not have legacy Snapshot schema.", e);
