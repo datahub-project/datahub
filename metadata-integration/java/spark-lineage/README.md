@@ -93,6 +93,7 @@ This initial release has been tested with the following environments:
 Note that testing for other environments such as Databricks is planned in near future.
 
 ### Spark commands supported
+
 Below is a list of Spark commands that are parsed currently:
 - InsertIntoHadoopFsRelationCommand
 - SaveIntoDataSourceCommand (jdbc)
@@ -100,6 +101,12 @@ Below is a list of Spark commands that are parsed currently:
 - InsertIntoHiveTable
 
 Effectively, these support data sources/sinks corresponding to Hive, HDFS and JDBC.
+
+DataFrame.persist command is supported for below LeafExecNodes:
+- FileSourceScanExec
+- HiveTableScanExec
+- RowDataSourceScanExec
+- InMemoryTableScanExec
 
 ### Spark commands not yet supported
 - View related commands
