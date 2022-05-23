@@ -1295,7 +1295,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 schema=schema, entity=table, inspector=inspector
             )
             if not self.is_dataset_eligible_for_profiling(dataset_name, sql_config):
-                self.report.report_dropped(f"profile of {dataset_name}")
+                if self.config.profiling.report_dropped_profiles:
+                    self.report.report_dropped(f"profile of {dataset_name}")
                 continue
 
             dataset_name = self.normalise_dataset_name(dataset_name)

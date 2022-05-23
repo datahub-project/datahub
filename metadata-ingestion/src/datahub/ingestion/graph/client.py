@@ -11,6 +11,7 @@ from requests.models import HTTPError
 from datahub.configuration.common import ConfigModel, OperationalError
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
     GlobalTagsClass,
@@ -145,7 +146,9 @@ class DataHubGraph(DatahubRestEmitter):
                 aspect_type_name = record_schema.fullname.replace(".pegasus2avro", "")
         aspect_json = response_json.get("aspect", {}).get(aspect_type_name)
         if aspect_json:
-            return aspect_type.from_obj(aspect_json, tuples=True)
+            # need to apply a transform to the response to match rest.li and avro serialization
+            post_json_obj = post_json_transform(aspect_json)
+            return aspect_type.from_obj(post_json_obj)
         else:
             raise OperationalError(
                 f"Failed to find {aspect_type_name} in response {response_json}"
