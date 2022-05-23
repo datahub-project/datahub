@@ -15,21 +15,12 @@ from xmlrpc.client import Boolean
 import msal
 import requests
 from orderedset import OrderedSet
-from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.decorators import (
-    SourceCapability,
-    SupportStatus,
-    capability,
-    config_class,
-    platform_name,
-    support_status,
-)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -104,27 +95,29 @@ class Constant:
     VALUE = "value"
     ENTITY = "ENTITY"
     ID = "ID"
+    HTTP_RESPONSE_TEXT = "HttpResponseText"
+    HTTP_RESPONSE_STATUS_CODE = "HttpResponseStatusCode"
 
+
+@dataclass
+class CapabilitiesOverride:
+    extractOwnership: bool = True
 
 class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     # Organsation Identifier
-    tenant_id: str = Field(description="Power BI tenant identifier.")
+    tenant_id: str
     # PowerBi workspace identifier
-    workspace_id: str = Field(description="Power BI workspace identifier.")
+    workspace_id: str
     # Dataset type mapping
-    dataset_type_mapping: Dict[str, str] = Field(
-        description="Mapping of Power BI datasource type to Datahub dataset."
-    )
+    dataset_type_mapping: Dict[str, str]
     # Azure app client identifier
-    client_id: str = Field(description="Azure AD App client identifier.")
+    client_id: str
     # Azure app client secret
-    client_secret: str = Field(description="Azure AD App client secret.")
+    client_secret: str
     # timeout for meta-data scanning
-    scan_timeout: int = Field(
-        default=60,
-        description="time in seconds to wait for Power BI metadata scan result.",
-    )
-
+    scan_timeout: int = 60
+    # Enable/Disable extracting ownership information of Dashboard
+    override: CapabilitiesOverride
     scope: str = "https://analysis.windows.net/powerbi/api/.default"
     base_url: str = "https://api.powerbi.com/v1.0/myorg/groups"
     admin_base_url = "https://api.powerbi.com/v1.0/myorg/admin"
@@ -330,6 +323,11 @@ class PowerBiAPI:
         """
         Get user for the given PowerBi entity
         """
+        users = []
+        if self.__config.override.extractOwnership is False:
+            LOGGER.info("extractOwnership capabilities is disabled from configuration and hence returning empty users list")
+            return users
+
         user_list_endpoint: str = PowerBiAPI.API_ENDPOINTS[Constant.ENTITY_USER_LIST]
         # Replace place holders
         user_list_endpoint = user_list_endpoint.format(
@@ -532,7 +530,7 @@ class PowerBiAPI:
             raise ConnectionError(message)
 
         response_dict = response.json()
-
+        LOGGER.info("datasets = {}".format(response_dict))
         # PowerBi Always return the webURL, in-case if it is None then setting complete webURL to None instead of None/details
         return PowerBiAPI.Dataset(
             id=response_dict.get("id"),
@@ -570,6 +568,9 @@ class PowerBiAPI:
             LOGGER.warning(message)
             LOGGER.warning("{}={}".format(Constant.WorkspaceId, dataset.workspace_id))
             LOGGER.warning("{}={}".format(Constant.DatasetId, dataset.id))
+            LOGGER.warning("{}={}".format(Constant.HTTP_RESPONSE_TEXT, response.text))
+            LOGGER.warning("{}={}".format(Constant.HTTP_RESPONSE_STATUS_CODE, response.status_code))
+
             raise ConnectionError(message)
 
         res = response.json()
@@ -581,12 +582,25 @@ class PowerBiAPI:
                 )
             )
             return None
+
+        if len(value) > 1:
+            # We are currently supporting data-set having single relational database
+            LOGGER.warning(
+                "More than one data-source found for {}({})".format(
+                    dataset.name, dataset.id
+                )
+            )
+            LOGGER.debug(value)
+            return None
+
         # Consider only zero index datasource
         datasource_dict = value[0]
-
+        LOGGER.debug("data-sources = {}".format(value))
         # Create datasource instance with basic detail available
         datasource = PowerBiAPI.DataSource(
-            id=datasource_dict["datasourceId"],
+            id=datasource_dict.get(
+                "datasourceId"
+            ),  # datasourceId is not available in all cases
             type=datasource_dict["datasourceType"],
             server=None,
             database=None,
@@ -601,6 +615,9 @@ class PowerBiAPI:
             datasource.server = datasource_dict["connectionDetails"]["server"]
         else:
             datasource.metadata = PowerBiAPI.DataSource.MetaData(is_relational=False)
+            LOGGER.warning(
+                "Non relational data-source found = {}".format(datasource_dict)
+            )
 
         return datasource
 
@@ -617,27 +634,23 @@ class PowerBiAPI:
             Find out which is the data source for tile. It is either REPORT or DATASET
             """
             report_fields = {
-                "dataset": None,
-                "report": None,
+                "dataset": (
+                    workspace.datasets[tile_instance.get("datasetId")]
+                    if tile_instance.get("datasetId") is not None
+                    else None
+                ),
+                "report": (
+                    self.__get_report(
+                        workspace_id=workspace.id,
+                        report_id=tile_instance.get("reportId"),
+                    )
+                    if tile_instance.get("reportId") is not None
+                    else None
+                ),
                 "createdFrom": PowerBiAPI.Tile.CreatedFrom.UNKNOWN,
             }
 
-            report_fields["dataset"] = (
-                workspace.datasets[tile_instance.get("datasetId")]
-                if tile_instance.get("datasetId") is not None
-                else None
-            )
-            report_fields["report"] = (
-                self.__get_report(
-                    workspace_id=workspace.id,
-                    report_id=tile_instance.get("reportId"),
-                )
-                if tile_instance.get("reportId") is not None
-                else None
-            )
-
             # Tile is either created from report or dataset or from custom visualization
-            report_fields["createdFrom"] = PowerBiAPI.Tile.CreatedFrom.UNKNOWN
             if report_fields["report"] is not None:
                 report_fields["createdFrom"] = PowerBiAPI.Tile.CreatedFrom.REPORT
             elif report_fields["dataset"] is not None:
@@ -678,6 +691,7 @@ class PowerBiAPI:
 
         # Iterate through response and create a list of PowerBiAPI.Dashboard
         tile_dict: List[Any] = response.json()[Constant.VALUE]
+        LOGGER.debug("Tile Dict = {}".format(tile_dict))
         tiles: List[PowerBiAPI.Tile] = [
             PowerBiAPI.Tile(
                 id=instance.get("id"),
@@ -892,6 +906,7 @@ class PowerBiAPI:
 
         # Scan is complete lets take the result
         scan_result = get_scan_result(scan_id=scan_id)
+        LOGGER.debug("scan result = {}".format(scan_result))
         workspace = PowerBiAPI.Workspace(
             id=scan_result["id"],
             name=scan_result["name"],
@@ -970,7 +985,7 @@ class Mapper:
         if dataset is None:
             return dataset_mcps
 
-        # We are only suporting relation PowerBi DataSources
+        # We are only supporting relation PowerBi DataSources
         if (
             dataset.datasource is None
             or dataset.datasource.metadata.is_relational is False
@@ -1166,7 +1181,7 @@ class Mapper:
 
         # Dashboard Ownership
         owners = [
-            OwnerClass(owner=user_urn, type=OwnershipTypeClass.CONSUMER)
+            OwnerClass(owner=user_urn, type=OwnershipTypeClass.NONE)
             for user_urn in user_urn_list
             if user_urn is not None
         ]
@@ -1334,26 +1349,9 @@ class PowerBiDashboardSourceReport(SourceReport):
         self.filtered_charts.append(view)
 
 
-@platform_name("PowerBI")
-@config_class(PowerBiDashboardSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.OWNERSHIP, "Enabled by default")
 class PowerBiDashboardSource(Source):
     """
-        This plugin extracts the following:
-
-    - Power BI dashboards, tiles, datasets
-    - Names, descriptions and URLs of dashboard and tile
-    - Owners of dashboards
-
-    ## Configuration Notes
-
-    See the
-    1.  [Microsoft AD App Creation doc](https://docs.microsoft.com/en-us/power-bi/developer/embedded/embed-service-principal) for the steps to create a app client ID and secret.
-    2.  Login to Power BI as Admin and from `Tenant settings` allow below permissions.
-        - Allow service principles to use Power BI APIs
-        - Allow service principals to use read-only Power BI admin APIs
-        - Enhance admin APIs responses with detailed metadata
+    Datahub PowerBi plugin main class. This class extends Source to become PowerBi data ingestion source for Datahub
     """
 
     source_config: PowerBiDashboardSourceConfig
