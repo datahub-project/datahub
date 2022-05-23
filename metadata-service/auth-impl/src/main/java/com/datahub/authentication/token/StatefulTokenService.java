@@ -16,24 +16,25 @@ import com.linkedin.metadata.resources.entity.AspectUtils;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang.ArrayUtils;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.ArrayUtils;
-
-import static com.datahub.authentication.token.TokenClaims.*;
+import static com.datahub.authentication.token.TokenClaims.ACTOR_ID_CLAIM_NAME;
+import static com.datahub.authentication.token.TokenClaims.ACTOR_TYPE_CLAIM_NAME;
+import static com.datahub.authentication.token.TokenClaims.TOKEN_TYPE_CLAIM_NAME;
+import static com.datahub.authentication.token.TokenClaims.TOKEN_VERSION_CLAIM_NAME;
 
 
 /**
