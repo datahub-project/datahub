@@ -43,8 +43,7 @@ type Props = {
     refetch?: () => Promise<any>;
 };
 
-type SelectedActor = {
-    type: OwnershipType;
+type SelectedOwner = {
     ownerEntityType: OwnerEntityType;
     ownerUrn: string;
 };
@@ -61,10 +60,8 @@ export const AddOwnersModal = ({
     const entityRegistry = useEntityRegistry();
     const [addOwnersMutation] = useAddOwnersMutation();
     const ownershipTypes = OWNERSHIP_DISPLAY_TYPES;
-    const [owners, setOwners] = useState<string[]>([]);
+    const [selectedOwners, setSelectedOwners] = useState<SelectedOwner[]>([]);
     const [selectedOwnerType, setSelectedOwnerType] = useState<OwnershipType>(defaultOwnerType || OwnershipType.None);
-
-    const [selectedActors, setSelectedActors] = useState<SelectedActor[]>([]);
 
     // User and group dropdown search results!
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
@@ -79,32 +76,38 @@ export const AddOwnersModal = ({
         }
     }, [ownershipTypes]);
 
-    const onModalClose = () => {
-        onCloseModal();
-        setOwners([]);
-    };
-
-    // When a owner search result is selected, add the urn to the Owners
-    const onSelectOwner = (newOwner: string) => {
-        const newOwners = [...(owners || []), newOwner];
-        setOwners(newOwners);
+    // When a owner search result is selected, add the new owner  to the selectedOwners
+    const onSelectOwner = (newOwnerUrnId: string) => {
+        const filteredActors = combinedSearchResults
+            .filter((result) => result.entity.urn === newOwnerUrnId)
+            .map((result) => result.entity);
+        if (filteredActors.length) {
+            const actor = filteredActors[0];
+            const ownerEntityType =
+                actor && actor.type === EntityType.CorpGroup ? OwnerEntityType.CorpGroup : OwnerEntityType.CorpUser;
+            const newOwners = [
+                ...selectedOwners,
+                {
+                    ownerUrn: newOwnerUrnId,
+                    ownerEntityType,
+                },
+            ];
+            setSelectedOwners(newOwners);
+        }
     };
 
     // When a owner search result is deselected, remove the urn from the Owners
-    const onDeselectOwner = (user: string) => {
-        const newOwners = owners?.filter((owner) => owner !== user);
-        setOwners(newOwners);
+    const onDeselectOwner = (selectedOwnerUrnId: string) => {
+        const newOwners = selectedOwners.filter((owner) => owner.ownerUrn !== selectedOwnerUrnId);
+        setSelectedOwners(newOwners);
     };
 
-    // Select dropdown values.
-    const ownerSelectedValues = owners || [];
-
-    // When a user type is selected, set the type as selected type.
+    // When a owner type is selected, set the type as selected type.
     const onSelectOwnerType = (newType: OwnershipType) => {
         setSelectedOwnerType(newType);
     };
 
-    // Invokes the search API as the user types
+    // Invokes the search API as the owner types
     const handleSearch = (entityType: EntityType, text: string, searchQuery: any) => {
         if (text.length > 2) {
             searchQuery({
@@ -156,35 +159,18 @@ export const AddOwnersModal = ({
         );
     };
 
-    // When user get selected, set the owners
-    const handleChange = (values: string[]) => {
-        // eslint-disable-next-line array-callback-return
-        values.map((urnId) => {
-            const filteredActors = combinedSearchResults
-                .filter((result) => result.entity.urn === urnId)
-                .map((result) => result.entity);
-            if (filteredActors.length) {
-                const actor = filteredActors[0];
-                const ownerEntityType =
-                    actor.type === EntityType.CorpGroup ? OwnerEntityType.CorpGroup : OwnerEntityType.CorpUser;
-                setSelectedActors((prev) => [
-                    ...prev,
-                    {
-                        type: selectedOwnerType,
-                        ownerEntityType,
-                        ownerUrn: actor.urn,
-                    },
-                ]);
-            }
-        });
+    const onModalClose = () => {
+        onCloseModal();
+        setSelectedOwners([]);
+        setSelectedOwnerType(defaultOwnerType || OwnershipType.None);
     };
 
     // Function to handle the modal action's
     const onOk = async () => {
-        if (selectedActors.length === 0) {
+        if (selectedOwners.length === 0) {
             return;
         }
-        const inputs = selectedActors.map((selectedActor) => {
+        const inputs = selectedOwners.map((selectedActor) => {
             return { ...selectedActor, type: selectedOwnerType };
         });
         try {
@@ -206,13 +192,15 @@ export const AddOwnersModal = ({
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Failed to add owner: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `Failed to add owners: \n ${e.message || ''}`, duration: 3 });
             }
         } finally {
             refetch?.();
             onModalClose();
         }
     };
+
+    console.log('selectedOwners::', selectedOwners);
 
     return (
         <Modal
@@ -225,7 +213,7 @@ export const AddOwnersModal = ({
                     <Button onClick={onModalClose} type="text">
                         Cancel
                     </Button>
-                    <Button id="addOwnerButton" disabled={selectedActors.length === 0} onClick={onOk}>
+                    <Button id="addOwnerButton" disabled={selectedOwners.length === 0} onClick={onOk}>
                         Add
                     </Button>
                 </>
@@ -237,14 +225,12 @@ export const AddOwnersModal = ({
                     <Form.Item name="owner">
                         <Select
                             autoFocus
-                            value={ownerSelectedValues}
                             mode="multiple"
                             filterOption={false}
                             placeholder="Search for users or groups..."
                             onSelect={(asset: any) => onSelectOwner(asset)}
                             onDeselect={(asset: any) => onDeselectOwner(asset)}
                             onSearch={handleActorSearch}
-                            onChange={handleChange}
                             tagRender={(tagProps) => (
                                 <SelectedOwnerTag
                                     closable={tagProps.closable}
