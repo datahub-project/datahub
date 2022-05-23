@@ -1,0 +1,15 @@
+[
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.pet_profiles,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "testResults",
+    "aspect": {
+      "value": "{\"failing\": [ { \"test\": \"urn:li:test:953001aa-fb7b-4a43-916f-3efd95ab9047\", \"type\": \"FAILURE\" } ], \"passing\": [ { \"test\": \"urn:li:test:76ca947d-d988-4f0d-8c2f-055de2c6f4b5\", \"type\": \"SUCCESS\" }, { \"test\": \"urn:li:test:75200270-3410-4329-8739-c63535bc6669\", \"type\": \"SUCCESS\" }]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  }
+]

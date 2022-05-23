@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.authorization;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.Authorizer;
+import com.datahub.authorization.ResolvedResourceSpec;
 import com.datahub.authorization.ResourceSpec;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
