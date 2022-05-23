@@ -11,6 +11,7 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
+from datahub.ingestion.source_config.bigquery import BigQueryBaseConfig
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ class BigQueryCredential(ConfigModel):
             return fp.name
 
 
-class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
+class BigQueryUsageConfig(BigQueryBaseConfig, DatasetSourceConfigBase, BaseUsageConfig):
     projects: Optional[List[str]] = pydantic.Field(
         default=None,
         description="List of project ids to ingest usage from. If not specified, will infer from environment.",

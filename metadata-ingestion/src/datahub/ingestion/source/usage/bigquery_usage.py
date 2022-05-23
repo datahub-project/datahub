@@ -15,6 +15,7 @@ import cachetools
 from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from more_itertools import partition
+from ratelimiter import RateLimiter
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.time_window_config import get_time_bucket
@@ -817,7 +818,11 @@ class BigQueryUsageSource(Source):
             logger.info(
                 f"Finished loading log entries from BigQueryAuditMetadata in {dataset}"
             )
-            yield from query_job
+            if self.config.rate_limit:
+                with RateLimiter(max_calls=self.config.requests_per_min, period=60):
+                    yield from query_job
+            else:
+                yield from query_job
 
     def _get_entry_timestamp(
         self, entry: Union[AuditLogEntry, BigQueryAuditMetadata]
@@ -884,11 +889,16 @@ class BigQueryUsageSource(Source):
         ] = list()
         for client in clients:
             try:
-                list_entries: Iterable[
-                    Union[AuditLogEntry, BigQueryAuditMetadata]
-                ] = client.list_entries(
-                    filter_=filter, page_size=self.config.log_page_size
-                )
+                list_entries: Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]
+                if self.config.rate_limit:
+                    with RateLimiter(max_calls=self.config.requests_per_min, period=60):
+                        list_entries = client.list_entries(
+                            filter_=filter, page_size=self.config.log_page_size
+                        )
+                else:
+                    list_entries = client.list_entries(
+                        filter_=filter, page_size=self.config.log_page_size
+                    )
                 list_entry_generators_across_clients.append(list_entries)
             except Exception as e:
                 logger.warning(

@@ -15,6 +15,7 @@ import sqlalchemy_bigquery
 from dateutil.relativedelta import relativedelta
 from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
+from ratelimiter import RateLimiter
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 
@@ -456,9 +457,15 @@ class BigQuerySource(SQLAlchemySource):
             f"Start loading log entries from BigQuery start_time={start_time} and end_time={end_time}"
         )
         for client in clients:
-            entries = client.list_entries(
-                filter_=filter, page_size=self.config.log_page_size
-            )
+            if self.config.rate_limit:
+                with RateLimiter(max_calls=self.config.requests_per_min, period=60):
+                    entries = client.list_entries(
+                        filter_=filter, page_size=self.config.log_page_size
+                    )
+            else:
+                entries = client.list_entries(
+                    filter_=filter, page_size=self.config.log_page_size
+                )
             for entry in entries:
                 self.report.num_total_log_entries += 1
                 yield entry
@@ -519,7 +526,11 @@ class BigQuerySource(SQLAlchemySource):
                 f"Finished loading log entries from BigQueryAuditMetadata in {dataset}"
             )
 
-            yield from query_job
+            if self.config.rate_limit:
+                with RateLimiter(max_calls=self.config.requests_per_min, period=60):
+                    yield from query_job
+            else:
+                yield from query_job
 
     # Currently we only parse JobCompleted events but in future we would want to parse other
     # events to also create field level lineage.
