@@ -13,6 +13,45 @@ def test_snowflake_source_throws_error_on_account_id_missing():
             }
         )
 
+def test_snowflake_throws_error_on_client_id_missing_if_using_oauth():
+    with pytest.raises(ConfigurationError):
+        SnowflakeConfig.parse_obj(
+            {
+                "authentication_type": "OAUTH_AUTHENTICATOR",
+                "provider": "microsoft",
+                "scopes": "[https://microsoft.com/f4b353d5-ef8d/.default]",
+                "client_secret": "6Hb9apkbc6HD7",
+                "authority_url": "https://login.microsoftonline.com/yourorganisation.com",
+            }
+        )
+
+def test_snwoflake_throws_error_on_client_secret_missing_if_use_certificate_is_false():
+    with pytest.raises(ConfigurationError):
+        SnowflakeConfig.parse_obj(
+            {
+                "authentication_type": "OAUTH_AUTHENTICATOR",
+                "client_id": "882e9831-7ea51cb2b954",
+                "provider": "microsoft",
+                "scopes": "[https://microsoft.com/f4b353d5-ef8d/.default]",
+                "use_certificate": False,
+                "authority_url": "https://login.microsoftonline.com/yourorganisation.com",
+            }
+        )
+
+def test_snwoflake_throws_error_on_encoded_oauth_private_key_missing_if_use_certificate_is_true():
+    with pytest.raises(ConfigurationError):
+        SnowflakeConfig.parse_obj(
+            {
+                "authentication_type": "OAUTH_AUTHENTICATOR",
+                "client_id": "882e9831-7ea51cb2b954",
+                "provider": "microsoft",
+                "scopes": "[https://microsoft.com/f4b353d5-ef8d/.default]",
+                "use_certificate": True,
+                "authority_url": "https://login.microsoftonline.com/yourorganisation.com",
+                "encoded_oauth_public_key": "fkdsfhkshfkjsdfiuwrwfkjhsfskfhksjf==",
+            }
+        )
+
 
 def test_account_id_is_added_when_host_port_is_present():
     config = SnowflakeConfig.parse_obj(
