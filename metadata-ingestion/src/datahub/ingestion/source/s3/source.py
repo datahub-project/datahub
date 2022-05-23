@@ -789,7 +789,7 @@ class S3Source(Source):
         return table_data
 
     def resolve_templated_folders(self, bucket_name: str, prefix: str) -> Iterable[str]:
-        folder_split: list[str] = prefix.split("*", 1)
+        folder_split: List[str] = prefix.split("*", 1)
         # If the len of split is 1 it means we don't have * in the prefix
         if len(folder_split) == 1:
             yield prefix
