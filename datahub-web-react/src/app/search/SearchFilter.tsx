@@ -62,7 +62,10 @@ export const SearchFilter = ({ facet, selectedFilters, onFilterSelect, defaultDi
                 {areFiltersVisible ? (
                     <StyledUpOutlined onClick={() => setAreFiltersVisible(false)} />
                 ) : (
-                    <StyledDownOutlined onClick={() => setAreFiltersVisible(true)} />
+                    <StyledDownOutlined
+                        data-testid={`expand-facet-${facet.field}`}
+                        onClick={() => setAreFiltersVisible(true)}
+                    />
                 )}
             </Title>
             {areFiltersVisible && (

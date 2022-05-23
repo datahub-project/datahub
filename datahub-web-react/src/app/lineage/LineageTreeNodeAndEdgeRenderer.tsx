@@ -15,7 +15,7 @@ type Props = {
     };
     onEntityClick: (EntitySelectParams) => void;
     onEntityCenter: (EntitySelectParams) => void;
-    onLineageExpand: (daat: EntityAndType) => void;
+    onLineageExpand: (data: EntityAndType) => void;
     selectedEntity?: EntitySelectParams;
     hoveredEntity?: EntitySelectParams;
     setHoveredEntity: (EntitySelectParams) => void;

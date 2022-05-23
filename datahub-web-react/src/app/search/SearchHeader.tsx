@@ -75,7 +75,7 @@ export const SearchHeader = ({
     authenticatedUserPictureLink,
     entityRegistry,
 }: Props) => {
-    const [isInSearchBar, setIsInSearchBar] = useState(false);
+    const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
     const themeConfig = useTheme();
     const appConfig = useAppConfig();
 
@@ -99,12 +99,12 @@ export const SearchHeader = ({
                     onSearch={onSearch}
                     onQueryChange={onQueryChange}
                     entityRegistry={entityRegistry}
-                    setIsInSearchBar={setIsInSearchBar}
+                    setIsSearchBarFocused={setIsSearchBarFocused}
                     fixAutoComplete
                 />
             </LogoSearchContainer>
             <NavGroup>
-                <AdminHeaderLinks areLinksHidden={isInSearchBar} />
+                <AdminHeaderLinks areLinksHidden={isSearchBarFocused} />
                 <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
             </NavGroup>
         </Header>

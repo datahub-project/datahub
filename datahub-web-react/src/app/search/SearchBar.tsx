@@ -161,7 +161,7 @@ interface Props {
     autoCompleteStyle?: React.CSSProperties;
     entityRegistry: EntityRegistry;
     fixAutoComplete?: boolean;
-    setIsInSearchBar?: (isInSearchBar: boolean) => void;
+    setIsSearchBarFocused?: (isSearchBarFocused: boolean) => void;
 }
 
 const defaultProps = {
@@ -182,7 +182,7 @@ export const SearchBar = ({
     inputStyle,
     autoCompleteStyle,
     fixAutoComplete,
-    setIsInSearchBar,
+    setIsSearchBarFocused,
 }: Props) => {
     const history = useHistory();
     const [searchQuery, setSearchQuery] = useState<string>();
@@ -253,13 +253,13 @@ export const SearchBar = ({
 
     const searchBarWrapperRef = useRef<HTMLDivElement>(null);
 
-    function handleSearchBarClick(isInSearchBar: boolean) {
+    function handleSearchBarClick(isSearchBarFocused: boolean) {
         if (
-            setIsInSearchBar &&
-            (!isInSearchBar ||
+            setIsSearchBarFocused &&
+            (!isSearchBarFocused ||
                 (searchBarWrapperRef && searchBarWrapperRef.current && searchBarWrapperRef.current.clientWidth < 590))
         ) {
-            setIsInSearchBar(isInSearchBar);
+            setIsSearchBarFocused(isSearchBarFocused);
         }
     }
 
