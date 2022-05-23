@@ -227,15 +227,17 @@ export const EntityHeader = ({ showDeprecateOption }: Props) => {
                 </MainHeaderContent>
                 <SideHeaderContent>
                     <TopButtonsWrapper>
-                        <Tooltip title="Copy URN. An URN uniquely identifies an entity on DataHub.">
-                            <Button
-                                icon={copiedUrn ? <CheckOutlined /> : <CopyOutlined />}
-                                onClick={() => {
-                                    navigator.clipboard.writeText(urn);
-                                    setCopiedUrn(true);
-                                }}
-                            />
-                        </Tooltip>
+                        {navigator.clipboard && (
+                            <Tooltip title="Copy URN. An URN uniquely identifies an entity on DataHub.">
+                                <Button
+                                    icon={copiedUrn ? <CheckOutlined /> : <CopyOutlined />}
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(urn);
+                                        setCopiedUrn(true);
+                                    }}
+                                />
+                            </Tooltip>
+                        )}
                         {showAdditionalOptions && (
                             <Dropdown
                                 overlay={

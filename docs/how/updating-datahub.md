@@ -9,6 +9,16 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Potential Downtime
 
 ### Deprecations
+
+### Other notable Changes
+
+## `v0.8.35`
+
+### Breaking Changes
+
+### Potential Downtime
+
+### Deprecations
   - #4875 Lookml view file contents will no longer be populated in custom_properties, instead view definitions will be always available in the View Definitions tab.
 
 ### Other notable Changes
