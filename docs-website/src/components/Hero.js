@@ -10,17 +10,6 @@ import RoundedImage from "./RoundedImage";
 const Hero = ({}) => (
   <header className={clsx("hero", styles.hero)}>
     <div className="container">
-      <div className="hero__alert alert alert--primary">
-        <span>
-          <strong>🎉&nbsp; May 17th &amp; 18th 2022: Metadata Day, Governance as Code.</strong> Join us for expert panel discussions, lightning talks,
-          and our inaugural Hackathon!
-        </span>
-
-        <Link className="button button--primary button--md" href="http://metadataday.datahubproject.io/" target="_blank">
-          RSVP Here →
-        </Link>
-      </div>
-
       <div className="row row--centered">
         <div className="col col--5">
           <div className="hero__content">

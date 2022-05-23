@@ -356,15 +356,17 @@ export const IngestionSourceList = () => {
             key: 'x',
             render: (_, record: any) => (
                 <ActionButtonContainer>
-                    <Tooltip title="Copy Ingestion Source URN">
-                        <Button
-                            style={{ marginRight: 16 }}
-                            icon={<CopyOutlined />}
-                            onClick={() => {
-                                navigator.clipboard.writeText(record.urn);
-                            }}
-                        />
-                    </Tooltip>
+                    {navigator.clipboard && (
+                        <Tooltip title="Copy Ingestion Source URN">
+                            <Button
+                                style={{ marginRight: 16 }}
+                                icon={<CopyOutlined />}
+                                onClick={() => {
+                                    navigator.clipboard.writeText(record.urn);
+                                }}
+                            />
+                        </Tooltip>
+                    )}
                     <Button style={{ marginRight: 16 }} onClick={() => onEdit(record.urn)}>
                         EDIT
                     </Button>
