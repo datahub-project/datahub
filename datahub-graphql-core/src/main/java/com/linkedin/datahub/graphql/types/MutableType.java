@@ -24,4 +24,14 @@ public interface MutableType<I, T> {
      * @param context the {@link QueryContext} corresponding to the request.
      */
     T update(@Nonnull final String urn, @Nonnull final I input, @Nonnull final QueryContext context) throws Exception;
+    
+   /**
+    * Update many entities
+    *
+    * @param input input type
+    * @param context the {@link QueryContext} corresponding to the request.
+    */
+   default <T> T batchUpdate(@Nonnull final I[] input, @Nonnull final QueryContext context) throws Exception {
+    return null;
+   }
 }
