@@ -46,7 +46,7 @@ MANIFEST
 **/spark-lineage/metastore_db/
 **/spark-lineage/**/derby.log
 **/spark-lineage/**/hive/
-**/spark-lineage/**/out.csv/
+**/spark-lineage/**/out*.csv/
 .vscode
 
 #spark smoke test
