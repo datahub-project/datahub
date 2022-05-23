@@ -24,7 +24,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.ingestion_job_state_provider import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 from datahub.ingestion.source.sql.sql_types import (
     BIGQUERY_TYPES_MAP,
     POSTGRES_TYPES_MAP,
@@ -82,6 +81,7 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.utilities.mapping import Constants, OperationProcessor
+from src.datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
@@ -109,7 +109,7 @@ class DBTSourceReport(StatefulIngestionReport):
         self.soft_deleted_stale_entities.append(urn)
 
 
-class DBTConfig(AwsSourceConfig, StatefulIngestionConfigBase):
+class DBTConfig(StatefulIngestionConfigBase):
     manifest_path: str = Field(
         description="Path to dbt manifest JSON. See https://docs.getdbt.com/reference/artifacts/manifest-json Note this can be a local file or a URI."
     )
@@ -178,12 +178,14 @@ class DBTConfig(AwsSourceConfig, StatefulIngestionConfigBase):
         default=None,
         description='Regex string to extract owner from the dbt node using the `(?P<name>...) syntax` of the [match object](https://docs.python.org/3/library/re.html#match-objects), where the group name must be `owner`. Examples: (1)`r"(?P<owner>(.*)): (\w+) (\w+)"` will extract `jdoe` as the owner from `"jdoe: John Doe"` (2) `r"@(?P<owner>(.*))"` will extract `alice` as the owner from `"@alice"`.',  # noqa: W605
     )
-    # Overwrite the aws_region inherited from AwsSourceConfig with default value, in case users don't use s3 and don't input this field.
-    aws_region: str = Field(default=None, description="AWS region code.")
+    aws_connection: Optional[AwsConnectionConfig] = Field(
+        default=None,
+        description="When fetching manifest files from s3, configuration for aws connection details",
+    )
 
     @property
     def s3_client(self):
-        return self.get_s3_client()
+        return self.aws_connection.get_s3_client()
 
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[DBTStatefulIngestionConfig] = Field(
@@ -208,6 +210,22 @@ class DBTConfig(AwsSourceConfig, StatefulIngestionConfigBase):
                 "provide a datahub_api: configuration on your ingestion recipe"
             )
         return write_semantics
+
+    @validator("aws_connection")
+    def aws_connection_needed_if_s3_uris_present(
+        cls, aws_connection: Optional[AwsConnectionConfig], values, **kwargs
+    ) -> Optional[AwsConnectionConfig]:
+        # first check if there are fields that contain s3 uris
+        uri_containing_fields = [
+            f
+            for f in ["manifest_path", "catalog_path", "sources_path"]
+            if values.get(f) and values.get(f).startswith("s3://")
+        ]
+        if uri_containing_fields and not aws_connection:
+            raise ValueError(
+                f"Please provide aws_connection configuration, since s3 uris have been provided in fields {uri_containing_fields}"
+            )
+        return aws_connection
 
 
 @dataclass
@@ -400,12 +418,12 @@ def extract_dbt_entities(
 
 
 # s3://data-analysis.pelotime.com/dbt-artifacts/data-engineering-dbt/catalog.json
-def load_file_as_json(uri: str, s3_client: "S3Client") -> Any:
+def load_file_as_json(self, uri: str) -> Any:
     if re.match("^https?://", uri):
         return json.loads(requests.get(uri).text)
     elif re.match("^s3://", uri):
         u = urlparse(uri)
-        response = s3_client.get_object(Bucket=u.netloc, Key=u.path.lstrip("/"))
+        response = self.s3_client.get_object(Bucket=u.netloc, Key=u.path.lstrip("/"))
         return json.loads(response["Body"].read().decode("utf-8"))
     else:
         with open(uri, "r") as f:
@@ -413,6 +431,7 @@ def load_file_as_json(uri: str, s3_client: "S3Client") -> Any:
 
 
 def loadManifestAndCatalog(
+    self,
     manifest_path: str,
     catalog_path: str,
     sources_path: Optional[str],
@@ -431,12 +450,12 @@ def loadManifestAndCatalog(
     Optional[str],
     Dict[str, Dict[str, Any]],
 ]:
-    dbt_manifest_json = load_file_as_json(manifest_path, s3_client)
+    dbt_manifest_json = self.load_file_as_json(manifest_path)
 
-    dbt_catalog_json = load_file_as_json(catalog_path, s3_client)
+    dbt_catalog_json = self.load_file_as_json(catalog_path)
 
     if sources_path is not None:
-        dbt_sources_json = load_file_as_json(sources_path, s3_client)
+        dbt_sources_json = self.load_file_as_json(sources_path)
         sources_results = dbt_sources_json["results"]
     else:
         sources_results = {}
@@ -794,7 +813,7 @@ class DBTSource(StatefulIngestionSourceBase):
             catalog_schema,
             catalog_version,
             manifest_nodes_raw,
-        ) = loadManifestAndCatalog(
+        ) = self.loadManifestAndCatalog(
             self.config.manifest_path,
             self.config.catalog_path,
             self.config.sources_path,
@@ -804,7 +823,6 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.node_type_pattern,
             self.report,
             self.config.node_name_pattern,
-            self.s3_client,
         )
 
         additional_custom_props = {
