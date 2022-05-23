@@ -13,6 +13,7 @@ def test_snowflake_source_throws_error_on_account_id_missing():
             }
         )
 
+
 def test_snowflake_throws_error_on_client_id_missing_if_using_oauth():
     with pytest.raises(ConfigurationError):
         SnowflakeConfig.parse_obj(
@@ -24,6 +25,7 @@ def test_snowflake_throws_error_on_client_id_missing_if_using_oauth():
                 "authority_url": "https://login.microsoftonline.com/yourorganisation.com",
             }
         )
+
 
 def test_snwoflake_throws_error_on_client_secret_missing_if_use_certificate_is_false():
     with pytest.raises(ConfigurationError):
@@ -37,6 +39,7 @@ def test_snwoflake_throws_error_on_client_secret_missing_if_use_certificate_is_f
                 "authority_url": "https://login.microsoftonline.com/yourorganisation.com",
             }
         )
+
 
 def test_snwoflake_throws_error_on_encoded_oauth_private_key_missing_if_use_certificate_is_true():
     with pytest.raises(ConfigurationError):
