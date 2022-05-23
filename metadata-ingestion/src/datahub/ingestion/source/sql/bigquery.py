@@ -696,7 +696,9 @@ class BigQuerySource(SQLAlchemySource):
         self, inspector: Inspector, schema: str, table: str
     ) -> Dict[str, List[str]]:
         extra_tags: Dict[str, List[str]] = {}
-        partition = self.get_latest_partition(schema, table)
+        partition: Optional[BigQueryPartitionColumn] = self.get_latest_partition(
+            schema, table
+        )
         if partition:
             extra_tags[partition.column_name] = [Constants.TAG_PARTITION_KEY]
         return extra_tags
