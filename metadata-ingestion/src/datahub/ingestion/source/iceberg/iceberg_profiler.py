@@ -155,11 +155,7 @@ class IcebergProfiler:
                 column_profile = DatasetFieldProfileClass(fieldPath=field_path)
                 if self.config.include_field_null_count:
                     column_profile.nullCount = null_counts.get(field_id, 0)
-                    column_profile.nullProportion = (
-                        column_profile.nullCount / row_count
-                        if column_profile.nullCount
-                        else None
-                    )
+                    column_profile.nullProportion = column_profile.nullCount / row_count
 
                 if self.config.include_field_min_value:
                     column_profile.min = (
