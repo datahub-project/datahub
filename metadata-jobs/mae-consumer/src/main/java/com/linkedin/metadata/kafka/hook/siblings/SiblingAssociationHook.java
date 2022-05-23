@@ -103,9 +103,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     }
   }
 
-  // If the dataset is dbt--- look for the source entity of this dbt element.
-  // If none can be found, look for another matching dbt element who already may have soft
-  // deleted the source entity and linked to it via Siblings aspect
+  // If th upstream is a single source system node & subtype is source, then associate the upstream as your sibling
   private void handleDbtDatasetEvent(MetadataChangeLog event, DatasetUrn datasetUrn) {
     Siblings siblingAspectOfEntity =
         (Siblings) _entityService.getLatestAspect(
@@ -157,7 +155,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     }
   }
 
-  // if the dataset is not dbt--- it may be a backing dataset. look for the dbt partner.
+  // if the dataset is not dbt--- it may be produced by a dbt dataset. If so, associate them as siblings
   private void handleSourceDatasetEvent(MetadataChangeLog event, DatasetUrn sourcerUrn) {
     if (event.getAspectName().equals(UPSTREAM_LINEAGE_ASPECT_NAME)) {
       UpstreamLineage upstreamLineage = getUpstreamLineageFromEvent(event);
