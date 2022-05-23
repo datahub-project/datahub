@@ -120,6 +120,8 @@ _field_type_mapping = {
     StructField: RecordTypeClass,
     StructType: RecordTypeClass,
 }
+SAMPLE_SIZE = 100
+PAGE_SIZE = 1000
 
 
 def get_column_type(
@@ -429,9 +431,12 @@ class S3Source(Source):
 
         # Dataset is in the root folder
         if not parent_folder_path:
-            if parent_key:
-                yield from add_dataset_to_container(parent_key, dataset_urn)
-            return
+            if parent_key is None:
+                logger.warning(
+                    f"Failed to associate Dataset ({dataset_urn}) with container"
+                )
+                return
+            yield from add_dataset_to_container(parent_key, dataset_urn)
 
         for folder in parent_folder_path.split("/"):
             abs_path = folder
@@ -450,11 +455,6 @@ class S3Source(Source):
                 parent_container_key=parent_key,
             )
             parent_key = folder_key
-        if parent_key is None:
-            logger.warning(
-                f"Failed to associate Dataset ({dataset_urn}) with container"
-            )
-            return
         yield from add_dataset_to_container(parent_key, dataset_urn)
 
     def get_fields(self, table_data: TableData, path_spec: PathSpec) -> List:
@@ -474,13 +474,11 @@ class S3Source(Source):
         fields = []
 
         extension = pathlib.Path(table_data.full_path).suffix
-        if path_spec.enable_compression:
-            if (
-                extension[1:]
-                in datahub.ingestion.source.s3.config.SUPPORTED_COMPRESSIONS
-            ):
-                # Removing the compression extension and using the one before that like .json.gz -> .json
-                extension = pathlib.Path(table_data.full_path).with_suffix("").suffix
+        if path_spec.enable_compression and (
+            extension[1:] in datahub.ingestion.source.s3.config.SUPPORTED_COMPRESSIONS
+        ):
+            # Removing the compression extension and using the one before that like .json.gz -> .json
+            extension = pathlib.Path(table_data.full_path).with_suffix("").suffix
         if extension == "" and path_spec.default_extension:
             extension = f".{path_spec.default_extension}"
 
@@ -835,14 +833,15 @@ class S3Source(Source):
             # After the marker we can safely get sample files for sampling because it is not used in the
             # table name, so we don't need all the files.
             # This speed up processing but we won't be able to get a precise modification date/size/number of files.
-            max_start = -1
-            include = path_spec.include
-            max_match = ""
+            max_start: int = -1
+            include: str = path_spec.include
+            max_match: str = ""
             for match in matches_list:
                 pos = include.find(match.group())
                 if pos > max_start:
                     if max_match:
                         include = include.replace(max_match, "*")
+                    max_start = match.start()
                     max_match = match.group()
 
             table_index = include.find(max_match)
@@ -853,7 +852,9 @@ class S3Source(Source):
                     logger.info(f"Processing folder: {f}")
 
                     for obj in (
-                        bucket.objects.filter(Prefix=f"{f}").page_size(1000).limit(100)
+                        bucket.objects.filter(Prefix=f"{f}")
+                        .page_size(PAGE_SIZE)
+                        .limit(SAMPLE_SIZE)
                     ):
                         s3_path = f"s3://{obj.bucket_name}/{obj.key}"
                         logger.debug(f"Samping file: {s3_path}")
@@ -863,7 +864,7 @@ class S3Source(Source):
                 "No template in the pathspec can't do sampling, fallbacking to do full scan"
             )
             path_spec.sample_files = False
-            for obj in bucket.objects.filter(Prefix=prefix).page_size(1000):
+            for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE):
                 s3_path = f"s3://{obj.bucket_name}/{obj.key}"
                 logger.debug(f"Path: {s3_path}")
                 yield s3_path, obj.last_modified, obj.size,
