@@ -3,14 +3,14 @@ package com.linkedin.metadata.kafka.hook.siblings;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.FabricType;
 import com.linkedin.common.Siblings;
 import com.linkedin.common.Status;
+import com.linkedin.common.SubTypes;
 import com.linkedin.common.UrnArray;
-import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.dataset.UpstreamArray;
+import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.entity.EntityServiceFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
@@ -19,8 +19,6 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.search.SearchEntity;
-import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -30,21 +28,13 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
-import com.linkedin.metadata.query.filter.Condition;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
-import com.linkedin.metadata.query.filter.CriterionArray;
-import com.linkedin.metadata.query.filter.Filter;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -60,6 +50,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   public static final String SIBLING_ASSOCIATION_SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system_sibling_hook";
   public static final String DBT_PLATFORM_NAME = "dbt";
+  public static final String SOURCE_SUBTYPE = "source";
 
   private final EntityRegistry _entityRegistry;
   private final EntityService _entityService;
@@ -104,16 +95,10 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         throw new RuntimeException("Failed to parse entity urn, skipping processing.", e);
       }
 
-      // get entity's name--- the urns may not be exact matches
-      DatasetProperties existingEntityProperties =
-          (DatasetProperties) _entityService.getLatestAspect(datasetUrn, DATASET_PROPERTIES_ASPECT_NAME);
-
-      String datasetNameToSearchFor = getDatasetNameToSearchFor(datasetUrn, existingEntityProperties, event);
-
       if (datasetUrn.getPlatformEntity().getPlatformNameEntity().equals(DBT_PLATFORM_NAME)) {
-        handleDbtDatasetEvent(datasetNameToSearchFor, datasetUrn);
+        handleDbtDatasetEvent(event, datasetUrn);
       } else {
-        handleSourceDatasetEvent(datasetNameToSearchFor, datasetUrn);
+        handleSourceDatasetEvent(event, datasetUrn);
       }
     }
   }
@@ -121,92 +106,70 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   // If the dataset is dbt--- look for the source entity of this dbt element.
   // If none can be found, look for another matching dbt element who already may have soft
   // deleted the source entity and linked to it via Siblings aspect
-  private void handleDbtDatasetEvent(String datasetNameToSearchFor, DatasetUrn datasetUrn) {
+  private void handleDbtDatasetEvent(MetadataChangeLog event, DatasetUrn datasetUrn) {
     Siblings siblingAspectOfEntity =
         (Siblings) _entityService.getLatestAspect(
             datasetUrn,
             SIBLINGS_ASPECT_NAME
         );
 
-
     // if the dbt node already have a sibling entity, we don't need to search for one.
     if (siblingAspectOfEntity != null) {
       return;
     }
 
-    Filter filterForFindingSiblingEntity =
-        createFilter(datasetNameToSearchFor, datasetUrn.getOriginEntity(), null);
+    // we need both UpstreamLineage & Subtypes to determine whether to associate
+    UpstreamLineage upstreamLineage = null;
+    SubTypes subTypesAspectOfEntity = null;
 
-    final SearchResult searchResult = _searchService.search(
-        "dataset",
-        "*",
-        filterForFindingSiblingEntity,
-        null,
-        0,
-        10,
-        null);
+    if (event.getAspectName().equals(UPSTREAM_LINEAGE_ASPECT_NAME)) {
+      upstreamLineage = getUpstreamLineageFromEvent(event);
+      subTypesAspectOfEntity =
+          (SubTypes) _entityService.getLatestAspect(
+              datasetUrn,
+              SUB_TYPES_ASPECT_NAME
+          );
 
+    }
 
-    if (searchResult.getEntities().size() > 0) {
-      // our matches may either be source nodes or dbt.
-      // if there is a source node - associate it
-      // if there are just dbt nodes -- take their sibling aspect
-      Stream<SearchEntity> sourceResultsStream = searchResult.getEntities()
-          .stream()
-          .filter(entity -> {
-            try {
-              return !(DatasetUrn.createFromUrn(entity.getEntity())).getPlatformEntity()
-                  .getPlatformNameEntity()
-                  .equals(DBT_PLATFORM_NAME);
-            } catch (URISyntaxException e) {
-              e.printStackTrace();
-              return false;
-            }
-          });
+    if (event.getAspectName().equals(SUB_TYPES_ASPECT_NAME)) {
+      subTypesAspectOfEntity = getSubtypesFromEvent(event);
+      upstreamLineage =
+          (UpstreamLineage) _entityService.getLatestAspect(
+              datasetUrn,
+              UPSTREAM_LINEAGE_ASPECT_NAME
+          );
+    }
 
-      List<SearchEntity> sourceResults = sourceResultsStream.collect(Collectors.toList());
-
-      if (sourceResults.size() > 0) {
-        // associate yourself as a sibling of the source node
-        sourceResults.forEach(entity -> {
-          setSiblingsAndSoftDeleteSibling(datasetUrn, entity.getEntity());
-        });
-      } else {
-        // yank the sibling of aspect of another matching dbt node (for example, this may be a source and you
-        // may be the incremental representing the same underlying dataset)
-        Siblings siblingAspectOfCorrespondingDbtNode =
-            (Siblings) _entityService.getLatestAspect(
-                searchResult.getEntities().get(0).getEntity(),
-                SIBLINGS_ASPECT_NAME
-            );
-        if (siblingAspectOfCorrespondingDbtNode != null) {
-          setSiblingsAndSoftDeleteSibling(datasetUrn, siblingAspectOfCorrespondingDbtNode.getSiblings().get(0));
-        }
+    if (
+        upstreamLineage != null
+            && subTypesAspectOfEntity != null
+            && upstreamLineage.hasUpstreams()
+            && subTypesAspectOfEntity.hasTypeNames()
+            && subTypesAspectOfEntity.getTypeNames().contains(SOURCE_SUBTYPE)
+    ) {
+      UpstreamArray upstreams = upstreamLineage.getUpstreams();
+      if (
+          upstreams.size() == 1
+              && !upstreams.get(0).getDataset().getPlatformEntity().getPlatformNameEntity().equals(DBT_PLATFORM_NAME)) {
+        setSiblingsAndSoftDeleteSibling(datasetUrn, upstreams.get(0).getDataset());
       }
     }
   }
 
-  // if the dataset is not dbt--- it may be a backing dataset. look for the dbt partner(s).
-  private void handleSourceDatasetEvent(String datasetNameToSearchFor, DatasetUrn datasetUrn) {
-    Filter filterForFindingSiblingEntity = createFilter(
-        datasetNameToSearchFor,
-        datasetUrn.getOriginEntity(),
-        DataPlatformUrn.createFromTuple("dataPlatform", DBT_PLATFORM_NAME)
-    );
-
-    final SearchResult searchResult = _searchService.search(
-        "dataset",
-        "*",
-        filterForFindingSiblingEntity,
-        null,
-        0,
-        10,
-        null);
-
-    // we have a match of some dbt entities, become their siblings
-    searchResult.getEntities().forEach(entity -> {
-      setSiblingsAndSoftDeleteSibling(entity.getEntity(), datasetUrn);
-    });
+  // if the dataset is not dbt--- it may be a backing dataset. look for the dbt partner.
+  private void handleSourceDatasetEvent(MetadataChangeLog event, DatasetUrn sourcerUrn) {
+    if (event.getAspectName().equals(UPSTREAM_LINEAGE_ASPECT_NAME)) {
+      UpstreamLineage upstreamLineage = getUpstreamLineageFromEvent(event);
+      if (upstreamLineage != null && upstreamLineage.hasUpstreams()) {
+        UpstreamArray upstreams = upstreamLineage.getUpstreams();
+        if (
+            upstreams.size() == 1
+                && upstreams.get(0).getDataset().getPlatformEntity().getPlatformNameEntity().equals(DBT_PLATFORM_NAME)) {
+          setSiblingsAndSoftDeleteSibling(upstreams.get(0).getDataset(), sourcerUrn);
+        }
+      }
+    }
   }
 
   private void setSiblingsAndSoftDeleteSibling(Urn dbtUrn, Urn sourceUrn) {
@@ -266,7 +229,11 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
       newSiblingsUrnArray.add(dbtUrn);
     }
 
-    sourceSiblingAspect.setSiblings(newSiblingsUrnArray);
+    // clean up any references to stale siblings that have been deleted
+    List<Urn> filteredNewSiblingsArray =
+        newSiblingsUrnArray.stream().filter(urn -> _entityService.exists(urn)).collect(Collectors.toList());
+
+    sourceSiblingAspect.setSiblings(new UrnArray(filteredNewSiblingsArray));
     sourceSiblingAspect.setPrimary(false);
 
     MetadataChangeProposal sourceSiblingProposal = new MetadataChangeProposal();
@@ -303,9 +270,8 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     return event.getEntityType().equals("dataset")
         && !event.getChangeType().equals(ChangeType.DELETE)
         && (
-            event.getAspectName().equals("status")
-                || event.getAspectName().equals("datasetKey")
-                || event.getAspectName().equals("datasetProperties")
+            event.getAspectName().equals("upstreamLineage")
+                || event.getAspectName().equals("subType")
           );
   }
 
@@ -325,55 +291,12 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     return EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec());
   }
 
-  private Filter createFilter(
-      final @Nullable String name,
-      final @Nullable FabricType origin,
-      final @Nullable Urn platformUrn
-      ) {
-    final Filter filter = new Filter();
-    final ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();
-
-    final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
-    final CriterionArray andCriterion = new CriterionArray();
-
-    if (name != null) {
-      final Criterion nameCriterion = new Criterion();
-      nameCriterion.setField("name.keyword");
-      nameCriterion.setValue(name);
-      nameCriterion.setCondition(Condition.EQUAL);
-      andCriterion.add(nameCriterion);
-    }
-
-    if (origin != null) {
-      final Criterion originCriterion = new Criterion();
-      originCriterion.setField("origin.keyword");
-      originCriterion.setValue(origin.toString());
-      originCriterion.setCondition(Condition.EQUAL);
-      andCriterion.add(originCriterion);
-    }
-
-    if (platformUrn != null) {
-      final Criterion platformCriterion = new Criterion();
-      platformCriterion.setField("platform.keyword");
-      platformCriterion.setValue(platformUrn.toString());
-      platformCriterion.setCondition(Condition.EQUAL);
-      andCriterion.add(platformCriterion);
-    }
-
-    conjunction.setAnd(andCriterion);
-
-    disjunction.add(conjunction);
-
-    filter.setOr(disjunction);
-    return filter;
-  }
-
   /**
-   * Deserializes and returns an instance of {@link DatasetProperties} extracted from a {@link MetadataChangeLog} event.
+   * Deserializes and returns an instance of {@link UpstreamLineage} extracted from a {@link MetadataChangeLog} event.
    */
-  private DatasetProperties getPropertiesFromEvent(final MetadataChangeLog event) {
+  private UpstreamLineage getUpstreamLineageFromEvent(final MetadataChangeLog event) {
     EntitySpec entitySpec;
-    if (!event.getAspectName().equals(DATASET_PROPERTIES_ASPECT_NAME)) {
+    if (!event.getAspectName().equals(UPSTREAM_LINEAGE_ASPECT_NAME)) {
       return null;
     }
 
@@ -381,29 +304,33 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
       entitySpec = _entityRegistry.getEntitySpec(event.getEntityType());
     } catch (IllegalArgumentException e) {
       log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
-      throw new RuntimeException("Failed to get DatasetProperties from MetadataChangeLog event. Skipping processing.", e);
+      throw new RuntimeException("Failed to get UpstreamLineage from MetadataChangeLog event. Skipping processing.", e);
     }
-    return (DatasetProperties) GenericRecordUtils.deserializeAspect(
+    return (UpstreamLineage) GenericRecordUtils.deserializeAspect(
         event.getAspect().getValue(),
         event.getAspect().getContentType(),
-        entitySpec.getAspectSpec(DATASET_PROPERTIES_ASPECT_NAME));
+        entitySpec.getAspectSpec(UPSTREAM_LINEAGE_ASPECT_NAME));
   }
 
-  private String getDatasetNameToSearchFor(
-      DatasetUrn datasetUrn,
-      DatasetProperties existingEntityProperties,
-      MetadataChangeLog event
-  ) {
-    DatasetProperties propertiesFromEvent = getPropertiesFromEvent(event);
-    if (propertiesFromEvent != null && propertiesFromEvent.hasName()) {
-      return propertiesFromEvent.getName();
+  /**
+   * Deserializes and returns an instance of {@link SubTypes} extracted from a {@link MetadataChangeLog} event.
+   */
+  private SubTypes getSubtypesFromEvent(final MetadataChangeLog event) {
+    EntitySpec entitySpec;
+    if (!event.getAspectName().equals(SUB_TYPES_ASPECT_NAME)) {
+      return null;
     }
 
-    if (existingEntityProperties != null && existingEntityProperties.hasName()) {
-      return existingEntityProperties.getName();
+    try {
+      entitySpec = _entityRegistry.getEntitySpec(event.getEntityType());
+    } catch (IllegalArgumentException e) {
+      log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
+      throw new RuntimeException("Failed to get SubTypes from MetadataChangeLog event. Skipping processing.", e);
     }
-
-    return datasetUrn.getDatasetNameEntity();
+    return (SubTypes) GenericRecordUtils.deserializeAspect(
+        event.getAspect().getValue(),
+        event.getAspect().getContentType(),
+        entitySpec.getAspectSpec(SUB_TYPES_ASPECT_NAME));
   }
 
 }
