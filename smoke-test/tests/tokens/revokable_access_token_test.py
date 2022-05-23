@@ -31,7 +31,7 @@ def test_setup():
       revokeAccessToken(admin_session, metadata["tokenId"])
 
 
-#@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_create_and_revoke_token():
 
     user_session = loginAs("user", "user")
