@@ -2,6 +2,38 @@
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
 
+## 4/28/2022
+[Full YouTube video](https://www.youtube.com/watch?v=7iwNxHgqxtg)
+
+## Agenda
+- Community Case Study: Hear from Included Health about how they are embedding external tools into the DataHub UI
+- New! Actions Framework: run custom code when changes happen within DataHub
+- UI Refresh for ML Entities
+- Improved deletion support for time-series aspects, tags, terms, & more
+- OpenAPI Improvements
+
+## 3/31/2022
+[Full YouTube video](https://www.youtube.com/watch?v=IVazVgcNRdw)
+
+## Agenda
+- Community Case Study: Hear from Zendesk about how they are applying “shift left” principles by authoring metadata in their Protobuf schemas
+- RBAC Functionality: View-Based Policies
+- Schema Version History - surfacing the history of schema changes in DataHub's UI
+- Improvements to Airflow Ingestion, including Run History
+- Container/Domain-Level  Property Inheritance
+- Delete API
+
+
+## 2/25/2022
+[Full YouTube video](https://www.youtube.com/watch?v=enBqB2Dbuv4)
+
+## Agenda
+
+- Lineage Impact Analysis - using DataHub to understand the impact of changes on downstream dependencies
+- Displaying Data Quality Checks in the UI
+- Roadmap update: Schema Version History & Column-Level Lineage
+- Community Case Study: Managing Lineage via YAML
+
 ## 1/28/2022
 [Full YouTube video](https://youtu.be/ShlSR3dMUnE)
 
