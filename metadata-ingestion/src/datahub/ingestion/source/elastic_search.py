@@ -8,6 +8,7 @@ from hashlib import md5
 from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type
 
 from elasticsearch import Elasticsearch
+
 from pydantic import validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
