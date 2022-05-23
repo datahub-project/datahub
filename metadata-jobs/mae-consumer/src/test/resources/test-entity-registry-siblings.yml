@@ -5,3 +5,5 @@ entities:
       - status
       - siblings
       - datasetProperties
+      - subTypes
+      - upstreamLineage
