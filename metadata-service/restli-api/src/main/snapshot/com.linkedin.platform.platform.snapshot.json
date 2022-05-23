@@ -581,8 +581,10 @@
       "doc" : "Instance of the data platform (e.g. db instance)",
       "optional" : true,
       "Searchable" : {
+        "addToFilters" : true,
         "fieldName" : "platformInstance",
-        "fieldType" : "URN"
+        "fieldType" : "URN",
+        "filterNameOverride" : "Platform Instance"
       }
     } ],
     "Aspect" : {
@@ -785,6 +787,10 @@
               }
             },
             "doc" : "Urn of the applied tag",
+            "Relationship" : {
+              "entityTypes" : [ "tag" ],
+              "name" : "TaggedWith"
+            },
             "Searchable" : {
               "addToFilters" : true,
               "fieldName" : "tags",
@@ -862,11 +868,16 @@
         }
       },
       "doc" : "Urn of the applied glossary term",
+      "Relationship" : {
+        "entityTypes" : [ "glossaryTerm" ],
+        "name" : "TermedWith"
+      },
       "Searchable" : {
         "addToFilters" : true,
         "fieldName" : "glossaryTerms",
         "fieldType" : "URN",
-        "filterNameOverride" : "Glossary Term"
+        "filterNameOverride" : "Glossary Term",
+        "hasValuesFieldName" : "hasGlossaryTerms"
       }
     } ]
   }, "com.linkedin.common.GlossaryTermUrn", {
@@ -2872,6 +2883,12 @@
                           "type" : "com.linkedin.common.GlobalTags",
                           "doc" : "Tags associated with the field",
                           "optional" : true,
+                          "Relationship" : {
+                            "/tags/*/tag" : {
+                              "entityTypes" : [ "tag" ],
+                              "name" : "SchemaFieldTaggedWith"
+                            }
+                          },
                           "Searchable" : {
                             "/tags/*/tag" : {
                               "boostScore" : 0.5,
@@ -2884,6 +2901,12 @@
                           "type" : "com.linkedin.common.GlossaryTerms",
                           "doc" : "Glossary terms associated with the field",
                           "optional" : true,
+                          "Relationship" : {
+                            "/terms/*/urn" : {
+                              "entityTypes" : [ "glossaryTerm" ],
+                              "name" : "SchemaFieldWithGlossaryTerm"
+                            }
+                          },
                           "Searchable" : {
                             "/terms/*/urn" : {
                               "boostScore" : 0.5,
@@ -2896,6 +2919,11 @@
                           "type" : "boolean",
                           "doc" : "For schema fields that are part of complex keys, set this field to true\nWe do this to easily distinguish between value and key fields",
                           "default" : false
+                        }, {
+                          "name" : "isPartitioningKey",
+                          "type" : "boolean",
+                          "doc" : "For Datasets which are partitioned, this determines the partitioning key.",
+                          "optional" : true
                         }, {
                           "name" : "jsonProps",
                           "type" : "string",
@@ -3042,6 +3070,12 @@
                           "type" : "com.linkedin.common.GlobalTags",
                           "doc" : "Tags associated with the field",
                           "optional" : true,
+                          "Relationship" : {
+                            "/tags/*/tag" : {
+                              "entityTypes" : [ "tag" ],
+                              "name" : "EditableSchemaFieldTaggedWith"
+                            }
+                          },
                           "Searchable" : {
                             "/tags/*/tag" : {
                               "boostScore" : 0.5,
@@ -3054,6 +3088,12 @@
                           "type" : "com.linkedin.common.GlossaryTerms",
                           "doc" : "Glossary terms associated with the field",
                           "optional" : true,
+                          "Relationship" : {
+                            "/terms/*/urn" : {
+                              "entityTypes" : [ "glossaryTerm" ],
+                              "name" : "EditableSchemaFieldWithGlossaryTerm"
+                            }
+                          },
                           "Searchable" : {
                             "/terms/*/urn" : {
                               "boostScore" : 0.5,
@@ -4570,11 +4610,17 @@
                   "fields" : [ {
                     "name" : "displayName",
                     "type" : "string",
-                    "doc" : "Display name of the Policy"
+                    "doc" : "Display name of the Policy",
+                    "Searchable" : {
+                      "fieldType" : "TEXT_PARTIAL"
+                    }
                   }, {
                     "name" : "description",
                     "type" : "string",
-                    "doc" : "Description of the Policy"
+                    "doc" : "Description of the Policy",
+                    "Searchable" : {
+                      "fieldType" : "TEXT"
+                    }
                   }, {
                     "name" : "type",
                     "type" : "string",
@@ -4712,6 +4758,14 @@
                     "type" : "boolean",
                     "doc" : "Whether the policy should be editable via the UI",
                     "default" : true
+                  }, {
+                    "name" : "lastUpdatedTimestamp",
+                    "type" : "long",
+                    "doc" : "Timestamp when the policy was last updated",
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldType" : "DATETIME"
+                    }
                   } ],
                   "Aspect" : {
                     "name" : "dataHubPolicyInfo"

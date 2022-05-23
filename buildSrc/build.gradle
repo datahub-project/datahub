@@ -1,0 +1,16 @@
+apply plugin: 'java'
+
+buildscript {
+  apply from: '../repositories.gradle'
+}
+
+dependencies {
+  compile('io.acryl:json-schema-avro:0.1.5') {
+    exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
+    exclude group: 'com.google.guava', module: 'guava'
+  }
+  compile 'com.google.guava:guava:27.0.1-jre'
+  compile 'com.fasterxml.jackson.core:jackson-databind:2.9.10.7'
+  compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.8.11'
+  compile 'commons-io:commons-io:2.11.0'
+}

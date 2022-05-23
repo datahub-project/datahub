@@ -41,6 +41,7 @@ public class EbeanRetentionService extends RetentionService {
 
   private final Clock _clock = Clock.systemUTC();
 
+  @Override
   public EntityService getEntityService() {
     return _entityService;
   }

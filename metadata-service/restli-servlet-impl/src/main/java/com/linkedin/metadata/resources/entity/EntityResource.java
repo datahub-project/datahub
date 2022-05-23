@@ -10,10 +10,12 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
+import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.models.EntitySpecUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -27,6 +29,7 @@ import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.AspectRowSummaryArray;
 import com.linkedin.metadata.run.DeleteEntityResponse;
+import com.linkedin.metadata.run.DeleteReferencesResponse;
 import com.linkedin.metadata.run.RollbackResponse;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchResult;
@@ -125,6 +128,14 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private EventProducer _eventProducer;
 
   @Inject
+  @Named("graphService")
+  private GraphService _graphService;
+
+  @Inject
+  @Named("deleteEntityService")
+  private DeleteEntityService _deleteEntityService;
+
+  @Inject
   @Named("timeseriesAspectService")
   private TimeseriesAspectService _timeseriesAspectService;
 
@@ -167,7 +178,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @WithSpan
   public Task<Map<String, AnyRecord>> batchGet(@Nonnull Set<String> urnStrs,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) throws URISyntaxException {
-    log.info("BATCH GET {}", urnStrs.toString());
+    log.info("BATCH GET {}", urnStrs);
     final Set<Urn> urns = new HashSet<>();
     for (final String urnStr : urnStrs) {
       urns.add(Urn.createFromString(urnStr));
@@ -346,7 +357,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @WithSpan
   public Task<StringArray> getBrowsePaths(
       @ActionParam(value = PARAM_URN, typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
-    log.info("GET BROWSE PATHS for {}", urn.toString());
+    log.info("GET BROWSE PATHS for {}", urn);
     return RestliUtil.toTask(() -> new StringArray(_entitySearchService.getBrowsePaths(urnToEntityName(urn), urn)),
         MetricRegistry.name(this.getClass(), "getBrowsePaths"));
   }
@@ -355,7 +366,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     if (size < ELASTIC_MAX_PAGE_SIZE) {
       return String.valueOf(size);
     } else {
-      return "at least " + String.valueOf(size);
+      return "at least " + size;
     }
   }
 
@@ -477,6 +488,18 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           entityType, aspect, urn, startTimeMillis, endTimeMillis, result.getNumDocsDeleted());
     }
     return totalNumberOfDocsDeleted;
+  }
+
+  @Action(name = "deleteReferences")
+  @Nonnull
+  @WithSpan
+  public Task<DeleteReferencesResponse> deleteReferencesTo(@ActionParam(PARAM_URN) @Nonnull String urnStr,
+      @ActionParam("dryRun") @Optional Boolean dry) throws URISyntaxException {
+    boolean dryRun = dry != null ? dry : false;
+
+    Urn urn = Urn.createFromString(urnStr);
+    return RestliUtil.toTask(() -> _deleteEntityService.deleteReferencesTo(urn, dryRun),
+        MetricRegistry.name(this.getClass(), "deleteReferences"));
   }
 
   /*

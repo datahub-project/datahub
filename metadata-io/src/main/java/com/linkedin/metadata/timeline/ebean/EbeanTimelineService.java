@@ -8,6 +8,9 @@ import com.github.fge.jsonpatch.diff.JsonDiff;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
@@ -42,6 +45,7 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.parquet.SemanticVersion;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.common.urn.VersionedUrnUtils.*;
 
 
 public class EbeanTimelineService implements TimelineService {
@@ -55,10 +59,12 @@ public class EbeanTimelineService implements TimelineService {
   private final EbeanAspectDao _entityDao;
   //private final JacksonDataTemplateCodec _dataTemplateCodec = new JacksonDataTemplateCodec();
   private final AspectDifferFactory _diffFactory;
+  private final EntityRegistry _entityRegistry;
   private final HashMap<String, HashMap<ChangeCategory, Set<String>>> entityTypeElementAspectRegistry = new HashMap<>();
 
-  public EbeanTimelineService(@Nonnull EbeanAspectDao entityDao) {
+  public EbeanTimelineService(@Nonnull EbeanAspectDao entityDao, @Nonnull EntityRegistry entityRegistry) {
     this._entityDao = entityDao;
+    _entityRegistry = entityRegistry;
 
     // TODO: Simplify this structure.
     // TODO: Load up from yaml file
@@ -153,76 +159,148 @@ public class EbeanTimelineService implements TimelineService {
       startTimeMillis = endTimeMillis - DEFAULT_LOOKBACK_TIME_WINDOW_MILLIS;
     }
 
-    List<EbeanAspectV2> foo = this._entityDao.getAspectsInRange(urn, aspectNames, startTimeMillis, endTimeMillis);
-    Map<String, TreeSet<EbeanAspectV2>> aspectRowSetMap = new HashMap<>();
-    foo.forEach(row -> {
-      TreeSet<EbeanAspectV2> rowList = aspectRowSetMap.computeIfAbsent(row.getAspect(),
-          k -> new TreeSet<>(Comparator.comparing(EbeanAspectV2::getCreatedOn)));
-      rowList.add(row);
-      /*
-       Long minVersion = aspectMinVersionMap.get(row.getAspect());
-       if (minVersion == null) {
-       aspectMinVersionMap.put(row.getAspect(), row.getVersion());
-       } else {
-       if (minVersion < row.getVersion() && minVersion != 0) {
-       aspectMinVersionMap.put(row.getAspect(), row.getVersion());
-       }
-       }
-       */
-    });
+    // Pull full list of aspects for entity and filter timeseries aspects for range query
+    EntitySpec entitySpec = _entityRegistry.getEntitySpec(urn.getEntityType());
+    List<AspectSpec> aspectSpecs = entitySpec.getAspectSpecs();
+    Set<String> fullAspectNames = aspectSpecs.stream()
+        .filter(aspectSpec -> !aspectSpec.isTimeseries())
+        .map(AspectSpec::getName)
+        .collect(Collectors.toSet());
+    List<EbeanAspectV2> aspectsInRange = this._entityDao.getAspectsInRange(urn, fullAspectNames, startTimeMillis, endTimeMillis);
 
-    // we need to pull previous versions of these aspects that are currently at a 0
-    Map<String, Long> nextVersions = _entityDao.getNextVersions(urn.toString(), aspectNames);
+    // Prepopulate with all versioned aspectNames -> ignore timeseries using registry
+    Map<String, TreeSet<EbeanAspectV2>> aspectRowSetMap = constructAspectRowSetMap(urn, fullAspectNames, aspectsInRange);
 
-    for (Map.Entry<String, TreeSet<EbeanAspectV2>> aspectMinVersion : aspectRowSetMap.entrySet()) {
-      EbeanAspectV2 oldestAspect = aspectMinVersion.getValue().first();
-      Long nextVersion = nextVersions.get(aspectMinVersion.getKey());
-      if (((oldestAspect.getVersion() == 0L) && (nextVersion == 1L)) || (oldestAspect.getVersion() == 1L)) {
-        MissingEbeanAspectV2 missingEbeanAspectV2 = new MissingEbeanAspectV2();
-        missingEbeanAspectV2.setAspect(aspectMinVersion.getKey());
-        missingEbeanAspectV2.setCreatedOn(new Timestamp(0L));
-        missingEbeanAspectV2.setVersion(-1);
-        aspectMinVersion.getValue().add(missingEbeanAspectV2);
-      } else {
-        // get the next version
-        long versionToGet = (oldestAspect.getVersion() == 0L) ? nextVersion - 1 : oldestAspect.getVersion() - 1;
-        EbeanAspectV2 row = _entityDao.getAspect(urn.toString(), aspectMinVersion.getKey(), versionToGet);
-        aspectRowSetMap.get(row.getAspect()).add(row);
-      }
-    }
+    Map<Long, SortedMap<String, Long>> timestampVersionCache = constructTimestampVersionCache(aspectRowSetMap);
 
     // TODO: There are some extra steps happening here, we need to clean up how transactions get combined across differs
-    SortedMap<Long, List<ChangeTransaction>> semanticDiffs = aspectRowSetMap.values()
+    SortedMap<Long, List<ChangeTransaction>> semanticDiffs = aspectRowSetMap.entrySet()
         .stream()
+        .filter(entry -> aspectNames.contains(entry.getKey()))
+        .map(Map.Entry::getValue)
         .map(value -> computeDiffs(value, urn.getEntityType(), elementNames, rawDiffRequested))
         .collect(TreeMap::new, this::combineComputedDiffsPerTransactionId, this::combineComputedDiffsPerTransactionId);
     // TODO:Move this down
     assignSemanticVersions(semanticDiffs);
     List<ChangeTransaction> changeTransactions =
         semanticDiffs.values().stream().collect(ArrayList::new, ArrayList::addAll, ArrayList::addAll);
-    List<ChangeTransaction> combinedChangeTransactions = combineTransactionsByTimestamp(changeTransactions);
+    List<ChangeTransaction> combinedChangeTransactions = combineTransactionsByTimestamp(changeTransactions,
+        timestampVersionCache);
     combinedChangeTransactions.sort(Comparator.comparing(ChangeTransaction::getTimestamp));
     return combinedChangeTransactions;
-    /*
-     return foo.stream().map(row -> Model.SemanticChangeEvent.builder()
-     .changeType("UPSERT")
-     .target(urn.toString())
-     .actor(null)
-     .actorId(null)
-     .description("This is a change at version " + row.getVersion())
-     .element(row.getAspect())
-     .elementId(null)
-     .proxy(null)
-     .rawDiff(row.getMetadata())
-     .build()).collect(Collectors.toList());
-     */
+  }
+
+  /**
+   * Constructs a map from aspect name to a sorted set of DB aspects by created timestamp. Set includes all aspects
+   * relevant to an entity and does a lookback by 1 for all aspects, creating sentinel values for when the oldest aspect
+   * possible has been retrieved or no value exists in the DB for an aspect
+   * @param urn urn of the entity
+   * @param fullAspectNames full list of aspects relevant to the entity
+   * @param aspectsInRange aspects returned by the range query by timestampm
+   * @return map constructed as described
+   */
+  private Map<String, TreeSet<EbeanAspectV2>> constructAspectRowSetMap(Urn urn, Set<String> fullAspectNames,
+      List<EbeanAspectV2> aspectsInRange) {
+    Map<String, TreeSet<EbeanAspectV2>> aspectRowSetMap = new HashMap<>();
+    fullAspectNames.forEach(aspectName ->
+        aspectRowSetMap.put(aspectName, new TreeSet<>(Comparator.comparing(EbeanAspectV2::getCreatedOn))));
+    aspectsInRange.forEach(row -> {
+      TreeSet<EbeanAspectV2> rowList = aspectRowSetMap.get(row.getAspect());
+      rowList.add(row);
+    });
+
+    // we need to pull previous versions of these aspects that are currently at a 0
+    Map<String, Long> nextVersions = _entityDao.getNextVersions(urn.toString(), fullAspectNames);
+
+    for (Map.Entry<String, TreeSet<EbeanAspectV2>> aspectMinVersion : aspectRowSetMap.entrySet()) {
+      TreeSet<EbeanAspectV2> aspectSet = aspectMinVersion.getValue();
+
+      EbeanAspectV2 oldestAspect = null;
+      if (!aspectSet.isEmpty()) {
+        oldestAspect = aspectMinVersion.getValue().first();
+      }
+      Long nextVersion = nextVersions.get(aspectMinVersion.getKey());
+      // Fill out sentinel value if the oldest value possible has been retrieved, else get previous version prior to time range
+      if (oldestAspect != null && isOldestPossible(oldestAspect, nextVersion)) {
+        aspectMinVersion.getValue().add(createSentinel(aspectMinVersion.getKey()));
+      } else {
+        // get the next version
+        long versionToGet = 0;
+        if (oldestAspect != null) {
+          versionToGet = (oldestAspect.getVersion() == 0L) ? nextVersion - 1 : oldestAspect.getVersion() - 1;
+        }
+        EbeanAspectV2 row = _entityDao.getAspect(urn.toString(), aspectMinVersion.getKey(), versionToGet);
+        if (row != null) {
+          aspectRowSetMap.get(row.getAspect()).add(row);
+        } else {
+          aspectMinVersion.getValue().add(createSentinel(aspectMinVersion.getKey()));
+        }
+      }
+    }
+    return aspectRowSetMap;
+  }
+
+  private boolean isOldestPossible(EbeanAspectV2 oldestAspect, long nextVersion) {
+    return (((oldestAspect.getVersion() == 0L)
+        && (nextVersion == 1L))
+        || (oldestAspect.getVersion() == 1L));
+  }
+
+  private MissingEbeanAspectV2 createSentinel(String aspectName) {
+    MissingEbeanAspectV2 sentinel = new MissingEbeanAspectV2();
+    sentinel.setAspect(aspectName);
+    sentinel.setCreatedOn(new Timestamp(0L));
+    sentinel.setVersion(-1);
+    return sentinel;
+  }
+
+  /**
+   * Constructs a map from timestamp to a sorted map of aspect name -> version for use in constructing the version stamp
+   * @param aspectRowSetMap map constructed as described in {@link EbeanTimelineService#constructAspectRowSetMap}
+   * @return map as described
+   */
+  private Map<Long, SortedMap<String, Long>> constructTimestampVersionCache(Map<String, TreeSet<EbeanAspectV2>> aspectRowSetMap) {
+    Set<EbeanAspectV2> aspects = aspectRowSetMap.values().stream()
+        .flatMap(TreeSet::stream)
+        .filter(aspect -> aspect.getVersion() != -1L)
+        .collect(Collectors.toSet());
+    Map<Long, SortedMap<String, Long>> timestampVersionCache = new HashMap<>();
+    for (EbeanAspectV2 aspect : aspects) {
+      if (timestampVersionCache.containsKey(aspect.getCreatedOn().getTime())) {
+        continue;
+      }
+      SortedMap<String, Long> versionStampMap = new TreeMap<>(Comparator.naturalOrder());
+      for (TreeSet<EbeanAspectV2> aspectSet : aspectRowSetMap.values()) {
+        EbeanAspectV2 maybeMatch = null;
+        for  (EbeanAspectV2 aspect2 : aspectSet) {
+          if (aspect2 instanceof MissingEbeanAspectV2) {
+            continue;
+          }
+          if (aspect.getCreatedOn().getTime() < aspect2.getCreatedOn().getTime()) {
+            // Can't match a higher timestamp, fall back to maybeMatch or empty
+            break;
+          }
+          if (aspect.getCreatedOn().getTime() == aspect2.getCreatedOn().getTime()) {
+            versionStampMap.put(aspect2.getAspect(), aspect2.getVersion());
+            maybeMatch = null;
+            break;
+          } else {
+            maybeMatch = aspect2;
+          }
+        }
+        if (maybeMatch != null) {
+          versionStampMap.put(maybeMatch.getAspect(), maybeMatch.getVersion());
+        }
+      }
+      timestampVersionCache.put(aspect.getCreatedOn().getTime(), versionStampMap);
+    }
+    return timestampVersionCache;
   }
 
   private SortedMap<Long, List<ChangeTransaction>> computeDiffs(TreeSet<EbeanAspectV2> aspectTimeline,
       String entityType, Set<ChangeCategory> elementNames, boolean rawDiffsRequested) {
     EbeanAspectV2 previousValue = null;
     SortedMap<Long, List<ChangeTransaction>> changeTransactionsMap = new TreeMap<>();
-    //long transactionId = FIRST_TRANSACTION_ID;
     long transactionId;
     for (EbeanAspectV2 currentValue : aspectTimeline) {
       transactionId = currentValue.getCreatedOn().getTime();
@@ -230,7 +308,6 @@ public class EbeanTimelineService implements TimelineService {
         // we skip the first element and only compare once we have two in hand
         changeTransactionsMap.put(transactionId,
             computeDiff(previousValue, currentValue, entityType, elementNames, rawDiffsRequested));
-        //++transactionId;
       }
       previousValue = currentValue;
     }
@@ -331,7 +408,8 @@ public class EbeanTimelineService implements TimelineService {
     return previousVersion;
   }
 
-  private List<ChangeTransaction> combineTransactionsByTimestamp(List<ChangeTransaction> changeTransactions) {
+  private List<ChangeTransaction> combineTransactionsByTimestamp(List<ChangeTransaction> changeTransactions, Map<Long,
+      SortedMap<String, Long>> timestampVersionCache) {
     Map<Long, List<ChangeTransaction>> transactionsByTimestamp =
         changeTransactions.stream().collect(Collectors.groupingBy(ChangeTransaction::getTimestamp));
     List<ChangeTransaction> combinedChangeTransactions = new ArrayList<>();
@@ -350,6 +428,7 @@ public class EbeanTimelineService implements TimelineService {
         }
         result.setSemVerChange(maxSemanticChangeType);
         result.setSemanticVersion(maxSemVer);
+        result.setVersionStamp(constructVersionStamp(timestampVersionCache.get(result.getTimestamp())));
         combinedChangeTransactions.add(result);
       }
     }

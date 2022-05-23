@@ -4,11 +4,14 @@ import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;
 import com.datahub.util.exception.ModelConversionException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePaths;
 import com.linkedin.common.Status;
+import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.template.RecordTemplate;
@@ -55,6 +58,7 @@ import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
+import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromSchema;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
@@ -105,6 +109,7 @@ public abstract class EntityService {
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
   public static final String BROWSE_PATHS = "browsePaths";
   public static final String DATA_PLATFORM_INSTANCE = "dataPlatformInstance";
+  protected static final int MAX_KEYS_PER_QUERY = 500;
   public static final String STATUS = "status";
 
   protected EntityService(@Nonnull final EventProducer producer, @Nonnull final EntityRegistry entityRegistry) {
@@ -179,6 +184,23 @@ public abstract class EntityService {
   }
 
   /**
+   * Retrieves the aspects for the given set of urns and versions as dynamic aspect objects
+   * (Without having to define union objects)
+   *
+   * @param versionedUrns set of urns to fetch with versions of aspects specified in a specialized string
+   * @param aspectNames set of aspects to fetch
+   * @return a map of {@link Urn} to {@link Entity} object
+   */
+  public Map<Urn, EntityResponse> getEntitiesVersionedV2(
+      @Nonnull final Set<VersionedUrn> versionedUrns,
+      @Nonnull final Set<String> aspectNames) throws URISyntaxException {
+    return getVersionedEnvelopedAspects(versionedUrns, aspectNames)
+        .entrySet()
+        .stream()
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> toEntityResponse(entry.getKey(), entry.getValue())));
+  }
+
+  /**
    * Retrieves the latest aspects for the given set of urns as a list of enveloped aspects
    *
    * @param entityName name of the entity to fetch
@@ -192,6 +214,17 @@ public abstract class EntityService {
       @Nonnull final Set<String> aspectNames) throws URISyntaxException;
 
   /**
+   * Retrieves the latest aspects for the given set of urns as a list of enveloped aspects
+   *
+   * @param versionedUrns set of urns to fetch with versions of aspects specified in a specialized string
+   * @param aspectNames set of aspects to fetch
+   * @return a map of {@link Urn} to {@link EnvelopedAspect} object
+   */
+  public abstract Map<Urn, List<EnvelopedAspect>> getVersionedEnvelopedAspects(
+      @Nonnull final Set<VersionedUrn> versionedUrns,
+      @Nonnull final Set<String> aspectNames) throws URISyntaxException;
+
+  /**
    * Retrieves the latest aspect for the given urn as a list of enveloped aspects
    *
    * @param entityName name of the entity to fetch
@@ -199,10 +232,16 @@ public abstract class EntityService {
    * @param aspectName name of the aspect to fetch
    * @return {@link EnvelopedAspect} object, or null if one cannot be found
    */
-  public abstract EnvelopedAspect getLatestEnvelopedAspect(
+  public EnvelopedAspect getLatestEnvelopedAspect(
       @Nonnull final String entityName,
       @Nonnull final Urn urn,
-      @Nonnull final String aspectName) throws Exception;
+      @Nonnull final String aspectName) throws Exception {
+    return getLatestEnvelopedAspects(entityName, ImmutableSet.of(urn), ImmutableSet.of(aspectName)).getOrDefault(urn, Collections.emptyList())
+        .stream()
+        .filter(envelopedAspect -> envelopedAspect.getName().equals(aspectName))
+        .findFirst()
+        .orElse(null);
+  }
 
   /**
    * Retrieves the specific version of the aspect for the given urn
@@ -238,12 +277,13 @@ public abstract class EntityService {
    * @param count the count of the aspects to be returned, used in pagination
    * @return a {@link ListResult} of {@link RecordTemplate}s representing the requested aspect.
    */
+  @Nonnull
   public abstract ListResult<RecordTemplate> listLatestAspects(@Nonnull final String entityName,
       @Nonnull final String aspectName, final int start, int count);
 
 
   @Nonnull
-  private UpdateAspectResult wrappedIngestAspectToLocalDB(@Nonnull final Urn urn, @Nonnull final String aspectName,
+  protected UpdateAspectResult wrappedIngestAspectToLocalDB(@Nonnull final Urn urn, @Nonnull final String aspectName,
       @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
       @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata systemMetadata) {
     validateUrn(urn);
@@ -297,7 +337,7 @@ public abstract class EntityService {
     @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata);
 
   @Nonnull
-  private SystemMetadata generateSystemMetadataIfEmpty(SystemMetadata systemMetadata) {
+  protected SystemMetadata generateSystemMetadataIfEmpty(SystemMetadata systemMetadata) {
     if (systemMetadata == null) {
       systemMetadata = new SystemMetadata();
       systemMetadata.setRunId(DEFAULT_RUN_ID);
@@ -340,7 +380,7 @@ public abstract class EntityService {
    * @return the {@link RecordTemplate} representation of the written aspect object
    */
   public RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, SystemMetadata systemMetadata) {
+      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, @Nonnull SystemMetadata systemMetadata) {
 
     log.debug("Invoked ingestAspect with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
 
@@ -353,7 +393,26 @@ public abstract class EntityService {
     return sendEventForUpdateAspectResult(urn, aspectName, result);
   }
 
-  private RecordTemplate sendEventForUpdateAspectResult(@Nonnull final Urn urn, @Nonnull final String aspectName,
+  /**
+   * Ingests (inserts) a new version of an entity aspect & emits a {@link com.linkedin.mxe.MetadataAuditEvent}.
+   *
+   * This method runs a read -> write atomically in a single transaction, this is to prevent multiple IDs from being created.
+   *
+   * Note that in general, this should not be used externally. It is currently serving upgrade scripts and
+   * is as such public.
+   *
+   * @param urn an urn associated with the new aspect
+   * @param aspectName name of the aspect being inserted
+   * @param newValue value of the aspect being inserted
+   * @param auditStamp an {@link AuditStamp} containing metadata about the writer & current time
+   * @param systemMetadata
+   * @return the {@link RecordTemplate} representation of the written aspect object
+   */
+  @Nullable
+  public abstract RecordTemplate ingestAspectIfNotPresent(@Nonnull final Urn urn, @Nonnull final String aspectName,
+      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, @Nonnull SystemMetadata systemMetadata);
+
+  protected RecordTemplate sendEventForUpdateAspectResult(@Nonnull final Urn urn, @Nonnull final String aspectName,
     @Nonnull UpdateAspectResult result) {
 
     final RecordTemplate oldValue = result.getOldValue();
@@ -896,5 +955,33 @@ public abstract class EntityService {
   public static class IngestProposalResult {
     Urn urn;
     boolean didUpdate;
+  }
+
+  protected boolean filterMatch(SystemMetadata systemMetadata, Map<String, String> conditions) {
+    String runIdCondition = conditions.getOrDefault("runId", null);
+    if (runIdCondition != null) {
+      if (!runIdCondition.equals(systemMetadata.getRunId())) {
+        return false;
+      }
+    }
+    String registryNameCondition = conditions.getOrDefault("registryName", null);
+    if (registryNameCondition != null) {
+      if (!registryNameCondition.equals(systemMetadata.getRegistryName())) {
+        return false;
+      }
+    }
+    String registryVersionCondition = conditions.getOrDefault("registryVersion", null);
+    if (registryVersionCondition != null) {
+      if (!registryVersionCondition.equals(systemMetadata.getRegistryVersion())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  protected AuditStamp createSystemAuditStamp() {
+    return new AuditStamp()
+        .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))
+        .setTime(System.currentTimeMillis());
   }
 }

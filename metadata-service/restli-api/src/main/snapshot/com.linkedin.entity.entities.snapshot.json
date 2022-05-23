@@ -581,8 +581,10 @@
       "doc" : "Instance of the data platform (e.g. db instance)",
       "optional" : true,
       "Searchable" : {
+        "addToFilters" : true,
         "fieldName" : "platformInstance",
-        "fieldType" : "URN"
+        "fieldType" : "URN",
+        "filterNameOverride" : "Platform Instance"
       }
     } ],
     "Aspect" : {
@@ -785,6 +787,10 @@
               }
             },
             "doc" : "Urn of the applied tag",
+            "Relationship" : {
+              "entityTypes" : [ "tag" ],
+              "name" : "TaggedWith"
+            },
             "Searchable" : {
               "addToFilters" : true,
               "fieldName" : "tags",
@@ -862,11 +868,16 @@
         }
       },
       "doc" : "Urn of the applied glossary term",
+      "Relationship" : {
+        "entityTypes" : [ "glossaryTerm" ],
+        "name" : "TermedWith"
+      },
       "Searchable" : {
         "addToFilters" : true,
         "fieldName" : "glossaryTerms",
         "fieldType" : "URN",
-        "filterNameOverride" : "Glossary Term"
+        "filterNameOverride" : "Glossary Term",
+        "hasValuesFieldName" : "hasGlossaryTerms"
       }
     } ]
   }, "com.linkedin.common.GlossaryTermUrn", {
@@ -2872,6 +2883,12 @@
                           "type" : "com.linkedin.common.GlobalTags",
                           "doc" : "Tags associated with the field",
                           "optional" : true,
+                          "Relationship" : {
+                            "/tags/*/tag" : {
+                              "entityTypes" : [ "tag" ],
+                              "name" : "SchemaFieldTaggedWith"
+                            }
+                          },
                           "Searchable" : {
                             "/tags/*/tag" : {
                               "boostScore" : 0.5,
@@ -2884,6 +2901,12 @@
                           "type" : "com.linkedin.common.GlossaryTerms",
                           "doc" : "Glossary terms associated with the field",
                           "optional" : true,
+                          "Relationship" : {
+                            "/terms/*/urn" : {
+                              "entityTypes" : [ "glossaryTerm" ],
+                              "name" : "SchemaFieldWithGlossaryTerm"
+                            }
+                          },
                           "Searchable" : {
                             "/terms/*/urn" : {
                               "boostScore" : 0.5,
@@ -2896,6 +2919,11 @@
                           "type" : "boolean",
                           "doc" : "For schema fields that are part of complex keys, set this field to true\nWe do this to easily distinguish between value and key fields",
                           "default" : false
+                        }, {
+                          "name" : "isPartitioningKey",
+                          "type" : "boolean",
+                          "doc" : "For Datasets which are partitioned, this determines the partitioning key.",
+                          "optional" : true
                         }, {
                           "name" : "jsonProps",
                           "type" : "string",
@@ -3042,6 +3070,12 @@
                           "type" : "com.linkedin.common.GlobalTags",
                           "doc" : "Tags associated with the field",
                           "optional" : true,
+                          "Relationship" : {
+                            "/tags/*/tag" : {
+                              "entityTypes" : [ "tag" ],
+                              "name" : "EditableSchemaFieldTaggedWith"
+                            }
+                          },
                           "Searchable" : {
                             "/tags/*/tag" : {
                               "boostScore" : 0.5,
@@ -3054,6 +3088,12 @@
                           "type" : "com.linkedin.common.GlossaryTerms",
                           "doc" : "Glossary terms associated with the field",
                           "optional" : true,
+                          "Relationship" : {
+                            "/terms/*/urn" : {
+                              "entityTypes" : [ "glossaryTerm" ],
+                              "name" : "EditableSchemaFieldWithGlossaryTerm"
+                            }
+                          },
                           "Searchable" : {
                             "/terms/*/urn" : {
                               "boostScore" : 0.5,
@@ -4570,11 +4610,17 @@
                   "fields" : [ {
                     "name" : "displayName",
                     "type" : "string",
-                    "doc" : "Display name of the Policy"
+                    "doc" : "Display name of the Policy",
+                    "Searchable" : {
+                      "fieldType" : "TEXT_PARTIAL"
+                    }
                   }, {
                     "name" : "description",
                     "type" : "string",
-                    "doc" : "Description of the Policy"
+                    "doc" : "Description of the Policy",
+                    "Searchable" : {
+                      "fieldType" : "TEXT"
+                    }
                   }, {
                     "name" : "type",
                     "type" : "string",
@@ -4712,6 +4758,14 @@
                     "type" : "boolean",
                     "doc" : "Whether the policy should be editable via the UI",
                     "default" : true
+                  }, {
+                    "name" : "lastUpdatedTimestamp",
+                    "type" : "long",
+                    "doc" : "Timestamp when the policy was last updated",
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldType" : "DATETIME"
+                    }
                   } ],
                   "Aspect" : {
                     "name" : "dataHubPolicyInfo"
@@ -5168,6 +5222,37 @@
     } ]
   }, {
     "type" : "record",
+    "name" : "DeleteReferencesResponse",
+    "namespace" : "com.linkedin.metadata.run",
+    "doc" : "The model for the result of a relationship query.\nUsed to get the relationships of a given entity run.",
+    "fields" : [ {
+      "name" : "relatedAspects",
+      "type" : {
+        "type" : "array",
+        "items" : {
+          "type" : "record",
+          "name" : "RelatedAspect",
+          "doc" : "Metadata about how an aspect is related to some urn",
+          "fields" : [ {
+            "name" : "entity",
+            "type" : "com.linkedin.common.Urn",
+            "doc" : " Urn of the entity that is referenced by the aspect."
+          }, {
+            "name" : "aspect",
+            "type" : "string"
+          }, {
+            "name" : "relationship",
+            "type" : "string"
+          } ]
+        }
+      }
+    }, {
+      "name" : "total",
+      "type" : "int",
+      "doc" : "Total number of relationships that an entity urn has."
+    } ]
+  }, "com.linkedin.metadata.run.RelatedAspect", {
+    "type" : "record",
     "name" : "RollbackResponse",
     "namespace" : "com.linkedin.metadata.run",
     "fields" : [ {
@@ -5507,21 +5592,26 @@
         "returns" : "com.linkedin.metadata.browse.BrowseResult"
       }, {
         "name" : "delete",
+        "doc" : "Deletes all data related to an individual urn(entity).\nService Returns: - a DeleteEntityResponse object.",
         "parameters" : [ {
           "name" : "urn",
-          "type" : "string"
+          "type" : "string",
+          "doc" : "- the urn of the entity."
         }, {
           "name" : "aspectName",
           "type" : "string",
-          "optional" : true
+          "optional" : true,
+          "doc" : "- the optional aspect name if only want to delete the aspect (applicable only for timeseries aspects)."
         }, {
           "name" : "startTimeMillis",
           "type" : "long",
-          "optional" : true
+          "optional" : true,
+          "doc" : "- the optional start time (applicable only for timeseries aspects)."
         }, {
           "name" : "endTimeMillis",
           "type" : "long",
-          "optional" : true
+          "optional" : true,
+          "doc" : "- the optional end time (applicable only for the timeseries aspects)."
         } ],
         "returns" : "com.linkedin.metadata.run.DeleteEntityResponse"
       }, {
@@ -5536,6 +5626,17 @@
           "optional" : true
         } ],
         "returns" : "com.linkedin.metadata.run.RollbackResponse"
+      }, {
+        "name" : "deleteReferences",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        }, {
+          "name" : "dryRun",
+          "type" : "boolean",
+          "optional" : true
+        } ],
+        "returns" : "com.linkedin.metadata.run.DeleteReferencesResponse"
       }, {
         "name" : "filter",
         "parameters" : [ {

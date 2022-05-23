@@ -2989,6 +2989,9 @@
         "int_property": 1,
         "double_property": 2.5
       },
+      "query_tag": {
+        "tag": "my_query_tag"
+      },
       "columns": {},
       "compiled": true,
       "compiled_sql": "\n\nSELECT\n    c.customer_id,\n    c.first_name || ' ' || c.last_name as \"full_name\",\n    c.email,\n    a.address,\n    m.city,\n    a.postal_code,\n    a.phone\nFROM\n    \"pagila\".\"public\".\"customer\" c\n    left outer join \"pagila\".\"public\".\"address\" a on c.address_id = a.address_id\n    left outer join \"pagila\".\"public\".\"city\" m on a.city_id = m.city_id",

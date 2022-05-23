@@ -1,0 +1,8 @@
+source:
+  type: datahub-business-glossary
+  config:
+    # Coordinates
+    file: /path/to/business_glossary_yaml
+
+sink:
+  # sink configs

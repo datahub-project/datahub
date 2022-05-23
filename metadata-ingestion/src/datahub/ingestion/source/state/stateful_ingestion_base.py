@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional, Type, cast
 
 import psutil
 import pydantic
+from pydantic.fields import Field
 
 from datahub.configuration.common import (
     ConfigModel,
@@ -35,24 +36,50 @@ from datahub.metadata.schema_classes import (
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+class DynamicTypedStateProviderConfig(DynamicTypedConfig):
+    # Respecifying the base-class just to override field level docs
+
+    type: str = Field(
+        description="The type of the state provider to use. For DataHub use `datahub`",
+    )
+    # This config type is declared Optional[Any] here. The eventual parser for the
+    # specified type is responsible for further validation.
+    config: Optional[Any] = Field(
+        default=None,
+        description="The configuration required for initializing the state provider. Default: The datahub_api config if set at pipeline level. Otherwise, the default DatahubClientConfig. See the defaults (https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/graph/client.py#L19).",
+    )
+
+
 class StatefulIngestionConfig(ConfigModel):
     """
     Basic Stateful Ingestion Specific Configuration for any source.
     """
 
-    enabled: bool = False
+    enabled: bool = Field(
+        default=False,
+        description="The type of the ingestion state provider registered with datahub.",
+    )
     # fmt: off
-    max_checkpoint_state_size: pydantic.PositiveInt = 2**24  # 16MB
+    # 16MB
+    max_checkpoint_state_size: pydantic.PositiveInt = Field(default=2**24, description="The maximum size of the checkpoint state in bytes. Default is 16MB")  # 16MB
     # fmt: on
-    state_provider: Optional[DynamicTypedConfig] = None
-    ignore_old_state: bool = False
-    ignore_new_state: bool = False
+    state_provider: Optional[DynamicTypedStateProviderConfig] = Field(
+        default=None, description="The ingestion state provider configuration."
+    )
+    ignore_old_state: bool = Field(
+        default=False,
+        description="If set to True, ignores the previous checkpoint state.",
+    )
+    ignore_new_state: bool = Field(
+        default=False,
+        description="If set to True, ignores the current checkpoint state.",
+    )
 
     @pydantic.root_validator()
     def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         if values.get("enabled"):
             if values.get("state_provider") is None:
-                values["state_provider"] = DynamicTypedConfig(
+                values["state_provider"] = DynamicTypedStateProviderConfig(
                     type="datahub", config=None
                 )
         return values

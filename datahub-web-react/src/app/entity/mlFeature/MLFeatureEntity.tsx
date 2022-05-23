@@ -68,6 +68,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             entityType={EntityType.Mlfeature}
             useEntityQuery={useGetMlFeatureQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
+            showDeprecateOption
             tabs={[
                 {
                     name: 'Feature Tables',
@@ -142,6 +143,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                 description={data.description || ''}
                 owners={data.ownership?.owners}
                 platform={platform}
+                platformInstanceId={data.dataPlatformInstance?.instanceId}
             />
         );
     };

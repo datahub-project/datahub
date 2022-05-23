@@ -87,6 +87,13 @@ class DbtTestConfig:
                         "config": {"term": "Finance_test"},
                     },
                 },
+                "query_tag_mapping": {
+                    "tag": {
+                        "match": ".*",
+                        "operation": "add_tag",
+                        "config": {"tag": "{{ $match }}"},
+                    }
+                },
             },
             **source_config_modifiers,
         )
@@ -231,6 +238,19 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
                 },
                 "owner_extraction_pattern": "(.*)(?P<owner>(?<=\\().*?(?=\\)))",
                 "strip_user_ids_from_email": True,
+            },
+        ),
+        DbtTestConfig(
+            "dbt-test-with-data-platform-instance",
+            test_resources_dir,
+            test_resources_dir,
+            tmp_path,
+            "dbt_test_with_data_platform_instance_mces.json",
+            "dbt_test_with_data_platform_instance_mces_golden.json",
+            source_config_modifiers={
+                "load_schemas": True,
+                "disable_dbt_node_creation": False,
+                "platform_instance": "dbt-instance-1",
             },
         ),
     ]

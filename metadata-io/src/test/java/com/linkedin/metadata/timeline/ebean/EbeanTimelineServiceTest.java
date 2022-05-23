@@ -111,7 +111,7 @@ public class EbeanTimelineServiceTest {
     _server = EbeanServerFactory.create(createTestingH2ServerConfig());
     _aspectDao = new EbeanAspectDao(_server);
     _aspectDao.setConnectionValidated(true);
-    _entityTimelineService = new EbeanTimelineService(_aspectDao);
+    _entityTimelineService = new EbeanTimelineService(_aspectDao, _testEntityRegistry);
     _mockProducer = mock(EventProducer.class);
     _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry);
   }

@@ -22,6 +22,12 @@ export const DEFAULT_APP_CONFIG = {
     visualConfig: {
         logoUrl: undefined,
     },
+    authConfig: {
+        tokenAuthEnabled: false,
+    },
+    telemetryConfig: {
+        enableThirdPartyLogging: false,
+    },
 };
 
 export const AppConfigContext = React.createContext<{

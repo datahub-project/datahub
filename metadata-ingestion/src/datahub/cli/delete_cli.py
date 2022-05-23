@@ -171,6 +171,28 @@ def delete(
         session, host = cli_utils.get_session_and_host()
         entity_type = guess_entity_type(urn=urn)
         logger.info(f"DataHub configured with {host}")
+
+        references_count, related_aspects = delete_references(
+            urn, dry_run=True, cached_session_host=(session, host)
+        )
+        remove_references: bool = False
+
+        if references_count > 0:
+            print(
+                f"This urn was referenced in {references_count} other aspects across your metadata graph:"
+            )
+            click.echo(
+                tabulate(
+                    [x.values() for x in related_aspects],
+                    ["relationship", "entity", "aspect"],
+                    tablefmt="grid",
+                )
+            )
+            remove_references = click.confirm("Do you want to delete these references?")
+
+        if remove_references:
+            delete_references(urn, dry_run=False, cached_session_host=(session, host))
+
         deletion_result: DeletionResult = delete_one_urn_cmd(
             urn,
             aspect_name=aspect_name,
@@ -189,6 +211,7 @@ def delete(
                 click.echo(
                     f"Successfully deleted {urn}. {deletion_result.num_records} rows deleted"
                 )
+
     elif registry_id:
         # Registry-id based delete
         if soft and not dry_run:
@@ -382,4 +405,17 @@ def delete_one_urn_cmd(
         end_time,
         cached_session_host,
         cached_emitter,
+    )
+
+
+def delete_references(
+    urn: str,
+    dry_run: bool = False,
+    cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
+) -> Tuple[int, List[Dict]]:
+    payload_obj = {"urn": urn, "dryRun": dry_run}
+    return cli_utils.post_delete_references_endpoint(
+        payload_obj,
+        "/entities?action=deleteReferences",
+        cached_session_host=cached_session_host,
     )

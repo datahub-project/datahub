@@ -5,9 +5,10 @@ import styled from 'styled-components';
 const RemoveMarkdownContainer = styled.div`
     display: block;
     overflow-wrap: break-word;
-    word-wrap: break-word;
-    overflow-x: hidden;
-    overflow-y: auto;
+    white-space: nowrap;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
 `;
 
 export type Props = {
