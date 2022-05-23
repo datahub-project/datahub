@@ -2,12 +2,18 @@ package com.datahub.authentication.token;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
+import com.datahub.authentication.authenticator.DataHubTokenAuthenticatorTest;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import java.util.Date;
 import java.util.Map;
+
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -35,7 +41,10 @@ public class StatefulTokenServiceTest {
   @Test
   public void testGenerateAccessTokenPersonalToken() throws Exception {
     StatefulTokenService tokenService = new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
-    String token = tokenService.generateAccessToken(TokenType.PERSONAL, new Actor(ActorType.USER, "datahub"));
+    Actor datahub = new Actor(ActorType.USER, "datahub");
+    String token = tokenService.generateAccessToken(TokenType.PERSONAL, datahub, "some token",
+            "A token description",
+            datahub.toUrnStr());
     assertNotNull(token);
 
     // Verify token claims
@@ -57,7 +66,11 @@ public class StatefulTokenServiceTest {
   @Test
   public void testGenerateAccessTokenSessionToken() throws Exception {
     StatefulTokenService tokenService = new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
-    String token = tokenService.generateAccessToken(TokenType.SESSION, new Actor(ActorType.USER, "datahub"));
+    Actor datahub = new Actor(ActorType.USER, "datahub");
+    String token = tokenService.generateAccessToken(TokenType.SESSION, datahub, "some token",
+            "A token description",
+            datahub.toUrnStr());
+
     assertNotNull(token);
 
     // Verify token claims
@@ -94,7 +107,11 @@ public class StatefulTokenServiceTest {
   @Test
   public void testValidateAccessTokenFailsDueToManipulation() {
     StatefulTokenService tokenService = new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
-    String token = tokenService.generateAccessToken(TokenType.PERSONAL, new Actor(ActorType.USER, "datahub"));
+
+    Actor datahub = new Actor(ActorType.USER, "datahub");
+    String token = tokenService.generateAccessToken(TokenType.PERSONAL, datahub, "some token",
+            "A token description",
+            datahub.toUrnStr());
     assertNotNull(token);
 
     // Change single character
@@ -106,12 +123,23 @@ public class StatefulTokenServiceTest {
 
   @Test
   public void generateRevokeToken() throws TokenException {
+
+    PathSpecBasedSchemaAnnotationVisitor.class.getClassLoader()
+            .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
+    final ConfigEntityRegistry configEntityRegistry = new ConfigEntityRegistry(
+            DataHubTokenAuthenticatorTest.class.getClassLoader().getResourceAsStream("test-entity-registry.yaml"));
+    final AspectSpec keyAspectSpec = configEntityRegistry.getEntitySpec(Constants.ACCESS_TOKEN_ENTITY_NAME).getKeyAspectSpec();
+
+    Mockito.when(mockService.getKeyAspectSpec(Mockito.eq(Constants.ACCESS_TOKEN_ENTITY_NAME))).thenReturn(keyAspectSpec);
     Mockito.when(mockService.exists(Mockito.any(Urn.class))).thenReturn(true);
     final RollbackRunResult result = new RollbackRunResult(ImmutableList.of(), 0);
     Mockito.when(mockService.deleteUrn(Mockito.any(Urn.class))).thenReturn(result);
 
     StatefulTokenService tokenService = new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
-    String token = tokenService.generateAccessToken(TokenType.PERSONAL, new Actor(ActorType.USER, "datahub"));
+    Actor datahub = new Actor(ActorType.USER, "datahub");
+    String token = tokenService.generateAccessToken(TokenType.PERSONAL, datahub, "some token",
+            "A token description",
+            datahub.toUrnStr());
 
     // Revoke token
     tokenService.revokeAccessToken(tokenService.hash(token));

@@ -54,7 +54,7 @@ public class PoliciesConfig {
 
 
   public static final Privilege MANAGE_ALL_ACCESS_TOKENS_PRIVILEGE = Privilege.of(
-      "MANAGE_ALL_ACCESS_TOKENS_PRIVILEGE",
+      "MANAGE_ALL_ACCESS_TOKENS",
       "Manage All Access Tokens",
       "Create, list and revoke access tokens on behalf of users in DataHub. Be careful - Actors with this "
           + "privilege are effectively super users that can impersonate other users."

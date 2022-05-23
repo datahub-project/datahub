@@ -18,12 +18,14 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.ArrayUtils;
+import org.apache.commons.lang.NotImplementedException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -69,6 +71,25 @@ public class StatefulTokenService extends StatelessTokenService {
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("Unable to get SHA-256 algorithm.");
         }
+    }
+
+    /**
+     * Generates a JWT for an actor with a default expiration time.
+     *
+     * Note that the caller of this method is expected to authorize the action of generating a token.
+     *
+     */
+    public String generateAccessToken(@Nonnull final TokenType type, @Nonnull final Actor actor) {
+        throw new NotImplementedException("Please use generateToken(Token, Actor, String, String, String) endpoint "
+                + "instead. Reason: StatefulTokenService requires that all tokens have a name & ownerUrn specified.");
+    }
+
+    @Nonnull
+    public String generateAccessToken(@Nonnull TokenType type, @Nonnull Actor actor, @Nonnull String tokenName,
+                                      String tokenDescription, String actorUrn) {
+        Date date = new Date();
+        long timeMilli = date.getTime();
+        return generateAccessToken(type, actor, DEFAULT_EXPIRES_IN_MS, timeMilli, tokenName, tokenDescription, actorUrn);
     }
 
     @Nonnull
