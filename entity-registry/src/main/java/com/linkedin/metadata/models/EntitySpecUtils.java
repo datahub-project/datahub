@@ -7,6 +7,9 @@ import javax.annotation.Nonnull;
 
 
 public class EntitySpecUtils {
+  private EntitySpecUtils() {
+  }
+
   public static List<String> getEntityTimeseriesAspectNames(@Nonnull EntityRegistry entityRegistry,
       @Nonnull String entityName) {
     final EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
