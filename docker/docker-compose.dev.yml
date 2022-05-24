@@ -12,7 +12,7 @@ version: '3.8'
 services:
   # Pre-creates the search indices using local mapping/settings.json
   elasticsearch-setup:
-    image: linkedin/datahub-elasticsearch-setup:debug
+    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-elasticsearch-setup:debug
     build:
       context: elasticsearch-setup
       dockerfile: Dockerfile
@@ -23,7 +23,7 @@ services:
       - ../metadata-service/restli-servlet-impl/src/main/resources/index/:/index
 
   kafka-setup:
-    image: linkedin/datahub-kafka-setup:debug
+    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-kafka-setup:debug
     build:
       context: kafka-setup
       dockerfile: Dockerfile
@@ -31,7 +31,7 @@ services:
         APP_ENV: dev
 
   datahub-gms:
-    image: linkedin/datahub-gms:debug
+    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-gms:debug
     build:
       context: datahub-gms
       dockerfile: Dockerfile
@@ -49,7 +49,7 @@ services:
       - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
   datahub-frontend-react:
-    image: linkedin/datahub-frontend-react:debug
+    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-frontend-react:debug
     build:
       context: datahub-frontend
       dockerfile: Dockerfile

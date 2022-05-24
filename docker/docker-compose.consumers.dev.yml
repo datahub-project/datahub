@@ -1,7 +1,7 @@
 version: '3.8'
 services:
   datahub-mae-consumer:
-    image: linkedin/datahub-mae-consumer:debug
+    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-mae-consumer:debug
     build:
       context: datahub-mae-consumer
       dockerfile: Dockerfile
@@ -14,7 +14,7 @@ services:
       - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-mae-consumer/scripts/prometheus-config.yaml
 
   datahub-mce-consumer:
-    image: linkedin/datahub-mce-consumer:debug
+    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-mce-consumer:debug
     build:
       context: datahub-mce-consumer
       dockerfile: Dockerfile
