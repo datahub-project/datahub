@@ -265,6 +265,7 @@ public class GmsGraphQLEngine {
     private final VersionedDatasetType versionedDatasetType;
     private final DataPlatformInstanceType dataPlatformInstanceType;
     private final AccessTokenMetadataType accessTokenMetadataType;
+    private final TestType testType;
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -357,6 +358,7 @@ public class GmsGraphQLEngine {
         this.versionedDatasetType = new VersionedDatasetType(entityClient);
         this.dataPlatformInstanceType = new DataPlatformInstanceType(entityClient);
         this.accessTokenMetadataType = new AccessTokenMetadataType(entityClient);
+        this.testType = new TestType(entityClient);
         // Init Lists
         this.entityTypes = ImmutableList.of(
             datasetType,
@@ -435,6 +437,7 @@ public class GmsGraphQLEngine {
         configureDataProcessInstanceResolvers(builder);
         configureVersionedDatasetResolvers(builder);
         configureAccessAccessTokenMetadataResolvers(builder);
+        configureTestResultResolvers(builder);
     }
 
     public GraphQLEngine.Builder builder() {
@@ -447,6 +450,7 @@ public class GmsGraphQLEngine {
             .addSchema(fileBasedSchema(RECOMMENDATIONS_SCHEMA_FILE))
             .addSchema(fileBasedSchema(INGESTION_SCHEMA_FILE))
             .addSchema(fileBasedSchema(TIMELINE_SCHEMA_FILE))
+            .addSchema(fileBasedSchema(TESTS_SCHEMA_FILE))
             .addDataLoaders(loaderSuppliers(loadableTypes))
             .addDataLoader("Aspect", context -> createDataLoader(aspectType, context))
             .addDataLoader("UsageQueryResult", context -> createDataLoader(usageType, context))
@@ -569,6 +573,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("ingestionSource", new GetIngestionSourceResolver(this.entityClient))
             .dataFetcher("executionRequest", new GetIngestionExecutionRequestResolver(this.entityClient))
             .dataFetcher("getSchemaBlame", new GetSchemaBlameResolver(this.timelineService))
+            .dataFetcher("test", getResolver(testType))
+            .dataFetcher("listTests", new ListTestsResolver(entityClient))
         );
     }
 
@@ -632,6 +638,9 @@ public class GmsGraphQLEngine {
             .dataFetcher("createIngestionExecutionRequest", new CreateIngestionExecutionRequestResolver(this.entityClient, this.ingestionConfiguration))
             .dataFetcher("cancelIngestionExecutionRequest", new CancelIngestionExecutionRequestResolver(this.entityClient))
             .dataFetcher("deleteAssertion", new DeleteAssertionResolver(this.entityClient, this.entityService))
+            .dataFetcher("createTest", new CreateTestResolver(this.entityClient))
+            .dataFetcher("deleteTest", new DeleteTestResolver(this.entityClient))
+            .dataFetcher("reportOperation", new ReportOperationResolver(this.entityClient))
         );
     }
 
@@ -687,6 +696,12 @@ public class GmsGraphQLEngine {
             .type("PolicyMatchCriterionValue", typeWiring -> typeWiring
                 .dataFetcher("entity", new EntityTypeResolver(entityTypes,
                         (env) -> ((PolicyMatchCriterionValue) env.getSource()).getEntity()))
+            )
+            .type("ListTestsResult", typeWiring -> typeWiring
+                .dataFetcher("tests", new LoadableTypeBatchResolver<>(testType,
+                    (env) -> ((ListTestsResult) env.getSource()).getTests().stream()
+                        .map(Test::getUrn)
+                        .collect(Collectors.toList())))
             );
     }
 
@@ -740,6 +755,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("health", new DatasetHealthResolver(graphClient, timeseriesAspectService))
                 .dataFetcher("schemaMetadata", new AspectResolver())
                 .dataFetcher("assertions", new EntityAssertionsResolver(entityClient, graphClient))
+                .dataFetcher("testResults", new TestResultsResolver(entityClient))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
                 .dataFetcher("subTypes", new SubTypesResolver(
                    this.entityClient,
@@ -1259,6 +1275,17 @@ public class GmsGraphQLEngine {
                     DataProcessInstanceRunEventMapper::map
                 )
             )
+        );
+    }
+
+    private void configureTestResultResolvers(final RuntimeWiring.Builder builder) {
+        // Tests not in OSS
+        builder.type("TestResult", typeWiring -> typeWiring
+            .dataFetcher("test", new LoadableTypeResolver<>(testType,
+                (env) -> {
+                    final TestResult testResult = env.getSource();
+                    return testResult.getTest() != null ? testResult.getTest().getUrn() : null;
+                }))
         );
     }
 

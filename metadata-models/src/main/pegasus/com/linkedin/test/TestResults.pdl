@@ -1,0 +1,33 @@
+namespace com.linkedin.test
+
+/**
+ * Information about a Test Result
+ */
+@Aspect = {
+ "name": "testResults"
+}
+record TestResults {
+    /**
+     * Results that are failing
+     */
+    @Searchable = {
+      "/*/test": {
+        "fieldType": "URN",
+        "fieldName": "failingTests"
+        "hasValuesFieldName": "hasFailingTests",
+      }
+    }
+    failing: array[TestResult]
+
+    /**
+     * Results that are passing
+     */
+    @Searchable = {
+      "/*/test": {
+        "fieldType": "URN",
+        "fieldName": "passingTests",
+        "hasValuesFieldName": "hasPassingTests",
+      }
+    }
+    passing: array[TestResult]
+}
