@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.graphql;
 
-import com.datahub.authentication.token.TokenService;
+import com.datahub.authentication.token.StatefulTokenService;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
@@ -77,7 +77,7 @@ public class GraphQLEngineFactory {
 
   @Autowired
   @Qualifier("dataHubTokenService")
-  private TokenService _tokenService;
+  private StatefulTokenService _statefulTokenService;
 
   @Autowired
   @Qualifier("dataHubSecretService")
@@ -116,7 +116,7 @@ public class GraphQLEngineFactory {
           new AnalyticsService(elasticClient, indexConvention),
           _entityService,
           _recommendationsService,
-          _tokenService,
+          _statefulTokenService,
           _timeseriesAspectService,
           _entityRegistry,
           _secretService,
@@ -137,7 +137,7 @@ public class GraphQLEngineFactory {
         null,
         _entityService,
         _recommendationsService,
-        _tokenService,
+        _statefulTokenService,
         _timeseriesAspectService,
         _entityRegistry,
         _secretService,

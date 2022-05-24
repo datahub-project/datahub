@@ -60,6 +60,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
         platformPrivileges.setManageDomains(canManageDomains(context));
         platformPrivileges.setManageIngestion(canManageIngestion(context));
         platformPrivileges.setManageSecrets(canManageSecrets(context));
+        platformPrivileges.setManageTokens(canManageTokens(context));
 
         // Construct and return authenticated user object.
         final AuthenticatedUser authUser = new AuthenticatedUser();
@@ -109,7 +110,14 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
   }
 
   /**
-   * Returns true if the the provided actor is authorized for a particular privilege, false otherwise.
+   * Returns true if the authenticated user has privileges to manage access tokens
+   */
+  private boolean canManageTokens(final QueryContext context) {
+    return isAuthorized(context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_ACCESS_TOKENS);
+  }
+
+  /**
+   * Returns true if the provided actor is authorized for a particular privilege, false otherwise.
    */
   private boolean isAuthorized(final Authorizer authorizer, String actor, PoliciesConfig.Privilege privilege) {
     final AuthorizationRequest request = new AuthorizationRequest(actor, privilege.getType(), Optional.empty());

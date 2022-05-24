@@ -66,6 +66,11 @@ type PlatformPrivileges {
   Whether the user is able to manage UI-based secrets
   """
   manageSecrets: Boolean!
+
+  """
+  Whether the user should be able to manage tokens on behalf of other users.
+  """
+  manageTokens: Boolean!
 }
 
 """

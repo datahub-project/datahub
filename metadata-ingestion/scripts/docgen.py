@@ -132,7 +132,7 @@ def gen_md_table(
                 type_name="Enum",
                 required=field_dict.get("required") or False,
                 description=f"one of {','.join(field_dict['enum'])}",
-                default=field_dict.get("default") or "None",
+                default=str(field_dict.get("default", "None")),
             )
         )
         # md_str.append(
@@ -157,7 +157,7 @@ def gen_md_table(
                             description=get_enum_description(
                                 value.get("description"), def_dict["enum"]
                             ),
-                            default=str(value.get("default")) or "",
+                            default=str(value.get("default", "")),
                             required=required_field,
                         )
                         md_str.append(row)
@@ -167,7 +167,7 @@ def gen_md_table(
                             path=get_prefixed_name(field_prefix, field_name),
                             type_name=f"{reference.split('/')[-1]} (see below for fields)",
                             description=value.get("description") or "",
-                            default=str(value.get("default")) or "",
+                            default=str(value.get("default", "")),
                             required=required_field,
                         )
                         md_str.append(row)
@@ -194,7 +194,7 @@ def gen_md_table(
                         type_name="Enum",
                         description=f"one of {','.join(def_dict['enum'])}",
                         required=required_field,
-                        default=value.get("default") or "None",
+                        default=str(value.get("default", "None")),
                     )
                     #                    f"| {get_prefixed_name(field_prefix, field_name)} | Enum | one of {','.join(def_dict['enum'])} | {def_dict['type']} | \n"
                 )
@@ -216,7 +216,7 @@ def gen_md_table(
                             path=get_prefixed_name(field_prefix, field_name),
                             type_name=f"Dict[str, {value_ref.split('/')[-1]}]",
                             description=value.get("description") or "",
-                            default=value.get("default") or "",
+                            default=str(value.get("default", "")),
                             required=required_field,
                         )
                         md_str.append(row)
@@ -237,7 +237,7 @@ def gen_md_table(
                                 if value_type
                                 else "Dict",
                                 description=value.get("description") or "",
-                                default=value.get("default") or "",
+                                default=str(value.get("default", "")),
                                 required=required_field,
                             )
                         )
@@ -247,7 +247,7 @@ def gen_md_table(
                         path=get_prefixed_name(field_prefix, field_name),
                         type_name=f"{object_definition.split('/')[-1]} (see below for fields)",
                         description=value.get("description") or "",
-                        default=value.get("default") or "",
+                        default=str(value.get("default", "")),
                         required=required_field,
                     )
 
@@ -272,7 +272,7 @@ def gen_md_table(
                         path=get_prefixed_name(field_prefix, field_name),
                         type_name=f"Array of {items_type}",
                         description=value.get("description") or "",
-                        default=str(value.get("default")) or "None",
+                        default=str(value.get("default", "None")),
                         required=required_field,
                     )
                     #                    f"| {get_prefixed_name(field_prefix, field_name)} | Array of {items_type} | {value.get('description') or ''} | {value.get('default')} |  \n"
@@ -284,7 +284,7 @@ def gen_md_table(
                         path=get_prefixed_name(field_prefix, field_name),
                         type_name=value["type"],
                         description=value.get("description") or "",
-                        default=value.get("default") or "None",
+                        default=str(value.get("default", "None")),
                         required=required_field,
                     )
                     # f"| {get_prefixed_name(field_prefix, field_name)} | {value['type']} | {value.get('description') or ''} | {value.get('default')} | \n"
@@ -298,7 +298,7 @@ def gen_md_table(
                     path=get_prefixed_name(field_prefix, field_name),
                     type_name=f"{object_definition.split('/')[-1]} (see below for fields)",
                     description=value.get("description") or "",
-                    default=value.get("default") or "",
+                    default=str(value.get("default", "")),
                     required=required_field,
                 )
 
@@ -319,7 +319,7 @@ def gen_md_table(
                         path=get_prefixed_name(field_prefix, field_name),
                         type_name="Generic dict",
                         description=value.get("description", ""),
-                        default=value.get("default", "None"),
+                        default=str(value.get("default", "None")),
                         required=required_field,
                     )
                     # f"| {get_prefixed_name(field_prefix, field_name)} | Any dict | {value.get('description') or ''} | {value.get('default')} |\n"
