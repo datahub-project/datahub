@@ -567,7 +567,13 @@ class RedashSource(Source):
 
                 # Continue producing MCE
                 dashboard_slug = dashboard_response["slug"]
-                dashboard_data = self.client.dashboard(dashboard_slug)
+                try:
+                    dashboard_data = self.client.dashboard(dashboard_slug)
+                except Exception:
+                    dashboard_id = dashboard_response["id"]
+                    dashboard_data = self.client._get(
+                        "api/dashboards/{}".format(dashboard_id)
+                    ).json()
                 logger.debug(dashboard_data)
                 dashboard_snapshot = self._get_dashboard_snapshot(dashboard_data)
                 mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
