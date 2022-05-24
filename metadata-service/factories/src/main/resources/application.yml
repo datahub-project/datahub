@@ -91,6 +91,8 @@ visualConfig:
     logoUrl: ${REACT_APP_LOGO_URL:#{null}}
 
 # Storage Layer
+
+# Only required if entityService.impl is ebean
 ebean:
   username: ${EBEAN_DATASOURCE_USERNAME:datahub}
   password: ${EBEAN_DATASOURCE_PASSWORD:datahub}
@@ -104,6 +106,7 @@ ebean:
   waitTimeoutMillis: ${EBEAN_WAIT_TIMEOUT_MILLIS:1000}
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
 
+# Only required if entityService.impl is cassandra
 cassandra:
   datasourceUsername: ${CASSANDRA_DATASOURCE_USERNAME:cassandra}
   datasourcePassword: ${CASSANDRA_DATASOURCE_PASSWORD:cassandra}

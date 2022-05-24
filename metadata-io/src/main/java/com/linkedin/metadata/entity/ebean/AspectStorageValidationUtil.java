@@ -1,14 +1,13 @@
-package com.linkedin.metadata.entity;
+package com.linkedin.metadata.entity.ebean;
 
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.entity.ebean.EbeanAspectV1;
-import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import io.ebean.EbeanServer;
 import io.ebean.SqlQuery;
 import io.ebean.SqlRow;
+
 import java.util.List;
 
-import static io.ebean.Expr.*;
+import static io.ebean.Expr.ne;
 
 
 public class AspectStorageValidationUtil {

@@ -1,4 +1,4 @@
-package com.linkedin.metadata.timeline.ebean;
+package com.linkedin.metadata.timeline;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FabricType;
@@ -6,9 +6,9 @@ import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.TestEntityRegistry;
-import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
-import com.linkedin.metadata.entity.ebean.EbeanEntityService;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -25,10 +25,8 @@ import com.linkedin.schema.SchemaFieldDataType;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schema.StringType;
 import com.linkedin.util.Pair;
-import io.ebean.EbeanServer;
-import io.ebean.EbeanServerFactory;
-import io.ebean.config.ServerConfig;
-import io.ebean.datasource.DataSourceConfig;
+import org.testng.annotations.Test;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -36,84 +34,34 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Nonnull;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
-
-import static org.mockito.Mockito.*;
 
 
-public class EbeanTimelineServiceTest {
+/**
+ * A class to test {@link TimelineServiceImpl}
+ *
+ * This class is generic to allow same integration tests to be reused to test all supported storage backends.
+ * If you're adding another storage backend - you should create a new test class that extends this one providing
+ * hard implementations of {@link AspectDao} and implements {@code @BeforeMethod} etc to set up and tear down state.
+ *
+ * If you realise that a feature you want to test, sadly, has divergent behaviours between different storage implementations,
+ * that you can't rectify - you should make the test method abstract and implement it in all implementations of this class.
+ *
+ * @param <T_AD> {@link AspectDao} implementation.
+ */
+abstract public class TimelineServiceTest<T_AD extends AspectDao> {
 
-  private static final AuditStamp TEST_AUDIT_STAMP = createTestAuditStamp(1);
-  private final EntityRegistry _snapshotEntityRegistry = new TestEntityRegistry();
-  private final EntityRegistry _configEntityRegistry =
+  protected T_AD _aspectDao;
+
+  protected final EntityRegistry _snapshotEntityRegistry = new TestEntityRegistry();
+  protected final EntityRegistry _configEntityRegistry =
       new ConfigEntityRegistry(Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
-  private final EntityRegistry _testEntityRegistry =
+  protected final EntityRegistry _testEntityRegistry =
       new MergedEntityRegistry(_snapshotEntityRegistry).apply(_configEntityRegistry);
-  private EbeanAspectDao _aspectDao;
-  private EbeanServer _server;
-  private EbeanTimelineService _entityTimelineService;
-  private EbeanEntityService _entityService;
-  private EventProducer _mockProducer;
+  protected TimelineServiceImpl _entityTimelineService;
+  protected EntityService _entityService;
+  protected EventProducer _mockProducer;
 
-  public EbeanTimelineServiceTest() throws EntityRegistryException {
-  }
-
-  @Nonnull
-  private static ServerConfig createTestingH2ServerConfig() {
-
-    DataSourceConfig dataSourceConfig = new DataSourceConfig();
-    boolean usingH2 = true;
-
-    if (usingH2) {
-      dataSourceConfig.setUsername("tester");
-      dataSourceConfig.setPassword("");
-      dataSourceConfig.setUrl("jdbc:h2:mem:;IGNORECASE=TRUE;");
-      dataSourceConfig.setDriver("org.h2.Driver");
-      //dataSourceConfig.setIsolationLevel(Connection.TRANSACTION_REPEATABLE_READ);
-    } else {
-      dataSourceConfig.setUsername("datahub");
-      dataSourceConfig.setPassword("datahub");
-      dataSourceConfig.setUrl("jdbc:mysql://localhost:3306/datahub?verifyServerCertificate=false&useSSL"
-          + "=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2");
-      dataSourceConfig.setDriver("com.mysql.jdbc.Driver");
-      dataSourceConfig.setMinConnections(1);
-      dataSourceConfig.setMaxConnections(10);
-    }
-
-    ServerConfig serverConfig = new ServerConfig();
-    serverConfig.setName("gma");
-    serverConfig.setDataSourceConfig(dataSourceConfig);
-    if (usingH2) {
-      serverConfig.setDdlGenerate(true);
-      serverConfig.setDdlRun(true);
-    } else {
-      serverConfig.setDdlGenerate(false);
-      serverConfig.setDdlRun(false);
-    }
-
-    return serverConfig;
-  }
-
-  private static AuditStamp createTestAuditStamp(int daysAgo) {
-    try {
-      Long timestamp = System.currentTimeMillis() - (daysAgo * 24 * 60 * 60 * 1000L);
-      Long timestampRounded = 1000 * (timestamp / 1000);
-      return new AuditStamp().setTime(timestampRounded).setActor(Urn.createFromString("urn:li:principal:tester"));
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to create urn");
-    }
-  }
-
-  @BeforeMethod
-  public void setupTest() {
-    _server = EbeanServerFactory.create(createTestingH2ServerConfig());
-    _aspectDao = new EbeanAspectDao(_server);
-    _aspectDao.setConnectionValidated(true);
-    _entityTimelineService = new EbeanTimelineService(_aspectDao, _testEntityRegistry);
-    _mockProducer = mock(EventProducer.class);
-    _entityService = new EbeanEntityService(_aspectDao, _mockProducer, _testEntityRegistry);
+  protected TimelineServiceTest() throws EntityRegistryException {
   }
 
   @Test
@@ -156,6 +104,16 @@ public class EbeanTimelineServiceTest {
     //Assert.assertEquals(changes.get(0).getTimestamp(), timestamps.get(4).getTime().longValue());
     //Assert.assertEquals(changes.get(1).getChangeEvents().get(0).getChangeType(), ChangeOperation.MODIFY);
     //Assert.assertEquals(changes.get(1).getTimestamp(), timestamps.get(5).getTime().longValue());
+  }
+
+  private static AuditStamp createTestAuditStamp(int daysAgo) {
+    try {
+      Long timestamp = System.currentTimeMillis() - (daysAgo * 24 * 60 * 60 * 1000L);
+      Long timestampRounded = 1000 * (timestamp / 1000);
+      return new AuditStamp().setTime(timestampRounded).setActor(Urn.createFromString("urn:li:principal:tester"));
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to create urn");
+    }
   }
 
   private SystemMetadata getSystemMetadata(AuditStamp twoDaysAgo, String s) {
