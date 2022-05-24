@@ -4,11 +4,17 @@ import com.datahub.authorization.ResourceSpec;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
+import com.linkedin.datahub.graphql.generated.FilterInput;
 import com.linkedin.datahub.graphql.generated.TimeSeriesAspect;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -18,6 +24,10 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
+
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 
 /**
@@ -33,6 +43,7 @@ import java.util.stream.Collectors;
  * be invoked for each {@link EnvelopedAspect} received from the GMS getTimeSeriesAspectValues API.
  *
  */
+@Slf4j
 public class TimeSeriesAspectResolver implements DataFetcher<CompletableFuture<List<TimeSeriesAspect>>> {
 
   private final EntityClient _client;
@@ -77,12 +88,15 @@ public class TimeSeriesAspectResolver implements DataFetcher<CompletableFuture<L
       final Long maybeEndTimeMillis = environment.getArgumentOrDefault("endTimeMillis", null);
       // Max number of aspects to return.
       final Integer maybeLimit = environment.getArgumentOrDefault("limit", null);
+      final FilterInput maybeFilters = environment.getArgument("filter") != null
+          ? bindArgument(environment.getArgument("filter"), FilterInput.class)
+          : null;
 
       try {
         // Step 1: Get aspects.
         List<EnvelopedAspect> aspects =
             _client.getTimeseriesAspectValues(urn, _entityName, _aspectName, maybeStartTimeMillis, maybeEndTimeMillis,
-                maybeLimit, null, null, context.getAuthentication());
+                maybeLimit, null, buildFilters(maybeFilters), context.getAuthentication());
 
         // Step 2: Bind profiles into GraphQL strong types.
         return aspects.stream().map(_aspectMapper::apply).collect(Collectors.toList());
@@ -90,5 +104,14 @@ public class TimeSeriesAspectResolver implements DataFetcher<CompletableFuture<L
         throw new RuntimeException("Failed to retrieve aspects from GMS", e);
       }
     });
+  }
+
+  private Filter buildFilters(@Nullable FilterInput maybeFilters) {
+    if (maybeFilters == null) {
+      return null;
+    }
+    return new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(maybeFilters.getAnd().stream()
+        .map(filter -> new Criterion().setField(filter.getField()).setValue(filter.getValue()))
+        .collect(Collectors.toList())))));
   }
 }

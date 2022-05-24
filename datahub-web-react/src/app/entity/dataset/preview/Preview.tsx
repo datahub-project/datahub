@@ -8,6 +8,7 @@ import {
     SearchInsight,
     Domain,
     Container,
+    ParentContainersResult,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -30,6 +31,7 @@ export const Preview = ({
     glossaryTerms,
     subtype,
     container,
+    parentContainers,
 }: {
     urn: string;
     name: string;
@@ -46,6 +48,7 @@ export const Preview = ({
     glossaryTerms?: GlossaryTerms | null;
     subtype?: string | null;
     container?: Container | null;
+    parentContainers?: ParentContainersResult | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const capitalPlatformName = capitalizeFirstLetterOnly(platformName);
@@ -67,6 +70,7 @@ export const Preview = ({
             snippet={snippet}
             glossaryTerms={glossaryTerms || undefined}
             insights={insights}
+            parentContainers={parentContainers}
         />
     );
 };

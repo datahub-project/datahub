@@ -95,6 +95,7 @@ class HiveSource(SQLAlchemySource):
         dataset_name: str,
         column: Dict[Any, Any],
         pk_constraints: Optional[Dict[Any, Any]] = None,
+        tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
 
         fields = super().get_schema_fields_for_column(
