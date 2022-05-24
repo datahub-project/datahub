@@ -15,8 +15,8 @@ import datahub as datahub_package
 from datahub.cli import cli_utils
 from datahub.cli.cli_utils import (
     CONDENSED_DATAHUB_CONFIG_PATH,
-    get_session_and_host,
     format_aspect_summaries,
+    get_session_and_host,
     post_rollback_endpoint,
 )
 from datahub.configuration import SensitiveError
@@ -204,16 +204,8 @@ def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> N
 
 @ingest.command()
 @click.option("--run-id", required=True, type=str)
-@click.option(
-    "--start",
-    type=int,
-    default=0
-)
-@click.option(
-    "--count",
-    type=int,
-    default=100
-)
+@click.option("--start", type=int, default=0)
+@click.option("--count", type=int, default=100)
 @click.option(
     "--include-soft-deletes",
     is_flag=True,
@@ -222,10 +214,12 @@ def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> N
 )
 @click.option("-a", "--show-aspect", required=False, is_flag=True)
 @telemetry.with_telemetry
-def show(run_id: str, start: int, count: int, include_soft_deletes: bool, show_aspect: bool) -> None:
+def show(
+    run_id: str, start: int, count: int, include_soft_deletes: bool, show_aspect: bool
+) -> None:
     """Describe a provided ingestion run to datahub"""
     session, gms_host = get_session_and_host()
-    
+
     url = f"{gms_host}/runs?action=describe"
 
     payload_obj = {
@@ -242,7 +236,9 @@ def show(run_id: str, start: int, count: int, include_soft_deletes: bool, show_a
 
     rows = parse_restli_response(response)
     if not show_aspect:
-        click.echo(tabulate(format_aspect_summaries(rows), RUN_TABLE_COLUMNS, tablefmt="grid"))
+        click.echo(
+            tabulate(format_aspect_summaries(rows), RUN_TABLE_COLUMNS, tablefmt="grid")
+        )
     else:
         for row in rows:
             click.echo(json.dumps(row, indent=4))

@@ -242,7 +242,7 @@ def parse_run_restli_response(response: requests.Response) -> dict:
     return summary
 
 
-def format_aspect_summaries(summaries: list) -> typing.List[dict]:
+def format_aspect_summaries(summaries: list) -> typing.List[typing.List[str]]:
     local_timezone = datetime.now().astimezone().tzinfo
     return [
         [
@@ -255,6 +255,7 @@ def format_aspect_summaries(summaries: list) -> typing.List[dict]:
         ]
         for row in summaries
     ]
+
 
 def post_rollback_endpoint(
     payload_obj: dict,
