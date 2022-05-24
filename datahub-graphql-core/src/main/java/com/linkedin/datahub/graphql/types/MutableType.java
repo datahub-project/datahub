@@ -15,6 +15,10 @@ public interface MutableType<I, T> {
      */
     Class<I> inputClass();
 
+    default Class<I[]> arrayInputClass() throws UnsupportedOperationException {
+        throw new UnsupportedOperationException(this.getClass().getName() + " does not implement arrayInputClass method");
+    }
+
 
     /**
      * Update an entity by urn
