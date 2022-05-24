@@ -92,7 +92,6 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.telemetry import telemetry
-from datahub.utilities.mapping import Constants
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
 
 if TYPE_CHECKING:
@@ -1087,12 +1086,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
         gtc: Optional[GlobalTagsClass] = None
-        is_partition_key: Optional[bool] = None
         if tags:
-            if Constants.TAG_PARTITION_KEY in tags:
-                is_partition_key = True
-            else:
-                is_partition_key = False
             tags_str = [make_tag_urn(t) for t in tags]
             tags_tac = [TagAssociationClass(t) for t in tags_str]
             gtc = GlobalTagsClass(tags_tac)
@@ -1104,7 +1098,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             nullable=column["nullable"],
             recursive=False,
             globalTags=gtc,
-            isPartitioningKey=is_partition_key,
         )
         if (
             pk_constraints is not None
