@@ -242,6 +242,21 @@ def parse_run_restli_response(response: requests.Response) -> dict:
     return summary
 
 
+def format_aspect_summaries(summaries: list) -> typing.List[typing.List[str]]:
+    local_timezone = datetime.now().astimezone().tzinfo
+    return [
+        [
+            row.get("urn"),
+            row.get("aspectName"),
+            datetime.fromtimestamp(row.get("timestamp") / 1000).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+            + f" ({local_timezone})",
+        ]
+        for row in summaries
+    ]
+
+
 def post_rollback_endpoint(
     payload_obj: dict,
     path: str,
@@ -266,19 +281,7 @@ def post_rollback_endpoint(
     if len(rows) == 0:
         click.secho(f"No entities found. Payload used: {payload}", fg="yellow")
 
-    local_timezone = datetime.now().astimezone().tzinfo
-    structured_rolled_back_results = [
-        [
-            row.get("urn"),
-            row.get("aspectName"),
-            datetime.fromtimestamp(row.get("timestamp") / 1000).strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
-            + f" ({local_timezone})",
-        ]
-        for row in rolled_back_aspects
-    ]
-
+    structured_rolled_back_results = format_aspect_summaries(rolled_back_aspects)
     return (
         structured_rolled_back_results,
         entities_affected,
