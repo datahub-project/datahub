@@ -157,7 +157,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   }
 
   // if the dataset is not dbt--- it may be produced by a dbt dataset. If so, associate them as siblings
-  private void handleSourceDatasetEvent(MetadataChangeLog event, DatasetUrn sourcerUrn) {
+  private void handleSourceDatasetEvent(MetadataChangeLog event, DatasetUrn sourceUrn) {
 
     // if the source entity is a sibling we need to make sure it stays soft deleted
     if (event.getAspectName().equals(STATUS_ASPECT_NAME)) {
@@ -170,7 +170,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
             existingSourceSiblingAspect != null
                 && existingSourceSiblingAspect.hasSiblings()
                 && existingSourceSiblingAspect.getSiblings().size() > 0) {
-          softDeleteEntity(sourcerUrn);
+          softDeleteEntity(sourceUrn);
         }
       }
     }
@@ -182,7 +182,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         if (
             upstreams.size() == 1
                 && upstreams.get(0).getDataset().getPlatformEntity().getPlatformNameEntity().equals(DBT_PLATFORM_NAME)) {
-          setSiblingsAndSoftDeleteSibling(upstreams.get(0).getDataset(), sourcerUrn);
+          setSiblingsAndSoftDeleteSibling(upstreams.get(0).getDataset(), sourceUrn);
         }
       }
     }
@@ -258,7 +258,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     _entityService.ingestProposal(sourceSiblingProposal, auditStamp);
 
     // soft delete the sibling
-    softDeleteEntity(sourcerUrn);
+    softDeleteEntity(sourceUrn);
   }
 
   /**
