@@ -21,11 +21,11 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
  */
 public class MutableTypeBatchResolver<I, T> implements DataFetcher<CompletableFuture<T>> {
 
-  private static final Logger _logger = LoggerFactory.getLogger(MutableTypeResolverBatch.class.getName());
+  private static final Logger _logger = LoggerFactory.getLogger(MutableTypeBatchResolver.class.getName());
 
-  private final MutableType<I> _mutableType;
+  private final MutableType<I, T> _mutableType;
 
-  public MutableTypeResolverBatch(final MutableType<I> mutableType) {
+  public MutableTypeBatchResolver(final MutableType<I, T> mutableType) {
     _mutableType = mutableType;
   }
 
