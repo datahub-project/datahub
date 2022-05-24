@@ -662,7 +662,6 @@ class DBTSource(StatefulIngestionSourceBase):
         self.platform: str = platform
         self.report: DBTSourceReport = DBTSourceReport()
         self.compiled_owner_extraction_pattern: Optional[Any] = None
-        self.s3_client = config.s3_client
         if self.config.owner_extraction_pattern:
             self.compiled_owner_extraction_pattern = re.compile(
                 self.config.owner_extraction_pattern
@@ -720,7 +719,7 @@ class DBTSource(StatefulIngestionSourceBase):
             return json.loads(requests.get(uri).text)
         elif re.match("^s3://", uri):
             u = urlparse(uri)
-            response = self.s3_client.get_object(
+            response = self.config.s3_client.get_object(
                 Bucket=u.netloc, Key=u.path.lstrip("/")
             )
             return json.loads(response["Body"].read().decode("utf-8"))
