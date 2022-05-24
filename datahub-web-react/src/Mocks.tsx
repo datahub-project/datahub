@@ -209,6 +209,7 @@ export const dataset1 = {
     health: null,
     assertions: null,
     deprecation: null,
+    testResults: null,
 };
 
 export const dataset2 = {
@@ -290,6 +291,7 @@ export const dataset2 = {
     assertions: null,
     status: null,
     deprecation: null,
+    testResults: null,
 };
 
 export const dataset3 = {
@@ -500,6 +502,7 @@ export const dataset3 = {
     status: null,
     readRuns: null,
     writeRuns: null,
+    testResults: null,
 } as Dataset;
 
 export const dataset4 = {
