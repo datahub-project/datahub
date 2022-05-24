@@ -205,6 +205,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
     final BoolQueryBuilder filterQueryBuilder = QueryBuilders.boolQuery().must(ESUtils.buildFilterQuery(filter));
     final DeleteByQueryRequest deleteByQueryRequest = new DeleteByQueryRequest(indexName).setQuery(filterQueryBuilder)
         .setBatchSize(DEFAULT_LIMIT)
+        .setRefresh(true)
         .setTimeout(TimeValue.timeValueMinutes(10));
     try {
       final BulkByScrollResponse response = _searchClient.deleteByQuery(deleteByQueryRequest, RequestOptions.DEFAULT);

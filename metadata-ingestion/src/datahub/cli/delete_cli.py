@@ -118,13 +118,13 @@ def delete_for_registry(
 )
 @click.option("--query", required=False, type=str)
 @click.option(
-    "--start_time",
+    "--start-time",
     required=False,
     type=click.DateTime(),
     help="the start time(only for timeseries aspects)",
 )
 @click.option(
-    "--end_time",
+    "--end-time",
     required=False,
     type=click.DateTime(),
     help="the end time(only for timeseries aspects)",
@@ -356,12 +356,9 @@ def _delete_one_urn(
             if aspect_name:
                 payload_obj["aspectName"] = aspect_name
             if startTimeMillis:
-                payload_obj["startTimeMillis"] = str(
-                    int(round(startTimeMillis.timestamp() * 1000))
-                )
+                payload_obj["startTimeMillis"] = int(round(startTimeMillis.timestamp() * 1000))
             if endTimeMillis:
-                payload_obj["endTimeMillis"] = str(
-                    int(round(endTimeMillis.timestamp() * 1000))
+                payload_obj["endTimeMillis"] = int(round(endTimeMillis.timestamp() * 1000)
                 )
             urn, rows_affected = cli_utils.post_delete_endpoint(
                 payload_obj,

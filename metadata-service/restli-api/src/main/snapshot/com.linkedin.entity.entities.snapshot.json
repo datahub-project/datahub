@@ -5219,6 +5219,10 @@
     }, {
       "name" : "rows",
       "type" : "long"
+    }, {
+      "name" : "timeseriesRows",
+      "type" : "long",
+      "optional" : true
     } ]
   }, {
     "type" : "record",

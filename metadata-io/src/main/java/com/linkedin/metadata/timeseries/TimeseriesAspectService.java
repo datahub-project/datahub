@@ -1,21 +1,14 @@
 package com.linkedin.metadata.timeseries;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.query.filter.Condition;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.timeseries.AggregationSpec;
-import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.DeleteAspectValuesResult;
+import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -46,7 +39,8 @@ public interface TimeseriesAspectService {
    * @return - number of documents deleted.
    */
   @Nonnull
-  DeleteAspectValuesResult deleteAspectValues(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull Filter filter);
+  DeleteAspectValuesResult deleteAspectValues(@Nonnull String entityName, @Nonnull String aspectName,
+      @Nonnull Filter filter);
 
   @Nonnull
   DeleteAspectValuesResult rollbackTimeseriesAspects(@Nonnull String runId);

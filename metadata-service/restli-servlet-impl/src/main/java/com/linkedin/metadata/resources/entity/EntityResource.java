@@ -443,13 +443,16 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           (aspectName == null) ? timeseriesAspectNames : ImmutableList.of(aspectName);
 
       DeleteEntityResponse response = new DeleteEntityResponse();
-      RollbackRunResult result = _entityService.deleteUrn(urn);
+      if (aspectName == null) {
+        RollbackRunResult result = _entityService.deleteUrn(urn);
+        response.setRows(result.getRowsDeletedFromEntityDeletion());
+      }
       Long numTimeseriesDocsDeleted =
           deleteTimeseriesAspects(urn, startTimeMills, endTimeMillis, timeseriesAspectsToDelete);
       log.info("Total number of timeseries aspect docs deleted: {}", numTimeseriesDocsDeleted);
 
       response.setUrn(urnStr);
-      response.setRows(result.getRowsDeletedFromEntityDeletion() + numTimeseriesDocsDeleted);
+      response.setTimeseriesRows(numTimeseriesDocsDeleted);
 
       return response;
     }, MetricRegistry.name(this.getClass(), "delete"));
