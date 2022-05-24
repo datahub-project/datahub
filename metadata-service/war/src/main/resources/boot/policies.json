@@ -84,7 +84,8 @@
         "VIEW_ANALYTICS",
         "GENERATE_PERSONAL_ACCESS_TOKENS",
         "VIEW_METADATA_PROPOSALS",
-        "MANAGE_DOMAINS"
+        "MANAGE_DOMAINS",
+        "MANAGE_ACCESS_TOKENS"
       ],
       "displayName":"All Users - All Platform Privileges",
       "description":"Grants full platform privileges to ALL users of DataHub. Change this policy to alter that behavior.",
