@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.inject.Singleton;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -157,6 +158,23 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   // if the dataset is not dbt--- it may be produced by a dbt dataset. If so, associate them as siblings
   private void handleSourceDatasetEvent(MetadataChangeLog event, DatasetUrn sourcerUrn) {
+
+    // if the source entity is a sibling we need to make sure it stays soft deleted
+    if (event.getAspectName().equals(STATUS_ASPECT_NAME)) {
+      Status eventStatusAspect = getStatusFromEvent(event);
+      if (!eventStatusAspect.isRemoved()) {
+        Siblings existingSourceSiblingAspect =
+            (Siblings) _entityService.getLatestAspect(sourceUrn, SIBLINGS_ASPECT_NAME);
+
+        if (
+            existingSourceSiblingAspect != null
+                && existingSourceSiblingAspect.hasSiblings()
+                && existingSourceSiblingAspect.getSiblings().size() > 0) {
+          softDeleteEntity(sourcerUrn);
+        }
+      }
+    }
+
     if (event.getAspectName().equals(UPSTREAM_LINEAGE_ASPECT_NAME)) {
       UpstreamLineage upstreamLineage = getUpstreamLineageFromEvent(event);
       if (upstreamLineage != null && upstreamLineage.hasUpstreams()) {
@@ -190,13 +208,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
       return;
     }
 
-    AuditStamp auditStamp = null;
-    try {
-      auditStamp =
-          new AuditStamp().setActor(Urn.createFromString(SIBLING_ASSOCIATION_SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-    } catch (URISyntaxException e) {
-      e.printStackTrace();
-    }
+    AuditStamp auditStamp = getAuditStamp();
 
     // set source as a sibling of dbt
     Siblings dbtSiblingAspect = new Siblings();
@@ -246,19 +258,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     _entityService.ingestProposal(sourceSiblingProposal, auditStamp);
 
     // soft delete the sibling
-    Status sourceStatusAspect = new Status();
-    sourceStatusAspect.setRemoved(true);
-
-    MetadataChangeProposal sourceStatusProposal = new MetadataChangeProposal();
-    GenericAspect sourceStatusSerialized = GenericRecordUtils.serializeAspect(sourceStatusAspect);
-
-    sourceStatusProposal.setAspect(sourceStatusSerialized);
-    sourceStatusProposal.setAspectName(STATUS_ASPECT_NAME);
-    sourceStatusProposal.setEntityType(DATASET_ENTITY_NAME);
-    sourceStatusProposal.setChangeType(ChangeType.UPSERT);
-    sourceStatusProposal.setEntityUrn(sourceUrn);
-
-    _entityService.ingestProposal(sourceStatusProposal, auditStamp);
+    softDeleteEntity(sourcerUrn);
   }
 
   /**
@@ -270,6 +270,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         && (
             event.getAspectName().equals("upstreamLineage")
                 || event.getAspectName().equals("subType")
+                || event.getAspectName().equals("status")
           );
   }
 
@@ -329,6 +330,50 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         event.getAspect().getValue(),
         event.getAspect().getContentType(),
         entitySpec.getAspectSpec(SUB_TYPES_ASPECT_NAME));
+  }
+
+  /**
+   * Deserializes and returns an instance of {@link Status} extracted from a {@link MetadataChangeLog} event.
+   */
+  private Status getStatusFromEvent(final MetadataChangeLog event) {
+    EntitySpec entitySpec;
+    if (!event.getAspectName().equals(STATUS_ASPECT_NAME)) {
+      return null;
+    }
+
+    try {
+      entitySpec = _entityRegistry.getEntitySpec(event.getEntityType());
+    } catch (IllegalArgumentException e) {
+      log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
+      throw new RuntimeException("Failed to get Status from MetadataChangeLog event. Skipping processing.", e);
+    }
+    return (Status) GenericRecordUtils.deserializeAspect(
+        event.getAspect().getValue(),
+        event.getAspect().getContentType(),
+        entitySpec.getAspectSpec(STATUS_ASPECT_NAME));
+  }
+
+  @SneakyThrows
+  private AuditStamp getAuditStamp() {
+    AuditStamp auditStamp = null;
+    return new AuditStamp().setActor(Urn.createFromString(SIBLING_ASSOCIATION_SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+  }
+
+  private void softDeleteEntity(Urn sourceUrn) {
+    // soft delete the sibling
+    Status sourceStatusAspect = new Status();
+    sourceStatusAspect.setRemoved(true);
+
+    MetadataChangeProposal sourceStatusProposal = new MetadataChangeProposal();
+    GenericAspect sourceStatusSerialized = GenericRecordUtils.serializeAspect(sourceStatusAspect);
+
+    sourceStatusProposal.setAspect(sourceStatusSerialized);
+    sourceStatusProposal.setAspectName(STATUS_ASPECT_NAME);
+    sourceStatusProposal.setEntityType(DATASET_ENTITY_NAME);
+    sourceStatusProposal.setChangeType(ChangeType.UPSERT);
+    sourceStatusProposal.setEntityUrn(sourceUrn);
+
+    _entityService.ingestProposal(sourceStatusProposal, getAuditStamp());
   }
 
 }
