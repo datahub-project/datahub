@@ -20,7 +20,7 @@ class BigQueryCredential(ConfigModel):
     project_id: str = pydantic.Field(description="Project id to set the credentials")
     private_key_id: str = pydantic.Field(description="Private key id")
     private_key: str = pydantic.Field(
-        description="Private key in a form of '-----BEGIN PRIVATE KEY-----\nprivate-key\n-----END PRIVATE KEY-----\n'"
+        description="Private key in a form of '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n'"
     )
     client_email: str = pydantic.Field(description="Client email")
     client_id: str = pydantic.Field(description="Client Id")
