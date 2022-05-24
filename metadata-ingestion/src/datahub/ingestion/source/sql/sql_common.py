@@ -92,7 +92,6 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.telemetry import telemetry
-from datahub.utilities.mapping import Constants
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
 
 if TYPE_CHECKING:
