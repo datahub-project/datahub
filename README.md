@@ -49,10 +49,10 @@ HOSTED_DOCS_ONLY-->
 [Town Hall](https://datahubproject.io/docs/townhalls)
 
 ---
-> 📣 Next DataHub town hall meeting on Feb 25th, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
+> 📣 Next DataHub town hall meeting on May 26th, 9am-10am PDT ([convert to your local time](https://greenwichmeantime.com/time/to/pacific-local/))
 >
 > - Topic Proposals: [submit here](https://docs.google.com/forms/d/1v2ynbAXjJlqY97xE_X1DAntNrXDznOFiNfryUkMPtkI/)
-> - Signup to get a calendar invite: [here](https://www.addevent.com/event/lD12111844)
+> - Signup to get a calendar invite: [here](https://www.addevent.com/event/zE13785865)
 > - Town-hall Zoom link: [zoom.datahubproject.io](https://zoom.datahubproject.io)
 > - [Meeting details](docs/townhalls.md) & [past recordings](docs/townhall-history.md)
 

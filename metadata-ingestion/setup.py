@@ -50,6 +50,7 @@ framework_common = {
     "termcolor>=1.0.0",
     "types-termcolor>=1.0.0",
     "psutil>=5.8.0",
+    "ratelimiter",
     # Markupsafe breaking change broke Jinja and some other libs
     # Pinning it to a version which works even though we are not using explicitly
     # https://github.com/aws/aws-sam-cli/issues/3661
