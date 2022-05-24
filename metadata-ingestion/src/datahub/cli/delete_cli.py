@@ -3,7 +3,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from random import choices
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import click
 import progressbar
@@ -352,13 +352,16 @@ def _delete_one_urn(
             logger.info(f"[Dry-run] Would soft-delete {urn}")
     else:
         if not dry_run:
-            payload_obj: Dict[str, str] = {"urn": urn}
+            payload_obj: Dict[str, Any] = {"urn": urn}
             if aspect_name:
                 payload_obj["aspectName"] = aspect_name
             if startTimeMillis:
-                payload_obj["startTimeMillis"] = int(round(startTimeMillis.timestamp() * 1000))
+                payload_obj["startTimeMillis"] = int(
+                    round(startTimeMillis.timestamp() * 1000)
+                )
             if endTimeMillis:
-                payload_obj["endTimeMillis"] = int(round(endTimeMillis.timestamp() * 1000)
+                payload_obj["endTimeMillis"] = int(
+                    round(endTimeMillis.timestamp() * 1000)
                 )
             urn, rows_affected = cli_utils.post_delete_endpoint(
                 payload_obj,
