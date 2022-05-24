@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
@@ -96,6 +97,18 @@ public class JavaEntityClient implements EntityClient {
             ? _entityService.getEntityAspectNames(entityName)
             : aspectNames;
         return _entityService.getEntitiesV2(entityName, urns, projectedAspects);
+    }
+
+    @Nonnull
+    public Map<Urn, EntityResponse> batchGetVersionedV2(
+        @Nonnull String entityName,
+        @Nonnull final Set<VersionedUrn> versionedUrns,
+        @Nullable final Set<String> aspectNames,
+        @Nonnull final Authentication authentication) throws RemoteInvocationException, URISyntaxException {
+        final Set<String> projectedAspects = aspectNames == null
+            ? _entityService.getEntityAspectNames(entityName)
+            : aspectNames;
+        return _entityService.getEntitiesVersionedV2(versionedUrns, projectedAspects);
     }
 
     @Nonnull

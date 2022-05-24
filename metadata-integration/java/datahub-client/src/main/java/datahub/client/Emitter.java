@@ -2,8 +2,11 @@ package datahub.client;
 
 import com.linkedin.mxe.MetadataChangeProposal;
 import datahub.event.MetadataChangeProposalWrapper;
+import datahub.event.UpsertAspectRequest;
 import java.io.Closeable;
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import javax.annotation.Nonnull;
@@ -27,6 +30,7 @@ public interface Emitter extends Closeable {
    * @param callback if not null, is called from the IO thread. Should be a quick operation.
    * @return a {@link Future} for callers to inspect the result of the operation or block until one is available
    * @throws IOException
+   * @throws URISyntaxException 
    */
   Future<MetadataWriteResponse> emit(@Nonnull MetadataChangeProposalWrapper mcpw, Callback callback) throws IOException;
 
@@ -69,5 +73,14 @@ public interface Emitter extends Closeable {
    * @throws InterruptedException
    */
   boolean testConnection() throws IOException, ExecutionException, InterruptedException;
+
+  /**
+   * Asynchronously emit a {@link UpsertAspectRequest}.
+   * @param request request with with metadata aspect to upsert into DataHub
+   * @return a {@link Future} for callers to inspect the result of the operation or block until one is available
+   * @throws IOException
+   */
+  Future<MetadataWriteResponse> emit(List<UpsertAspectRequest> request, Callback callback)
+      throws IOException;
 
 }

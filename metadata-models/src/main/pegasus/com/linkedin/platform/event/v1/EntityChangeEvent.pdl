@@ -49,9 +49,4 @@ record EntityChangeEvent {
    * The version of the event type, incremented in integers.
    */
   version: int
-
-  /**
-   * [Future] The source type of the event
-   */
-  source: optional string
 }

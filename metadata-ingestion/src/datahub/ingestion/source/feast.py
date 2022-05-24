@@ -2,6 +2,8 @@ import sys
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Tuple, Union
 
+from pydantic import Field
+
 if sys.version_info >= (3, 7):
     from feast import (
         BigQuerySource,
@@ -23,6 +25,14 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import MLFeatureDataType
@@ -65,12 +75,28 @@ _field_type_mapping: Dict[ValueType, str] = {
 
 
 class FeastRepositorySourceConfig(ConfigModel):
-    path: str
-    environment: str = DEFAULT_ENV
+    path: str = Field(description="Path to Feast repository")
+    environment: str = Field(
+        default=DEFAULT_ENV, description="Environment to use when constructing URNs"
+    )
 
 
+@platform_name("Feast")
+@config_class(FeastRepositorySourceConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @dataclass
 class FeastRepositorySource(Source):
+    """
+    This plugin extracts:
+
+    - Entities as [`MLPrimaryKey`](https://datahubproject.io/docs/graphql/objects#mlprimarykey)
+    - Features as [`MLFeature`](https://datahubproject.io/docs/graphql/objects#mlfeature)
+    - Feature views and on-demand feature views as [`MLFeatureTable`](https://datahubproject.io/docs/graphql/objects#mlfeaturetable)
+    - Batch and stream source details as [`Dataset`](https://datahubproject.io/docs/graphql/objects#dataset)
+    - Column types associated with each entity and feature
+    """
+
     source_config: FeastRepositorySourceConfig
     report: SourceReport
     feature_store: FeatureStore

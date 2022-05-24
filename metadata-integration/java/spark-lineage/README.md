@@ -93,6 +93,7 @@ This initial release has been tested with the following environments:
 Note that testing for other environments such as Databricks is planned in near future.
 
 ### Spark commands supported
+
 Below is a list of Spark commands that are parsed currently:
 - InsertIntoHadoopFsRelationCommand
 - SaveIntoDataSourceCommand (jdbc)
@@ -100,6 +101,12 @@ Below is a list of Spark commands that are parsed currently:
 - InsertIntoHiveTable
 
 Effectively, these support data sources/sinks corresponding to Hive, HDFS and JDBC.
+
+DataFrame.persist command is supported for below LeafExecNodes:
+- FileSourceScanExec
+- HiveTableScanExec
+- RowDataSourceScanExec
+- InMemoryTableScanExec
 
 ### Spark commands not yet supported
 - View related commands
@@ -130,7 +137,7 @@ YY/MM/DD HH:mm:ss INFO McpEmitter: REST Emitter Configuration: Token XXXXX
 ```
 On pushing data to server
 ```
-YY/MM/DD HH:mm:ss INFO McpEmitter: MetadataWriteResponse(success=true, responseContent={"value":"<URN>"}, underlyingResponse=HTTP/1.1 200 OK [Date: day, DD month year HH:mm:ss GMT, Content-Type: application/json, X-RestLi-Protocol-Version: 2.0.0, Content-Length: 97, Server: Jetty(9.4.20.v20190813)] [Content-Length: 97,Chunked: false])
+YY/MM/DD HH:mm:ss INFO McpEmitter: MetadataWriteResponse(success=true, responseContent={"value":"<URN>"}, underlyingResponse=HTTP/1.1 200 OK [Date: day, DD month year HH:mm:ss GMT, Content-Type: application/json, X-RestLi-Protocol-Version: 2.0.0, Content-Length: 97, Server: Jetty(9.4.46.v20220331)] [Content-Length: 97,Chunked: false])
 ```
 On application end
 ```

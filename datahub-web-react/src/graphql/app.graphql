@@ -37,6 +37,9 @@ query appConfig {
         visualConfig {
             logoUrl
         }
+        telemetryConfig {
+            enableThirdPartyLogging
+        }
     }
 }
 

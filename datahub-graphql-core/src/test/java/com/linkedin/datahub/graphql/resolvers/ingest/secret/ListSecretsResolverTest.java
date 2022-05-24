@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.ingest.secret;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.UrnArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ListSecretsInput;
 import com.linkedin.entity.Aspect;
@@ -12,7 +11,9 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.ListResult;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetchingEnvironment;
@@ -28,7 +29,7 @@ import static org.testng.Assert.*;
 public class ListSecretsResolverTest {
 
   private static final ListSecretsInput TEST_INPUT = new ListSecretsInput(
-      0, 20
+      0, 20, null
   );
 
   @Test
@@ -38,18 +39,19 @@ public class ListSecretsResolverTest {
 
     DataHubSecretValue returnedValue = getTestSecretValue();
 
-    Mockito.when(mockClient.list(
+    Mockito.when(mockClient.search(
         Mockito.eq(Constants.SECRETS_ENTITY_NAME),
+        Mockito.eq(""),
         Mockito.eq(Collections.emptyMap()),
         Mockito.eq(0),
         Mockito.eq(20),
         Mockito.any(Authentication.class)
     )).thenReturn(
-        new ListResult()
-            .setStart(0)
-            .setCount(1)
-            .setTotal(1)
-            .setEntities(new UrnArray(ImmutableSet.of(TEST_SECRET_URN)))
+        new SearchResult()
+            .setFrom(0)
+            .setPageSize(1)
+            .setNumEntities(1)
+            .setEntities(new SearchEntityArray(ImmutableSet.of(new SearchEntity().setEntity(TEST_SECRET_URN))))
     );
 
     Mockito.when(mockClient.batchGetV2(
@@ -104,8 +106,9 @@ public class ListSecretsResolverTest {
         Mockito.anySet(),
         Mockito.anySet(),
         Mockito.any(Authentication.class));
-    Mockito.verify(mockClient, Mockito.times(0)).list(
+    Mockito.verify(mockClient, Mockito.times(0)).search(
         Mockito.any(),
+        Mockito.eq(""),
         Mockito.anyMap(),
         Mockito.anyInt(),
         Mockito.anyInt(),

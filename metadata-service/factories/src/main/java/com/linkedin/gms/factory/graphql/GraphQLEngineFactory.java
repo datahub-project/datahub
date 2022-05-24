@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.graphql;
 
-import com.datahub.authentication.token.TokenService;
+import com.datahub.authentication.token.StatefulTokenService;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
@@ -20,6 +20,7 @@ import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
+import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.version.GitVersion;
@@ -76,7 +77,7 @@ public class GraphQLEngineFactory {
 
   @Autowired
   @Qualifier("dataHubTokenService")
-  private TokenService _tokenService;
+  private StatefulTokenService _statefulTokenService;
 
   @Autowired
   @Qualifier("dataHubSecretService")
@@ -97,6 +98,10 @@ public class GraphQLEngineFactory {
   @Qualifier("visualConfig")
   private VisualConfiguration _visualConfiguration;
 
+  @Autowired
+  @Qualifier("timelineService")
+  private TimelineService _timelineService;
+
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
@@ -111,7 +116,7 @@ public class GraphQLEngineFactory {
           new AnalyticsService(elasticClient, indexConvention),
           _entityService,
           _recommendationsService,
-          _tokenService,
+          _statefulTokenService,
           _timeseriesAspectService,
           _entityRegistry,
           _secretService,
@@ -119,8 +124,10 @@ public class GraphQLEngineFactory {
           _configProvider.getAuthentication(),
           _configProvider.getAuthorization(),
           _gitVersion,
+          _timelineService,
           _graphService.supportsMultiHop(),
-          _visualConfiguration
+          _visualConfiguration,
+          _configProvider.getTelemetry()
           ).builder().build();
     }
     return new GmsGraphQLEngine(
@@ -130,7 +137,7 @@ public class GraphQLEngineFactory {
         null,
         _entityService,
         _recommendationsService,
-        _tokenService,
+        _statefulTokenService,
         _timeseriesAspectService,
         _entityRegistry,
         _secretService,
@@ -138,8 +145,10 @@ public class GraphQLEngineFactory {
         _configProvider.getAuthentication(),
         _configProvider.getAuthorization(),
         _gitVersion,
+        _timelineService,
         _graphService.supportsMultiHop(),
-        _visualConfiguration
+        _visualConfiguration,
+        _configProvider.getTelemetry()
     ).builder().build();
   }
 }

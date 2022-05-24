@@ -1,9 +1,9 @@
 package com.linkedin.metadata.entity.cassandra;
 
 import com.datastax.oss.driver.api.core.cql.Row;
+import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.EntityAspect;
 import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -11,31 +11,19 @@ import lombok.Setter;
 import javax.annotation.Nonnull;
 import java.sql.Timestamp;
 
-// Dumb object for now
-
+/**
+ * This class represents entity aspect records stored in Cassandra database.
+ * It's also aware of {@link EntityAspect} which is a shared in-memory representation of an aspect record and knows
+ * how to translate itself to it.
+ *
+ * TODO: Consider using datastax java driver `@Entity`
+ *       (see: https://docs.datastax.com/en/developer/java-driver/4.13/manual/mapper/entities/)
+ */
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class CassandraAspect implements EntityAspect {
-
-  @Getter
-  @NoArgsConstructor
-  @AllArgsConstructor
-  @EqualsAndHashCode
-  public static class PrimaryKey {
-
-    private String urn;
-    private String aspect;
-    private long version;
-
-    public static PrimaryKey fromRow(Row r) {
-      return new CassandraAspect.PrimaryKey(
-          r.getString(CassandraAspect.URN_COLUMN),
-          r.getString(CassandraAspect.ASPECT_COLUMN),
-          r.getLong(CassandraAspect.VERSION_COLUMN));
-    }
-  }
+public class CassandraAspect {
 
   private String urn;
   private String aspect;
@@ -65,19 +53,25 @@ public class CassandraAspect implements EntityAspect {
         urn, aspect, version, metadata, createdOn, createdBy, createdFor, systemMetadata);
   }
 
-  public CassandraAspect.PrimaryKey toPrimaryKey() {
-    return new PrimaryKey(getUrn(), getAspect(), getVersion());
+  @Nonnull
+  public static EntityAspect rowToEntityAspect(@Nonnull Row row) {
+    return new EntityAspect(
+        row.getString(CassandraAspect.URN_COLUMN),
+        row.getString(CassandraAspect.ASPECT_COLUMN),
+        row.getLong(CassandraAspect.VERSION_COLUMN),
+        row.getString(CassandraAspect.METADATA_COLUMN),
+        row.getString(CassandraAspect.SYSTEM_METADATA_COLUMN),
+        row.getInstant(CassandraAspect.CREATED_ON_COLUMN) == null ? null : Timestamp.from(row.getInstant(CassandraAspect.CREATED_ON_COLUMN)),
+        row.getString(CassandraAspect.CREATED_BY_COLUMN),
+        row.getString(CassandraAspect.CREATED_FOR_COLUMN));
   }
 
-  public static CassandraAspect fromRow(@Nonnull Row r) {
-    return new CassandraAspect(
-        r.getString(CassandraAspect.URN_COLUMN),
-        r.getString(CassandraAspect.ASPECT_COLUMN),
-        r.getLong(CassandraAspect.VERSION_COLUMN),
-        r.getString(CassandraAspect.METADATA_COLUMN),
-        r.getString(CassandraAspect.SYSTEM_METADATA_COLUMN),
-        r.getInstant(CassandraAspect.CREATED_ON_COLUMN) == null ? null : Timestamp.from(r.getInstant(CassandraAspect.CREATED_ON_COLUMN)),
-        r.getString(CassandraAspect.CREATED_BY_COLUMN),
-        r.getString(CassandraAspect.CREATED_FOR_COLUMN));
+  @Nonnull
+  public static EntityAspectIdentifier rowToAspectIdentifier(@Nonnull Row row) {
+    return new EntityAspectIdentifier(
+        row.getString(CassandraAspect.URN_COLUMN),
+        row.getString(CassandraAspect.ASPECT_COLUMN),
+        row.getLong(CassandraAspect.VERSION_COLUMN));
   }
+
 }

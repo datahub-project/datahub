@@ -2,7 +2,6 @@ import glob
 import importlib
 import itertools
 import logging
-import os
 import pathlib
 import re
 import sys
@@ -20,6 +19,12 @@ from pydantic.fields import Field
 
 from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.source.looker_common import (
     LookerCommonConfig,
     LookerUtil,
@@ -140,15 +145,38 @@ class LookerConnectionDefinition(ConfigModel):
 
 
 class LookMLSourceConfig(LookerCommonConfig):
-    base_folder: pydantic.DirectoryPath
-    connection_to_platform_map: Optional[Dict[str, LookerConnectionDefinition]]
-    model_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    parse_table_names_from_sql: bool = False
-    sql_parser: str = "datahub.utilities.sql_parser.DefaultSQLParser"
+    base_folder: pydantic.DirectoryPath = Field(
+        description="Local filepath where the root of the LookML repo lives. This is typically the root folder where the `*.model.lkml` and `*.view.lkml` files are stored. e.g. If you have checked out your LookML repo under `/Users/jdoe/workspace/my-lookml-repo`, then set `base_folder` to `/Users/jdoe/workspace/my-lookml-repo`."
+    )
+    connection_to_platform_map: Optional[Dict[str, LookerConnectionDefinition]] = Field(
+        None,
+        description="A mapping of [Looker connection names](https://docs.looker.com/reference/model-params/connection-for-model) to DataHub platform, database, and schema values.",
+    )
+    model_pattern: AllowDenyPattern = Field(
+        AllowDenyPattern.allow_all(),
+        description="List of regex patterns for LookML models to include in the extraction.",
+    )
+    view_pattern: AllowDenyPattern = Field(
+        AllowDenyPattern.allow_all(),
+        description="List of regex patterns for LookML views to include in the extraction.",
+    )
+    parse_table_names_from_sql: bool = Field(False, description="See note below.")
+    sql_parser: str = Field(
+        "datahub.utilities.sql_parser.DefaultSQLParser", description="See note below."
+    )
     api: Optional[LookerAPIConfig]
-    project_name: Optional[str]
-    transport_options: Optional[TransportOptionsConfig]
+    project_name: Optional[str] = Field(
+        None,
+        description="Required if you don't specify the `api` section. The project name within which all the model files live. See (https://docs.looker.com/data-modeling/getting-started/how-project-works) to understand what the Looker project name should be. The simplest way to see your projects is to click on `Develop` followed by `Manage LookML Projects` in the Looker application.",
+    )
+    transport_options: Optional[TransportOptionsConfig] = Field(
+        None,
+        description="Populates the [TransportOptions](https://github.com/looker-open-source/sdk-codegen/blob/94d6047a0d52912ac082eb91616c1e7c379ab262/python/looker_sdk/rtl/transport.py#L70) struct for looker client",
+    )
+    max_file_snippet_length: int = Field(
+        512000,  # 512KB should be plenty
+        description="When extracting the view definition from a lookml file, the maximum number of characters to extract.",
+    )
 
     @validator("platform_instance")
     def platform_instance_not_supported(cls, v: str) -> str:
@@ -464,6 +492,10 @@ class LookerViewFileLoader:
         return replace(viewfile, connection=connection)
 
 
+VIEW_LANGUAGE_LOOKML: str = "lookml"
+VIEW_LANGUAGE_SQL: str = "sql"
+
+
 @dataclass
 class LookerView:
     id: LookerViewId
@@ -535,6 +567,7 @@ class LookerView:
         looker_viewfile: LookerViewFile,
         looker_viewfile_loader: LookerViewFileLoader,
         reporter: LookMLSourceReport,
+        max_file_snippet_length: int,
         parse_table_names_from_sql: bool = False,
         sql_parser_path: str = "datahub.utilities.sql_parser.DefaultSQLParser",
     ) -> Optional["LookerView"]:
@@ -571,6 +604,9 @@ class LookerView:
         )
         fields: List[ViewField] = dimensions + dimension_groups + measures
 
+        # also store the view logic and materialization
+        view_logic = looker_viewfile.raw_file_content[0:max_file_snippet_length]
+
         # Parse SQL from derived tables to extract dependencies
         if derived_table is not None:
             fields, sql_table_names = cls._extract_metadata_from_sql_query(
@@ -582,14 +618,12 @@ class LookerView:
                 derived_table,
                 fields,
             )
-            # also store the view logic and materialization
-            view_logic = looker_viewfile.raw_file_content
             if "sql" in derived_table:
                 view_logic = derived_table["sql"]
-                view_lang = "sql"
+                view_lang = VIEW_LANGUAGE_SQL
             if "explore_source" in derived_table:
                 view_logic = str(derived_table["explore_source"])
-                view_lang = "lookml"
+                view_lang = VIEW_LANGUAGE_LOOKML
 
             materialized = False
             for k in derived_table:
@@ -637,6 +671,11 @@ class LookerView:
             connection=connection,
             fields=fields,
             raw_file_content=looker_viewfile.raw_file_content,
+            view_details=ViewProperties(
+                materialized=False,
+                viewLogic=view_logic,
+                viewLanguage=VIEW_LANGUAGE_LOOKML,
+            ),
         )
         return output_looker_view
 
@@ -761,7 +800,21 @@ class LookerView:
         return None
 
 
+@platform_name("Looker")
+@config_class(LookMLSourceConfig)
+@support_status(SupportStatus.CERTIFIED)
 class LookMLSource(Source):
+    """
+    This plugin extracts the following:
+    - LookML views from model files in a project
+    - Name, upstream table names, metadata for dimensions, measures, and dimension groups attached as tags
+    - If API integration is enabled (recommended), resolves table and view names by calling the Looker API, otherwise supports offline resolution of these names.
+
+    :::note
+    To get complete Looker metadata integration (including Looker dashboards and charts and lineage to the underlying Looker views, you must ALSO use the `looker` source module.
+    :::
+    """
+
     source_config: LookMLSourceConfig
     reporter: LookMLSourceReport
     looker_client: Optional[Looker31SDK] = None
@@ -779,11 +832,6 @@ class LookMLSource(Source):
                 raise ValueError(
                     "Failed to retrieve connections from looker client. Please check to ensure that you have manage_models permission enabled on this API key."
                 )
-
-    @classmethod
-    def create(cls, config_dict, ctx):
-        config = LookMLSourceConfig.parse_obj(config_dict)
-        return cls(config, ctx)
 
     def _load_model(self, path: str) -> LookerModel:
         with open(path, "r") as file:
@@ -926,16 +974,13 @@ class LookMLSource(Source):
             return None
 
     def _get_custom_properties(self, looker_view: LookerView) -> DatasetPropertiesClass:
-        file_path = (
-            str(pathlib.Path(looker_view.absolute_file_path).resolve())
-            .replace(str(self.source_config.base_folder.resolve()), "")
-            .lstrip(os.sep)
+        file_path = str(
+            pathlib.Path(looker_view.absolute_file_path).relative_to(
+                self.source_config.base_folder
+            )
         )
 
         custom_properties = {
-            "looker.file.content": looker_view.raw_file_content[
-                0:512000
-            ],  # grab a limited slice of characters from the file
             "looker.file.path": file_path,
         }
         dataset_props = DatasetPropertiesClass(
@@ -1097,6 +1142,7 @@ class LookMLSource(Source):
                                 looker_viewfile,
                                 viewfile_loader,
                                 self.reporter,
+                                self.source_config.max_file_snippet_length,
                                 self.source_config.parse_table_names_from_sql,
                                 self.source_config.sql_parser,
                             )

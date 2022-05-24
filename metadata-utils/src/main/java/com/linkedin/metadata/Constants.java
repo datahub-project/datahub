@@ -41,7 +41,8 @@ public class Constants {
   public static final String SECRETS_ENTITY_NAME = "dataHubSecret";
   public static final String EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest";
   public static final String NOTEBOOK_ENTITY_NAME = "notebook";
-
+  public static final String DATA_PLATFORM_INSTANCE_ENTITY_NAME = "dataPlatformInstance";
+  public static final String ACCESS_TOKEN_ENTITY_NAME = "dataHubAccessToken";
 
   /**
    * Aspects
@@ -114,6 +115,9 @@ public class Constants {
   public static final String DATA_PLATFORM_KEY_ASPECT_NAME = "dataPlatformKey";
   public static final String DATA_PLATFORM_INFO_ASPECT_NAME = "dataPlatformInfo";
 
+  // DataPlatformInstance
+  public static final String DATA_PLATFORM_INSTANCE_KEY_ASPECT_NAME = "dataPlatformInstanceKey";
+
   // ML Feature
   public static final String ML_FEATURE_KEY_ASPECT_NAME = "mlFeatureKey";
   public static final String ML_FEATURE_PROPERTIES_ASPECT_NAME = "mlFeatureProperties";
@@ -179,6 +183,7 @@ public class Constants {
   public static final String ASSERTION_RUN_EVENT_STATUS_COMPLETE = "COMPLETE";
 
   // DataHub Ingestion Source
+  public static final String INGESTION_SOURCE_KEY_ASPECT_NAME = "dataHubIngestionSourceKey";
   public static final String INGESTION_INFO_ASPECT_NAME = "dataHubIngestionSourceInfo";
 
   // DataHub Secret
@@ -188,6 +193,10 @@ public class Constants {
   public static final String EXECUTION_REQUEST_INPUT_ASPECT_NAME = "dataHubExecutionRequestInput";
   public static final String EXECUTION_REQUEST_SIGNAL_ASPECT_NAME = "dataHubExecutionRequestSignal";
   public static final String EXECUTION_REQUEST_RESULT_ASPECT_NAME = "dataHubExecutionRequestResult";
+
+  // DataHub Access Token
+  public static final String ACCESS_TOKEN_KEY_ASPECT_NAME = "dataHubAccessTokenKey";
+  public static final String ACCESS_TOKEN_INFO_NAME = "dataHubAccessTokenInfo";
 
   // acryl-main only
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";

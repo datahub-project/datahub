@@ -45,7 +45,7 @@
       "name": "clickhouse",
       "displayName": "ClickHouse",
       "type": "RELATIONAL_DB",
-      "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/clickhouselogo.png"
+      "logoUrl": "/assets/platforms/clickhouselogo.png"
     }
   },
   {
@@ -464,6 +464,16 @@
       "displayName": "Trino",
       "type": "QUERY_ENGINE",
       "logoUrl": "/assets/platforms/trinologo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:pulsar",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "pulsar",
+      "displayName": "Pulsar",
+      "type": "MESSAGE_BROKER",
+      "logoUrl": "/assets/platforms/pulsarlogo.png"
     }
   },
   {
