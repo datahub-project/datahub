@@ -5,6 +5,7 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.Authenticator;
+import com.datahub.authentication.AuthenticationRequest;
 import com.datahub.authentication.AuthenticatorContext;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.Constants;
@@ -32,14 +33,14 @@ public class NoOpAuthenticator implements Authenticator {
   private String systemClientId;
 
   @Override
-  public void init(@Nonnull final Map<String, Object> config, @Nullable final Map<String, Object> context) {
+  public void init(@Nonnull final Map<String, Object> config, @Nullable final AuthenticatorContext context) {
     Objects.requireNonNull(config, "Config parameter cannot be null");
     this.systemClientId = Objects.requireNonNull((String) config.get(SYSTEM_CLIENT_ID_CONFIG),
         String.format("Missing required config %s", SYSTEM_CLIENT_ID_CONFIG));
   }
 
   @Override
-  public Authentication authenticate(@Nonnull AuthenticatorContext context) throws AuthenticationException {
+  public Authentication authenticate(@Nonnull AuthenticationRequest context) throws AuthenticationException {
     Objects.requireNonNull(context);
     String actorUrn = context.getRequestHeaders().get(LEGACY_X_DATAHUB_ACTOR_HEADER);
 

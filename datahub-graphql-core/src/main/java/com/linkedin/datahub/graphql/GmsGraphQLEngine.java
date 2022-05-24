@@ -228,7 +228,7 @@ public class GmsGraphQLEngine {
     private final AnalyticsService analyticsService;
     private final RecommendationsService recommendationsService;
     private final EntityRegistry entityRegistry;
-    private final StatefulTokenService _statefulTokenService;
+    private final StatefulTokenService statefulTokenService;
     private final SecretService secretService;
     private final GitVersion gitVersion;
     private final boolean supportsImpactAnalysis;
@@ -319,7 +319,7 @@ public class GmsGraphQLEngine {
         this.analyticsService = analyticsService;
         this.entityService = entityService;
         this.recommendationsService = recommendationsService;
-        this._statefulTokenService = statefulTokenService;
+        this.statefulTokenService = statefulTokenService;
         this.secretService = secretService;
         this.entityRegistry = entityRegistry;
         this.gitVersion = gitVersion;
@@ -559,7 +559,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("listGroups", new ListGroupsResolver(this.entityClient))
             .dataFetcher("listRecommendations", new ListRecommendationsResolver(recommendationsService))
             .dataFetcher("getEntityCounts", new EntityCountsResolver(this.entityClient))
-            .dataFetcher("getAccessToken", new GetAccessTokenResolver(_statefulTokenService))
+            .dataFetcher("getAccessToken", new GetAccessTokenResolver(statefulTokenService))
             .dataFetcher("listAccessTokens", new ListAccessTokensResolver(this.entityClient))
             .dataFetcher("container", getResolver(containerType))
             .dataFetcher("listDomains", new ListDomainsResolver(this.entityClient))
@@ -624,8 +624,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("unsetDomain", new UnsetDomainResolver(this.entityClient, this.entityService))
             .dataFetcher("createSecret", new CreateSecretResolver(this.entityClient, this.secretService))
             .dataFetcher("deleteSecret", new DeleteSecretResolver(this.entityClient))
-            .dataFetcher("createAccessToken", new CreateAccessTokenResolver(this._statefulTokenService))
-            .dataFetcher("revokeAccessToken", new RevokeAccessTokenResolver(this.entityClient, this._statefulTokenService))
+            .dataFetcher("createAccessToken", new CreateAccessTokenResolver(this.statefulTokenService))
+            .dataFetcher("revokeAccessToken", new RevokeAccessTokenResolver(this.entityClient, this.statefulTokenService))
             .dataFetcher("createIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
             .dataFetcher("updateIngestionSource", new UpsertIngestionSourceResolver(this.entityClient))
             .dataFetcher("deleteIngestionSource", new DeleteIngestionSourceResolver(this.entityClient))

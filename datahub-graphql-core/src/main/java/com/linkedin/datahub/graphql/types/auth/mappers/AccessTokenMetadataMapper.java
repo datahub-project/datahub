@@ -21,27 +21,28 @@ public class AccessTokenMetadataMapper implements ModelMapper<EntityResponse, Ac
   }
 
   @Override
-  public AccessTokenMetadata apply(final EntityResponse input) {
+  public AccessTokenMetadata apply(@Nonnull final EntityResponse input) {
 
     final AccessTokenMetadata metadata = new AccessTokenMetadata();
     metadata.setUrn(input.getUrn().toString());
+    metadata.setId(input.getUrn().getId());
     metadata.setType(EntityType.ACCESS_TOKEN);
-    EnvelopedAspectMap aspectMap = input.getAspects();
-    MappingHelper<AccessTokenMetadata> mappingHelper = new MappingHelper<>(aspectMap, metadata);
+
+    final EnvelopedAspectMap aspectMap = input.getAspects();
+    final MappingHelper<AccessTokenMetadata> mappingHelper = new MappingHelper<>(aspectMap, metadata);
     mappingHelper.mapToResult(Constants.ACCESS_TOKEN_INFO_NAME, this::mapTokenInfo);
-    metadata.setTokenId(input.getUrn().getId());
 
     return mappingHelper.getResult();
   }
 
-  private void mapTokenInfo(AccessTokenMetadata accessTokenMetadata, DataMap dataMap) {
+  private void mapTokenInfo(@Nonnull final AccessTokenMetadata accessTokenMetadata, @Nonnull  final DataMap dataMap) {
     final DataHubAccessTokenInfo tokenInfo = new DataHubAccessTokenInfo(dataMap);
 
-    accessTokenMetadata.setTokenName(tokenInfo.getName());
+    accessTokenMetadata.setName(tokenInfo.getName());
     accessTokenMetadata.setActorUrn(tokenInfo.getActorUrn().toString());
     accessTokenMetadata.setOwnerUrn(tokenInfo.getOwnerUrn().toString());
     accessTokenMetadata.setCreatedAt(tokenInfo.getCreatedAt());
-    accessTokenMetadata.setExpiredAt(tokenInfo.getExpiredAt());
+    accessTokenMetadata.setExpiresAt(tokenInfo.getExpiresAt());
     accessTokenMetadata.setDescription(tokenInfo.getDescription());
   }
 }

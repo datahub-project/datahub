@@ -20,6 +20,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+
+/**
+ * Resolver for revoking personal & service principal v2-type (stateful) access tokens.
+ */
 @Slf4j
 public class RevokeAccessTokenResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
@@ -53,8 +57,7 @@ public class RevokeAccessTokenResolver implements DataFetcher<CompletableFuture<
   }
 
   private boolean isAuthorizedToRevokeToken(final QueryContext context, final String tokenId) {
-    return AuthorizationUtils.canManageAllPersonalTokens(context)
-        || isOwnerOfAccessToken(context, tokenId);
+    return AuthorizationUtils.canManageTokens(context) || isOwnerOfAccessToken(context, tokenId);
   }
 
   private boolean isOwnerOfAccessToken(final QueryContext context, final String tokenId) {
@@ -70,10 +73,7 @@ public class RevokeAccessTokenResolver implements DataFetcher<CompletableFuture<
       }
 
       return false;
-
     } catch (RemoteInvocationException | URISyntaxException e) {
-      log.error("Got an error while validating ownership of access token to revoke, id: {}, user: {}", tokenId,
-          context.getAuthentication().getActor());
       throw new RuntimeException(e);
     }
   }

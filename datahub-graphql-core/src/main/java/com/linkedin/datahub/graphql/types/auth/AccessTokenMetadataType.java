@@ -21,14 +21,14 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
-public class AccessTokenMetadataType implements com.linkedin.datahub.graphql.types.EntityType<AccessTokenMetadata, String> {
 
-  static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(
-      Constants.ACCESS_TOKEN_INFO_NAME
-  );
+public class AccessTokenMetadataType
+    implements com.linkedin.datahub.graphql.types.EntityType<AccessTokenMetadata, String> {
+
+  static final Set<String> ASPECTS_TO_FETCH = ImmutableSet.of(Constants.ACCESS_TOKEN_INFO_NAME);
   private final EntityClient _entityClient;
 
-  public AccessTokenMetadataType(final EntityClient entityClient)  {
+  public AccessTokenMetadataType(final EntityClient entityClient) {
     _entityClient = entityClient;
   }
 
@@ -48,29 +48,23 @@ public class AccessTokenMetadataType implements com.linkedin.datahub.graphql.typ
   }
 
   @Override
-  public List<DataFetcherResult<AccessTokenMetadata>> batchLoad(@Nonnull List<String> keys, @Nonnull QueryContext context)
-      throws Exception {
-      final List<Urn> tokenInfoUrns = keys.stream()
-        .map(UrnUtils::getUrn)
-        .collect(Collectors.toList());
+  public List<DataFetcherResult<AccessTokenMetadata>> batchLoad(@Nonnull List<String> keys,
+      @Nonnull QueryContext context) throws Exception {
+    final List<Urn> tokenInfoUrns = keys.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
-      final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(
-          Constants.ACCESS_TOKEN_ENTITY_NAME,
-          new HashSet<>(tokenInfoUrns),
-          ASPECTS_TO_FETCH,
-          context.getAuthentication());
+      final Map<Urn, EntityResponse> entities =
+          _entityClient.batchGetV2(Constants.ACCESS_TOKEN_ENTITY_NAME, new HashSet<>(tokenInfoUrns), ASPECTS_TO_FETCH,
+              context.getAuthentication());
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : tokenInfoUrns) {
         gmsResults.add(entities.getOrDefault(urn, null));
       }
       return gmsResults.stream()
-          .map(gmsResult ->
-              gmsResult == null ? null : DataFetcherResult.<AccessTokenMetadata>newResult()
-                  .data(AccessTokenMetadataMapper.map(gmsResult))
-                  .build()
-          )
+          .map(gmsResult -> gmsResult == null ? null : DataFetcherResult.<AccessTokenMetadata>newResult()
+              .data(AccessTokenMetadataMapper.map(gmsResult))
+              .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
       throw new RuntimeException("Failed to batch load Access Token Info", e);

@@ -113,7 +113,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
    * Returns true if the authenticated user has privileges to manage access tokens
    */
   private boolean canManageTokens(final QueryContext context) {
-    return isAuthorized(context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_ALL_ACCESS_TOKENS_PRIVILEGE);
+    return isAuthorized(context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_ACCESS_TOKENS);
   }
 
   /**

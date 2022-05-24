@@ -25,7 +25,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 
 /**
- * Resolver for generating personal & service principal access tokens
+ * Resolver for creating personal & service principal v2-type (stateful) access tokens.
  */
 @Slf4j
 public class CreateAccessTokenResolver implements DataFetcher<CompletableFuture<AccessToken>> {
@@ -45,18 +45,19 @@ public class CreateAccessTokenResolver implements DataFetcher<CompletableFuture<
       log.info("User {} requesting new access token for user {} ", context.getActorUrn(), input.getActorUrn());
 
       if (isAuthorizedToGenerateToken(context, input)) {
-        final TokenType type = TokenType.valueOf(input.getType().toString()); // warn: if we are out of sync with AccessTokenType there are problems.
+        final TokenType type = TokenType.valueOf(
+            input.getType().toString()); // warn: if we are out of sync with AccessTokenType there are problems.
         final String actorUrn = input.getActorUrn();
         final Date date = new Date();
         final long createdAtInMs = date.getTime();
         final long expiresInMs = AccessTokenUtil.mapDurationToMs(input.getDuration());
 
-        final String tokenName = input.getName() != null ? input.getName() : "";
-        final String tokenDescription = input.getDescription() != null ? input.getDescription() : "";
+        final String tokenName = input.getName();
+        final String tokenDescription = input.getDescription();
 
-        final String accessToken = _statefulTokenService.generateAccessToken(type,
-            createActor(input.getType(), actorUrn), expiresInMs, createdAtInMs, tokenName, tokenDescription,
-            context.getActorUrn());
+        final String accessToken =
+            _statefulTokenService.generateAccessToken(type, createActor(input.getType(), actorUrn), expiresInMs,
+                createdAtInMs, tokenName, tokenDescription, context.getActorUrn());
         log.info("Generated access token for {} of type {} with duration {}", input.getActorUrn(), input.getType(),
             input.getDuration());
         try {
@@ -71,35 +72,33 @@ public class CreateAccessTokenResolver implements DataFetcher<CompletableFuture<
 
           return result;
         } catch (Exception e) {
-          throw new RuntimeException(String.format("Failed to create new access token with name %s", input.getName()), e);
+          throw new RuntimeException(String.format("Failed to create new access token with name %s", input.getName()),
+              e);
         }
       }
-      throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+      throw new AuthorizationException(
+          "Unauthorized to perform this action. Please contact your DataHub administrator.");
     });
   }
 
   private boolean isAuthorizedToGenerateToken(final QueryContext context, final CreateAccessTokenInput input) {
-    // Currently only an actor can generate a personal token for themselves.
     if (AccessTokenType.PERSONAL.equals(input.getType())) {
       return isAuthorizedToGeneratePersonalAccessToken(context, input);
     }
     throw new UnsupportedOperationException(String.format("Unsupported AccessTokenType %s provided", input.getType()));
   }
 
-  private boolean isAuthorizedToGeneratePersonalAccessToken(final QueryContext context, final CreateAccessTokenInput input) {
-    if (input.getActorUrn().equals(context.getActorUrn())) {
-      return AuthorizationUtils.canGeneratePersonalAccessToken(context) || AuthorizationUtils.canManageAllPersonalTokens(context);
-    }
-    return AuthorizationUtils.canManageAllPersonalTokens(context);
+  private boolean isAuthorizedToGeneratePersonalAccessToken(final QueryContext context,
+      final CreateAccessTokenInput input) {
+    return AuthorizationUtils.canManageTokens(context)
+        || input.getActorUrn().equals(context.getActorUrn()) && AuthorizationUtils.canGeneratePersonalAccessToken(
+        context);
   }
 
   private Actor createActor(AccessTokenType tokenType, String actorUrn) {
     if (AccessTokenType.PERSONAL.equals(tokenType)) {
       // If we are generating a personal access token, then the actor will be of "USER" type.
-      return new Actor(
-          ActorType.USER,
-          UrnUtils.getUrn(actorUrn).getId()
-      );
+      return new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId());
     }
     throw new IllegalArgumentException(String.format("Unsupported token type %s provided", tokenType));
   }

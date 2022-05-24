@@ -51,7 +51,7 @@ record DataHubAccessTokenInfo {
      "fieldType": "COUNT",
      "queryByDefault": false
   }
-  expiredAt: Time
+  expiresAt: Time
 
   /**
    * Description of the token if defined.

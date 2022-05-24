@@ -196,12 +196,12 @@ type AccessTokenMetadata implements Entity {
   """
   The unique identifier of the token.
   """
-  tokenId: String!
+  id: String!
 
   """
   The name of the token, if it exists.
   """
-  tokenName: String!
+  name: String!
 
   """
   The description of the token if defined.
@@ -226,7 +226,7 @@ type AccessTokenMetadata implements Entity {
   """
   Time when token will be expired.
   """
-  expiredAt: Long!
+  expiresAt: Long!
 
   """
   Granular API for querying edges extending from this entity

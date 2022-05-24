@@ -5,9 +5,10 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationConstants;
 import com.datahub.authentication.AuthenticationExpiredException;
-import com.datahub.authentication.AuthenticatorContext;
+import com.datahub.authentication.AuthenticationRequest;
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.Authenticator;
+import com.datahub.authentication.AuthenticatorContext;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.token.TokenClaims;
 import com.datahub.authentication.token.TokenExpiredException;
@@ -33,7 +34,7 @@ import static com.datahub.authentication.AuthenticationConstants.*;
 public class DataHubTokenAuthenticator implements Authenticator {
 
   static final String SIGNING_KEY_CONFIG_NAME = "signingKey";
-  static final String SALTING_KEY_CONFIG_NAME = "saltingKey";
+  static final String SALT_CONFIG_NAME = "salt";
   static final String SIGNING_ALG_CONFIG_NAME = "signingAlg";
   static final String DEFAULT_SIGNING_ALG = "HS256";
   static final String DEFAULT_ISSUER = "datahub-metadata-service";
@@ -42,25 +43,32 @@ public class DataHubTokenAuthenticator implements Authenticator {
   StatefulTokenService _statefulTokenService;
 
   @Override
-  public void init(@Nonnull final Map<String, Object> config, @Nonnull final Map<String, Object> context) {
+  public void init(@Nonnull final Map<String, Object> config, final AuthenticatorContext context) {
     Objects.requireNonNull(config, "Config parameter cannot be null");
-    final String signingKey = Objects.requireNonNull((String) config.get(SIGNING_KEY_CONFIG_NAME), "signingKey is a required config");
-    final String saltingKey = Objects.requireNonNull((String) config.get(SALTING_KEY_CONFIG_NAME), "saltingKey is a required config");
+    Objects.requireNonNull(context, "Context parameter cannot be null");
+    final String signingKey =
+        Objects.requireNonNull((String) config.get(SIGNING_KEY_CONFIG_NAME), "signingKey is a required config");
+    final String salt =
+        Objects.requireNonNull((String) config.get(SALT_CONFIG_NAME), "salt is a required config");
     final String signingAlgorithm = (String) config.getOrDefault(SIGNING_ALG_CONFIG_NAME, DEFAULT_SIGNING_ALG);
     log.debug(String.format("Creating TokenService using signing algorithm %s", signingAlgorithm));
-    if (!context.containsKey(AuthenticationConstants.ENTITY_SERVICE)) {
-      throw new RuntimeException("Unable to initialize DataHubTokenAuthenticator, entity service reference not found.");
+    if (!context.data().containsKey(AuthenticationConstants.ENTITY_SERVICE)) {
+      throw new IllegalArgumentException("Unable to initialize DataHubTokenAuthenticator, entity service reference not"
+          + " found.");
     }
-    final Object entityService = context.get(ENTITY_SERVICE);
+    final Object entityService = context.data().get(ENTITY_SERVICE);
     if (!(entityService instanceof EntityService)) {
-      throw new RuntimeException("Unable to initialize DataHubTokenAuthenticator, entity service reference is not of type: EntityService.");
+      throw new RuntimeException(
+          "Unable to initialize DataHubTokenAuthenticator, entity service reference is not of type: "
+              + "EntityService.class, found: " + entityService.getClass());
     }
-    this._statefulTokenService = new StatefulTokenService(signingKey, signingAlgorithm, DEFAULT_ISSUER,
-        (EntityService) entityService, saltingKey);
+    this._statefulTokenService =
+        new StatefulTokenService(signingKey, signingAlgorithm, DEFAULT_ISSUER, (EntityService) entityService,
+            salt);
   }
 
   @Override
-  public Authentication authenticate(@Nonnull AuthenticatorContext context) throws AuthenticationException {
+  public Authentication authenticate(@Nonnull AuthenticationRequest context) throws AuthenticationException {
     Objects.requireNonNull(context);
     final String authorizationHeader = context.getRequestHeaders().get(AUTHORIZATION_HEADER_NAME); // Case insensitive
     if (authorizationHeader != null) {
@@ -78,10 +86,7 @@ public class DataHubTokenAuthenticator implements Authenticator {
     final String token = credentials.substring(7);
     try {
       final TokenClaims claims = this._statefulTokenService.validateAccessToken(token);
-      return new Authentication(
-          new Actor(claims.getActorType(), claims.getActorId()),
-          credentials,
-          claims.asMap());
+      return new Authentication(new Actor(claims.getActorType(), claims.getActorId()), credentials, claims.asMap());
     } catch (TokenExpiredException e) {
       throw new AuthenticationExpiredException(e.getMessage(), e);
     } catch (Exception e) {

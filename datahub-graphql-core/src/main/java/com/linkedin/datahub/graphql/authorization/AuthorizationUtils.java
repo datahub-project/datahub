@@ -21,8 +21,8 @@ public class AuthorizationUtils {
     return isAuthorized(context, Optional.empty(), PoliciesConfig.GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE);
   }
 
-  public static boolean canManageAllPersonalTokens(@Nonnull QueryContext context) {
-    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_ALL_ACCESS_TOKENS_PRIVILEGE);
+  public static boolean canManageTokens(@Nonnull QueryContext context) {
+    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_ACCESS_TOKENS);
   }
 
   public static boolean canManageDomains(@Nonnull QueryContext context) {

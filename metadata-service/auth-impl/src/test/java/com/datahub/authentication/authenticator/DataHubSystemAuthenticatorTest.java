@@ -3,7 +3,7 @@ package com.datahub.authentication.authenticator;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationException;
-import com.datahub.authentication.AuthenticatorContext;
+import com.datahub.authentication.AuthenticationRequest;
 import com.google.common.collect.ImmutableMap;
 import java.util.Collections;
 import org.testng.annotations.Test;
@@ -33,7 +33,7 @@ public class DataHubSystemAuthenticatorTest {
     final DataHubSystemAuthenticator authenticator = new DataHubSystemAuthenticator();
     authenticator.init(ImmutableMap.of(SYSTEM_CLIENT_ID_CONFIG, TEST_CLIENT_ID, SYSTEM_CLIENT_SECRET_CONFIG, TEST_CLIENT_SECRET), null);
 
-    final AuthenticatorContext context = new AuthenticatorContext(Collections.emptyMap());
+    final AuthenticationRequest context = new AuthenticationRequest(Collections.emptyMap());
     assertThrows(AuthenticationException.class, () -> authenticator.authenticate(context));
   }
 
@@ -42,7 +42,7 @@ public class DataHubSystemAuthenticatorTest {
     final DataHubSystemAuthenticator authenticator = new DataHubSystemAuthenticator();
     authenticator.init(ImmutableMap.of(SYSTEM_CLIENT_ID_CONFIG, TEST_CLIENT_ID, SYSTEM_CLIENT_SECRET_CONFIG, TEST_CLIENT_SECRET), null);
 
-    final AuthenticatorContext context = new AuthenticatorContext(
+    final AuthenticationRequest context = new AuthenticationRequest(
         ImmutableMap.of(AUTHORIZATION_HEADER_NAME, "Bearer something") // Missing basic authentication.
     );
     assertThrows(AuthenticationException.class, () -> authenticator.authenticate(context));
@@ -53,7 +53,7 @@ public class DataHubSystemAuthenticatorTest {
     final DataHubSystemAuthenticator authenticator = new DataHubSystemAuthenticator();
     authenticator.init(ImmutableMap.of(SYSTEM_CLIENT_ID_CONFIG, TEST_CLIENT_ID, SYSTEM_CLIENT_SECRET_CONFIG, TEST_CLIENT_SECRET), null);
 
-    final AuthenticatorContext context = new AuthenticatorContext(
+    final AuthenticationRequest context = new AuthenticationRequest(
         ImmutableMap.of(AUTHORIZATION_HEADER_NAME, "Basic incorrectId:incorrectSecret") // Incorrect authentication
     );
     assertThrows(AuthenticationException.class, () -> authenticator.authenticate(context));
@@ -66,7 +66,7 @@ public class DataHubSystemAuthenticatorTest {
     authenticator.init(ImmutableMap.of(SYSTEM_CLIENT_ID_CONFIG, TEST_CLIENT_ID, SYSTEM_CLIENT_SECRET_CONFIG, TEST_CLIENT_SECRET), null);
 
     final String authorizationHeaderValue = String.format("Basic %s:%s", TEST_CLIENT_ID, TEST_CLIENT_SECRET);
-    final AuthenticatorContext context = new AuthenticatorContext(
+    final AuthenticationRequest context = new AuthenticationRequest(
         ImmutableMap.of(AUTHORIZATION_HEADER_NAME, authorizationHeaderValue)
     );
 
@@ -87,7 +87,7 @@ public class DataHubSystemAuthenticatorTest {
     authenticator.init(ImmutableMap.of(SYSTEM_CLIENT_ID_CONFIG, TEST_CLIENT_ID, SYSTEM_CLIENT_SECRET_CONFIG, TEST_CLIENT_SECRET), null);
 
     final String authorizationHeaderValue = String.format("Basic %s:%s", TEST_CLIENT_ID, TEST_CLIENT_SECRET);
-    final AuthenticatorContext context = new AuthenticatorContext(
+    final AuthenticationRequest context = new AuthenticationRequest(
         ImmutableMap.of(
             AUTHORIZATION_HEADER_NAME, authorizationHeaderValue, LEGACY_X_DATAHUB_ACTOR_HEADER, "urn:li:corpuser:datahub")
     );
