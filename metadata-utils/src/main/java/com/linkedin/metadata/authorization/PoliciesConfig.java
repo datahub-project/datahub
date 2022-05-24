@@ -134,6 +134,11 @@ public class PoliciesConfig {
       "Edit Assertions",
       "The ability to add and remove assertions from an entity.");
 
+  public static final Privilege EDIT_ENTITY_OPERATIONS_PRIVILEGE = Privilege.of(
+      "EDIT_ENTITY_OPERATIONS",
+      "Edit Operations",
+      "The ability to report or edit operations information about an entity.");
+
   public static final Privilege EDIT_ENTITY_PRIVILEGE = Privilege.of(
       "EDIT_ENTITY",
       "Edit All",
