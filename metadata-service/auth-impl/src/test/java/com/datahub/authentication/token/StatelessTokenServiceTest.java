@@ -10,30 +10,30 @@ import static com.datahub.authentication.token.TokenClaims.*;
 import static org.testng.Assert.*;
 
 
-public class TokenServiceTest {
+public class StatelessTokenServiceTest {
 
   private static final String TEST_SIGNING_KEY = "WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=";
 
   @Test
   public void testConstructor() {
     final DataHubTokenAuthenticator authenticator = new DataHubTokenAuthenticator();
-    assertThrows(() -> new TokenService(null, null, null));
-    assertThrows(() -> new TokenService(TEST_SIGNING_KEY, null, null));
-    assertThrows(() -> new TokenService(TEST_SIGNING_KEY, "UNSUPPORTED_ALG", null));
+    assertThrows(() -> new StatelessTokenService(null, null, null));
+    assertThrows(() -> new StatelessTokenService(TEST_SIGNING_KEY, null, null));
+    assertThrows(() -> new StatelessTokenService(TEST_SIGNING_KEY, "UNSUPPORTED_ALG", null));
 
     // Succeeds:
-    new TokenService(TEST_SIGNING_KEY, "HS256");
-    new TokenService(TEST_SIGNING_KEY, "HS256", null);
+    new StatelessTokenService(TEST_SIGNING_KEY, "HS256");
+    new StatelessTokenService(TEST_SIGNING_KEY, "HS256", null);
   }
 
   @Test
   public void testGenerateAccessTokenPersonalToken() throws Exception {
-    TokenService tokenService = new TokenService(TEST_SIGNING_KEY, "HS256");
-    String token = tokenService.generateAccessToken(TokenType.PERSONAL, new Actor(ActorType.USER, "datahub"));
+    StatelessTokenService statelessTokenService = new StatelessTokenService(TEST_SIGNING_KEY, "HS256");
+    String token = statelessTokenService.generateAccessToken(TokenType.PERSONAL, new Actor(ActorType.USER, "datahub"));
     assertNotNull(token);
 
     // Verify token claims
-    TokenClaims claims = tokenService.validateAccessToken(token);
+    TokenClaims claims = statelessTokenService.validateAccessToken(token);
 
     assertEquals(claims.getTokenVersion(), TokenVersion.ONE);
     assertEquals(claims.getTokenType(), TokenType.PERSONAL);
@@ -51,12 +51,12 @@ public class TokenServiceTest {
 
   @Test
   public void testGenerateAccessTokenSessionToken() throws Exception {
-    TokenService tokenService = new TokenService(TEST_SIGNING_KEY, "HS256");
-    String token = tokenService.generateAccessToken(TokenType.SESSION, new Actor(ActorType.USER, "datahub"));
+    StatelessTokenService statelessTokenService = new StatelessTokenService(TEST_SIGNING_KEY, "HS256");
+    String token = statelessTokenService.generateAccessToken(TokenType.SESSION, new Actor(ActorType.USER, "datahub"));
     assertNotNull(token);
 
     // Verify token claims
-    TokenClaims claims = tokenService.validateAccessToken(token);
+    TokenClaims claims = statelessTokenService.validateAccessToken(token);
 
     assertEquals(claims.getTokenVersion(), TokenVersion.ONE);
     assertEquals(claims.getTokenType(), TokenType.SESSION);
@@ -73,25 +73,25 @@ public class TokenServiceTest {
 
   @Test
   public void testValidateAccessTokenFailsDueToExpiration() {
-    TokenService tokenService = new TokenService(TEST_SIGNING_KEY, "HS256");
+    StatelessTokenService statelessTokenService = new StatelessTokenService(TEST_SIGNING_KEY, "HS256");
     // Generate token that expires immediately.
-    String token = tokenService.generateAccessToken(TokenType.PERSONAL, new Actor(ActorType.USER, "datahub"), 0L);
+    String token = statelessTokenService.generateAccessToken(TokenType.PERSONAL, new Actor(ActorType.USER, "datahub"), 0L);
     assertNotNull(token);
 
     // Validation should fail.
-    assertThrows(TokenExpiredException.class, () -> tokenService.validateAccessToken(token));
+    assertThrows(TokenExpiredException.class, () -> statelessTokenService.validateAccessToken(token));
   }
 
   @Test
   public void testValidateAccessTokenFailsDueToManipulation() {
-    TokenService tokenService = new TokenService(TEST_SIGNING_KEY, "HS256");
-    String token = tokenService.generateAccessToken(TokenType.PERSONAL, new Actor(ActorType.USER, "datahub"));
+    StatelessTokenService statelessTokenService = new StatelessTokenService(TEST_SIGNING_KEY, "HS256");
+    String token = statelessTokenService.generateAccessToken(TokenType.PERSONAL, new Actor(ActorType.USER, "datahub"));
     assertNotNull(token);
 
     // Change single character
     String changedToken = token.substring(1);
 
     // Validation should fail.
-    assertThrows(TokenException.class, () -> tokenService.validateAccessToken(changedToken));
+    assertThrows(TokenException.class, () -> statelessTokenService.validateAccessToken(changedToken));
   }
 }

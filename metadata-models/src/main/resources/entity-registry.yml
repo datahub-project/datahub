@@ -214,4 +214,9 @@ entities:
     keyAspect: telemetryKey
     aspects:
       - telemetryClientId
+  - name: dataHubAccessToken
+    category: internal
+    keyAspect: dataHubAccessTokenKey
+    aspects:
+      - dataHubAccessTokenInfo
 events:
