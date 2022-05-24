@@ -1,6 +1,7 @@
 package com.datahub.authorization.fieldresolverprovider;
 
 import com.datahub.authorization.FieldResolver;
+import com.datahub.authorization.ResourceFieldType;
 import com.datahub.authorization.ResourceSpec;
 
 
