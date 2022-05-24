@@ -218,7 +218,7 @@ def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> N
     "--include-soft-deletes",
     is_flag=True,
     default=False,
-    help="If enabled, will list ingestion runs which have been soft deleted",
+    help="If enabled, will include aspects that have been soft deleted",
 )
 @click.option("-a", "--show-aspect", required=False, is_flag=True)
 @telemetry.with_telemetry
