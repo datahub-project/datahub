@@ -41,6 +41,7 @@ import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
 import com.linkedin.datahub.graphql.generated.LineageRelationship;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenResult;
 import com.linkedin.datahub.graphql.generated.ListDomainsResult;
+import com.linkedin.datahub.graphql.generated.ListTestsResult;
 import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
 import com.linkedin.datahub.graphql.generated.MLFeatureTable;
@@ -56,6 +57,8 @@ import com.linkedin.datahub.graphql.generated.PolicyMatchCriterionValue;
 import com.linkedin.datahub.graphql.generated.RecommendationContent;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
 import com.linkedin.datahub.graphql.generated.SearchResult;
+import com.linkedin.datahub.graphql.generated.Test;
+import com.linkedin.datahub.graphql.generated.TestResult;
 import com.linkedin.datahub.graphql.generated.UserUsageCounts;
 import com.linkedin.datahub.graphql.generated.VisualConfiguration;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
@@ -132,6 +135,10 @@ import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolve
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.SetTagColorResolver;
+import com.linkedin.datahub.graphql.resolvers.test.CreateTestResolver;
+import com.linkedin.datahub.graphql.resolvers.test.DeleteTestResolver;
+import com.linkedin.datahub.graphql.resolvers.test.ListTestsResolver;
+import com.linkedin.datahub.graphql.resolvers.test.TestResultsResolver;
 import com.linkedin.datahub.graphql.resolvers.timeline.GetSchemaBlameResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
@@ -172,6 +179,7 @@ import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLPrimaryKeyType;
 import com.linkedin.datahub.graphql.types.notebook.NotebookType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
+import com.linkedin.datahub.graphql.types.test.TestType;
 import com.linkedin.datahub.graphql.types.usage.UsageType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.config.IngestionConfiguration;
@@ -382,7 +390,8 @@ public class GmsGraphQLEngine {
             assertionType,
             versionedDatasetType,
             dataPlatformInstanceType,
-            accessTokenMetadataType
+            accessTokenMetadataType,
+            testType
         );
         this.loadableTypes = new ArrayList<>(entityTypes);
         this.ownerTypes = ImmutableList.of(corpUserType, corpGroupType);
@@ -640,7 +649,6 @@ public class GmsGraphQLEngine {
             .dataFetcher("deleteAssertion", new DeleteAssertionResolver(this.entityClient, this.entityService))
             .dataFetcher("createTest", new CreateTestResolver(this.entityClient))
             .dataFetcher("deleteTest", new DeleteTestResolver(this.entityClient))
-            .dataFetcher("reportOperation", new ReportOperationResolver(this.entityClient))
         );
     }
 

@@ -159,6 +159,11 @@ type ListTestsResult {
 
 input CreateTestInput {
   """
+  Advanced: a custom id for the test.
+  """
+  id: String
+
+  """
   The name of the Test
   """
   name: String!
@@ -195,5 +200,5 @@ extend type Mutation {
   """
   Create an existing test - note that this will NOT delete dangling pointers until the next execution of the test.
   """
-  deleteTest(urn: String!): String
+  deleteTest(urn: String!): Boolean
 }

@@ -24,6 +24,7 @@ import javax.annotation.Nonnull;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.test.TestUtils.*;
 
 
 /**
@@ -51,7 +52,7 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
         final ListTestsInput input = bindArgument(environment.getArgument("input"), ListTestsInput.class);
         final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
         final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
-        final String query = input.getQuery() == null ? "*" : input.getQuery();
+        final String query = input.getQuery() == null ? "" : input.getQuery();
 
         try {
           // First, get all group Urns.
@@ -89,9 +90,5 @@ public class ListTestsResolver implements DataFetcher<CompletableFuture<ListTest
       results.add(unresolvedTest);
     }
     return results;
-  }
-
-  public static boolean canManageTests(@Nonnull QueryContext context) {
-    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_TESTS_PRIVILEGE);
   }
 }

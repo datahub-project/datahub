@@ -36,6 +36,16 @@ record TestInfo {
     */
     definition: record TestDefinition {
       /**
+       * The Test Definition Type
+       */
+       type: enum TestDefinitionType {
+        /**
+         * JSON / YAML test def
+         */
+         JSON
+       }
+
+      /**
        * JSON format configuration for the test
        */
        json: optional string

@@ -12,13 +12,14 @@ import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.test.TestUtils.*;
 
 
 /**
  * Resolver responsible for hard deleting a particular DataHub Test. Requires MANAGE_TESTS
  * privilege.
  */
-public class DeleteTestResolver implements DataFetcher<CompletableFuture<String>> {
+public class DeleteTestResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityClient _entityClient;
 
@@ -27,24 +28,20 @@ public class DeleteTestResolver implements DataFetcher<CompletableFuture<String>
   }
 
   @Override
-  public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
-    if (canManageTests(context)) {
-      final String testUrn = environment.getArgument("urn");
-      final Urn urn = Urn.createFromString(testUrn);
-      return CompletableFuture.supplyAsync(() -> {
+    final String testUrn = environment.getArgument("urn");
+    final Urn urn = Urn.createFromString(testUrn);
+    return CompletableFuture.supplyAsync(() -> {
+      if (canManageTests(context)) {
         try {
           _entityClient.deleteEntity(urn, context.getAuthentication());
-          return testUrn;
+          return true;
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to perform delete against Test with urn %s", testUrn), e);
         }
-      });
-    }
-    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-  }
-
-  public static boolean canManageTests(@Nonnull QueryContext context) {
-    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_TESTS_PRIVILEGE);
+      }
+      throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+    });
   }
 }

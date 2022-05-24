@@ -13,6 +13,7 @@ import com.linkedin.metadata.key.TestKey;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.test.TestDefinition;
+import com.linkedin.test.TestDefinitionType;
 import com.linkedin.test.TestInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -23,6 +24,7 @@ import javax.annotation.Nonnull;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.test.TestUtils.*;
 
 
 /**
@@ -50,7 +52,7 @@ public class CreateTestResolver implements DataFetcher<CompletableFuture<String>
         // Create new test
         // Since we are creating a new Test, we need to generate a unique UUID.
         final UUID uuid = UUID.randomUUID();
-        final String uuidStr = uuid.toString();
+        final String uuidStr = input.getId() == null ? uuid.toString() : input.getId();
 
         // Create the Ingestion source key
         final TestKey key = new TestKey();
@@ -85,11 +87,8 @@ public class CreateTestResolver implements DataFetcher<CompletableFuture<String>
 
   private TestDefinition mapDefinition(final TestDefinitionInput testDefInput) {
     final TestDefinition result = new TestDefinition();
+    result.setType(TestDefinitionType.JSON); // Always JSON for now.
     result.setJson(testDefInput.getJson(), SetMode.IGNORE_NULL);
     return result;
-  }
-
-  public static boolean canManageTests(@Nonnull QueryContext context) {
-    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_TESTS_PRIVILEGE);
   }
 }
