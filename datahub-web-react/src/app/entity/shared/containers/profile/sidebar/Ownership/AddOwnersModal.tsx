@@ -76,6 +76,9 @@ export const AddOwnersModal = ({
     const groupSearchResults = groupSearchData?.search?.searchResults || [];
     const combinedSearchResults = [...userSearchResults, ...groupSearchResults];
 
+    // Add owners Form
+    const [form] = Form.useForm();
+
     useEffect(() => {
         if (ownershipTypes) {
             setSelectedOwnerType(ownershipTypes[0].type);
@@ -171,6 +174,7 @@ export const AddOwnersModal = ({
     const onModalClose = () => {
         setSelectedOwners([]);
         setSelectedOwnerType(defaultOwnerType || OwnershipType.None);
+        form.resetFields();
         onCloseModal();
     };
 
@@ -214,6 +218,8 @@ export const AddOwnersModal = ({
         }
     };
 
+    console.log('combinedSearchResults', combinedSearchResults);
+
     return (
         <Modal
             title="Add Owners"
@@ -231,8 +237,8 @@ export const AddOwnersModal = ({
                 </>
             }
         >
-            <Form layout="vertical" colon={false}>
-                <Form.Item label={<Typography.Text strong>Owner</Typography.Text>}>
+            <Form layout="vertical" form={form} colon={false}>
+                <Form.Item key="owners" name="owners" label={<Typography.Text strong>Owner</Typography.Text>}>
                     <Typography.Paragraph>Find a user or group</Typography.Paragraph>
                     <Form.Item name="owner">
                         <SelectInput
