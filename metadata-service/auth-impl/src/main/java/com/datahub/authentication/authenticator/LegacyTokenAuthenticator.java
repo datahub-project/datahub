@@ -3,6 +3,7 @@ package com.datahub.authentication.authenticator;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationRequest;
 import com.datahub.authentication.AuthenticatorContext;
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.Authenticator;
@@ -15,6 +16,7 @@ import java.util.Collections;
 import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.datahub.authentication.AuthenticationConstants.*;
@@ -39,7 +41,7 @@ public class LegacyTokenAuthenticator implements Authenticator {
   private String signingKey;
 
   @Override
-  public void init(@Nonnull final Map<String, Object> config) {
+  public void init(@Nonnull final Map<String, Object> config, @Nullable final AuthenticatorContext context) {
     Objects.requireNonNull(config, "Config parameter cannot be null");
     final String signingKey = Objects.requireNonNull((String) config.get(SIGNING_KEY_CONFIG_NAME), "signingKey is a required config");
     log.debug("Creating LegacyTokenService");
@@ -47,7 +49,7 @@ public class LegacyTokenAuthenticator implements Authenticator {
   }
 
   @Override
-  public Authentication authenticate(@Nonnull AuthenticatorContext context) throws AuthenticationException {
+  public Authentication authenticate(@Nonnull AuthenticationRequest context) throws AuthenticationException {
     Objects.requireNonNull(context);
     final String authorizationHeader = context.getRequestHeaders().get(AUTHORIZATION_HEADER_NAME); // Case insensitive
     if (authorizationHeader != null) {
