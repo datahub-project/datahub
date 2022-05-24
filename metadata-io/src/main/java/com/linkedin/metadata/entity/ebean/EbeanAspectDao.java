@@ -4,6 +4,7 @@ import com.datahub.util.exception.ModelConversionException;
 import com.datahub.util.exception.RetryLimitReached;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectStorageValidationUtil;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.query.ExtraInfo;
@@ -19,6 +20,7 @@ import io.ebean.Query;
 import io.ebean.RawSql;
 import io.ebean.RawSqlBuilder;
 import io.ebean.Transaction;
+import io.ebean.TxScope;
 import io.ebean.annotation.TxIsolation;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
@@ -38,10 +40,10 @@ import javax.persistence.RollbackException;
 import javax.persistence.Table;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 
 @Slf4j
-public class EbeanAspectDao {
+public class EbeanAspectDao implements AspectDao {
 
   private final EbeanServer _server;
   private boolean _connectionValidated = false;
@@ -111,7 +113,7 @@ public class EbeanAspectDao {
       return 0;
     }
     // Save oldValue as the largest version + 1
-    long largestVersion = 0;
+    long largestVersion = ASPECT_LATEST_VERSION;
     if (oldAspectMetadata != null && oldTime != null) {
       largestVersion = nextVersion;
       saveAspect(urn, aspectName, oldAspectMetadata, oldActor, oldImpersonator, oldTime, oldSystemMetadata, largestVersion, true);
@@ -160,7 +162,7 @@ public class EbeanAspectDao {
   @Nullable
   protected EbeanAspectV2 getLatestAspect(@Nonnull final String urn, @Nonnull final String aspectName) {
     validateConnection();
-    final EbeanAspectV2.PrimaryKey key = new EbeanAspectV2.PrimaryKey(urn, aspectName, 0L);
+    final EbeanAspectV2.PrimaryKey key = new EbeanAspectV2.PrimaryKey(urn, aspectName, ASPECT_LATEST_VERSION);
     return _server.find(EbeanAspectV2.class, key);
   }
 
@@ -348,14 +350,17 @@ public class EbeanAspectDao {
 
   @Nonnull
   public ListResult<String> listUrns(
+      @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final int start,
       final int pageSize) {
     validateConnection();
 
+    final String urnPrefixMatcher = "urn:li:" + entityName + ":%";
     final PagedList<EbeanAspectV2> pagedList = _server.find(EbeanAspectV2.class)
         .select(EbeanAspectV2.KEY_ID)
         .where()
+        .like(EbeanAspectV2.URN_COLUMN, urnPrefixMatcher)
         .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
         .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
         .setFirstRow(start)
@@ -443,7 +448,7 @@ public class EbeanAspectDao {
 
     T result = null;
     do {
-      try (Transaction transaction = _server.beginTransaction(TxIsolation.REPEATABLE_READ)) {
+      try (Transaction transaction = _server.beginTransaction(TxScope.requiresNew().setIsolation(TxIsolation.REPEATABLE_READ))) {
         transaction.setBatchMode(true);
         result = block.get();
         transaction.commit();
@@ -494,13 +499,17 @@ public class EbeanAspectDao {
     if (exp == null) {
       return result;
     }
+    // Order by ascending version so that the results are correctly populated.
+    // TODO: Improve the below logic to be more explicit.
+    exp.orderBy().asc(EbeanAspectV2.VERSION_COLUMN);
     List<EbeanAspectV2.PrimaryKey> dbResults = exp.endOr().findIds();
 
     for (EbeanAspectV2.PrimaryKey key: dbResults) {
       result.put(key.getAspect(), key.getVersion());
     }
+
     for (String aspectName: aspectNames) {
-      long nextVal = 0L;
+      long nextVal = ASPECT_LATEST_VERSION;
       if (result.containsKey(aspectName)) {
         nextVal = result.get(aspectName) + 1L;
       }

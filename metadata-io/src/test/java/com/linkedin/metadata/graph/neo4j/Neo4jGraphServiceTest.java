@@ -2,7 +2,7 @@ package com.linkedin.metadata.graph.neo4j;
 
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
-import com.linkedin.metadata.graph.LineageRegistry;
+import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntity;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
@@ -53,7 +53,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
 
   @Override
   protected void assertEqualsAnyOrder(RelatedEntitiesResult actual, RelatedEntitiesResult expected) {
-    // https://github.com/linkedin/datahub/issues/3118
+    // https://github.com/datahub-project/datahub/issues/3118
     // Neo4jGraphService produces duplicates, which is here ignored until fixed
     // actual.count and actual.total not tested due to duplicates
     assertEquals(actual.getStart(), expected.getStart());
@@ -62,7 +62,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
 
   @Override
   protected <T> void assertEqualsAnyOrder(List<T> actual, List<T> expected, Comparator<T> comparator) {
-    // https://github.com/linkedin/datahub/issues/3118
+    // https://github.com/datahub-project/datahub/issues/3118
     // Neo4jGraphService produces duplicates, which is here ignored until fixed
     assertEquals(
             new HashSet<>(actual),
@@ -76,11 +76,11 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
                                                 RelationshipFilter relationships,
                                                 List<RelatedEntity> expectedRelatedEntities) throws Exception {
     if (datasetType != null && datasetType.isEmpty()) {
-      // https://github.com/linkedin/datahub/issues/3119
+      // https://github.com/datahub-project/datahub/issues/3119
       throw new SkipException("Neo4jGraphService does not support empty source type");
     }
     if (datasetType != null && datasetType.equals(GraphServiceTestBase.userType)) {
-      // https://github.com/linkedin/datahub/issues/3123
+      // https://github.com/datahub-project/datahub/issues/3123
       // only test cases with "user" type fail due to this bug
       throw new SkipException("Neo4jGraphService does not apply source / destination types");
     }
@@ -93,11 +93,11 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
                                                      RelationshipFilter relationships,
                                                      List<RelatedEntity> expectedRelatedEntities) throws Exception {
     if (datasetType != null && datasetType.isEmpty()) {
-      // https://github.com/linkedin/datahub/issues/3119
+      // https://github.com/datahub-project/datahub/issues/3119
       throw new SkipException("Neo4jGraphService does not support empty destination type");
     }
     if (relationshipTypes.contains(hasOwner)) {
-      // https://github.com/linkedin/datahub/issues/3123
+      // https://github.com/datahub-project/datahub/issues/3123
       // only test cases with "HasOwner" relatioship fail due to this bug
       throw new SkipException("Neo4jGraphService does not apply source / destination types");
     }
@@ -107,49 +107,49 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
   @Test
   @Override
   public void testFindRelatedEntitiesNullSourceType() throws Exception {
-    // https://github.com/linkedin/datahub/issues/3121
+    // https://github.com/datahub-project/datahub/issues/3121
     throw new SkipException("Neo4jGraphService does not support 'null' entity type string");
   }
 
   @Test
   @Override
   public void testFindRelatedEntitiesNullDestinationType() throws Exception {
-    // https://github.com/linkedin/datahub/issues/3121
+    // https://github.com/datahub-project/datahub/issues/3121
     throw new SkipException("Neo4jGraphService does not support 'null' entity type string");
   }
 
   @Test
   @Override
   public void testFindRelatedEntitiesNoRelationshipTypes() {
-    // https://github.com/linkedin/datahub/issues/3120
+    // https://github.com/datahub-project/datahub/issues/3120
     throw new SkipException("Neo4jGraphService does not support empty list of relationship types");
   }
 
   @Test
   @Override
   public void testRemoveEdgesFromNodeNoRelationshipTypes() {
-    // https://github.com/linkedin/datahub/issues/3120
+    // https://github.com/datahub-project/datahub/issues/3120
     throw new SkipException("Neo4jGraphService does not support empty list of relationship types");
   }
 
   @Test
   @Override
   public void testConcurrentAddEdge() {
-    // https://github.com/linkedin/datahub/issues/3141
+    // https://github.com/datahub-project/datahub/issues/3141
     throw new SkipException("Neo4jGraphService does not manage to add all edges added concurrently");
   }
 
   @Test
   @Override
   public void testConcurrentRemoveEdgesFromNode() {
-    // https://github.com/linkedin/datahub/issues/3118
+    // https://github.com/datahub-project/datahub/issues/3118
     throw new SkipException("Neo4jGraphService produces duplicates");
   }
 
   @Test
   @Override
   public void testConcurrentRemoveNodes() {
-    // https://github.com/linkedin/datahub/issues/3118
+    // https://github.com/datahub-project/datahub/issues/3118
     throw new SkipException("Neo4jGraphService produces duplicates");
   }
 

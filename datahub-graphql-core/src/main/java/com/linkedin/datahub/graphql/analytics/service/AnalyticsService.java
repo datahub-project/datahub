@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.analytics.service;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.graphql.generated.BarSegment;
 import com.linkedin.datahub.graphql.generated.Cell;
 import com.linkedin.datahub.graphql.generated.DateInterval;
@@ -75,14 +74,14 @@ public class AnalyticsService {
 
   public List<NamedLine> getTimeseriesChart(String indexName, DateRange dateRange, DateInterval granularity,
       Optional<String> dimension, // Length 1 for now
-      Map<String, List<String>> filters, Optional<String> uniqueOn) {
+      Map<String, List<String>> filters, Map<String, List<String>> mustNotFilters, Optional<String> uniqueOn) {
 
     log.debug(
         String.format("Invoked getTimeseriesChart with indexName: %s, dateRange: %s, granularity: %s, dimension: %s,",
             indexName, dateRange, granularity, dimension) + String.format("filters: %s, uniqueOn: %s", filters,
             uniqueOn));
 
-    AggregationBuilder filteredAgg = getFilteredAggregation(filters, ImmutableMap.of(), Optional.of(dateRange));
+    AggregationBuilder filteredAgg = getFilteredAggregation(filters, mustNotFilters, Optional.of(dateRange));
 
     AggregationBuilder dateHistogram = AggregationBuilders.dateHistogram(DATE_HISTOGRAM)
         .field("timestamp")
@@ -128,13 +127,14 @@ public class AnalyticsService {
 
   public List<NamedBar> getBarChart(String indexName, Optional<DateRange> dateRange, List<String> dimensions,
       // Length 1 or 2
-      Map<String, List<String>> filters, Optional<String> uniqueOn, boolean showMissing) {
+      Map<String, List<String>> filters, Map<String, List<String>> mustNotFilters, Optional<String> uniqueOn,
+      boolean showMissing) {
     log.debug(
         String.format("Invoked getBarChart with indexName: %s, dateRange: %s, dimensions: %s,", indexName, dateRange,
             dimensions) + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
 
     assert (dimensions.size() == 1 || dimensions.size() == 2);
-    AggregationBuilder filteredAgg = getFilteredAggregation(filters, ImmutableMap.of(), dateRange);
+    AggregationBuilder filteredAgg = getFilteredAggregation(filters, mustNotFilters, dateRange);
 
     TermsAggregationBuilder termAgg = AggregationBuilders.terms(DIMENSION).field(dimensions.get(0));
     if (showMissing) {
@@ -142,8 +142,7 @@ public class AnalyticsService {
     }
 
     if (dimensions.size() == 2) {
-      TermsAggregationBuilder secondTermAgg =
-          AggregationBuilders.terms(SECOND_DIMENSION).field(dimensions.get(1));
+      TermsAggregationBuilder secondTermAgg = AggregationBuilders.terms(SECOND_DIMENSION).field(dimensions.get(1));
       if (showMissing) {
         secondTermAgg.missing(NA);
       }
@@ -194,13 +193,13 @@ public class AnalyticsService {
   }
 
   public List<Row> getTopNTableChart(String indexName, Optional<DateRange> dateRange, String groupBy,
-      Map<String, List<String>> filters, Optional<String> uniqueOn, int maxRows,
-      Function<String, Cell> groupByValueToCell) {
+      Map<String, List<String>> filters, Map<String, List<String>> mustNotFilters, Optional<String> uniqueOn,
+      int maxRows, Function<String, Cell> groupByValueToCell) {
     log.debug(
         String.format("Invoked getTopNTableChart with indexName: %s, dateRange: %s, groupBy: %s", indexName, dateRange,
             groupBy) + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
 
-    AggregationBuilder filteredAgg = getFilteredAggregation(filters, ImmutableMap.of(), dateRange);
+    AggregationBuilder filteredAgg = getFilteredAggregation(filters, mustNotFilters, dateRange);
 
     TermsAggregationBuilder termAgg = AggregationBuilders.terms(DIMENSION).field(groupBy).size(maxRows);
     if (uniqueOn.isPresent()) {

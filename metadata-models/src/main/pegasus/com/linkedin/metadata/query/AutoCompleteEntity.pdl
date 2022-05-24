@@ -1,0 +1,13 @@
+namespace com.linkedin.metadata.query
+
+import com.linkedin.common.Urn
+
+/**
+ * Data model for an entity returned as an autocomplete suggestion
+ */
+record AutoCompleteEntity {
+  /**
+   * Urn of the entity
+   */
+  urn: Urn
+}

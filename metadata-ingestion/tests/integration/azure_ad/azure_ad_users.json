@@ -1,5 +1,6 @@
 [
     {
+        "@odata.type": "#microsoft.graph.user",
         "displayName": "John Green",
         "surname": "Green",
         "givenName": "John",
@@ -13,6 +14,7 @@
         "preferredLanguage": null
     },
     {
+        "@odata.type": "#microsoft.graph.user",
         "displayName": "Adam Hall",
         "surname": "Hall",
         "givenName": "Adam",

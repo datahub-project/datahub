@@ -23,7 +23,10 @@ logger = logging.getLogger(__name__)
 @click.pass_context
 @telemetry.with_telemetry
 def get(ctx: Any, urn: Optional[str], aspect: List[str]) -> None:
-    """Get metadata for an entity with an optional list of aspects to project"""
+    """
+    Get metadata for an entity with an optional list of aspects to project.
+    This works for both versioned aspects and timeseries aspects. For timeseries aspects, it fetches the latest value.
+    """
 
     if urn is None:
         if not ctx.args:

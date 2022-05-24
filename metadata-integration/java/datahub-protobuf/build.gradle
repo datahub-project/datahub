@@ -1,0 +1,55 @@
+plugins {
+    id("com.palantir.git-version") apply false
+}
+apply plugin: 'java'
+apply plugin: 'jacoco'
+
+afterEvaluate {
+    if (project.plugins.hasPlugin('java')) {
+        sourceCompatibility = 11
+        targetCompatibility = 11
+    }
+}
+
+dependencies {
+    implementation project(':metadata-models')
+    implementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
+
+    implementation externalDependency.protobuf
+    implementation externalDependency.jgrapht
+    implementation externalDependency.gson
+
+    compileOnly externalDependency.lombok
+    annotationProcessor externalDependency.lombok
+    testImplementation externalDependency.junitJupiterApi
+    testRuntimeOnly externalDependency.junitJupiterEngine
+}
+
+import java.nio.file.Paths
+task compileProtobuf {
+    doLast {
+        def basePath = Paths.get("${projectDir}/src/test/resources")
+        [
+                fileTree("${projectDir}/src/test/resources/protobuf") { include "*.proto" },
+                fileTree("${projectDir}/src/test/resources/extended_protobuf") { include "*.proto" }
+        ].collectMany { it.collect() }.each { f ->
+            def input = basePath.relativize(Paths.get(f.getAbsolutePath()))
+            println(input.toString() + " => " + input.toString().replace(".proto", ".protoc"))
+            exec {
+                workingDir "${projectDir}/src/test/resources"
+                commandLine 'protoc', '--proto_path=.', '--include_imports', '--include_source_info',
+                        "--descriptor_set_out=${input.toString().replace(".proto", ".protoc")}",
+                        input
+            }
+        }
+    }
+}
+
+jacocoTestReport {
+    dependsOn test // tests are required to run before generating the report
+}
+
+test {
+    useJUnit()
+    finalizedBy jacocoTestReport
+}

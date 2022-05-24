@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { ShareAltOutlined } from '@ant-design/icons';
-import { DataFlow, EntityType, PlatformType, SearchResult } from '../../../types.generated';
+import { DataFlow, EntityType, OwnershipType, PlatformType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
@@ -62,6 +62,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
             useEntityQuery={useGetDataFlowQuery}
             useUpdateQuery={useUpdateDataFlowMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
+            showDeprecateOption
             tabs={[
                 {
                     name: 'Documentation',
@@ -89,6 +90,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 },
                 {
                     component: SidebarOwnerSection,
+                    properties: {
+                        defaultOwnerType: OwnershipType.TechnicalOwner,
+                    },
                 },
                 {
                     component: SidebarDomainSection,
@@ -142,6 +146,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
             <Preview
                 urn={data.urn}
                 name={data.properties?.name || ''}
+                platformInstanceId={data.dataPlatformInstance?.instanceId}
                 description={data.editableProperties?.description || data.properties?.description || ''}
                 platformName={platformName}
                 platformLogo={data?.platform?.properties?.logoUrl || ''}

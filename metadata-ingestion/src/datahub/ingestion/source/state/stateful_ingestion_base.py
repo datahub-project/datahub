@@ -1,10 +1,12 @@
 import logging
 import platform
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Optional, Type, cast
 
 import psutil
 import pydantic
+from pydantic.fields import Field
 
 from datahub.configuration.common import (
     ConfigModel,
@@ -20,7 +22,7 @@ from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
 from datahub.ingestion.api.ingestion_job_reporting_provider_base import (
     IngestionReportingProviderBase,
 )
-from datahub.ingestion.api.source import Source
+from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
 from datahub.ingestion.source.state_provider.state_provider_registry import (
     ingestion_checkpoint_provider_registry,
@@ -34,24 +36,50 @@ from datahub.metadata.schema_classes import (
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+class DynamicTypedStateProviderConfig(DynamicTypedConfig):
+    # Respecifying the base-class just to override field level docs
+
+    type: str = Field(
+        description="The type of the state provider to use. For DataHub use `datahub`",
+    )
+    # This config type is declared Optional[Any] here. The eventual parser for the
+    # specified type is responsible for further validation.
+    config: Optional[Any] = Field(
+        default=None,
+        description="The configuration required for initializing the state provider. Default: The datahub_api config if set at pipeline level. Otherwise, the default DatahubClientConfig. See the defaults (https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/graph/client.py#L19).",
+    )
+
+
 class StatefulIngestionConfig(ConfigModel):
     """
     Basic Stateful Ingestion Specific Configuration for any source.
     """
 
-    enabled: bool = False
+    enabled: bool = Field(
+        default=False,
+        description="The type of the ingestion state provider registered with datahub.",
+    )
     # fmt: off
-    max_checkpoint_state_size: pydantic.PositiveInt = 2**24  # 16MB
+    # 16MB
+    max_checkpoint_state_size: pydantic.PositiveInt = Field(default=2**24, description="The maximum size of the checkpoint state in bytes. Default is 16MB")  # 16MB
     # fmt: on
-    state_provider: Optional[DynamicTypedConfig] = None
-    ignore_old_state: bool = False
-    ignore_new_state: bool = False
+    state_provider: Optional[DynamicTypedStateProviderConfig] = Field(
+        default=None, description="The ingestion state provider configuration."
+    )
+    ignore_old_state: bool = Field(
+        default=False,
+        description="If set to True, ignores the previous checkpoint state.",
+    )
+    ignore_new_state: bool = Field(
+        default=False,
+        description="If set to True, ignores the current checkpoint state.",
+    )
 
     @pydantic.root_validator()
     def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         if values.get("enabled"):
             if values.get("state_provider") is None:
-                values["state_provider"] = DynamicTypedConfig(
+                values["state_provider"] = DynamicTypedStateProviderConfig(
                     type="datahub", config=None
                 )
         return values
@@ -63,6 +91,11 @@ class StatefulIngestionConfigBase(DatasetSourceConfigBase):
     """
 
     stateful_ingestion: Optional[StatefulIngestionConfig] = None
+
+
+@dataclass
+class StatefulIngestionReport(SourceReport):
+    pass
 
 
 class StatefulIngestionSourceBase(Source):
@@ -80,6 +113,15 @@ class StatefulIngestionSourceBase(Source):
         self.cur_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
         self.run_summaries_to_report: Dict[JobId, DatahubIngestionRunSummaryClass] = {}
         self._initialize_checkpointing_state_provider()
+        self.report: StatefulIngestionReport = StatefulIngestionReport()
+
+    def warn(self, log: logging.Logger, key: str, reason: str) -> None:
+        self.report.report_warning(key, reason)
+        log.warning(f"{key} => {reason}")
+
+    def error(self, log: logging.Logger, key: str, reason: str) -> None:
+        self.report.report_failure(key, reason)
+        log.error(f"{key} => {reason}")
 
     #
     # Checkpointing specific support.

@@ -49,5 +49,8 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
         schemaMetadata(version: 0) {
             ...schemaMetadataFields
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
 }

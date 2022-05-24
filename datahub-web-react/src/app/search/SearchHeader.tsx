@@ -1,4 +1,4 @@
-import * as React from 'react';
+import React, { useState } from 'react';
 import { Image, Layout } from 'antd';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
@@ -9,6 +9,8 @@ import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
 import EntityRegistry from '../entity/EntityRegistry';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { AdminHeaderLinks } from '../shared/admin/AdminHeaderLinks';
+import { useAppConfig } from '../useAppConfig';
+import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
 
 const { Header } = Layout;
 
@@ -73,13 +75,22 @@ export const SearchHeader = ({
     authenticatedUserPictureLink,
     entityRegistry,
 }: Props) => {
+    const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
     const themeConfig = useTheme();
+    const appConfig = useAppConfig();
 
     return (
         <Header style={styles.header as any}>
             <LogoSearchContainer>
                 <Link to="/">
-                    <LogoImage src={themeConfig.assets.logoUrl} preview={false} />
+                    <LogoImage
+                        src={
+                            appConfig.config !== DEFAULT_APP_CONFIG
+                                ? appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl
+                                : undefined
+                        }
+                        preview={false}
+                    />
                 </Link>
                 <SearchBar
                     initialQuery={initialQuery}
@@ -88,10 +99,12 @@ export const SearchHeader = ({
                     onSearch={onSearch}
                     onQueryChange={onQueryChange}
                     entityRegistry={entityRegistry}
+                    setIsSearchBarFocused={setIsSearchBarFocused}
+                    fixAutoComplete
                 />
             </LogoSearchContainer>
             <NavGroup>
-                <AdminHeaderLinks />
+                <AdminHeaderLinks areLinksHidden={isSearchBarFocused} />
                 <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
             </NavGroup>
         </Header>

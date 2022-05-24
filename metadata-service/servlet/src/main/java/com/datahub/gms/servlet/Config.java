@@ -3,6 +3,7 @@ package com.datahub.gms.servlet;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.PluginEntityRegistryLoader;
@@ -50,8 +51,16 @@ public class Config extends HttpServlet {
     return patchDiagnostics;
   }
 
+  private ConfigurationProvider getConfigProvider(WebApplicationContext ctx) {
+    return (ConfigurationProvider) ctx.getBean("configurationProvider");
+  }
+
   private GitVersion getGitVersion(WebApplicationContext ctx) {
     return (GitVersion) ctx.getBean("gitVersion");
+  }
+
+  private Boolean getDatasetUrnNameCasing(WebApplicationContext ctx) {
+    return (Boolean) ctx.getBean("datasetUrnNameCasing");
   }
 
   private boolean checkImpactAnalysisSupport(WebApplicationContext ctx) {
@@ -71,8 +80,25 @@ public class Config extends HttpServlet {
     versionConfig.put("linkedin/datahub", version.toConfig());
     config.put("versions", versionConfig);
 
+    ConfigurationProvider configProvider = getConfigProvider(ctx);
+
+    Map<String, Object> telemetryConfig = new HashMap<String, Object>() {{
+      put("enabledCli", configProvider.getTelemetry().enabledCli);
+      put("enabledIngestion", configProvider.getTelemetry().enabledIngestion);
+    }};
+    config.put("telemetry", telemetryConfig);
+
+    Map<String, Object> ingestionConfig = new HashMap<String, Object>() {{
+      put("enabled", configProvider.getIngestion().enabled);
+      put("defaultCliVersion", configProvider.getIngestion().defaultCliVersion);
+    }};
+    config.put("managedIngestion", ingestionConfig);
+
     resp.setContentType("application/json");
     PrintWriter out = resp.getWriter();
+
+    Boolean datasetUrnNameCasing = getDatasetUrnNameCasing(ctx);
+    config.put("datasetUrnNameCasing", datasetUrnNameCasing);
 
     try {
       Map<String, Object> config = new HashMap<>(this.config);

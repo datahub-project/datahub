@@ -74,7 +74,7 @@ try(Timer.Context ignored=MetricUtils.timer(this.getClass(),"timerName").timer()
 ## Enable monitoring through docker-compose
 
 We provide some example configuration for enabling monitoring in
-this [directory](https://github.com/linkedin/datahub/tree/master/docker/monitoring). Take a look at the docker-compose
+this [directory](https://github.com/datahub-project/datahub/tree/master/docker/monitoring). Take a look at the docker-compose
 files, which adds necessary env variables to existing containers, and spawns new containers (Jaeger, Prometheus,
 Grafana).
 

@@ -5,8 +5,7 @@ import {
     useGetDashboardQuery,
     useUpdateDashboardMutation,
 } from '../../../graphql/dashboard.generated';
-import { Dashboard, EntityType, PlatformType, SearchResult } from '../../../types.generated';
-import { EntityAndType } from '../../lineage/types';
+import { Dashboard, EntityType, OwnershipType, PlatformType, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
@@ -73,6 +72,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             useEntityQuery={useGetDashboardQuery}
             useUpdateQuery={useUpdateDashboardMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
+            showDeprecateOption
             tabs={[
                 {
                     name: 'Documentation',
@@ -104,6 +104,9 @@ export class DashboardEntity implements Entity<Dashboard> {
                 },
                 {
                     component: SidebarOwnerSection,
+                    properties: {
+                        defaultOwnerType: OwnershipType.TechnicalOwner,
+                    },
                 },
                 {
                     component: SidebarDomainSection,
@@ -159,6 +162,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 urn={data.urn}
                 platform={data.tool}
                 name={data.properties?.name}
+                platformInstanceId={data.dataPlatformInstance?.instanceId}
                 description={data.editableProperties?.description || data.properties?.description}
                 access={data.properties?.access}
                 tags={data.globalTags || undefined}
@@ -168,6 +172,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 logoUrl={data?.platform?.properties?.logoUrl || ''}
                 domain={data.domain}
                 container={data.container}
+                parentContainers={data.parentContainers}
             />
         );
     };
@@ -177,14 +182,6 @@ export class DashboardEntity implements Entity<Dashboard> {
             urn: entity.urn,
             name: entity.properties?.name || '',
             type: EntityType.Dashboard,
-            // eslint-disable-next-line @typescript-eslint/dot-notation
-            downstreamChildren: entity?.['downstream']?.relationships?.map(
-                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
-            ),
-            // eslint-disable-next-line @typescript-eslint/dot-notation
-            upstreamChildren: entity?.['upstream']?.relationships?.map(
-                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
-            ),
             icon: entity?.platform?.properties?.logoUrl || '',
             platform: entity.tool,
         };

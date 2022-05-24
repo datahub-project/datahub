@@ -10,6 +10,16 @@ export const INTERVAL_TO_SECONDS = {
     [DateInterval.Year]: 31536000,
 };
 
+export const INTERVAL_TO_MS = {
+    [DateInterval.Second]: 1000,
+    [DateInterval.Minute]: 60000,
+    [DateInterval.Hour]: 3600000,
+    [DateInterval.Day]: 86400000,
+    [DateInterval.Week]: 604800000,
+    [DateInterval.Month]: 2419200000,
+    [DateInterval.Year]: 31536000000,
+};
+
 export type TimeWindowSize = {
     interval: DateInterval;
     count: number;
@@ -95,4 +105,43 @@ export const toUTCDateTimeString = (timeMs: number) => {
 
 export const getLocaleTimezone = () => {
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
+};
+
+export const toRelativeTimeString = (timeMs: number) => {
+    const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+
+    const diffInMs = timeMs - new Date().getTime();
+
+    const diffInSeconds = Math.round(diffInMs / INTERVAL_TO_MS[DateInterval.Second]);
+    if (Math.abs(diffInSeconds) > 0 && Math.abs(diffInSeconds) <= 60) {
+        return rtf.format(diffInSeconds, 'second');
+    }
+
+    const diffInMinutes = Math.round(diffInMs / INTERVAL_TO_MS[DateInterval.Minute]);
+    if (Math.abs(diffInMinutes) > 0 && Math.abs(diffInMinutes) <= 60) {
+        return rtf.format(diffInMinutes, 'minute');
+    }
+
+    const diffInHours = Math.round(diffInMs / INTERVAL_TO_MS[DateInterval.Hour]);
+    if (Math.abs(diffInHours) > 0 && Math.abs(diffInHours) <= 24) {
+        return rtf.format(diffInHours, 'hour');
+    }
+
+    const diffInDays = Math.round(diffInMs / INTERVAL_TO_MS[DateInterval.Day]);
+    if (Math.abs(diffInDays) > 0 && Math.abs(diffInDays) <= 7) {
+        return rtf.format(diffInDays, 'day');
+    }
+
+    const diffInWeeks = Math.round(diffInMs / INTERVAL_TO_MS[DateInterval.Week]);
+    if (Math.abs(diffInWeeks) > 0 && Math.abs(diffInWeeks) <= 4) {
+        return rtf.format(diffInWeeks, 'week');
+    }
+
+    const diffInMonths = Math.round(diffInMs / INTERVAL_TO_MS[DateInterval.Month]);
+    if (Math.abs(diffInMonths) > 0 && Math.abs(diffInMonths) <= 12) {
+        return rtf.format(diffInMonths, 'month');
+    }
+
+    const diffInYears = Math.round(diffInMs / INTERVAL_TO_MS[DateInterval.Year]);
+    return rtf.format(diffInYears, 'year');
 };

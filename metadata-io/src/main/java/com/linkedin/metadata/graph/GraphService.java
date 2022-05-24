@@ -1,6 +1,7 @@
 package com.linkedin.metadata.graph;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;

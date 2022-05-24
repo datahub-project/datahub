@@ -1,36 +1,51 @@
 package com.linkedin.metadata.entity.ebean;
 
+import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
+import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.common.urn.VersionedUrnUtils;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.entity.AspectType;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
-import com.linkedin.metadata.event.EntityEventProducer;
+import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+import lombok.extern.slf4j.Slf4j;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -45,13 +60,9 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.entity.ebean.EbeanUtils.*;
-import static com.linkedin.metadata.utils.PegasusUtils.*;
+import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
+import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 
 
 /**
@@ -63,22 +74,22 @@ public class EbeanEntityService extends EntityService {
 
   private static final int DEFAULT_MAX_TRANSACTION_RETRY = 3;
 
-  private final EbeanAspectDao _entityDao;
+  private final EbeanAspectDao _aspectDao;
   private final JacksonDataTemplateCodec _dataTemplateCodec = new JacksonDataTemplateCodec();
 
-  public EbeanEntityService(@Nonnull final EbeanAspectDao entityDao, @Nonnull final EntityEventProducer eventProducer,
+  public EbeanEntityService(@Nonnull final EbeanAspectDao aspectDao, @Nonnull final EventProducer eventProducer,
       @Nonnull final EntityRegistry entityRegistry) {
     super(eventProducer, entityRegistry);
-    _entityDao = entityDao;
+    _aspectDao = aspectDao;
   }
 
-  @Nonnull Map<String, EbeanAspectV2> getLatestEbeanAspectForUrn(@Nonnull final Urn urn,
-    @Nonnull final Set<String> aspectNames) {
+  @Nonnull
+  private Map<String, EbeanAspectV2> getLatestAspectForUrn(@Nonnull final Urn urn, @Nonnull final Set<String> aspectNames) {
       Set<Urn> urns = new HashSet<>();
       urns.add(urn);
 
       Map<String, EbeanAspectV2> result = new HashMap<>();
-      getLatestAspectEbeans(urns, aspectNames).forEach((key, aspectEntry) -> {
+      getLatestAspect(urns, aspectNames).forEach((key, aspectEntry) -> {
         final String aspectName = key.getAspect();
         result.put(aspectName, aspectEntry);
       });
@@ -86,8 +97,7 @@ public class EbeanEntityService extends EntityService {
   }
 
   @Nonnull
-  private Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> getLatestAspectEbeans(@Nonnull final Set<Urn> urns,
-      @Nonnull final Set<String> aspectNames) {
+  private Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> getLatestAspect(@Nonnull final Set<Urn> urns, @Nonnull final Set<String> aspectNames) {
 
     log.debug("Invoked getLatestAspects with urns: {}, aspectNames: {}", urns, aspectNames);
 
@@ -100,20 +110,20 @@ public class EbeanEntityService extends EntityService {
     }).flatMap(List::stream).collect(Collectors.toSet());
 
     Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGetResults = new HashMap<>();
-    Iterators.partition(dbKeys.iterator(), 500)
-        .forEachRemaining(batch -> batchGetResults.putAll(_entityDao.batchGet(ImmutableSet.copyOf(batch))));
+    Iterators.partition(dbKeys.iterator(), MAX_KEYS_PER_QUERY)
+        .forEachRemaining(batch -> batchGetResults.putAll(_aspectDao.batchGet(ImmutableSet.copyOf(batch))));
     return batchGetResults;
   }
 
   @Override
   @Nonnull
   public Map<String, RecordTemplate> getLatestAspectsForUrn(@Nonnull final Urn urn, @Nonnull final Set<String> aspectNames) {
-    Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGetResults = getLatestAspectEbeans(new HashSet<>(Arrays.asList(urn)), aspectNames);
+    Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGetResults = getLatestAspect(new HashSet<>(Arrays.asList(urn)), aspectNames);
 
     final Map<String, RecordTemplate> result = new HashMap<>();
     batchGetResults.forEach((key, aspectEntry) -> {
       final String aspectName = key.getAspect();
-      final RecordTemplate aspectRecord = toAspectRecord(urn, aspectName, aspectEntry.getMetadata(), getEntityRegistry());
+      final RecordTemplate aspectRecord = EntityUtils.toAspectRecord(urn, aspectName, aspectEntry.getMetadata(), getEntityRegistry());
       result.put(aspectName, aspectRecord);
     });
     return result;
@@ -124,7 +134,7 @@ public class EbeanEntityService extends EntityService {
   public Map<Urn, List<RecordTemplate>> getLatestAspects(@Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames) {
 
-    Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGetResults = getLatestAspectEbeans(urns, aspectNames);
+    Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> batchGetResults = getLatestAspect(urns, aspectNames);
 
     // Fetch from db and populate urn -> aspect map.
     final Map<Urn, List<RecordTemplate>> urnToAspects = new HashMap<>();
@@ -149,7 +159,7 @@ public class EbeanEntityService extends EntityService {
       }
 
       final RecordTemplate aspectRecord =
-          toAspectRecord(urn, aspectName, aspectEntry.getMetadata(), getEntityRegistry());
+          EntityUtils.toAspectRecord(urn, aspectName, aspectEntry.getMetadata(), getEntityRegistry());
       urnToAspects.putIfAbsent(urn, new ArrayList<>());
       urnToAspects.get(urn).add(aspectRecord);
     });
@@ -164,7 +174,7 @@ public class EbeanEntityService extends EntityService {
    */
   private long calculateVersionNumber(@Nonnull final Urn urn, @Nonnull final String aspectName, @Nonnull long version) {
     if (version < 0) {
-      return _entityDao.getMaxVersion(urn.toString(), aspectName) + version + 1;
+      return _aspectDao.getMaxVersion(urn.toString(), aspectName) + version + 1;
     }
     return version;
   }
@@ -177,22 +187,9 @@ public class EbeanEntityService extends EntityService {
 
     version = calculateVersionNumber(urn, aspectName, version);
     final EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, version);
-    final Optional<EbeanAspectV2> maybeAspect = Optional.ofNullable(_entityDao.getAspect(primaryKey));
+    final Optional<EbeanAspectV2> maybeAspect = Optional.ofNullable(_aspectDao.getAspect(primaryKey));
     return maybeAspect.map(
-        ebeanAspect -> toAspectRecord(urn, aspectName, ebeanAspect.getMetadata(), getEntityRegistry())).orElse(null);
-  }
-
-  @Override
-  public EnvelopedAspect getLatestEnvelopedAspect(
-      @Nonnull String entityName,
-      @Nonnull Urn urn,
-      @Nonnull String aspectName) throws Exception {
-    return getLatestEnvelopedAspects(entityName, ImmutableSet.of(urn), ImmutableSet.of(aspectName)).getOrDefault(urn,
-        Collections.emptyList())
-        .stream()
-        .filter(envelopedAspect -> envelopedAspect.getName().equals(aspectName))
-        .findFirst()
-        .orElse(null);
+        aspect -> EntityUtils.toAspectRecord(urn, aspectName, aspect.getMetadata(), getEntityRegistry())).orElse(null);
   }
 
   @Override
@@ -209,6 +206,46 @@ public class EbeanEntityService extends EntityService {
         .flatMap(List::stream)
         .collect(Collectors.toSet());
 
+    return getCorrespondingAspects(dbKeys, urns);
+  }
+
+  @Override
+  public Map<Urn, List<EnvelopedAspect>> getVersionedEnvelopedAspects(
+      @Nonnull Set<VersionedUrn> versionedUrns,
+      @Nonnull Set<String> aspectNames) throws URISyntaxException {
+
+    Map<String, Map<String, Long>> urnAspectVersionMap = versionedUrns.stream()
+        .collect(Collectors.toMap(versionedUrn -> versionedUrn.getUrn().toString(),
+            versionedUrn -> VersionedUrnUtils.convertVersionStamp(versionedUrn.getVersionStamp())));
+
+    // Cover full/partial versionStamp
+    final Set<EbeanAspectV2.PrimaryKey> dbKeys = urnAspectVersionMap.entrySet().stream()
+        .filter(entry -> !entry.getValue().isEmpty())
+        .map(entry -> aspectNames.stream()
+            .filter(aspectName -> entry.getValue().containsKey(aspectName))
+            .map(aspectName -> new EbeanAspectV2.PrimaryKey(entry.getKey(), aspectName,
+                entry.getValue().get(aspectName)))
+            .collect(Collectors.toList()))
+        .flatMap(List::stream)
+        .collect(Collectors.toSet());
+
+    // Cover empty versionStamp
+    dbKeys.addAll(urnAspectVersionMap.entrySet().stream()
+        .filter(entry -> entry.getValue().isEmpty())
+        .map(entry -> aspectNames.stream()
+            .map(aspectName -> new EbeanAspectV2.PrimaryKey(entry.getKey(), aspectName, 0L))
+            .collect(Collectors.toList()))
+        .flatMap(List::stream)
+        .collect(Collectors.toSet()));
+
+    return getCorrespondingAspects(dbKeys, versionedUrns.stream()
+        .map(versionedUrn -> versionedUrn.getUrn().toString())
+        .map(UrnUtils::getUrn).collect(Collectors.toSet()));
+  }
+
+  private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EbeanAspectV2.PrimaryKey> dbKeys, Set<Urn> urns)
+      throws URISyntaxException {
+
     final Map<EbeanAspectV2.PrimaryKey, EnvelopedAspect> envelopedAspectMap = getEnvelopedAspects(dbKeys);
 
     // Group result by Urn
@@ -217,7 +254,6 @@ public class EbeanEntityService extends EntityService {
         .collect(Collectors.groupingBy(entry -> entry.getKey().getUrn(),
             Collectors.mapping(Map.Entry::getValue, Collectors.toList())));
 
-    // For each input urn, get the aspects corresponding to the urn. If empty, return the key aspect
     final Map<Urn, List<EnvelopedAspect>> result = new HashMap<>();
     for (Urn urn : urns) {
       List<EnvelopedAspect> aspects = urnToAspects.getOrDefault(urn.toString(), Collections.emptyList());
@@ -261,18 +297,18 @@ public class EbeanEntityService extends EntityService {
     version = calculateVersionNumber(urn, aspectName, version);
 
     final EbeanAspectV2.PrimaryKey primaryKey = new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, version);
-    final Optional<EbeanAspectV2> maybeAspect = Optional.ofNullable(_entityDao.getAspect(primaryKey));
-    RecordTemplate aspect =
-        maybeAspect.map(ebeanAspect -> toAspectRecord(urn, aspectName, ebeanAspect.getMetadata(), getEntityRegistry()))
+    final Optional<EbeanAspectV2> maybeAspect = Optional.ofNullable(_aspectDao.getAspect(primaryKey));
+    RecordTemplate aspectRecord =
+        maybeAspect.map(aspect -> EntityUtils.toAspectRecord(urn, aspectName, aspect.getMetadata(), getEntityRegistry()))
             .orElse(null);
 
-    if (aspect == null) {
+    if (aspectRecord == null) {
       return null;
     }
 
     Aspect resultAspect = new Aspect();
 
-    RecordUtils.setSelectedRecordTemplateInUnion(resultAspect, aspect);
+    RecordUtils.setSelectedRecordTemplateInUnion(resultAspect, aspectRecord);
     result.setAspect(resultAspect);
     result.setVersion(version);
 
@@ -288,11 +324,11 @@ public class EbeanEntityService extends EntityService {
             aspectName, start, count);
 
     final ListResult<String> aspectMetadataList =
-        _entityDao.listLatestAspectMetadata(entityName, aspectName, start, count);
+        _aspectDao.listLatestAspectMetadata(entityName, aspectName, start, count);
 
     final List<RecordTemplate> aspects = new ArrayList<>();
     for (int i = 0; i < aspectMetadataList.getValues().size(); i++) {
-      aspects.add(toAspectRecord(aspectMetadataList.getMetadata().getExtraInfos().get(i).getUrn(), aspectName,
+      aspects.add(EntityUtils.toAspectRecord(aspectMetadataList.getMetadata().getExtraInfos().get(i).getUrn(), aspectName,
           aspectMetadataList.getValues().get(i), getEntityRegistry()));
     }
 
@@ -307,10 +343,10 @@ public class EbeanEntityService extends EntityService {
       @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
       @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata providedSystemMetadata) {
 
-    return _entityDao.runInTransactionWithRetry(() -> {
+    return _aspectDao.runInTransactionWithRetry(() -> {
       final String urnStr = urn.toString();
-      final EbeanAspectV2 latest = _entityDao.getLatestAspect(urnStr, aspectName);
-      long nextVersion = _entityDao.getNextVersion(urnStr, aspectName);
+      final EbeanAspectV2 latest = _aspectDao.getLatestAspect(urnStr, aspectName);
+      long nextVersion = _aspectDao.getNextVersion(urnStr, aspectName);
 
       return ingestAspectToLocalDBNoTransaction(urn, aspectName, updateLambda, auditStamp, providedSystemMetadata, latest, nextVersion);
     }, DEFAULT_MAX_TRANSACTION_RETRY);
@@ -318,19 +354,21 @@ public class EbeanEntityService extends EntityService {
 
   @Override
   @Nonnull
-  protected List<Pair<String, UpdateAspectResult>> ingestAspectsToLocalDB(@Nonnull final Urn urn,
-     @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest,
-     @Nonnull final AuditStamp auditStamp, @Nonnull final SystemMetadata systemMetadata) {
+  protected List<Pair<String, UpdateAspectResult>> ingestAspectsToLocalDB(
+      @Nonnull final Urn urn,
+      @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest,
+      @Nonnull final AuditStamp auditStamp,
+      @Nonnull final SystemMetadata systemMetadata) {
 
-    return _entityDao.runInTransactionWithRetry(() -> {
+    return _aspectDao.runInTransactionWithRetry(() -> {
 
       final Set<String> aspectNames = aspectRecordsToIngest
         .stream()
         .map(Pair::getFirst)
         .collect(Collectors.toSet());
 
-      Map<String, EbeanAspectV2> latestAspects = getLatestEbeanAspectForUrn(urn, aspectNames);
-      Map<String, Long> nextVersions = _entityDao.getNextVersions(urn.toString(), aspectNames);
+      Map<String, EbeanAspectV2> latestAspects = getLatestAspectForUrn(urn, aspectNames);
+      Map<String, Long> nextVersions = _aspectDao.getNextVersions(urn.toString(), aspectNames);
 
       List<Pair<String, UpdateAspectResult>> result = new ArrayList<>();
       for (Pair<String, RecordTemplate> aspectRecord: aspectRecordsToIngest) {
@@ -338,12 +376,40 @@ public class EbeanEntityService extends EntityService {
         RecordTemplate newValue = aspectRecord.getSecond();
         EbeanAspectV2 latest = latestAspects.get(aspectName);
         long nextVersion = nextVersions.get(aspectName);
-        UpdateAspectResult updateResult = ingestAspectToLocalDBNoTransaction(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata, 
+        UpdateAspectResult updateResult = ingestAspectToLocalDBNoTransaction(urn, aspectName, ignored -> newValue, auditStamp, systemMetadata,
           latest, nextVersion);
         result.add(new Pair<>(aspectName, updateResult));
       }
       return result;
     }, DEFAULT_MAX_TRANSACTION_RETRY);
+  }
+
+  @Override
+  @Nullable
+  public RecordTemplate ingestAspectIfNotPresent(@Nonnull Urn urn, @Nonnull String aspectName,
+      @Nonnull RecordTemplate newValue, @Nonnull AuditStamp auditStamp, @Nonnull SystemMetadata systemMetadata) {
+    log.debug("Invoked ingestAspectIfNotPresent with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
+
+    final SystemMetadata internalSystemMetadata = generateSystemMetadataIfEmpty(systemMetadata);
+
+    Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectToLocalDB").time();
+    UpdateAspectResult result = _aspectDao.runInTransactionWithRetry(() -> {
+      final String urnStr = urn.toString();
+      final EbeanAspectV2 latest = _aspectDao.getLatestAspect(urnStr, aspectName);
+      if (latest == null) {
+        long nextVersion = _aspectDao.getNextVersion(urnStr, aspectName);
+
+        return ingestAspectToLocalDBNoTransaction(urn, aspectName, ignored -> newValue, auditStamp,
+            internalSystemMetadata, latest, nextVersion);
+      }
+      RecordTemplate oldValue = EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), getEntityRegistry());
+      SystemMetadata oldMetadata = EntityUtils.parseSystemMetadata(latest.getSystemMetadata());
+      return new UpdateAspectResult(urn, oldValue, oldValue, oldMetadata, oldMetadata, MetadataAuditOperation.UPDATE, auditStamp,
+          latest.getVersion());
+    }, DEFAULT_MAX_TRANSACTION_RETRY);
+    ingestToLocalDBTimer.stop();
+
+    return sendEventForUpdateAspectResult(urn, aspectName, result);
   }
 
   @Nonnull
@@ -354,36 +420,36 @@ public class EbeanEntityService extends EntityService {
 
     // 2. Compare the latest existing and new.
     final RecordTemplate oldValue =
-            latest == null ? null : toAspectRecord(urn, aspectName, latest.getMetadata(), getEntityRegistry());
+            latest == null ? null : EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), getEntityRegistry());
     final RecordTemplate newValue = updateLambda.apply(Optional.ofNullable(oldValue));
 
     // 3. If there is no difference between existing and new, we just update
     // the lastObserved in system metadata. RunId should stay as the original runId
     if (oldValue != null && DataTemplateUtil.areEqual(oldValue, newValue)) {
-      SystemMetadata latestSystemMetadata = EbeanUtils.parseSystemMetadata(latest.getSystemMetadata());
+      SystemMetadata latestSystemMetadata = EntityUtils.parseSystemMetadata(latest.getSystemMetadata());
       latestSystemMetadata.setLastObserved(providedSystemMetadata.getLastObserved());
 
       latest.setSystemMetadata(RecordUtils.toJsonString(latestSystemMetadata));
 
-      _entityDao.saveAspect(latest, false);
+      _aspectDao.saveAspect(latest, false);
 
       return new UpdateAspectResult(urn, oldValue, oldValue,
-              EbeanUtils.parseSystemMetadata(latest.getSystemMetadata()), latestSystemMetadata,
-              MetadataAuditOperation.UPDATE, 0);
+              EntityUtils.parseSystemMetadata(latest.getSystemMetadata()), latestSystemMetadata,
+              MetadataAuditOperation.UPDATE, auditStamp, 0);
     }
 
     // 4. Save the newValue as the latest version
     log.debug("Ingesting aspect with name {}, urn {}", aspectName, urn);
-    long versionOfOld = _entityDao.saveLatestAspect(urn.toString(), aspectName, latest == null ? null : toJsonAspect(oldValue),
+    long versionOfOld = _aspectDao.saveLatestAspect(urn.toString(), aspectName, latest == null ? null : EntityUtils.toJsonAspect(oldValue),
             latest == null ? null : latest.getCreatedBy(), latest == null ? null : latest.getCreatedFor(),
             latest == null ? null : latest.getCreatedOn(), latest == null ? null : latest.getSystemMetadata(),
-            toJsonAspect(newValue), auditStamp.getActor().toString(),
+            EntityUtils.toJsonAspect(newValue), auditStamp.getActor().toString(),
             auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,
-            new Timestamp(auditStamp.getTime()), toJsonAspect(providedSystemMetadata), nextVersion);
+            new Timestamp(auditStamp.getTime()), EntityUtils.toJsonAspect(providedSystemMetadata), nextVersion);
 
     return new UpdateAspectResult(urn, oldValue, newValue,
-            latest == null ? null : EbeanUtils.parseSystemMetadata(latest.getSystemMetadata()), providedSystemMetadata,
-            MetadataAuditOperation.UPDATE, versionOfOld);
+            latest == null ? null : EntityUtils.parseSystemMetadata(latest.getSystemMetadata()), providedSystemMetadata,
+            MetadataAuditOperation.UPDATE, auditStamp, versionOfOld);
   }
 
   @Override
@@ -404,26 +470,26 @@ public class EbeanEntityService extends EntityService {
       @Nonnull final AuditStamp auditStamp, @Nonnull final long version, @Nonnull final boolean emitMae,
       final int maxTransactionRetry) {
 
-    final UpdateAspectResult result = _entityDao.runInTransactionWithRetry(() -> {
+    final UpdateAspectResult result = _aspectDao.runInTransactionWithRetry(() -> {
 
-      final EbeanAspectV2 oldAspect = _entityDao.getAspect(urn.toString(), aspectName, version);
+      final EbeanAspectV2 oldAspect = _aspectDao.getAspect(urn.toString(), aspectName, version);
       final RecordTemplate oldValue =
-          oldAspect == null ? null : toAspectRecord(urn, aspectName, oldAspect.getMetadata(), getEntityRegistry());
+          oldAspect == null ? null : EntityUtils.toAspectRecord(urn, aspectName, oldAspect.getMetadata(), getEntityRegistry());
 
       SystemMetadata oldSystemMetadata =
-          oldAspect == null ? new SystemMetadata() : EbeanUtils.parseSystemMetadata(oldAspect.getSystemMetadata());
+          oldAspect == null ? new SystemMetadata() : EntityUtils.parseSystemMetadata(oldAspect.getSystemMetadata());
       // create a duplicate of the old system metadata to update and write back
       SystemMetadata newSystemMetadata =
-          oldAspect == null ? new SystemMetadata() : EbeanUtils.parseSystemMetadata(oldAspect.getSystemMetadata());
+          oldAspect == null ? new SystemMetadata() : EntityUtils.parseSystemMetadata(oldAspect.getSystemMetadata());
       newSystemMetadata.setLastObserved(System.currentTimeMillis());
 
       log.debug("Updating aspect with name {}, urn {}", aspectName, urn);
-      _entityDao.saveAspect(urn.toString(), aspectName, toJsonAspect(value), auditStamp.getActor().toString(),
+      _aspectDao.saveAspect(urn.toString(), aspectName, EntityUtils.toJsonAspect(value), auditStamp.getActor().toString(),
           auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,
-          new Timestamp(auditStamp.getTime()), toJsonAspect(newSystemMetadata), version, oldAspect == null);
+          new Timestamp(auditStamp.getTime()), EntityUtils.toJsonAspect(newSystemMetadata), version, oldAspect == null);
 
       return new UpdateAspectResult(urn, oldValue, value, oldSystemMetadata, newSystemMetadata,
-          MetadataAuditOperation.UPDATE, version);
+          MetadataAuditOperation.UPDATE, auditStamp, version);
     }, maxTransactionRetry);
 
     final RecordTemplate oldValue = result.getOldValue();
@@ -432,7 +498,7 @@ public class EbeanEntityService extends EntityService {
     if (emitMae) {
       log.debug("Producing MetadataAuditEvent for updated aspect {}, urn {}", aspectName, urn);
       produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, oldValue, newValue,
-          result.getOldSystemMetadata(), result.getNewSystemMetadata(), ChangeType.UPSERT);
+          result.getOldSystemMetadata(), result.getNewSystemMetadata(), auditStamp, ChangeType.UPSERT);
     } else {
       log.debug("Skipped producing MetadataAuditEvent for updated aspect {}, urn {}. emitMAE is false.",
           aspectName, urn);
@@ -442,38 +508,19 @@ public class EbeanEntityService extends EntityService {
   }
 
   public void setWritable(boolean canWrite) {
-    log.debug("Enabling writes");
-    _entityDao.setWritable(canWrite);
-  }
-
-  private boolean filterMatch(SystemMetadata systemMetadata, Map<String, String> conditions) {
-    String runIdCondition = conditions.getOrDefault("runId", null);
-    if (runIdCondition != null) {
-      if (!runIdCondition.equals(systemMetadata.getRunId())) {
-        return false;
-      }
-    }
-    String registryNameCondition = conditions.getOrDefault("registryName", null);
-    if (registryNameCondition != null) {
-      if (!registryNameCondition.equals(systemMetadata.getRegistryName())) {
-        return false;
-      }
-    }
-    String registryVersionCondition = conditions.getOrDefault("registryVersion", null);
-    if (registryVersionCondition != null) {
-      if (!registryVersionCondition.equals(systemMetadata.getRegistryVersion())) {
-        return false;
-      }
-    }
-    return true;
+    log.debug("Setting writable to {}", canWrite);
+    _aspectDao.setWritable(canWrite);
   }
 
   @Nullable
-  public RollbackResult deleteAspect(String urn, String aspectName, Map<String, String> conditions) {
+  public RollbackResult deleteAspect(String urn, String aspectName, Map<String, String> conditions, boolean hardDelete) {
     // Validate pre-conditions before running queries
+    Urn entityUrn;
+    EntitySpec entitySpec;
     try {
-      String entityName = PegasusUtils.urnToEntityName(Urn.createFromString(urn));
-      EntitySpec entitySpec = getEntityRegistry().getEntitySpec(entityName);
+      entityUrn = Urn.createFromString(urn);
+      String entityName = PegasusUtils.urnToEntityName(entityUrn);
+      entitySpec = getEntityRegistry().getEntitySpec(entityName);
       Preconditions.checkState(entitySpec != null, String.format("Could not find entity definition for %s", entityName));
       Preconditions.checkState(entitySpec.hasAspect(aspectName), String.format("Could not find aspect %s in definition for %s", aspectName, entityName));
     } catch (URISyntaxException uriSyntaxException) {
@@ -481,11 +528,11 @@ public class EbeanEntityService extends EntityService {
       throw new RuntimeException(String.format("Failed to extract urn from %s", urn));
     }
 
-    final RollbackResult result = _entityDao.runInTransactionWithRetry(() -> {
+    final RollbackResult result = _aspectDao.runInTransactionWithRetry(() -> {
       Integer additionalRowsDeleted = 0;
 
       // 1. Fetch the latest existing version of the aspect.
-      final EbeanAspectV2 latest = _entityDao.getLatestAspect(urn, aspectName);
+      final EbeanAspectV2 latest = _aspectDao.getLatestAspect(urn, aspectName);
 
       // 1.1 If no latest exists, skip this aspect
       if (latest == null) {
@@ -493,7 +540,7 @@ public class EbeanEntityService extends EntityService {
       }
 
       // 2. Compare the match conditions, if they don't match, ignore.
-      SystemMetadata latestSystemMetadata = EbeanUtils.parseSystemMetadata(latest.getSystemMetadata());
+      SystemMetadata latestSystemMetadata = EntityUtils.parseSystemMetadata(latest.getSystemMetadata());
       if (!filterMatch(latestSystemMetadata, conditions)) {
         return null;
       }
@@ -509,13 +556,13 @@ public class EbeanEntityService extends EntityService {
 
       // 4. Fetch all preceding aspects, that match
       List<EbeanAspectV2> aspectsToDelete = new ArrayList<>();
-      long maxVersion = _entityDao.getMaxVersion(urn, aspectName);
+      long maxVersion = _aspectDao.getMaxVersion(urn, aspectName);
       EbeanAspectV2 survivingAspect = null;
       String previousMetadata = null;
       boolean filterMatch = true;
       while (maxVersion > 0 && filterMatch)  {
-        EbeanAspectV2 candidateAspect = _entityDao.getAspect(urn, aspectName, maxVersion);
-        SystemMetadata previousSysMetadata = EbeanUtils.parseSystemMetadata(candidateAspect.getSystemMetadata());
+        EbeanAspectV2 candidateAspect = _aspectDao.getAspect(urn, aspectName, maxVersion);
+        SystemMetadata previousSysMetadata = EntityUtils.parseSystemMetadata(candidateAspect.getSystemMetadata());
         filterMatch = filterMatch(previousSysMetadata, conditions);
         if (filterMatch) {
           aspectsToDelete.add(candidateAspect);
@@ -528,7 +575,7 @@ public class EbeanEntityService extends EntityService {
 
       // 5. Apply deletes and fix up latest row
 
-      aspectsToDelete.forEach(aspect -> _entityDao.deleteAspect(aspect));
+      aspectsToDelete.forEach(aspect -> _aspectDao.deleteAspect(aspect));
 
       if (survivingAspect != null) {
         // if there was a surviving aspect, copy its information into the latest row
@@ -539,32 +586,52 @@ public class EbeanEntityService extends EntityService {
         latest.setCreatedOn(survivingAspect.getCreatedOn());
         latest.setCreatedBy(survivingAspect.getCreatedBy());
         latest.setCreatedFor(survivingAspect.getCreatedFor());
-        _entityDao.saveAspect(latest, false);
-        _entityDao.deleteAspect(survivingAspect);
+        _aspectDao.saveAspect(latest, false);
+        _aspectDao.deleteAspect(survivingAspect);
       } else {
         if (isKeyAspect) {
-          // If this is the key aspect, delete the entity entirely.
-          additionalRowsDeleted = _entityDao.deleteUrn(urn);
+          if (hardDelete) {
+            // If this is the key aspect, delete the entity entirely.
+            additionalRowsDeleted = _aspectDao.deleteUrn(urn);
+          } else if (entitySpec.hasAspect(Constants.STATUS_ASPECT_NAME)) {
+            // soft delete by setting status.removed=true (if applicable)
+            final Status statusAspect = new Status();
+            statusAspect.setRemoved(true);
+
+            final MetadataChangeProposal gmce = new MetadataChangeProposal();
+            gmce.setEntityUrn(entityUrn);
+            gmce.setChangeType(ChangeType.UPSERT);
+            gmce.setEntityType(entityUrn.getEntityType());
+            gmce.setAspectName(Constants.STATUS_ASPECT_NAME);
+            gmce.setAspect(GenericRecordUtils.serializeAspect(statusAspect));
+            final AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+
+            this.ingestProposal(gmce, auditStamp);
+          }
         } else {
           // Else, only delete the specific aspect.
-          _entityDao.deleteAspect(latest);
+          _aspectDao.deleteAspect(latest);
         }
       }
 
       // 6. Emit the Update
       try {
         final RecordTemplate latestValue = latest == null ? null
-            : toAspectRecord(Urn.createFromString(latest.getKey().getUrn()), latest.getKey().getAspect(),
+            : EntityUtils.toAspectRecord(Urn.createFromString(latest.getKey().getUrn()), latest.getKey().getAspect(),
                 latestMetadata, getEntityRegistry());
 
         final RecordTemplate previousValue = survivingAspect == null ? null
-            : toAspectRecord(Urn.createFromString(survivingAspect.getKey().getUrn()),
+            : EntityUtils.toAspectRecord(Urn.createFromString(survivingAspect.getKey().getUrn()),
                 survivingAspect.getKey().getAspect(), previousMetadata, getEntityRegistry());
 
         final Urn urnObj = Urn.createFromString(urn);
+        // We are not deleting key aspect if hardDelete has not been set so do not return a rollback result
+        if (isKeyAspect && !hardDelete) {
+          return null;
+        }
         return new RollbackResult(urnObj, urnObj.getEntityType(), latest.getAspect(), latestValue,
-            previousValue == null ? latestValue : previousValue, latestSystemMetadata,
-            previousValue == null ? null : parseSystemMetadata(survivingAspect.getSystemMetadata()),
+            previousValue, latestSystemMetadata,
+            previousValue == null ? null : EntityUtils.parseSystemMetadata(survivingAspect.getSystemMetadata()),
             survivingAspect == null ? ChangeType.DELETE : ChangeType.UPSERT, isKeyAspect, additionalRowsDeleted);
       } catch (URISyntaxException e) {
         throw new RuntimeException(String.format("Failed to emit the update for urn %s", urn));
@@ -575,19 +642,14 @@ public class EbeanEntityService extends EntityService {
   }
 
   @Override
-  public RollbackRunResult rollbackRun(List<AspectRowSummary> aspectRows, String runId) {
-    return rollbackWithConditions(aspectRows, Collections.singletonMap("runId", runId));
-  }
-
-  @Override
-  public RollbackRunResult rollbackWithConditions(List<AspectRowSummary> aspectRows, Map<String, String> conditions) {
+  public RollbackRunResult rollbackWithConditions(List<AspectRowSummary> aspectRows, Map<String, String> conditions, boolean hardDelete) {
     List<AspectRowSummary> removedAspects = new ArrayList<>();
     AtomicInteger rowsDeletedFromEntityDeletion = new AtomicInteger(0);
 
     aspectRows.forEach(aspectToRemove -> {
 
       RollbackResult result = deleteAspect(aspectToRemove.getUrn(), aspectToRemove.getAspectName(),
-          conditions);
+          conditions, hardDelete);
       if (result != null) {
         Optional<AspectSpec> aspectSpec = getAspectSpec(result.entityName, result.aspectName);
         if (!aspectSpec.isPresent()) {
@@ -599,6 +661,8 @@ public class EbeanEntityService extends EntityService {
         removedAspects.add(aspectToRemove);
         produceMetadataChangeLog(result.getUrn(), result.getEntityName(), result.getAspectName(), aspectSpec.get(),
             result.getOldValue(), result.getNewValue(), result.getOldSystemMetadata(), result.getNewSystemMetadata(),
+            // TODO: use properly attributed audit stamp.
+            createSystemAuditStamp(),
             result.getChangeType());
       }
     });
@@ -611,17 +675,17 @@ public class EbeanEntityService extends EntityService {
     List<AspectRowSummary> removedAspects = new ArrayList<>();
     Integer rowsDeletedFromEntityDeletion = 0;
 
-    final EntitySpec spec = getEntityRegistry().getEntitySpec(urnToEntityName(urn));
+    final EntitySpec spec = getEntityRegistry().getEntitySpec(PegasusUtils.urnToEntityName(urn));
     final AspectSpec keySpec = spec.getKeyAspectSpec();
     String keyAspectName = getKeyAspectName(urn);
 
-    EbeanAspectV2 latestKey = _entityDao.getLatestAspect(urn.toString(), keyAspectName);
+    EbeanAspectV2 latestKey = _aspectDao.getLatestAspect(urn.toString(), keyAspectName);
     if (latestKey == null || latestKey.getSystemMetadata() == null) {
       return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion);
     }
 
-    SystemMetadata latestKeySystemMetadata = parseSystemMetadata(latestKey.getSystemMetadata());
-    RollbackResult result = deleteAspect(urn.toString(), keyAspectName, Collections.singletonMap("runId", latestKeySystemMetadata.getRunId()));
+    SystemMetadata latestKeySystemMetadata = EntityUtils.parseSystemMetadata(latestKey.getSystemMetadata());
+    RollbackResult result = deleteAspect(urn.toString(), keyAspectName, Collections.singletonMap("runId", latestKeySystemMetadata.getRunId()), true);
 
     if (result != null) {
       AspectRowSummary summary = new AspectRowSummary();
@@ -635,6 +699,8 @@ public class EbeanEntityService extends EntityService {
       removedAspects.add(summary);
       produceMetadataChangeLog(result.getUrn(), result.getEntityName(), result.getAspectName(), keySpec,
           result.getOldValue(), result.getNewValue(), result.getOldSystemMetadata(), result.getNewSystemMetadata(),
+          // TODO: Use a proper inferred audit stamp
+          createSystemAuditStamp(),
           result.getChangeType());
     }
 
@@ -648,7 +714,7 @@ public class EbeanEntityService extends EntityService {
         .map(aspectName -> new EbeanAspectV2.PrimaryKey(urn.toString(), aspectName, ASPECT_LATEST_VERSION))
         .collect(Collectors.toList());
 
-    Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> aspects = _entityDao.batchGet(new HashSet(dbKeys));
+    Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> aspects = _aspectDao.batchGet(new HashSet(dbKeys));
     return aspects.values().stream().anyMatch(aspect -> aspect != null);
   }
 
@@ -659,7 +725,7 @@ public class EbeanEntityService extends EntityService {
 
     // If a keyAspect exists, the entity exists.
     final String keyAspectName = getEntityRegistry().getEntitySpec(entityName).getKeyAspectSpec().getName();
-    final ListResult<String> keyAspectList = _entityDao.listUrns(keyAspectName, start, count);
+    final ListResult<String> keyAspectList = _aspectDao.listUrns(entityName, keyAspectName, start, count);
 
     final ListUrnsResult result = new ListUrnsResult();
     result.setStart(start);
@@ -682,7 +748,7 @@ public class EbeanEntityService extends EntityService {
 
   private Map<EbeanAspectV2.PrimaryKey, EnvelopedAspect> getEnvelopedAspects(final Set<EbeanAspectV2.PrimaryKey> dbKeys) throws URISyntaxException {
     final Map<EbeanAspectV2.PrimaryKey, EnvelopedAspect> result = new HashMap<>();
-    final Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> dbEntries = _entityDao.batchGet(dbKeys);
+    final Map<EbeanAspectV2.PrimaryKey, EbeanAspectV2> dbEntries = _aspectDao.batchGet(dbKeys);
 
     for (EbeanAspectV2.PrimaryKey currKey : dbKeys) {
 
@@ -699,6 +765,9 @@ public class EbeanEntityService extends EntityService {
       final EnvelopedAspect envelopedAspect = new EnvelopedAspect();
       envelopedAspect.setName(currAspectEntry.getKey().getAspect());
       envelopedAspect.setVersion(currAspectEntry.getKey().getVersion());
+      // TODO: I think we can assume this here, adding as it's a required field so object mapping barfs when trying to access it,
+      //    since nowhere else is using it should be safe for now at least
+      envelopedAspect.setType(AspectType.VERSIONED);
       envelopedAspect.setValue(aspect);
       envelopedAspect.setCreated(new AuditStamp()
           .setActor(Urn.createFromString(currAspectEntry.getCreatedBy()))
@@ -710,7 +779,7 @@ public class EbeanEntityService extends EntityService {
   }
 
   private EnvelopedAspect getKeyEnvelopedAspect(final Urn urn) throws URISyntaxException {
-    final EntitySpec spec = getEntityRegistry().getEntitySpec(urnToEntityName(urn));
+    final EntitySpec spec = getEntityRegistry().getEntitySpec(PegasusUtils.urnToEntityName(urn));
     final AspectSpec keySpec = spec.getKeyAspectSpec();
     final RecordDataSchema keySchema = keySpec.getPegasusSchema();
     final com.linkedin.entity.Aspect aspect =
@@ -718,8 +787,11 @@ public class EbeanEntityService extends EntityService {
 
     final EnvelopedAspect envelopedAspect = new EnvelopedAspect();
     envelopedAspect.setName(keySpec.getName());
-    envelopedAspect.setVersion(0L);
+    envelopedAspect.setVersion(ASPECT_LATEST_VERSION);
     envelopedAspect.setValue(aspect);
+    // TODO: I think we can assume this here, adding as it's a required field so object mapping barfs when trying to access it,
+    //    since nowhere else is using it should be safe for now at least
+    envelopedAspect.setType(AspectType.VERSIONED);
     envelopedAspect.setCreated(
         new AuditStamp().setActor(Urn.createFromString(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()));
 

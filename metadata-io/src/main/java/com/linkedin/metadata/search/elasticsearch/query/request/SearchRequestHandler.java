@@ -64,6 +64,7 @@ public class SearchRequestHandler {
   private final Set<String> _defaultQueryFieldNames;
   private final Map<String, String> _filtersToDisplayName;
   private final int _maxTermBucketSize = 100;
+  private static final String REMOVED = "removed";
 
   private SearchRequestHandler(@Nonnull EntitySpec entitySpec) {
     _entitySpec = entitySpec;
@@ -100,8 +101,18 @@ public class SearchRequestHandler {
 
   public static BoolQueryBuilder getFilterQuery(@Nullable Filter filter) {
     BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter);
-    // Filter out entities that are marked "removed"
-    filterQuery.mustNot(QueryBuilders.matchQuery("removed", true));
+
+    boolean removedInOrFilter = false;
+    if (filter != null) {
+      removedInOrFilter = filter.getOr().stream().anyMatch(
+              or -> or.getAnd().stream().anyMatch(criterion -> criterion.getField().equals(REMOVED))
+      );
+    }
+    // Filter out entities that are marked "removed" if and only if filter does not contain a criterion referencing it.
+    if (!removedInOrFilter) {
+      filterQuery.mustNot(QueryBuilders.matchQuery(REMOVED, true));
+    }
+
     return filterQuery;
   }
 
@@ -259,6 +270,7 @@ public class SearchRequestHandler {
   private SearchEntity getResult(@Nonnull SearchHit hit) {
     return new SearchEntity().setEntity(getUrnFromSearchHit(hit))
         .setMatchedFields(new MatchedFieldArray(extractMatchedFields(hit.getHighlightFields())))
+        .setScore(hit.getScore())
         .setFeatures(new DoubleMap(extractFeatures(hit)));
   }
 

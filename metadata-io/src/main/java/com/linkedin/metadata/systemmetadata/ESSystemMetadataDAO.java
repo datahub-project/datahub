@@ -114,14 +114,21 @@ public class ESSystemMetadataDAO {
     return null;
   }
 
-  public SearchResponse findByParams(Map<String, String> searchParams) {
+  public SearchResponse findByParams(Map<String, String> searchParams, boolean includeSoftDeleted) {
     SearchRequest searchRequest = new SearchRequest();
 
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
-    searchParams.entrySet()
-        .forEach(entry -> finalQuery.must(QueryBuilders.termQuery(entry.getKey(), entry.getValue())));
+
+    for (String key : searchParams.keySet()) {
+      finalQuery.must(QueryBuilders.termQuery(key, searchParams.get(key)));
+    }
+
+    if (!includeSoftDeleted) {
+      finalQuery.mustNot(QueryBuilders.termQuery("removed", "true"));
+    }
+
     searchSourceBuilder.query(finalQuery);
 
     // this is the max page size elastic will return
@@ -140,15 +147,15 @@ public class ESSystemMetadataDAO {
     return null;
   }
 
-  public SearchResponse findByRegistry(String registryName, String registryVersion) {
+  public SearchResponse findByRegistry(String registryName, String registryVersion, boolean includeSoftDeleted) {
     Map<String, String> params = new HashMap<>();
     params.put("registryName", registryName);
     params.put("registryVersion", registryVersion);
-    return findByParams(params);
+    return findByParams(params, includeSoftDeleted);
   }
 
-  public SearchResponse findByRunId(String runId) {
-    return findByParams(Collections.singletonMap("runId", runId));
+  public SearchResponse findByRunId(String runId, boolean includeSoftDeleted) {
+    return findByParams(Collections.singletonMap("runId", runId), includeSoftDeleted);
   }
 
   public SearchResponse findRuns(Integer pageOffset, Integer pageSize) {
@@ -170,7 +177,8 @@ public class ESSystemMetadataDAO {
     TermsAggregationBuilder aggregation = AggregationBuilders.terms("runId")
         .field("runId")
         .subAggregation(AggregationBuilders.max("maxTimestamp").field("lastUpdated"))
-        .subAggregation(bucketSort);
+        .subAggregation(bucketSort)
+        .subAggregation(AggregationBuilders.filter("removed", QueryBuilders.termQuery("removed", "true")));
 
     searchSourceBuilder.aggregation(aggregation);
 

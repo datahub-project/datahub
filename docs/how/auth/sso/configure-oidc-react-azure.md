@@ -85,7 +85,7 @@ AUTH_OIDC_CLIENT_ID=your-client-id
 AUTH_OIDC_CLIENT_SECRET=your-client-secret
 AUTH_OIDC_DISCOVERY_URI=https://login.microsoftonline.com/{tenant ID}/v2.0/.well-known/openid-configuration
 AUTH_OIDC_BASE_URL=your-datahub-url
-AUTH_OIDC_SCOPE="openid profile email groups"
+AUTH_OIDC_SCOPE="openid profile email"
 ```
 
 Replacing the placeholders above with the client id (step 5), client secret (step 3) and tenant ID (step 6) received from Microsoft Azure.
@@ -101,4 +101,4 @@ docker-compose -p datahub -f docker-compose.yml -f docker-compose.override.yml  
 Navigate to your DataHub domain to see SSO in action.
 
 ## Resources
-- [OAuth 2.0 and OpenID Connect Overview](https://developer.okta.com/docs/concepts/oauth-openid/)
+- [Microsoft identity platform and OpenID Connect protocol](https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-protocols-oidc/)

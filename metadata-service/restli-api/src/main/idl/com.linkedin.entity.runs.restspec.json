@@ -21,6 +21,10 @@
         "name" : "pageSize",
         "type" : "int",
         "optional" : true
+      }, {
+        "name" : "includeSoft",
+        "type" : "boolean",
+        "optional" : true
       } ],
       "returns" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.run.IngestionRunSummary\" }"
     }, {
@@ -31,6 +35,17 @@
         "type" : "string"
       }, {
         "name" : "dryRun",
+        "type" : "boolean",
+        "optional" : true
+      }, {
+        "annotations" : {
+          "deprecated" : { }
+        },
+        "name" : "hardDelete",
+        "type" : "boolean",
+        "optional" : true
+      }, {
+        "name" : "safe",
         "type" : "boolean",
         "optional" : true
       } ],

@@ -3,27 +3,18 @@ package datahub.spark.model.dataset;
 import org.apache.spark.sql.catalyst.catalog.CatalogTable;
 
 import com.linkedin.common.FabricType;
-import com.linkedin.common.urn.DataPlatformUrn;
-import com.linkedin.common.urn.DatasetUrn;
 
-import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
-@EqualsAndHashCode
 @ToString
-public class CatalogTableDataset implements SparkDataset {
-  private final DatasetUrn urn;
+public class CatalogTableDataset extends SparkDataset {
 
-  public CatalogTableDataset(CatalogTable table) {
-    this(table.qualifiedName());
+  public CatalogTableDataset(CatalogTable table, String platformInstance, FabricType fabricType) {
+    this(table.qualifiedName(), platformInstance, fabricType);
   }
 
-  public CatalogTableDataset(String dsName) {
-    this.urn = new DatasetUrn(new DataPlatformUrn("hive"), dsName, FabricType.PROD);
+  public CatalogTableDataset(String dsName, String platformInstance, FabricType fabricType) {
+    super("hive", platformInstance, dsName, fabricType);
   }
 
-  @Override
-  public DatasetUrn urn() {
-    return this.urn;
-  }
 }

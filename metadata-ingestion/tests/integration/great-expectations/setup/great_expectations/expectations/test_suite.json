@@ -39,6 +39,18 @@
       "expectation_context": {
         "description": null
       },
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "score",
+        "max_value": 8,
+        "min_value": 0
+      },
+      "meta": {}
+    },
+    {
+      "expectation_context": {
+        "description": null
+      },
       "expectation_type": "expect_column_values_to_not_be_null",
       "kwargs": {
         "column": "name"

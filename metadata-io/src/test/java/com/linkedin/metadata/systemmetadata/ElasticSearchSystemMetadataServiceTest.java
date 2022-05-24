@@ -7,14 +7,15 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchServiceTest;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.mxe.SystemMetadata;
-import java.util.List;
-import javax.annotation.Nonnull;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
-import org.testng.annotations.AfterTest;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
+
+import javax.annotation.Nonnull;
+import java.util.List;
 
 import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
 import static com.linkedin.metadata.ElasticSearchTestUtils.syncAfterWrite;
@@ -30,7 +31,7 @@ public class ElasticSearchSystemMetadataServiceTest {
   private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
   private ElasticSearchSystemMetadataService _client;
 
-  @BeforeTest
+  @BeforeClass
   public void setup() {
     _elasticsearchContainer = ElasticTestUtils.getNewElasticsearchContainer();
     checkContainerEngine(_elasticsearchContainer.getDockerClient());
@@ -54,7 +55,7 @@ public class ElasticSearchSystemMetadataServiceTest {
         ElasticSearchServiceTest.getIndexBuilder(_searchClient));
   }
 
-  @AfterTest
+  @AfterClass
   public void tearDown() {
     _elasticsearchContainer.stop();
   }
@@ -78,7 +79,7 @@ public class ElasticSearchSystemMetadataServiceTest {
 
     syncAfterWrite(_searchClient, _indexName);
 
-    List<IngestionRunSummary> runs = _client.listRuns(0, 20);
+    List<IngestionRunSummary> runs = _client.listRuns(0, 20, false);
 
     assertEquals(runs.size(), 2);
     assertEquals(runs.get(0).getRows(), Long.valueOf(2));
@@ -107,7 +108,7 @@ public class ElasticSearchSystemMetadataServiceTest {
 
     syncAfterWrite(_searchClient, _indexName);
 
-    List<IngestionRunSummary> runs = _client.listRuns(0, 20);
+    List<IngestionRunSummary> runs = _client.listRuns(0, 20, false);
 
     assertEquals(runs.size(), 2);
     assertEquals(runs.get(0).getRows(), Long.valueOf(4));
@@ -136,7 +137,7 @@ public class ElasticSearchSystemMetadataServiceTest {
 
     syncAfterWrite(_searchClient, _indexName);
 
-    List<AspectRowSummary> rows = _client.findByRunId("abc-456");
+    List<AspectRowSummary> rows = _client.findByRunId("abc-456", false);
 
     assertEquals(rows.size(), 4);
     rows.forEach(row -> assertEquals(row.getRunId(), "abc-456"));
@@ -168,7 +169,7 @@ public class ElasticSearchSystemMetadataServiceTest {
 
     syncAfterWrite(_searchClient, _indexName);
 
-    List<AspectRowSummary> rows = _client.findByRunId("abc-456");
+    List<AspectRowSummary> rows = _client.findByRunId("abc-456", false);
 
     assertEquals(rows.size(), 2);
     rows.forEach(row -> assertEquals(row.getRunId(), "abc-456"));
@@ -180,7 +181,7 @@ public class ElasticSearchSystemMetadataServiceTest {
 
     syncAfterWrite(_searchClient, _indexName);
 
-    List<IngestionRunSummary> runs = _client.listRuns(0, 20);
+    List<IngestionRunSummary> runs = _client.listRuns(0, 20, false);
 
     assertEquals(runs.size(), 0);
   }

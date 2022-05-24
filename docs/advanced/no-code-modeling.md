@@ -97,14 +97,14 @@ Achieve the primary goal in a way that does not require a fork.
 
 Currently, there are various models in GMS:
 
-1. [Urn](https://github.com/linkedin/datahub/blob/master/li-utils/src/main/pegasus/com/linkedin/common/DatasetUrn.pdl) - Structs composing primary keys
-2. [Root] [Snapshots](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/metadata/snapshot/Snapshot.pdl) - Container of aspects
-3. [Aspects](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/metadata/aspect/DashboardAspect.pdl) - Optional container of fields
-4. [Values](https://github.com/linkedin/datahub/blob/master/gms/api/src/main/pegasus/com/linkedin/dataset/Dataset.pdl), [Keys](https://github.com/linkedin/datahub/blob/master/gms/api/src/main/pegasus/com/linkedin/dataset/DatasetKey.pdl) - Model returned by GMS [Rest.li](http://rest.li) API (public facing)
-5. [Entities](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/metadata/entity/DatasetEntity.pdl) - Records with fields derived from the URN. Used only in graph / relationships
-6. [Relationships](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/metadata/relationship/Relationship.pdl) - Edges between 2 entities with optional edge properties
-7. [Search Documents](https://github.com/linkedin/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/metadata/search/ChartDocument.pdl) - Flat documents for indexing within Elastic index
-  - And corresponding index [mappings.json](https://github.com/linkedin/datahub/blob/master/gms/impl/src/main/resources/index/chart/mappings.json), [settings.json](https://github.com/linkedin/datahub/blob/master/gms/impl/src/main/resources/index/chart/settings.json)
+1. [Urn](https://github.com/datahub-project/datahub/blob/master/li-utils/src/main/pegasus/com/linkedin/common/DatasetUrn.pdl) - Structs composing primary keys
+2. [Root] [Snapshots](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/metadata/snapshot/Snapshot.pdl) - Container of aspects
+3. [Aspects](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/metadata/aspect/DashboardAspect.pdl) - Optional container of fields
+4. [Values](https://github.com/datahub-project/datahub/blob/master/gms/api/src/main/pegasus/com/linkedin/dataset/Dataset.pdl), [Keys](https://github.com/datahub-project/datahub/blob/master/gms/api/src/main/pegasus/com/linkedin/dataset/DatasetKey.pdl) - Model returned by GMS [Rest.li](http://rest.li) API (public facing)
+5. [Entities](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/metadata/entity/DatasetEntity.pdl) - Records with fields derived from the URN. Used only in graph / relationships
+6. [Relationships](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/metadata/relationship/Relationship.pdl) - Edges between 2 entities with optional edge properties
+7. [Search Documents](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/metadata/search/ChartDocument.pdl) - Flat documents for indexing within Elastic index
+  - And corresponding index [mappings.json](https://github.com/datahub-project/datahub/blob/master/gms/impl/src/main/resources/index/chart/mappings.json), [settings.json](https://github.com/datahub-project/datahub/blob/master/gms/impl/src/main/resources/index/chart/settings.json)
 
 Various components of GMS depend on / make assumptions about these model types:
 

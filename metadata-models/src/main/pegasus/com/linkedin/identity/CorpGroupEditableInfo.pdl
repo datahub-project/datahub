@@ -21,7 +21,7 @@ record CorpGroupEditableInfo {
   /**
    * A URL which points to a picture which user wants to set as the photo for the group
    */
-  pictureLink: Url = "https://raw.githubusercontent.com/linkedin/datahub/master/datahub-web-react/src/images/default_avatar.png"
+  pictureLink: Url = "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/default_avatar.png"
 
   /**
    * Slack channel for the group

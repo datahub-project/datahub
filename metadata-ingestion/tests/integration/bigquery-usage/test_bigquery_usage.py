@@ -34,7 +34,7 @@ def test_bq_usage_config():
     )
     assert config.get_allow_pattern_string() == "test-regex|test-regex-1"
     assert config.get_deny_pattern_string() == ""
-    assert (config.end_time - config.start_time) == timedelta(hours=1)
+    assert (config.end_time - config.start_time) == timedelta(hours=2)
     assert config.projects == ["sample-bigquery-project-name-1234"]
 
 
@@ -69,7 +69,9 @@ def test_bq_usage_source(pytestconfig, tmp_path):
             PipelineContext(run_id="bq-usage-test"),
         )
         entries = list(
-            source._get_bigquery_log_entries(source._make_bigquery_clients())
+            source._get_bigquery_log_entries_via_gcp_logging(
+                source._make_bigquery_logging_clients()
+            )
         )
 
         entries = [entry._replace(logger=None) for entry in entries]

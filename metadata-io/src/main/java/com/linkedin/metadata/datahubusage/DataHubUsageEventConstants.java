@@ -12,4 +12,5 @@ public class DataHubUsageEventConstants {
   // Event specific fields
   public static final String ENTITY_URN = "entityUrn";
   public static final String ENTITY_TYPE = "entityType";
+  public static final String QUERY = "query";
 }

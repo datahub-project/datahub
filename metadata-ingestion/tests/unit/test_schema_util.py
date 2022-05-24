@@ -1,15 +1,19 @@
+import json
 import logging
 import os
 import re
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Type
 
 import pytest
 
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    DateTypeClass,
+    NumberTypeClass,
     SchemaField,
     StringTypeClass,
+    TimeTypeClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -644,7 +648,7 @@ def test_key_schema_handling():
         assert f.isPartOfKey
 
 
-def test_logical_types():
+def test_logical_types_bare():
     schema: str = """
 {
     "type": "record",
@@ -661,6 +665,7 @@ def test_logical_types():
 }
     """
     fields: List[SchemaField] = avro_schema_to_mce_fields(schema, is_key_schema=False)
+    # validate field paths
     expected_field_paths: List[str] = [
         "[version=2.0].[type=test_logical_types].[type=bytes].decimal_logical",
         "[version=2.0].[type=test_logical_types].[type=string].uuid_logical",
@@ -671,6 +676,44 @@ def test_logical_types():
         "[version=2.0].[type=test_logical_types].[type=long].timestamp_micros_logical",
     ]
     assert_field_paths_match(fields, expected_field_paths)
+
+    # validate field types.
+    expected_types: List[Type] = [
+        NumberTypeClass,
+        StringTypeClass,
+        DateTypeClass,
+        TimeTypeClass,
+        TimeTypeClass,
+        TimeTypeClass,
+        TimeTypeClass,
+    ]
+    assert expected_types == [type(field.type.type) for field in fields]
+
+
+def test_logical_types_fully_specified_in_type():
+    schema: Dict = {
+        "type": "record",
+        "name": "test",
+        "fields": [
+            {
+                "name": "name",
+                "type": {
+                    "type": "bytes",
+                    "logicalType": "decimal",
+                    "precision": 3,
+                    "scale": 2,
+                    "native_data_type": "decimal(3, 2)",
+                    "_nullable": True,
+                },
+            }
+        ],
+    }
+    fields: List[SchemaField] = avro_schema_to_mce_fields(
+        json.dumps(schema), default_nullable=True
+    )
+    assert len(fields) == 1
+    assert "[version=2.0].[type=test].[type=bytes].name" == fields[0].fieldPath
+    assert isinstance(fields[0].type.type, NumberTypeClass)
 
 
 def test_ignore_exceptions():

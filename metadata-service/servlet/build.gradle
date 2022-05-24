@@ -9,4 +9,5 @@ dependencies {
   compile externalDependency.springWebMVC
   annotationProcessor externalDependency.lombok
   compile project(':entity-registry')
+  compile project(':metadata-service:factories')
 }

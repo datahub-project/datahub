@@ -2,12 +2,12 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:ce3ec88954ddedc8d52e77b781796705",
+    "entityUrn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"clickhouse\", \"instance\": \"PROD\", \"database\": \"clickhousedb\"}, \"name\": \"clickhousedb\"}",
+        "value": "{\"customProperties\": {\"platform\": \"clickhouse\", \"instance\": \"clickhousetestserver\", \"database\": \"clickhousedb\"}, \"name\": \"clickhousedb\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -21,7 +21,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:ce3ec88954ddedc8d52e77b781796705",
+    "entityUrn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -40,7 +40,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:ce3ec88954ddedc8d52e77b781796705",
+    "entityUrn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -59,12 +59,12 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:b5516ae0d599854f2e77449449825f76",
+    "entityUrn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"clickhouse\", \"instance\": \"PROD\", \"database\": \"clickhousedb\", \"schema\": \"db1\"}, \"name\": \"db1\"}",
+        "value": "{\"customProperties\": {\"platform\": \"clickhouse\", \"instance\": \"clickhousetestserver\", \"database\": \"clickhousedb\", \"schema\": \"db1\"}, \"name\": \"db1\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -78,7 +78,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:b5516ae0d599854f2e77449449825f76",
+    "entityUrn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -97,7 +97,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:b5516ae0d599854f2e77449449825f76",
+    "entityUrn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -116,12 +116,12 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:b5516ae0d599854f2e77449449825f76",
+    "entityUrn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:ce3ec88954ddedc8d52e77b781796705\"}",
+        "value": "{\"container\": \"urn:li:container:ab016b94aa0d75c5b9205c33260e989c\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -140,7 +140,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:b5516ae0d599854f2e77449449825f76\"}",
+        "value": "{\"container\": \"urn:li:container:1154d1da73a95376c9f33f47694cf1de\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -192,6 +192,8 @@
                             "storage_policy": "default"
                         },
                         "externalUrl": null,
+                        "name": "mv_target_table",
+                        "qualifiedName": null,
                         "description": "This is target table for materialized view",
                         "uri": null,
                         "tags": []
@@ -347,12 +349,31 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:b5516ae0d599854f2e77449449825f76\"}",
+        "value": "{\"container\": \"urn:li:container:1154d1da73a95376c9f33f47694cf1de\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -385,6 +406,8 @@
                             "storage_policy": "default"
                         },
                         "externalUrl": null,
+                        "name": "test_data_types",
+                        "qualifiedName": null,
                         "description": "This table has basic types",
                         "uri": null,
                         "tags": []
@@ -1108,12 +1131,31 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_dict,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:b5516ae0d599854f2e77449449825f76\"}",
+        "value": "{\"container\": \"urn:li:container:1154d1da73a95376c9f33f47694cf1de\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1165,6 +1207,8 @@
                             "storage_policy": ""
                         },
                         "externalUrl": null,
+                        "name": "test_dict",
+                        "qualifiedName": null,
                         "description": "",
                         "uri": null,
                         "tags": []
@@ -1269,12 +1313,31 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_dict,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:b5516ae0d599854f2e77449449825f76\"}",
+        "value": "{\"container\": \"urn:li:container:1154d1da73a95376c9f33f47694cf1de\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1307,6 +1370,8 @@
                             "storage_policy": "default"
                         },
                         "externalUrl": null,
+                        "name": "test_nested_data_types",
+                        "qualifiedName": null,
                         "description": "This table has nested types",
                         "uri": null,
                         "tags": []
@@ -1557,12 +1622,31 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_with_target_table,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:b5516ae0d599854f2e77449449825f76\"}",
+        "value": "{\"container\": \"urn:li:container:1154d1da73a95376c9f33f47694cf1de\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1616,6 +1700,8 @@
                             "is_view": "True"
                         },
                         "externalUrl": null,
+                        "name": "mv_with_target_table",
+                        "qualifiedName": null,
                         "description": "",
                         "uri": null,
                         "tags": []
@@ -1771,12 +1857,50 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_with_target_table,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"view\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_with_target_table,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "value": "{\"materialized\": false, \"viewLogic\": \"\", \"viewLanguage\": \"SQL\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:b5516ae0d599854f2e77449449825f76\"}",
+        "value": "{\"container\": \"urn:li:container:1154d1da73a95376c9f33f47694cf1de\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1830,6 +1954,8 @@
                             "is_view": "True"
                         },
                         "externalUrl": null,
+                        "name": "mv_without_target_table",
+                        "qualifiedName": null,
                         "description": "",
                         "uri": null,
                         "tags": []
@@ -1989,12 +2115,50 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"view\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "value": "{\"materialized\": false, \"viewLogic\": \"\", \"viewLanguage\": \"SQL\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_view,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:b5516ae0d599854f2e77449449825f76\"}",
+        "value": "{\"container\": \"urn:li:container:1154d1da73a95376c9f33f47694cf1de\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -2048,6 +2212,8 @@
                             "is_view": "True"
                         },
                         "externalUrl": null,
+                        "name": "test_view",
+                        "qualifiedName": null,
                         "description": "",
                         "uri": null,
                         "tags": []
@@ -2122,6 +2288,44 @@
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "value": "{\"platform\": \"urn:li:dataPlatform:clickhouse\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_view,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"view\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_view,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "value": "{\"materialized\": false, \"viewLogic\": \"\", \"viewLanguage\": \"SQL\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {

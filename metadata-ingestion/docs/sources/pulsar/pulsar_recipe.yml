@@ -1,0 +1,23 @@
+source:
+  type: "pulsar"
+  config:
+    env: "TEST"
+    platform_instance: "local"
+    ## Pulsar client connection config ##
+    web_service_url: "https://localhost:8443"
+    verify_ssl: "/opt/certs/ca.cert.pem"
+    # Issuer url for auth document, for example "http://localhost:8083/realms/pulsar"
+    issuer_url: <issuer_url>
+    client_id: ${CLIENT_ID}
+    client_secret: ${CLIENT_SECRET}
+    # Tenant list to scrape
+    tenants:
+      - tenant_1
+      - tenant_2
+    # Topic filter pattern
+    topic_patterns:
+      allow:
+        - ".*sales.*"
+
+sink:
+# sink configs

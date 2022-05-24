@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 from enum import Enum
 from math import log10
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import parse
 import pydeequ
@@ -36,6 +36,14 @@ from smart_open import open as smart_open
 from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import is_s3_uri, make_s3_urn, strip_s3_prefix
@@ -143,7 +151,67 @@ profiling_flags_to_report = [
 S3_PREFIXES = ["s3://", "s3n://", "s3a://"]
 
 
+@platform_name("Data lake files")
+@config_class(DataLakeSourceConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 class DataLakeSource(Source):
+    """
+    This plugin extracts:
+
+    - Row and column counts for each table
+    - For each column, if profiling is enabled:
+      - null counts and proportions
+      - distinct counts and proportions
+      - minimum, maximum, mean, median, standard deviation, some quantile values
+      - histograms or frequencies of unique values
+
+    This connector supports both local files as well as those stored on AWS S3 (which must be identified using the prefix `s3://`). Supported file types are as follows:
+
+    - CSV
+    - TSV
+    - JSON
+    - Parquet
+    - Apache Avro
+
+    Schemas for Parquet and Avro files are extracted as provided.
+
+    Schemas for schemaless formats (CSV, TSV, JSON) are inferred. For CSV and TSV files, we consider the first 100 rows by default, which can be controlled via the `max_rows` recipe parameter (see [below](#config-details))
+    JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
+    We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
+
+    :::caution
+
+    If you are ingesting datasets from AWS S3, we recommend running the ingestion on a server in the same region to avoid high egress costs.
+
+    :::
+
+    ## Setup
+
+    To install this plugin, run `pip install 'acryl-datahub[data-lake]'`. Note that because the profiling is run with PySpark, we require Spark 3.0.3 with Hadoop 3.2 to be installed (see [compatibility](#compatibility) for more details). If profiling, make sure that permissions for **s3a://** access are set because Spark and Hadoop use the s3a:// protocol to interface with AWS (schema inference outside of profiling requires s3:// access).
+
+    The data lake connector extracts schemas and profiles from a variety of file formats (see below for an exhaustive list).
+    Individual files are ingested as tables, and profiles are computed similar to the [SQL profiler](../../../../metadata-ingestion/docs/dev_guides/sql_profiles.md).
+
+    Enabling profiling will slow down ingestion runs.
+
+    :::caution
+
+    Running profiling against many tables or over many rows can run up significant costs.
+    While we've done our best to limit the expensiveness of the queries the profiler runs, you
+    should be prudent about the set of tables profiling is enabled on or the frequency
+    of the profiling runs.
+
+    :::
+
+    Because data lake files often have messy paths, we provide the built-in option to transform names into a more readable format via the `path_spec` option. This option extracts identifiers from paths through a format string specifier where extracted components are denoted as `{name[index]}`.
+
+    For instance, suppose we wanted to extract the files `/base_folder/folder_1/table_a.csv` and `/base_folder/folder_2/table_b.csv`. To ingest, we could set `base_path` to `/base_folder/` and `path_spec` to `./{name[0]}/{name[1]}.csv`, which would extract tables with names `folder_1.table_a` and `folder_2.table_b`. You could also ignore the folder component by using a `path_spec` such as `./{folder_name}/{name[0]}.csv`, which would just extract tables with names `table_a` and `table_b` – note that any component without the form `{name[index]}` is ignored.
+
+    If you would like to write a more complicated function for resolving file names, then a {transformer} would be a good fit.
+
+    """
+
     source_config: DataLakeSourceConfig
     report: DataLakeSourceReport
     profiling_times_taken: List[float]
@@ -178,6 +246,10 @@ class DataLakeSource(Source):
     def init_spark(self):
 
         conf = SparkConf()
+
+        # None by default, which corresponds to local
+        if self.source_config.profiling.spark_cluster_manager:
+            conf.setMaster(self.source_config.profiling.spark_cluster_manager)
 
         conf.set(
             "spark.jars.packages",
@@ -301,7 +373,11 @@ class DataLakeSource(Source):
         return df.toDF(*(c.replace(".", "_") for c in df.columns))
 
     def get_table_schema(
-        self, file_path: str, table_name: str, is_aws: bool
+        self,
+        file_path: str,
+        table_name: str,
+        is_aws: bool,
+        properties: Optional[Dict[str, str]],
     ) -> Iterable[MetadataWorkUnit]:
 
         data_platform_urn = make_data_platform_urn(self.source_config.platform)
@@ -318,7 +394,7 @@ class DataLakeSource(Source):
 
         dataset_properties = DatasetPropertiesClass(
             description="",
-            customProperties={},
+            customProperties=properties if properties is not None else {},
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
@@ -418,7 +494,11 @@ class DataLakeSource(Source):
         return ".".join(name_components)
 
     def ingest_table(
-        self, full_path: str, relative_path: str, is_aws: bool
+        self,
+        full_path: str,
+        relative_path: str,
+        is_aws: bool,
+        properties: Optional[Dict[str, str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
 
         table_name = self.get_table_name(relative_path, full_path)
@@ -427,7 +507,7 @@ class DataLakeSource(Source):
         logger.debug(
             f"Ingesting {full_path}: making table schemas {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
         )
-        yield from self.get_table_schema(full_path, table_name, is_aws)
+        yield from self.get_table_schema(full_path, table_name, is_aws, properties)
 
         # If profiling is not enabled, skip the rest
         if not self.source_config.profiling.enabled:
@@ -515,7 +595,7 @@ class DataLakeSource(Source):
         s3 = self.source_config.aws_config.get_s3_resource()
         bucket = s3.Bucket(plain_base_path.split("/")[0])
 
-        base_obj_paths = []
+        base_obj_paths: List[Tuple[str, Dict[str, str]]] = []
 
         for obj in bucket.objects.filter(
             Prefix=plain_base_path.split("/", maxsplit=1)[1]
@@ -538,14 +618,28 @@ class DataLakeSource(Source):
 
             base_obj_path = f"{obj.bucket_name}/{obj.key}"
 
-            base_obj_paths.append(base_obj_path)
+            properties = {
+                "owner": str(obj.owner) if obj.owner else "",
+                "e_tag": str(obj.e_tag) if obj.e_tag else "",
+                "last_modified": str(obj.last_modified) if obj.last_modified else "",
+                "size": str(obj.size) if obj.size else "",
+                "storage_class": str(obj.storage_class) if obj.storage_class else "",
+                "service_name": str(obj.meta.service_name)
+                if obj.meta and obj.meta.service_name
+                else "",
+            }
+            logger.debug(f"Adding file {base_obj_path} for ingestion")
+            base_obj_paths.append((base_obj_path, properties))
 
-        for aws_file in sorted(base_obj_paths):
-
-            relative_path = "./" + aws_file[len(plain_base_path) :]
+        for aws_file in sorted(base_obj_paths, key=lambda a: a[0]):
+            path = aws_file[0]
+            properties = aws_file[1]
+            relative_path = "./" + path[len(plain_base_path) :]
 
             # pass in the same relative_path as the full_path for S3 files
-            yield from self.ingest_table(aws_file, relative_path, is_aws=True)
+            yield from self.ingest_table(
+                path, relative_path, is_aws=True, properties=properties
+            )
 
     def get_workunits_local(self) -> Iterable[MetadataWorkUnit]:
         for root, dirs, files in os.walk(self.source_config.base_path):

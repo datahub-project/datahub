@@ -120,10 +120,14 @@ def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
         # will track only the "get" methods, which are the ones that give us data
         if "get" in p_o.keys():
 
-            try:
+            if "200" in p_o["get"]["responses"].keys():
                 base_res = p_o["get"]["responses"]["200"]
-            except KeyError:  # if you read a plain yml file the 200 will be an integer
+            elif 200 in p_o["get"]["responses"].keys():
+                # if you read a plain yml file the 200 will be an integer
                 base_res = p_o["get"]["responses"][200]
+            else:
+                # the endpoint does not have a 200 response
+                continue
 
             if "description" in p_o["get"].keys():
                 desc = p_o["get"]["description"]

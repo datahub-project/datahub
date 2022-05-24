@@ -4,6 +4,8 @@ import yaml
 from collections.abc import Mapping
 from dotenv import dotenv_values
 from yaml import Loader
+from collections import OrderedDict
+
 
 # Generates a merged docker-compose file with env variables inlined.
 # Usage: python3 docker_compose_cli_gen.py ../docker-compose.yml ../docker-compose.override.yml ../docker-compose-gen.yml
@@ -46,23 +48,26 @@ def modify_docker_config(base_path, docker_yaml_config):
             # 3. Resolve the .env values
             env_vars = dotenv_values(env_file_path)
 
-            # 4. Add an "environment" block to YAML
-            service["environment"] = list(
-                f"{key}={value}" for key, value in env_vars.items()
-            )
+            # 4. Create an "environment" block if it does not exist
+            if "environment" not in service:
+                service["environment"] = list()
 
-            # 5. Delete the "env_file" value
+            # 5. Append to an "environment" block to YAML
+            for key, value in env_vars.items():
+                service["environment"].append(f"{key}={value}")
+
+            # 6. Delete the "env_file" value
             del service["env_file"]
 
-        # 6. Delete build instructions
+        # 7. Delete build instructions
         if "build" in service:
             del service["build"]
 
-        # 7. Set memory limits
+        # 8. Set memory limits
         if name in mem_limits:
             service["mem_limit"] = mem_limits[name]
 
-        # 8. Correct relative paths for volume mounts
+        # 9. Correct relative paths for volume mounts
         if "volumes" in service:
             volumes = service["volumes"]
             for i in range(len(volumes)):
@@ -72,7 +77,7 @@ def modify_docker_config(base_path, docker_yaml_config):
                 elif volumes[i].startswith("./"):
                     volumes[i] = "." + volumes[i]
 
-    # 8. Set docker compose version to 2.
+    # 9. Set docker compose version to 2.
     # We need at least this version, since we use features like start_period for
     # healthchecks and shell-like variable interpolation.
     docker_yaml_config["version"] = "2.3"

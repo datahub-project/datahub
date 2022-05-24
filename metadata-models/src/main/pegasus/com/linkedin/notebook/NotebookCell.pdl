@@ -1,0 +1,26 @@
+namespace com.linkedin.notebook
+
+/**
+ * A record of all supported cells for a Notebook. Only one type of cell will be non-null.
+ */
+record NotebookCell {
+  /**
+   * The text cell content. The will be non-null only when all other cell field is null.
+   */
+  textCell: optional TextCell,
+
+  /**
+   * The query cell content. The will be non-null only when all other cell field is null.
+   */
+  queryCell: optional QueryCell,
+
+  /**
+   * The chart cell content. The will be non-null only when all other cell field is null.
+   */
+  chartCell: optional ChartCell
+
+  /**
+   * The type of this Notebook cell
+   */
+  type: NotebookCellType
+}

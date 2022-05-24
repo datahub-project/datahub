@@ -23,6 +23,21 @@ fragment glossaryTerms on GlossaryTerms {
     }
 }
 
+fragment deprecationFields on Deprecation {
+    actor
+    deprecated
+    note
+    decommissionTime
+}
+
+fragment parentContainersFields on ParentContainersResult {
+    count
+    containers {
+        ...entityContainer
+    }
+}
+
+
 fragment ownershipFields on Ownership {
     owners {
         owner {
@@ -137,6 +152,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     platform {
         ...platformFields
     }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
     platformNativeType
     properties {
         name
@@ -171,12 +189,6 @@ fragment nonRecursiveDatasetFields on Dataset {
             }
         }
     }
-    deprecation {
-        actor
-        deprecated
-        note
-        decommissionTime
-    }
     globalTags {
         ...globalTagsFields
     }
@@ -191,6 +203,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     }
     container {
         ...entityContainer
+    }
+    deprecation {
+        ...deprecationFields
     }
 }
 
@@ -222,6 +237,9 @@ fragment nonRecursiveDataFlowFields on DataFlow {
     domain {
         ...entityDomain
     }
+    deprecation {
+        ...deprecationFields
+    }
 }
 
 fragment nonRecursiveDataJobFields on DataJob {
@@ -240,6 +258,9 @@ fragment nonRecursiveDataJobFields on DataJob {
     }
     domain {
         ...entityDomain
+    }
+    deprecation {
+        ...deprecationFields
     }
 }
 
@@ -288,6 +309,12 @@ fragment dataJobFields on DataJob {
     domain {
         ...entityDomain
     }
+    deprecation {
+        ...deprecationFields
+    }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
 }
 
 fragment dashboardFields on Dashboard {
@@ -333,6 +360,18 @@ fragment dashboardFields on Dashboard {
     container {
         ...entityContainer
     }
+    parentContainers {
+        ...parentContainersFields
+    }
+    status {
+        removed
+    }
+    deprecation {
+        ...deprecationFields
+    }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
 }
 
 fragment nonRecursiveMLFeature on MLFeature {
@@ -342,7 +381,7 @@ fragment nonRecursiveMLFeature on MLFeature {
     featureNamespace
     description
     dataType
-    featureProperties {
+    properties {
         description
         dataType
         version {
@@ -369,6 +408,36 @@ fragment nonRecursiveMLFeature on MLFeature {
     }
     status {
         removed
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
+    }
+    tags {
+        ...globalTagsFields
+    }
+    editableProperties {
+        description
+    }
+    deprecation {
+        ...deprecationFields
+    }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
+    featureTables: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 100 }) {
+        relationships {
+            type
+            entity {
+                ... on MLFeatureTable {
+                    platform {
+                        ...platformFields
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -379,7 +448,7 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
     featureNamespace
     description
     dataType
-    primaryKeyProperties {
+    properties {
         description
         dataType
         version {
@@ -407,6 +476,36 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
     status {
         removed
     }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
+    }
+    tags {
+        ...globalTagsFields
+    }
+    editableProperties {
+        description
+    }
+    deprecation {
+        ...deprecationFields
+    }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
+    featureTables: relationships(input: { types: ["KeyedBy"], direction: INCOMING, start: 0, count: 100 }) {
+        relationships {
+            type
+            entity {
+                ... on MLFeatureTable {
+                    platform {
+                        ...platformFields
+                    }
+                }
+            }
+        }
+    }
 }
 
 fragment nonRecursiveMLFeatureTable on MLFeatureTable {
@@ -416,14 +515,21 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     platform {
         ...platformFields
     }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
     description
-    featureTableProperties {
+    properties {
         description
         mlFeatures {
             ...nonRecursiveMLFeature
         }
         mlPrimaryKeys {
             ...nonRecursiveMLPrimaryKey
+        }
+        customProperties {
+            key
+            value
         }
     }
     ownership {
@@ -434,6 +540,21 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     }
     status {
         removed
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
+    }
+    tags {
+        ...globalTagsFields
+    }
+    editableProperties {
+        description
+    }
+    deprecation {
+        ...deprecationFields
     }
 }
 
@@ -515,6 +636,9 @@ fragment nonRecursiveMLModel on MLModel {
     platform {
         ...platformFields
     }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
     ownership {
         ...ownershipFields
     }
@@ -547,6 +671,24 @@ fragment nonRecursiveMLModel on MLModel {
     globalTags {
         ...globalTagsFields
     }
+    status {
+        removed
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
+    }
+    tags {
+        ...globalTagsFields
+    }
+    editableProperties {
+        description
+    }
+    deprecation {
+        ...deprecationFields
+    }
 }
 
 fragment nonRecursiveMLModelGroupFields on MLModelGroup {
@@ -558,8 +700,32 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     platform {
         ...platformFields
     }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
     ownership {
         ...ownershipFields
+    }
+    status {
+        removed
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
+    }
+    tags {
+        ...globalTagsFields
+    }
+    editableProperties {
+        description
+    }
+    deprecation {
+        ...deprecationFields
+    }
+    properties {
+        description
     }
 }
 
@@ -600,6 +766,15 @@ fragment nonConflictingPlatformFields on DataPlatform {
     }
 }
 
+fragment dataPlatformInstanceFields on DataPlatformInstance  {
+    urn
+    type
+    platform {
+        ...platformFields
+    }
+    instanceId
+}
+
 fragment entityContainer on Container {
     urn
     platform {
@@ -610,6 +785,9 @@ fragment entityContainer on Container {
     }
     subTypes {
         typeNames
+    }
+    deprecation {
+        ...deprecationFields
     }
 }
 

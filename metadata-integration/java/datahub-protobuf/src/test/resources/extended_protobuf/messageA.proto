@@ -1,0 +1,35 @@
+syntax = "proto3";
+package extended_protobuf;
+
+import "extended_protobuf/meta/meta.proto";
+
+message Department {
+  option(meta.msg.type) = ENTITY;
+  option(meta.msg.classification) = "Classification.Sensitive";
+  option(meta.msg.team) = "TeamA";
+
+  int32 id = 1;
+  string name = 2;
+}
+
+message Person {
+  option(meta.msg.type) = ENTITY;
+  option(meta.msg.classification_enum) = HighlyConfidential;
+  option(meta.msg.team) = "corpGroup:TeamB";
+  option(meta.msg.team) = "corpUser:datahub";
+  option(meta.msg.technical_owner) = "corpGroup:TechnicalOwner";
+  option(meta.msg.domain) = "Engineering";
+  option(meta.msg.bool_feature) = true;
+  option(meta.msg.alert_channel) = "#alerts";
+  option(meta.msg.tag_list) = "a, b, c";
+
+  option(meta.msg.repeat_string) = "a";
+  option(meta.msg.repeat_string) = "b";
+  option(meta.msg.repeat_enum) = ENTITY;
+  option(meta.msg.repeat_enum) = EVENT;
+
+  string name = 1;
+  int32 id = 2;
+  string email = 3;
+  Department dept = 4;
+}

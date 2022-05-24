@@ -23,8 +23,12 @@ To deploy a new instance of DataHub, perform the following steps.
    datahub version
    ```
 
-   If you see "command not found", try running cli commands with the prefix 'python3 -m'
-   instead: `python3 -m datahub version`
+:::note
+
+   If you see "command not found", try running cli commands with the prefix 'python3 -m' instead like `python3 -m datahub version`
+   Note that DataHub CLI does not support Python 2.x.
+
+:::
 
 4. To deploy DataHub, run the following CLI command from your terminal
 
@@ -52,7 +56,16 @@ To cleanse DataHub of all of it's state (e.g. before ingesting your own), you ca
 datahub docker nuke
 ```
 
-If you want to delete the containers but keep the data you can add `--keep-data` flag to the command. This allows you to run the `quickstart` command to get DataHub running with your data that was ingested earlier. 
+## Updating DataHub locally
+
+If you have been testing DataHub locally, a new version of DataHub got released and you want to try the new version then you can use below commands. 
+
+```
+datahub docker nuke --keep-data
+datahub docker quickstart
+```
+
+This will keep the data that you have ingested so far in DataHub and start a new quickstart with the latest version of DataHub.
 
 ## Troubleshooting
 

@@ -1,0 +1,11 @@
+namespace com.linkedin.notebook
+
+/**
+ * Text cell in a Notebook, which will present content in text format
+ */
+record TextCell includes CommonCellAttributes {
+  /**
+   * The actual text in a TextCell in a Notebook
+   */
+  text: string
+}

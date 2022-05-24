@@ -1,6 +1,6 @@
 - Start Date: 2020-08-03
-- RFC PR: https://github.com/linkedin/datahub/pull/1778
-- Implementation PR(s): https://github.com/linkedin/datahub/pull/1775
+- RFC PR: https://github.com/datahub-project/datahub/pull/1778
+- Implementation PR(s): https://github.com/datahub-project/datahub/pull/1775
 
 # Dashboards
 

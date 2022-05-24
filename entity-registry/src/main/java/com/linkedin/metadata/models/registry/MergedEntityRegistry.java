@@ -6,6 +6,7 @@ import com.linkedin.data.schema.compatibility.CompatibilityResult;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DefaultEntitySpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.EventSpec;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -22,14 +23,13 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class MergedEntityRegistry implements EntityRegistry {
+
   private final Map<String, EntitySpec> entityNameToSpec;
+  private final Map<String, EventSpec> eventNameToSpec;
 
   public MergedEntityRegistry(EntityRegistry baseEntityRegistry) {
-    if (baseEntityRegistry.getEntitySpecs() != null) {
-      entityNameToSpec = baseEntityRegistry.getEntitySpecs();
-    } else {
-      entityNameToSpec = new HashMap<>();
-    }
+    entityNameToSpec = baseEntityRegistry.getEntitySpecs() != null ? baseEntityRegistry.getEntitySpecs() : new HashMap<>();
+    eventNameToSpec = baseEntityRegistry.getEventSpecs() != null ? baseEntityRegistry.getEventSpecs() : new HashMap<>();
   }
 
   private void validateEntitySpec(EntitySpec entitySpec, final ValidationResult validationResult) {
@@ -46,6 +46,8 @@ public class MergedEntityRegistry implements EntityRegistry {
       throw new EntityRegistryException(String.format("Failed to validate new registry with %s", validationResult.validationFailures.stream().collect(
           Collectors.joining("\n"))));
     }
+
+    // Merge Entity Specs
     for (Map.Entry<String, EntitySpec> e2Entry : patchEntityRegistry.getEntitySpecs().entrySet()) {
       if (entityNameToSpec.containsKey(e2Entry.getKey())) {
         EntitySpec mergeEntitySpec = mergeEntitySpecs(entityNameToSpec.get(e2Entry.getKey()), e2Entry.getValue());
@@ -54,6 +56,11 @@ public class MergedEntityRegistry implements EntityRegistry {
         // We are inserting a new entity into the registry
         entityNameToSpec.put(e2Entry.getKey(), e2Entry.getValue());
       }
+    }
+
+    // Merge Event Specs
+    if (patchEntityRegistry.getEventSpecs().size() > 0) {
+      eventNameToSpec.putAll(patchEntityRegistry.getEventSpecs());
     }
     //TODO: Validate that the entity registries don't have conflicts among each other
     return this;
@@ -110,8 +117,25 @@ public class MergedEntityRegistry implements EntityRegistry {
 
   @Nonnull
   @Override
+  public EventSpec getEventSpec(@Nonnull String eventName) {
+    String lowercaseEventSpec = eventName.toLowerCase();
+    if (!eventNameToSpec.containsKey(lowercaseEventSpec)) {
+      throw new IllegalArgumentException(
+          String.format("Failed to find event with name %s in EntityRegistry", eventName));
+    }
+    return eventNameToSpec.get(lowercaseEventSpec);
+  }
+
+  @Nonnull
+  @Override
   public Map<String, EntitySpec> getEntitySpecs() {
     return entityNameToSpec;
+  }
+
+  @Nonnull
+  @Override
+  public Map<String, EventSpec> getEventSpecs() {
+    return eventNameToSpec;
   }
 
   @Setter

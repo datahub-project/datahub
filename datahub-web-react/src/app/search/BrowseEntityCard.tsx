@@ -9,7 +9,10 @@ import { LogoCountCard } from '../shared/LogoCountCard';
 export const BrowseEntityCard = ({ entityType, count }: { entityType: EntityType; count: number }) => {
     const entityRegistry = useEntityRegistry();
     return (
-        <Link to={`${PageRoutes.BROWSE}/${entityRegistry.getPathName(entityType)}`}>
+        <Link
+            to={`${PageRoutes.BROWSE}/${entityRegistry.getPathName(entityType)}`}
+            data-testid={`entity-type-browse-card-${entityType}`}
+        >
             <LogoCountCard
                 logoComponent={entityRegistry.getIcon(entityType, 18, IconStyleType.HIGHLIGHT)}
                 name={entityRegistry.getCollectionName(entityType)}

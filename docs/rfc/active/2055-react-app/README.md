@@ -33,7 +33,7 @@ Adopting a more familiar stack will facilitate an active community by lowering t
 
 A secondary motivation is that a new client would allow us to address tech debt present in the existing Ember app, including
 
-- **Legacy & unused code**: Special handling logic exists to support legacy versions of DataHub (ie. WhereHows). An example of this can be found in [legacy.ts](https://github.com/linkedin/datahub/blob/master/datahub-web/@datahub/data-models/addon/entity/dataset/utils/legacy.ts). Additionally, there is code that goes unused in the OSS client, such as that pertaining to Dataset [compliance](https://github.com/linkedin/datahub/blob/master/datahub-web/packages/data-portal/app/utils/datasets/compliance-suggestions.ts). A new client will provide legibility benefits, lacking historical baggage.
+- **Legacy & unused code**: Special handling logic exists to support legacy versions of DataHub (ie. WhereHows). An example of this can be found in [legacy.ts](https://github.com/datahub-project/datahub/blob/master/datahub-web/@datahub/data-models/addon/entity/dataset/utils/legacy.ts). Additionally, there is code that goes unused in the OSS client, such as that pertaining to Dataset [compliance](https://github.com/datahub-project/datahub/blob/master/datahub-web/packages/data-portal/app/utils/datasets/compliance-suggestions.ts). A new client will provide legibility benefits, lacking historical baggage.
 
 
 - **Difficulty of extension**: Given the lack of formal guidance, steep learning curve for Ember (& the addon structure), & presence of legacy / unused code, it is nontrivial to extend the existing web client.
@@ -46,7 +46,7 @@ A secondary motivation is that a new client would allow us to address tech debt 
       out of the box!
 
 
-- **Coupling with GMA**: GMA concepts of [entity](https://github.com/linkedin/datahub/blob/master/datahub-web/@datahub/data-models/addon/entity/base-entity.ts) and [aspect](https://github.com/linkedin/datahub/blob/master/datahub-web/@datahub/data-models/addon/entity/utils/aspects.ts) are rooted in the Ember client. With the new client, we can revisit the abstractions exposed to the client side & look for opportunities to simplify.
+- **Coupling with GMA**: GMA concepts of [entity](https://github.com/datahub-project/datahub/blob/master/datahub-web/@datahub/data-models/addon/entity/base-entity.ts) and [aspect](https://github.com/datahub-project/datahub/blob/master/datahub-web/@datahub/data-models/addon/entity/utils/aspects.ts) are rooted in the Ember client. With the new client, we can revisit the abstractions exposed to the client side & look for opportunities to simplify.
 
 A clean slate will allow us to address these items, improving the frontend development experience & making community contribution easier.
 
@@ -111,7 +111,7 @@ The figure below depicts the updated DataHub architecture given this proposal:
 
 Where the boxes outlined in green denote newly introduced components.
 
-Notice that the app will be completely independent of the existing Ember client, meaning there are no compatibility risks for existing deployments. Moreover, the React app will communicate exclusively with a GraphQL server (See [RFC 2042](https://github.com/linkedin/datahub/pulls?q=is%3Apr+is%3Aclosed) for proposal). This will improve the frontend development experience by providing 
+Notice that the app will be completely independent of the existing Ember client, meaning there are no compatibility risks for existing deployments. Moreover, the React app will communicate exclusively with a GraphQL server (See [RFC 2042](https://github.com/datahub-project/datahub/pulls?q=is%3Apr+is%3Aclosed) for proposal). This will improve the frontend development experience by providing 
 - a clearly defined API contract
 - simplified state management (via Apollo GQL client -- no redux required)
 - auto-generated models for queries and data types

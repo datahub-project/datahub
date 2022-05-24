@@ -1,4 +1,5 @@
 import {
+    dataJob1,
     dataset3,
     dataset3WithLineage,
     dataset4,
@@ -7,7 +8,7 @@ import {
     dataset5WithLineage,
     dataset6WithLineage,
 } from '../../../Mocks';
-import { EntityType } from '../../../types.generated';
+import { EntityType, RelationshipDirection } from '../../../types.generated';
 import { getTestEntityRegistry } from '../../../utils/test-utils/TestPageContainer';
 import { Direction, FetchedEntities } from '../types';
 import constructTree from '../utils/constructTree';
@@ -27,6 +28,7 @@ describe('constructTree', () => {
             ),
         ).toEqual({
             name: 'Yet Another Dataset',
+            expandedName: 'Yet Another Dataset',
             urn: 'urn:li:dataset:3',
             type: EntityType.Dataset,
             unexploredChildren: 0,
@@ -60,7 +62,8 @@ describe('constructTree', () => {
                 testEntityRegistry,
             ),
         ).toEqual({
-            name: 'Sixth Test Dataset',
+            name: 'Display Name of Sixth',
+            expandedName: 'Fully Qualified Name of Sixth Test Dataset',
             urn: 'urn:li:dataset:6',
             type: EntityType.Dataset,
             unexploredChildren: 0,
@@ -69,6 +72,7 @@ describe('constructTree', () => {
             children: [
                 {
                     name: 'Fourth Test Dataset',
+                    expandedName: 'Fourth Test Dataset',
                     type: EntityType.Dataset,
                     unexploredChildren: 0,
                     urn: 'urn:li:dataset:4',
@@ -76,6 +80,7 @@ describe('constructTree', () => {
                     children: [],
                     icon: undefined,
                     platform: 'Kafka',
+                    status: null,
                 },
             ],
         });
@@ -105,7 +110,8 @@ describe('constructTree', () => {
                 testEntityRegistry,
             ),
         ).toEqual({
-            name: 'Sixth Test Dataset',
+            name: 'Display Name of Sixth',
+            expandedName: 'Fully Qualified Name of Sixth Test Dataset',
             urn: 'urn:li:dataset:6',
             type: EntityType.Dataset,
             unexploredChildren: 0,
@@ -115,12 +121,14 @@ describe('constructTree', () => {
                 {
                     countercurrentChildrenUrns: [],
                     name: 'Fifth Test Dataset',
+                    expandedName: 'Fifth Test Dataset',
                     type: EntityType.Dataset,
                     unexploredChildren: 0,
                     urn: 'urn:li:dataset:5',
                     children: [],
                     icon: undefined,
                     platform: 'Kafka',
+                    status: null,
                 },
             ],
         });
@@ -152,6 +160,7 @@ describe('constructTree', () => {
             ),
         ).toEqual({
             name: 'Yet Another Dataset',
+            expandedName: 'Yet Another Dataset',
             urn: 'urn:li:dataset:3',
             type: EntityType.Dataset,
             unexploredChildren: 0,
@@ -160,24 +169,29 @@ describe('constructTree', () => {
             children: [
                 {
                     name: 'Fourth Test Dataset',
+                    expandedName: 'Fourth Test Dataset',
                     type: EntityType.Dataset,
                     unexploredChildren: 0,
                     urn: 'urn:li:dataset:4',
                     countercurrentChildrenUrns: ['urn:li:dataset:3'],
                     icon: undefined,
                     platform: 'Kafka',
+                    status: null,
                     children: [
                         {
-                            name: 'Sixth Test Dataset',
+                            name: 'Display Name of Sixth',
+                            expandedName: 'Fully Qualified Name of Sixth Test Dataset',
                             type: 'DATASET',
                             unexploredChildren: 0,
                             urn: 'urn:li:dataset:6',
                             countercurrentChildrenUrns: ['urn:li:dataset:4'],
                             icon: undefined,
                             platform: 'Kafka',
+                            status: null,
                             children: [
                                 {
                                     name: 'Fifth Test Dataset',
+                                    expandedName: 'Fifth Test Dataset',
                                     type: EntityType.Dataset,
                                     unexploredChildren: 0,
                                     urn: 'urn:li:dataset:5',
@@ -189,11 +203,13 @@ describe('constructTree', () => {
                                     ],
                                     icon: undefined,
                                     platform: 'Kafka',
+                                    status: null,
                                 },
                             ],
                         },
                         {
                             name: 'Fifth Test Dataset',
+                            expandedName: 'Fifth Test Dataset',
                             type: EntityType.Dataset,
                             unexploredChildren: 0,
                             urn: 'urn:li:dataset:5',
@@ -201,6 +217,7 @@ describe('constructTree', () => {
                             countercurrentChildrenUrns: ['urn:li:dataset:7', 'urn:li:dataset:6', 'urn:li:dataset:4'],
                             icon: undefined,
                             platform: 'Kafka',
+                            status: null,
                         },
                     ],
                 },
@@ -261,6 +278,7 @@ describe('constructTree', () => {
             ),
         ).toEqual({
             name: 'Yet Another Dataset',
+            expandedName: 'Yet Another Dataset',
             urn: 'urn:li:dataset:3',
             type: EntityType.Dataset,
             unexploredChildren: 0,
@@ -269,6 +287,7 @@ describe('constructTree', () => {
             children: [
                 {
                     name: 'Fourth Test Dataset',
+                    expandedName: 'Fourth Test Dataset',
                     type: EntityType.Dataset,
                     unexploredChildren: 2,
                     urn: 'urn:li:dataset:4',
@@ -276,6 +295,92 @@ describe('constructTree', () => {
                     countercurrentChildrenUrns: ['urn:li:dataset:3'],
                     icon: undefined,
                     platform: 'Kafka',
+                    status: null,
+                },
+            ],
+        });
+    });
+
+    it('should not include a Dataset as a child if that Dataset has a Datajob child which points to the parent', () => {
+        // dataset6 is downstream of dataset5 and datajob1, datajob 1 is downstream of dataset 5
+        const updatedDataset6WithLineage = {
+            ...dataset6WithLineage,
+            downstream: null,
+            upstream: {
+                start: 0,
+                count: 2,
+                total: 2,
+                relationships: [
+                    {
+                        type: 'DownstreamOf',
+                        direction: RelationshipDirection.Incoming,
+                        entity: dataset5,
+                    },
+                    {
+                        type: 'DownstreamOf',
+                        direction: RelationshipDirection.Incoming,
+                        entity: dataJob1,
+                    },
+                ],
+            },
+        };
+        const updatedDataset5WithLineage = {
+            ...dataset5WithLineage,
+            downstream: {
+                ...dataset5WithLineage.downstream,
+                relationships: [
+                    ...dataset5WithLineage.downstream.relationships,
+                    {
+                        type: 'DownstreamOf',
+                        direction: RelationshipDirection.Outgoing,
+                        entity: dataJob1,
+                    },
+                ],
+            },
+        };
+        const fetchedEntities = [
+            { entity: updatedDataset5WithLineage, direction: Direction.Upstream, fullyFetched: true },
+            { entity: dataJob1, direction: Direction.Upstream, fullyFetched: true },
+        ];
+        const mockFetchedEntities = fetchedEntities.reduce(
+            (acc, entry) =>
+                extendAsyncEntities(
+                    acc,
+                    testEntityRegistry,
+                    { entity: entry.entity, type: entry.entity.type },
+                    entry.fullyFetched,
+                ),
+            {} as FetchedEntities,
+        );
+        expect(
+            constructTree(
+                { entity: updatedDataset6WithLineage, type: EntityType.Dataset },
+                mockFetchedEntities,
+                Direction.Upstream,
+                testEntityRegistry,
+            ),
+        ).toEqual({
+            name: 'Display Name of Sixth',
+            expandedName: 'Fully Qualified Name of Sixth Test Dataset',
+            urn: 'urn:li:dataset:6',
+            type: EntityType.Dataset,
+            unexploredChildren: 0,
+            icon: undefined,
+            platform: 'Kafka',
+            subtype: undefined,
+            children: [
+                {
+                    name: 'DataJobInfoName',
+                    expandedName: undefined,
+                    type: EntityType.DataJob,
+                    unexploredChildren: 0,
+                    urn: dataJob1.urn,
+                    children: [],
+                    countercurrentChildrenUrns: [],
+                    icon: '',
+                    status: null,
+                    platform: 'Airflow',
+                    subtype: undefined,
                 },
             ],
         });

@@ -26,7 +26,7 @@ We've chosen to place these components in a library module so that GraphQL serve
 
 When adding an entity to the GMS graph, the following steps should be followed:
 
-1. Extend [entity.graphql](https://github.com/linkedin/datahub/blob/master/datahub-graphql-core/src/main/resources/entity.graphql) schema with new `types` (Queries) or `inputs` (Mutations) required for fetching & updating your Entity.
+1. Extend [entity.graphql](https://github.com/datahub-project/datahub/blob/master/datahub-graphql-core/src/main/resources/entity.graphql) schema with new `types` (Queries) or `inputs` (Mutations) required for fetching & updating your Entity.
 
 These models should generally mirror the GMS models exactly, with notable exceptions:
 
@@ -38,14 +38,14 @@ In GraphQL, the new Entity should extend the `Entity` interface. Additionally, y
 `EntityType` enum. 
 
 The convention we follow is to have a top-level Query for each entity that takes a single "urn" parameter. This is for primary key lookups.
-See all the existing entity Query types [here](https://github.com/linkedin/datahub/blob/master/datahub-graphql-core/src/main/resources/entity.graphql#L19).
+See all the existing entity Query types [here](https://github.com/datahub-project/datahub/blob/master/datahub-graphql-core/src/main/resources/entity.graphql#L19).
 
 On rebuilding the module (`./gradlew datahub-graphql-core:build`) you'll find newly generated classes corresponding to 
 the types you've defined inside the GraphQL schema inside the `mainGeneratedGraphQL` folder. These classes will be used in the next step.
 
 2. Implement `EntityType` classes for any new entities 
 
-- These 'type' classes define how to load entities from GMS, and map them to the GraphQL data model. See [DatasetType.java](https://github.com/linkedin/datahub/blob/master/datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/dataset/DatasetType.java) as an example.
+- These 'type' classes define how to load entities from GMS, and map them to the GraphQL data model. See [DatasetType.java](https://github.com/datahub-project/datahub/blob/master/datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/dataset/DatasetType.java) as an example.
 
 3. Implement `Mappers` to transform Pegasus model returned by GMS to an auto-generated GQL POJO. (under `/mainGeneratedGraphQL`, generated on `./gradlew datahub-graphql-core:build`) These mappers
 will be used inside the type class defined in step 2. 
@@ -56,32 +56,32 @@ providing identity mappings for fields that exist in both the GQL + Pegasus POJO
 
 4. Wire up your `EntityType` to the GraphQL schema. 
 
-We use [GmsGraphQLEngine.java](https://github.com/linkedin/datahub/blob/master/datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/GmsGraphQLEngine.java) to 
+We use [GmsGraphQLEngine.java](https://github.com/datahub-project/datahub/blob/master/datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/GmsGraphQLEngine.java) to 
 configure the wiring for the GraphQL schema. This means associating "resolvers" to specific fields present in the GraphQL schema file.
 
 Inside of this file, you need to register your new `Type` object to be used in resolving primary-key entity queries.
 To do so, simply follow the examples for other entities. 
 
-5. Implement `EntityType` test for the new type defined in Step 2. See [ContainerTypeTest](https://github.com/linkedin/datahub/blob/master/datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/types/container/ContainerTypeTest.java) as an example.
+5. Implement `EntityType` test for the new type defined in Step 2. See [ContainerTypeTest](https://github.com/datahub-project/datahub/blob/master/datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/types/container/ContainerTypeTest.java) as an example.
 
-6. Implement `Resolver` tests for any new `DataFetchers` that you needed to add. See [SetDomainResolverTest](https://github.com/linkedin/datahub/blob/master/datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/domain/SetDomainResolverTest.java) as an example.
+6. Implement `Resolver` tests for any new `DataFetchers` that you needed to add. See [SetDomainResolverTest](https://github.com/datahub-project/datahub/blob/master/datahub-graphql-core/src/test/java/com/linkedin/datahub/graphql/resolvers/domain/SetDomainResolverTest.java) as an example.
 
 7. [Optional] Sometimes, your new entity will have relationships to other entities, or fields that require specific business logic
-as opposed to basic mapping from the GMS model. In such cases, we tend to create an entity-specific configuration method in [GmsGraphQLEngine.java](https://github.com/linkedin/datahub/blob/master/datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/GmsGraphQLEngine.java)
+as opposed to basic mapping from the GMS model. In such cases, we tend to create an entity-specific configuration method in [GmsGraphQLEngine.java](https://github.com/datahub-project/datahub/blob/master/datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/GmsGraphQLEngine.java)
 which allows you to wire custom resolvers (DataFetchers) to the fields in your Entity type. You also may need to do this, depending
-on the complexity of the new entity. See [here](https://github.com/linkedin/datahub/blob/master/datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/GmsGraphQLEngine.java#L438) for reference. 
+on the complexity of the new entity. See [here](https://github.com/datahub-project/datahub/blob/master/datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/GmsGraphQLEngine.java#L438) for reference. 
 
 > Note: If you want your new Entity to be "browsable" (folder navigation) via the UI, make sure you implement the `BrowsableEntityType` interface.
 
 #### Enabling Search for a new Entity 
 
-In order to enable searching an Entity, you'll need to modify the [SearchAcrossEntities.java](https://github.com/linkedin/datahub/blob/master/datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/search/SearchAcrossEntitiesResolver.java) resolver, which enables unified search
+In order to enable searching an Entity, you'll need to modify the [SearchAcrossEntities.java](https://github.com/datahub-project/datahub/blob/master/datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/search/SearchAcrossEntitiesResolver.java) resolver, which enables unified search
 across all DataHub entities. 
 
 Steps: 
 
-1. Add your new Entity type to [this list](https://github.com/linkedin/datahub/blob/master/datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/search/SearchAcrossEntitiesResolver.java#L32).
-2. Add a new statement to [UrnToEntityMapper.java](https://github.com/linkedin/datahub/blob/master/datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/common/mappers/UrnToEntityMapper.java#L35). This maps
+1. Add your new Entity type to [this list](https://github.com/datahub-project/datahub/blob/master/datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/search/SearchAcrossEntitiesResolver.java#L32).
+2. Add a new statement to [UrnToEntityMapper.java](https://github.com/datahub-project/datahub/blob/master/datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/types/common/mappers/UrnToEntityMapper.java#L35). This maps
 an URN to a "placeholder" GraphQL entity which is subsequently resolved by the GraphQL engine.
 
 That should be it! 

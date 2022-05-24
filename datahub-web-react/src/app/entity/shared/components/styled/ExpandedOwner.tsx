@@ -1,4 +1,4 @@
-import { message, Modal, Tag, Tooltip } from 'antd';
+import { message, Modal, Popover, Tag, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -9,10 +9,12 @@ import { CustomAvatar } from '../../../../shared/avatar';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
 import { useEntityData } from '../../EntityContext';
+import { getDescriptionFromType, getNameFromType } from '../../containers/profile/sidebar/Ownership/ownershipUtils';
 
 type Props = {
     entityUrn: string;
     owner: Owner;
+    hidePopOver?: boolean | undefined;
     refetch?: () => Promise<any>;
 };
 
@@ -24,7 +26,7 @@ const OwnerTag = styled(Tag)`
     align-items: center;
 `;
 
-export const ExpandedOwner = ({ entityUrn, owner, refetch }: Props) => {
+export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityData();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
@@ -85,9 +87,18 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch }: Props) => {
         <OwnerTag onClose={onClose} closable>
             <Link to={`/${entityRegistry.getPathName(owner.owner.type)}/${owner.owner.urn}`}>
                 <CustomAvatar name={name} photoUrl={pictureLink} useDefaultAvatar={false} />
-                <Tooltip placement="top" title={owner.type}>
-                    {name}
-                </Tooltip>
+                {(hidePopOver && <>{name}</>) || (
+                    <Popover
+                        overlayStyle={{ maxWidth: 200 }}
+                        placement="left"
+                        title={<Typography.Text strong>{getNameFromType(owner.type)}</Typography.Text>}
+                        content={
+                            <Typography.Text type="secondary">{getDescriptionFromType(owner.type)}</Typography.Text>
+                        }
+                    >
+                        {name}
+                    </Popover>
+                )}
             </Link>
         </OwnerTag>
     );

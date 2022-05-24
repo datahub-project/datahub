@@ -12,7 +12,7 @@ your custom Data Platform will persist even between full cleans (nukes) of DataH
 
 ## Changing Default Data Platforms
 
-Simply make a change to the [data_platforms.json](https://github.com/linkedin/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json) 
+Simply make a change to the [data_platforms.json](https://github.com/datahub-project/datahub/blob/master/metadata-service/war/src/main/resources/boot/data_platforms.json) 
 file to add a custom Data Platform:
 
 ```
@@ -67,7 +67,7 @@ You can also ingest a Data Platform at runtime using either a file-based ingesti
 
 ```
 ---
-# see https://datahubproject.io/docs/metadata-ingestion/source_docs/file for complete documentation
+# see https://datahubproject.io/docs/generated/ingestion/sources/file for complete documentation
 source:
   type: "file"
   config:

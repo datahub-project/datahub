@@ -8,7 +8,7 @@ import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
-import com.linkedin.metadata.graph.LineageRegistry;
+import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.graph.RelatedEntity;
@@ -140,11 +140,15 @@ public class ElasticSearchGraphService implements GraphService {
         .map(hit -> {
           final String urnStr = ((HashMap<String, String>) hit.getSourceAsMap().getOrDefault(destinationNode, EMPTY_HASH)).getOrDefault("urn", null);
           final String relationshipType = (String) hit.getSourceAsMap().get("relationshipType");
+
           if (urnStr == null || relationshipType == null) {
             log.error(String.format(
-                "Found null urn string or relationship type in Elastic index. urnStr: %s, relationshipType: %s", urnStr, relationshipType));
+                "Found null urn string, relationship type, aspect name or path spec in Elastic index. "
+                    + "urnStr: %s, relationshipType: %s",
+                urnStr, relationshipType));
             return null;
           }
+
           return new RelatedEntity(relationshipType, urnStr);
         })
         .filter(Objects::nonNull)

@@ -47,7 +47,7 @@ public class TagUpdateInputMapper implements InputModelMapper<TagUpdateInput, Co
     final Ownership ownership = new Ownership();
     final Owner owner = new Owner();
     owner.setOwner(actor);
-    owner.setType(OwnershipType.DATAOWNER);
+    owner.setType(OwnershipType.NONE);
     owner.setSource(new OwnershipSource().setType(OwnershipSourceType.SERVICE));
     ownership.setOwners(new OwnerArray(owner));
     ownership.setLastModified(auditStamp);

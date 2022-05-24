@@ -4,7 +4,7 @@
 
 ### Caveats
 
-Currently, this project only supports adding new aspects to existing entities. You cannot add new entities to the metadata model yet.
+Currently, this project only supports aspects defined in PDL to existing or newly defined entities. You cannot add new aspects to the metadata model directly through yaml configuration yet.
 
 ## Pre-Requisites
 
@@ -15,7 +15,7 @@ Before proceeding further, make sure you understand the DataHub Metadata Model c
 Follow the regular process in creating a new aspect by adding it to the [`src/main/pegasus`](./src/main/pegasus) folder. e.g. This repository has an Aspect called `customDataQualityRules` hosted in the [`DataQualityRules.pdl`](./src/main/pegasus/com/mycompany/dq/DataQualityRules.pdl) file that you can follow.
 Once you've gone through this exercise, feel free to delete the sample aspects that are stored in this module.
 
-**_Tip_**: PDL requires that the name of the file must match the name of the class that is defined in it, so keep that in mind when you create your aspect pdl file.
+**_Tip_**: PDL requires that the name of the file must match the name of the class that is defined in it and the package path must also match the directory path, so keep that in mind when you create your aspect pdl file.
 
 ## Add your aspect(s) to the entity registry
 
@@ -34,8 +34,8 @@ entities:
 ```
 
 The entity registry has a few important fields to pay attention to: 
-- id: this is the name of your registry. This drives naming, artifact generation, so make sure you pick a unique name that will not conflict with other names you might create for other registries. 
-- entities: this is a list of entities with aspects attached to them that you are creating additional aspects for. In this example, we are adding the aspect `customDataQualityRules` to the `dataset` entity. 
+- id: The name of your registry. This drives naming, artifact generation, so make sure you pick a unique name that will not conflict with other names you might create for other registries. 
+- entities: A list of entities with aspects attached to them that you are creating additional aspects for as well as any new entities you wish to define. In this example, we are adding the aspect `customDataQualityRules` to the `dataset` entity. 
 
 ## Build your new model 
 
@@ -129,6 +129,15 @@ results in
 Update succeeded with status 200
 ```
 
+The `scripts/insert_custom_aspect.py` script shows you how to accomplish the same using the Python SDK. Note that we are just using a raw dictionary here to represent the `dq_rule` aspect and not a strongly-typed class.
+```console
+cd scripts
+python3 insert_custom_aspect.py
+```
+results in
+```console
+Successfully wrote to DataHub
+```
 
 ## Advanced Guide
 
@@ -146,8 +155,10 @@ As you evolve the metadata model, you can publish new versions of the repository
 
 ## The Future
 
-Hopefully this repository shows you how easily you can extend and customize DataHub's metadata model. 
-We will be adding support for adding new entities soon, and programmatically generating Python classes to make it even easier to interact with the extended metadata model. 
+Hopefully this repository shows you how easily you can extend and customize DataHub's metadata model!
+
+We will be continuing to make the experience less reliant on core changes to DataHub and reducing the need to fork the main repository.
+
 
 
 

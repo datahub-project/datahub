@@ -58,7 +58,7 @@ export const SidebarStatsSection = () => {
     const operations = (hasOperations && (baseEntity?.dataset?.operations as Array<Operation>)) || undefined;
     const latestOperation = operations && operations[0];
 
-    const lastUpdated = latestOperation && toLocalDateTimeString(latestOperation?.timestampMillis);
+    const lastUpdatedTime = latestOperation && toLocalDateTimeString(latestOperation?.lastUpdatedTimestamp);
 
     const routeToTab = useRouteToTab();
 
@@ -100,7 +100,7 @@ export const SidebarStatsSection = () => {
                 ) : null}
                 {(usageStats?.aggregations?.users?.length || 0) > 0 ? (
                     <InfoItem title="Top Users" width={INFO_ITEM_WIDTH_PX}>
-                        <UsageFacepile users={usageStats?.aggregations?.users} />
+                        <UsageFacepile users={usageStats?.aggregations?.users} maxNumberDisplayed={10} />
                     </InfoItem>
                 ) : null}
             </StatsRow>
@@ -112,7 +112,7 @@ export const SidebarStatsSection = () => {
                         onClick={() => routeToTab({ tabName: 'Queries' })}
                         width={LAST_UPDATED_WIDTH_PX}
                     >
-                        <HeaderInfoBody>{lastUpdated}</HeaderInfoBody>
+                        <HeaderInfoBody>{lastUpdatedTime}</HeaderInfoBody>
                     </InfoItem>
                 ) : null}
             </StatsRow>

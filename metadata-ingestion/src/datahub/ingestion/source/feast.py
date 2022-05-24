@@ -1,16 +1,38 @@
-import json
-import os
-import tempfile
-from dataclasses import dataclass, field
-from shlex import quote
-from typing import Dict, Iterable, List
+import sys
+from dataclasses import dataclass
+from typing import Dict, Iterable, List, Tuple, Union
 
-import docker
+from pydantic import Field
+
+if sys.version_info >= (3, 7):
+    from feast import (
+        BigQuerySource,
+        Entity,
+        Feature,
+        FeatureStore,
+        FeatureView,
+        FileSource,
+        KafkaSource,
+        KinesisSource,
+        OnDemandFeatureView,
+        ValueType,
+    )
+    from feast.data_source import DataSource, RequestDataSource
+else:
+    raise ModuleNotFoundError("The feast plugin requires Python 3.7 or newer.")
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import MLFeatureDataType
@@ -25,283 +47,350 @@ from datahub.metadata.schema_classes import (
     MLFeaturePropertiesClass,
     MLFeatureTablePropertiesClass,
     MLPrimaryKeyPropertiesClass,
+    StatusClass,
 )
 
-# map Feast types to DataHub classes
-_field_type_mapping: Dict[str, str] = {
-    "BYTES": MLFeatureDataType.BYTE,
-    "STRING": MLFeatureDataType.TEXT,
-    "INT32": MLFeatureDataType.ORDINAL,
-    "INT64": MLFeatureDataType.ORDINAL,
-    "DOUBLE": MLFeatureDataType.CONTINUOUS,
-    "FLOAT": MLFeatureDataType.CONTINUOUS,
-    "BOOL": MLFeatureDataType.BINARY,
-    "UNIX_TIMESTAMP": MLFeatureDataType.TIME,
-    "BYTES_LIST": MLFeatureDataType.SEQUENCE,
-    "STRING_LIST": MLFeatureDataType.SEQUENCE,
-    "INT32_LIST": MLFeatureDataType.SEQUENCE,
-    "INT64_LIST": MLFeatureDataType.SEQUENCE,
-    "DOUBLE_LIST": MLFeatureDataType.SEQUENCE,
-    "FLOAT_LIST": MLFeatureDataType.SEQUENCE,
-    "BOOL_LIST": MLFeatureDataType.SEQUENCE,
-    "UNIX_TIMESTAMP_LIST": MLFeatureDataType.SEQUENCE,
+assert sys.version_info >= (3, 7)  # needed for mypy
+
+_field_type_mapping: Dict[ValueType, str] = {
+    ValueType.UNKNOWN: MLFeatureDataType.UNKNOWN,
+    ValueType.BYTES: MLFeatureDataType.BYTE,
+    ValueType.STRING: MLFeatureDataType.TEXT,
+    ValueType.INT32: MLFeatureDataType.ORDINAL,
+    ValueType.INT64: MLFeatureDataType.ORDINAL,
+    ValueType.DOUBLE: MLFeatureDataType.CONTINUOUS,
+    ValueType.FLOAT: MLFeatureDataType.CONTINUOUS,
+    ValueType.BOOL: MLFeatureDataType.BINARY,
+    ValueType.UNIX_TIMESTAMP: MLFeatureDataType.TIME,
+    ValueType.BYTES_LIST: MLFeatureDataType.SEQUENCE,
+    ValueType.STRING_LIST: MLFeatureDataType.SEQUENCE,
+    ValueType.INT32_LIST: MLFeatureDataType.SEQUENCE,
+    ValueType.INT64_LIST: MLFeatureDataType.SEQUENCE,
+    ValueType.DOUBLE_LIST: MLFeatureDataType.SEQUENCE,
+    ValueType.FLOAT_LIST: MLFeatureDataType.SEQUENCE,
+    ValueType.BOOL_LIST: MLFeatureDataType.SEQUENCE,
+    ValueType.UNIX_TIMESTAMP_LIST: MLFeatureDataType.SEQUENCE,
+    ValueType.NULL: MLFeatureDataType.UNKNOWN,
 }
 
-# image to use for initial feast extraction
-HOSTED_FEAST_IMAGE = "acryldata/datahub-ingestion-feast-wrapper"
+
+class FeastRepositorySourceConfig(ConfigModel):
+    path: str = Field(description="Path to Feast repository")
+    environment: str = Field(
+        default=DEFAULT_ENV, description="Environment to use when constructing URNs"
+    )
 
 
-class FeastConfig(ConfigModel):
-    core_url: str = "localhost:6565"
-    env: str = DEFAULT_ENV
-    use_local_build: bool = False
-
-
+@platform_name("Feast")
+@config_class(FeastRepositorySourceConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @dataclass
-class FeastSourceReport(SourceReport):
-    filtered: List[str] = field(default_factory=list)
+class FeastRepositorySource(Source):
+    """
+    This plugin extracts:
 
-    def report_dropped(self, name: str) -> None:
-        self.filtered.append(name)
+    - Entities as [`MLPrimaryKey`](https://datahubproject.io/docs/graphql/objects#mlprimarykey)
+    - Features as [`MLFeature`](https://datahubproject.io/docs/graphql/objects#mlfeature)
+    - Feature views and on-demand feature views as [`MLFeatureTable`](https://datahubproject.io/docs/graphql/objects#mlfeaturetable)
+    - Batch and stream source details as [`Dataset`](https://datahubproject.io/docs/graphql/objects#dataset)
+    - Column types associated with each entity and feature
+    """
 
+    source_config: FeastRepositorySourceConfig
+    report: SourceReport
+    feature_store: FeatureStore
 
-@dataclass
-class FeastSource(Source):
-    config: FeastConfig
-    report: FeastSourceReport
-
-    def __init__(self, ctx: PipelineContext, config: FeastConfig):
+    def __init__(self, config: FeastRepositorySourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
-        self.config = config
-        self.report = FeastSourceReport()
 
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "FeastSource":
-        config = FeastConfig.parse_obj(config_dict)
-        return cls(ctx, config)
+        self.source_config = config
+        self.report = SourceReport()
+        self.feature_store = FeatureStore(self.source_config.path)
 
-    def get_field_type(self, field_type: str, parent_name: str) -> str:
+    def _get_field_type(self, field_type: ValueType, parent_name: str) -> str:
         """
         Maps types encountered in Feast to corresponding schema types.
-
-        Parameters
-        ----------
-            field_type:
-                type of a Feast object
-            parent_name:
-                name of table (for logging)
         """
-        enum_type = _field_type_mapping.get(field_type)
 
-        if enum_type is None:
+        ml_feature_data_type = _field_type_mapping.get(field_type)
+
+        if ml_feature_data_type is None:
             self.report.report_warning(
                 parent_name, f"unable to map type {field_type} to metadata schema"
             )
-            enum_type = MLFeatureDataType.UNKNOWN
 
-        return enum_type
+            ml_feature_data_type = MLFeatureDataType.UNKNOWN
 
-    def get_entity_wu(self, ingest_table, ingest_entity):
+        return ml_feature_data_type
+
+    def _get_data_source_details(self, source: DataSource) -> Tuple[str, str]:
         """
-        Generate an MLPrimaryKey workunit for a Feast entity.
-
-        Parameters
-        ----------
-            ingest_table:
-                ingested Feast table
-            ingest_entity:
-                ingested Feast entity
+        Get Feast batch/stream source platform and name.
         """
 
-        # create snapshot instance for the entity
+        platform = "unknown"
+        name = "unknown"
+
+        if isinstance(source, FileSource):
+            platform = "file"
+
+            name = source.path.replace("://", ".").replace("/", ".")
+
+        if isinstance(source, BigQuerySource):
+            platform = "bigquery"
+            name = source.table
+
+        if isinstance(source, KafkaSource):
+            platform = "kafka"
+            name = source.kafka_options.topic
+
+        if isinstance(source, KinesisSource):
+            platform = "kinesis"
+            name = (
+                f"{source.kinesis_options.region}:{source.kinesis_options.stream_name}"
+            )
+
+        if isinstance(source, RequestDataSource):
+            platform = "request"
+            name = source.name
+
+        return platform, name
+
+    def _get_data_sources(self, feature_view: FeatureView) -> List[str]:
+        """
+        Get data source URN list.
+        """
+
+        sources = []
+
+        if feature_view.batch_source is not None:
+            batch_source_platform, batch_source_name = self._get_data_source_details(
+                feature_view.batch_source
+            )
+            sources.append(
+                builder.make_dataset_urn(
+                    batch_source_platform,
+                    batch_source_name,
+                    self.source_config.environment,
+                )
+            )
+
+        if feature_view.stream_source is not None:
+            stream_source_platform, stream_source_name = self._get_data_source_details(
+                feature_view.stream_source
+            )
+            sources.append(
+                builder.make_dataset_urn(
+                    stream_source_platform,
+                    stream_source_name,
+                    self.source_config.environment,
+                )
+            )
+
+        return sources
+
+    def _get_entity_workunit(
+        self, feature_view: FeatureView, entity: Entity
+    ) -> MetadataWorkUnit:
+        """
+        Generate an MLPrimaryKey work unit for a Feast entity.
+        """
+
+        feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
+
         entity_snapshot = MLPrimaryKeySnapshot(
-            urn=builder.make_ml_primary_key_urn(
-                ingest_table["name"], ingest_entity["name"]
-            ),
-            aspects=[],
+            urn=builder.make_ml_primary_key_urn(feature_view_name, entity.name),
+            aspects=[StatusClass(removed=False)],
         )
 
-        entity_sources = []
-
-        if ingest_entity["batch_source"] is not None:
-            entity_sources.append(
-                builder.make_dataset_urn(
-                    ingest_entity["batch_source_platform"],
-                    ingest_entity["batch_source_name"],
-                    self.config.env,
-                )
-            )
-
-        if ingest_entity["stream_source"] is not None:
-            entity_sources.append(
-                builder.make_dataset_urn(
-                    ingest_entity["stream_source_platform"],
-                    ingest_entity["stream_source_name"],
-                    self.config.env,
-                )
-            )
-
-        # append entity name and type
         entity_snapshot.aspects.append(
             MLPrimaryKeyPropertiesClass(
-                description=ingest_entity["description"],
-                dataType=self.get_field_type(
-                    ingest_entity["type"], ingest_entity["name"]
-                ),
-                sources=entity_sources,
+                description=entity.description,
+                dataType=self._get_field_type(entity.value_type, entity.name),
+                sources=self._get_data_sources(feature_view),
             )
         )
 
-        # make the MCE and workunit
         mce = MetadataChangeEvent(proposedSnapshot=entity_snapshot)
-        return MetadataWorkUnit(id=ingest_entity["name"], mce=mce)
 
-    def get_feature_wu(self, ingest_table, ingest_feature):
+        return MetadataWorkUnit(id=entity.name, mce=mce)
+
+    def _get_feature_workunit(
+        self,
+        feature_view: Union[FeatureView, OnDemandFeatureView],
+        feature: Feature,
+    ) -> MetadataWorkUnit:
         """
-        Generate an MLFeature workunit for a Feast feature.
-
-        Parameters
-        ----------
-            ingest_table:
-                ingested Feast table
-            ingest_feature:
-                ingested Feast feature
+        Generate an MLFeature work unit for a Feast feature.
         """
+        feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
 
-        # create snapshot instance for the feature
         feature_snapshot = MLFeatureSnapshot(
-            urn=builder.make_ml_feature_urn(
-                ingest_table["name"], ingest_feature["name"]
-            ),
-            aspects=[],
+            urn=builder.make_ml_feature_urn(feature_view_name, feature.name),
+            aspects=[StatusClass(removed=False)],
         )
 
         feature_sources = []
 
-        if ingest_feature["batch_source"] is not None:
-            feature_sources.append(
-                builder.make_dataset_urn(
-                    ingest_feature["batch_source_platform"],
-                    ingest_feature["batch_source_name"],
-                    self.config.env,
-                )
-            )
+        if isinstance(feature_view, FeatureView):
+            feature_sources = self._get_data_sources(feature_view)
+        elif isinstance(feature_view, OnDemandFeatureView):
+            if feature_view.input_request_data_sources is not None:
+                for request_source in feature_view.input_request_data_sources.values():
+                    source_platform, source_name = self._get_data_source_details(
+                        request_source
+                    )
 
-        if ingest_feature["stream_source"] is not None:
-            feature_sources.append(
-                builder.make_dataset_urn(
-                    ingest_feature["stream_source_platform"],
-                    ingest_feature["stream_source_name"],
-                    self.config.env,
-                )
-            )
+                    feature_sources.append(
+                        builder.make_dataset_urn(
+                            source_platform,
+                            source_name,
+                            self.source_config.environment,
+                        )
+                    )
 
-        # append feature name and type
+            if feature_view.input_feature_view_projections is not None:
+                for (
+                    feature_view_projection
+                ) in feature_view.input_feature_view_projections.values():
+                    feature_view_source = self.feature_store.get_feature_view(
+                        feature_view_projection.name
+                    )
+
+                    feature_sources.extend(self._get_data_sources(feature_view_source))
+
         feature_snapshot.aspects.append(
             MLFeaturePropertiesClass(
-                dataType=self.get_field_type(
-                    ingest_feature["type"], ingest_feature["name"]
-                ),
+                description=feature.labels.get("description"),
+                dataType=self._get_field_type(feature.dtype, feature.name),
                 sources=feature_sources,
             )
         )
 
-        # make the MCE and workunit
         mce = MetadataChangeEvent(proposedSnapshot=feature_snapshot)
-        return MetadataWorkUnit(id=ingest_feature["name"], mce=mce)
 
-    def get_feature_table_wu(self, ingest_table):
+        return MetadataWorkUnit(id=feature.name, mce=mce)
+
+    def _get_feature_view_workunit(self, feature_view: FeatureView) -> MetadataWorkUnit:
         """
-        Generate an MLFeatureTable workunit for a Feast feature table.
-
-        Parameters
-        ----------
-            ingest_table:
-                ingested Feast table
+        Generate an MLFeatureTable work unit for a Feast feature view.
         """
 
-        featuretable_snapshot = MLFeatureTableSnapshot(
-            urn=builder.make_ml_feature_table_urn("feast", ingest_table["name"]),
+        feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
+
+        feature_view_snapshot = MLFeatureTableSnapshot(
+            urn=builder.make_ml_feature_table_urn("feast", feature_view_name),
             aspects=[
-                BrowsePathsClass(paths=[f"feast/{ingest_table['name']}"]),
+                BrowsePathsClass(
+                    paths=[f"/feast/{self.feature_store.project}/{feature_view_name}"]
+                ),
+                StatusClass(removed=False),
             ],
         )
 
-        featuretable_snapshot.aspects.append(
+        feature_view_snapshot.aspects.append(
             MLFeatureTablePropertiesClass(
                 mlFeatures=[
                     builder.make_ml_feature_urn(
-                        ingest_table["name"],
-                        feature["name"],
+                        feature_view_name,
+                        feature.name,
                     )
-                    for feature in ingest_table["features"]
+                    for feature in feature_view.features
                 ],
-                # a feature table can have multiple primary keys, which then act as a composite key
                 mlPrimaryKeys=[
-                    builder.make_ml_primary_key_urn(
-                        ingest_table["name"], entity["name"]
-                    )
-                    for entity in ingest_table["entities"]
+                    builder.make_ml_primary_key_urn(feature_view_name, entity_name)
+                    for entity_name in feature_view.entities
                 ],
             )
         )
 
-        # make the MCE and workunit
-        mce = MetadataChangeEvent(proposedSnapshot=featuretable_snapshot)
-        return MetadataWorkUnit(id=ingest_table["name"], mce=mce)
+        mce = MetadataChangeEvent(proposedSnapshot=feature_view_snapshot)
+
+        return MetadataWorkUnit(id=feature_view_name, mce=mce)
+
+    def _get_on_demand_feature_view_workunit(
+        self, on_demand_feature_view: OnDemandFeatureView
+    ) -> MetadataWorkUnit:
+        """
+        Generate an MLFeatureTable work unit for a Feast on-demand feature view.
+        """
+
+        on_demand_feature_view_name = (
+            f"{self.feature_store.project}.{on_demand_feature_view.name}"
+        )
+
+        on_demand_feature_view_snapshot = MLFeatureTableSnapshot(
+            urn=builder.make_ml_feature_table_urn("feast", on_demand_feature_view_name),
+            aspects=[
+                BrowsePathsClass(
+                    paths=[
+                        f"/feast/{self.feature_store.project}/{on_demand_feature_view_name}"
+                    ]
+                ),
+                StatusClass(removed=False),
+            ],
+        )
+
+        on_demand_feature_view_snapshot.aspects.append(
+            MLFeatureTablePropertiesClass(
+                mlFeatures=[
+                    builder.make_ml_feature_urn(
+                        on_demand_feature_view_name,
+                        feature.name,
+                    )
+                    for feature in on_demand_feature_view.features
+                ],
+                mlPrimaryKeys=[],
+            )
+        )
+
+        mce = MetadataChangeEvent(proposedSnapshot=on_demand_feature_view_snapshot)
+
+        return MetadataWorkUnit(id=on_demand_feature_view_name, mce=mce)
+
+    @classmethod
+    def create(cls, config_dict, ctx):
+        config = FeastRepositorySourceConfig.parse_obj(config_dict)
+        return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        with tempfile.NamedTemporaryFile(suffix=".json") as tf:
+        for feature_view in self.feature_store.list_feature_views():
+            for entity_name in feature_view.entities:
+                entity = self.feature_store.get_entity(entity_name)
 
-            docker_client = docker.from_env()
+                work_unit = self._get_entity_workunit(feature_view, entity)
+                self.report.report_workunit(work_unit)
 
-            feast_image = HOSTED_FEAST_IMAGE
+                yield work_unit
 
-            # build the image locally if specified
-            if self.config.use_local_build:
-                dirname = os.path.dirname(__file__)
-                image_directory = os.path.join(dirname, "feast_image/")
+            for feature in feature_view.features:
+                work_unit = self._get_feature_workunit(feature_view, feature)
+                self.report.report_workunit(work_unit)
 
-                image, _ = docker_client.images.build(path=image_directory)
+                yield work_unit
 
-                feast_image = image.id
+            work_unit = self._get_feature_view_workunit(feature_view)
+            self.report.report_workunit(work_unit)
 
-            docker_client.containers.run(
-                feast_image,
-                f"python3 ingest.py --core_url={quote(self.config.core_url)} --output_path=/out.json",
-                # allow the image to access the core URL if on host
-                network_mode="host",
-                # mount the tempfile so the Docker image has access
-                volumes={
-                    tf.name: {"bind": "/out.json", "mode": "rw"},
-                },
+            yield work_unit
+
+        for on_demand_feature_view in self.feature_store.list_on_demand_feature_views():
+            for feature in on_demand_feature_view.features:
+                work_unit = self._get_feature_workunit(on_demand_feature_view, feature)
+                self.report.report_workunit(work_unit)
+
+                yield work_unit
+
+            work_unit = self._get_on_demand_feature_view_workunit(
+                on_demand_feature_view
             )
+            self.report.report_workunit(work_unit)
 
-            ingest = json.load(tf)
+            yield work_unit
 
-            # ingest tables
-            for ingest_table in ingest:
-
-                # ingest entities in table
-                for ingest_entity in ingest_table["entities"]:
-
-                    wu = self.get_entity_wu(ingest_table, ingest_entity)
-                    self.report.report_workunit(wu)
-                    yield wu
-
-                # ingest features in table
-                for ingest_feature in ingest_table["features"]:
-
-                    wu = self.get_feature_wu(ingest_table, ingest_feature)
-                    self.report.report_workunit(wu)
-                    yield wu
-
-                wu = self.get_feature_table_wu(ingest_table)
-                self.report.report_workunit(wu)
-                yield wu
-
-    def get_report(self) -> FeastSourceReport:
+    def get_report(self) -> SourceReport:
         return self.report
 
-    def close(self):
+    def close(self) -> None:
         return

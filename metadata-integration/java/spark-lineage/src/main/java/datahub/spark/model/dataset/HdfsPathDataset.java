@@ -3,29 +3,20 @@ package datahub.spark.model.dataset;
 import org.apache.hadoop.fs.Path;
 
 import com.linkedin.common.FabricType;
-import com.linkedin.common.urn.DataPlatformUrn;
-import com.linkedin.common.urn.DatasetUrn;
 
-import lombok.EqualsAndHashCode;
 import lombok.ToString;
 
-@EqualsAndHashCode
 @ToString
-public class HdfsPathDataset implements SparkDataset {
-  private final DatasetUrn urn;
-
-  public HdfsPathDataset(Path path) {
+public class HdfsPathDataset extends SparkDataset {
+  
+  public HdfsPathDataset(Path path, String platformInstance, FabricType fabricType) {
     // TODO check static partitions?
-    this(path.toUri().toString());
+    this(path.toUri().toString(), platformInstance, fabricType);
   }
 
-  public HdfsPathDataset(String pathUri) {
+  public HdfsPathDataset(String pathUri, String platformInstance, FabricType fabricType) {
     // TODO check static partitions?
-    this.urn = new DatasetUrn(new DataPlatformUrn("hdfs"), pathUri, FabricType.PROD);
+    super("hdfs", platformInstance, pathUri, fabricType);
   }
 
-  @Override
-  public DatasetUrn urn() {
-    return this.urn;
-  }
 }

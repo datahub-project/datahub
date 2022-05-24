@@ -1,0 +1,19 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Notebook
+ */
+@Aspect = {
+  "name": "notebookKey",
+}
+record NotebookKey {
+  /**
+  * The name of the Notebook tool such as QueryBook, etc.
+  */
+  notebookTool: string
+
+  /**
+  * Unique id for the Notebook. This id should be globally unique for a Notebook tool even when there are multiple deployments of it. As an example, Notebook URL could be used here for QueryBook such as 'querybook.com/notebook/773'
+  */
+  notebookId: string
+}

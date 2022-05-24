@@ -23,7 +23,7 @@ for more visibility.
 - *Landed*: when an RFC's proposed changes are shipped in an actual release.
 - *Rejected*: when an RFC PR is closed without being merged.
 
-[Pending RFC List](https://github.com/linkedin/datahub/pulls?q=is%3Apr+is%3Aopen+label%3Arfc+)
+[Pending RFC List](https://github.com/datahub-project/datahub/pulls?q=is%3Apr+is%3Aopen+label%3Arfc+)
 
 ## When to follow this process
 

@@ -61,8 +61,8 @@ describe('HomePage', () => {
         await waitFor(() => expect(searchInput).toBeInTheDocument());
         fireEvent.change(searchInput, { target: { value: 't' } });
 
-        await waitFor(() => expect(queryAllByText('The Great Test Dataset').length).toBeGreaterThanOrEqual(1));
-        expect(queryAllByText('Some other test').length).toBeGreaterThanOrEqual(1);
+        await waitFor(() => expect(queryAllByText('he Great Test Dataset').length).toBeGreaterThanOrEqual(1));
+        expect(queryAllByText('Some Other Dataset').length).toBeGreaterThanOrEqual(1);
     });
 
     it('renders search suggestions', async () => {

@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package meta;
+
+/*
+   This is assigned to metadata fields. It describes how the metadata field should be represented
+   in DataHub. This enum must be used in the `meta` package. Multiple can be used for the same
+   metadata annotation. This allows a single piece of information to be captured in DataHub
+   as a property, tag and/or term.
+
+   Tags can be strings, enums, or booleans
+   Terms can be strings or enums
+   Properties should be strings
+
+*/
+enum DataHubMetadataType {
+  PROPERTY = 0; // Datahub Custom Property
+  TAG      = 1; // Datahub Tag
+  TERM     = 2; // Datahub Term
+}
+
+/*
+   Example below: The following is not required for annotation processing. This is an example
+   of creating an annotation using an enum.
+ */
+
+enum MetaEnumExample {
+  UNKNOWN = 0;
+  ENTITY = 1;
+  EVENT = 2;
+}
+
+// Assuming Glossary Term defined from bootstrap example
+enum Classification {
+  HighlyConfidential = 0;
+  Confidential = 1;
+  Sensitive = 2;
+}

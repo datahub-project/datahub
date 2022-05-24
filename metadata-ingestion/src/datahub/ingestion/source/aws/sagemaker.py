@@ -2,6 +2,14 @@ from collections import defaultdict
 from typing import DefaultDict, Dict, Iterable
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.sagemaker_processors.common import (
@@ -20,7 +28,18 @@ from datahub.ingestion.source.aws.sagemaker_processors.lineage import LineagePro
 from datahub.ingestion.source.aws.sagemaker_processors.models import ModelProcessor
 
 
+@platform_name("SageMaker")
+@config_class(SagemakerSourceConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class SagemakerSource(Source):
+    """
+    This plugin extracts the following:
+
+    - Feature groups
+    - Models, jobs, and lineage between the two (e.g. when jobs output a model or a model is used by a job)
+    """
+
     source_config: SagemakerSourceConfig
     report = SagemakerSourceReport()
 

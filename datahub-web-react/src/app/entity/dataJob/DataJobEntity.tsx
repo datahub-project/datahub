@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { ConsoleSqlOutlined } from '@ant-design/icons';
-import { DataJob, EntityType, PlatformType, SearchResult } from '../../../types.generated';
+import { DataJob, EntityType, OwnershipType, PlatformType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
@@ -16,7 +16,7 @@ import { DataJobFlowTab } from '../shared/tabs/Entity/DataJobFlowTab';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { EntityAndType } from '../../lineage/types';
+import { RunsTab } from './tabs/RunsTab';
 
 /**
  * Definition of the DataHub DataJob entity.
@@ -64,6 +64,7 @@ export class DataJobEntity implements Entity<DataJob> {
             useEntityQuery={useGetDataJobQuery}
             useUpdateQuery={useUpdateDataJobMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
+            showDeprecateOption
             tabs={[
                 {
                     name: 'Documentation',
@@ -87,6 +88,14 @@ export class DataJobEntity implements Entity<DataJob> {
                             (dataJob?.dataJob?.outgoing?.count || 0) !== 0,
                     },
                 },
+                {
+                    name: 'Runs',
+                    component: RunsTab,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, dataJob: GetDataJobQuery) => (dataJob?.dataJob?.runs?.total || 0) !== 0,
+                    },
+                },
             ]}
             sidebarSections={[
                 {
@@ -101,6 +110,9 @@ export class DataJobEntity implements Entity<DataJob> {
                 },
                 {
                     component: SidebarOwnerSection,
+                    properties: {
+                        defaultOwnerType: OwnershipType.TechnicalOwner,
+                    },
                 },
                 {
                     component: SidebarDomainSection,
@@ -161,6 +173,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={platformName}
                 platformLogo={data?.dataFlow?.platform?.properties?.logoUrl || ''}
+                platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 domain={data.domain}
@@ -175,14 +188,6 @@ export class DataJobEntity implements Entity<DataJob> {
             name: entity?.properties?.name || '',
             type: EntityType.DataJob,
             icon: entity?.dataFlow?.platform?.properties?.logoUrl || '',
-            // eslint-disable-next-line @typescript-eslint/dot-notation
-            downstreamChildren: entity?.['downstream']?.relationships?.map(
-                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
-            ),
-            // eslint-disable-next-line @typescript-eslint/dot-notation
-            upstreamChildren: entity?.['upstream']?.relationships?.map(
-                (relationship) => ({ entity: relationship.entity, type: relationship.entity.type } as EntityAndType),
-            ),
             platform: entity?.dataFlow?.orchestrator || '',
         };
     };

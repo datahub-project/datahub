@@ -25,10 +25,10 @@ import com.google.common.collect.Iterables;
  */
 public class OwnerTypeResolver<T> implements DataFetcher<CompletableFuture<T>> {
 
-    private final List<LoadableType<?>> _loadableTypes;
+    private final List<LoadableType<?, ?>> _loadableTypes;
     private final Function<DataFetchingEnvironment, OwnerType> _urnProvider;
 
-    public OwnerTypeResolver(final List<LoadableType<?>> loadableTypes, final Function<DataFetchingEnvironment, OwnerType> urnProvider) {
+    public OwnerTypeResolver(final List<LoadableType<?, ?>> loadableTypes, final Function<DataFetchingEnvironment, OwnerType> urnProvider) {
         _loadableTypes = loadableTypes;
         _urnProvider = urnProvider;
     }
@@ -36,7 +36,7 @@ public class OwnerTypeResolver<T> implements DataFetcher<CompletableFuture<T>> {
     @Override
     public CompletableFuture<T> get(DataFetchingEnvironment environment) {
         final OwnerType ownerType = _urnProvider.apply(environment);
-        final LoadableType<?> filteredEntity = Iterables.getOnlyElement(_loadableTypes.stream()
+        final LoadableType<?, ?> filteredEntity = Iterables.getOnlyElement(_loadableTypes.stream()
                 .filter(entity -> ownerType.getClass().isAssignableFrom(entity.objectClass()))
                 .collect(Collectors.toList()));
         final DataLoader<String, T> loader = environment.getDataLoaderRegistry().getDataLoader(filteredEntity.name());

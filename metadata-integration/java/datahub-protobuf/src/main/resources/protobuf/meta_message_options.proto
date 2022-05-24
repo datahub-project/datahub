@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package meta.msg;
+
+import "google/protobuf/descriptor.proto";
+
+import "protobuf/meta.proto";
+import "protobuf/meta_field_options.proto";
+
+
+extend google.protobuf.MessageOptions {
+    /*
+       Examples below: The following is not required for annotation processing.
+     */
+
+    // Place the classification term at the Message/Dataset level, either string or enum is supported
+    string classification                   = 4000 [(meta.fld.type) = TERM, (meta.fld.type) = PROPERTY];
+    meta.Classification classification_enum = 4001 [(meta.fld.type) = TERM, (meta.fld.type) = PROPERTY];
+
+    // Attach these Message/Dataset options as a tag and property.
+    string product            = 5001 [(meta.fld.type) = TAG, (meta.fld.type) = PROPERTY];
+    string project            = 5002 [(meta.fld.type) = TAG, (meta.fld.type) = PROPERTY];
+    string team               = 5003 [(meta.fld.type) = TAG, (meta.fld.type) = PROPERTY];
+
+    string domain             = 60003 [(meta.fld.type) = TAG, (meta.fld.type) = PROPERTY];
+    meta.MetaEnumExample type = 60004 [(meta.fld.type) = TAG, (meta.fld.type) = PROPERTY];
+    bool bool_feature         = 60005 [(meta.fld.type) = TAG];
+    string alert_channel      = 60007 [(meta.fld.type) = PROPERTY];
+}

@@ -28,6 +28,7 @@ public class CacheableSearcher<K> {
   private final Function<QueryPagination, K> cacheKeyGenerator;
   @Nullable
   private final SearchFlags searchFlags;
+  private final boolean enableCache;
 
   @Value
   public static class QueryPagination {
@@ -95,6 +96,6 @@ public class CacheableSearcher<K> {
   }
 
   private boolean enableCache() {
-    return searchFlags == null || !searchFlags.isSkipCache();
+    return enableCache && (searchFlags == null || !searchFlags.isSkipCache());
   }
 }

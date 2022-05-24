@@ -10,17 +10,19 @@ import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
+import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Domain;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
-import com.linkedin.datahub.graphql.generated.Entity;
-import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureTable;
-import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLModel;
 import com.linkedin.datahub.graphql.generated.MLModelGroup;
+import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
+import com.linkedin.datahub.graphql.generated.Notebook;
+import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import javax.annotation.Nonnull;
 
@@ -54,6 +56,11 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new Dashboard();
       ((Dashboard) partialEntity).setUrn(input.toString());
       ((Dashboard) partialEntity).setType(EntityType.DASHBOARD);
+    }
+    if (input.getEntityType().equals("notebook")) {
+      partialEntity = new Notebook();
+      ((Notebook) partialEntity).setUrn(input.toString());
+      ((Notebook) partialEntity).setType(EntityType.NOTEBOOK);
     }
     if (input.getEntityType().equals("dataJob")) {
       partialEntity = new DataJob();
@@ -109,6 +116,11 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new DataPlatform();
       ((DataPlatform) partialEntity).setUrn(input.toString());
       ((DataPlatform) partialEntity).setType(EntityType.DATA_PLATFORM);
+    }
+    if (input.getEntityType().equals("dataPlatformInstance")) {
+      partialEntity = new DataPlatformInstance();
+      ((DataPlatformInstance) partialEntity).setUrn(input.toString());
+      ((DataPlatformInstance) partialEntity).setType(EntityType.DATA_PLATFORM_INSTANCE);
     }
     if (input.getEntityType().equals("container")) {
       partialEntity = new Container();

@@ -1,0 +1,972 @@
+{
+    "data": {
+        "publishedDatasourcesConnection": {
+            "nodes": [
+                {
+                    "__typename": "PublishedDatasource",
+                    "id": "00cce29f-b561-bb41-3557-8e19660bb5dd",
+                    "name": "test publish datasource",
+                    "hasExtracts": false,
+                    "extractLastRefreshTime": null,
+                    "extractLastIncrementalUpdateTime": null,
+                    "extractLastUpdateTime": null,
+                    "downstreamSheets": [
+                        {
+                            "name": "published sheet ds",
+                            "id": "130496dc-29ca-8a89-e32b-d73c4d8b65ff",
+                            "workbook": {
+                                "name": "Workbook published ds",
+                                "projectName": "default"
+                            }
+                        }
+                    ],
+                    "upstreamDatabases": [
+                        {
+                            "id": "a7825692-7de9-113d-5377-ae113331a9ec",
+                            "name": "dvdrental",
+                            "connectionType": "postgres",
+                            "isEmbedded": false
+                        }
+                    ],
+                    "upstreamTables": [
+                        {
+                            "id": "39657832-0769-6372-60c3-687a51e2a772",
+                            "database": {
+                                "name": "dvdrental"
+                            },
+                            "name": "customer",
+                            "schema": "",
+                            "fullName": "customer",
+                            "connectionType": "postgres",
+                            "description": "",
+                            "columns": []
+                        },
+                        {
+                            "id": "3cdd0522-44ef-62eb-ba52-71545c258344",
+                            "database": {
+                                "name": "dvdrental"
+                            },
+                            "name": "payment",
+                            "schema": "",
+                            "fullName": "payment",
+                            "connectionType": "postgres",
+                            "description": "",
+                            "columns": []
+                        },
+                        {
+                            "id": "7df39af9-6767-4c9c-4120-155a024de062",
+                            "database": {
+                                "name": "dvdrental"
+                            },
+                            "name": "staff",
+                            "schema": "",
+                            "fullName": "staff",
+                            "connectionType": "postgres",
+                            "description": "",
+                            "columns": []
+                        }
+                    ],
+                    "fields": [
+                        {
+                            "__typename": "ColumnField",
+                            "id": "0fe30270-b1b9-9310-3c16-520b2a4824cb",
+                            "name": "payment_date",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "ORDINAL",
+                            "role": "DIMENSION",
+                            "dataType": "DATETIME",
+                            "defaultFormat": null,
+                            "aggregation": "Year",
+                            "columns": [
+                                {
+                                    "table": {
+                                        "id": "4fb670d5-3e19-9656-e684-74aa9729cf18",
+                                        "name": "Custom SQL Query"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "2b8a4156-7554-9ec1-a5ba-3316ab7d4ee2",
+                            "name": "staff_first_name",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "NOMINAL",
+                            "role": "DIMENSION",
+                            "dataType": "STRING",
+                            "defaultFormat": null,
+                            "aggregation": "Count",
+                            "columns": [
+                                {
+                                    "table": {
+                                        "id": "4fb670d5-3e19-9656-e684-74aa9729cf18",
+                                        "name": "Custom SQL Query"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "740b3cfe-ff17-c957-1e1b-f322d61f9b25",
+                            "name": "customer_id",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "QUANTITATIVE",
+                            "role": "MEASURE",
+                            "dataType": "INTEGER",
+                            "defaultFormat": null,
+                            "aggregation": "Sum",
+                            "columns": [
+                                {
+                                    "table": {
+                                        "id": "4fb670d5-3e19-9656-e684-74aa9729cf18",
+                                        "name": "Custom SQL Query"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "9481e156-2775-f5fa-5aa3-be174224d4fb",
+                            "name": "amount",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "QUANTITATIVE",
+                            "role": "MEASURE",
+                            "dataType": "REAL",
+                            "defaultFormat": null,
+                            "aggregation": "Sum",
+                            "columns": [
+                                {
+                                    "table": {
+                                        "id": "4fb670d5-3e19-9656-e684-74aa9729cf18",
+                                        "name": "Custom SQL Query"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "b2e77a9b-8961-0637-0907-940a5fcfb643",
+                            "name": "Published SQL Query",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "QUANTITATIVE",
+                            "role": "MEASURE",
+                            "dataType": "TABLE",
+                            "defaultFormat": null,
+                            "aggregation": null,
+                            "columns": []
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "b950a9fd-ddb8-2a1d-ddbe-91000a3953e1",
+                            "name": "customer_last_name",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "NOMINAL",
+                            "role": "DIMENSION",
+                            "dataType": "STRING",
+                            "defaultFormat": null,
+                            "aggregation": "Count",
+                            "columns": [
+                                {
+                                    "table": {
+                                        "id": "4fb670d5-3e19-9656-e684-74aa9729cf18",
+                                        "name": "Custom SQL Query"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "ca23efe0-5a93-344a-3f69-ec777ee1b318",
+                            "name": "customer_first_name",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "NOMINAL",
+                            "role": "DIMENSION",
+                            "dataType": "STRING",
+                            "defaultFormat": null,
+                            "aggregation": "Count",
+                            "columns": [
+                                {
+                                    "table": {
+                                        "id": "4fb670d5-3e19-9656-e684-74aa9729cf18",
+                                        "name": "Custom SQL Query"
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "cab66386-799c-d9b6-812b-d3931b626f3b",
+                            "name": "staff_last_name",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "NOMINAL",
+                            "role": "DIMENSION",
+                            "dataType": "STRING",
+                            "defaultFormat": null,
+                            "aggregation": "Count",
+                            "columns": [
+                                {
+                                    "table": {
+                                        "id": "4fb670d5-3e19-9656-e684-74aa9729cf18",
+                                        "name": "Custom SQL Query"
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    "upstreamDatasources": [],
+                    "owner": {
+                        "username": "jawadqu@gmail.com"
+                    },
+                    "description": "description for test publish datasource",
+                    "uri": "sites/4989/datasources/155429",
+                    "projectName": "default"
+                },
+                {
+                    "__typename": "PublishedDatasource",
+                    "id": "6cbbeeb2-9f3a-00f6-2342-17139d6e97ae",
+                    "name": "Superstore Datasource",
+                    "hasExtracts": false,
+                    "extractLastRefreshTime": null,
+                    "extractLastIncrementalUpdateTime": null,
+                    "extractLastUpdateTime": null,
+                    "downstreamSheets": [
+                        {
+                            "name": "Sheet 3",
+                            "id": "e604255e-0573-3951-6db7-05bee48116c1",
+                            "workbook": {
+                                "name": "Dvdrental Workbook",
+                                "projectName": "default"
+                            }
+                        }
+                    ],
+                    "upstreamDatabases": [
+                        {
+                            "id": "1ade1d51-bbc3-ed8d-25d2-c51f44b8b31b",
+                            "name": "Sample - Superstore.xls",
+                            "connectionType": "excel-direct",
+                            "isEmbedded": true
+                        }
+                    ],
+                    "upstreamTables": [
+                        {
+                            "id": "15714253-8e46-a209-63cc-700705b66de9",
+                            "database": {
+                                "name": "Sample - Superstore.xls"
+                            },
+                            "name": "People",
+                            "schema": "",
+                            "fullName": "[People$]",
+                            "connectionType": "excel-direct",
+                            "description": "",
+                            "columns": [
+                                {
+                                    "name": "Person",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Region",
+                                    "remoteType": "WSTR"
+                                }
+                            ]
+                        },
+                        {
+                            "id": "19be3c28-8e4d-ebac-b44d-8f0851d9f206",
+                            "database": {
+                                "name": "Sample - Superstore.xls"
+                            },
+                            "name": "Returns",
+                            "schema": "",
+                            "fullName": "[Returns$]",
+                            "connectionType": "excel-direct",
+                            "description": "",
+                            "columns": [
+                                {
+                                    "name": "Returned",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Order ID",
+                                    "remoteType": "WSTR"
+                                }
+                            ]
+                        },
+                        {
+                            "id": "b0e0c3eb-6e53-e0f5-ded1-478d5d9f7281",
+                            "database": {
+                                "name": "Sample - Superstore.xls"
+                            },
+                            "name": "Orders",
+                            "schema": "",
+                            "fullName": "[Orders$]",
+                            "connectionType": "excel-direct",
+                            "description": "",
+                            "columns": [
+                                {
+                                    "name": "Product ID",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Category",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Postal Code",
+                                    "remoteType": "I8"
+                                },
+                                {
+                                    "name": "City",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Quantity",
+                                    "remoteType": "I8"
+                                },
+                                {
+                                    "name": "State",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Order Date",
+                                    "remoteType": "DATE"
+                                },
+                                {
+                                    "name": "Customer Name",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Country/Region",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Sales",
+                                    "remoteType": "R8"
+                                },
+                                {
+                                    "name": "Segment",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Sub-Category",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Profit",
+                                    "remoteType": "R8"
+                                },
+                                {
+                                    "name": "Product Name",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Customer ID",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Order ID",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Row ID",
+                                    "remoteType": "I8"
+                                },
+                                {
+                                    "name": "Discount",
+                                    "remoteType": "R8"
+                                },
+                                {
+                                    "name": "Ship Date",
+                                    "remoteType": "DATE"
+                                },
+                                {
+                                    "name": "Ship Mode",
+                                    "remoteType": "WSTR"
+                                },
+                                {
+                                    "name": "Region",
+                                    "remoteType": "WSTR"
+                                }
+                            ]
+                        }
+                    ],
+                    "fields": [
+                        {
+                            "__typename": "SetField",
+                            "id": "0749f75a-cc58-e1fd-ba66-d2d2b9dbe2cb",
+                            "name": "Top Customers by Profit",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "0e2c4d41-12b9-fbd4-d4e0-463c165ecb29",
+                            "name": "Returns",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "QUANTITATIVE",
+                            "role": "MEASURE",
+                            "dataType": "TABLE",
+                            "defaultFormat": null,
+                            "aggregation": null,
+                            "columns": []
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "0e75ad46-7474-6e02-6d1b-20781db40587",
+                            "name": "Segment",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "NOMINAL",
+                            "role": "DIMENSION",
+                            "dataType": "STRING",
+                            "defaultFormat": null,
+                            "aggregation": "Count",
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "CalculatedField",
+                            "id": "11242a9a-c161-754c-bdcc-fdc22bfce2b2",
+                            "name": "Profit Ratio",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "role": "MEASURE",
+                            "dataType": "REAL",
+                            "defaultFormat": null,
+                            "aggregation": null,
+                            "formula": "SUM([Profit])/SUM([Sales])"
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "18f817fa-a4df-6dfe-98c0-ffdce9f6cdc5",
+                            "name": "City",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "NOMINAL",
+                            "role": "DIMENSION",
+                            "dataType": "STRING",
+                            "defaultFormat": null,
+                            "aggregation": null,
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "1a63d0cd-0b37-3dea-b171-8893a9fb1417",
+                            "name": "Profit",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "QUANTITATIVE",
+                            "role": "MEASURE",
+                            "dataType": "REAL",
+                            "defaultFormat": null,
+                            "aggregation": null,
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "1a6595e6-5eac-1f32-4d8b-dd0569b4e827",
+                            "name": "Quantity",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "QUANTITATIVE",
+                            "role": "MEASURE",
+                            "dataType": "INTEGER",
+                            "defaultFormat": null,
+                            "aggregation": "Sum",
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "204a2d38-c144-f946-b426-ee66ef3eb492",
+                            "name": "Returned",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "NOMINAL",
+                            "role": "DIMENSION",
+                            "dataType": "STRING",
+                            "defaultFormat": null,
+                            "aggregation": "Count",
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "2e0aa617-9d3d-15db-3597-17b8ccda2381",
+                            "name": "Category",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "NOMINAL",
+                            "role": "DIMENSION",
+                            "dataType": "STRING",
+                            "defaultFormat": null,
+                            "aggregation": "Count",
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "345f239e-1dd0-30fb-8ed4-103810a0b7cc",
+                            "name": "Product Name",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "NOMINAL",
+                            "role": "DIMENSION",
+                            "dataType": "STRING",
+                            "defaultFormat": null,
+                            "aggregation": null,
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "3cc344da-0d30-75a8-1364-a14a1a93350d",
+                            "name": "Orders",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "QUANTITATIVE",
+                            "role": "MEASURE",
+                            "dataType": "TABLE",
+                            "defaultFormat": null,
+                            "aggregation": null,
+                            "columns": []
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "53ef59b0-7f59-55fb-ead0-4232a8be86d7",
+                            "name": "Product ID",
+                            "description": null,
+                            "isHidden": true,
+                            "folderName": null,
+                            "dataCategory": "NOMINAL",
+                            "role": "DIMENSION",
+                            "dataType": "STRING",
+                            "defaultFormat": null,
+                            "aggregation": null,
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "BinField",
+                            "id": "5b043b44-cbe5-fd3b-2022-7e14f400e11d",
+                            "name": "Profit (bin)",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "60dae0c9-0b36-ead5-977a-07dc049dbd57",
+                            "name": "Order ID (Returns)",
+                            "description": null,
+                            "isHidden": true,
+                            "folderName": null,
+                            "dataCategory": "NOMINAL",
+                            "role": "DIMENSION",
+                            "dataType": "STRING",
+                            "defaultFormat": null,
+                            "aggregation": null,
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "695e65cb-0c30-fb94-0f09-2323fd88f0fa",
+                            "name": "Person",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "NOMINAL",
+                            "role": "DIMENSION",
+                            "dataType": "STRING",
+                            "defaultFormat": null,
+                            "aggregation": "Count",
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "6c1c7e77-731b-045d-69e9-af6c3c30ac99",
+                            "name": "Sub-Category",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "NOMINAL",
+                            "role": "DIMENSION",
+                            "dataType": "STRING",
+                            "defaultFormat": null,
+                            "aggregation": "Count",
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "7ba23f14-240b-517d-bffc-e603d6874f29",
+                            "name": "Postal Code",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "ORDINAL",
+                            "role": "DIMENSION",
+                            "dataType": "INTEGER",
+                            "defaultFormat": "*00000",
+                            "aggregation": "Sum",
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "HierarchyField",
+                            "id": "7e40e9c2-8da8-d0c4-6a18-8fade009f33b",
+                            "name": "Product",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "8c6d612c-ce53-29d5-3754-9508ca139d1f",
+                            "name": "Ship Date",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "ORDINAL",
+                            "role": "DIMENSION",
+                            "dataType": "DATE",
+                            "defaultFormat": null,
+                            "aggregation": "Year",
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "HierarchyField",
+                            "id": "a0900626-117b-25bb-104d-e7e4272f6e0a",
+                            "name": "Location",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "a443959b-f9a4-d0fb-4900-28eaa3a4b88e",
+                            "name": "People",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "QUANTITATIVE",
+                            "role": "MEASURE",
+                            "dataType": "TABLE",
+                            "defaultFormat": null,
+                            "aggregation": null,
+                            "columns": []
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "aa1a9b8f-2fbc-53f4-2e6b-1f7257d28f74",
+                            "name": "Country/Region",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "NOMINAL",
+                            "role": "DIMENSION",
+                            "dataType": "STRING",
+                            "defaultFormat": null,
+                            "aggregation": null,
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "acd7abc3-db70-a36f-6f75-2bf28eb6cff1",
+                            "name": "Customer ID",
+                            "description": null,
+                            "isHidden": true,
+                            "folderName": null,
+                            "dataCategory": "NOMINAL",
+                            "role": "DIMENSION",
+                            "dataType": "STRING",
+                            "defaultFormat": null,
+                            "aggregation": null,
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "b0011709-ba93-895c-6f49-0e3f5548c96f",
+                            "name": "Region",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "NOMINAL",
+                            "role": "DIMENSION",
+                            "dataType": "STRING",
+                            "defaultFormat": null,
+                            "aggregation": null,
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "c96df737-f0d7-5e5e-ac09-9149435647fa",
+                            "name": "Ship Mode",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "NOMINAL",
+                            "role": "DIMENSION",
+                            "dataType": "STRING",
+                            "defaultFormat": null,
+                            "aggregation": "Count",
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "cc070953-68a0-ed87-82be-221c0d93f943",
+                            "name": "Order ID",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "NOMINAL",
+                            "role": "DIMENSION",
+                            "dataType": "STRING",
+                            "defaultFormat": null,
+                            "aggregation": "Count",
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "cd6063c2-58b4-619a-4229-accea19f5189",
+                            "name": "Sales",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "QUANTITATIVE",
+                            "role": "MEASURE",
+                            "dataType": "REAL",
+                            "defaultFormat": null,
+                            "aggregation": "Sum",
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "cfcbc551-00d3-c773-3d68-5cafabc95b61",
+                            "name": "Customer Name",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "NOMINAL",
+                            "role": "DIMENSION",
+                            "dataType": "STRING",
+                            "defaultFormat": null,
+                            "aggregation": null,
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "d6e46283-01fe-cfd1-ee25-be4c9ea985c6",
+                            "name": "Row ID",
+                            "description": null,
+                            "isHidden": true,
+                            "folderName": null,
+                            "dataCategory": "ORDINAL",
+                            "role": "DIMENSION",
+                            "dataType": "INTEGER",
+                            "defaultFormat": null,
+                            "aggregation": null,
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "GroupField",
+                            "id": "d96dc3eb-5bc7-6c7e-4fed-edffb1de00f2",
+                            "name": "Manufacturer",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "role": "DIMENSION",
+                            "dataType": "STRING"
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "db0ddcfe-7c23-7031-f774-bfd1eb5dffa5",
+                            "name": "Region (People)",
+                            "description": null,
+                            "isHidden": true,
+                            "folderName": null,
+                            "dataCategory": "NOMINAL",
+                            "role": "DIMENSION",
+                            "dataType": "STRING",
+                            "defaultFormat": null,
+                            "aggregation": null,
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "f04ff107-5ddb-375d-c1d0-34e65406c841",
+                            "name": "Discount",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "QUANTITATIVE",
+                            "role": "MEASURE",
+                            "dataType": "REAL",
+                            "defaultFormat": null,
+                            "aggregation": "Sum",
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "f4c6a79d-05e4-b7ab-22a5-f667b7c708bb",
+                            "name": "Order Date",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "ORDINAL",
+                            "role": "DIMENSION",
+                            "dataType": "DATE",
+                            "defaultFormat": null,
+                            "aggregation": "Year",
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        },
+                        {
+                            "__typename": "ColumnField",
+                            "id": "fd261ef6-c698-900c-fe37-6694ba107367",
+                            "name": "State",
+                            "description": null,
+                            "isHidden": false,
+                            "folderName": null,
+                            "dataCategory": "NOMINAL",
+                            "role": "DIMENSION",
+                            "dataType": "STRING",
+                            "defaultFormat": null,
+                            "aggregation": null,
+                            "columns": [
+                                {
+                                    "table": {}
+                                }
+                            ]
+                        }
+                    ],
+                    "upstreamDatasources": [],
+                    "owner": {
+                        "username": "jawadqu@gmail.com"
+                    },
+                    "description": "Description for Superstore dataset",
+                    "uri": "sites/4989/datasources/136096",
+                    "projectName": "Samples"
+                }
+            ],
+            "pageInfo": {
+                "hasNextPage": false,
+                "endCursor": null
+            },
+            "totalCount": 2
+        }
+    }
+}

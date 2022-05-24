@@ -47,7 +47,7 @@ public class OidcConfigs extends SsoConfigs {
     private static final String DEFAULT_OIDC_CLIENT_AUTHENTICATION_METHOD = "client_secret_basic";
     private static final String DEFAULT_OIDC_JIT_PROVISIONING_ENABLED = "true";
     private static final String DEFAULT_OIDC_PRE_PROVISIONING_REQUIRED = "false";
-    private static final String DEFAULT_OIDC_EXTRACT_GROUPS_ENABLED = "true";
+    private static final String DEFAULT_OIDC_EXTRACT_GROUPS_ENABLED = "false"; // False since extraction of groups can overwrite existing group membership.
     private static final String DEFAULT_OIDC_GROUPS_CLAIM = "groups";
 
     private String clientId;

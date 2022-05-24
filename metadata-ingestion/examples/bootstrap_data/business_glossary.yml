@@ -3,7 +3,7 @@ source: DataHub
 owners:
   users:
     - mjames
-url: "https://github.com/linkedin/datahub/"
+url: "https://github.com/datahub-project/datahub/"
 nodes:
   - name: Classification
     description: A set of terms related to Data Classification

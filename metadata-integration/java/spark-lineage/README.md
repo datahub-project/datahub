@@ -1,11 +1,11 @@
-# Spark Integration
+# Spark
 To integrate Spark with DataHub, we provide a lightweight Java agent that listens for Spark application and job events and pushes metadata out to DataHub in real-time. The agent listens to events such application start/end, and SQLExecution start/end to create pipelines (i.e. DataJob) and tasks (i.e. DataFlow) in Datahub along with lineage to datasets that are being read from and written to. Read on to learn how to configure this for different Spark scenarios.
 
 ## Configuring Spark agent
 The Spark agent can be configured using a config file or while creating a spark Session.
 
 ## Before you begin: Versions and Release Notes
-Versioning of the jar artifact will follow the semantic versioning of the main [DataHub repo](https://github.com/linkedin/datahub) and release notes will be available [here](https://github.com/linkedin/datahub/releases).
+Versioning of the jar artifact will follow the semantic versioning of the main [DataHub repo](https://github.com/datahub-project/datahub) and release notes will be available [here](https://github.com/datahub-project/datahub/releases).
 Always check [the Maven central repository](https://search.maven.org/search?q=a:datahub-spark-lineage) for the latest released version.
 
 ### Configuration Instructions: spark-submit
@@ -47,14 +47,19 @@ spark = SparkSession.builder()
         .enableHiveSupport()
         .getOrCreate();
  ```
- 
-### Enable https and authentication token
-Add below config in spark config
 
-```
-spark.datahub.rest.server                   https://<server URL>
-spark.datahub.rest.token                    <token>
-```
+### Configuration details
+
+| Field                                           | Required | Default | Description                                                             |
+|-------------------------------------------------|----------|---------|-------------------------------------------------------------------------|
+| spark.jars.packages                              | ✅        |         | Set with latest/required version  io.acryl:datahub-spark-lineage:0.8.23 |
+| spark.extraListeners                             | ✅        |         | datahub.spark.DatahubSparkListener                                      |
+| spark.datahub.rest.server                        | ✅        |         | Datahub server url  eg:http://localhost:8080                            |
+| spark.datahub.rest.token                         |          |         | Authentication token.                         |
+| spark.datahub.metadata.pipeline.platformInstance|          |         | Pipeline level platform instance                                        |
+| spark.datahub.metadata.dataset.platformInstance|          |         | dataset level platform instance                                        |
+| spark.datahub.metadata.dataset.env              |          | PROD    | [Supported values](https://datahubproject.io/docs/graphql/enums#fabrictype). In all other cases, will fallback to PROD           |
+
 
 ## What to Expect: The Metadata Model
 
@@ -88,6 +93,7 @@ This initial release has been tested with the following environments:
 Note that testing for other environments such as Databricks is planned in near future.
 
 ### Spark commands supported
+
 Below is a list of Spark commands that are parsed currently:
 - InsertIntoHadoopFsRelationCommand
 - SaveIntoDataSourceCommand (jdbc)
@@ -95,6 +101,12 @@ Below is a list of Spark commands that are parsed currently:
 - InsertIntoHiveTable
 
 Effectively, these support data sources/sinks corresponding to Hive, HDFS and JDBC.
+
+DataFrame.persist command is supported for below LeafExecNodes:
+- FileSourceScanExec
+- HiveTableScanExec
+- RowDataSourceScanExec
+- InMemoryTableScanExec
 
 ### Spark commands not yet supported
 - View related commands
@@ -125,7 +137,7 @@ YY/MM/DD HH:mm:ss INFO McpEmitter: REST Emitter Configuration: Token XXXXX
 ```
 On pushing data to server
 ```
-YY/MM/DD HH:mm:ss INFO McpEmitter: MetadataWriteResponse(success=true, responseContent={"value":"<URN>"}, underlyingResponse=HTTP/1.1 200 OK [Date: day, DD month year HH:mm:ss GMT, Content-Type: application/json, X-RestLi-Protocol-Version: 2.0.0, Content-Length: 97, Server: Jetty(9.4.20.v20190813)] [Content-Length: 97,Chunked: false])
+YY/MM/DD HH:mm:ss INFO McpEmitter: MetadataWriteResponse(success=true, responseContent={"value":"<URN>"}, underlyingResponse=HTTP/1.1 200 OK [Date: day, DD month year HH:mm:ss GMT, Content-Type: application/json, X-RestLi-Protocol-Version: 2.0.0, Content-Length: 97, Server: Jetty(9.4.46.v20220331)] [Content-Length: 97,Chunked: false])
 ```
 On application end
 ```

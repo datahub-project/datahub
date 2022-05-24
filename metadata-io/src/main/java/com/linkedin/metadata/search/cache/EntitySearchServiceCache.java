@@ -18,12 +18,13 @@ public class EntitySearchServiceCache {
   private final CacheManager cacheManager;
   private final EntitySearchService entitySearchService;
   private final int batchSize;
+  private final boolean enableCache;
 
   public CacheableSearcher<?> getSearcher(@Nonnull String entityName, @Nonnull String input,
       @Nullable Filter postFilters, @Nullable SortCriterion sortCriterion, @Nullable SearchFlags searchFlags) {
     return new CacheableSearcher<>(cacheManager.getCache(ENTITY_SEARCH_SERVICE_CACHE_NAME), batchSize,
         querySize -> entitySearchService.search(entityName, input, postFilters, sortCriterion, querySize.getFrom(),
             querySize.getSize()), querySize -> Quintet.with(entityName, input, postFilters, sortCriterion, querySize),
-        searchFlags);
+        searchFlags, enableCache);
   }
 }

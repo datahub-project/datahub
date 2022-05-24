@@ -4,14 +4,14 @@
      "isFieldLevel": false, 
      "type": "isNull", 
      "checkDefinition": "n/a", 
-     "url": "https://github.com/linkedin/datahub/blob/master/checks/nonNull.sql" 
+     "url": "https://github.com/datahub-project/datahub/blob/master/checks/nonNull.sql" 
      }, 
      { 
        "field": "timestamp", 
        "isFieldLevel": true, 
        "type": "increasing", 
        "checkDefinition": "n/a", 
-       "url": "https://github.com/linkedin/datahub/blob/master/checks/increasing.sql"
+       "url": "https://github.com/datahub-project/datahub/blob/master/checks/increasing.sql"
       }
     ] 
 }
