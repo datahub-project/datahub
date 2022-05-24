@@ -184,6 +184,28 @@ input CreateTestInput {
   definition: TestDefinitionInput!
 }
 
+input UpdateTestInput {
+  """
+  The name of the Test
+  """
+  name: String!
+
+  """
+  The category of the Test (user defined)
+  """
+  category: String!
+
+  """
+  Description of the test
+  """
+  description: String
+
+  """
+  The test definition
+  """
+  definition: TestDefinitionInput!
+}
+
 input TestDefinitionInput {
   """
   The string representation of the Test
@@ -196,6 +218,11 @@ extend type Mutation {
   Create a new test
   """
   createTest(input: CreateTestInput!): String
+
+  """
+  Update an existing test
+  """
+  updateTest(urn: String!, input: UpdateTestInput!): String
 
   """
   Create an existing test - note that this will NOT delete dangling pointers until the next execution of the test.

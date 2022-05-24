@@ -1,7 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.test;
 
+import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.CreateTestInput;
+import com.linkedin.datahub.graphql.generated.TestDefinitionInput;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.test.TestDefinition;
+import com.linkedin.test.TestDefinitionType;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 
@@ -15,6 +20,13 @@ public class TestUtils {
    */
   public static boolean canManageTests(@Nonnull QueryContext context) {
     return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_TESTS_PRIVILEGE);
+  }
+
+  public static TestDefinition mapDefinition(final TestDefinitionInput testDefInput) {
+    final TestDefinition result = new TestDefinition();
+    result.setType(TestDefinitionType.JSON); // Always JSON for now.
+    result.setJson(testDefInput.getJson(), SetMode.IGNORE_NULL);
+    return result;
   }
 
   private TestUtils() { }
