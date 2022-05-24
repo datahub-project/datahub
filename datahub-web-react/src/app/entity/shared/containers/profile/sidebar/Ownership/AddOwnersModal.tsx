@@ -31,6 +31,12 @@ const SearchResultContent = styled.div`
     align-items: center;
 `;
 
+const SelectInput = styled(Select)`
+    > .ant-select-selector {
+        height: 36px;
+    }
+`;
+
 const SearchResultDisplayName = styled.div``;
 
 type Props = {
@@ -44,8 +50,8 @@ type Props = {
 };
 
 type SelectedOwner = {
-    ownerEntityType: OwnerEntityType;
-    ownerUrn: string;
+    label: string;
+    value: any;
 };
 
 export const AddOwnersModal = ({
@@ -77,29 +83,32 @@ export const AddOwnersModal = ({
     }, [ownershipTypes]);
 
     // When a owner search result is selected, add the new owner  to the selectedOwners
-    const onSelectOwner = (newOwnerUrnId: string) => {
+    const onSelectOwner = (newSelectedOwner) => {
         const filteredActors = combinedSearchResults
-            .filter((result) => result.entity.urn === newOwnerUrnId)
+            .filter((result) => result.entity.urn === newSelectedOwner.value)
             .map((result) => result.entity);
         if (filteredActors.length) {
             const actor = filteredActors[0];
             const ownerEntityType =
                 actor && actor.type === EntityType.CorpGroup ? OwnerEntityType.CorpGroup : OwnerEntityType.CorpUser;
-            const newOwners = [
+            const newValues = [
                 ...selectedOwners,
                 {
-                    ownerUrn: newOwnerUrnId,
-                    ownerEntityType,
+                    label: newSelectedOwner.value,
+                    value: {
+                        ownerUrn: newSelectedOwner.value,
+                        ownerEntityType,
+                    },
                 },
             ];
-            setSelectedOwners(newOwners);
+            setSelectedOwners(newValues);
         }
     };
 
     // When a owner search result is deselected, remove the urn from the Owners
-    const onDeselectOwner = (selectedOwnerUrnId: string) => {
-        const newOwners = selectedOwners.filter((owner) => owner.ownerUrn !== selectedOwnerUrnId);
-        setSelectedOwners(newOwners);
+    const onDeselectOwner = (selectedOwnerUrnId) => {
+        const newValues = selectedOwners.filter((owner) => owner.label !== selectedOwnerUrnId.value);
+        setSelectedOwners(newValues);
     };
 
     // When a owner type is selected, set the type as selected type.
@@ -160,9 +169,9 @@ export const AddOwnersModal = ({
     };
 
     const onModalClose = () => {
-        onCloseModal();
         setSelectedOwners([]);
         setSelectedOwnerType(defaultOwnerType || OwnershipType.None);
+        onCloseModal();
     };
 
     // Function to handle the modal action's
@@ -171,7 +180,12 @@ export const AddOwnersModal = ({
             return;
         }
         const inputs = selectedOwners.map((selectedActor) => {
-            return { ...selectedActor, type: selectedOwnerType };
+            const input = {
+                ownerUrn: selectedActor.value.ownerUrn,
+                ownerEntityType: selectedActor.value.ownerEntityType,
+                type: selectedOwnerType,
+            };
+            return input;
         });
         try {
             await addOwnersMutation({
@@ -200,8 +214,6 @@ export const AddOwnersModal = ({
         }
     };
 
-    console.log('selectedOwners::', selectedOwners);
-
     return (
         <Modal
             title="Add Owners"
@@ -223,7 +235,9 @@ export const AddOwnersModal = ({
                 <Form.Item label={<Typography.Text strong>Owner</Typography.Text>}>
                     <Typography.Paragraph>Find a user or group</Typography.Paragraph>
                     <Form.Item name="owner">
-                        <Select
+                        <SelectInput
+                            labelInValue
+                            value={selectedOwners}
                             autoFocus
                             mode="multiple"
                             filterOption={false}
@@ -244,7 +258,7 @@ export const AddOwnersModal = ({
                                     {renderSearchResult(result)}
                                 </Select.Option>
                             ))}
-                        </Select>
+                        </SelectInput>
                     </Form.Item>
                 </Form.Item>
                 {!hideOwnerType && (

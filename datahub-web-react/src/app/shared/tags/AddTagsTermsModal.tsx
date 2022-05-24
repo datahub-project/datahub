@@ -74,11 +74,11 @@ const renderTag = (suggestion: string, $colorHash, $color, type: string) => ({
             closable={false}
             style={{
                 border: 'none',
-                marginLeft: '0px',
+                marginLeft: '-2px',
                 fontSize: '10px',
                 lineHeight: '20px',
                 whiteSpace: 'nowrap',
-                marginRight: '0px',
+                marginRight: '-10px',
                 opacity: 1,
                 color: '#434343',
             }}
