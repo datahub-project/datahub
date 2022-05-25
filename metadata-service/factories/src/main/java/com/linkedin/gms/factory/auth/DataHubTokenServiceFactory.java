@@ -19,7 +19,7 @@ public class DataHubTokenServiceFactory {
   @Value("${authentication.tokenService.signingKey:}")
   private String signingKey;
 
-  @Value("${authentication.tokenService.saltingKey:}")
+  @Value("${authentication.tokenService.salt:}")
   private String saltingKey;
 
   @Value("${elasticsearch.tokenService.signingAlgorithm:HS256}")

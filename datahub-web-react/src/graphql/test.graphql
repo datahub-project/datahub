@@ -1,0 +1,34 @@
+fragment testFields on Test {
+    urn
+    name
+    category
+    description
+    definition {
+        json
+    }
+}
+
+query getTest($urn: String!) {
+    test(urn: $urn) {
+        ...testFields
+    }
+}
+
+query listTests($input: ListTestsInput!) {
+    listTests(input: $input) {
+        start
+        count
+        total
+        tests {
+            ...testFields
+        }
+    }
+}
+
+mutation createTest($input: CreateTestInput!) {
+    createTest(input: $input)
+}
+
+mutation deleteTest($urn: String!) {
+    deleteTest(urn: $urn)
+}

@@ -1,7 +1,6 @@
 package com.datahub.authorization;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.authorization.fieldresolverprovider.ResourceFieldType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
