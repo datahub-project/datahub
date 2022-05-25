@@ -24,7 +24,7 @@ def test_snowflake_throws_error_on_client_id_missing_if_using_oauth():
                     "scopes": "[https://microsoft.com/f4b353d5-ef8d/.default]",
                     "client_secret": "6Hb9apkbc6HD7",
                     "authority_url": "https://login.microsoftonline.com/yourorganisation.com",
-                }
+                },
             }
         )
 
@@ -40,7 +40,7 @@ def test_snwoflake_throws_error_on_client_secret_missing_if_use_certificate_is_f
                     "scopes": "[https://microsoft.com/f4b353d5-ef8d/.default]",
                     "use_certificate": False,
                     "authority_url": "https://login.microsoftonline.com/yourorganisation.com",
-                }
+                },
             }
         )
 
@@ -57,7 +57,7 @@ def test_snwoflake_throws_error_on_encoded_oauth_private_key_missing_if_use_cert
                     "use_certificate": True,
                     "authority_url": "https://login.microsoftonline.com/yourorganisation.com",
                     "encoded_oauth_public_key": "fkdsfhkshfkjsdfiuwrwfkjhsfskfhksjf==",
-                }
+                },
             }
         )
 
