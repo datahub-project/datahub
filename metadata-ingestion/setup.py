@@ -252,6 +252,8 @@ plugins: Dict[str, Set[str]] = {
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging"},
     "powerbi": {"orderedset"} | microsoft_common,
+    "pubsub": {"google-cloud-pubsub"},
+    "google_storage": {"google-cloud-storage"},
 }
 
 all_exclude_plugins: Set[str] = {
@@ -468,6 +470,8 @@ entry_points = {
         "powerbi = datahub.ingestion.source.powerbi:PowerBiDashboardSource",
         "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
+        "pubsub = datahub.ingestion.source.pubsub:PubSubSource",
+        "google_storage = datahub.ingestion.source.google_storage:GoogleStorageSource",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",
