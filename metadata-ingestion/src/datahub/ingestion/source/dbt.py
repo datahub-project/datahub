@@ -24,6 +24,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.ingestion_job_state_provider import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.sql.sql_types import (
     BIGQUERY_TYPES_MAP,
     POSTGRES_TYPES_MAP,
@@ -81,7 +82,6 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.utilities.mapping import Constants, OperationProcessor
-from src.datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 
 logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
