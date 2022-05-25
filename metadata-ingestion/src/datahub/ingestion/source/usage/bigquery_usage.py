@@ -889,16 +889,11 @@ class BigQueryUsageSource(Source):
         ] = list()
         for client in clients:
             try:
-                list_entries: Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]
-                if self.config.rate_limit:
-                    with RateLimiter(max_calls=self.config.requests_per_min, period=60):
-                        list_entries = client.list_entries(
-                            filter_=filter, page_size=self.config.log_page_size
-                        )
-                else:
-                    list_entries = client.list_entries(
-                        filter_=filter, page_size=self.config.log_page_size
-                    )
+                list_entries: Iterable[
+                    Union[AuditLogEntry, BigQueryAuditMetadata]
+                ] = client.list_entries(
+                    filter_=filter, page_size=self.config.log_page_size
+                )
                 list_entry_generators_across_clients.append(list_entries)
             except Exception as e:
                 logger.warning(
@@ -911,16 +906,17 @@ class BigQueryUsageSource(Source):
 
         i: int = 0
         entry: Union[AuditLogEntry, BigQueryAuditMetadata]
-        for i, entry in enumerate(
-            heapq.merge(
-                *list_entry_generators_across_clients,
-                key=self._get_entry_timestamp,
-            )
-        ):
-            if i == 0:
-                logger.info("Starting log load from GCP Logging")
-            self.report.total_log_entries += 1
-            yield entry
+        for list_of_entries in list_entry_generators_across_clients:
+            for entry in list_of_entries:
+                if i == 0:
+                    logger.info("Starting log load from GCP Logging")
+                self.report.total_log_entries += 1
+                if self.config.rate_limit:
+                    with RateLimiter(max_calls=self.config.requests_per_min, period=60):
+                        yield entry
+                else:
+                    yield entry
+                i += 1
         logger.info(f"Finished loading {i} log entries from GCP Logging")
 
     def _create_operation_aspect_work_unit(
