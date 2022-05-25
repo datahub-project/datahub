@@ -17,9 +17,9 @@ export const SidebarDomainSection = () => {
     const refetch = useRefetch();
     const [unsetDomainMutation] = useUnsetDomainMutation();
     const [showModal, setShowModal] = useState(false);
-    const { commonPrivileges } = useEntityCommonPrivileges();
+    // Privileges
+    const { editDomain } = useEntityCommonPrivileges();
 
-    const { editDomain } = commonPrivileges;
     const domain = entityData?.domain;
 
     const removeDomain = () => {

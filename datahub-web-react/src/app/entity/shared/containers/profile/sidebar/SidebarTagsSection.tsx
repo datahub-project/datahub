@@ -15,9 +15,9 @@ export const SidebarTagsSection = ({ properties }: { properties?: any }) => {
     const canAddTerm = properties?.hasTerms;
 
     const { urn, entityType, entityData } = useEntityData();
-    const { commonPrivileges } = useEntityCommonPrivileges();
+    // Privileges
+    const { editTags, editGlossaryTerms } = useEntityCommonPrivileges();
 
-    const { editTags, editGlossaryTerms } = commonPrivileges;
     const refetch = useRefetch();
 
     return (

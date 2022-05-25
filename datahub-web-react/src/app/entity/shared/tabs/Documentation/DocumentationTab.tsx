@@ -33,9 +33,8 @@ export const DocumentationTab = () => {
 
     const routeToTab = useRouteToTab();
     const isEditing = queryString.parse(useLocation().search, { parseBooleans: true }).editing;
-
-    const { commonPrivileges } = useEntityCommonPrivileges();
-    const { editDocumentation } = commonPrivileges;
+    // Privileges
+    const { editDocumentation } = useEntityCommonPrivileges();
 
     useEffect(() => {
         const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};

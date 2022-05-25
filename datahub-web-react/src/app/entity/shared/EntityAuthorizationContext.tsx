@@ -1,7 +1,23 @@
 import React, { useContext } from 'react';
 
 // TODO: move the types into types.ts file
-export type CommonPrivileges = {
+// export type CommonPrivileges = {
+//     editOwners: boolean;
+//     editDocumentation: boolean;
+//     editGlossaryTerms: boolean;
+//     editTags: boolean;
+//     editDomain: boolean;
+//     editLinks: boolean;
+//     editDeprecation: boolean;
+// };
+// TODO: move the types into types.ts file
+export interface DataSetsPrivileges {
+    editSchemaFieldDescription: boolean;
+    editSchemaFieldTags: boolean;
+    editSchemaFieldGlossaryTerms: boolean;
+}
+// TODO: move the types into types.ts file
+export interface EntityAuthorizationType extends DataSetsPrivileges {
     editOwners: boolean;
     editDocumentation: boolean;
     editGlossaryTerms: boolean;
@@ -9,36 +25,21 @@ export type CommonPrivileges = {
     editDomain: boolean;
     editLinks: boolean;
     editDeprecation: boolean;
-};
-// TODO: move the types into types.ts file
-export type DataSetsPrivileges = {
-    editSchemaFieldDescription: boolean;
-    editSchemaFieldTags: boolean;
-    editSchemaFieldGlossaryTerms: boolean;
-};
-// TODO: move the types into types.ts file
-export type EntityAuthorizationType = {
-    commonPrivileges: CommonPrivileges;
-    dataSets: DataSetsPrivileges;
-};
+}
 
-const EntityAuthorizationContext = React.createContext({
+const EntityAuthorizationContext = React.createContext<EntityAuthorizationType>({
     // Common Privileges
-    commonPrivileges: {
-        editOwners: true,
-        editDocumentation: false,
-        editGlossaryTerms: true,
-        editTags: true,
-        editDomain: false,
-        editLinks: true,
-        editDeprecation: false,
-    },
+    editOwners: true,
+    editDocumentation: true,
+    editGlossaryTerms: true,
+    editTags: true,
+    editDomain: true,
+    editLinks: true,
+    editDeprecation: true,
     // Dataset-only
-    dataSets: {
-        editSchemaFieldDescription: true,
-        editSchemaFieldTags: true,
-        editSchemaFieldGlossaryTerms: false,
-    },
+    editSchemaFieldDescription: true,
+    editSchemaFieldTags: true,
+    editSchemaFieldGlossaryTerms: false,
 });
 // display name set to context
 EntityAuthorizationContext.displayName = 'AuthorizationContext';
@@ -46,6 +47,15 @@ EntityAuthorizationContext.displayName = 'AuthorizationContext';
 export default EntityAuthorizationContext;
 
 export const useEntityCommonPrivileges = () => {
-    const { commonPrivileges } = useContext(EntityAuthorizationContext);
-    return { commonPrivileges };
+    const { editOwners, editDocumentation, editGlossaryTerms, editTags, editDomain, editLinks, editDeprecation } =
+        useContext(EntityAuthorizationContext);
+    return {
+        editOwners,
+        editDocumentation,
+        editGlossaryTerms,
+        editTags,
+        editDomain,
+        editLinks,
+        editDeprecation,
+    };
 };

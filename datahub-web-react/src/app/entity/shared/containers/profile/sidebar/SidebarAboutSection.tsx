@@ -41,9 +41,9 @@ export const SidebarAboutSection = () => {
     const { entityData } = useEntityData();
     const refetch = useRefetch();
     const routeToTab = useRouteToTab();
-    const { commonPrivileges } = useEntityCommonPrivileges();
+    // Privileges
+    const { editDocumentation } = useEntityCommonPrivileges();
 
-    const { editDocumentation } = commonPrivileges;
     const description = entityData?.editableProperties?.description || entityData?.properties?.description;
     const links = entityData?.institutionalMemory?.elements || [];
 

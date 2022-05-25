@@ -115,22 +115,20 @@ const INITIAL_SIDEBAR_WIDTH = 400;
 const MAX_SIDEBAR_WIDTH = 800;
 const MIN_SIDEBAR_WIDTH = 200;
 
-// Initial Privileges
+// Initial Privileges: Todo: get these details from graphAPI
 const PRIVILEGES = {
-    commonPrivileges: {
-        editOwners: false,
-        editDocumentation: false,
-        editGlossaryTerms: false,
-        editTags: false,
-        editDomain: false,
-        editLinks: false,
-        editDeprecation: false,
-    },
-    dataSets: {
-        editSchemaFieldDescription: true,
-        editSchemaFieldTags: true,
-        editSchemaFieldGlossaryTerms: false,
-    },
+    // Common Privileges
+    editOwners: false,
+    editDocumentation: false,
+    editGlossaryTerms: false,
+    editTags: false,
+    editDomain: false,
+    editLinks: false,
+    editDeprecation: false,
+    // Datasets Privileges
+    editSchemaFieldDescription: true,
+    editSchemaFieldTags: true,
+    editSchemaFieldGlossaryTerms: false,
 };
 
 /**

@@ -13,9 +13,8 @@ export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
     const refetch = useRefetch();
     const [showAddModal, setShowAddModal] = useState(false);
     const ownersEmpty = !entityData?.ownership?.owners?.length;
-    const { commonPrivileges } = useEntityCommonPrivileges();
-
-    const { editOwners } = commonPrivileges;
+    // Privileges
+    const { editOwners } = useEntityCommonPrivileges();
 
     return (
         <div>
