@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers.test;
 
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.CreateTestInput;
 import com.linkedin.datahub.graphql.generated.TestDefinitionInput;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.test.TestDefinition;
