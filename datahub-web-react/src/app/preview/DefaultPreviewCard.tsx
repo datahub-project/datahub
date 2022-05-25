@@ -221,11 +221,11 @@ export default function DefaultPreviewCard({
                 )}
                 {(domain || hasGlossaryTerms || hasTags) && (
                     <TagContainer>
-                        <TagTermGroup domain={domain} maxShow={3} />
+                        {domain && <TagTermGroup domain={domain} maxShow={3} />}
                         {domain && hasGlossaryTerms && <TagSeparator />}
-                        <TagTermGroup uneditableGlossaryTerms={glossaryTerms} maxShow={3} />
+                        {hasGlossaryTerms && <TagTermGroup uneditableGlossaryTerms={glossaryTerms} maxShow={3} />}
                         {((hasGlossaryTerms && hasTags) || (domain && hasTags)) && <TagSeparator />}
-                        <TagTermGroup uneditableTags={tags} maxShow={3} />
+                        {hasTags && <TagTermGroup uneditableTags={tags} maxShow={3} />}
                     </TagContainer>
                 )}
                 {owners && owners.length > 0 && (
