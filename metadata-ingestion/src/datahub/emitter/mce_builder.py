@@ -33,6 +33,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +70,9 @@ def make_data_platform_urn(platform: str) -> str:
 def make_dataset_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
     if DATASET_URN_TO_LOWER:
         name = name.lower()
-    return f"urn:li:dataset:({make_data_platform_urn(platform)},{name},{env})"
+    dataset_urn = f"urn:li:dataset:({make_data_platform_urn(platform)},{name},{env})"
+    DatasetUrn.validate(dataset_urn)
+    return dataset_urn
 
 
 def make_dataplatform_instance_urn(platform: str, instance: str) -> str:
@@ -85,9 +88,11 @@ def make_dataset_urn_with_platform_instance(
     if platform_instance:
         if DATASET_URN_TO_LOWER:
             name = name.lower()
-        return f"urn:li:dataset:({make_data_platform_urn(platform)},{platform_instance}.{name},{env})"
+        dataset_urn = f"urn:li:dataset:({make_data_platform_urn(platform)},{platform_instance}.{name},{env})"
     else:
-        return make_dataset_urn(platform=platform, name=name, env=env)
+        dataset_urn = make_dataset_urn(platform=platform, name=name, env=env)
+    DatasetUrn.validate(dataset_urn)
+    return dataset_urn
 
 
 def make_schema_field_urn(parent_urn: str, field_path: str) -> str:
