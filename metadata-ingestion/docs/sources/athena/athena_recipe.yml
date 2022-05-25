@@ -1,0 +1,12 @@
+source:
+  type: athena
+  config:
+    # Coordinates
+    aws_region: my_aws_region
+    work_group: primary
+
+    # Options
+    s3_staging_dir: "s3://my_staging_athena_results_bucket/results/"
+
+sink:
+# sink configs

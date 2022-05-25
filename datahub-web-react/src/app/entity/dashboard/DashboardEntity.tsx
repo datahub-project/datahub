@@ -72,6 +72,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             useEntityQuery={useGetDashboardQuery}
             useUpdateQuery={useUpdateDashboardMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
+            showDeprecateOption
             tabs={[
                 {
                     name: 'Documentation',
@@ -161,6 +162,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 urn={data.urn}
                 platform={data.tool}
                 name={data.properties?.name}
+                platformInstanceId={data.dataPlatformInstance?.instanceId}
                 description={data.editableProperties?.description || data.properties?.description}
                 access={data.properties?.access}
                 tags={data.globalTags || undefined}
@@ -170,6 +172,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 logoUrl={data?.platform?.properties?.logoUrl || ''}
                 domain={data.domain}
                 container={data.container}
+                parentContainers={data.parentContainers}
             />
         );
     };

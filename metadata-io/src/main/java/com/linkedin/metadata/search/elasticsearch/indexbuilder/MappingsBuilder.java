@@ -40,10 +40,8 @@ public class MappingsBuilder {
     if (fieldType == FieldType.KEYWORD) {
       mappingForField.put("type", "keyword");
       mappingForField.put("normalizer", "keyword_normalizer");
-      if (addToFilters) {
-        // Add keyword subfield without lowercase filter
-        mappingForField.put("fields", ImmutableMap.of("keyword", ImmutableMap.of("type", "keyword")));
-      }
+      // Add keyword subfield without lowercase filter
+      mappingForField.put("fields", ImmutableMap.of("keyword", ImmutableMap.of("type", "keyword")));
     } else if (fieldType == FieldType.TEXT || fieldType == FieldType.TEXT_PARTIAL) {
       mappingForField.put("type", "keyword");
       mappingForField.put("normalizer", "keyword_normalizer");
@@ -52,10 +50,8 @@ public class MappingsBuilder {
         subFields.put("ngram", ImmutableMap.of("type", "text", "analyzer", "partial"));
       }
       subFields.put("delimited", ImmutableMap.of("type", "text", "analyzer", "word_delimited"));
-      if (addToFilters) {
-        // Add keyword subfield without lowercase filter
-        subFields.put("keyword", ImmutableMap.of("type", "keyword"));
-      }
+      // Add keyword subfield without lowercase filter
+      subFields.put("keyword", ImmutableMap.of("type", "keyword"));
       mappingForField.put("fields", subFields);
     } else if (fieldType == FieldType.BROWSE_PATH) {
       mappingForField.put("type", "text");
@@ -70,12 +66,8 @@ public class MappingsBuilder {
       if (fieldType == FieldType.URN_PARTIAL) {
         subFields.put("ngram", ImmutableMap.of("type", "text", "analyzer", "partial_urn_component"));
       }
-      if (addToFilters) {
-        subFields.put("keyword", ImmutableMap.of("type", "keyword"));
-      }
-      if (!subFields.isEmpty()) {
-        mappingForField.put("fields", subFields);
-      }
+      subFields.put("keyword", ImmutableMap.of("type", "keyword"));
+      mappingForField.put("fields", subFields);
     } else if (fieldType == FieldType.BOOLEAN) {
       mappingForField.put("type", "boolean");
     } else if (fieldType == FieldType.COUNT) {

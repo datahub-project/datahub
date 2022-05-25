@@ -36,11 +36,18 @@ query getContainer($urn: String!) {
         container {
             ...entityContainer
         }
+        parentContainers {
+            ...parentContainersFields
+        }
         domain {
             ...entityDomain
         }
         deprecation {
             ...deprecationFields
         }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+
     }
 }

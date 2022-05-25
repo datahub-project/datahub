@@ -85,6 +85,7 @@
     {
       "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id",
       "nullable": true,
+      "description": "Service provider id",
       "type": {
         "type": {
           "com.linkedin.schema.NumberType": {}

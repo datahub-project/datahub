@@ -2,8 +2,10 @@ package com.linkedin.metadata.timeline.differ;
 
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.dataset.DatasetProperties;
-import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
@@ -15,13 +17,15 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.timeline.differ.EditableDatasetPropertiesDiffer.*;
+import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.timeline.differ.EditableDatasetPropertiesDiffer.DESCRIPTION_ADDED;
+import static com.linkedin.metadata.timeline.differ.EditableDatasetPropertiesDiffer.DESCRIPTION_CHANGED;
+import static com.linkedin.metadata.timeline.differ.EditableDatasetPropertiesDiffer.DESCRIPTION_REMOVED;
 
 
-public class DatasetPropertiesDiffer implements Differ {
+public class DatasetPropertiesDiffer implements AspectDiffer<DatasetProperties> {
   private static List<ChangeEvent> computeDiffs(DatasetProperties baseDatasetProperties,
-      @Nonnull DatasetProperties targetDatasetProperties, @Nonnull String entityUrn) {
+      @Nonnull DatasetProperties targetDatasetProperties, @Nonnull String entityUrn, AuditStamp auditStamp) {
     List<ChangeEvent> changeEvents = new ArrayList<>();
     String baseDescription = (baseDatasetProperties != null) ? baseDatasetProperties.getDescription() : null;
     String targetDescription = (targetDatasetProperties != null) ? targetDatasetProperties.getDescription() : null;
@@ -29,44 +33,47 @@ public class DatasetPropertiesDiffer implements Differ {
     if (baseDescription == null && targetDescription != null) {
       // Description added
       changeEvents.add(ChangeEvent.builder()
-          .target(entityUrn)
+          .entityUrn(entityUrn)
           .category(ChangeCategory.DOCUMENTATION)
-          .changeType(ChangeOperation.ADD)
+          .operation(ChangeOperation.ADD)
           .semVerChange(SemanticChangeType.MINOR)
-          .description(String.format(DESCRIPTION_ADDED, targetDescription, entityUrn))
+          .description(String.format(DESCRIPTION_ADDED, entityUrn, targetDescription))
+          .auditStamp(auditStamp)
           .build());
     } else if (baseDescription != null && targetDescription == null) {
       // Description removed.
       changeEvents.add(ChangeEvent.builder()
-          .target(entityUrn)
+          .entityUrn(entityUrn)
           .category(ChangeCategory.DOCUMENTATION)
-          .changeType(ChangeOperation.REMOVE)
+          .operation(ChangeOperation.REMOVE)
           .semVerChange(SemanticChangeType.MINOR)
-          .description(String.format(DESCRIPTION_REMOVED, baseDescription, entityUrn))
+          .description(String.format(DESCRIPTION_REMOVED, entityUrn, baseDescription))
+          .auditStamp(auditStamp)
           .build());
     } else if (baseDescription != null && targetDescription != null && !baseDescription.equals(targetDescription)) {
       // Description has been modified.
       changeEvents.add(ChangeEvent.builder()
-          .target(entityUrn)
+          .entityUrn(entityUrn)
           .category(ChangeCategory.DOCUMENTATION)
-          .changeType(ChangeOperation.MODIFY)
+          .operation(ChangeOperation.MODIFY)
           .semVerChange(SemanticChangeType.MINOR)
           .description(String.format(DESCRIPTION_CHANGED, entityUrn, baseDescription, targetDescription))
+          .auditStamp(auditStamp)
           .build());
     }
     return changeEvents;
   }
 
   @Nullable
-  private static DatasetProperties getDatasetPropertiesFromAspect(EbeanAspectV2 ebeanAspectV2) {
-    if (ebeanAspectV2 != null && ebeanAspectV2.getMetadata() != null) {
-      return RecordUtils.toRecordTemplate(DatasetProperties.class, ebeanAspectV2.getMetadata());
+  private static DatasetProperties getDatasetPropertiesFromAspect(EntityAspect entityAspect) {
+    if (entityAspect != null && entityAspect.getMetadata() != null) {
+      return RecordUtils.toRecordTemplate(DatasetProperties.class, entityAspect.getMetadata());
     }
     return null;
   }
 
   @Override
-  public ChangeTransaction getSemanticDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue,
+  public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
       ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
     if (!previousValue.getAspect().equals(DATASET_PROPERTIES_ASPECT_NAME) || !currentValue.getAspect()
         .equals(DATASET_PROPERTIES_ASPECT_NAME)) {
@@ -76,7 +83,7 @@ public class DatasetPropertiesDiffer implements Differ {
     if (element == ChangeCategory.DOCUMENTATION) {
       DatasetProperties baseDatasetProperties = getDatasetPropertiesFromAspect(previousValue);
       DatasetProperties targetDatasetProperties = getDatasetPropertiesFromAspect(currentValue);
-      changeEvents.addAll(computeDiffs(baseDatasetProperties, targetDatasetProperties, currentValue.getUrn()));
+      changeEvents.addAll(computeDiffs(baseDatasetProperties, targetDatasetProperties, currentValue.getUrn(), null));
     }
 
     // Assess the highest change at the transaction(schema) level.
@@ -94,5 +101,16 @@ public class DatasetPropertiesDiffer implements Differ {
         .rawDiff(rawDiffsRequested ? rawDiff : null)
         .actor(currentValue.getCreatedBy())
         .build();
+  }
+
+  @Override
+  public List<ChangeEvent> getChangeEvents(
+      @Nonnull Urn urn,
+      @Nonnull String entity,
+      @Nonnull String aspect,
+      @Nonnull Aspect<DatasetProperties> from,
+      @Nonnull Aspect<DatasetProperties> to,
+      @Nonnull AuditStamp auditStamp) {
+    return computeDiffs(from.getValue(), to.getValue(), urn.toString(), auditStamp);
   }
 }

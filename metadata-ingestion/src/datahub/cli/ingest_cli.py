@@ -15,6 +15,7 @@ import datahub as datahub_package
 from datahub.cli import cli_utils
 from datahub.cli.cli_utils import (
     CONDENSED_DATAHUB_CONFIG_PATH,
+    format_aspect_summaries,
     get_session_and_host,
     post_rollback_endpoint,
 )
@@ -72,6 +73,13 @@ def ingest() -> None:
     default=False,
     help="If enabled, ingestion runs with warnings will yield a non-zero error code",
 )
+@click.option(
+    "--suppress-error-logs",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Supress display of variable values in logs by supressing elaborae stacktrace (stackprinter) during ingestion failures",
+)
 @click.pass_context
 @telemetry.with_telemetry
 @memory_leak_detector.with_leak_detection
@@ -82,6 +90,7 @@ def run(
     preview: bool,
     strict_warnings: bool,
     preview_workunits: int,
+    suppress_error_logs: bool,
 ) -> None:
     """Ingest metadata into DataHub."""
 
@@ -111,7 +120,13 @@ def run(
         logger.info(
             f"Sink ({pipeline.config.sink.type}) report:\n{pipeline.sink.get_report().as_string()}"
         )
-        raise e
+        # We dont want to log sensitive information in variables if the pipeline fails due to
+        # an unexpected error. Disable printing sensitive info to logs if ingestion is running
+        # with `--suppress-error-logs` flag.
+        if suppress_error_logs:
+            raise SensitiveError() from e
+        else:
+            raise e
     else:
         logger.info("Finished metadata pipeline")
         pipeline.log_ingestion_stats()
@@ -189,36 +204,44 @@ def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> N
 
 @ingest.command()
 @click.option("--run-id", required=True, type=str)
+@click.option("--start", type=int, default=0)
+@click.option("--count", type=int, default=100)
+@click.option(
+    "--include-soft-deletes",
+    is_flag=True,
+    default=False,
+    help="If enabled, will include aspects that have been soft deleted",
+)
+@click.option("-a", "--show-aspect", required=False, is_flag=True)
 @telemetry.with_telemetry
-def show(run_id: str) -> None:
+def show(
+    run_id: str, start: int, count: int, include_soft_deletes: bool, show_aspect: bool
+) -> None:
     """Describe a provided ingestion run to datahub"""
+    session, gms_host = get_session_and_host()
 
-    payload_obj = {"runId": run_id, "dryRun": True, "hardDelete": True}
-    (
-        structured_rows,
-        entities_affected,
-        aspects_modified,
-        aspects_affected,
-        unsafe_entity_count,
-        unsafe_entities,
-    ) = post_rollback_endpoint(payload_obj, "/runs?action=rollback")
+    url = f"{gms_host}/runs?action=describe"
 
-    if aspects_modified >= ELASTIC_MAX_PAGE_SIZE:
+    payload_obj = {
+        "runId": run_id,
+        "start": start,
+        "count": count,
+        "includeSoft": include_soft_deletes,
+        "includeAspect": show_aspect,
+    }
+
+    payload = json.dumps(payload_obj)
+
+    response = session.post(url, data=payload)
+
+    rows = parse_restli_response(response)
+    if not show_aspect:
         click.echo(
-            f"this run created at least {entities_affected} new entities and updated at least {aspects_modified} aspects"
+            tabulate(format_aspect_summaries(rows), RUN_TABLE_COLUMNS, tablefmt="grid")
         )
     else:
-        click.echo(
-            f"this run created {entities_affected} new entities and updated {aspects_modified} aspects"
-        )
-    click.echo(
-        "rolling back will delete the entities created and revert the updated aspects"
-    )
-    click.echo()
-    click.echo(
-        f"showing first {len(structured_rows)} of {aspects_modified} aspects touched by this run"
-    )
-    click.echo(tabulate(structured_rows, RUN_TABLE_COLUMNS, tablefmt="grid"))
+        for row in rows:
+            click.echo(json.dumps(row, indent=4))
 
 
 @ingest.command()

@@ -9,8 +9,6 @@ type Props = {
     onClose: () => void;
     onCreate: (name: string, description: string) => void;
 };
-/** Regex Validations */
-export const USER_NAME_REGEX = new RegExp('^[a-zA-Z ]*$');
 
 export default function CreateGroupModal({ visible, onClose, onCreate }: Props) {
     const [stagedName, setStagedName] = useState('');
@@ -86,10 +84,6 @@ export default function CreateGroupModal({ visible, onClose, onCreate }: Props) 
                             },
                             { whitespace: true },
                             { min: 1, max: 50 },
-                            {
-                                pattern: USER_NAME_REGEX,
-                                message: '',
-                            },
                         ]}
                         hasFeedback
                     >
