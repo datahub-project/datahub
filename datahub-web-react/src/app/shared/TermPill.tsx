@@ -17,7 +17,7 @@ const SuggestionText = styled.span`
     font-size: 10px;
     line-height: 20px;
     white-space: nowrap;
-    margin-right: 8px;
+    margin-right: 5px;
     opacity: 1;
     color: #434343;
 `;
@@ -25,7 +25,7 @@ const SuggestionText = styled.span`
 export default function TermPill({ suggestion }: Props) {
     return (
         <SuggestionContainer>
-            <BookOutlined style={{ marginRight: '3%' }} />
+            <BookOutlined style={{ marginRight: '2px' }} />
             <SuggestionText>{suggestion}</SuggestionText>
         </SuggestionContainer>
     );
