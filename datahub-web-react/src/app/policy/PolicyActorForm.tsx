@@ -7,7 +7,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { ActorFilter, CorpUser, EntityType, PolicyType, SearchResult } from '../../types.generated';
 import { useGetSearchResultsLazyQuery } from '../../graphql/search.generated';
 import { CustomAvatar } from '../shared/avatar';
-import SelectedOwnerTag from '../shared/SelectedOwnerTag';
+import OwnerPill from '../shared/OwnerPill';
 
 type Props = {
     policyType: PolicyType;
@@ -222,11 +222,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     onDeselect={(asset: any) => onDeselectUserActor(asset)}
                     onSearch={handleUserSearch}
                     tagRender={(tagProps) => (
-                        <SelectedOwnerTag
-                            closable={tagProps.closable}
-                            onClose={tagProps.onClose}
-                            label={tagProps.label}
-                        />
+                        <OwnerPill closable={tagProps.closable} onClose={tagProps.onClose} label={tagProps.label} />
                     )}
                 >
                     {userSearchResults?.map((result) => (
@@ -249,11 +245,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     onSearch={handleGroupSearch}
                     filterOption={false}
                     tagRender={(tagProps) => (
-                        <SelectedOwnerTag
-                            closable={tagProps.closable}
-                            onClose={tagProps.onClose}
-                            label={tagProps.label}
-                        />
+                        <OwnerPill closable={tagProps.closable} onClose={tagProps.onClose} label={tagProps.label} />
                     )}
                 >
                     {groupSearchResults?.map((result) => (

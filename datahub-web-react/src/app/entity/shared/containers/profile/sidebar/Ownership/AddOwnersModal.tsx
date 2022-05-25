@@ -16,7 +16,7 @@ import analytics, { EventType, EntityActionType } from '../../../../../../analyt
 import { OWNERSHIP_DISPLAY_TYPES } from './ownershipUtils';
 import { useAddOwnersMutation } from '../../../../../../../graphql/mutations.generated';
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
-import SelectedOwnerTag from '../../../../../../shared/SelectedOwnerTag';
+import OwnerPill from '../../../../../../shared/OwnerPill';
 
 const SearchResultContainer = styled.div`
     display: flex;
@@ -250,7 +250,7 @@ export const AddOwnersModal = ({
                             onDeselect={(asset: any) => onDeselectOwner(asset)}
                             onSearch={handleActorSearch}
                             tagRender={(tagProps) => (
-                                <SelectedOwnerTag
+                                <OwnerPill
                                     closable={tagProps.closable}
                                     onClose={tagProps.onClose}
                                     label={tagProps.label}

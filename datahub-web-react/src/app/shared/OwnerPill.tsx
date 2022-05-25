@@ -7,7 +7,7 @@ type Props = {
     label: React.ReactNode;
 };
 
-export default function SelectedOwnerTag({ closable, onClose, label }: Props) {
+export default function OwnerPill({ closable, onClose, label }: Props) {
     const onPreventMouseDown = (event) => {
         event.preventDefault();
         event.stopPropagation();
