@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { message, Button, Modal, Select, Typography, Tag as CustomTag } from 'antd';
 import styled from 'styled-components';
-import { BookOutlined } from '@ant-design/icons';
 
 import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
 import { EntityType, SubResourceType, SearchResult, Tag, GlossaryTerm } from '../../../types.generated';
@@ -11,7 +10,8 @@ import { IconStyleType } from '../../entity/Entity';
 import { useAddTagsMutation, useAddTermsMutation } from '../../../graphql/mutations.generated';
 import analytics, { EventType, EntityActionType } from '../../analytics';
 import { useEnterKeyListener } from '../useEnterKeyListener';
-import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
+import TermPill from '../TermPill';
+import TagPill from '../TagPill';
 
 type AddTagsModalProps = {
     visible: boolean;
@@ -24,22 +24,6 @@ type AddTagsModalProps = {
 
 const TagSelect = styled(Select)`
     width: 480px;
-`;
-
-const SuggestionContainer = styled.div`
-    display: 'flex',
-    flex-direction: 'row',
-    align-items: 'center',
-`;
-
-const SuggestionText = styled.span`
-    margin-left: 2px;
-    font-size: 10px;
-    line-height: 20px;
-    white-space: nowrap;
-    margin-right: 8px;
-    opacity: 1;
-    color: #434343;
 `;
 
 const CREATE_TAG_VALUE = '____reserved____.createTagValue';
@@ -56,36 +40,13 @@ const getSelectedValue = (rawValue: string) => {
 
 const renderTerm = (suggestion: string, icon: JSX.Element, type: string) => ({
     value: suggestion,
-    label: (
-        <SuggestionContainer>
-            <BookOutlined style={{ marginRight: '3%' }} />
-            <SuggestionText>{suggestion}</SuggestionText>
-        </SuggestionContainer>
-    ),
+    label: <TermPill suggestion={suggestion} />,
     type,
 });
 
 const renderTag = (suggestion: string, $colorHash, $color, type: string) => ({
     value: suggestion,
-    label: (
-        <StyledTag
-            $colorHash={$colorHash}
-            $color={$color}
-            closable={false}
-            style={{
-                border: 'none',
-                marginLeft: '-2px',
-                fontSize: '10px',
-                lineHeight: '20px',
-                whiteSpace: 'nowrap',
-                marginRight: '-10px',
-                opacity: 1,
-                color: '#434343',
-            }}
-        >
-            {suggestion}
-        </StyledTag>
-    ),
+    label: <TagPill suggestion={suggestion} colorHash={$colorHash} color={$color} />,
     type,
 });
 
