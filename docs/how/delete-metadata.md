@@ -57,6 +57,12 @@ _Note: All these commands below support the soft-delete option (`-s/--soft`) as 
 datahub delete --env DEV --entity_type dataset
 ```
 
+### Delete all Pipelines and Tasks in the DEV environment
+```
+datahub delete --env DEV --entity_type "datajob"
+datahub delete --env DEV --entity_type "dataflow"
+```
+
 ### Delete all bigquery datasets in the PROD environment
 ```
 datahub delete --env PROD --entity_type dataset --platform bigquery
