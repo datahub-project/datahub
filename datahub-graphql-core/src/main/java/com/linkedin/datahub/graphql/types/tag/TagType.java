@@ -77,6 +77,9 @@ public class TagType implements com.linkedin.datahub.graphql.types.SearchableEnt
     }
 
     @Override
+    public Class<TagUpdateInput[]> arrayInputClass() { return TagUpdateInput[].class; }
+
+    @Override
     public List<DataFetcherResult<Tag>> batchLoad(final List<String> urns, final QueryContext context) {
 
         final List<Urn> tagUrns = urns.stream()

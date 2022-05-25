@@ -99,6 +99,9 @@ public class DatasetType implements SearchableEntityType<Dataset, String>, Brows
     }
 
     @Override
+    public Class<DatasetUpdateInput[]> arrayInputClass() { return DatasetUpdateInput[].class; }
+
+    @Override
     public EntityType type() {
         return EntityType.DATASET;
     }

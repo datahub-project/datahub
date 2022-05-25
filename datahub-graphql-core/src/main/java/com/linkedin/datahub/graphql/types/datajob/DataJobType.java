@@ -101,6 +101,9 @@ public class DataJobType implements SearchableEntityType<DataJob, String>, Brows
     }
 
     @Override
+    public Class<DataJobUpdateInput[]> arrayInputClass() { return DataJobUpdateInput[].class; }
+
+    @Override
     public List<DataFetcherResult<DataJob>> batchLoad(final List<String> urnStrs, @Nonnull final QueryContext context)
         throws Exception {
         final List<Urn> urns = urnStrs.stream()
