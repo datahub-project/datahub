@@ -66,7 +66,7 @@ project.ext.externalDependency = [
     'elasticSearchTransport': 'org.elasticsearch.client:transport:7.9.3',
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
     'graphqlJava': 'com.graphql-java:graphql-java:16.1',
-    'gson': 'com.google.code.gson:gson:2.8.6',
+    'gson': 'com.google.code.gson:gson:2.8.9',
     'guice': 'com.google.inject:guice:4.2.2',
     'guava': 'com.google.guava:guava:27.0.1-jre',
     'h2': 'com.h2database:h2:2.1.210',
