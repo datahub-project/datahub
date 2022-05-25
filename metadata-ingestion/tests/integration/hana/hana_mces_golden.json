@@ -213,6 +213,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": true,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -230,6 +231,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -247,6 +249,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -264,6 +267,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -281,6 +285,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -298,6 +303,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -437,6 +443,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": true,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -454,6 +461,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -471,6 +479,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -488,6 +497,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -505,6 +515,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -522,6 +533,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -661,6 +673,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": true,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -678,6 +691,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -695,6 +709,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -712,6 +727,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -729,6 +745,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -834,44 +851,6 @@
     "aspectName": "datasetProfile",
     "aspect": {
         "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 3, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"mno\", \"uniqueCount\": 3, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"10\", \"11\", \"12\"]}, {\"fieldPath\": \"hno\", \"uniqueCount\": 3, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"24\", \"25\", \"26\"]}, {\"fieldPath\": \"description\", \"uniqueCount\": 3, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Replace pool liner and pump\", \"Renovate the bar area.  Replace TV and speakers\", \"Roof repair due to storm\"]}, {\"fieldPath\": \"date_performed\", \"uniqueCount\": 2, \"uniqueProportion\": 1.0, \"nullCount\": 1, \"nullProportion\": 0.3333333333333333, \"min\": \"2019-03-21\", \"max\": \"2020-11-29\", \"sampleValues\": [\"2019-03-21\", \"2020-11-29\"]}, {\"fieldPath\": \"performed_by\", \"uniqueCount\": 2, \"uniqueProportion\": 1.0, \"nullCount\": 1, \"nullProportion\": 0.3333333333333333, \"sampleValues\": [\"Discount Pool Supplies\", \"TV and Audio Superstore\"]}]}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "hana-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,hotel.reservation,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "datasetProfile",
-    "aspect": {
-        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 10, \"columnCount\": 7, \"fieldProfiles\": [{\"fieldPath\": \"resno\", \"uniqueCount\": 10, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"1\", \"2\", \"3\", \"4\", \"5\", \"6\", \"7\", \"8\", \"9\", \"10\"]}, {\"fieldPath\": \"rno\", \"uniqueCount\": 10, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"100\", \"110\", \"120\", \"130\", \"150\", \"140\", \"160\", \"170\", \"180\", \"190\"]}, {\"fieldPath\": \"cno\", \"uniqueCount\": 8, \"uniqueProportion\": 0.8, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1000\", \"max\": \"1014\", \"mean\": \"1007.0\", \"median\": \"1007.5\", \"stdev\": \"5.656854\", \"quantiles\": [{\"quantile\": \"0.05\", \"value\": \"1000\"}, {\"quantile\": \"0.25\", \"value\": \"1001\"}, {\"quantile\": \"0.5\", \"value\": \"1006\"}, {\"quantile\": \"0.75\", \"value\": \"1013\"}, {\"quantile\": \"0.95\", \"value\": \"1014\"}], \"distinctValueFrequencies\": [{\"value\": \"1000\", \"frequency\": 1}, {\"value\": \"1001\", \"frequency\": 2}, {\"value\": \"1002\", \"frequency\": 1}, {\"value\": \"1006\", \"frequency\": 1}, {\"value\": \"1009\", \"frequency\": 1}, {\"value\": \"1011\", \"frequency\": 1}, {\"value\": \"1013\", \"frequency\": 2}, {\"value\": \"1014\", \"frequency\": 1}], \"histogram\": {\"boundaries\": [\"1000.0\", \"1003.5\", \"1007.0\", \"1010.5\", \"1014.0\"], \"heights\": [0.0, 0.4, 0.1, 0.1, 0.4, 0.0]}, \"sampleValues\": [\"1000\", \"1001\", \"1002\", \"1009\", \"1006\", \"1013\", \"1011\", \"1014\", \"1001\", \"1013\"]}, {\"fieldPath\": \"hno\", \"uniqueCount\": 8, \"uniqueProportion\": 0.8, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"11\", \"max\": \"25\", \"mean\": \"18.3\", \"median\": \"18.5\", \"stdev\": \"4.967673\", \"quantiles\": [{\"quantile\": \"0.05\", \"value\": \"11\"}, {\"quantile\": \"0.25\", \"value\": \"15\"}, {\"quantile\": \"0.5\", \"value\": \"17\"}, {\"quantile\": \"0.75\", \"value\": \"22\"}, {\"quantile\": \"0.95\", \"value\": \"25\"}], \"distinctValueFrequencies\": [{\"value\": \"11\", \"frequency\": 2}, {\"value\": \"15\", \"frequency\": 1}, {\"value\": \"17\", \"frequency\": 2}, {\"value\": \"20\", \"frequency\": 1}, {\"value\": \"21\", \"frequency\": 1}, {\"value\": \"22\", \"frequency\": 1}, {\"value\": \"24\", \"frequency\": 1}, {\"value\": \"25\", \"frequency\": 1}], \"histogram\": {\"boundaries\": [\"11.0\", \"14.5\", \"18.0\", \"21.5\", \"25.0\"], \"heights\": [0.0, 0.2, 0.3, 0.1, 0.4, 0.0]}, \"sampleValues\": [\"11\", \"11\", \"15\", \"21\", \"17\", \"20\", \"17\", \"25\", \"22\", \"24\"]}, {\"fieldPath\": \"type\", \"uniqueCount\": 3, \"uniqueProportion\": 0.3, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"double\", \"frequency\": 5}, {\"value\": \"single\", \"frequency\": 3}, {\"value\": \"suite\", \"frequency\": 2}], \"sampleValues\": [\"single\", \"double\", \"suite\", \"single\", \"double\", \"double\", \"single\", \"suite\", \"double\", \"double\"]}, {\"fieldPath\": \"arrival\", \"uniqueCount\": 7, \"uniqueProportion\": 0.7, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2019-02-01\", \"max\": \"2020-12-24\", \"distinctValueFrequencies\": [{\"value\": \"2019-02-01\", \"frequency\": 1}, {\"value\": \"2019-03-14\", \"frequency\": 1}, {\"value\": \"2020-04-12\", \"frequency\": 2}, {\"value\": \"2020-09-01\", \"frequency\": 1}, {\"value\": \"2020-11-14\", \"frequency\": 2}, {\"value\": \"2020-12-23\", \"frequency\": 1}, {\"value\": \"2020-12-24\", \"frequency\": 2}], \"sampleValues\": [\"2020-12-24\", \"2020-12-24\", \"2020-11-14\", \"2019-02-01\", \"2019-03-14\", \"2020-04-12\", \"2020-04-12\", \"2020-09-01\", \"2020-12-23\", \"2020-11-14\"]}, {\"fieldPath\": \"departure\", \"uniqueCount\": 10, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2019-02-03\", \"max\": \"2021-01-08\", \"sampleValues\": [\"2020-12-27\", \"2021-01-03\", \"2020-11-18\", \"2019-02-03\", \"2019-03-24\", \"2020-04-30\", \"2020-04-15\", \"2020-09-03\", \"2021-01-08\", \"2020-11-17\"]}]}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "hana-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,hotel.room,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "datasetProfile",
-    "aspect": {
-        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 38, \"columnCount\": 4, \"fieldProfiles\": [{\"fieldPath\": \"hno\", \"uniqueCount\": 15, \"uniqueProportion\": 0.39473684210526316, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"10\", \"max\": \"25\", \"mean\": \"18.421052\", \"median\": \"18.5\", \"stdev\": \"4.421272\", \"quantiles\": [{\"quantile\": \"0.05\", \"value\": \"10\"}, {\"quantile\": \"0.25\", \"value\": \"15\"}, {\"quantile\": \"0.5\", \"value\": \"18\"}, {\"quantile\": \"0.75\", \"value\": \"22\"}, {\"quantile\": \"0.95\", \"value\": \"25\"}], \"distinctValueFrequencies\": [{\"value\": \"10\", \"frequency\": 2}, {\"value\": \"12\", \"frequency\": 2}, {\"value\": \"13\", \"frequency\": 2}, {\"value\": \"14\", \"frequency\": 2}, {\"value\": \"15\", \"frequency\": 3}, {\"value\": \"16\", \"frequency\": 3}, {\"value\": \"17\", \"frequency\": 2}, {\"value\": \"18\", \"frequency\": 3}, {\"value\": \"19\", \"frequency\": 3}, {\"value\": \"20\", \"frequency\": 2}, {\"value\": \"21\", \"frequency\": 2}, {\"value\": \"22\", \"frequency\": 3}, {\"value\": \"23\", \"frequency\": 3}, {\"value\": \"24\", \"frequency\": 3}, {\"value\": \"25\", \"frequency\": 3}], \"histogram\": {\"boundaries\": [\"10.0\", \"12.5\", \"15.0\", \"17.5\", \"20.0\", \"22.5\", \"25.0\"], \"heights\": [0.0, 0.05263157894736842, 0.15789473684210525, 0.15789473684210525, 0.21052631578947367, 0.10526315789473684, 0.3157894736842105, 0.0]}, \"sampleValues\": [\"10\", \"10\", \"12\", \"12\", \"13\", \"13\", \"14\", \"14\", \"15\", \"15\", \"15\", \"16\", \"16\", \"16\", \"17\", \"17\", \"18\", \"18\", \"18\", \"19\"]}, {\"fieldPath\": \"type\", \"uniqueCount\": 3, \"uniqueProportion\": 0.07894736842105263, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"double\", \"frequency\": 15}, {\"value\": \"single\", \"frequency\": 15}, {\"value\": \"suite\", \"frequency\": 8}], \"sampleValues\": [\"single\", \"double\", \"single\", \"double\", \"single\", \"double\", \"single\", \"double\", \"single\", \"double\", \"suite\", \"single\", \"double\", \"suite\", \"single\", \"double\", \"single\", \"double\", \"suite\", \"single\"]}, {\"fieldPath\": \"free\", \"uniqueCount\": 28, \"uniqueProportion\": 0.7368421052631579, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2.0\", \"max\": \"300.0\", \"mean\": \"47.36842105263158\", \"median\": \"20.0\", \"quantiles\": [{\"quantile\": \"0.05\", \"value\": \"4.0\"}, {\"quantile\": \"0.25\", \"value\": \"11.0\"}, {\"quantile\": \"0.5\", \"value\": \"20.0\"}, {\"quantile\": \"0.75\", \"value\": \"55.0\"}, {\"quantile\": \"0.95\", \"value\": \"230.0\"}], \"distinctValueFrequencies\": [{\"value\": \"2\", \"frequency\": 1}, {\"value\": \"4\", \"frequency\": 1}, {\"value\": \"5\", \"frequency\": 1}, {\"value\": \"6\", \"frequency\": 1}, {\"value\": \"9\", \"frequency\": 1}, {\"value\": \"10\", \"frequency\": 4}, {\"value\": \"11\", \"frequency\": 2}, {\"value\": \"12\", \"frequency\": 2}, {\"value\": \"13\", \"frequency\": 1}, {\"value\": \"15\", \"frequency\": 2}, {\"value\": \"19\", \"frequency\": 1}, {\"value\": \"20\", \"frequency\": 3}, {\"value\": \"24\", \"frequency\": 1}, {\"value\": \"34\", \"frequency\": 1}, {\"value\": \"35\", \"frequency\": 1}, {\"value\": \"39\", \"frequency\": 1}, {\"value\": \"44\", \"frequency\": 1}, {\"value\": \"45\", \"frequency\": 2}, {\"value\": \"50\", \"frequency\": 1}, {\"value\": \"55\", \"frequency\": 1}, {\"value\": \"60\", \"frequency\": 1}, {\"value\": \"78\", \"frequency\": 2}, {\"value\": \"89\", \"frequency\": 1}, {\"value\": \"100\", \"frequency\": 1}, {\"value\": \"115\", \"frequency\": 1}, {\"value\": \"145\", \"frequency\": 1}, {\"value\": \"230\", \"frequency\": 1}, {\"value\": \"300\", \"frequency\": 1}], \"histogram\": {\"boundaries\": [\"2.0\", \"26.833333333333332\", \"51.666666666666664\", \"76.5\", \"101.33333333333333\", \"126.16666666666666\", \"151.0\", \"175.83333333333331\", \"200.66666666666666\", \"225.5\", \"250.33333333333331\", \"275.16666666666663\", \"300.0\"], \"heights\": [0.0, 0.5526315789473685, 0.18421052631578946, 0.05263157894736842, 0.10526315789473684, 0.02631578947368421, 0.02631578947368421, 0.0, 0.0, 0.0, 0.02631578947368421, 0.0, 0.02631578947368421, 0.0]}, \"sampleValues\": [\"20\", \"45\", \"10\", \"13\", \"12\", \"15\", \"20\", \"35\", \"50\", \"230\", \"12\", \"10\", \"39\", \"20\", \"4\", \"11\", \"15\", \"19\", \"5\", \"45\"]}, {\"fieldPath\": \"price\", \"uniqueCount\": 27, \"uniqueProportion\": 0.7105263157894737, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"45.0\", \"max\": \"700.0\", \"mean\": \"201.57894736842104\", \"median\": \"140.0\", \"quantiles\": [{\"quantile\": \"0.05\", \"value\": \"60.0\"}, {\"quantile\": \"0.25\", \"value\": \"100.0\"}, {\"quantile\": \"0.5\", \"value\": \"140.0\"}, {\"quantile\": \"0.75\", \"value\": \"200.0\"}, {\"quantile\": \"0.95\", \"value\": \"600.0\"}], \"distinctValueFrequencies\": [{\"value\": \"45\", \"frequency\": 1}, {\"value\": \"60\", \"frequency\": 1}, {\"value\": \"70\", \"frequency\": 2}, {\"value\": \"80\", \"frequency\": 2}, {\"value\": \"85\", \"frequency\": 1}, {\"value\": \"90\", \"frequency\": 2}, {\"value\": \"100\", \"frequency\": 3}, {\"value\": \"105\", \"frequency\": 1}, {\"value\": \"115\", \"frequency\": 1}, {\"value\": \"120\", \"frequency\": 1}, {\"value\": \"125\", \"frequency\": 1}, {\"value\": \"130\", \"frequency\": 1}, {\"value\": \"135\", \"frequency\": 1}, {\"value\": \"140\", \"frequency\": 2}, {\"value\": \"150\", \"frequency\": 2}, {\"value\": \"160\", \"frequency\": 1}, {\"value\": \"180\", \"frequency\": 2}, {\"value\": \"190\", \"frequency\": 1}, {\"value\": \"200\", \"frequency\": 3}, {\"value\": \"270\", \"frequency\": 1}, {\"value\": \"300\", \"frequency\": 1}, {\"value\": \"350\", \"frequency\": 1}, {\"value\": \"400\", \"frequency\": 1}, {\"value\": \"450\", \"frequency\": 1}, {\"value\": \"500\", \"frequency\": 2}, {\"value\": \"600\", \"frequency\": 1}, {\"value\": \"700\", \"frequency\": 1}], \"histogram\": {\"boundaries\": [\"45.0\", \"99.58333333333334\", \"154.16666666666669\", \"208.75\", \"263.33333333333337\", \"317.9166666666667\", \"372.5\", \"427.08333333333337\", \"481.6666666666667\", \"536.25\", \"590.8333333333334\", \"645.4166666666667\", \"700.0\"], \"heights\": [0.0, 0.23684210526315788, 0.34210526315789475, 0.18421052631578946, 0.0, 0.05263157894736842, 0.02631578947368421, 0.02631578947368421, 0.02631578947368421, 0.05263157894736842, 0.0, 0.02631578947368421, 0.02631578947368421, 0.0]}, \"sampleValues\": [\"135\", \"200\", \"70\", \"100\", \"45\", \"80\", \"85\", \"140\", \"105\", \"180\", \"500\", \"120\", \"200\", \"500\", \"115\", \"180\", \"90\", \"150\", \"400\", \"90\"]}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
