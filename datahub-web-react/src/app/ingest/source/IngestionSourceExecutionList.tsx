@@ -161,7 +161,7 @@ export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Pr
             key: 'x',
             render: (_, record: any) => (
                 <div style={{ display: 'flex', justifyContent: 'right' }}>
-                    {record.urn && (
+                    {record.urn && navigator.clipboard && (
                         <Tooltip title="Copy Execution Request URN">
                             <Button
                                 style={{ marginRight: 16 }}

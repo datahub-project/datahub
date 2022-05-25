@@ -213,6 +213,11 @@ entities:
       - glossaryTerms
       - editableMlPrimaryKeyProperties
       - domains
+  - name: dataHubAccessToken
+    category: internal
+    keyAspect: dataHubAccessTokenKey
+    aspects:
+      - dataHubAccessTokenInfo
 
         
   ## Not in OSS
@@ -241,6 +246,5 @@ entities:
     keyAspect: telemetryKey
     aspects:
       - telemetryClientId
-
 events:
   - name: notificationRequest

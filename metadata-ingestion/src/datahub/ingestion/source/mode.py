@@ -200,6 +200,9 @@ class ModeSource(Source):
             aspects=[],
         )
 
+        title = report_info.get("name", "") or ""
+        description = report_info.get("description", "") or ""
+
         last_modified = ChangeAuditStamps()
         creator = self._get_creator(
             report_info.get("_links", {}).get("creator", {}).get("href", "")
@@ -213,8 +216,6 @@ class ModeSource(Source):
             created_ts = int(
                 dp.parse(f"{report_info.get('created_at', 'now')}").timestamp() * 1000
             )
-            title = report_info.get("name", "") or ""
-            description = report_info.get("description", "") or ""
             last_modified = ChangeAuditStamps(
                 created=AuditStamp(time=created_ts, actor=modified_actor),
                 lastModified=AuditStamp(time=modified_ts, actor=modified_actor),

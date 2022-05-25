@@ -18,6 +18,7 @@
         "VIEW_ANALYTICS",
         "GENERATE_PERSONAL_ACCESS_TOKENS",
         "VIEW_METADATA_PROPOSALS",
+        "MANAGE_ACCESS_TOKENS",
         "MANAGE_DOMAINS"
       ],
       "displayName":"Root User - All Platform Privileges",

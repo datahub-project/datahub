@@ -12,6 +12,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - #4875 Lookml view file contents will no longer be populated in custom_properties, instead view definitions will be always available in the View Definitions tab.
 
 ### Other notable Changes
+- #4961 Dropped profiling is not reported by default as that caused a lot of spurious logging in some cases. Set `profiling.report_dropped_profiles` to `True` if you want older behaviour.
 
 ## `v0.8.35`
 
