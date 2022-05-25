@@ -1289,7 +1289,6 @@ public class GmsGraphQLEngine {
     }
 
     private void configureTestResultResolvers(final RuntimeWiring.Builder builder) {
-        // Tests not in OSS
         builder.type("TestResult", typeWiring -> typeWiring
             .dataFetcher("test", new LoadableTypeResolver<>(testType,
                 (env) -> {
