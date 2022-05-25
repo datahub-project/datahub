@@ -1,6 +1,6 @@
 # SAP HANA
 
-For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
+For context on getting started with ingestion, check out our [metadata ingestion guide](../../../metadata-ingestion/README.md).
 
 ## Setup
 
@@ -25,7 +25,7 @@ This plugin extracts the following:
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
 
-For general pointers on writing and running a recipe, see our [main recipe guide](../README.md#recipes).
+For general pointers on writing and running a recipe, see our [main recipe guide](../../../metadata-ingestion/README.md#recipes).
 
 ```yml
 source:
