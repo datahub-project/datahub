@@ -123,11 +123,13 @@ export default function AddTagsTermsModal({
     });
 
     if (!inputExistsInTagSearch && inputValue.length > 0 && type === EntityType.Tag) {
-        tagSearchOptions.push(
-            <Select.Option value={CREATE_TAG_VALUE} key={CREATE_TAG_VALUE}>
-                <Typography.Link> Create {inputValue}</Typography.Link>
-            </Select.Option>,
-        );
+        if (urnIds.length === 0) {
+            tagSearchOptions.push(
+                <Select.Option value={CREATE_TAG_VALUE} key={CREATE_TAG_VALUE}>
+                    <Typography.Link> Create {inputValue}</Typography.Link>
+                </Select.Option>,
+            );
+        }
     }
 
     const tagRender = (props) => {
