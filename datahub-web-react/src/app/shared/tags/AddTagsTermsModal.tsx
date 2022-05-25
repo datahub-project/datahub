@@ -122,14 +122,12 @@ export default function AddTagsTermsModal({
         return displayName.toLowerCase() === inputValue.toLowerCase();
     });
 
-    if (!inputExistsInTagSearch && inputValue.length > 0 && type === EntityType.Tag) {
-        if (urnIds.length === 0) {
-            tagSearchOptions.push(
-                <Select.Option value={CREATE_TAG_VALUE} key={CREATE_TAG_VALUE}>
-                    <Typography.Link> Create {inputValue}</Typography.Link>
-                </Select.Option>,
-            );
-        }
+    if (!inputExistsInTagSearch && inputValue.length > 0 && type === EntityType.Tag && urnIds.length === 0) {
+        tagSearchOptions.push(
+            <Select.Option value={CREATE_TAG_VALUE} key={CREATE_TAG_VALUE}>
+                <Typography.Link> Create {inputValue}</Typography.Link>
+            </Select.Option>,
+        );
     }
 
     const tagRender = (props) => {
