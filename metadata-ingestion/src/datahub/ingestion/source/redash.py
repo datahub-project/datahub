@@ -566,14 +566,19 @@ class RedashSource(Source):
                     continue
 
                 # Continue producing MCE
-                dashboard_slug = dashboard_response["slug"]
                 try:
-                    dashboard_data = self.client.dashboard(dashboard_slug)
-                except Exception:
+                    # This is undocumented but checking the Redash source
+                    # the API is id based not slug based
+                    # Tested the same with a Redash instance
                     dashboard_id = dashboard_response["id"]
                     dashboard_data = self.client._get(
                         "api/dashboards/{}".format(dashboard_id)
                     ).json()
+                except Exception:
+                    # This does not work in our testing but keeping for now because
+                    # people in community are using Redash connector successfully
+                    dashboard_slug = dashboard_response["slug"]
+                    dashboard_data = self.client.dashboard(dashboard_slug)
                 logger.debug(dashboard_data)
                 dashboard_snapshot = self._get_dashboard_snapshot(dashboard_data)
                 mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
@@ -708,8 +713,8 @@ class RedashSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         self.test_connection()
-        yield from self._emit_dashboard_mces()
         yield from self._emit_chart_mces()
+        yield from self._emit_dashboard_mces()
 
     def get_report(self) -> SourceReport:
         return self.report
