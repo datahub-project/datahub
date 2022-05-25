@@ -124,6 +124,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.RemoveOwnerResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTagResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateDescriptionResolver;
+import com.linkedin.datahub.graphql.resolvers.operation.ReportOperationResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.DeletePolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.GetGrantedPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
@@ -651,6 +652,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("createTest", new CreateTestResolver(this.entityClient))
             .dataFetcher("updateTest", new UpdateTestResolver(this.entityClient))
             .dataFetcher("deleteTest", new DeleteTestResolver(this.entityClient))
+            .dataFetcher("reportOperation", new ReportOperationResolver(this.entityClient))
         );
     }
 
