@@ -141,3 +141,11 @@ pytest -vv
 # Run all tests under tests/unit
 ../gradlew :metadata-ingestion:testSingle -PtestFile=tests/unit
 ```
+
+### Updating golden files
+
+If you updated some tests and need to update golden files then you can run a command like this.
+
+```shell
+pytest tests/integration/dbt/test_dbt.py --update-golden-files
+```
