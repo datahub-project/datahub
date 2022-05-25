@@ -74,7 +74,7 @@ We use a plugin architecture so that you can install only the dependencies you a
 | [feast-legacy](./generated/ingestion/sources/feast.md#module-feast-legacy)                   | `pip install 'acryl-datahub[feast-legacy]'`                | Feast source (legacy)  |
 | [feast](./generated/ingestion/sources/feast.md)                                 | `pip install 'acryl-datahub[feast]'`                       | Feast source (0.18.0)               |
 | [glue](./generated/ingestion/sources/glue.md)                                   | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
-| [hana](../metadata-ingestion/source_docs/hana.md)                               | `pip install 'acryl-datahub[hana]'`                        | SAP HANA source                     |
+| [hana](./generated/ingestion/sources/hana.md)                                   | `pip install 'acryl-datahub[hana]'`                        | SAP HANA source                     |
 | [hive](./generated/ingestion/sources/hive.md)                                   | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
 | [kafka](./generated/ingestion/sources/kafka.md)                                 | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
 | [kafka-connect](./generated/ingestion/sources/kafka-connect.md)                 | `pip install 'acryl-datahub[kafka-connect]'`               | Kafka connect source                |
