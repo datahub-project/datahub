@@ -35,6 +35,7 @@ from pyspark.sql.types import (
 from pyspark.sql.utils import AnalysisException
 from smart_open import open as smart_open
 
+import datahub.ingestion.source.s3.config
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
@@ -119,6 +120,8 @@ _field_type_mapping = {
     StructField: RecordTypeClass,
     StructType: RecordTypeClass,
 }
+SAMPLE_SIZE = 100
+PAGE_SIZE = 1000
 
 
 def get_column_type(
@@ -425,6 +428,14 @@ class S3Source(Source):
             if base_full_path.rfind("/") != -1
             else ""
         )
+
+        # Dataset is in the root folder
+        if not parent_folder_path and parent_key is None:
+            logger.warning(
+                f"Failed to associate Dataset ({dataset_urn}) with container"
+            )
+            return
+
         for folder in parent_folder_path.split("/"):
             abs_path = folder
             if parent_key:
@@ -442,11 +453,8 @@ class S3Source(Source):
                 parent_container_key=parent_key,
             )
             parent_key = folder_key
-        if parent_key is None:
-            logger.warning(
-                f"Failed to associate Dataset ({dataset_urn}) with container"
-            )
-            return
+
+        assert parent_key is not None
         yield from add_dataset_to_container(parent_key, dataset_urn)
 
     def get_fields(self, table_data: TableData, path_spec: PathSpec) -> List:
@@ -466,8 +474,13 @@ class S3Source(Source):
         fields = []
 
         extension = pathlib.Path(table_data.full_path).suffix
+        if path_spec.enable_compression and (
+            extension[1:] in datahub.ingestion.source.s3.config.SUPPORTED_COMPRESSIONS
+        ):
+            # Removing the compression extension and using the one before that like .json.gz -> .json
+            extension = pathlib.Path(table_data.full_path).with_suffix("").suffix
         if extension == "" and path_spec.default_extension:
-            extension = path_spec.default_extension
+            extension = f".{path_spec.default_extension}"
 
         try:
             if extension == ".parquet":
@@ -602,13 +615,17 @@ class S3Source(Source):
             aspects=[],
         )
 
+        customProperties: Optional[Dict[str, str]] = None
+        if not path_spec.sample_files:
+            customProperties = {
+                "number_of_files": str(table_data.number_of_files),
+                "size_in_bytes": str(table_data.size_in_bytes),
+            }
+
         dataset_properties = DatasetPropertiesClass(
             description="",
             name=table_data.display_name,
-            customProperties={
-                "number_of_files": str(table_data.number_of_files),
-                "size_in_bytes": str(table_data.size_in_bytes),
-            },
+            customProperties=customProperties,
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
@@ -771,18 +788,87 @@ class S3Source(Source):
             )
         return table_data
 
+    def resolve_templated_folders(self, bucket_name: str, prefix: str) -> Iterable[str]:
+        folder_split: List[str] = prefix.split("*", 1)
+        # If the len of split is 1 it means we don't have * in the prefix
+        if len(folder_split) == 1:
+            yield prefix
+            return
+
+        folders: Iterable[str] = self.list_folders(bucket_name, folder_split[0])
+        for folder in folders:
+            yield from self.resolve_templated_folders(
+                bucket_name, f"{folder}{folder_split[1]}"
+            )
+
+    def list_folders(self, bucket_name: str, prefix: str) -> Iterable[str]:
+        assert self.source_config.aws_config
+        s3_client = self.source_config.aws_config.get_s3_client()
+        paginator = s3_client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(
+            Bucket=bucket_name, Prefix=prefix, Delimiter="/"
+        ):
+            for o in page.get("CommonPrefixes", []):
+                folder: str = str(o.get("Prefix"))
+                if folder.endswith("/"):
+                    folder = folder[:-1]
+                yield f"{folder}"
+
     def s3_browser(self, path_spec: PathSpec) -> Iterable[Tuple[str, datetime, int]]:
         if self.source_config.aws_config is None:
             raise ValueError("aws_config not set. Cannot browse s3")
         s3 = self.source_config.aws_config.get_s3_resource()
         bucket_name = get_bucket_name(path_spec.include)
-        logger.debug(f"Scanning bucket : {bucket_name}")
+        logger.debug(f"Scanning bucket: {bucket_name}")
         bucket = s3.Bucket(bucket_name)
         prefix = self.get_prefix(get_bucket_relative_path(path_spec.include))
         logger.debug(f"Scanning objects with prefix:{prefix}")
-        for obj in bucket.objects.filter(Prefix=prefix).page_size(1000):
-            s3_path = f"s3://{obj.bucket_name}/{obj.key}"
-            yield s3_path, obj.last_modified, obj.size,
+        matches = re.finditer(r"{\s*\w+\s*}", path_spec.include, re.MULTILINE)
+        matches_list = list(matches)
+        if matches_list and path_spec.sample_files:
+            # Replace the patch_spec include's templates with star because later we want to resolve all the stars
+            # to actual directories.
+            # For example:
+            # "s3://my-test-bucket/*/{dept}/*/{table}/*/*.*" -> "s3://my-test-bucket/*/*/*/{table}/*/*.*"
+            # We only keep the last template as a marker to know the point util we need to resolve path.
+            # After the marker we can safely get sample files for sampling because it is not used in the
+            # table name, so we don't need all the files.
+            # This speed up processing but we won't be able to get a precise modification date/size/number of files.
+            max_start: int = -1
+            include: str = path_spec.include
+            max_match: str = ""
+            for match in matches_list:
+                pos = include.find(match.group())
+                if pos > max_start:
+                    if max_match:
+                        include = include.replace(max_match, "*")
+                    max_start = match.start()
+                    max_match = match.group()
+
+            table_index = include.find(max_match)
+            for folder in self.resolve_templated_folders(
+                bucket_name, get_bucket_relative_path(include[:table_index])
+            ):
+                for f in self.list_folders(bucket_name, f"{folder}"):
+                    logger.info(f"Processing folder: {f}")
+
+                    for obj in (
+                        bucket.objects.filter(Prefix=f"{f}")
+                        .page_size(PAGE_SIZE)
+                        .limit(SAMPLE_SIZE)
+                    ):
+                        s3_path = f"s3://{obj.bucket_name}/{obj.key}"
+                        logger.debug(f"Samping file: {s3_path}")
+                        yield s3_path, obj.last_modified, obj.size,
+        else:
+            logger.debug(
+                "No template in the pathspec can't do sampling, fallbacking to do full scan"
+            )
+            path_spec.sample_files = False
+            for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE):
+                s3_path = f"s3://{obj.bucket_name}/{obj.key}"
+                logger.debug(f"Path: {s3_path}")
+                yield s3_path, obj.last_modified, obj.size,
 
     def local_browser(self, path_spec: PathSpec) -> Iterable[Tuple[str, datetime, int]]:
         prefix = self.get_prefix(path_spec.include)
