@@ -114,6 +114,7 @@ module.exports = {
           "metadata-ingestion/docs/dev_guides/stateful",
           "metadata-ingestion/docs/dev_guides/reporting_telemetry",
           "metadata-ingestion/docs/dev_guides/sql_profiles",
+          "metadata-ingestion/docs/dev_guides/hana",
         ],
       },
     ],
