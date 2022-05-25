@@ -45,7 +45,7 @@
       "name": "clickhouse",
       "displayName": "ClickHouse",
       "type": "RELATIONAL_DB",
-      "logoUrl": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/clickhouselogo.png"
+      "logoUrl": "/assets/platforms/clickhouselogo.png"
     }
   },
   {

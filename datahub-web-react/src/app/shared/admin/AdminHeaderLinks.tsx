@@ -24,7 +24,25 @@ const AdminLink = styled.span`
     }
 `;
 
-export function AdminHeaderLinks() {
+const LinksWrapper = styled.div<{ areLinksHidden?: boolean }>`
+    opacity: 1;
+    white-space: nowrap;
+    transition: opacity 0.5s;
+
+    ${(props) =>
+        props.areLinksHidden &&
+        `
+        opacity: 0;
+        width: 0;
+    `}
+`;
+
+interface Props {
+    areLinksHidden?: boolean;
+}
+
+export function AdminHeaderLinks(props: Props) {
+    const { areLinksHidden } = props;
     const me = useGetAuthenticatedUser();
     const { config } = useAppConfig();
 
@@ -47,7 +65,7 @@ export function AdminHeaderLinks() {
     const showDomains = me?.platformPrivileges?.manageDomains || false;
 
     return (
-        <>
+        <LinksWrapper areLinksHidden={areLinksHidden}>
             {showAnalytics && (
                 <AdminLink>
                     <Link to="/analytics">
@@ -111,6 +129,6 @@ export function AdminHeaderLinks() {
                     </Link>
                 </AdminLink>
             )}
-        </>
+        </LinksWrapper>
     );
 }

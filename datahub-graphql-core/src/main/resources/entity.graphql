@@ -519,6 +519,11 @@ enum EntityType {
     Data Platform Instance Entity
     """
     DATA_PLATFORM_INSTANCE
+
+    """
+    A DataHub Access Token
+    """
+    ACCESS_TOKEN
 }
 
 """

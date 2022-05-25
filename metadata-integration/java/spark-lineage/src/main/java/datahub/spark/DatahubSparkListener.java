@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Stack;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -29,9 +28,6 @@ import org.apache.spark.sql.catalyst.plans.QueryPlan;
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan;
 import org.apache.spark.sql.execution.QueryExecution;
 import org.apache.spark.sql.execution.SQLExecution;
-import org.apache.spark.sql.execution.SparkPlan;
-import org.apache.spark.sql.execution.columnar.InMemoryRelation;
-import org.apache.spark.sql.execution.columnar.InMemoryTableScanExec;
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd;
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart;
 
@@ -53,24 +49,22 @@ import scala.collection.JavaConversions;
 import scala.runtime.AbstractFunction1;
 import scala.runtime.AbstractPartialFunction;
 
-
-
 @Slf4j
 public class DatahubSparkListener extends SparkListener {
 
   private static final int THREAD_CNT = 16;
   public static final String CONSUMER_TYPE_KEY = "spark.datahub.lineage.consumerTypes";
   public static final String DATAHUB_EMITTER = "mcpEmitter";
-  public static final String  DATABRICKS_CLUSTER_KEY = "databricks.cluster";
-  public static final String PIPELINE_KEY = "metadata.pipeline"; 
+  public static final String DATABRICKS_CLUSTER_KEY = "databricks.cluster";
+  public static final String PIPELINE_KEY = "metadata.pipeline";
   public static final String PIPELINE_PLATFORM_INSTANCE_KEY = PIPELINE_KEY + ".platformInstance";
-  
+
   private final Map<String, AppStartEvent> appDetails = new ConcurrentHashMap<>();
   private final Map<String, Map<Long, SQLQueryExecStartEvent>> appSqlDetails = new ConcurrentHashMap<>();
   private final Map<String, ExecutorService> appPoolDetails = new ConcurrentHashMap<>();
   private final Map<String, McpEmitter> appEmitters = new ConcurrentHashMap<>();
   private final Map<String, Config> appConfig = new ConcurrentHashMap<>();
-  
+
   public DatahubSparkListener() {
     log.info("DatahubSparkListener initialised.");
   }
@@ -89,40 +83,31 @@ public class DatahubSparkListener extends SparkListener {
 
     @Override
     public void run() {
-      appSqlDetails.get(ctx.applicationId())
-          .put(sqlStart.executionId(),
-              new SQLQueryExecStartEvent(ctx.conf().get("spark.master"), getPipelineName(ctx), ctx.applicationId(),
-                  sqlStart.time(), sqlStart.executionId(), null));
+      appSqlDetails.get(ctx.applicationId()).put(sqlStart.executionId(),
+          new SQLQueryExecStartEvent(ctx.conf().get("spark.master"), getPipelineName(ctx), ctx.applicationId(),
+              sqlStart.time(), sqlStart.executionId(), null));
       log.debug("PLAN for execution id: " + getPipelineName(ctx) + ":" + sqlStart.executionId() + "\n");
       log.debug(plan.toString());
 
-      Optional<? extends SparkDataset> outputDS = DatasetExtractor.asDataset(plan, ctx, true);
-      if (!outputDS.isPresent()) {
+      Optional<? extends Collection<SparkDataset>> outputDS = DatasetExtractor.asDataset(plan, ctx, true);
+      if (!outputDS.isPresent() || outputDS.get().isEmpty()) {
         log.debug("Skipping execution as no output dataset present for execution id: " + ctx.applicationId() + ":"
             + sqlStart.executionId());
         return;
       }
-
-      DatasetLineage lineage = new DatasetLineage(sqlStart.description(), plan.toString(), outputDS.get());
+      // Here assumption is that there will be only single target for single sql query
+      DatasetLineage lineage = new DatasetLineage(sqlStart.description(), plan.toString(),
+          outputDS.get().iterator().next());
       Collection<QueryPlan<?>> allInners = new ArrayList<>();
-      Collection<QueryPlan<?>> allInmemoryRelationSparkPlan = new ArrayList<>();
-      Collection<QueryPlan<?>> allInmemoryRelationInnersSparkPlan = new ArrayList<>();
-      Stack<QueryPlan<?>> allInmemoryRelationTableScanPlan = new Stack<>();
 
       plan.collect(new AbstractPartialFunction<LogicalPlan, Void>() {
 
         @Override
         public Void apply(LogicalPlan plan) {
           log.debug("CHILD " + plan.getClass() + "\n" + plan + "\n-------------\n");
-          Optional<? extends SparkDataset> inputDS = DatasetExtractor.asDataset(plan, ctx, false);
-          inputDS.ifPresent(x -> lineage.addSource(x));
+          Optional<? extends Collection<SparkDataset>> inputDS = DatasetExtractor.asDataset(plan, ctx, false);
+          inputDS.ifPresent(x -> x.forEach(y -> lineage.addSource(y)));
           allInners.addAll(JavaConversions.asJavaCollection(plan.innerChildren()));
-
-          //deal with sparkPlans in complex logical plan
-          if (plan instanceof InMemoryRelation) {
-            InMemoryRelation cmd = (InMemoryRelation) plan;
-            allInmemoryRelationSparkPlan.add(cmd.cachedPlan());
-          }
           return null;
         }
 
@@ -143,16 +128,10 @@ public class DatahubSparkListener extends SparkListener {
           @Override
           public Void apply(LogicalPlan plan) {
             log.debug("INNER CHILD " + plan.getClass() + "\n" + plan + "\n-------------\n");
-            Optional<? extends SparkDataset> inputDS = DatasetExtractor.asDataset(plan, ctx, false);
+            Optional<? extends Collection<SparkDataset>> inputDS = DatasetExtractor.asDataset(plan, ctx, false);
             inputDS.ifPresent(
                 x -> log.debug("source added for " + ctx.appName() + "/" + sqlStart.executionId() + ": " + x));
-            inputDS.ifPresent(x -> lineage.addSource(x));
-
-            //deal with sparkPlans in complex logical plan
-            if (plan instanceof InMemoryRelation) {
-              InMemoryRelation cmd = (InMemoryRelation) plan;
-              allInmemoryRelationSparkPlan.add(cmd.cachedPlan());
-            }
+            inputDS.ifPresent(x -> x.forEach(y -> lineage.addSource(y)));
             return null;
           }
 
@@ -163,110 +142,8 @@ public class DatahubSparkListener extends SparkListener {
         });
       }
 
-      for (QueryPlan<?> qpInmemoryRelation : allInmemoryRelationSparkPlan) {
-        if (!(qpInmemoryRelation instanceof SparkPlan)) {
-          continue;
-        }
-        SparkPlan sparkPlan = (SparkPlan) qpInmemoryRelation;
-        sparkPlan.collect(new AbstractPartialFunction<SparkPlan, Void>() {
-
-          @Override
-          public Void apply(SparkPlan sp) {
-            Optional<? extends SparkDataset> inputDSSp = DatasetExtractor.asDataset(sp, ctx, false);
-            inputDSSp.ifPresent(x -> lineage.addSource(x));
-            allInmemoryRelationInnersSparkPlan.addAll(JavaConversions.asJavaCollection(sp.innerChildren()));
-
-            if (sp instanceof InMemoryTableScanExec) {
-              InMemoryTableScanExec cmd = (InMemoryTableScanExec) sp;
-              allInmemoryRelationTableScanPlan.push(cmd);
-            }
-            return null;
-          }
-          @Override
-          public boolean isDefinedAt(SparkPlan x) {
-            return true;
-          }
-        });
-      }
-
-      for (QueryPlan<?> qpInmemoryRelationInners : allInmemoryRelationInnersSparkPlan) {
-        if (!(qpInmemoryRelationInners instanceof SparkPlan)) {
-          continue;
-        }
-        SparkPlan sparkPlan = (SparkPlan) qpInmemoryRelationInners;
-        sparkPlan.collect(new AbstractPartialFunction<SparkPlan, Void>() {
-
-          @Override
-          public Void apply(SparkPlan sp) {
-            Optional<? extends SparkDataset> inputDSSp = DatasetExtractor.asDataset(sp, ctx, false);
-            inputDSSp.ifPresent(x -> lineage.addSource(x));
-
-            if (sp instanceof InMemoryTableScanExec) {
-              InMemoryTableScanExec cmd = (InMemoryTableScanExec) sp;
-              allInmemoryRelationTableScanPlan.push(cmd);
-            }
-            return null;
-          }
-          @Override
-          public boolean isDefinedAt(SparkPlan x) {
-            return true;
-          }
-        });
-      }
-
-      while (!allInmemoryRelationTableScanPlan.isEmpty()) {
-        QueryPlan<?> qpInmemoryRelationTableScan = allInmemoryRelationTableScanPlan.pop();
-        InMemoryTableScanExec imPlan = (InMemoryTableScanExec) qpInmemoryRelationTableScan;
-        Collection<QueryPlan<?>> allInnerPhysicalPlan = new ArrayList<>();
-        imPlan.relation().cachedPlan().collect(new AbstractPartialFunction<SparkPlan, Void>() {
-
-          @Override
-          public Void apply(SparkPlan sp) {
-            Optional<? extends SparkDataset> inputDSSp = DatasetExtractor.asDataset(sp, ctx, false);
-            inputDSSp.ifPresent(x -> lineage.addSource(x));
-            allInnerPhysicalPlan.addAll(JavaConversions.asJavaCollection(sp.innerChildren()));
-
-            if (sp instanceof InMemoryTableScanExec) {
-              InMemoryTableScanExec cmd = (InMemoryTableScanExec) sp;
-              allInmemoryRelationTableScanPlan.push(cmd);
-            }
-            return null;
-          }
-          @Override
-          public boolean isDefinedAt(SparkPlan x) {
-            return true;
-          }
-        });
-
-        for (QueryPlan<?> qpInner : allInnerPhysicalPlan) {
-          if (!(qpInner instanceof SparkPlan)) {
-            continue;
-          }
-          SparkPlan sparkPlan = (SparkPlan) qpInner;
-          sparkPlan.collect(new AbstractPartialFunction<SparkPlan, Void>() {
-
-            @Override
-            public Void apply(SparkPlan sp) {
-              Optional<? extends SparkDataset> inputDSSp = DatasetExtractor.asDataset(sp, ctx, false);
-              inputDSSp.ifPresent(x -> lineage.addSource(x));
-
-              if (sp instanceof InMemoryTableScanExec) {
-                InMemoryTableScanExec cmd = (InMemoryTableScanExec) sp;
-                allInmemoryRelationTableScanPlan.push(cmd);
-              }
-              return null;
-            }
-            @Override
-            public boolean isDefinedAt(SparkPlan x) {
-              return true;
-            }
-          });
-        }
-      }
-
-      SQLQueryExecStartEvent evt =
-          new SQLQueryExecStartEvent(ctx.conf().get("spark.master"), getPipelineName(ctx), ctx.applicationId(),
-              sqlStart.time(), sqlStart.executionId(), lineage);
+      SQLQueryExecStartEvent evt = new SQLQueryExecStartEvent(ctx.conf().get("spark.master"), getPipelineName(ctx),
+          ctx.applicationId(), sqlStart.time(), sqlStart.executionId(), lineage);
 
       appSqlDetails.get(ctx.applicationId()).put(sqlStart.executionId(), evt);
 
@@ -280,7 +157,7 @@ public class DatahubSparkListener extends SparkListener {
       log.debug("Parsed execution id {}:{}", ctx.appName(), sqlStart.executionId());
     }
   }
-  
+
   @Override
   public void onApplicationStart(SparkListenerApplicationStart applicationStart) {
     try {
@@ -332,13 +209,13 @@ public class DatahubSparkListener extends SparkListener {
               }
             }
             consumers().forEach(x -> {
-                x.accept(evt);
-                try {
-                  x.close();
-                } catch (IOException e) {
-                  log.warn("Failed to close lineage consumer", e);
-                }
-              });
+              x.accept(evt);
+              try {
+                x.close();
+              } catch (IOException e) {
+                log.warn("Failed to close lineage consumer", e);
+              }
+            });
           }
           return null;
         }
@@ -383,13 +260,11 @@ public class DatahubSparkListener extends SparkListener {
       public Void apply(SparkContext sc) {
         SQLQueryExecStartEvent start = appSqlDetails.get(sc.applicationId()).remove(sqlEnd.executionId());
         if (start == null) {
-          log.error(
-              "Execution end event received, but start event missing for appId/sql exec Id " + sc.applicationId() + ":"
-                  + sqlEnd.executionId());
+          log.error("Execution end event received, but start event missing for appId/sql exec Id " + sc.applicationId()
+              + ":" + sqlEnd.executionId());
         } else if (start.getDatasetLineage() != null) {
-          SQLQueryExecEndEvent evt =
-              new SQLQueryExecEndEvent(LineageUtils.getMaster(sc), sc.appName(), sc.applicationId(), sqlEnd.time(),
-                  sqlEnd.executionId(), start);
+          SQLQueryExecEndEvent evt = new SQLQueryExecEndEvent(LineageUtils.getMaster(sc), sc.appName(),
+              sc.applicationId(), sqlEnd.time(), sqlEnd.executionId(), start);
           McpEmitter emitter = appEmitters.get(sc.applicationId());
           if (emitter != null) {
             emitter.accept(evt);
@@ -399,7 +274,7 @@ public class DatahubSparkListener extends SparkListener {
       }
     });
   }
-  
+
   private synchronized ExecutorService getOrCreateApplicationSetup(SparkContext ctx) {
 
     ExecutorService pool = null;
@@ -408,10 +283,11 @@ public class DatahubSparkListener extends SparkListener {
     if (datahubConfig == null) {
       Config datahubConf = LineageUtils.parseSparkConfig();
       appConfig.put(appId, datahubConf);
-      Config pipelineConfig = datahubConf.hasPath(PIPELINE_KEY) ? datahubConf.getConfig(PIPELINE_KEY) : com.typesafe.config.ConfigFactory.empty(); 
+      Config pipelineConfig = datahubConf.hasPath(PIPELINE_KEY) ? datahubConf.getConfig(PIPELINE_KEY)
+          : com.typesafe.config.ConfigFactory.empty();
       AppStartEvent evt = new AppStartEvent(LineageUtils.getMaster(ctx), getPipelineName(ctx), appId, ctx.startTime(),
           ctx.sparkUser(), pipelineConfig);
-      
+
       appEmitters.computeIfAbsent(appId, s -> new McpEmitter(datahubConf)).accept(evt);
       consumers().forEach(c -> c.accept(evt));
       appDetails.put(appId, evt);
@@ -435,13 +311,13 @@ public class DatahubSparkListener extends SparkListener {
       name = datahubConfig.getString(DATABRICKS_CLUSTER_KEY) + "_" + cx.applicationId();
     }
     name = cx.appName();
-    //TODO: appending of platform instance needs to be done at central location like adding constructor to dataflowurl
+    // TODO: appending of platform instance needs to be done at central location
+    // like adding constructor to dataflowurl
     if (datahubConfig.hasPath(PIPELINE_PLATFORM_INSTANCE_KEY)) {
       name = datahubConfig.getString(PIPELINE_PLATFORM_INSTANCE_KEY) + "." + name;
     }
     return name;
   }
-
 
   private void processExecution(SparkListenerSQLExecutionStart sqlStart) {
     QueryExecution queryExec = SQLExecution.getQueryExecution(sqlStart.executionId());
@@ -456,15 +332,16 @@ public class DatahubSparkListener extends SparkListener {
     ExecutorService pool = getOrCreateApplicationSetup(ctx);
     pool.execute(new SqlStartTask(sqlStart, plan, ctx));
   }
-  private List<LineageConsumer> consumers() {
-      SparkConf conf = SparkEnv.get().conf();
-      if (conf.contains(CONSUMER_TYPE_KEY)) {
-        String consumerTypes = conf.get(CONSUMER_TYPE_KEY);
-        return StreamSupport.stream(Splitter.on(",").trimResults().split(consumerTypes).spliterator(), false)
-            .map(x -> LineageUtils.getConsumer(x)).filter(Objects::nonNull).collect(Collectors.toList());
-      } else {
-        return Collections.emptyList();
-      }
 
+  private List<LineageConsumer> consumers() {
+    SparkConf conf = SparkEnv.get().conf();
+    if (conf.contains(CONSUMER_TYPE_KEY)) {
+      String consumerTypes = conf.get(CONSUMER_TYPE_KEY);
+      return StreamSupport.stream(Splitter.on(",").trimResults().split(consumerTypes).spliterator(), false)
+          .map(x -> LineageUtils.getConsumer(x)).filter(Objects::nonNull).collect(Collectors.toList());
+    } else {
+      return Collections.emptyList();
     }
+
+  }
 }

@@ -47,27 +47,6 @@ spark = SparkSession.builder()
         .enableHiveSupport()
         .getOrCreate();
  ```
- 
-### Enable https and authentication token
-Add below config in spark config
-
-```
-spark.datahub.rest.server                   https://<server URL>
-spark.datahub.rest.token                    <token>
-```
-
-### Configuration details
-
-| Field                                           | Required | Default | Description                                                             |
-|-------------------------------------------------|----------|---------|-------------------------------------------------------------------------|
-| spark.jars.packages                              | ✅        |         | Set with latest/required version  io.acryl:datahub-spark-lineage:0.8.23 |
-| spark.extraListeners                             | ✅        |         | datahub.spark.DatahubSparkListener                                      |
-| spark.datahub.rest.server                        | ✅        |         | Datahub server url  eg:http://localhost:8080                            |
-| spark.datahub.rest.token                         |          |         | Authentication token.                         |
-| spark.datahub.metadata.pipeline.platformInstance|          |         | Pipeline level platform instance                                        |
-| spark.datahub.metadata.dataset.platformInstance|          |         | dataset level platform instance                                        |
-| spark.datahub.metadata.dataset.env              |          | PROD    | [Supported values](https://datahubproject.io/docs/graphql/enums#fabrictype). In all other cases, will fallback to PROD           |
-
 
 ### Configuration details
 
@@ -114,6 +93,7 @@ This initial release has been tested with the following environments:
 Note that testing for other environments such as Databricks is planned in near future.
 
 ### Spark commands supported
+
 Below is a list of Spark commands that are parsed currently:
 - InsertIntoHadoopFsRelationCommand
 - SaveIntoDataSourceCommand (jdbc)
@@ -121,6 +101,12 @@ Below is a list of Spark commands that are parsed currently:
 - InsertIntoHiveTable
 
 Effectively, these support data sources/sinks corresponding to Hive, HDFS and JDBC.
+
+DataFrame.persist command is supported for below LeafExecNodes:
+- FileSourceScanExec
+- HiveTableScanExec
+- RowDataSourceScanExec
+- InMemoryTableScanExec
 
 ### Spark commands not yet supported
 - View related commands
