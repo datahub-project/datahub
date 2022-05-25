@@ -2772,6 +2772,16 @@
                             "fieldType" : "TEXT"
                           }
                         }, {
+                          "name" : "created",
+                          "type" : "com.linkedin.common.AuditStamp",
+                          "doc" : "An AuditStamp corresponding to the creation of this schema field.",
+                          "optional" : true
+                        }, {
+                          "name" : "lastModified",
+                          "type" : "com.linkedin.common.AuditStamp",
+                          "doc" : "An AuditStamp corresponding to the last modification of this schema field.",
+                          "optional" : true
+                        }, {
                           "name" : "type",
                           "type" : {
                             "type" : "record",
