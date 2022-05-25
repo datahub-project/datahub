@@ -289,6 +289,7 @@ module.exports = {
     ],
     "Deployment Guides": [
       "docs/how/kafka-config",
+      "datahub-ranger-plugin/README",
       "docker/README",
       "docs/deploy/kubernetes",
       "docker/datahub-upgrade/README",

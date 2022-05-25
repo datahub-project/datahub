@@ -10,6 +10,10 @@ import lombok.Data;
 @Data
 public class AuthorizerConfiguration {
   /**
+   * Whether to enable this authorizer
+   */
+  private boolean enabled = false;
+  /**
    * A fully-qualified class name for the {@link Authorizer} implementation to be registered.
    */
   private String type;
