@@ -741,7 +741,7 @@ class S3Source(Source):
         )
 
     def get_prefix(self, relative_path: str) -> str:
-        index = re.search("[\*|\{]", relative_path)  # noqa: W605
+        index = re.search(r"[\*|\{]", relative_path)
         if index:
             return relative_path[: index.start()]
         else:
