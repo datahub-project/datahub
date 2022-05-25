@@ -71,6 +71,11 @@ type PlatformPrivileges {
   Whether the user should be able to manage tokens on behalf of other users.
   """
   manageTokens: Boolean!
+
+  """
+  Whether the user is able to manage Tests
+  """
+  manageTests: Boolean!
 }
 
 """

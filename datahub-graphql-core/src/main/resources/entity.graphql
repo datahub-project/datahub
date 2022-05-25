@@ -481,6 +481,11 @@ enum EntityType {
     A DataHub Access Token
     """
     ACCESS_TOKEN
+
+    """
+    A DataHub Test
+    """
+    TEST
 }
 
 """

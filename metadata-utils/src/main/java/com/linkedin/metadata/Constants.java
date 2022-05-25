@@ -182,6 +182,12 @@ public class Constants {
   public static final String ASSERTION_RUN_EVENT_ASPECT_NAME = "assertionRunEvent";
   public static final String ASSERTION_RUN_EVENT_STATUS_COMPLETE = "COMPLETE";
 
+  // Tests
+  public static final String TEST_ENTITY_NAME = "test";
+  public static final String TEST_KEY_ASPECT_NAME = "testKey";
+  public static final String TEST_INFO_ASPECT_NAME = "testInfo";
+  public static final String TEST_RESULTS_ASPECT_NAME = "testResults";
+
   // DataHub Ingestion Source
   public static final String INGESTION_SOURCE_KEY_ASPECT_NAME = "dataHubIngestionSourceKey";
   public static final String INGESTION_INFO_ASPECT_NAME = "dataHubIngestionSourceInfo";
@@ -198,7 +204,7 @@ public class Constants {
   public static final String ACCESS_TOKEN_KEY_ASPECT_NAME = "dataHubAccessTokenKey";
   public static final String ACCESS_TOKEN_INFO_NAME = "dataHubAccessTokenInfo";
 
-  // acryl-main only
+
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";
 
   /**

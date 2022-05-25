@@ -65,6 +65,11 @@ public class PoliciesConfig {
       "Manage Domains",
       "Create and remove Asset Domains.");
 
+  public static final Privilege MANAGE_TESTS_PRIVILEGE = Privilege.of(
+      "MANAGE_TESTS",
+      "Manage Tests",
+      "Create and remove Asset Tests.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
       MANAGE_POLICIES_PRIVILEGE,
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
@@ -73,7 +78,8 @@ public class PoliciesConfig {
       MANAGE_INGESTION_PRIVILEGE,
       MANAGE_SECRETS_PRIVILEGE,
       GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
-      MANAGE_ACCESS_TOKENS
+      MANAGE_ACCESS_TOKENS,
+      MANAGE_TESTS_PRIVILEGE
   );
 
   // Resource Privileges //

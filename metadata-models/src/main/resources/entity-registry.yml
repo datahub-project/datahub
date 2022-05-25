@@ -19,6 +19,7 @@ entities:
       - status
       - container
       - deprecation
+      - testResults
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -219,4 +220,10 @@ entities:
     keyAspect: dataHubAccessTokenKey
     aspects:
       - dataHubAccessTokenInfo
+  - name: test
+    doc: A DataHub test
+    category: core
+    keyAspect: testKey
+    aspects:
+      - testInfo
 events:
