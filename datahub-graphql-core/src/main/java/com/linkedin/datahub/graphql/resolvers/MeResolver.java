@@ -103,7 +103,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
   }
 
   /**
-   * Returns true if the authenticated user has privileges to view metadata proposals.
+   * Returns true if the authenticated user has privileges to manage (add or remove) tests.
    */
   private boolean canManageTests(final QueryContext context) {
     return isAuthorized(context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_TESTS_PRIVILEGE);
