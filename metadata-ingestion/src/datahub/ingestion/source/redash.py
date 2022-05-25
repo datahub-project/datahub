@@ -340,7 +340,6 @@ class RedashSource(Source):
         test_response = self.client._get(f"{self.config.connect_uri}/api")
         if test_response.status_code == 200:
             logger.info("Redash API connected succesfully")
-            pass
         else:
             raise ValueError(f"Failed to connect to {self.config.connect_uri}/api")
 
@@ -353,9 +352,6 @@ class RedashSource(Source):
     def _import_sql_parser_cls(cls, sql_parser_path: str) -> Type[SQLParser]:
         assert "." in sql_parser_path, "sql_parser-path must contain a ."
         module_name, cls_name = sql_parser_path.rsplit(".", 1)
-        import sys
-
-        logger.debug(sys.path)
         parser_cls = getattr(importlib.import_module(module_name), cls_name)
         if not issubclass(parser_cls, SQLParser):
             raise ValueError(f"must be derived from {SQLParser}; got {parser_cls}")
