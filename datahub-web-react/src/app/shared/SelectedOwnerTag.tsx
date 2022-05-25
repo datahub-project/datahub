@@ -8,7 +8,6 @@ type Props = {
 };
 
 export default function SelectedOwnerTag({ closable, onClose, label }: Props) {
-    console.log('label:: ', label);
     const onPreventMouseDown = (event) => {
         event.preventDefault();
         event.stopPropagation();

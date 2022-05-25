@@ -218,8 +218,6 @@ export const AddOwnersModal = ({
         }
     };
 
-    console.log('combinedSearchResults', combinedSearchResults);
-
     return (
         <Modal
             title="Add Owners"
