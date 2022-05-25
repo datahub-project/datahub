@@ -36,6 +36,6 @@ public interface MutableType<I, T> {
     * @param context the {@link QueryContext} corresponding to the request.
     */
    default <T> T batchUpdate(@Nonnull final I[] input, @Nonnull final QueryContext context) throws Exception {
-       throw new UnsupportedOperationException(this.getClass().getName() + " does nto implement batchUpdate method");
+       throw new UnsupportedOperationException(this.getClass().getName() + " does not implement batchUpdate method");
    }
 }
