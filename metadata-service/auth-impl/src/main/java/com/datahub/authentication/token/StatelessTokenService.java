@@ -25,11 +25,12 @@ import static com.datahub.authentication.token.TokenClaims.*;
 
 
 /**
- * Service responsible for generating JWT tokens for use within DataHub.
+ * Service responsible for generating JWT tokens for use within DataHub in stateless way.
+ * This service is responsible only for generating tokens, it will not do anything else with them.
  */
-public class TokenService {
+public class StatelessTokenService {
 
-  private static final long DEFAULT_EXPIRES_IN_MS = 86400000L; // One day by default
+  protected static final long DEFAULT_EXPIRES_IN_MS = 86400000L; // One day by default
   private static final List<String> SUPPORTED_ALGORITHMS = new ArrayList<>();
 
   static {
@@ -40,14 +41,14 @@ public class TokenService {
   private final SignatureAlgorithm signingAlgorithm;
   private final String iss;
 
-  public TokenService(
+  public StatelessTokenService(
       @Nonnull final String signingKey,
       @Nonnull final String signingAlgorithm
   ) {
     this(signingKey, signingAlgorithm, null);
   }
 
-  public TokenService(
+  public StatelessTokenService(
       @Nonnull final String signingKey,
       @Nonnull final String signingAlgorithm,
       @Nullable final String iss
@@ -107,7 +108,7 @@ public class TokenService {
     }
     byte [] apiKeySecretBytes = this.signingKey.getBytes(StandardCharsets.UTF_8);
     final Key signingKey = new SecretKeySpec(apiKeySecretBytes, this.signingAlgorithm.getJcaName());
-    return builder.signWith(signingKey, this.signingAlgorithm).compact();
+      return builder.signWith(signingKey, this.signingAlgorithm).compact();
   }
 
   /**

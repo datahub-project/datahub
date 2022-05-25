@@ -1,6 +1,7 @@
 package entities;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.openapi.dto.UpsertAspectRequest;
@@ -48,8 +49,9 @@ public class EntitiesControllerTest {
   public void setup()
       throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
     EntityRegistry mockEntityRegistry = new MockEntityRegistry();
+    AspectDao aspectDao = Mockito.mock(AspectDao.class);
     EventProducer mockEntityEventProducer = Mockito.mock(EventProducer.class);
-    MockEntityService mockEntityService = new MockEntityService(mockEntityEventProducer, mockEntityRegistry);
+    MockEntityService mockEntityService = new MockEntityService(aspectDao, mockEntityEventProducer, mockEntityRegistry);
     _entitiesController = new EntitiesController(mockEntityService, new ObjectMapper());
   }
 
