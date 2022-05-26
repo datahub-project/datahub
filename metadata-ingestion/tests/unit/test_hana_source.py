@@ -8,7 +8,7 @@ from datahub.ingestion.source.sql.hana import HanaConfig, HanaSource
 
 @pytest.mark.skipif(
     platform.machine().lower() == "aarch64",
-    "The hdbcli dependency is not available for aarch64",
+    reason="The hdbcli dependency is not available for aarch64",
 )
 def test_platform_correctly_set_hana():
     source = HanaSource(
@@ -20,7 +20,7 @@ def test_platform_correctly_set_hana():
 
 @pytest.mark.skipif(
     platform.machine().lower() == "aarch64",
-    "The hdbcli dependency is not available for aarch64",
+    reason="The hdbcli dependency is not available for aarch64",
 )
 def test_hana_uri_native():
     config = HanaConfig.parse_obj(
@@ -36,7 +36,7 @@ def test_hana_uri_native():
 
 @pytest.mark.skipif(
     platform.machine().lower() == "aarch64",
-    "The hdbcli dependency is not available for aarch64",
+    reason="The hdbcli dependency is not available for aarch64",
 )
 def test_hana_uri_native_db():
     config = HanaConfig.parse_obj(
