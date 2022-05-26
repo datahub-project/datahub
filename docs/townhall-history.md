@@ -14,7 +14,6 @@ A list of previous Town Halls, their planned schedule, and the recording of the 
 - Sneak Peek: Data Reliability with DataHub
 - Metadata Day Hackathon Winners
 
-
 ## 4/28/2022
 [Full YouTube video](https://www.youtube.com/watch?v=7iwNxHgqxtg)
 
