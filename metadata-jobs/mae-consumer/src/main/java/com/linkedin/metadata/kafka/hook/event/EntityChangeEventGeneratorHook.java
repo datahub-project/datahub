@@ -80,7 +80,7 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
       Constants.STATUS_ASPECT_NAME
   );
   /**
-   * The list of aspects that are supported for generating semantic change events.
+   * The list of change types that are supported for generating semantic change events.
    */
   private static final Set<String> SUPPORTED_OPERATIONS = ImmutableSet.of(
       "CREATE",
