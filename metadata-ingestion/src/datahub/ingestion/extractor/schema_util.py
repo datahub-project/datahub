@@ -179,10 +179,14 @@ class AvroToMceSchemaConverter:
             return self._is_nullable(schema.type)
         if isinstance(schema, avro.schema.UnionSchema):
             return any(self._is_nullable(sub_schema) for sub_schema in schema.schemas)
-        elif isinstance(schema, avro.schema.PrimitiveSchema):
-            return schema.type == AVRO_TYPE_NULL or schema.props.get("_nullable", False)
-        else:
-            return self.default_nullable
+        if (
+            isinstance(schema, avro.schema.PrimitiveSchema)
+            and schema.type == AVRO_TYPE_NULL
+        ):
+            return True
+        if isinstance(schema.props, dict):
+            return schema.props.get("_nullable", self.default_nullable)
+        return self.default_nullable
 
     def _get_cur_field_path(self) -> str:
         return ".".join(self._prefix_name_stack)
