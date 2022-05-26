@@ -3,29 +3,16 @@ import React from 'react';
 import { StyledTag } from '../entity/shared/components/styled/StyledTag';
 
 type Props = {
-    suggestion: string;
+    name: string;
     colorHash;
     color;
+    style;
 };
 
-export default function TagPill({ suggestion, colorHash, color }: Props) {
+export default function TagPill({ name, colorHash, color, style }: Props) {
     return (
-        <StyledTag
-            $colorHash={colorHash}
-            $color={color}
-            closable={false}
-            style={{
-                border: 'none',
-                marginLeft: '-2px',
-                fontSize: '10px',
-                lineHeight: '20px',
-                whiteSpace: 'nowrap',
-                marginRight: '-10px',
-                opacity: 1,
-                color: '#434343',
-            }}
-        >
-            {suggestion}
+        <StyledTag $colorHash={colorHash} $color={color} closable={false} style={style}>
+            {name}
         </StyledTag>
     );
 }

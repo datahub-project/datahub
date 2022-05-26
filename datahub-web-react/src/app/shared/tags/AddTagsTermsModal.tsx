@@ -30,7 +30,7 @@ const CREATE_TAG_VALUE = '____reserved____.createTagValue';
 
 const NAME_TYPE_SEPARATOR = '_::_:_::_';
 
-const getSelectedValue = (rawValue: string) => {
+const decodeSelectedValue = (rawValue: string) => {
     const [name, type] = rawValue.split(NAME_TYPE_SEPARATOR);
     return {
         name,
@@ -38,15 +38,36 @@ const getSelectedValue = (rawValue: string) => {
     };
 };
 
-const renderTerm = (suggestion: string, icon: JSX.Element, type: string) => ({
-    value: suggestion,
-    label: <TermPill suggestion={suggestion} />,
+const renderTerm = (name: string, icon: JSX.Element, type: string) => ({
+    value: name,
+    label: (
+        <TermPill
+            name={name}
+            style={{
+                marginLeft: '5px',
+                marginRight: '5px',
+            }}
+        />
+    ),
     type,
 });
 
-const renderTag = (suggestion: string, $colorHash, $color, type: string) => ({
-    value: suggestion,
-    label: <TagPill suggestion={suggestion} colorHash={$colorHash} color={$color} />,
+const renderTag = (name: string, $colorHash, $color, type: string) => ({
+    value: name,
+    label: (
+        <TagPill
+            name={name}
+            colorHash={$colorHash}
+            color={$color}
+            style={{
+                border: 'none',
+                whiteSpace: 'nowrap',
+                marginRight: '-10px',
+                padding: '0px 7px 0px 0px',
+                lineHeight: '16px',
+            }}
+        />
+    ),
     type,
 });
 
@@ -132,8 +153,7 @@ export default function AddTagsTermsModal({
 
     const tagRender = (props) => {
         // eslint-disable-next-line react/prop-types
-        const { label, value, closable, onClose } = props;
-        const { type: selectedType } = getSelectedValue(value);
+        const { label, closable, onClose } = props;
         const onPreventMouseDown = (event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -144,13 +164,14 @@ export default function AddTagsTermsModal({
                 closable={closable}
                 onClose={onClose}
                 style={{
-                    padding: selectedType === EntityType.Tag ? '0px 7px 0px 0px' : '0px 7px',
                     marginRight: 3,
-                    borderRadius: '100em',
-                    lineHeight: 0,
                     display: 'flex',
                     justifyContent: 'start',
                     alignItems: 'center',
+                    whiteSpace: 'nowrap',
+                    opacity: 1,
+                    color: '#434343',
+                    lineHeight: '16px',
                 }}
             >
                 {label}
@@ -176,8 +197,9 @@ export default function AddTagsTermsModal({
         );
     }
 
-    const getUrn = (urn: string) => {
-        const { name: selectedName, type: selectedType } = getSelectedValue(urn);
+    // name + NAME_TYPE_SEPARATOR + type
+    const getUrnFromValue = (value: string) => {
+        const { name: selectedName, type: selectedType } = decodeSelectedValue(value);
         let tempUrn = '';
         if (selectedType === EntityType.Tag) {
             tempUrn = `urn:li:tag:${selectedName}`;
@@ -189,18 +211,18 @@ export default function AddTagsTermsModal({
     };
 
     // When a Tag or term search result is selected, add the urn to the Urns
-    const onSelectValue = (newUrn: string) => {
-        if (newUrn === CREATE_TAG_VALUE) {
+    const onSelectValue = (selectedValue: string) => {
+        if (selectedValue === CREATE_TAG_VALUE) {
             setShowCreateModal(true);
             return;
         }
-        const newUrns = [...(urns || []), getUrn(newUrn)];
+        const newUrns = [...(urns || []), getUrnFromValue(selectedValue)];
         setUrns(newUrns);
     };
 
     // When a Tag or term search result is deselected, remove the urn from the Owners
     const onDeselectValue = (urn: string) => {
-        const newUrns = urns?.filter((u) => u !== getUrn(urn));
+        const newUrns = urns?.filter((u) => u !== getUrnFromValue(urn));
         setUrns(newUrns);
     };
 

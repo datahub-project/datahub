@@ -37,8 +37,6 @@ const SelectInput = styled(Select)`
     }
 `;
 
-const SearchResultDisplayName = styled.div``;
-
 type Props = {
     urn: string;
     type: EntityType;
@@ -49,9 +47,10 @@ type Props = {
     refetch?: () => Promise<any>;
 };
 
+// value: {ownerUrn: string, ownerEntityType: EntityType}
 type SelectedOwner = {
     label: string;
-    value: any;
+    value;
 };
 
 export const AddOwnersModal = ({
@@ -85,10 +84,13 @@ export const AddOwnersModal = ({
         }
     }, [ownershipTypes]);
 
-    // When a owner search result is selected, add the new owner  to the selectedOwners
-    const onSelectOwner = (newSelectedOwner) => {
+    /**
+     *When a owner search result is selected, add the new owner  to the selectedOwners
+     * value: {ownerUrn: string, ownerEntityType: EntityType}
+     */
+    const onSelectOwner = (selectedValue: { key: string; label: React.ReactNode; value: string }) => {
         const filteredActors = combinedSearchResults
-            .filter((result) => result.entity.urn === newSelectedOwner.value)
+            .filter((result) => result.entity.urn === selectedValue.value)
             .map((result) => result.entity);
         if (filteredActors.length) {
             const actor = filteredActors[0];
@@ -97,10 +99,9 @@ export const AddOwnersModal = ({
             const newValues = [
                 ...selectedOwners,
                 {
-                    label: newSelectedOwner.value,
-                    // "value" field will be the urn of the owner
+                    label: selectedValue.value,
                     value: {
-                        ownerUrn: newSelectedOwner.value,
+                        ownerUrn: selectedValue.value,
                         ownerEntityType,
                     },
                 },
@@ -109,9 +110,9 @@ export const AddOwnersModal = ({
         }
     };
 
-    // When a owner search result is deselected, remove the urn from the Owners
-    const onDeselectOwner = (selectedOwnerUrnId) => {
-        const newValues = selectedOwners.filter((owner) => owner.label !== selectedOwnerUrnId.value);
+    // When a owner search result is deselected, remove the Owner
+    const onDeselectOwner = (selectedValue: { key: string; label: React.ReactNode; value: string }) => {
+        const newValues = selectedOwners.filter((owner) => owner.label !== selectedValue.value);
         setSelectedOwners(newValues);
     };
 
@@ -163,9 +164,7 @@ export const AddOwnersModal = ({
                             photoUrl={avatarUrl}
                             isGroup={result.entity.type === EntityType.CorpGroup}
                         />
-                        <SearchResultDisplayName>
-                            <div>{displayName}</div>
-                        </SearchResultDisplayName>
+                        <div>{displayName}</div>
                     </SearchResultContent>
                 </Link>
             </SearchResultContainer>
