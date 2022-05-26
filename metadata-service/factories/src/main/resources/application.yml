@@ -180,5 +180,5 @@ springdoc:
   cache:
     disabled: true
 
-tests:
+metadataTests:
   enabled: ${METADATA_TESTS_ENABLED:true}
