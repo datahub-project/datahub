@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.config;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
+import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.telemetry.TelemetryConfiguration;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.config.events.EventSinksConfiguration;
@@ -42,6 +43,10 @@ public class ConfigurationProvider {
    * Telemetry related configs
    */
   private TelemetryConfiguration telemetry;
+  /**
+   * Tests related configs
+   */
+  private TestsConfiguration metadataTests;
   /**
    * Event mirroring related configs
    */
