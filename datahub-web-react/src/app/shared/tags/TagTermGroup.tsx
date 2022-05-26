@@ -2,7 +2,7 @@ import { Modal, Tag, Typography, Button, message, Tooltip } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { BookOutlined, ClockCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { BookOutlined, ClockCircleOutlined, PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import {
     Domain,
@@ -21,10 +21,10 @@ import { TagProfileDrawer } from './TagProfileDrawer';
 import { useAcceptProposalMutation, useRejectProposalMutation } from '../../../graphql/actionRequest.generated';
 import ProposalModal from './ProposalModal';
 
-const StyledLabel = styled(Tag)<{ isPropagated: boolean }>`
-    ${(props) =>
-        props.isPropagated &&
-        '&&& { -webkit-box-shadow: 0px 0px 5px 1px rgba(0, 143, 100, 0.95); -moz-box-shadow: 0px 0px 5px 1px rgba(0, 143, 100, 0.95); box-shadow: 0px 0px 5px 1px rgba(0, 143, 100, 0.95); }'}
+const PropagateThunderbolt = styled(ThunderboltOutlined)`
+    color: rgba(0, 143, 100, 0.95);
+    margin-right: -4px;
+    font-weight: bold;
 `;
 
 type Props = {
@@ -265,10 +265,11 @@ export default function TagTermGroup({
                             title="This term was propagated from a related dataset."
                             visible={term.actor?.urn === PROPAGATOR_URN ? undefined : false}
                         >
-                            <StyledLabel isPropagated={term.actor?.urn === PROPAGATOR_URN} closable={false}>
+                            <Tag closable={false}>
                                 <BookOutlined style={{ marginRight: '3%' }} />
                                 {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
-                            </StyledLabel>
+                                {term.actor?.urn === PROPAGATOR_URN && <PropagateThunderbolt />}
+                            </Tag>
                         </Tooltip>
                     </TermLink>
                 );
@@ -279,8 +280,7 @@ export default function TagTermGroup({
                         title="This term was propagated from a related dataset."
                         visible={term.actor?.urn === PROPAGATOR_URN ? undefined : false}
                     >
-                        <StyledLabel
-                            isPropagated={term.actor?.urn === PROPAGATOR_URN}
+                        <Tag
                             closable={canRemove}
                             onClose={(e) => {
                                 e.preventDefault();
@@ -289,7 +289,8 @@ export default function TagTermGroup({
                         >
                             <BookOutlined style={{ marginRight: '3%' }} />
                             {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
-                        </StyledLabel>
+                            {term.actor?.urn === PROPAGATOR_URN && <PropagateThunderbolt />}
+                        </Tag>
                     </Tooltip>
                 </TermLink>
             ))}
