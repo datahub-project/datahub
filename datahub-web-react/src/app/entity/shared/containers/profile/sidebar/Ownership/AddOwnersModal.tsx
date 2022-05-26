@@ -98,6 +98,7 @@ export const AddOwnersModal = ({
                 ...selectedOwners,
                 {
                     label: newSelectedOwner.value,
+                    // "value" field will be the urn of the owner
                     value: {
                         ownerUrn: newSelectedOwner.value,
                         ownerEntityType,
