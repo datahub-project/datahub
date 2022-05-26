@@ -49,3 +49,13 @@ mutation setTagColor($urn: String!, $colorHex: String!) {
 mutation updateDeprecation($input: UpdateDeprecationInput!) {
     updateDeprecation(input: $input)
 }
+
+mutation createAccessToken($input: CreateAccessTokenInput!) {
+    createAccessToken(input: $input){
+        accessToken
+    }
+}
+
+mutation revokeAccessToken($tokenId: String!) {
+    revokeAccessToken(tokenId: $tokenId)
+}
