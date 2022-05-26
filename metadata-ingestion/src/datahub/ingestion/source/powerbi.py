@@ -103,6 +103,7 @@ class Constant:
 class CapabilitiesOverride:
     extractOwnership: bool = True
 
+
 class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     # Organsation Identifier
     tenant_id: str
@@ -117,7 +118,7 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     # timeout for meta-data scanning
     scan_timeout: int = 60
     # Enable/Disable extracting ownership information of Dashboard
-    override: CapabilitiesOverride
+    override: CapabilitiesOverride = CapabilitiesOverride(extractOwnership=True)
     scope: str = "https://analysis.windows.net/powerbi/api/.default"
     base_url: str = "https://api.powerbi.com/v1.0/myorg/groups"
     admin_base_url = "https://api.powerbi.com/v1.0/myorg/admin"
@@ -323,9 +324,11 @@ class PowerBiAPI:
         """
         Get user for the given PowerBi entity
         """
-        users = []
+        users: List[PowerBiAPI.User] = []
         if self.__config.override.extractOwnership is False:
-            LOGGER.info("extractOwnership capabilities is disabled from configuration and hence returning empty users list")
+            LOGGER.info(
+                "ExtractOwnership capabilities is disabled from configuration and hence returning empty users list"
+            )
             return users
 
         user_list_endpoint: str = PowerBiAPI.API_ENDPOINTS[Constant.ENTITY_USER_LIST]
@@ -338,7 +341,7 @@ class PowerBiAPI:
         # Hit PowerBi
         LOGGER.info("Request to URL={}".format(user_list_endpoint))
         response = requests.get(
-            url=user_list_endpoint,
+            user_list_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
         )
 
@@ -357,7 +360,7 @@ class PowerBiAPI:
         users_dict: List[Any] = response.json()[Constant.VALUE]
 
         # Iterate through response and create a list of PowerBiAPI.Dashboard
-        users: List[PowerBiAPI.User] = [
+        users = [
             PowerBiAPI.User(
                 id=instance.get("identifier"),
                 displayName=instance.get("displayName"),
@@ -391,7 +394,7 @@ class PowerBiAPI:
         # Hit PowerBi
         LOGGER.info("Request to report URL={}".format(report_get_endpoint))
         response = requests.get(
-            url=report_get_endpoint,
+            report_get_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
         )
 
@@ -464,7 +467,7 @@ class PowerBiAPI:
         # Hit PowerBi
         LOGGER.info("Request to URL={}".format(dashboard_list_endpoint))
         response = requests.get(
-            url=dashboard_list_endpoint,
+            dashboard_list_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
         )
 
@@ -517,7 +520,7 @@ class PowerBiAPI:
         # Hit PowerBi
         LOGGER.info("Request to dataset URL={}".format(dataset_get_endpoint))
         response = requests.get(
-            url=dataset_get_endpoint,
+            dataset_get_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
         )
 
@@ -558,7 +561,7 @@ class PowerBiAPI:
         # Hit PowerBi
         LOGGER.info("Request to datasource URL={}".format(datasource_get_endpoint))
         response = requests.get(
-            url=datasource_get_endpoint,
+            datasource_get_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
         )
 
@@ -569,7 +572,9 @@ class PowerBiAPI:
             LOGGER.warning("{}={}".format(Constant.WorkspaceId, dataset.workspace_id))
             LOGGER.warning("{}={}".format(Constant.DatasetId, dataset.id))
             LOGGER.warning("{}={}".format(Constant.HTTP_RESPONSE_TEXT, response.text))
-            LOGGER.warning("{}={}".format(Constant.HTTP_RESPONSE_STATUS_CODE, response.status_code))
+            LOGGER.warning(
+                "{}={}".format(Constant.HTTP_RESPONSE_STATUS_CODE, response.status_code)
+            )
 
             raise ConnectionError(message)
 
@@ -678,7 +683,7 @@ class PowerBiAPI:
         # Hit PowerBi
         LOGGER.info("Request to URL={}".format(tile_list_endpoint))
         response = requests.get(
-            url=tile_list_endpoint,
+            tile_list_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
         )
 
@@ -1185,14 +1190,17 @@ class Mapper:
             for user_urn in user_urn_list
             if user_urn is not None
         ]
-        ownership = OwnershipClass(owners=owners)
-        # Dashboard owner MCP
-        owner_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
-            entity_urn=dashboard_urn,
-            aspect_name=Constant.OWNERSHIP,
-            aspect=ownership,
-        )
+
+        owner_mcp = None
+        if len(owners) > 0:
+            # Dashboard owner MCP
+            ownership = OwnershipClass(owners=owners)
+            owner_mcp = self.new_mcp(
+                entity_type=Constant.DASHBOARD,
+                entity_urn=dashboard_urn,
+                aspect_name=Constant.OWNERSHIP,
+                aspect=ownership,
+            )
 
         # Dashboard browsePaths
         browse_path = BrowsePathsClass(
@@ -1205,13 +1213,17 @@ class Mapper:
             aspect=browse_path,
         )
 
-        return [
+        list_of_mcps = [
             browse_path_mcp,
             info_mcp,
             removed_status_mcp,
             dashboard_key_mcp,
-            owner_mcp,
         ]
+
+        if owner_mcp is not None:
+            list_of_mcps.append(owner_mcp)
+
+        return list_of_mcps
 
     def to_datahub_user(
         self, user: PowerBiAPI.User
