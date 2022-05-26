@@ -12,10 +12,9 @@ import javax.annotation.Nullable;
 
 
 public class SchemaBasedMatcher implements EntityMatcher {
-  private static final double THRESHOLD = 0.5;
 
   @Nullable
-  public EntityMatchResult match(EntityDetails original, Collection<EntityDetails> others) {
+  public EntityMatchResult match(EntityDetails original, Collection<EntityDetails> others, double threshold) {
     if (original.getSchemaMetadata() == null || original.getSchemaMetadata().getFields().size() <= 2) {
       return null;
     }
@@ -28,7 +27,7 @@ public class SchemaBasedMatcher implements EntityMatcher {
             (a1, a2) -> a1.length() > a2.length() ? a1 : a2));
 
     int minDiff = fieldPaths.size();
-    int allowedDiff = (int) (fieldPaths.size() * (1 - THRESHOLD));
+    int allowedDiff = (int) (fieldPaths.size() * (1 - threshold));
 
     EntityDetails matchedDetails = null;
     Map<String, String> finalMatchedFields = null;

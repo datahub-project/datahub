@@ -11,7 +11,7 @@ import lombok.Value;
 public interface EntityMatcher {
 
   @Nullable
-  EntityMatchResult match(EntityDetails original, Collection<EntityDetails> others);
+  EntityMatchResult match(EntityDetails original, Collection<EntityDetails> others, double threshold);
 
   @Value
   @Builder

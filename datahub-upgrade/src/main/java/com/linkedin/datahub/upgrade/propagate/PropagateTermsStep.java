@@ -111,6 +111,9 @@ public class PropagateTermsStep implements UpgradeStep {
         allowedTerms = Optional.empty();
       }
 
+      Optional<String> thresholdStr = context.parsedArgs().getOrDefault("THRESHOLD", Optional.empty());
+      double threshold = thresholdStr.map(Double::parseDouble).orElse(0.8);
+
       context.report().addLine("Fetching source entities to propagate from");
 
       SearchResult sourceSearchResults =
@@ -136,7 +139,7 @@ public class PropagateTermsStep implements UpgradeStep {
           _entitySearchService.scroll(Constants.DATASET_ENTITY_NAME, destinationFilter, null, 1000, null, "1m");
       while (scrollResult.getEntities().size() > 0) {
         context.report().addLine(String.format("Processing batch %d", batch));
-        int numAspectsProducedInBatch = processBatch(scrollResult, sourceEntityDetails, runId);
+        int numAspectsProducedInBatch = processBatch(scrollResult, sourceEntityDetails, runId, threshold);
         numAspectsProduced += numAspectsProducedInBatch;
         batch++;
         context.report().addLine(String.format("Fetching batch %d", batch));
@@ -234,7 +237,7 @@ public class PropagateTermsStep implements UpgradeStep {
 
   // Process batch of entities and return number of aspects ingested as a result
   private int processBatch(@Nonnull ScrollResult scrollResult, @Nonnull Map<Urn, EntityDetails> sourceEntityDetails,
-      @Nonnull String runId) {
+      @Nonnull String runId, double threshold) {
     Set<Urn> batch = scrollResult.getEntities()
         .stream()
         .map(SearchEntity::getEntity)
@@ -248,7 +251,7 @@ public class PropagateTermsStep implements UpgradeStep {
     for (Urn destUrn : entityDetails.keySet()) {
       EntityDetails destinationEntity = entityDetails.get(destUrn);
       EntityMatcher.EntityMatchResult matchResult =
-          _entityMatcher.match(destinationEntity, sourceEntityDetails.values());
+          _entityMatcher.match(destinationEntity, sourceEntityDetails.values(), threshold);
       if (matchResult == null) {
         continue;
       }
