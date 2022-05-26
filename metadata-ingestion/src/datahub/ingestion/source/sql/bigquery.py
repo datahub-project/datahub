@@ -704,7 +704,7 @@ class BigQuerySource(SQLAlchemySource):
         else:
             return True
 
-    def add_information_for_schema(self, inspector: Inspector, schema: str):
+    def add_information_for_schema(self, inspector: Inspector, schema: str) -> None:
         url = self.config.get_sql_alchemy_url()
         engine = create_engine(url, **self.config.options)
         project_id = self.get_db_name(inspector)

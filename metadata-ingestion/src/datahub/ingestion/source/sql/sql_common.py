@@ -872,7 +872,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         except Exception as e:
             self.report.report_failure(f"{schema}", f"Tables error: {e}")
 
-    def add_information_for_schema(self, inspector: Inspector, schema: str):
+    def add_information_for_schema(self, inspector: Inspector, schema: str) -> None:
         pass
 
     def get_extra_tags(
