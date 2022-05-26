@@ -4,7 +4,7 @@ import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { checkOwnership } from '../../../../dataset/whoAmI';
 import { useBaseEntity } from '../../../EntityContext';
 import { EditBrowsePathTable } from '../BrowsePath/EditBrowsePathTable';
-import { EditContainers } from '../containerEdit/EditContainers';
+import { EditParentContainerPanel } from '../containerEdit/EditParentContainerPanel';
 import { DeleteSchemaTabv2 } from '../Delete/DeleteSchemaTabv2';
 
 export const AdminTab = () => {
@@ -18,7 +18,7 @@ export const AdminTab = () => {
                 </Divider>
                 <EditBrowsePathTable />
                 <Divider />
-                <EditContainers />
+                <EditParentContainerPanel />
             </>
         );
     }
