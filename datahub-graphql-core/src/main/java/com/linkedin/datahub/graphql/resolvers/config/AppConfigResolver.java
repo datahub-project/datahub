@@ -14,8 +14,10 @@ import com.linkedin.datahub.graphql.generated.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.Privilege;
 import com.linkedin.datahub.graphql.generated.ResourcePrivileges;
 import com.linkedin.datahub.graphql.generated.TelemetryConfig;
+import com.linkedin.datahub.graphql.generated.TestsConfig;
 import com.linkedin.datahub.graphql.generated.VisualConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
+import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.version.GitVersion;
 import graphql.schema.DataFetcher;
@@ -37,6 +39,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final boolean _supportsImpactAnalysis;
   private final VisualConfiguration _visualConfiguration;
   private final TelemetryConfiguration _telemetryConfiguration;
+  private final TestsConfiguration _testsConfiguration;
 
   public AppConfigResolver(
       final GitVersion gitVersion,
@@ -46,7 +49,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final AuthorizationConfiguration authorizationConfiguration,
       final boolean supportsImpactAnalysis,
       final VisualConfiguration visualConfiguration,
-      final TelemetryConfiguration telemetryConfiguration) {
+      final TelemetryConfiguration telemetryConfiguration,
+      final TestsConfiguration testsConfiguration) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
     _ingestionConfiguration = ingestionConfiguration;
@@ -55,6 +59,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _supportsImpactAnalysis = supportsImpactAnalysis;
     _visualConfiguration = visualConfiguration;
     _telemetryConfiguration = telemetryConfiguration;
+    _testsConfiguration = testsConfiguration;
   }
 
   @Override
@@ -106,6 +111,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     final TelemetryConfig telemetryConfig = new TelemetryConfig();
     telemetryConfig.setEnableThirdPartyLogging(_telemetryConfiguration.isEnableThirdPartyLogging());
     appConfig.setTelemetryConfig(telemetryConfig);
+
+    final TestsConfig testsConfig = new TestsConfig();
+    testsConfig.setEnabled(_testsConfiguration.isEnabled());
+    appConfig.setTestsConfig(testsConfig);
 
     return CompletableFuture.completedFuture(appConfig);
   }
