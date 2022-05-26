@@ -39,7 +39,11 @@ For now, this behaviour must be opted into by a prompt that will appear for you 
 You can optionally add `-n` or `--dry-run` to execute a dry run before issuing the final delete command.
 You can optionally add `-f` or `--force` to skip confirmations
 
-_Note: make sure you surround your urn with quotes! If you do not include the quotes, your terminal may misinterpret the command._
+ :::note
+
+Make sure you surround your urn with quotes! If you do not include the quotes, your terminal may misinterpret the command._
+
+:::
 
 If you wish to hard-delete using a curl request you can use something like below. Replace the URN with the URN that you wish to delete
 
@@ -55,6 +59,12 @@ _Note: All these commands below support the soft-delete option (`-s/--soft`) as 
 ### Delete all datasets in the DEV environment
 ```
 datahub delete --env DEV --entity_type dataset
+```
+
+### Delete all Pipelines and Tasks in the DEV environment
+```
+datahub delete --env DEV --entity_type "datajob"
+datahub delete --env DEV --entity_type "dataflow"
 ```
 
 ### Delete all bigquery datasets in the PROD environment

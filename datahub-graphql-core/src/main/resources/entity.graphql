@@ -336,6 +336,15 @@ type Mutation {
       The assertion to remove
       """
       urn: String!): Boolean
+
+    """
+    Report a new operation for an asset
+    """
+    reportOperation(
+      """
+      Input required to report an operation
+      """
+      input: ReportOperationInput!): String
 }
 
 """
@@ -5704,14 +5713,9 @@ Operational info for an entity.
 """
 type Operation implements TimeSeriesAspect {
     """
-    The time at which the profile was reported
+    The time at which the operation was reported
     """
     timestampMillis: Long!
-
-    """
-    When the entity was last updated.
-    """
-    lastUpdatedTimestamp: Long!
 
     """
     Actor who issued this operation.
@@ -5724,6 +5728,16 @@ type Operation implements TimeSeriesAspect {
     operationType: OperationType!
 
     """
+    A custom operation type
+    """
+    customOperationType: String
+
+    """
+    Source of the operation
+    """
+    sourceType: OperationSourceType
+
+    """
     How many rows were affected by this operation.
     """
     numAffectedRows: Long
@@ -5732,6 +5746,21 @@ type Operation implements TimeSeriesAspect {
     Which other datasets were affected by this operation.
     """
     affectedDatasets: [String!]
+
+    """
+    When time at which the asset was actually updated
+    """
+    lastUpdatedTimestamp: Long!
+
+    """
+    Optional partition identifier
+    """
+    partition: String
+
+    """
+    Custom operation properties
+    """
+    customProperties: [StringMapEntry!]
 }
 
 """
@@ -5767,11 +5796,77 @@ enum OperationType {
     When table is dropped
     """
     DROP
-    
+
     """
     Unknown operation
     """
     UNKNOWN
+
+    """
+    Custom
+    """
+    CUSTOM
+}
+
+"""
+Input provided to report an asset operation
+"""
+input ReportOperationInput {
+    """
+    The urn of the asset (e.g. dataset) to report the operation for
+    """
+    urn: String!
+
+    """
+    The type of operation that was performed. Required
+    """
+    operationType: OperationType!
+
+    """
+    A custom type of operation. Required if operation type is CUSTOM.
+    """
+    customOperationType: String
+
+    """
+    The source or reporter of the operation
+    """
+    sourceType: OperationSourceType!
+
+    """
+    A list of key-value parameters to include
+    """
+    customProperties: [StringMapEntryInput!]
+
+    """
+    An optional partition identifier
+    """
+    partition: String
+
+    """
+    Optional: The number of affected rows
+    """
+    numAffectedRows: Long
+
+    """
+    Optional: Provide a timestamp associated with the operation. If not provided, one will be generated for you based
+    on the current time.
+    """
+    timestampMillis: Long
+}
+
+"""
+Enum to define the source/reporter type for an Operation.
+"""
+enum OperationSourceType {
+    """
+    A data process reported the operation.
+    """
+    DATA_PROCESS
+
+    """
+    A data platform reported the operation.
+    """
+    DATA_PLATFORM
 }
 
 """
@@ -7786,4 +7881,19 @@ type Health {
   The causes responsible for the health status
   """
   causes: [String!]
+}
+
+"""
+String map entry input
+"""
+input StringMapEntryInput {
+  """
+  The key of the map entry
+  """
+  key: String!
+
+  """
+  The value fo the map entry
+  """
+  value: String
 }
