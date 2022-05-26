@@ -22,8 +22,8 @@ mutation {
   createAccessToken(input: {type: PERSONAL, actorUrn: "urn:li:corpuser:datahub", duration: ONE_HOUR, name: "my personal token"}) {
     accessToken
     metadata {
-      tokenId
-      tokenName
+      id
+      name
       description
     }
   }
@@ -36,7 +36,7 @@ mutation {
 curl --location --request POST 'http://localhost:8080/api/graphql' \
 --header 'X-DataHub-Actor: urn:li:corpuser:datahub' \
 --header 'Content-Type: application/json' \
---data-raw '{ "query":"{ createAccessToken(input: { type: PERSONAL, actorUrn: \"urn:li:corpuser:datahub\", duration: ONE_HOUR, name: \"my personal token\" } ) { accessToken metadata { tokenId tokenName description} } }", "variables":{}}'
+--data-raw '{ "query":"{ createAccessToken(input: { type: PERSONAL, actorUrn: \"urn:li:corpuser:datahub\", duration: ONE_HOUR, name: \"my personal token\" } ) { accessToken metadata { id name description} } }", "variables":{}}'
 ```
 
 ### List Tokens
@@ -56,7 +56,7 @@ specify a filter with: `{field: "actorUrn", value: "<your user urn>"}` configura
     total
     tokens {
       urn
-      tokenId
+      id
       actorUrn
     }
   }
@@ -69,7 +69,7 @@ specify a filter with: `{field: "actorUrn", value: "<your user urn>"}` configura
 curl --location --request POST 'http://localhost:8080/api/graphql' \
 --header 'X-DataHub-Actor: urn:li:corpuser:datahub' \
 --header 'Content-Type: application/json' \
---data-raw '{ "query":"{ listAccessTokens(input: {start: 0, count: 100, filters: [{field: \"ownerUrn\", value: \"urn:li:corpuser:datahub\"}]}) { start count total tokens {urn tokenId actorUrn} } }", "variables":{}}'
+--data-raw '{ "query":"{ listAccessTokens(input: {start: 0, count: 100, filters: [{field: \"ownerUrn\", value: \"urn:li:corpuser:datahub\"}]}) { start count total tokens {urn id actorUrn} } }", "variables":{}}'
 ```
 
 Listing all access tokens in the system (your user must have `Manage All Access Tokens` privileges for this to work)
@@ -84,7 +84,7 @@ Listing all access tokens in the system (your user must have `Manage All Access 
     total
     tokens {
       urn
-      tokenId
+      id
       actorUrn
     }
   }
@@ -97,7 +97,7 @@ Listing all access tokens in the system (your user must have `Manage All Access 
 curl --location --request POST 'http://localhost:8080/api/graphql' \
 --header 'X-DataHub-Actor: urn:li:corpuser:datahub' \
 --header 'Content-Type: application/json' \
---data-raw '{ "query":"{ listAccessTokens(input: {start: 0, count: 100, filters: []}) { start count total tokens {urn tokenId actorUrn} } }", "variables":{}}'
+--data-raw '{ "query":"{ listAccessTokens(input: {start: 0, count: 100, filters: []}) { start count total tokens {urn id actorUrn} } }", "variables":{}}'
 ```
 
 Other filters besides `actorUrn=<some value>` are possible. You can filter by property in the `DataHubAccessTokenInfo` aspect which you can find in the Entities documentation.

@@ -23,6 +23,7 @@ entities:
       - deprecation
       - usageFeatures
       - siblings
+      - testResults
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -213,13 +214,24 @@ entities:
       - glossaryTerms
       - editableMlPrimaryKeyProperties
       - domains
+  - name: telemetry
+    category: internal
+    keyAspect: telemetryKey
+    aspects:
+      - telemetryClientId
   - name: dataHubAccessToken
     category: internal
     keyAspect: dataHubAccessTokenKey
     aspects:
       - dataHubAccessTokenInfo
+  - name: test
+    doc: A DataHub test
+    category: core
+    keyAspect: testKey
+    aspects:
+      - testInfo
 
-        
+
   ## Not in OSS
   - name: constraint
     keyAspect: constraintKey

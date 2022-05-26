@@ -43,10 +43,6 @@ type Props = {
     proposedTags?: ActionRequest[];
 };
 
-const TagWrapper = styled.div`
-    margin-bottom: -8px;
-`;
-
 const TermLink = styled(Link)`
     display: inline-block;
     margin-bottom: 8px;
@@ -232,7 +228,7 @@ export default function TagTermGroup({
     };
 
     return (
-        <TagWrapper>
+        <>
             {domain && (
                 <DomainLink urn={domain.urn} name={entityRegistry.getDisplayName(EntityType.Domain, domain) || ''} />
             )}
@@ -426,6 +422,6 @@ export default function TagTermGroup({
                     entitySubresource={entitySubresource}
                 />
             )}
-        </TagWrapper>
+        </>
     );
 }

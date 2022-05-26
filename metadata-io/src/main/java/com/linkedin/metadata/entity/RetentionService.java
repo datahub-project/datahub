@@ -28,7 +28,11 @@ import lombok.Value;
 
 
 /**
- * Service coupled with an entity service to handle retention
+ * Service coupled with an {@link EntityService} to handle aspect record retention.
+ *
+ * TODO: This class is abstract with storage-specific implementations. It'd be nice to pull storage and retention
+ *       concerns apart, let (into {@link AspectDao}) deal with storage, and merge all retention concerns into a single
+ *       class.
  */
 public abstract class RetentionService {
   protected static final String ALL = "*";

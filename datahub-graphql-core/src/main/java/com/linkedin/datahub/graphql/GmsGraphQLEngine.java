@@ -44,6 +44,7 @@ import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
 import com.linkedin.datahub.graphql.generated.LineageRelationship;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenResult;
 import com.linkedin.datahub.graphql.generated.ListDomainsResult;
+import com.linkedin.datahub.graphql.generated.ListTestsResult;
 import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
 import com.linkedin.datahub.graphql.generated.MLFeatureTable;
@@ -60,6 +61,8 @@ import com.linkedin.datahub.graphql.generated.RecommendationContent;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
 import com.linkedin.datahub.graphql.generated.SearchResult;
+import com.linkedin.datahub.graphql.generated.Test;
+import com.linkedin.datahub.graphql.generated.TestResult;
 import com.linkedin.datahub.graphql.generated.TagProposalParams;
 import com.linkedin.datahub.graphql.generated.SiblingProperties;
 import com.linkedin.datahub.graphql.generated.UserUsageCounts;
@@ -139,6 +142,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.RemoveOwnerResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTagResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateDescriptionResolver;
+import com.linkedin.datahub.graphql.resolvers.operation.ReportOperationResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.DeletePolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.GetGrantedPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
@@ -150,6 +154,11 @@ import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolve
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.SetTagColorResolver;
+import com.linkedin.datahub.graphql.resolvers.test.CreateTestResolver;
+import com.linkedin.datahub.graphql.resolvers.test.DeleteTestResolver;
+import com.linkedin.datahub.graphql.resolvers.test.ListTestsResolver;
+import com.linkedin.datahub.graphql.resolvers.test.TestResultsResolver;
+import com.linkedin.datahub.graphql.resolvers.test.UpdateTestResolver;
 import com.linkedin.datahub.graphql.resolvers.timeline.GetSchemaBlameResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
@@ -190,6 +199,7 @@ import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLPrimaryKeyType;
 import com.linkedin.datahub.graphql.types.notebook.NotebookType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
+import com.linkedin.datahub.graphql.types.test.TestType;
 import com.linkedin.datahub.graphql.types.usage.UsageType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.config.IngestionConfiguration;
@@ -283,6 +293,7 @@ public class GmsGraphQLEngine {
     private final VersionedDatasetType versionedDatasetType;
     private final DataPlatformInstanceType dataPlatformInstanceType;
     private final AccessTokenMetadataType accessTokenMetadataType;
+    private final TestType testType;
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -375,6 +386,7 @@ public class GmsGraphQLEngine {
         this.versionedDatasetType = new VersionedDatasetType(entityClient);
         this.dataPlatformInstanceType = new DataPlatformInstanceType(entityClient);
         this.accessTokenMetadataType = new AccessTokenMetadataType(entityClient);
+        this.testType = new TestType(entityClient);
         // Init Lists
         this.entityTypes = ImmutableList.of(
             datasetType,
@@ -398,7 +410,8 @@ public class GmsGraphQLEngine {
             assertionType,
             versionedDatasetType,
             dataPlatformInstanceType,
-            accessTokenMetadataType
+            accessTokenMetadataType,
+            testType
         );
         this.loadableTypes = new ArrayList<>(entityTypes);
         this.ownerTypes = ImmutableList.of(corpUserType, corpGroupType);
@@ -453,6 +466,7 @@ public class GmsGraphQLEngine {
         configureDataProcessInstanceResolvers(builder);
         configureVersionedDatasetResolvers(builder);
         configureAccessAccessTokenMetadataResolvers(builder);
+        configureTestResultResolvers(builder);
         // Not in OSS
         configureActionRequestResolvers(builder);
         configureResolvedAuditStampResolvers(builder);
@@ -468,6 +482,7 @@ public class GmsGraphQLEngine {
             .addSchema(fileBasedSchema(RECOMMENDATIONS_SCHEMA_FILE))
             .addSchema(fileBasedSchema(INGESTION_SCHEMA_FILE))
             .addSchema(fileBasedSchema(TIMELINE_SCHEMA_FILE))
+            .addSchema(fileBasedSchema(TESTS_SCHEMA_FILE))
             // Actions not in OSS
             .addSchema(fileBasedSchema(ACTIONS_SCHEMA_FILE))
             // Constraints not in OSS
@@ -615,6 +630,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("ingestionSource", new GetIngestionSourceResolver(this.entityClient))
             .dataFetcher("executionRequest", new GetIngestionExecutionRequestResolver(this.entityClient))
             .dataFetcher("getSchemaBlame", new GetSchemaBlameResolver(this.timelineService))
+            .dataFetcher("test", getResolver(testType))
+            .dataFetcher("listTests", new ListTestsResolver(entityClient))
             // Proposals not in OSS
             .dataFetcher("listActionRequests",
                 new ListActionRequestsResolver(entityClient))
@@ -686,6 +703,10 @@ public class GmsGraphQLEngine {
             .dataFetcher("createIngestionExecutionRequest", new CreateIngestionExecutionRequestResolver(this.entityClient, this.ingestionConfiguration))
             .dataFetcher("cancelIngestionExecutionRequest", new CancelIngestionExecutionRequestResolver(this.entityClient))
             .dataFetcher("deleteAssertion", new DeleteAssertionResolver(this.entityClient, this.entityService))
+            .dataFetcher("createTest", new CreateTestResolver(this.entityClient))
+            .dataFetcher("updateTest", new UpdateTestResolver(this.entityClient))
+            .dataFetcher("deleteTest", new DeleteTestResolver(this.entityClient))
+            .dataFetcher("reportOperation", new ReportOperationResolver(this.entityClient))
             // Proposals not in OSS
             .dataFetcher("proposeTag", new ProposeTagResolver(entityService, entityClient))
             .dataFetcher("proposeTerm", new ProposeTermResolver(entityService, entityClient))
@@ -748,6 +769,12 @@ public class GmsGraphQLEngine {
                 .dataFetcher("entity", new EntityTypeResolver(entityTypes,
                     (env) -> ((PolicyMatchCriterionValue) env.getSource()).getEntity()))
             )
+            .type("ListTestsResult", typeWiring -> typeWiring
+                .dataFetcher("tests", new LoadableTypeBatchResolver<>(testType,
+                    (env) -> ((ListTestsResult) env.getSource()).getTests().stream()
+                        .map(Test::getUrn)
+                        .collect(Collectors.toList())))
+            )
             // Proposals not in OSS
             .type("ActionRequest", typeWiring -> typeWiring.dataFetcher("entity",
                 new EntityTypeResolver(new ArrayList<>(entityTypes),
@@ -805,6 +832,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher("health", new DatasetHealthResolver(graphClient, timeseriesAspectService))
                 .dataFetcher("schemaMetadata", new AspectResolver())
                 .dataFetcher("assertions", new EntityAssertionsResolver(entityClient, graphClient))
+                .dataFetcher("testResults", new TestResultsResolver(entityClient))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
                 .dataFetcher("subTypes", new SubTypesResolver(
                     this.entityClient,
@@ -1352,6 +1380,16 @@ public class GmsGraphQLEngine {
                     DataProcessInstanceRunEventMapper::map
                 )
             )
+        );
+    }
+
+    private void configureTestResultResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("TestResult", typeWiring -> typeWiring
+            .dataFetcher("test", new LoadableTypeResolver<>(testType,
+                (env) -> {
+                    final TestResult testResult = env.getSource();
+                    return testResult.getTest() != null ? testResult.getTest().getUrn() : null;
+                }))
         );
     }
 
