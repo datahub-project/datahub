@@ -136,16 +136,15 @@ PLATFORM_TO_SQLALCHEMY_URI_TESTER_MAP: Dict[str, Callable[[str], bool]] = Ordere
         _platform_alchemy_uri_tester_gen("postgres", "postgresql"),
         _platform_alchemy_uri_tester_gen("snowflake"),
         _platform_alchemy_uri_tester_gen("trino"),
+        _platform_alchemy_uri_tester_gen("vertica"),
     ]
 )
 
 
 def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
-
     for platform, tester in PLATFORM_TO_SQLALCHEMY_URI_TESTER_MAP.items():
         if tester(sqlalchemy_uri):
             return platform
-
     return "external"
 
 
