@@ -149,7 +149,7 @@ data_lake_profiling = {
 iceberg_common = {
     # Iceberg Python SDK
     "acryl-iceberg-legacy==0.0.4",
-    "azure-identity==1.10.0"
+    "azure-identity==1.10.0",
 }
 
 s3_base = {
@@ -200,6 +200,8 @@ plugins: Dict[str, Set[str]] = {
     "feast-legacy": {"docker"},
     "feast": {"feast==0.18.0", "flask-openid>=1.3.0"},
     "glue": aws_common,
+    # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
+    "hana": sql_common | {"sqlalchemy-hana>=0.5.0", "hdbcli>=2.11.20"},
     "hive": sql_common
     | {
         # Acryl Data maintains a fork of PyHive
@@ -261,6 +263,7 @@ plugins: Dict[str, Set[str]] = {
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging"},
     "powerbi": {"orderedset"} | microsoft_common,
+    "vertica": sql_common | {"sqlalchemy-vertica[vertica-python]==0.0.5"},
 }
 
 all_exclude_plugins: Set[str] = {
@@ -327,6 +330,7 @@ base_dev_requirements = {
             "ldap",
             "looker",
             "glue",
+            "hana",
             "mariadb",
             "okta",
             "oracle",
@@ -344,6 +348,7 @@ base_dev_requirements = {
             "hive",
             "starburst-trino-usage",
             "powerbi",
+            "vertica",
             # airflow is added below
         ]
         for dependency in plugins[plugin]
@@ -400,6 +405,7 @@ full_test_dev_requirements = {
         for plugin in [
             "clickhouse",
             "druid",
+            "hana",
             "feast-legacy",
             "hive",
             "ldap",
@@ -410,6 +416,7 @@ full_test_dev_requirements = {
             "snowflake",
             "redash",
             "kafka-connect",
+            "vertica",
         ]
         for dependency in plugins[plugin]
     ),
@@ -449,6 +456,7 @@ entry_points = {
         "feast = datahub.ingestion.source.feast:FeastRepositorySource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
+        "hana = datahub.ingestion.source.sql.hana:HanaSource",
         "hive = datahub.ingestion.source.sql.hive:HiveSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
@@ -479,6 +487,7 @@ entry_points = {
         "nifi = datahub.ingestion.source.nifi:NifiSource",
         "powerbi = datahub.ingestion.source.powerbi:PowerBiDashboardSource",
         "iceberg = datahub.ingestion.source.iceberg.iceberg:IcebergSource",
+        "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
         "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
     ],

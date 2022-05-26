@@ -1,0 +1,41 @@
+run_id: hana-test
+
+source:
+  type: hana
+  config:
+    username: HOTEL
+    password: Localdev1
+    database: HXE
+    host_port: localhost:39041
+    schema_pattern:
+      allow:
+        - "HOTEL"
+      ignoreCase: true
+    table_pattern:
+      deny:
+        - "HOTEL.RESERVATION"
+        - "HOTEL.ROOM"
+      ignoreCase: true
+    profile_pattern:
+      allow:
+        - "HOTEL"
+    profiling:
+      enabled: True
+      include_field_null_count: true
+      include_field_min_value: true
+      include_field_max_value: true
+      include_field_mean_value: true
+      include_field_median_value: true
+      include_field_stddev_value: true
+      include_field_quantiles: true
+      include_field_distinct_value_frequencies: true
+      include_field_histogram: true
+      include_field_sample_values: true
+    domain:
+      sales:
+        allow:
+          - "HOTEL"
+sink:
+  type: file
+  config:
+    filename: "./hana_mces.json"
