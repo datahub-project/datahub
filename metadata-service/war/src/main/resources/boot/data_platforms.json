@@ -98,6 +98,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:iceberg",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "iceberg",
+      "displayName": "Iceberg",
+      "type": "FILE_SYSTEM",
+      "logoUrl": "/assets/platforms/iceberglogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:s3",
     "aspect": {
       "datasetNameDelimiter": "/",

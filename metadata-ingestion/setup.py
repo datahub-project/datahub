@@ -21,7 +21,7 @@ def get_long_description():
 
 
 base_requirements = {
-    # Compatability.
+    # Compatibility.
     "dataclasses>=0.6; python_version < '3.7'",
     # Typing extension should be >=3.10.0.2 ideally but we can't restrict due to Airflow 2.0.2 dependency conflict
     "typing_extensions>=3.7.4.3 ;  python_version < '3.8'",
@@ -146,6 +146,12 @@ data_lake_profiling = {
     "pyspark==3.0.3",
 }
 
+iceberg_common = {
+    # Iceberg Python SDK
+    "acryl-iceberg-legacy==0.0.4",
+    "azure-identity==1.10.0",
+}
+
 s3_base = {
     *data_lake_base,
     "moto[s3]",
@@ -195,7 +201,7 @@ plugins: Dict[str, Set[str]] = {
     "feast": {"feast==0.18.0", "flask-openid>=1.3.0"},
     "glue": aws_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
-    "hana": sql_common | {"sqlalchemy-hana>=0.5.0","hdbcli>=2.11.20"},
+    "hana": sql_common | {"sqlalchemy-hana>=0.5.0", "hdbcli>=2.11.20"},
     "hive": sql_common
     | {
         # Acryl Data maintains a fork of PyHive
@@ -204,6 +210,7 @@ plugins: Dict[str, Set[str]] = {
         # - 0.6.12 adds support for Spark Thrift Server
         "acryl-pyhive[hive]>=0.6.13"
     },
+    "iceberg": iceberg_common,
     "kafka": {*kafka_common, *kafka_protobuf},
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
@@ -357,6 +364,7 @@ if is_py37_or_newer:
             dependency
             for plugin in [
                 "feast",
+                "iceberg",
                 "lookml",
             ]
             for dependency in plugins[plugin]
@@ -368,6 +376,7 @@ if is_py37_or_newer:
         {
             dependency
             for plugin in [
+                "iceberg",
                 "lookml",
             ]
             for dependency in plugins[plugin]
@@ -421,6 +430,7 @@ if is_py37_or_newer:
             for plugin in [
                 "athena",
                 "feast",
+                "iceberg",
             ]
             for dependency in plugins[plugin]
         }
@@ -476,6 +486,7 @@ entry_points = {
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",
         "powerbi = datahub.ingestion.source.powerbi:PowerBiDashboardSource",
+        "iceberg = datahub.ingestion.source.iceberg.iceberg:IcebergSource",
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
         "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
