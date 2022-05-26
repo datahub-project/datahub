@@ -68,11 +68,9 @@ def make_data_platform_urn(platform: str) -> str:
 
 
 def make_dataset_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
-    if DATASET_URN_TO_LOWER:
-        name = name.lower()
-    dataset_urn = f"urn:li:dataset:({make_data_platform_urn(platform)},{name},{env})"
-    DatasetUrn.validate(dataset_urn)
-    return dataset_urn
+    return make_dataset_urn_with_platform_instance(
+        platform=platform, name=name, platform_instance=None, env=env
+    )
 
 
 def make_dataplatform_instance_urn(platform: str, instance: str) -> str:
@@ -85,14 +83,16 @@ def make_dataplatform_instance_urn(platform: str, instance: str) -> str:
 def make_dataset_urn_with_platform_instance(
     platform: str, name: str, platform_instance: Optional[str], env: str = DEFAULT_ENV
 ) -> str:
-    if platform_instance:
-        if DATASET_URN_TO_LOWER:
-            name = name.lower()
-        dataset_urn = f"urn:li:dataset:({make_data_platform_urn(platform)},{platform_instance}.{name},{env})"
-    else:
-        dataset_urn = make_dataset_urn(platform=platform, name=name, env=env)
-    DatasetUrn.validate(dataset_urn)
-    return dataset_urn
+    if DATASET_URN_TO_LOWER:
+        name = name.lower()
+    return str(
+        DatasetUrn.create_from_ids(
+            platform_id=platform,
+            table_name=name,
+            env=env,
+            platform_instance=platform_instance,
+        )
+    )
 
 
 def make_schema_field_urn(parent_urn: str, field_path: str) -> str:
