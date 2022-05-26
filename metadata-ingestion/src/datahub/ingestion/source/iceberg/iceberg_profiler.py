@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Any, Callable, Dict, Iterable, Union
+from typing import Any, Callable, Dict, Iterable, Union, cast
 
 from iceberg.api import types as IcebergTypes
 from iceberg.api.data_file import DataFile
@@ -102,8 +102,8 @@ class IcebergProfiler:
             # Table has no data, cannot profile, or we can't get current_snapshot.
             return
 
-        row_count = int(table.current_snapshot().summary["total-records"])
-        column_count = len(table.schema()._id_to_name)
+        row_count: int = int(table.current_snapshot().summary["total-records"])
+        column_count: int = len(table.schema()._id_to_name)
         dataset_profile = DatasetProfileClass(
             timestampMillis=get_sys_time(),
             rowCount=row_count,
@@ -113,7 +113,7 @@ class IcebergProfiler:
 
         field_paths: Dict[int, str] = table.schema()._id_to_name
         current_snapshot: Snapshot = table.current_snapshot()
-        total_count = 0
+        total_count: int = 0
         null_counts: Dict[int, int] = {}
         min_bounds: Dict[int, Any] = {}
         max_bounds: Dict[int, Any] = {}
@@ -154,8 +154,10 @@ class IcebergProfiler:
                 field: NestedField = table.schema().find_field(field_id)
                 column_profile = DatasetFieldProfileClass(fieldPath=field_path)
                 if self.config.include_field_null_count:
-                    column_profile.nullCount = null_counts.get(field_id, 0)
-                    column_profile.nullProportion = column_profile.nullCount / row_count
+                    column_profile.nullCount = cast(int, null_counts.get(field_id, 0))
+                    column_profile.nullProportion = float(
+                        column_profile.nullCount / row_count
+                    )
 
                 if self.config.include_field_min_value:
                     column_profile.min = (
