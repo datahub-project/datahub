@@ -1,13 +1,23 @@
 import re
 from textwrap import dedent
-from pydantic.class_validators import validator
+from typing import Any, Dict
 
+import pydantic
+from pydantic.class_validators import validator
 from sqlalchemy import sql, util
-from sqlalchemy.engine import reflection
 from sqlalchemy.sql import sqltypes
-from sqlalchemy.sql.sqltypes import TIMESTAMP, TIME, String
+from sqlalchemy.sql.sqltypes import TIME, TIMESTAMP, String
 from sqlalchemy_vertica.base import VerticaDialect
 
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.source.sql.sql_common import (
     BasicSQLAlchemyConfig,
     SQLAlchemySource,
@@ -22,21 +32,19 @@ class UUID(String):
 
 
 def TIMESTAMP_WITH_TIMEZONE(*args, **kwargs):
-    kwargs['timezone'] = True
+    kwargs["timezone"] = True
     return TIMESTAMP(*args, **kwargs)
 
 
 def TIME_WITH_TIMEZONE(*args, **kwargs):
-    kwargs['timezone'] = True
+    kwargs["timezone"] = True
     return TIME(*args, **kwargs)
 
 
-@reflection.cache
-def get_view_definition(self, connection, view_name,
-                        schema=None, **kw):
+def get_view_definition(self, connection, view_name, schema=None, **kw):
     if schema is not None:
         schema_condition = "lower(table_schema) = '%(schema)s'" % {
-            'schema': schema.lower()
+            "schema": schema.lower()
         }
     else:
         schema_condition = "1"
@@ -48,10 +56,8 @@ def get_view_definition(self, connection, view_name,
                 SELECT VIEW_DEFINITION
                 FROM V_CATALOG.VIEWS
                 WHERE table_name='%(view_name)s' AND %(schema_condition)s
-                """ % {
-                    'view_name': view_name,
-                    'schema_condition': schema_condition
-                }
+                """
+                % {"view_name": view_name, "schema_condition": schema_condition}
             )
         )
     )
@@ -59,12 +65,10 @@ def get_view_definition(self, connection, view_name,
     return view_def
 
 
-@reflection.cache
-def get_columns(self, connection, table_name, schema=None,
-                **kw):
+def get_columns(self, connection, table_name, schema=None, **kw):
     if schema is not None:
         schema_condition = "lower(table_schema) = '%(schema)s'" % {
-            'schema': schema.lower()
+            "schema": schema.lower()
         }
     else:
         schema_condition = "1"
@@ -77,10 +81,8 @@ def get_columns(self, connection, table_name, schema=None,
             WHERE table_name = '%(table_name)s'
             AND constraint_type = 'p'
             AND %(schema_condition)s
-            """ % {
-                'table_name': table_name,
-                'schema_condition': schema_condition
-            }
+            """
+            % {"table_name": table_name, "schema_condition": schema_condition}
         )
     )
     primary_key_columns = tuple(row[0] for row in connection.execute(sql_pk_column))
@@ -97,10 +99,8 @@ def get_columns(self, connection, table_name, schema=None,
             FROM v_catalog.view_columns
             WHERE lower(table_name) = '%(table_name)s'
             AND %(schema_condition)s
-            """ % {
-                'table_name': table_name,
-                'schema_condition': schema_condition
-            }
+            """
+            % {"table_name": table_name, "schema_condition": schema_condition}
         )
     )
 
@@ -112,59 +112,59 @@ def get_columns(self, connection, table_name, schema=None,
         default = row.column_default
         nullable = row.is_nullable
 
-        column_info = self._get_column_info(name, type, default, nullable,
-                                            schema)
-        column_info.update({'primary_key': primary_key})
+        column_info = self._get_column_info(name, type, default, nullable, schema)
+        column_info.update({"primary_key": primary_key})
         columns.append(column_info)
 
     return columns
 
 
-def _get_column_info(self, name, data_type, default,
-                     is_nullable, schema=None):
+def _get_column_info(  # noqa: C901
+    self, name, data_type, default, is_nullable, schema=None
+):
 
-    attype = re.sub(r"\(.*\)", "", data_type)
+    attype: str = re.sub(r"\(.*\)", "", data_type)
 
     charlen = re.search(r"\(([\d,]+)\)", data_type)
     if charlen:
-        charlen = charlen.group(1)
+        charlen = charlen.group(1)  # type: ignore
     args = re.search(r"\((.*)\)", data_type)
     if args and args.group(1):
-        args = tuple(re.split(r"\s*,\s*", args.group(1)))
+        args = tuple(re.split(r"\s*,\s*", args.group(1)))  # type: ignore
     else:
-        args = ()
-    kwargs = {}
+        args = ()  # type: ignore
+    kwargs: Dict[str, Any] = {}
 
     if attype == "numeric":
         if charlen:
-            prec, scale = charlen.split(",")
-            args = (int(prec), int(scale))
+            prec, scale = charlen.split(",")  # type: ignore
+            args = (int(prec), int(scale))  # type: ignore
         else:
-            args = ()
+            args = ()  # type: ignore
     elif attype == "integer":
-        args = ()
+        args = ()  # type: ignore
     elif attype in ("timestamptz", "timetz"):
         kwargs["timezone"] = True
         if charlen:
-            kwargs["precision"] = int(charlen)
-        args = ()
+            kwargs["precision"] = int(charlen)  # type: ignore
+        args = ()  # type: ignore
     elif attype in ("timestamp", "time"):
         kwargs["timezone"] = False
         if charlen:
-            kwargs["precision"] = int(charlen)
-        args = ()
+            kwargs["precision"] = int(charlen)  # type: ignore
+        args = ()  # type: ignore
     elif attype.startswith("interval"):
         field_match = re.match(r"interval (.+)", attype, re.I)
         if charlen:
-            kwargs["precision"] = int(charlen)
+            kwargs["precision"] = int(charlen)  # type: ignore
         if field_match:
-            kwargs["fields"] = field_match.group(1)
+            kwargs["fields"] = field_match.group(1)  # type: ignore
         attype = "interval"
-        args = ()
+        args = ()  # type: ignore
     elif attype == "date":
-        args = ()
+        args = ()  # type: ignore
     elif charlen:
-        args = (int(charlen),)
+        args = (int(charlen),)  # type: ignore
 
     while True:
         if attype.upper() in self.ischema_names:
@@ -174,9 +174,9 @@ def _get_column_info(self, name, data_type, default,
             coltype = None
             break
 
-    self.ischema_names['UUID'] = UUID
-    self.ischema_names['TIMESTAMPTZ'] = TIMESTAMP_WITH_TIMEZONE
-    self.ischema_names['TIMETZ'] = TIME_WITH_TIMEZONE
+    self.ischema_names["UUID"] = UUID
+    self.ischema_names["TIMESTAMPTZ"] = TIMESTAMP_WITH_TIMEZONE
+    self.ischema_names["TIMETZ"] = TIME_WITH_TIMEZONE
 
     if coltype:
         coltype = coltype(*args, **kwargs)
@@ -221,19 +221,23 @@ VerticaDialect._get_column_info = _get_column_info
 
 class VerticaConfig(BasicSQLAlchemyConfig):
     # defaults
-    scheme = "vertica+vertica_python"
+    scheme: str = pydantic.Field(default="vertica+vertica_python")
 
     @validator("host_port")
     def clean_host_port(cls, v):
         return config_clean.remove_protocol(v)
 
 
+@platform_name("Vertica")
+@config_class(VerticaConfig)
+@support_status(SupportStatus.TESTING)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 class VerticaSource(SQLAlchemySource):
-
-    def __init__(self, config, ctx):
+    def __init__(self, config: VerticaConfig, ctx: PipelineContext) -> None:
         super().__init__(config, ctx, "vertica")
 
     @classmethod
-    def create(cls, config_dict, ctx):
+    def create(cls, config_dict: Dict, ctx: PipelineContext) -> "VerticaSource":
         config = VerticaConfig.parse_obj(config_dict)
         return cls(config, ctx)
