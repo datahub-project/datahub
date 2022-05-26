@@ -194,6 +194,8 @@ plugins: Dict[str, Set[str]] = {
     "feast-legacy": {"docker"},
     "feast": {"feast==0.18.0", "flask-openid>=1.3.0"},
     "glue": aws_common,
+    # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
+    "hana": sql_common | {"sqlalchemy-hana>=0.5.0","hdbcli>=2.11.20"},
     "hive": sql_common
     | {
         # Acryl Data maintains a fork of PyHive
@@ -321,6 +323,7 @@ base_dev_requirements = {
             "ldap",
             "looker",
             "glue",
+            "hana",
             "mariadb",
             "okta",
             "oracle",
@@ -393,6 +396,7 @@ full_test_dev_requirements = {
         for plugin in [
             "clickhouse",
             "druid",
+            "hana",
             "feast-legacy",
             "hive",
             "ldap",
@@ -442,6 +446,7 @@ entry_points = {
         "feast = datahub.ingestion.source.feast:FeastRepositorySource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
+        "hana = datahub.ingestion.source.sql.hana:HanaSource",
         "hive = datahub.ingestion.source.sql.hive:HiveSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",

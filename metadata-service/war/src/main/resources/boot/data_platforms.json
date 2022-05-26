@@ -78,6 +78,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:hana",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "hana",
+      "displayName": "SAP Hana",
+      "type": "RELATIONAL_DB",
+      "logoUrl": "/assets/platforms/hanalogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:hive",
     "aspect": {
       "datasetNameDelimiter": ".",

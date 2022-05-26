@@ -117,6 +117,7 @@ PLATFORM_TO_SQLALCHEMY_URI_TESTER_MAP: Dict[str, Callable[[str], bool]] = Ordere
         _platform_alchemy_uri_tester_gen("bigquery"),
         _platform_alchemy_uri_tester_gen("clickhouse"),
         _platform_alchemy_uri_tester_gen("druid"),
+        _platform_alchemy_uri_tester_gen("hana"),
         _platform_alchemy_uri_tester_gen("hive"),
         _platform_alchemy_uri_tester_gen("mongodb"),
         _platform_alchemy_uri_tester_gen("mssql"),
