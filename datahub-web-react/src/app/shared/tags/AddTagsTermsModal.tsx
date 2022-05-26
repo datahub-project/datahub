@@ -62,7 +62,7 @@ export default function AddTagsTermsModal({
     const [inputValue, setInputValue] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [disableAdd, setDisableAdd] = useState(false);
-    const [urnIds, setUrnIds] = useState<string[]>([]);
+    const [urns, setUrns] = useState<string[]>([]);
 
     const [addTagsMutation] = useAddTagsMutation();
     const [addTermsMutation] = useAddTermsMutation();
@@ -122,7 +122,7 @@ export default function AddTagsTermsModal({
         return displayName.toLowerCase() === inputValue.toLowerCase();
     });
 
-    if (!inputExistsInTagSearch && inputValue.length > 0 && type === EntityType.Tag && urnIds.length === 0) {
+    if (!inputExistsInTagSearch && inputValue.length > 0 && type === EntityType.Tag && urns.length === 0) {
         tagSearchOptions.push(
             <Select.Option value={CREATE_TAG_VALUE} key={CREATE_TAG_VALUE}>
                 <Typography.Link> Create {inputValue}</Typography.Link>
@@ -176,8 +176,8 @@ export default function AddTagsTermsModal({
         );
     }
 
-    const getUrnId = (urnId: string) => {
-        const { name: selectedName, type: selectedType } = getSelectedValue(urnId);
+    const getUrn = (urn: string) => {
+        const { name: selectedName, type: selectedType } = getSelectedValue(urn);
         let tempUrn = '';
         if (selectedType === EntityType.Tag) {
             tempUrn = `urn:li:tag:${selectedName}`;
@@ -188,20 +188,20 @@ export default function AddTagsTermsModal({
         return tempUrn;
     };
 
-    // When a Tag or term search result is selected, add the urn to the UrnIds
-    const onSelectValue = (newUrnId: string) => {
-        if (newUrnId === CREATE_TAG_VALUE) {
+    // When a Tag or term search result is selected, add the urn to the Urns
+    const onSelectValue = (newUrn: string) => {
+        if (newUrn === CREATE_TAG_VALUE) {
             setShowCreateModal(true);
             return;
         }
-        const newUrnIds = [...(urnIds || []), getUrnId(newUrnId)];
-        setUrnIds(newUrnIds);
+        const newUrns = [...(urns || []), getUrn(newUrn)];
+        setUrns(newUrns);
     };
 
     // When a Tag or term search result is deselected, remove the urn from the Owners
-    const onDeselectValue = (urnId: string) => {
-        const newUrnIds = urnIds?.filter((u) => u !== getUrnId(urnId));
-        setUrnIds(newUrnIds);
+    const onDeselectValue = (urn: string) => {
+        const newUrns = urns?.filter((u) => u !== getUrn(urn));
+        setUrns(newUrns);
     };
 
     // Function to handle the modal action's
@@ -224,7 +224,7 @@ export default function AddTagsTermsModal({
         let actionType = EntityActionType.UpdateSchemaTags;
         if (type === EntityType.Tag) {
             input = {
-                tagUrns: urnIds,
+                tagUrns: urns,
                 resourceUrn: entityUrn,
                 subResource: entitySubresource,
                 subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
@@ -237,7 +237,7 @@ export default function AddTagsTermsModal({
         }
         if (type === EntityType.GlossaryTerm) {
             input = {
-                termUrns: urnIds,
+                termUrns: urns,
                 resourceUrn: entityUrn,
                 subResource: entitySubresource,
                 subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
@@ -276,7 +276,7 @@ export default function AddTagsTermsModal({
             .finally(() => {
                 setDisableAdd(false);
                 onCloseModal();
-                setUrnIds([]);
+                setUrns([]);
             });
     };
 
@@ -285,7 +285,7 @@ export default function AddTagsTermsModal({
             title={`Add ${entityRegistry.getEntityName(type)}s`}
             visible={visible}
             onCancel={onCloseModal}
-            okButtonProps={{ disabled: urnIds.length === 0 }}
+            okButtonProps={{ disabled: urns.length === 0 }}
             okText="Add"
             footer={
                 <>
@@ -296,7 +296,7 @@ export default function AddTagsTermsModal({
                         id="addTagButton"
                         data-testid="add-tag-term-from-modal-btn"
                         onClick={onOk}
-                        disabled={urnIds.length === 0 || disableAdd}
+                        disabled={urns.length === 0 || disableAdd}
                     >
                         Add
                     </Button>
