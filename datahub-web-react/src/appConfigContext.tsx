@@ -31,6 +31,9 @@ export const DEFAULT_APP_CONFIG = {
     telemetryConfig: {
         enableThirdPartyLogging: false,
     },
+    testsConfig: {
+        enabled: false,
+    },
 };
 
 export const AppConfigContext = React.createContext<{

@@ -203,7 +203,7 @@ def bigquery_audit_metadata_query_template(
         """
             + """
         WHERE
-            _TABLE_SUFFIX BETWEEN "{start_date}" AND "{end_date}" AND
+            _TABLE_SUFFIX BETWEEN "{start_date}" AND "{end_date}"
         """
         )
     else:

@@ -144,7 +144,7 @@ class Urn:
             return self._entity_id[0]
         result = ""
         for part in self._entity_id:
-            result = result + part + ","
+            result = result + str(part) + ","
         return f"({result[:-1]})"
 
     def __hash__(self) -> int:

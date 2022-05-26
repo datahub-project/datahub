@@ -13,23 +13,23 @@ from datahub.ingestion.source.sql.sql_common import (
 )
 
 
-class TestSQLAlchemyConfig(SQLAlchemyConfig):
+class _TestSQLAlchemyConfig(SQLAlchemyConfig):
     def get_sql_alchemy_url(self):
         pass
 
 
-class TestSQLAlchemySource(SQLAlchemySource):
+class _TestSQLAlchemySource(SQLAlchemySource):
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
         pass
 
 
 def test_generate_foreign_key():
-    config: SQLAlchemyConfig = TestSQLAlchemyConfig()
+    config: SQLAlchemyConfig = _TestSQLAlchemyConfig()
     ctx: PipelineContext = PipelineContext(run_id="test_ctx")
     platform: str = "TEST"
     inspector: Inspector = Mock()
-    source = TestSQLAlchemySource(config=config, ctx=ctx, platform=platform)
+    source = _TestSQLAlchemySource(config=config, ctx=ctx, platform=platform)
     fk_dict: Dict[str, str] = {
         "name": "test_constraint",
         "referred_table": "test_table",
@@ -52,11 +52,11 @@ def test_generate_foreign_key():
 
 
 def test_use_source_schema_for_foreign_key_if_not_specified():
-    config: SQLAlchemyConfig = TestSQLAlchemyConfig()
+    config: SQLAlchemyConfig = _TestSQLAlchemyConfig()
     ctx: PipelineContext = PipelineContext(run_id="test_ctx")
     platform: str = "TEST"
     inspector: Inspector = Mock()
-    source = TestSQLAlchemySource(config=config, ctx=ctx, platform=platform)
+    source = _TestSQLAlchemySource(config=config, ctx=ctx, platform=platform)
     fk_dict: Dict[str, str] = {
         "name": "test_constraint",
         "referred_table": "test_table",

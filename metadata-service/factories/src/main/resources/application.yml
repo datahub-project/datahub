@@ -197,6 +197,9 @@ springdoc:
   cache:
     disabled: true
 
+metadataTests:
+  enabled: ${METADATA_TESTS_ENABLED:true}
+
 # Notifications config
 notifications:
   # Enable if you want to enable creation of the Notification Manager.
@@ -227,4 +230,3 @@ eventSinks:
 # experimental siblings config
 siblings:
   enabled: ${ENABLE_SIBLING_HOOK:false} # enable to turn on automatic sibling associations for dbt
-
