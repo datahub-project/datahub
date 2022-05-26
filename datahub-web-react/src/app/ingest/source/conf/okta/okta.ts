@@ -42,7 +42,7 @@ const oktaConfig: SourceConfig = {
     type: 'okta',
     placeholderRecipe,
     displayName: 'Okta',
-    docsUrl: 'https://datahubproject.io/docs/metadata-ingestion/source_docs/okta',
+    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/okta',
     logoUrl: oktaLogo,
 };
 

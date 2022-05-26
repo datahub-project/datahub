@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 
 import com.linkedin.common.urn.CorpuserUrn;
@@ -74,13 +75,13 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
         if (proposal.getType().equals(ActionRequestType.TAG_ASSOCIATION)) {
           Urn tagUrn = Urn.createFromString(proposal.getParams().getTagProposal().getTag().getUrn());
           Urn targetUrn = Urn.createFromString(proposal.getEntity().getUrn());
-          LabelUtils.addTagToTarget(tagUrn, targetUrn, subResource, actor, _entityService);
+          LabelUtils.addTagsToTarget(ImmutableList.of(tagUrn), targetUrn, subResource, actor, _entityService);
           ProposalUtils.deleteTagFromEntityOrSchemaProposalsAspect(actor, tagUrn, targetUrn, subResource,
               _entityService);
         } else if (proposal.getType().equals(ActionRequestType.TERM_ASSOCIATION)) {
           Urn termUrn = Urn.createFromString(proposal.getParams().getGlossaryTermProposal().getGlossaryTerm().getUrn());
           Urn targetUrn = Urn.createFromString(proposal.getEntity().getUrn());
-          LabelUtils.addTermToTarget(termUrn, targetUrn, subResource, actor, _entityService);
+          LabelUtils.addTermsToTarget(ImmutableList.of(termUrn), targetUrn, subResource, actor, _entityService);
           ProposalUtils.deleteTermFromEntityOrSchemaProposalsAspect(actor, termUrn, targetUrn, subResource,
               _entityService);
         } else {

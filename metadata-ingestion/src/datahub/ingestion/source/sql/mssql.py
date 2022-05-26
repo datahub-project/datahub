@@ -74,7 +74,6 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
-@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(
     SourceCapability.USAGE_STATS,
     "Not provided by this module, use `bigquery-usage` for that.",

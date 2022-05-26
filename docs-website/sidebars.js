@@ -215,6 +215,7 @@ module.exports = {
       "docs/domains",
       "docs/ui-ingestion",
       "docs/tags",
+      "docs/schema-history",
       "docs/how/search",
       "docs/how/auth/add-users",
       "docs/how/ui-tabs-guide",
@@ -288,6 +289,7 @@ module.exports = {
       "docs/deploy/aws",
       "docs/deploy/gcp",
       "docs/deploy/confluent-cloud",
+      "docs/deploy/telemetry",
       // Purposely not including the following:
       // - "docker/datahub-frontend/README",
       // - "docker/datahub-gms/README",

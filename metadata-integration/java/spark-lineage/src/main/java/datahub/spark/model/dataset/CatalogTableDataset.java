@@ -17,4 +17,7 @@ public class CatalogTableDataset extends SparkDataset {
     super("hive", platformInstance, dsName, fabricType);
   }
 
+  public CatalogTableDataset(String dbName, String dsName, String platformInstance, FabricType fabricType) {
+    super(dbName, platformInstance, dsName, fabricType);
+  }
 }

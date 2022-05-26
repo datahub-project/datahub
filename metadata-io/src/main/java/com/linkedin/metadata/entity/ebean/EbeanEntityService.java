@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity.ebean;
 
+import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -33,11 +34,12 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
-import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
-import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import lombok.extern.slf4j.Slf4j;
@@ -382,6 +384,34 @@ public class EbeanEntityService extends EntityService {
     }, DEFAULT_MAX_TRANSACTION_RETRY);
   }
 
+  @Override
+  @Nullable
+  public RecordTemplate ingestAspectIfNotPresent(@Nonnull Urn urn, @Nonnull String aspectName,
+      @Nonnull RecordTemplate newValue, @Nonnull AuditStamp auditStamp, @Nonnull SystemMetadata systemMetadata) {
+    log.debug("Invoked ingestAspectIfNotPresent with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
+
+    final SystemMetadata internalSystemMetadata = generateSystemMetadataIfEmpty(systemMetadata);
+
+    Timer.Context ingestToLocalDBTimer = MetricUtils.timer(this.getClass(), "ingestAspectToLocalDB").time();
+    UpdateAspectResult result = _aspectDao.runInTransactionWithRetry(() -> {
+      final String urnStr = urn.toString();
+      final EbeanAspectV2 latest = _aspectDao.getLatestAspect(urnStr, aspectName);
+      if (latest == null) {
+        long nextVersion = _aspectDao.getNextVersion(urnStr, aspectName);
+
+        return ingestAspectToLocalDBNoTransaction(urn, aspectName, ignored -> newValue, auditStamp,
+            internalSystemMetadata, latest, nextVersion);
+      }
+      RecordTemplate oldValue = EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), getEntityRegistry());
+      SystemMetadata oldMetadata = EntityUtils.parseSystemMetadata(latest.getSystemMetadata());
+      return new UpdateAspectResult(urn, oldValue, oldValue, oldMetadata, oldMetadata, MetadataAuditOperation.UPDATE, auditStamp,
+          latest.getVersion());
+    }, DEFAULT_MAX_TRANSACTION_RETRY);
+    ingestToLocalDBTimer.stop();
+
+    return sendEventForUpdateAspectResult(urn, aspectName, result);
+  }
+
   @Nonnull
   private UpdateAspectResult ingestAspectToLocalDBNoTransaction(@Nonnull final Urn urn,
      @Nonnull final String aspectName, @Nonnull final Function<Optional<RecordTemplate>, RecordTemplate> updateLambda,
@@ -567,10 +597,16 @@ public class EbeanEntityService extends EntityService {
             // soft delete by setting status.removed=true (if applicable)
             final Status statusAspect = new Status();
             statusAspect.setRemoved(true);
-            final SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
-            final AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
 
-            this.ingestAspect(entityUrn, Constants.STATUS_ASPECT_NAME, statusAspect, auditStamp, systemMetadata);
+            final MetadataChangeProposal gmce = new MetadataChangeProposal();
+            gmce.setEntityUrn(entityUrn);
+            gmce.setChangeType(ChangeType.UPSERT);
+            gmce.setEntityType(entityUrn.getEntityType());
+            gmce.setAspectName(Constants.STATUS_ASPECT_NAME);
+            gmce.setAspect(GenericRecordUtils.serializeAspect(statusAspect));
+            final AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+
+            this.ingestProposal(gmce, auditStamp);
           }
         } else {
           // Else, only delete the specific aspect.

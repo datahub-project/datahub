@@ -10,6 +10,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 import org.dataloader.DataLoader;
+import lombok.extern.slf4j.Slf4j;
 
 
 /**
@@ -22,12 +23,18 @@ import org.dataloader.DataLoader;
  *  for the provided {@link LoadableType} under the name provided by {@link LoadableType#name()}
  *
  */
+@Slf4j
 public class UsageTypeResolver implements DataFetcher<CompletableFuture<UsageQueryResult>> {
 
     @Override
     public CompletableFuture<UsageQueryResult> get(DataFetchingEnvironment environment) {
         final DataLoader<UsageStatsKey, UsageQueryResult> loader = environment.getDataLoaderRegistry().getDataLoader("UsageQueryResult");
 
+        String deprecatedResource = environment.getArgument("resource");
+        if (deprecatedResource != null) {
+            log.info("You no longer need to provide the deprecated `resource` param to usageStats"
+                + "resolver. Provided: {}", deprecatedResource);
+        }
         final String resource = ((Entity) environment.getSource()).getUrn();
         UsageTimeRange duration = UsageTimeRange.valueOf(environment.getArgument("range"));
 

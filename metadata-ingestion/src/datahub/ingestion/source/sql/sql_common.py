@@ -240,7 +240,7 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
     )
     table_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="egex patterns for tables to filter in ingestion.",
+        description="regex patterns for tables to filter in ingestion.",
     )
     view_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -248,7 +248,7 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
     )
     profile_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for profiles to filter in ingestion.",
+        description="regex patterns for profiles to filter in ingestion, allowed by the `table_pattern`.",
     )
     domain: Dict[str, AllowDenyPattern] = Field(
         default=dict(),
@@ -730,7 +730,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     )
 
             if profiler and profile_requests:
-                yield from self.loop_profiler(profile_requests, profiler)
+                yield from self.loop_profiler(
+                    profile_requests, profiler, platform=self.platform
+                )
 
         if self.is_stateful_ingestion_configured():
             # Clean up stale entities.
@@ -1268,10 +1270,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         return None, None
 
     # Override if you want to do additional checks
-    def is_dataset_eligable_profiling(
+    def is_dataset_eligible_for_profiling(
         self, dataset_name: str, sql_config: SQLAlchemyConfig
     ) -> bool:
-        return sql_config.profile_pattern.allowed(dataset_name)
+        return sql_config.table_pattern.allowed(
+            dataset_name
+        ) and sql_config.profile_pattern.allowed(dataset_name)
 
     def loop_profiler_requests(
         self,
@@ -1290,7 +1294,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             dataset_name = self.get_identifier(
                 schema=schema, entity=table, inspector=inspector
             )
-            if not self.is_dataset_eligable_profiling(dataset_name, sql_config):
+            if not self.is_dataset_eligible_for_profiling(dataset_name, sql_config):
                 self.report.report_dropped(f"profile of {dataset_name}")
                 continue
 
@@ -1327,10 +1331,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             )
 
     def loop_profiler(
-        self, profile_requests: List["GEProfilerRequest"], profiler: "DatahubGEProfiler"
+        self,
+        profile_requests: List["GEProfilerRequest"],
+        profiler: "DatahubGEProfiler",
+        platform: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         for request, profile in profiler.generate_profiles(
-            profile_requests, self.config.profiling.max_workers
+            profile_requests, self.config.profiling.max_workers, platform=platform
         ):
             if profile is None:
                 continue

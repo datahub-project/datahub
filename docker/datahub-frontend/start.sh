@@ -11,4 +11,4 @@ fi
 # Remove empty newlines, if there are any.
 sed '/^[[:space:]]*$/d' /datahub-frontend/conf/tmp.props > /datahub-frontend/conf/user.props
 rm /datahub-frontend/conf/tmp.props
-/datahub-frontend/bin/playBinary
+/datahub-frontend/bin/datahub-frontend

@@ -25,6 +25,12 @@ record EditableSchemaFieldInfo {
   /**
    * Tags associated with the field
    */
+  @Relationship = {
+    "/tags/*/tag": {
+      "name": "EditableSchemaFieldTaggedWith",
+        "entityTypes": [ "tag" ]
+    }
+  }
   @Searchable = {
     "/tags/*/tag": {
       "fieldName": "editedFieldTags",
@@ -37,6 +43,12 @@ record EditableSchemaFieldInfo {
   /**
    * Glossary terms associated with the field
    */
+   @Relationship = {
+      "/terms/*/urn": {
+        "name": "EditableSchemaFieldWithGlossaryTerm",
+        "entityTypes": [ "glossaryTerm" ]
+      }
+   }
    @Searchable = {
     "/terms/*/urn": {
       "fieldName": "editedFieldGlossaryTerms",
