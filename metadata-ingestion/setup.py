@@ -21,7 +21,7 @@ def get_long_description():
 
 
 base_requirements = {
-    # Compatability.
+    # Compatibility.
     "dataclasses>=0.6; python_version < '3.7'",
     # Typing extension should be >=3.10.0.2 ideally but we can't restrict due to Airflow 2.0.2 dependency conflict
     "typing_extensions>=3.7.4.3 ;  python_version < '3.8'",
@@ -146,6 +146,12 @@ data_lake_profiling = {
     "pyspark==3.0.3",
 }
 
+iceberg_common = {
+    # Iceberg Python SDK
+    "acryl-iceberg-legacy==0.0.4",
+    "azure-identity==1.10.0",
+}
+
 s3_base = {
     *data_lake_base,
     "moto[s3]",
@@ -194,6 +200,8 @@ plugins: Dict[str, Set[str]] = {
     "feast-legacy": {"docker"},
     "feast": {"feast==0.18.0", "flask-openid>=1.3.0"},
     "glue": aws_common,
+    # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
+    "hana": sql_common | {"sqlalchemy-hana>=0.5.0", "hdbcli>=2.11.20"},
     "hive": sql_common
     | {
         # Acryl Data maintains a fork of PyHive
@@ -202,6 +210,7 @@ plugins: Dict[str, Set[str]] = {
         # - 0.6.12 adds support for Spark Thrift Server
         "acryl-pyhive[hive]>=0.6.13"
     },
+    "iceberg": iceberg_common,
     "kafka": {*kafka_common, *kafka_protobuf},
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
@@ -254,6 +263,7 @@ plugins: Dict[str, Set[str]] = {
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging"},
     "powerbi": {"orderedset"} | microsoft_common,
+    "vertica": sql_common | {"sqlalchemy-vertica[vertica-python]==0.0.5"},
 }
 
 all_exclude_plugins: Set[str] = {
@@ -320,6 +330,7 @@ base_dev_requirements = {
             "ldap",
             "looker",
             "glue",
+            "hana",
             "mariadb",
             "okta",
             "oracle",
@@ -337,6 +348,7 @@ base_dev_requirements = {
             "hive",
             "starburst-trino-usage",
             "powerbi",
+            "vertica",
             # airflow is added below
         ]
         for dependency in plugins[plugin]
@@ -352,6 +364,7 @@ if is_py37_or_newer:
             dependency
             for plugin in [
                 "feast",
+                "iceberg",
                 "lookml",
             ]
             for dependency in plugins[plugin]
@@ -363,6 +376,7 @@ if is_py37_or_newer:
         {
             dependency
             for plugin in [
+                "iceberg",
                 "lookml",
             ]
             for dependency in plugins[plugin]
@@ -391,6 +405,7 @@ full_test_dev_requirements = {
         for plugin in [
             "clickhouse",
             "druid",
+            "hana",
             "feast-legacy",
             "hive",
             "ldap",
@@ -401,6 +416,7 @@ full_test_dev_requirements = {
             "snowflake",
             "redash",
             "kafka-connect",
+            "vertica",
         ]
         for dependency in plugins[plugin]
     ),
@@ -414,6 +430,7 @@ if is_py37_or_newer:
             for plugin in [
                 "athena",
                 "feast",
+                "iceberg",
             ]
             for dependency in plugins[plugin]
         }
@@ -439,6 +456,7 @@ entry_points = {
         "feast = datahub.ingestion.source.feast:FeastRepositorySource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
+        "hana = datahub.ingestion.source.sql.hana:HanaSource",
         "hive = datahub.ingestion.source.sql.hive:HiveSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
@@ -468,6 +486,8 @@ entry_points = {
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",
         "powerbi = datahub.ingestion.source.powerbi:PowerBiDashboardSource",
+        "iceberg = datahub.ingestion.source.iceberg.iceberg:IcebergSource",
+        "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
         "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
     ],
