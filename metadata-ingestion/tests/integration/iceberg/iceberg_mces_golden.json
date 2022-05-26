@@ -81,6 +81,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": false}"
                             },
                             {
@@ -98,6 +99,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": "{\"logicalType\": \"timestamp-micros\", \"native_data_type\": \"timestamptz\", \"_nullable\": false}"
                             },
                             {
@@ -115,6 +117,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": false}"
                             },
                             {
@@ -136,6 +139,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": "{\"native_data_type\": \"list<string>\", \"_nullable\": true}"
                             }
                         ],
@@ -149,7 +153,7 @@
     },
     "proposedDelta": null,
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586847600000,
         "runId": "iceberg-test",
         "registryName": null,
         "registryVersion": null,
