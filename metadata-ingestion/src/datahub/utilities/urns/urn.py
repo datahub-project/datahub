@@ -137,9 +137,6 @@ class Urn:
         pass
 
     def __str__(self) -> str:
-        print(
-            f"entity id to string is {self._entity_id_to_string()} for {self._entity_id}"
-        )
         return f"{self.URN_PREFIX}:{self._domain}:{self._entity_type}:{self._entity_id_to_string()}"
 
     def _entity_id_to_string(self) -> str:
