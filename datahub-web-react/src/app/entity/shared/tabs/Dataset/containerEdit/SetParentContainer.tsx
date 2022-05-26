@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import Select from 'antd/lib/select';
 import styled from 'styled-components';
 import { Form } from 'antd';
+import { gql, useQuery } from '@apollo/client';
 import { useGetSearchResultsLazyQuery } from '../../../../../../graphql/search.generated';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { EntityType, SearchResult } from '../../../../../../types.generated';
@@ -35,7 +36,23 @@ export const SetParentContainer = (props: Props) => {
     const [selectedContainers, setSelectedContainers] = useState('');
     const [containerSearch, { data: containerSearchData }] = useGetSearchResultsLazyQuery();
     const searchResults = containerSearchData?.search?.searchResults || [];
-
+    const getParentContainer = gql`
+        query search($urn: String!) {
+            container(urn: $urn) {
+                container {
+                    properties {
+                        name
+                    }
+                }
+            }
+        }
+    `;
+    const { data } = useQuery(getParentContainer, {
+        variables: {
+            urn: selectedContainers,
+        },
+        skip: selectedContainers === '',
+    });
     const renderSearchResult = (result: SearchResult) => {
         const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
         return (
@@ -76,6 +93,7 @@ export const SetParentContainer = (props: Props) => {
         console.log(`removing pick`);
         setSelectedContainers('');
     };
+    console.log(`parent container of selected is ${data?.container?.properties?.name}`);
     return (
         <>
             <Form.Item name="parentContainer" label="Specify a Container for the Dataset (Optional)">
