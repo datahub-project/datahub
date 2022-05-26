@@ -655,6 +655,13 @@ jobs:
       - name: Build datahub cli
         run: |
           ./gradlew :metadata-ingestion:install
+      - name: Login to AWS ECR
+        uses: docker/login-action@v1
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        with:
+          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
       - name: Download GMS image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -683,7 +690,7 @@ jobs:
       - name: Smoke test
         env:
           DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
-          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          CYPRESS_RECORD_KEY: ${{ secrets.ACRYL_CYPRESS_RECORD_KEY}}
         run: |
           echo "$DATAHUB_VERSION"
           ./smoke-test/smoke.sh

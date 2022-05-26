@@ -5,7 +5,7 @@ services:
     build:
       context: ../../
       dockerfile: docker/datahub-ingestion/Dockerfile
-    image: linkedin/datahub-ingestion:${DATAHUB_VERSION:-head}
+    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-ingestion:${DATAHUB_VERSION:-head}
     hostname: ingestion
     container_name: ingestion
     command: "ingest -c /sample_recipe.yml"

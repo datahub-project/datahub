@@ -1,3 +1,4 @@
+import { DownOutlined, UpOutlined } from '@ant-design/icons';
 import { Button, Checkbox } from 'antd';
 import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import * as React from 'react';
@@ -6,7 +7,7 @@ import styled from 'styled-components';
 
 import { FacetMetadata } from '../../types.generated';
 import { SearchFilterLabel } from './SearchFilterLabel';
-import { FILTERS_TO_TRUNCATE, TRUNCATED_FILTER_LENGTH } from './utils/constants';
+import { TRUNCATED_FILTER_LENGTH } from './utils/constants';
 
 type Props = {
     facet: FacetMetadata;
@@ -15,6 +16,7 @@ type Props = {
         value: string;
     }>;
     onFilterSelect: (selected: boolean, field: string, value: string) => void;
+    defaultDisplayFilters: boolean;
 };
 
 const SearchFilterWrapper = styled.div`
@@ -22,8 +24,11 @@ const SearchFilterWrapper = styled.div`
 `;
 
 const Title = styled.div`
+    align-items: center;
     font-weight: bold;
     margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
 `;
 
 const CheckBox = styled(Checkbox)`
@@ -37,41 +42,63 @@ const ExpandButton = styled(Button)`
     }
 `;
 
-export const SearchFilter = ({ facet, selectedFilters, onFilterSelect }: Props) => {
+const StyledUpOutlined = styled(UpOutlined)`
+    font-size: 10px;
+`;
+
+const StyledDownOutlined = styled(DownOutlined)`
+    font-size: 10px;
+`;
+
+export const SearchFilter = ({ facet, selectedFilters, onFilterSelect, defaultDisplayFilters }: Props) => {
+    const [areFiltersVisible, setAreFiltersVisible] = useState(defaultDisplayFilters);
     const [expanded, setExpanded] = useState(false);
-    const shouldTruncate =
-        FILTERS_TO_TRUNCATE.indexOf(facet.field) > -1 && facet.aggregations.length > TRUNCATED_FILTER_LENGTH;
+    const shouldTruncate = facet.aggregations.length > TRUNCATED_FILTER_LENGTH;
 
     return (
         <SearchFilterWrapper key={facet.field}>
-            <Title>{facet?.displayName}</Title>
-            {facet.aggregations.map((aggregation, i) => {
-                if (i >= TRUNCATED_FILTER_LENGTH && !expanded && shouldTruncate) {
-                    return null;
-                }
-                return (
-                    <span key={`${facet.field}-${aggregation.value}`}>
-                        <CheckBox
-                            data-testid={`facet-${facet.field}-${aggregation.value}`}
-                            checked={
-                                selectedFilters.find(
-                                    (f) => f.field === facet.field && f.value === aggregation.value,
-                                ) !== undefined
-                            }
-                            onChange={(e: CheckboxChangeEvent) =>
-                                onFilterSelect(e.target.checked, facet.field, aggregation.value)
-                            }
-                        >
-                            <SearchFilterLabel field={facet.field} aggregation={aggregation} />
-                        </CheckBox>
-                        <br />
-                    </span>
-                );
-            })}
-            {shouldTruncate && (
-                <ExpandButton type="text" onClick={() => setExpanded(!expanded)}>
-                    {expanded ? '- Less' : '+ More'}
-                </ExpandButton>
+            <Title>
+                {facet?.displayName}
+                {areFiltersVisible ? (
+                    <StyledUpOutlined onClick={() => setAreFiltersVisible(false)} />
+                ) : (
+                    <StyledDownOutlined
+                        data-testid={`expand-facet-${facet.field}`}
+                        onClick={() => setAreFiltersVisible(true)}
+                    />
+                )}
+            </Title>
+            {areFiltersVisible && (
+                <>
+                    {facet.aggregations.map((aggregation, i) => {
+                        if (i >= TRUNCATED_FILTER_LENGTH && !expanded) {
+                            return null;
+                        }
+                        return (
+                            <span key={`${facet.field}-${aggregation.value}`}>
+                                <CheckBox
+                                    data-testid={`facet-${facet.field}-${aggregation.value}`}
+                                    checked={
+                                        selectedFilters.find(
+                                            (f) => f.field === facet.field && f.value === aggregation.value,
+                                        ) !== undefined
+                                    }
+                                    onChange={(e: CheckboxChangeEvent) =>
+                                        onFilterSelect(e.target.checked, facet.field, aggregation.value)
+                                    }
+                                >
+                                    <SearchFilterLabel field={facet.field} aggregation={aggregation} />
+                                </CheckBox>
+                                <br />
+                            </span>
+                        );
+                    })}
+                    {shouldTruncate && (
+                        <ExpandButton type="text" onClick={() => setExpanded(!expanded)}>
+                            {expanded ? '- Less' : '+ More'}
+                        </ExpandButton>
+                    )}
+                </>
             )}
         </SearchFilterWrapper>
     );

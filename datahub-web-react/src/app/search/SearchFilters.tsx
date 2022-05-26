@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { FacetMetadata } from '../../types.generated';
 import { SearchFilter } from './SearchFilter';
 
+const TOP_FILTERS = ['entity', 'tags', 'glossaryTerms', 'domains', 'owners'];
+
 export const SearchFilterWrapper = styled.div`
     max-height: 100%;
     overflow: auto;
@@ -62,14 +64,21 @@ export const SearchFilters = ({ facets, selectedFilters, onFilterSelect, loading
         onFilterSelect(newFilters);
     };
 
+    const sortedFacets = cachedProps.facets.sort((facetA, facetB) => {
+        if (TOP_FILTERS.indexOf(facetA.field) === -1) return 1;
+        if (TOP_FILTERS.indexOf(facetB.field) === -1) return -1;
+        return TOP_FILTERS.indexOf(facetA.field) - TOP_FILTERS.indexOf(facetB.field);
+    });
+
     return (
         <SearchFilterWrapper>
-            {cachedProps.facets.map((facet) => (
+            {sortedFacets.map((facet) => (
                 <SearchFilter
                     key={`${facet.displayName}-${facet.field}`}
                     facet={facet}
                     selectedFilters={cachedProps.selectedFilters}
                     onFilterSelect={onFilterSelectAndSetCache}
+                    defaultDisplayFilters={TOP_FILTERS.includes(facet.field)}
                 />
             ))}
         </SearchFilterWrapper>

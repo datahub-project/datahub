@@ -49,7 +49,7 @@ public class Constants {
   public static final String EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest";
   public static final String NOTEBOOK_ENTITY_NAME = "notebook";
   public static final String DATA_PLATFORM_INSTANCE_ENTITY_NAME = "dataPlatformInstance";
-
+  public static final String ACCESS_TOKEN_ENTITY_NAME = "dataHubAccessToken";
 
   /**
    * Aspects
@@ -65,6 +65,7 @@ public class Constants {
   public static final String SUB_TYPES_ASPECT_NAME = "subTypes";
   public static final String DEPRECATION_ASPECT_NAME = "deprecation";
   public static final String SIBLINGS_ASPECT_NAME = "siblings";
+  public static final String OPERATION_ASPECT_NAME = "operation";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
@@ -125,7 +126,6 @@ public class Constants {
 
   // DataPlatformInstance
   public static final String DATA_PLATFORM_INSTANCE_KEY_ASPECT_NAME = "dataPlatformInstanceKey";
-
 
   // ML Feature
   public static final String ML_FEATURE_KEY_ASPECT_NAME = "mlFeatureKey";
@@ -194,6 +194,12 @@ public class Constants {
   public static final String ASSERTION_RUN_EVENT_ASPECT_NAME = "assertionRunEvent";
   public static final String ASSERTION_RUN_EVENT_STATUS_COMPLETE = "COMPLETE";
 
+  // Tests
+  public static final String TEST_ENTITY_NAME = "test";
+  public static final String TEST_KEY_ASPECT_NAME = "testKey";
+  public static final String TEST_INFO_ASPECT_NAME = "testInfo";
+  public static final String TEST_RESULTS_ASPECT_NAME = "testResults";
+
   // Incident
   public static final String INCIDENT_KEY_ASPECT_NAME = "incidentKey";
   public static final String INCIDENT_INFO_ASPECT_NAME = "incidentInfo";
@@ -209,6 +215,12 @@ public class Constants {
   public static final String EXECUTION_REQUEST_INPUT_ASPECT_NAME = "dataHubExecutionRequestInput";
   public static final String EXECUTION_REQUEST_SIGNAL_ASPECT_NAME = "dataHubExecutionRequestSignal";
   public static final String EXECUTION_REQUEST_RESULT_ASPECT_NAME = "dataHubExecutionRequestResult";
+
+  // DataHub Access Token
+  public static final String ACCESS_TOKEN_KEY_ASPECT_NAME = "dataHubAccessTokenKey";
+  public static final String ACCESS_TOKEN_INFO_NAME = "dataHubAccessTokenInfo";
+
+
 
   // Constraints
   public static final String CONSTRAINT_INFO_ASPECT_NAME = "constraintInfo";
@@ -228,6 +240,7 @@ public class Constants {
    */
   public static final String GROUP_MEMBERSHIP_RELATIONSHIP_NAME = "IsMemberOfGroup";
 
+  // acryl-main only
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";
 
   /**

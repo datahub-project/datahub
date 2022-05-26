@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Input, AutoComplete, Image, Typography } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
@@ -37,7 +37,7 @@ const ExploreForEntity = styled.span`
 
 const StyledAutoComplete = styled(AutoComplete)`
     width: 100%;
-    max-width: 475px;
+    max-width: 650px;
 `;
 
 const AutoCompleteContainer = styled.div`
@@ -161,6 +161,7 @@ interface Props {
     autoCompleteStyle?: React.CSSProperties;
     entityRegistry: EntityRegistry;
     fixAutoComplete?: boolean;
+    setIsSearchBarFocused?: (isSearchBarFocused: boolean) => void;
 }
 
 const defaultProps = {
@@ -181,6 +182,7 @@ export const SearchBar = ({
     inputStyle,
     autoCompleteStyle,
     fixAutoComplete,
+    setIsSearchBarFocused,
 }: Props) => {
     const history = useHistory();
     const [searchQuery, setSearchQuery] = useState<string>();
@@ -249,8 +251,20 @@ export const SearchBar = ({
         return emptyQueryOptions;
     }, [emptyQueryOptions, autoCompleteEntityOptions, autoCompleteQueryOptions]);
 
+    const searchBarWrapperRef = useRef<HTMLDivElement>(null);
+
+    function handleSearchBarClick(isSearchBarFocused: boolean) {
+        if (
+            setIsSearchBarFocused &&
+            (!isSearchBarFocused ||
+                (searchBarWrapperRef && searchBarWrapperRef.current && searchBarWrapperRef.current.clientWidth < 590))
+        ) {
+            setIsSearchBarFocused(isSearchBarFocused);
+        }
+    }
+
     return (
-        <AutoCompleteContainer style={style}>
+        <AutoCompleteContainer style={style} ref={searchBarWrapperRef}>
             <StyledAutoComplete
                 defaultActiveFirstOption={false}
                 style={autoCompleteStyle}
@@ -292,6 +306,8 @@ export const SearchBar = ({
                     onChange={(e) => setSearchQuery(e.target.value)}
                     data-testid="search-input"
                     prefix={<SearchOutlined onClick={() => onSearch(filterSearchQuery(searchQuery || ''))} />}
+                    onFocus={() => handleSearchBarClick(true)}
+                    onBlur={() => handleSearchBarClick(false)}
                 />
             </StyledAutoComplete>
         </AutoCompleteContainer>

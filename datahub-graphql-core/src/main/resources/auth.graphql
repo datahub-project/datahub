@@ -3,8 +3,26 @@
 extend type Query {
     """
     Generates an access token for DataHub APIs for a particular user & of a particular type
+    Deprecated, use createAccessToken instead
     """
     getAccessToken(input: GetAccessTokenInput!): AccessToken
+
+    """
+    List access tokens stored in DataHub.
+    """
+    listAccessTokens(input: ListAccessTokenInput!): ListAccessTokenResult!
+}
+
+extend type Mutation {
+    """
+    Generates an access token for DataHub APIs for a particular user & of a particular type
+    """
+    createAccessToken(input: CreateAccessTokenInput!): AccessToken
+
+    """
+    Revokes access tokens.
+    """
+    revokeAccessToken(tokenId: String!): Boolean!
 }
 
 """
@@ -26,7 +44,33 @@ input GetAccessTokenInput {
   The duration for which the Access Token is valid.
   """
   duration: AccessTokenDuration!
+}
 
+input CreateAccessTokenInput {
+  """
+  The type of the Access Token.
+  """
+  type: AccessTokenType!
+
+  """
+  The actor associated with the Access Token.
+  """
+  actorUrn: String!
+
+  """
+  The duration for which the Access Token is valid.
+  """
+  duration: AccessTokenDuration!
+
+  """
+  The name of the token to be generated.
+  """
+  name: String!
+
+  """
+  Description of the token if defined.
+  """
+  description: String
 }
 
 """
@@ -86,4 +130,106 @@ type AccessToken {
   """
   accessToken: String!
 
+  """
+  Metadata about the generated token
+  """
+  metadata: AccessTokenMetadata
+}
+
+"""
+Input arguments for listing access tokens
+"""
+input ListAccessTokenInput {
+  """
+  The starting offset of the result set
+  """
+  start: Int
+
+  """
+  The number of results to be returned
+  """
+  count: Int
+
+  """
+  Facet filters to apply to search results
+  """
+  filters: [FacetFilterInput!]
+}
+
+"""
+Results returned when listing access tokens
+"""
+type ListAccessTokenResult {
+  """
+  The starting offset of the result set
+  """
+  start: Int!
+
+  """
+  The number of results to be returned
+  """
+  count: Int!
+
+  """
+  The total number of results in the result set
+  """
+  total: Int!
+
+  """
+  The token metadata themselves
+  """
+  tokens: [AccessTokenMetadata!]!
+}
+
+type AccessTokenMetadata implements Entity {
+
+  """
+  The primary key of the access token
+  """
+  urn: String!
+
+  """
+  The standard Entity Type
+  """
+  type: EntityType!
+
+  """
+  The unique identifier of the token.
+  """
+  id: String!
+
+  """
+  The name of the token, if it exists.
+  """
+  name: String!
+
+  """
+  The description of the token if defined.
+  """
+  description: String
+
+  """
+  The actor associated with the Access Token.
+  """
+  actorUrn: String!
+
+  """
+  The actor who created the Access Token.
+  """
+  ownerUrn: String!
+
+  """
+  The time when token was generated at.
+  """
+  createdAt: Long!
+
+  """
+  Time when token will be expired.
+  """
+  expiresAt: Long!
+
+  """
+  Granular API for querying edges extending from this entity
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }

@@ -1,0 +1,27 @@
+namespace com.linkedin.test
+
+import com.linkedin.common.Urn
+
+/**
+ * Information about a Test Result
+ */
+record TestResult {
+    /**
+     * The urn of the test
+     */
+    test: Urn
+
+    /**
+    * The type of the result
+    */
+    type: enum TestResultType {
+      /**
+      *  The Test Succeeded
+      */
+      SUCCESS
+      /**
+      *  The Test Failed
+      */
+      FAILURE
+    }
+}

@@ -62,10 +62,22 @@ public class PoliciesConfig {
       "Create metadata constraints",
       "Create metadata constraints.");
 
+  public static final Privilege MANAGE_ACCESS_TOKENS = Privilege.of(
+      "MANAGE_ACCESS_TOKENS",
+      "Manage All Access Tokens",
+      "Create, list and revoke access tokens on behalf of users in DataHub. Be careful - Actors with this "
+          + "privilege are effectively super users that can impersonate other users."
+  );
+
   public static final Privilege MANAGE_DOMAINS_PRIVILEGE = Privilege.of(
       "MANAGE_DOMAINS",
       "Manage Domains",
       "Create and remove Asset Domains.");
+
+  public static final Privilege MANAGE_TESTS_PRIVILEGE = Privilege.of(
+      "MANAGE_TESTS",
+      "Manage Tests",
+      "Create and remove Asset Tests.");
 
   public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
       MANAGE_POLICIES_PRIVILEGE,
@@ -76,7 +88,9 @@ public class PoliciesConfig {
       MANAGE_INGESTION_PRIVILEGE,
       MANAGE_SECRETS_PRIVILEGE,
       MANAGE_DOMAINS_PRIVILEGE,
-      GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE
+      GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
+      MANAGE_ACCESS_TOKENS,
+      MANAGE_TESTS_PRIVILEGE
   );
 
   // Resource Privileges //
@@ -150,6 +164,11 @@ public class PoliciesConfig {
       "EDIT_ENTITY_ASSERTIONS",
       "Edit Assertions",
       "The ability to add and remove assertions from an entity.");
+
+  public static final Privilege EDIT_ENTITY_OPERATIONS_PRIVILEGE = Privilege.of(
+      "EDIT_ENTITY_OPERATIONS",
+      "Edit Operations",
+      "The ability to report or edit operations information about an entity.");
 
   public static final Privilege EDIT_ENTITY_INCIDENTS_PRIVILEGE = Privilege.of(
       "EDIT_ENTITY_INCIDENTS",
