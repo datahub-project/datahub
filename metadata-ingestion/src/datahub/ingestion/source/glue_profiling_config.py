@@ -1,4 +1,5 @@
 from pydantic.fields import Field
+
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 
 
@@ -53,5 +54,5 @@ class GlueProfilingConfig(ConfigModel):
     )
     partition_patterns: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description='''Regex patterns for filtering partitions for profile. The pattern should be a string like: "{'key':'value'}".''',
+        description="""Regex patterns for filtering partitions for profile. The pattern should be a string like: "{'key':'value'}".""",
     )
