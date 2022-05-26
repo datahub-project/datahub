@@ -201,7 +201,11 @@ plugins: Dict[str, Set[str]] = {
     "feast": {"feast==0.18.0", "flask-openid>=1.3.0"},
     "glue": aws_common,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
-    "hana": sql_common | {"sqlalchemy-hana>=0.5.0", "hdbcli>=2.11.20"},
+    "hana": sql_common
+    | {
+        "sqlalchemy-hana>=0.5.0; platform_machine != 'aarch64'",
+        "hdbcli>=2.11.20; platform_machine != 'aarch64'",
+    },
     "hive": sql_common
     | {
         # Acryl Data maintains a fork of PyHive
