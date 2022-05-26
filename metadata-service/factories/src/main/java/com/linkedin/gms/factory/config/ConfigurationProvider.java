@@ -36,5 +36,5 @@ public class ConfigurationProvider {
   /**
    * Tests related configs
    */
-  private TestsConfiguration tests;
+  private TestsConfiguration metadataTests;
 }
