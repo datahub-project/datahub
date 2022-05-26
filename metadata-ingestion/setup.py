@@ -50,6 +50,7 @@ framework_common = {
     "termcolor>=1.0.0",
     "types-termcolor>=1.0.0",
     "psutil>=5.8.0",
+    "ratelimiter",
     # Markupsafe breaking change broke Jinja and some other libs
     # Pinning it to a version which works even though we are not using explicitly
     # https://github.com/aws/aws-sam-cli/issues/3661
@@ -111,6 +112,8 @@ bigquery_common = {
     "google-cloud-logging",
     "google-cloud-bigquery",
     "more-itertools>=8.12.0",
+    # we do not use protobuf directly but newer version caused bigquery connector to fail
+    "protobuf<=3.20.1",
 }
 
 snowflake_common = {
@@ -187,7 +190,7 @@ plugins: Dict[str, Set[str]] = {
     "datahub-business-glossary": set(),
     "data-lake": {*data_lake_base, *data_lake_profiling},
     "s3": {*s3_base, *data_lake_profiling},
-    "dbt": {"requests"},
+    "dbt": {"requests"} | aws_common,
     "druid": sql_common | {"pydruid>=0.6.2"},
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
     # UnsupportedProductError

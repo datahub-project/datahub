@@ -36,6 +36,7 @@ dependencies {
   compile externalDependency.springContext
   compile externalDependency.swaggerAnnotations
   swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
+  compile externalDependency.mixpanel
 
   annotationProcessor externalDependency.lombok
 

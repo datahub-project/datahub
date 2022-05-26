@@ -3242,5 +3242,44 @@
       "contentType":"application/json"
     },
     "systemMetadata":null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "test",
+    "entityUrn": "urn:li:test:953001aa-fb7b-4a43-916f-3efd95ab9047",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "testInfo",
+    "aspect": {
+      "value": "{\"name\": \"Sample Test 1\", \"category\": \"Examples\", \"description\": \"An example of Metadata Test\", \"definition\": { \"type\": \"JSON\", \"json\": \"{}\"} }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "test",
+    "entityUrn": "urn:li:test:76ca947d-d988-4f0d-8c2f-055de2c6f4b5",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "testInfo",
+    "aspect": {
+      "value": "{\"name\": \"Sample Test 2\", \"category\": \"Examples\", \"description\": \"An example of another Metadata Test\", \"definition\": { \"type\": \"JSON\", \"json\": \"{}\"} }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "testResults",
+    "aspect": {
+      "value": "{\"failing\": [ { \"test\": \"urn:li:test:953001aa-fb7b-4a43-916f-3efd95ab9047\", \"type\": \"FAILURE\" } ], \"passing\": [ { \"test\": \"urn:li:test:76ca947d-d988-4f0d-8c2f-055de2c6f4b5\", \"type\": \"SUCCESS\" }]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
   }
 ]
