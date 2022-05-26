@@ -115,7 +115,6 @@ class GlueSourceConfig(AwsSourceConfig, PlatformSourceConfigBase, GlueProfilingC
         default=None,
         description="The aws account id where the target glue catalog lives. If None, datahub will ingest glue in aws caller's account.",
     )
-
     use_s3_bucket_tags: Optional[bool] = Field(
         default=False,
         description="If an S3 Buckets Tags should be created for the Tables ingested by Glue. Please Note that this will not apply tags to any folders ingested, only the files.",
@@ -787,7 +786,7 @@ class GlueSource(Source):
     def get_profile_if_enabled(
         self, mce: MetadataChangeEventClass, database_name: str, table_name: str
     ) -> List[MetadataChangeProposalWrapper]:
-        if self.source_config.profiling.enabled:
+        if self.source_config.profiling:
             # for cross-account ingestion
             kwargs = dict(
                 DatabaseName=database_name,

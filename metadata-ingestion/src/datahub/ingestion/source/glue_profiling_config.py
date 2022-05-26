@@ -4,10 +4,6 @@ from datahub.configuration.common import AllowDenyPattern, ConfigModel
 
 
 class GlueProfilingConfig(ConfigModel):
-    enabled: bool = Field(
-        default=False,
-        description="Whether to ingest data profiles stored in glue table parameters.",
-    )
     row_count: str = Field(
         default=None,
         description="The parameter name for row count in glue table.",
