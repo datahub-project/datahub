@@ -320,18 +320,8 @@ class Pipeline:
                 "records_written": stats.discretize(
                     self.sink.get_report().records_written
                 ),
-                "server_type": self.ctx.graph.server_config.get("datahub", {}).get(
-                    "serverType", "missing"
-                )
-                if self.ctx.graph
-                else "n/a",
-                "server_version": self.ctx.graph.server_config.get("versions", {})
-                .get("linkedin/datahub", {})
-                .get("version", "missing"),
-                "server_telemetry_id": self.ctx.graph.server_telemetry_id
-                if self.ctx.graph
-                else "n/a",
             },
+            self.ctx.graph,
         )
 
     def pretty_print_summary(self, warnings_as_failure: bool = False) -> int:
