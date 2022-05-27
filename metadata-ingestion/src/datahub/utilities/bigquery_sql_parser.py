@@ -63,7 +63,7 @@ class BigQuerySQLParser(SQLParser):
 
     @staticmethod
     def _remove_comma_before_from(sql_query: str) -> str:
-        return re.sub(r"(,[^,]*?)(?=from)", r" ", sql_query, flags=re.IGNORECASE)
+        return re.sub(r",(\s*?)(?=from)", r" ", sql_query, flags=re.IGNORECASE)
 
     @staticmethod
     def _escape_object_name_after_keyword_from(sql_query: str) -> str:
