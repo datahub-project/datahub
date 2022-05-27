@@ -1,7 +1,7 @@
 import json
 import logging
 from dataclasses import dataclass
-from typing import Dict, Iterable, Union, Optional
+from typing import Dict, Iterable, Optional, Union
 
 import pyorient
 from pyorient import OrientRecord
@@ -63,10 +63,14 @@ def map_snapshot(table: OrientRecord) -> MetadataWorkUnit:
     external_type = table.oRecordData.get("externalType")
     if external_type == "kafka_topic":
         platform = "kafka"
-        parents = [table.oRecordData.get('location'), table.oRecordData.get('db')]
+        parents = [table.oRecordData.get("location"), table.oRecordData.get("db")]
     elif external_type == "mssql_table":
         platform = "mssql"
-        parents = [table.oRecordData.get('location'), table.oRecordData.get('db'), table.oRecordData.get('schema')]
+        parents = [
+            table.oRecordData.get("location"),
+            table.oRecordData.get("db"),
+            table.oRecordData.get("schema"),
+        ]
     else:
         raise ValueError(f"Unknown external type: {external_type}")
 
@@ -76,9 +80,7 @@ def map_snapshot(table: OrientRecord) -> MetadataWorkUnit:
         customProperties=table.oRecordData.get("customFields"),
     )
 
-    browse_paths = BrowsePathsClass(
-        [f"/prod/{platform}/{'/'.join(parents)}/{name}"]
-    )
+    browse_paths = BrowsePathsClass([f"/prod/{platform}/{'/'.join(parents)}/{name}"])
 
     columns = json.loads(table.columns)
     schema = SchemaMetadataClass(
@@ -102,7 +104,7 @@ def map_snapshot(table: OrientRecord) -> MetadataWorkUnit:
 def map_column(column: Dict[str, str]) -> SchemaFieldClass:
     data_type = column.get("dataType")
     if data_type is str:
-        data_type = data_type.lower()
+        data_type = str(data_type).lower()
     else:
         data_type = "string"
 
@@ -160,7 +162,9 @@ class DataCatalogSource(Source):
         return cls(config, ctx)
 
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
-        rs = self.client.query(get_query(self.config.externalType, None, self.batch_size))
+        rs = self.client.query(
+            get_query(self.config.externalType, None, self.batch_size)
+        )
         total = 0
         while len(rs) > 0:
             for table in rs:
@@ -169,7 +173,9 @@ class DataCatalogSource(Source):
                     return
                 yield map_snapshot(table)
             rid = rs[-1]._rid
-            rs = self.client.query(get_query(self.config.externalType, rid, self.batch_size))
+            rs = self.client.query(
+                get_query(self.config.externalType, rid, self.batch_size)
+            )
 
     def get_report(self):
         return self.report

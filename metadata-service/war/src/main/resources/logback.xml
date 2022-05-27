@@ -15,9 +15,9 @@
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <FileNamePattern>${LOG_DIR}/gms.%d{yyyy-dd-MM}-%i.log</FileNamePattern>
             <!-- each archived file, size max 10MB -->
-            <maxFileSize>100MB</maxFileSize>
+            <maxFileSize>50MB</maxFileSize>
             <!-- total size of all archive files, if total size > 10GB, it will delete old archived file -->
-            <totalSizeCap>10GB</totalSizeCap>
+            <totalSizeCap>200MB</totalSizeCap>
             <!-- 30 days to keep -->
             <maxHistory>30</maxHistory>
         </rollingPolicy>
@@ -34,9 +34,9 @@
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <FileNamePattern>${LOG_DIR}/gms.debug.%d{yyyy-dd-MM}-%i.log</FileNamePattern>
             <!-- each archived file, size max 10MB -->
-            <maxFileSize>100MB</maxFileSize>
+            <maxFileSize>50MB</maxFileSize>
             <!-- total size of all archive files, if total size > 2GB, it will delete old archived file -->
-            <totalSizeCap>2GB</totalSizeCap>
+            <totalSizeCap>200MB</totalSizeCap>
             <!-- 1 days to keep -->
             <maxHistory>1</maxHistory>
         </rollingPolicy>
