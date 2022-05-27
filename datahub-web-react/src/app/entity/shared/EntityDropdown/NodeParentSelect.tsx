@@ -6,7 +6,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useEntityData } from '../EntityContext';
 import ClickOutside from '../../../shared/ClickOutside';
 import GlossaryBrowser from '../../../glossary/GlossaryBrowser/GlossaryBrowser';
-import { BrowserWrapper } from '../../../shared/tags/AddTagTermModal';
+import { BrowserWrapper } from '../../../shared/tags/AddTagsTermsModal';
 
 // filter out entity itself and its children
 export function filterResultsForMove(entity: GlossaryNode, entityUrn: string) {

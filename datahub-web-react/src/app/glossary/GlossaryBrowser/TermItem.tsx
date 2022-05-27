@@ -46,7 +46,7 @@ export const NameWrapper = styled.span<{ showSelectStyles?: boolean }>`
 interface Props {
     term: GlossaryTerm;
     isSelecting?: boolean;
-    selectTerm?: (hierarchicalName: string, displayName: string) => void;
+    selectTerm?: (urn: string, displayName: string) => void;
 }
 
 function TermItem(props: Props) {
@@ -58,7 +58,7 @@ function TermItem(props: Props) {
     function handleSelectTerm() {
         if (selectTerm) {
             const displayName = entityRegistry.getDisplayName(term.type, term);
-            selectTerm(term.hierarchicalName, displayName);
+            selectTerm(term.urn, displayName);
         }
     }
 

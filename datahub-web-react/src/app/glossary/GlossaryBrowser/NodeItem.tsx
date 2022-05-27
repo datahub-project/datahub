@@ -49,7 +49,7 @@ interface Props {
     hideTerms?: boolean;
     openToEntity?: boolean;
     refreshBrowser?: boolean;
-    selectTerm?: (hierarchicalName: string, displayName: string) => void;
+    selectTerm?: (urn: string, displayName: string) => void;
     selectNode?: (urn: string, displayName: string) => void;
 }
 
