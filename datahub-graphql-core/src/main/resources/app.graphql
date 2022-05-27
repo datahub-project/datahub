@@ -127,6 +127,11 @@ type AppConfig {
   Configurations related to tracking users in the app
   """
   telemetryConfig: TelemetryConfig!
+
+  """
+  Configurations related to DataHub tests
+  """
+  testsConfig: TestsConfig!
 }
 
 """
@@ -262,6 +267,16 @@ Configurations related to managed, UI based ingestion
 type ManagedIngestionConfig {
   """
   Whether ingestion screen is enabled in the UI
+  """
+  enabled: Boolean!
+}
+
+"""
+Configurations related to DataHub Tests feature
+"""
+type TestsConfig {
+  """
+  Whether Tests feature is enabled
   """
   enabled: Boolean!
 }

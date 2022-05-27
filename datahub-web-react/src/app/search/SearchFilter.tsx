@@ -29,6 +29,7 @@ const Title = styled.div`
     margin-bottom: 10px;
     display: flex;
     justify-content: space-between;
+    cursor: pointer;
 `;
 
 const CheckBox = styled(Checkbox)`
@@ -57,15 +58,12 @@ export const SearchFilter = ({ facet, selectedFilters, onFilterSelect, defaultDi
 
     return (
         <SearchFilterWrapper key={facet.field}>
-            <Title>
+            <Title onClick={() => setAreFiltersVisible((prevState) => !prevState)}>
                 {facet?.displayName}
                 {areFiltersVisible ? (
-                    <StyledUpOutlined onClick={() => setAreFiltersVisible(false)} />
+                    <StyledUpOutlined />
                 ) : (
-                    <StyledDownOutlined
-                        data-testid={`expand-facet-${facet.field}`}
-                        onClick={() => setAreFiltersVisible(true)}
-                    />
+                    <StyledDownOutlined data-testid={`expand-facet-${facet.field}`} />
                 )}
             </Title>
             {areFiltersVisible && (

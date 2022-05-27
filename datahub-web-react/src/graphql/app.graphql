@@ -40,6 +40,9 @@ query appConfig {
         telemetryConfig {
             enableThirdPartyLogging
         }
+        testsConfig {
+            enabled
+        }
     }
 }
 
