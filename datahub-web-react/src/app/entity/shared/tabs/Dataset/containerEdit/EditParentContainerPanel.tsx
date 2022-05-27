@@ -20,7 +20,7 @@ export const EditParentContainerPanel = () => {
     };
     const [form] = Form.useForm();
     const onFinish = (values) => {
-        console.log(`values are ${values.parentContainer}`);
+        console.log(`values are ${values.parentContainerSelect}`);
     };
     return (
         <>
