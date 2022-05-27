@@ -427,9 +427,9 @@ public class TimelineServiceImpl implements TimelineService {
           ChangeTransaction element = transactionList.get(i);
           result.getChangeEvents().addAll(element.getChangeEvents());
           maxSemanticChangeType =
-              result.getSemVerChange().compareTo(element.getSemVerChange()) >= 0 ? result.getSemVerChange()
+              maxSemanticChangeType.compareTo(element.getSemVerChange()) >= 0 ? maxSemanticChangeType
                   : element.getSemVerChange();
-          maxSemVer = result.getSemVer().compareTo(element.getSemVer()) >= 0 ? result.getSemVer() : element.getSemVer();
+          maxSemVer = maxSemVer.compareTo(element.getSemVer()) >= 0 ? maxSemVer : element.getSemVer();
         }
         result.setSemVerChange(maxSemanticChangeType);
         result.setSemanticVersion(maxSemVer);
