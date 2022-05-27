@@ -171,14 +171,14 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {
         "apache-airflow >= 1.10.2",
     },
-    "great-expectations": sql_common | {"sqllineage==1.3.4"},
+    "great-expectations": sql_common | {"sqllineage==1.3.5"},
     # Source plugins
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
     "azure-ad": set(),
     "bigquery": sql_common
     | bigquery_common
-    | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.4", "sqlparse"},
+    | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.5", "sqlparse"},
     "bigquery-usage": bigquery_common | usage_common | {"cachetools"},
     "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
     "clickhouse-usage": sql_common
@@ -221,9 +221,9 @@ plugins: Dict[str, Set[str]] = {
     "looker": looker_common,
     # lkml>=1.1.2 is required to support the sql_preamble expression in LookML
     "lookml": looker_common
-    | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.4"},
-    "metabase": {"requests", "sqllineage==1.3.4"},
-    "mode": {"requests", "sqllineage==1.3.4", "tenacity>=8.0.1"},
+    | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.5"},
+    "metabase": {"requests", "sqllineage==1.3.5"},
+    "mode": {"requests", "sqllineage==1.3.5", "tenacity>=8.0.1"},
     "mongodb": {"pymongo>=3.11", "packaging"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -236,16 +236,16 @@ plugins: Dict[str, Set[str]] = {
     "presto-on-hive": sql_common
     | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
-    "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.4"},
+    "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.5"},
     "redshift": sql_common
-    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.4"},
+    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.5"},
     "redshift-usage": sql_common
     | usage_common
     | {
         "sqlalchemy-redshift",
         "psycopg2-binary",
         "GeoAlchemy2",
-        "sqllineage==1.3.4",
+        "sqllineage==1.3.5",
     },
     "sagemaker": aws_common,
     "snowflake": snowflake_common,
