@@ -11,15 +11,15 @@ source:
     client_id: foo
     # Azure AD App client secret
     client_secret: bar
-    # dataset_type_mapping is fixed mapping of Power BI datasources type to equivalent Datahub "data platform" dataset
-    dataset_type_mapping:
-        PostgreSql: postgres
-        Oracle: oracle
     # override the capabilities settings if needed
     override:
       # Enable / Disable ingestion of user information of dashboards
       # Default is true
       extractOwnership: true
+    # dataset_type_mapping is fixed mapping of Power BI datasources type to equivalent Datahub "data platform" dataset
+    dataset_type_mapping:
+        PostgreSql: postgres
+        Oracle: oracle
 
 
 
