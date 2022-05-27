@@ -25,7 +25,7 @@ import org.testng.annotations.Test;
 import static org.testng.Assert.*;
 
 public class GetRootGlossaryNodesResolverTest {
-  final GetRootGlossaryEntitiesInput TEST_INPUT = new GetRootGlossaryEntitiesInput(
+  final GetRootGlossaryEntitiesInput testInput = new GetRootGlossaryEntitiesInput(
       0, 100
   );
   final String glossaryNodeUrn1 = "urn:li:glossaryNode:11115397daf94708a8822b8106cfd451";
@@ -40,7 +40,7 @@ public class GetRootGlossaryNodesResolverTest {
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
-    Mockito.when(mockEnv.getArgument("input")).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getArgument("input")).thenReturn(testInput);
 
     Mockito.when(mockClient.filter(
         Mockito.eq(Constants.GLOSSARY_NODE_ENTITY_NAME),

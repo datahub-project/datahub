@@ -1,4 +1,4 @@
-import { glossaryNode1, glossaryNode2, glossaryNode3, glossaryNode4, glossaryNode5 } from '../../../../../Mocks';
+import { glossaryNode1, glossaryNode2, glossaryNode3, glossaryNode4 } from '../../../../../Mocks';
 import { filterResultsForMove } from '../NodeParentSelect';
 
 describe('filterResultsForMove', () => {

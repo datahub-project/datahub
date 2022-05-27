@@ -43,8 +43,12 @@ public class ParentNodesResolverTest {
     termEntity.setType(EntityType.GLOSSARY_TERM);
     Mockito.when(mockEnv.getSource()).thenReturn(termEntity);
 
-    final GlossaryTermInfo parentNode1 = new GlossaryTermInfo().setParentNode(GlossaryNodeUrn.createFromString("urn:li:glossaryNode:11115397daf94708a8822b8106cfd451")).setDefinition("test def");
-    final GlossaryNodeInfo parentNode2 = new GlossaryNodeInfo().setParentNode(GlossaryNodeUrn.createFromString("urn:li:glossaryNode:22225397daf94708a8822b8106cfd451")).setDefinition("test def 2");
+    final GlossaryTermInfo parentNode1 = new GlossaryTermInfo().setParentNode(GlossaryNodeUrn.createFromString(
+        "urn:li:glossaryNode:11115397daf94708a8822b8106cfd451")
+    ).setDefinition("test def");
+    final GlossaryNodeInfo parentNode2 = new GlossaryNodeInfo().setParentNode(GlossaryNodeUrn.createFromString(
+        "urn:li:glossaryNode:22225397daf94708a8822b8106cfd451")
+    ).setDefinition("test def 2");
 
     Map<String, EnvelopedAspect> glossaryTermAspects = new HashMap<>();
     glossaryTermAspects.put(GLOSSARY_TERM_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(parentNode1.data())));
@@ -113,7 +117,7 @@ public class ParentNodesResolverTest {
     assertEquals(result.getNodes().get(0).getUrn(), parentNode1.getParentNode().toString());
     assertEquals(result.getNodes().get(1).getUrn(), parentNode2.getParentNode().toString());
   }
-  
+
   @Test
   public void testGetSuccessForNode() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
@@ -128,8 +132,12 @@ public class ParentNodesResolverTest {
     nodeEntity.setType(EntityType.GLOSSARY_NODE);
     Mockito.when(mockEnv.getSource()).thenReturn(nodeEntity);
 
-    final GlossaryNodeInfo parentNode1 = new GlossaryNodeInfo().setParentNode(GlossaryNodeUrn.createFromString("urn:li:glossaryNode:11115397daf94708a8822b8106cfd451")).setDefinition("test def");
-    final GlossaryNodeInfo parentNode2 = new GlossaryNodeInfo().setParentNode(GlossaryNodeUrn.createFromString("urn:li:glossaryNode:22225397daf94708a8822b8106cfd451")).setDefinition("test def 2");
+    final GlossaryNodeInfo parentNode1 = new GlossaryNodeInfo().setParentNode(GlossaryNodeUrn.createFromString(
+        "urn:li:glossaryNode:11115397daf94708a8822b8106cfd451")
+    ).setDefinition("test def");
+    final GlossaryNodeInfo parentNode2 = new GlossaryNodeInfo().setParentNode(GlossaryNodeUrn.createFromString(
+        "urn:li:glossaryNode:22225397daf94708a8822b8106cfd451")
+    ).setDefinition("test def 2");
 
     Map<String, EnvelopedAspect> glossaryNodeAspects = new HashMap<>();
     glossaryNodeAspects.put(GLOSSARY_NODE_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(parentNode1.data())));

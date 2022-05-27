@@ -41,7 +41,12 @@ public class CreateGlossaryNodeResolverTest {
 
   private final String parentNodeUrn = "urn:li:glossaryNode:12372c2ec7754c308993202dc44f548b";
 
-  private MetadataChangeProposal setupTest(DataFetchingEnvironment mockEnv, CreateGlossaryEntityInput input, String description, String parentNode) throws Exception {
+  private MetadataChangeProposal setupTest(
+      DataFetchingEnvironment mockEnv,
+      CreateGlossaryEntityInput input,
+      String description,
+      String parentNode
+  ) throws Exception {
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
