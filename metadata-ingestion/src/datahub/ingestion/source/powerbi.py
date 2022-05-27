@@ -21,6 +21,7 @@ from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import platform_name
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -533,7 +534,7 @@ class PowerBiAPI:
             raise ConnectionError(message)
 
         response_dict = response.json()
-        LOGGER.info("datasets = {}".format(response_dict))
+        LOGGER.debug("datasets = {}".format(response_dict))
         # PowerBi Always return the webURL, in-case if it is None then setting complete webURL to None instead of None/details
         return PowerBiAPI.Dataset(
             id=response_dict.get("id"),
@@ -1360,7 +1361,7 @@ class PowerBiDashboardSourceReport(SourceReport):
     def report_charts_dropped(self, view: str) -> None:
         self.filtered_charts.append(view)
 
-
+@platform_name("powerbi")
 class PowerBiDashboardSource(Source):
     """
     Datahub PowerBi plugin main class. This class extends Source to become PowerBi data ingestion source for Datahub
