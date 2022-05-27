@@ -192,7 +192,7 @@ export const AddOwnersModal = ({
                     },
                 },
             });
-            message.success({ content: "Owners Added", duration: 2 });
+            message.success({ content: 'Owners Added', duration: 2 });
             analytics.event({
                 type: EventType.EntityActionEvent,
                 actionType: EntityActionType.UpdateOwnership,

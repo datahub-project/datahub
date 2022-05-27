@@ -14,7 +14,7 @@ type Props = {
 };
 
 const SearchResultContainer = styled.div`
-    display: flex;f
+    display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 2px;
