@@ -34,7 +34,7 @@ enum ChangeType {
   PATCH
 
   /**
-   * Restore an aspect, eg. in a backfill.
+   * Restate an aspect, eg. in a index refresh.
    */
-  RESTORE
+  RESTATE
 }
