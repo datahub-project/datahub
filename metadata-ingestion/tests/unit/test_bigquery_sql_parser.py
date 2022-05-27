@@ -23,6 +23,8 @@ SELECT foo
   FROM `project.dataset.src_table`"""
     )
 
+    assert parser.get_tables() == ["project.dataset.src_table"]
+
 
 def test_bigquery_sql_parser_formats_input_sql():
     parser = BigQuerySQLParser(
@@ -39,6 +41,40 @@ INNER JOIN `project.dataset.src_table_b` AS b ON a.key_field = b.key_field
   FROM `project.dataset.src_table_a` AS a
  INNER JOIN `project.dataset.src_table_b` AS b
     ON a.key_field = b.key_field"""
+    )
+
+    assert parser.get_tables() == [
+        "project.dataset.src_table_a",
+        "project.dataset.src_table_b",
+    ]
+
+
+def test_remove_comma_before_from():
+    assert (
+        BigQuerySQLParser._remove_comma_before_from(
+            """
+select a, b,from `project.dataset.table_name_1`
+"""
+        )
+        == """
+select a, b from `project.dataset.table_name_1`
+"""
+    )
+
+    assert (
+        BigQuerySQLParser._remove_comma_before_from(
+            """
+select
+    a,
+    b,
+from `project.dataset.table_name_1`
+"""
+        )
+        == """
+select
+    a,
+    b from `project.dataset.table_name_1`
+"""
     )
 
 
