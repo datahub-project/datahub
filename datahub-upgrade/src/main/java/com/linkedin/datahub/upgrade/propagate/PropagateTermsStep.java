@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade.propagate;
 
+import com.google.common.collect.Sets;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.GlossaryTermAssociationArray;
@@ -38,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -64,6 +66,7 @@ public class PropagateTermsStep implements UpgradeStep {
   private static final Urn PROPAGATION_ACTOR = UrnUtils.getUrn("urn:li:corpuser:__datahub_propagator");
   private static final String CRITERIA_DELIMITER = ";";
   private static final String KEY_VALUE_DELIMITER = "-";
+  private static final String URN_FILTER = "urn";
 
   public PropagateTermsStep(EntityService entityService, EntitySearchService entitySearchService) {
     _entityService = entityService;
@@ -139,7 +142,7 @@ public class PropagateTermsStep implements UpgradeStep {
           _entitySearchService.scroll(Constants.DATASET_ENTITY_NAME, destinationFilter, null, 1000, null, "1m");
       while (scrollResult.getEntities().size() > 0) {
         context.report().addLine(String.format("Processing batch %d", batch));
-        int numAspectsProducedInBatch = processBatch(scrollResult, sourceEntityDetails, runId, threshold);
+        int numAspectsProducedInBatch = processBatch(scrollResult, sourceEntityDetails, runId, threshold, allowedTerms);
         numAspectsProduced += numAspectsProducedInBatch;
         batch++;
         context.report().addLine(String.format("Fetching batch %d", batch));
@@ -170,7 +173,11 @@ public class PropagateTermsStep implements UpgradeStep {
           throw new IllegalArgumentException(
               String.format("Invalid source filter %s. Needs to be of format key1-value1;key2-value2", sourceFilter));
         }
-        criteria.add(QueryUtils.newCriterion(keyValue.get(0) + ESUtils.KEYWORD_SUFFIX, keyValue.get(1)));
+        if (keyValue.get(0).equals(URN_FILTER)) {
+          criteria.add(QueryUtils.newCriterion(keyValue.get(0), keyValue.get(1)));
+        } else {
+          criteria.add(QueryUtils.newCriterion(keyValue.get(0) + ESUtils.KEYWORD_SUFFIX, keyValue.get(1)));
+        }
       }
       conjunctiveCriteria.add(new ConjunctiveCriterion().setAnd(criteria));
     }
@@ -237,7 +244,7 @@ public class PropagateTermsStep implements UpgradeStep {
 
   // Process batch of entities and return number of aspects ingested as a result
   private int processBatch(@Nonnull ScrollResult scrollResult, @Nonnull Map<Urn, EntityDetails> sourceEntityDetails,
-      @Nonnull String runId, double threshold) {
+      @Nonnull String runId, double threshold, Optional<Set<Urn>> allowedTerms) {
     Set<Urn> batch = scrollResult.getEntities()
         .stream()
         .map(SearchEntity::getEntity)
@@ -256,7 +263,7 @@ public class PropagateTermsStep implements UpgradeStep {
         continue;
       }
       numMatched++;
-      boolean producedAspect = processMatch(destinationEntity, matchResult, runId);
+      boolean producedAspect = processMatch(destinationEntity, matchResult, runId, allowedTerms);
       if (producedAspect) {
         numProduced++;
       }
@@ -269,7 +276,8 @@ public class PropagateTermsStep implements UpgradeStep {
 
   // Process matched result. Return true if it produces a new editable schema metadata
   private boolean processMatch(@Nonnull EntityDetails destinationEntity,
-      @Nonnull EntityMatcher.EntityMatchResult entityMatchResult, @Nonnull String runId) {
+      @Nonnull EntityMatcher.EntityMatchResult entityMatchResult, @Nonnull String runId,
+      Optional<Set<Urn>> allowedTerms) {
     log.debug("Processing match for source {} destination {}", entityMatchResult.getMatchedEntity().getUrn(),
         destinationEntity.getUrn());
     if (entityMatchResult.getMatchingFields().isEmpty()) {
@@ -280,23 +288,42 @@ public class PropagateTermsStep implements UpgradeStep {
 
     Map<String, Set<Urn>> sourceFieldGlossaryTerms = getGlossaryTermsForEachField(entityMatchResult.getMatchedEntity());
     Map<String, Set<Urn>> destinationFieldGlossaryTerms = getGlossaryTermsForEachField(destinationEntity);
-    sourceFieldGlossaryTerms.forEach((fieldPath, glossaryTermsToPropagate) -> {
-      if (destinationFieldGlossaryTerms.containsKey(fieldPath)) {
-        glossaryTermsToPropagate.removeAll(destinationFieldGlossaryTerms.get(fieldPath));
-      }
-    });
-    sourceFieldGlossaryTerms.values().removeIf(Set::isEmpty);
+    Set<String> destinationFieldsWithUserDefinedTerms = fieldsWithUserDefinedTerms(destinationEntity, allowedTerms);
 
-    if (sourceFieldGlossaryTerms.isEmpty()) {
+    Map<String, Set<Urn>> termsToPropagatePerFields = new HashMap<>();
+    for (String fieldPath : entityMatchResult.getMatchingFields().keySet()) {
+      // If destination field has a user defined term (that is allowed), do not propagate
+      if (destinationFieldsWithUserDefinedTerms.contains(fieldPath)) {
+        continue;
+      }
+      String sourceFieldPath = entityMatchResult.getMatchingFields().get(fieldPath);
+      Set<Urn> sourceFieldTerms = sourceFieldGlossaryTerms.get(sourceFieldPath);
+      if (sourceFieldTerms == null || sourceFieldTerms.isEmpty()) {
+        continue;
+      }
+      // Propagate terms that exist on the source field but not in the destination field
+      Set<Urn> termsToPropagate = Sets.difference(sourceFieldTerms,
+          destinationFieldGlossaryTerms.getOrDefault(fieldPath, Collections.emptySet()));
+      // If allowed terms is set, only propagate allowed terms
+      if (allowedTerms.isPresent()) {
+        termsToPropagate = Sets.intersection(termsToPropagate, allowedTerms.get());
+      }
+      if (!termsToPropagate.isEmpty()) {
+        termsToPropagatePerFields.put(fieldPath, termsToPropagate);
+      }
+    }
+
+    if (termsToPropagatePerFields.isEmpty()) {
       log.debug("No terms to propagate for source {} destination {}", entityMatchResult.getMatchedEntity().getUrn(),
           destinationEntity.getUrn());
       return false;
     }
+
     AuditStamp auditStamp = new AuditStamp().setActor(PROPAGATION_ACTOR)
         .setTime(System.currentTimeMillis())
         .setMessage(String.format("Propagated from %s", entityMatchResult.getMatchedEntity().getUrn()));
     EditableSchemaMetadata aspectToPush =
-        buildSchemaMetadata(destinationEntity.getEditableSchemaMetadata(), sourceFieldGlossaryTerms, auditStamp);
+        buildSchemaMetadata(destinationEntity.getEditableSchemaMetadata(), termsToPropagatePerFields, auditStamp);
     produceEditableSchemaMetadataProposal(destinationEntity.getUrn(), aspectToPush, runId, auditStamp);
     return true;
   }
@@ -333,6 +360,38 @@ public class PropagateTermsStep implements UpgradeStep {
       }
     }
     return result;
+  }
+
+  private Set<String> fieldsWithUserDefinedTerms(EntityDetails entityDetails, Optional<Set<Urn>> allowedTerms) {
+    Set<String> result = new HashSet<>();
+    if (!allowedTerms.isPresent()) {
+      return result;
+    }
+    for (SchemaField field : entityDetails.getSchemaMetadata().getFields()) {
+      if (hasUserDefinedTerm(field.getGlossaryTerms(), allowedTerms.get())) {
+        result.add(field.getFieldPath());
+      }
+    }
+    if (entityDetails.getEditableSchemaMetadata() == null) {
+      return result;
+    }
+    for (EditableSchemaFieldInfo field : entityDetails.getEditableSchemaMetadata().getEditableSchemaFieldInfo()) {
+      if (hasUserDefinedTerm(field.getGlossaryTerms(), allowedTerms.get())) {
+        result.add(field.getFieldPath());
+      }
+    }
+    return result;
+  }
+
+  private boolean hasUserDefinedTerm(GlossaryTerms glossaryTerms, Set<Urn> allowedTerms) {
+    if (glossaryTerms == null || glossaryTerms.getTerms().isEmpty()) {
+      return false;
+    }
+    return glossaryTerms.getTerms()
+        .stream()
+        .filter(term -> !PROPAGATION_ACTOR.equals(term.getActor()))
+        .map(GlossaryTermAssociation::getUrn)
+        .anyMatch(allowedTerms::contains);
   }
 
   private EditableSchemaMetadata buildSchemaMetadata(@Nullable EditableSchemaMetadata oldAspect,

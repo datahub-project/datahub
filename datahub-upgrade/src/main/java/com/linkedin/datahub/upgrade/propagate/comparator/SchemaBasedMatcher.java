@@ -12,13 +12,21 @@ import javax.annotation.Nullable;
 
 
 public class SchemaBasedMatcher implements EntityMatcher {
-
+  /**
+   * Find the entity among others that best match the original entity.
+   * If there are no entities that pass the similarity score threshold, do not return result
+   *
+   * @param original original entity we are trying to match
+   * @param others entities that we are looking for matches from
+   * @param threshold similarity score threshold
+   * @return matched result. Return null if none pass the similarity score threshold
+   */
   @Nullable
   public EntityMatchResult match(EntityDetails original, Collection<EntityDetails> others, double threshold) {
     if (original.getSchemaMetadata() == null || original.getSchemaMetadata().getFields().size() <= 2) {
       return null;
     }
-
+    // Preprocess field paths for easy matching
     Set<String> fieldPaths =
         original.getSchemaMetadata().getFields().stream().map(SchemaField::getFieldPath).collect(Collectors.toSet());
 
@@ -26,6 +34,7 @@ public class SchemaBasedMatcher implements EntityMatcher {
         .collect(Collectors.toMap(this::processFieldPath, Function.identity(),
             (a1, a2) -> a1.length() > a2.length() ? a1 : a2));
 
+    // Keep track of the minimum difference to find the entity that is most similar
     int minDiff = fieldPaths.size();
     int allowedDiff = (int) (fieldPaths.size() * (1 - threshold));
 
@@ -50,6 +59,7 @@ public class SchemaBasedMatcher implements EntityMatcher {
         }
 
         numDiffFields++;
+        // If diff is already too large, no need to continue computing diff
         if (numDiffFields > allowedDiff) {
           break;
         }
