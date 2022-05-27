@@ -3,10 +3,11 @@ import Editor from '@monaco-editor/react';
 
 type Props = {
     initialText: string;
+    height?: string;
     onChange: (change: any) => void;
 };
 
-export const YamlEditor = ({ initialText, onChange }: Props) => {
+export const YamlEditor = ({ initialText, height, onChange }: Props) => {
     return (
         <Editor
             options={{
@@ -16,7 +17,7 @@ export const YamlEditor = ({ initialText, onChange }: Props) => {
                     horizontal: 'hidden',
                 },
             }}
-            height="55vh"
+            height={height || '55vh'}
             defaultLanguage="yaml"
             value={initialText}
             onChange={onChange}

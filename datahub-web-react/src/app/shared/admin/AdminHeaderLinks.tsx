@@ -8,6 +8,7 @@ import {
     SettingOutlined,
     UsergroupAddOutlined,
     FolderOutlined,
+    FileDoneOutlined,
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button } from 'antd';
@@ -53,6 +54,7 @@ export function AdminHeaderLinks(props: Props) {
     const isActionRequestsEnabled = config?.actionRequestsConfig.enabled;
     const isIdentityManagementEnabled = config?.identityManagementConfig.enabled;
     const isIngestionEnabled = config?.managedIngestionConfig.enabled;
+    const isTestsEnabled = config?.testsConfig.enabled;
 
     const showAnalytics = (isAnalyticsEnabled && me && me.platformPrivileges.viewAnalytics) || false;
     const showPolicyBuilder = (isPoliciesEnabled && me && me.platformPrivileges.managePolicies) || false;
@@ -63,6 +65,7 @@ export function AdminHeaderLinks(props: Props) {
     const showIngestion =
         isIngestionEnabled && me && me.platformPrivileges.manageIngestion && me.platformPrivileges.manageSecrets;
     const showDomains = me?.platformPrivileges?.manageDomains || false;
+    const showTests = (isTestsEnabled && me?.platformPrivileges?.manageTests) || false;
 
     return (
         <LinksWrapper areLinksHidden={areLinksHidden}>
@@ -107,6 +110,15 @@ export function AdminHeaderLinks(props: Props) {
                     <Link to="/ingestion">
                         <Button type="text">
                             <ApiOutlined /> Ingestion
+                        </Button>
+                    </Link>
+                </AdminLink>
+            )}
+            {showTests && (
+                <AdminLink style={{ marginRight: 16 }}>
+                    <Link to="/tests">
+                        <Button type="text">
+                            <FileDoneOutlined /> Tests
                         </Button>
                     </Link>
                 </AdminLink>

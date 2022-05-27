@@ -29,6 +29,10 @@ mutation createTest($input: CreateTestInput!) {
     createTest(input: $input)
 }
 
+mutation updateTest($urn: String!, $input: UpdateTestInput!) {
+    updateTest(urn: $urn, input: $input)
+}
+
 mutation deleteTest($urn: String!) {
     deleteTest(urn: $urn)
 }
