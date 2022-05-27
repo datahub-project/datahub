@@ -1,29 +1,20 @@
 import React, { useState } from 'react';
-import { message, Button, Modal, Select, Typography } from 'antd';
+import { message, Button, Modal, Select, Typography, Tag as CustomTag } from 'antd';
 import styled from 'styled-components';
 
 import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
-import {
-    GlobalTags,
-    EntityType,
-    GlossaryTerms,
-    SubResourceType,
-    SearchResult,
-    Tag,
-    GlossaryTerm,
-} from '../../../types.generated';
+import { EntityType, SubResourceType, SearchResult, Tag, GlossaryTerm } from '../../../types.generated';
 import CreateTagModal from './CreateTagModal';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { IconStyleType } from '../../entity/Entity';
-import { useAddTagMutation, useAddTermMutation } from '../../../graphql/mutations.generated';
+import { useAddTagsMutation, useAddTermsMutation } from '../../../graphql/mutations.generated';
 import analytics, { EventType, EntityActionType } from '../../analytics';
 import { useEnterKeyListener } from '../useEnterKeyListener';
+import TermLabel from '../TermLabel';
+import TagLabel from '../TagLabel';
 
-type AddTagModalProps = {
-    globalTags?: GlobalTags | null;
-    glossaryTerms?: GlossaryTerms | null;
+type AddTagsModalProps = {
     visible: boolean;
-    onClose: () => void;
+    onCloseModal: () => void;
     entityUrn: string;
     entityType: EntityType;
     entitySubresource?: string;
@@ -34,56 +25,25 @@ const TagSelect = styled(Select)`
     width: 480px;
 `;
 
-const SuggestionContainer = styled.div`
-    display: 'flex',
-    flex-direction: 'row',
-    align-items: 'center',
-`;
-
-const SuggestionText = styled.span`
-    margin-left: 10px;
-`;
-
 const CREATE_TAG_VALUE = '____reserved____.createTagValue';
 
-const NAME_TYPE_SEPARATOR = '_::_:_::_';
-
-const getSelectedValue = (rawValue: string) => {
-    const [name, type] = rawValue.split(NAME_TYPE_SEPARATOR);
-    return {
-        name,
-        type,
-    };
-};
-
-const renderItem = (suggestion: string, icon: JSX.Element, type: string) => ({
-    value: suggestion,
-    label: (
-        <SuggestionContainer>
-            <span>{icon}</span>
-            <SuggestionText>{suggestion}</SuggestionText>
-        </SuggestionContainer>
-    ),
-    type,
-});
-
-export default function AddTagTermModal({
-    globalTags,
-    glossaryTerms,
+export default function AddTagsTermsModal({
     visible,
-    onClose,
+    onCloseModal,
     entityUrn,
     entityType,
     entitySubresource,
     type = EntityType.Tag,
-}: AddTagModalProps) {
+}: AddTagsModalProps) {
+    const entityRegistry = useEntityRegistry();
     const [inputValue, setInputValue] = useState('');
-    const [selectedValue, setSelectedValue] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [disableAdd, setDisableAdd] = useState(false);
-    const entityRegistry = useEntityRegistry();
-    const [addTagMutation] = useAddTagMutation();
-    const [addTermMutation] = useAddTermMutation();
+    const [urns, setUrns] = useState<string[]>([]);
+
+    const [addTagsMutation] = useAddTagsMutation();
+    const [addTermsMutation] = useAddTermsMutation();
+
     const [tagTermSearch, { data: tagTermSearchData }] = useGetSearchResultsLazyQuery();
     const tagSearchResults = tagTermSearchData?.search?.searchResults || [];
 
@@ -107,14 +67,19 @@ export default function AddTagTermModal({
             result.entity.type === EntityType.Tag
                 ? (result.entity as Tag).name
                 : (result.entity as GlossaryTerm).hierarchicalName;
-        const item = renderItem(
-            displayName,
-            entityRegistry.getIcon(result.entity.type, 14, IconStyleType.ACCENT),
-            result.entity.type,
-        );
+        const tagOrTermComponent =
+            result.entity.type === EntityType.Tag ? (
+                <TagLabel
+                    name={displayName}
+                    colorHash={(result.entity as Tag).urn}
+                    color={(result.entity as Tag).properties?.colorHex}
+                />
+            ) : (
+                <TermLabel name={displayName} />
+            );
         return (
-            <Select.Option value={`${item.value}${NAME_TYPE_SEPARATOR}${item.type}`} key={item.value}>
-                {item.label}
+            <Select.Option value={result.entity.urn} key={result.entity.urn}>
+                {tagOrTermComponent}
             </Select.Option>
         );
     };
@@ -128,7 +93,7 @@ export default function AddTagTermModal({
         return displayName.toLowerCase() === inputValue.toLowerCase();
     });
 
-    if (!inputExistsInTagSearch && inputValue.length > 0 && type === EntityType.Tag) {
+    if (!inputExistsInTagSearch && inputValue.length > 0 && type === EntityType.Tag && urns.length === 0) {
         tagSearchOptions.push(
             <Select.Option value={CREATE_TAG_VALUE} key={CREATE_TAG_VALUE}>
                 <Typography.Link> Create {inputValue}</Typography.Link>
@@ -136,39 +101,89 @@ export default function AddTagTermModal({
         );
     }
 
-    const onOk = () => {
-        const { name: selectedName, type: selectedType } = getSelectedValue(selectedValue);
-        let mutation: ((input: any) => Promise<any>) | null = null;
+    const tagRender = (props) => {
+        // eslint-disable-next-line react/prop-types
+        const { label, closable, onClose } = props;
+        const onPreventMouseDown = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+        };
+        return (
+            <CustomTag
+                onMouseDown={onPreventMouseDown}
+                closable={closable}
+                onClose={onClose}
+                style={{
+                    marginRight: 3,
+                    display: 'flex',
+                    justifyContent: 'start',
+                    alignItems: 'center',
+                    whiteSpace: 'nowrap',
+                    opacity: 1,
+                    color: '#434343',
+                    lineHeight: '16px',
+                }}
+            >
+                {label}
+            </CustomTag>
+        );
+    };
 
-        if (selectedType === EntityType.Tag) {
-            mutation = addTagMutation;
-            if (globalTags?.tags?.some((tag) => tag.tag.name === selectedName)) {
-                onClose();
-                return;
-            }
+    // Handle the Enter press
+    useEnterKeyListener({
+        querySelectorToExecuteClick: '#addTagButton',
+    });
+
+    if (showCreateModal) {
+        return (
+            <CreateTagModal
+                visible={visible}
+                onClose={onCloseModal}
+                onBack={() => setShowCreateModal(false)}
+                tagName={inputValue}
+                entityUrn={entityUrn}
+                entitySubresource={entitySubresource}
+            />
+        );
+    }
+
+    // When a Tag or term search result is selected, add the urn to the Urns
+    const onSelectValue = (urn: string) => {
+        if (urn === CREATE_TAG_VALUE) {
+            setShowCreateModal(true);
+            return;
         }
-        if (selectedType === EntityType.GlossaryTerm) {
-            mutation = addTermMutation;
-            if (glossaryTerms?.terms?.some((term) => term.term.hierarchicalName === selectedName)) {
-                onClose();
-                return;
-            }
+        const newUrns = [...(urns || []), urn];
+        setUrns(newUrns);
+    };
+
+    // When a Tag or term search result is deselected, remove the urn from the Owners
+    const onDeselectValue = (urn: string) => {
+        const newUrns = urns?.filter((u) => u !== urn);
+        setUrns(newUrns);
+    };
+
+    // Function to handle the modal action's
+    const onOk = () => {
+        let mutation: ((input: any) => Promise<any>) | null = null;
+        if (type === EntityType.Tag) {
+            mutation = addTagsMutation;
+        }
+        if (type === EntityType.GlossaryTerm) {
+            mutation = addTermsMutation;
         }
 
         if (!entityUrn || !mutation) {
-            onClose();
+            onCloseModal();
             return;
         }
-
         setDisableAdd(true);
 
-        let urnToAdd = '';
         let input = {};
         let actionType = EntityActionType.UpdateSchemaTags;
-        if (selectedType === EntityType.Tag) {
-            urnToAdd = `urn:li:tag:${selectedName}`;
+        if (type === EntityType.Tag) {
             input = {
-                tagUrn: urnToAdd,
+                tagUrns: urns,
                 resourceUrn: entityUrn,
                 subResource: entitySubresource,
                 subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
@@ -179,10 +194,9 @@ export default function AddTagTermModal({
                 actionType = EntityActionType.UpdateTags;
             }
         }
-        if (selectedType === EntityType.GlossaryTerm) {
-            urnToAdd = `urn:li:glossaryTerm:${selectedName}`;
+        if (type === EntityType.GlossaryTerm) {
             input = {
-                termUrn: urnToAdd,
+                termUrns: urns,
                 resourceUrn: entityUrn,
                 subResource: entitySubresource,
                 subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
@@ -209,7 +223,7 @@ export default function AddTagTermModal({
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: `Added ${selectedType === EntityType.GlossaryTerm ? 'Term' : 'Tag'}!`,
+                        content: `Added ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'}!`,
                         duration: 2,
                     });
                 }
@@ -220,45 +234,28 @@ export default function AddTagTermModal({
             })
             .finally(() => {
                 setDisableAdd(false);
-                onClose();
+                onCloseModal();
+                setUrns([]);
             });
     };
 
-    // Handle the Enter press
-    useEnterKeyListener({
-        querySelectorToExecuteClick: '#addTagButton',
-    });
-
-    if (showCreateModal) {
-        return (
-            <CreateTagModal
-                visible={visible}
-                onClose={onClose}
-                onBack={() => setShowCreateModal(false)}
-                tagName={inputValue}
-                entityUrn={entityUrn}
-                entitySubresource={entitySubresource}
-            />
-        );
-    }
-
     return (
         <Modal
-            title={`Add ${entityRegistry.getEntityName(type)}`}
+            title={`Add ${entityRegistry.getEntityName(type)}s`}
             visible={visible}
-            onCancel={onClose}
-            okButtonProps={{ disabled: selectedValue.length === 0 }}
+            onCancel={onCloseModal}
+            okButtonProps={{ disabled: urns.length === 0 }}
             okText="Add"
             footer={
                 <>
-                    <Button onClick={onClose} type="text">
+                    <Button onClick={onCloseModal} type="text">
                         Cancel
                     </Button>
                     <Button
                         id="addTagButton"
                         data-testid="add-tag-term-from-modal-btn"
                         onClick={onOk}
-                        disabled={selectedValue.length === 0 || disableAdd}
+                        disabled={urns.length === 0 || disableAdd}
                     >
                         Add
                     </Button>
@@ -266,20 +263,21 @@ export default function AddTagTermModal({
             }
         >
             <TagSelect
-                allowClear
                 autoFocus
-                showSearch
-                placeholder={`Search for ${entityRegistry.getEntityName(type)?.toLowerCase()}...`}
-                defaultActiveFirstOption={false}
-                showArrow={false}
+                mode="multiple"
                 filterOption={false}
+                placeholder={`Search for ${entityRegistry.getEntityName(type)?.toLowerCase()}...`}
+                showSearch
+                defaultActiveFirstOption={false}
+                onSelect={(asset: any) => onSelectValue(asset)}
+                onDeselect={(asset: any) => onDeselectValue(asset)}
                 onSearch={(value: string) => {
+                    // eslint-disable-next-line react/prop-types
                     handleSearch(value.trim());
+                    // eslint-disable-next-line react/prop-types
                     setInputValue(value.trim());
                 }}
-                onSelect={(selected) =>
-                    selected === CREATE_TAG_VALUE ? setShowCreateModal(true) : setSelectedValue(String(selected))
-                }
+                tagRender={tagRender}
             >
                 {tagSearchOptions}
             </TagSelect>
