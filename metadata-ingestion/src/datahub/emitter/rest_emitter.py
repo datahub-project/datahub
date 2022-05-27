@@ -4,11 +4,12 @@ import json
 import logging
 import shlex
 from json.decoder import JSONDecodeError
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import HTTPError, RequestException
+from requests.sessions import Session
 
 from datahub.configuration.common import ConfigurationError, OperationalError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -18,6 +19,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
+from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
 
@@ -73,9 +75,12 @@ class DataHubRestEmitter:
         retry_max_times: Optional[int] = None,
         extra_headers: Optional[Dict[str, str]] = None,
         ca_certificate_path: Optional[str] = None,
+        server_telemetry_id: Optional[str] = None,
     ):
         self._gms_server = gms_server
         self._token = token
+        self.server_config: Dict[str, Any] = {},
+        self.server_telemetry_id: str = ""
 
         self._session = requests.Session()
 
@@ -141,6 +146,8 @@ class DataHubRestEmitter:
         if response.status_code == 200:
             config: dict = response.json()
             if config.get("noCode") == "true":
+                self.server_config = config
+                self.server_telemetry_id = get_client_id([self._session, self._gms_server])
                 return config
 
             else:
@@ -253,6 +260,24 @@ class DataHubRestEmitter:
             raise OperationalError(
                 "Unable to emit metadata to DataHub GMS", {"message": str(e)}
             ) from e
+
+
+def get_client_id(
+        cached_session_host: Optional[Tuple[Session, str]] = None,
+) -> str:
+
+    session, gms_host = cached_session_host
+    encoded_urn = Urn.url_encode("urn:li:telemetry:clientId")
+    endpoint: str = f"/entitiesV2/{encoded_urn}"
+    aspect = "telemetryClientId"
+    endpoint = endpoint + "?aspects=List(" + aspect + ")"
+
+    response = session.get(gms_host + endpoint)
+    response.raise_for_status()
+    aspects = response.json().get("aspects", {})
+    server_telemetry_id = aspects.get("telemetryClientId", {})
+    value = server_telemetry_id.get("value", {})
+    return value.get("clientId", "")
 
 
 class DatahubRestEmitter(DataHubRestEmitter):
