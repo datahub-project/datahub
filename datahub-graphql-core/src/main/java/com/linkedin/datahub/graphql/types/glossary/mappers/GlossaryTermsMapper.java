@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.glossary.mappers;
 
+import com.linkedin.datahub.graphql.generated.CorpUser;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import javax.annotation.Nonnull;
 import java.util.stream.Collectors;
 
@@ -35,6 +37,13 @@ public class GlossaryTermsMapper implements ModelMapper<com.linkedin.common.Glos
         resultGlossaryTerm.setUrn(input.getUrn().toString());
         resultGlossaryTerm.setName(GlossaryTermUtils.getGlossaryTermName(input.getUrn().getNameEntity()));
         result.setTerm(resultGlossaryTerm);
+        if (input.hasActor()) {
+          CorpUser actor = new CorpUser();
+          actor.setUrn(input.getActor().toString());
+          actor.setType(EntityType.CORP_USER);
+          result.setActor(actor);
+        }
+
         return result;
     }
 

@@ -2,7 +2,7 @@ import { Modal, Tag, Typography, Button, message, Tooltip } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { BookOutlined, ClockCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { BookOutlined, ClockCircleOutlined, PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import {
     Domain,
@@ -20,6 +20,12 @@ import { DomainLink } from './DomainLink';
 import { TagProfileDrawer } from './TagProfileDrawer';
 import { useAcceptProposalMutation, useRejectProposalMutation } from '../../../graphql/actionRequest.generated';
 import ProposalModal from './ProposalModal';
+
+const PropagateThunderbolt = styled(ThunderboltOutlined)`
+    color: rgba(0, 143, 100, 0.95);
+    margin-right: -4px;
+    font-weight: bold;
+`;
 
 type Props = {
     uneditableTags?: GlobalTags | null;
@@ -67,6 +73,8 @@ const ProposedTerm = styled(Tag)`
     opacity: 0.7;
     border-style: dashed;
 `;
+
+const PROPAGATOR_URN = 'urn:li:corpuser:__datahub_propagator';
 
 export default function TagTermGroup({
     uneditableTags,
@@ -249,25 +257,37 @@ export default function TagTermGroup({
                         to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
                         key={term.term.urn}
                     >
-                        <Tag closable={false}>
-                            <BookOutlined style={{ marginRight: '3%' }} />
-                            {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
-                        </Tag>
+                        <Tooltip
+                            title="This term was propagated from a related dataset."
+                            visible={term.actor?.urn === PROPAGATOR_URN ? undefined : false}
+                        >
+                            <Tag closable={false}>
+                                <BookOutlined style={{ marginRight: '3%' }} />
+                                {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
+                                {term.actor?.urn === PROPAGATOR_URN && <PropagateThunderbolt />}
+                            </Tag>
+                        </Tooltip>
                     </TermLink>
                 );
             })}
             {editableGlossaryTerms?.terms?.map((term) => (
                 <TermLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
-                    <Tag
-                        closable={canRemove}
-                        onClose={(e) => {
-                            e.preventDefault();
-                            removeTerm(term.term.urn);
-                        }}
+                    <Tooltip
+                        title="This term was propagated from a related dataset."
+                        visible={term.actor?.urn === PROPAGATOR_URN ? undefined : false}
                     >
-                        <BookOutlined style={{ marginRight: '3%' }} />
-                        {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
-                    </Tag>
+                        <Tag
+                            closable={canRemove}
+                            onClose={(e) => {
+                                e.preventDefault();
+                                removeTerm(term.term.urn);
+                            }}
+                        >
+                            <BookOutlined style={{ marginRight: '3%' }} />
+                            {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
+                            {term.actor?.urn === PROPAGATOR_URN && <PropagateThunderbolt />}
+                        </Tag>
+                    </Tooltip>
                 </TermLink>
             ))}
             {proposedGlossaryTerms?.map((actionRequest) => (

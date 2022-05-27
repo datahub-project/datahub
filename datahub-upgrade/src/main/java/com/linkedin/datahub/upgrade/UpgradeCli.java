@@ -3,6 +3,7 @@ package com.linkedin.datahub.upgrade;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
 import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
 import com.linkedin.datahub.upgrade.nocodecleanup.NoCodeCleanupUpgrade;
+import com.linkedin.datahub.upgrade.propagate.PropagateTerms;
 import com.linkedin.datahub.upgrade.restoreaspect.RestoreAspect;
 import com.linkedin.datahub.upgrade.restorebackup.RestoreBackup;
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
@@ -49,6 +50,10 @@ public class UpgradeCli implements CommandLineRunner {
   @Named("restoreAspect")
   private RestoreAspect restoreAspect;
 
+  @Inject
+  @Named("propagateTerms")
+  private PropagateTerms propagateTerms;
+
   @Override
   public void run(String... cmdLineArgs) {
     _upgradeManager.register(noCodeUpgrade);
@@ -56,6 +61,7 @@ public class UpgradeCli implements CommandLineRunner {
     _upgradeManager.register(restoreIndices);
     _upgradeManager.register(restoreBackup);
     _upgradeManager.register(restoreAspect);
+    _upgradeManager.register(propagateTerms);
 
     final Args args = new Args();
     new CommandLine(args).setCaseInsensitiveEnumValuesAllowed(true).parseArgs(cmdLineArgs);

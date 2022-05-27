@@ -175,6 +175,11 @@
           "type" : "Urn",
           "doc" : "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
           "optional" : true
+        }, {
+          "name" : "message",
+          "type" : "string",
+          "doc" : "Additional message to keep track of in the event",
+          "optional" : true
         } ]
       },
       "doc" : "Audit stamp containing who last modified the status and when.",
@@ -1039,6 +1044,11 @@
         "filterNameOverride" : "Glossary Term",
         "hasValuesFieldName" : "hasGlossaryTerms"
       }
+    }, {
+      "name" : "actor",
+      "type" : "Urn",
+      "doc" : "The user URN which will be credited for adding associating this term to the entity",
+      "optional" : true
     } ]
   }, "com.linkedin.common.GlossaryTermUrn", {
     "type" : "record",

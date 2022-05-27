@@ -67,6 +67,8 @@ public class SearchRequestHandler {
   private static final String REMOVED = "removed";
   // List of fields in the search document to fetch
   private static final String[] FIELDS_TO_FETCH = new String[]{"urn", "usageCountLast30Days"};
+  // List of fields to fetch on simple queries (filter and scroll)
+  private static final String[] URN_FIELD = new String[]{"urn"};
 
   private SearchRequestHandler(@Nonnull EntitySpec entitySpec) {
     _entitySpec = entitySpec;
@@ -170,11 +172,40 @@ public class SearchRequestHandler {
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.from(from).size(size);
+    searchSourceBuilder.fetchSource(URN_FIELD, null);
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
     searchRequest.source(searchSourceBuilder);
 
     return searchRequest;
   }
+
+  /**
+   * Returns a {@link SearchRequest} given filters to be applied to search query and sort criterion to be applied to
+   * search results with scrolling capabilities
+   *
+   * @param filters {@link Filter} list of conditions with fields and values
+   * @param sortCriterion {@link SortCriterion} to be applied to the search results
+   * @param size the number of search hits to return
+   * @param keepAliveDuration duration the search context should be kept alive i.e. 10s, 1m
+   * @return {@link SearchRequest} that contains the filtered query
+   */
+  @Nonnull
+  public SearchRequest getScrollRequest(@Nullable Filter filters, @Nullable SortCriterion sortCriterion,
+      int size, String keepAliveDuration) {
+    SearchRequest searchRequest = new SearchRequest();
+
+    BoolQueryBuilder filterQuery = getFilterQuery(filters);
+    final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    searchSourceBuilder.query(filterQuery);
+    searchSourceBuilder.size(size);
+    searchSourceBuilder.fetchSource(URN_FIELD, null);
+    ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
+    searchRequest.source(searchSourceBuilder);
+    searchRequest.scroll(keepAliveDuration);
+
+    return searchRequest;
+  }
+
 
   /**
    * Get search request to aggregate and get document counts per field value

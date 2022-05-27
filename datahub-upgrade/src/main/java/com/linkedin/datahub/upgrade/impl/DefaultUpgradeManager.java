@@ -13,8 +13,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 
 
+@Slf4j
 public class DefaultUpgradeManager implements UpgradeManager {
 
   private final Map<String, Upgrade> _upgrades = new HashMap<>();
@@ -115,6 +117,7 @@ public class DefaultUpgradeManager implements UpgradeManager {
           break;
         }
       } catch (Exception e) {
+        log.error("Caught exception during attempt {} of Step with id {}", i, step.id(), e);
         context.report()
             .addLine(
                 String.format("Caught exception during attempt %s of Step with id %s: %s", i, step.id(), e));
