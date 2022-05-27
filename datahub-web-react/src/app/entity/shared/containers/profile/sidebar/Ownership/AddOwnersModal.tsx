@@ -83,7 +83,7 @@ export const AddOwnersModal = ({
     }, [ownershipTypes]);
 
     /**
-     *When a owner search result is selected, add the new owner  to the selectedOwners
+     * When a owner search result is selected, add the new owner  to the selectedOwners
      * value: {ownerUrn: string, ownerEntityType: EntityType}
      */
     const onSelectOwner = (selectedValue: { key: string; label: React.ReactNode; value: string }) => {
@@ -192,7 +192,7 @@ export const AddOwnersModal = ({
                     },
                 },
             });
-            message.success({ content: "Owner's Added", duration: 2 });
+            message.success({ content: "Owners Added", duration: 2 });
             analytics.event({
                 type: EventType.EntityActionEvent,
                 actionType: EntityActionType.UpdateOwnership,
