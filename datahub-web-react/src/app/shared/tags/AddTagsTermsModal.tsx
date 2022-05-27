@@ -6,12 +6,11 @@ import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated'
 import { EntityType, SubResourceType, SearchResult, Tag, GlossaryTerm } from '../../../types.generated';
 import CreateTagModal from './CreateTagModal';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { IconStyleType } from '../../entity/Entity';
 import { useAddTagsMutation, useAddTermsMutation } from '../../../graphql/mutations.generated';
 import analytics, { EventType, EntityActionType } from '../../analytics';
 import { useEnterKeyListener } from '../useEnterKeyListener';
-import TermPill from '../TermPill';
-import TagPill from '../TagPill';
+import TermLabel from '../TermLabel';
+import TagLabel from '../TagLabel';
 
 type AddTagsModalProps = {
     visible: boolean;
@@ -27,49 +26,6 @@ const TagSelect = styled(Select)`
 `;
 
 const CREATE_TAG_VALUE = '____reserved____.createTagValue';
-
-const NAME_TYPE_SEPARATOR = '_::_:_::_';
-
-const decodeSelectedValue = (rawValue: string) => {
-    const [name, type] = rawValue.split(NAME_TYPE_SEPARATOR);
-    return {
-        name,
-        type,
-    };
-};
-
-const renderTerm = (name: string, icon: JSX.Element, type: string) => ({
-    value: name,
-    label: (
-        <TermPill
-            name={name}
-            style={{
-                marginLeft: '5px',
-                marginRight: '5px',
-            }}
-        />
-    ),
-    type,
-});
-
-const renderTag = (name: string, $colorHash, $color, type: string) => ({
-    value: name,
-    label: (
-        <TagPill
-            name={name}
-            colorHash={$colorHash}
-            color={$color}
-            style={{
-                border: 'none',
-                whiteSpace: 'nowrap',
-                marginRight: '-10px',
-                padding: '0px 7px 0px 0px',
-                lineHeight: '16px',
-            }}
-        />
-    ),
-    type,
-});
 
 export default function AddTagsTermsModal({
     visible,
@@ -111,25 +67,19 @@ export default function AddTagsTermsModal({
             result.entity.type === EntityType.Tag
                 ? (result.entity as Tag).name
                 : (result.entity as GlossaryTerm).hierarchicalName;
-        const term = renderTerm(
-            displayName,
-            entityRegistry.getIcon(result.entity.type, 14, IconStyleType.ACCENT),
-            result.entity.type,
-        );
-
-        const tag = renderTag(
-            displayName,
-            (result.entity as Tag).urn,
-            (result.entity as Tag).properties?.colorHex,
-            result.entity.type,
-        );
-        return result.entity.type === EntityType.Tag ? (
-            <Select.Option value={`${tag.value}${NAME_TYPE_SEPARATOR}${tag.type}`} key={tag.value}>
-                {tag.label}
-            </Select.Option>
-        ) : (
-            <Select.Option value={`${term.value}${NAME_TYPE_SEPARATOR}${term.type}`} key={term.value}>
-                {term.label}
+        const tagOrTermComponent =
+            result.entity.type === EntityType.Tag ? (
+                <TagLabel
+                    name={displayName}
+                    colorHash={(result.entity as Tag).urn}
+                    color={(result.entity as Tag).properties?.colorHex}
+                />
+            ) : (
+                <TermLabel name={displayName} />
+            );
+        return (
+            <Select.Option value={result.entity.urn} key={result.entity.urn}>
+                {tagOrTermComponent}
             </Select.Option>
         );
     };
@@ -197,32 +147,19 @@ export default function AddTagsTermsModal({
         );
     }
 
-    // name + NAME_TYPE_SEPARATOR + type
-    const getUrnFromValue = (value: string) => {
-        const { name: selectedName, type: selectedType } = decodeSelectedValue(value);
-        let tempUrn = '';
-        if (selectedType === EntityType.Tag) {
-            tempUrn = `urn:li:tag:${selectedName}`;
-        }
-        if (selectedType === EntityType.GlossaryTerm) {
-            tempUrn = `urn:li:glossaryTerm:${selectedName}`;
-        }
-        return tempUrn;
-    };
-
     // When a Tag or term search result is selected, add the urn to the Urns
-    const onSelectValue = (selectedValue: string) => {
-        if (selectedValue === CREATE_TAG_VALUE) {
+    const onSelectValue = (urn: string) => {
+        if (urn === CREATE_TAG_VALUE) {
             setShowCreateModal(true);
             return;
         }
-        const newUrns = [...(urns || []), getUrnFromValue(selectedValue)];
+        const newUrns = [...(urns || []), urn];
         setUrns(newUrns);
     };
 
     // When a Tag or term search result is deselected, remove the urn from the Owners
     const onDeselectValue = (urn: string) => {
-        const newUrns = urns?.filter((u) => u !== getUrnFromValue(urn));
+        const newUrns = urns?.filter((u) => u !== urn);
         setUrns(newUrns);
     };
 
