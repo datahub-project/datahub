@@ -1,13 +1,11 @@
 import React from 'react';
-import { Form, Select, Switch, Typography } from 'antd';
+import { Form, Select, Switch, Tag, Typography } from 'antd';
 import styled from 'styled-components';
-import { Link } from 'react-router-dom';
 
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ActorFilter, CorpUser, EntityType, PolicyType, SearchResult } from '../../types.generated';
 import { useGetSearchResultsLazyQuery } from '../../graphql/search.generated';
 import { CustomAvatar } from '../shared/avatar';
-import OwnerPill from '../shared/OwnerPill';
 
 type Props = {
     policyType: PolicyType;
@@ -160,23 +158,17 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
         return (
             <SearchResultContainer>
-                <Link
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    to={() => `/${entityRegistry.getPathName(result.entity.type)}/${result.entity.urn}`}
-                >
-                    <SearchResultContent>
-                        <CustomAvatar
-                            size={18}
-                            name={displayName}
-                            photoUrl={avatarUrl}
-                            isGroup={result.entity.type === EntityType.CorpGroup}
-                        />
-                        <SearchResultDisplayName>
-                            <div>{displayName}</div>
-                        </SearchResultDisplayName>
-                    </SearchResultContent>
-                </Link>
+                <SearchResultContent>
+                    <CustomAvatar
+                        size={18}
+                        name={displayName}
+                        photoUrl={avatarUrl}
+                        isGroup={result.entity.type === EntityType.CorpGroup}
+                    />
+                    <SearchResultDisplayName>
+                        <div>{displayName}</div>
+                    </SearchResultDisplayName>
+                </SearchResultContent>
             </SearchResultContainer>
         );
     };
@@ -191,6 +183,31 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     // Select dropdown values.
     const usersSelectValue = actors.allUsers ? ['All'] : actors.users || [];
     const groupsSelectValue = actors.allGroups ? ['All'] : actors.groups || [];
+
+    const tagRender = (props) => {
+        // eslint-disable-next-line react/prop-types
+        const { label, closable, onClose } = props;
+        const onPreventMouseDown = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+        };
+        return (
+            <Tag
+                onMouseDown={onPreventMouseDown}
+                closable={closable}
+                onClose={onClose}
+                style={{
+                    padding: '0px 7px 0px 0px',
+                    marginRight: 3,
+                    display: 'flex',
+                    justifyContent: 'start',
+                    alignItems: 'center',
+                }}
+            >
+                {label}
+            </Tag>
+        );
+    };
 
     return (
         <ActorForm layout="vertical">
@@ -221,9 +238,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     onSelect={(asset: any) => onSelectUserActor(asset)}
                     onDeselect={(asset: any) => onDeselectUserActor(asset)}
                     onSearch={handleUserSearch}
-                    tagRender={(tagProps) => (
-                        <OwnerPill closable={tagProps.closable} onClose={tagProps.onClose} label={tagProps.label} />
-                    )}
+                    tagRender={tagRender}
                 >
                     {userSearchResults?.map((result) => (
                         <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
@@ -244,9 +259,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     onDeselect={(asset: any) => onDeselectGroupActor(asset)}
                     onSearch={handleGroupSearch}
                     filterOption={false}
-                    tagRender={(tagProps) => (
-                        <OwnerPill closable={tagProps.closable} onClose={tagProps.onClose} label={tagProps.label} />
-                    )}
+                    tagRender={tagRender}
                 >
                     {groupSearchResults?.map((result) => (
                         <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>

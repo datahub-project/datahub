@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Form, message, Modal, Select, Typography } from 'antd';
+import { Button, Form, message, Modal, Select, Tag, Typography } from 'antd';
 import styled from 'styled-components';
-import { Link } from 'react-router-dom';
 
 import {
     CorpUser,
@@ -16,7 +15,6 @@ import analytics, { EventType, EntityActionType } from '../../../../../../analyt
 import { OWNERSHIP_DISPLAY_TYPES } from './ownershipUtils';
 import { useAddOwnersMutation } from '../../../../../../../graphql/mutations.generated';
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
-import OwnerPill from '../../../../../../shared/OwnerPill';
 
 const SearchResultContainer = styled.div`
     display: flex;
@@ -152,21 +150,15 @@ export const AddOwnersModal = ({
         const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
         return (
             <SearchResultContainer>
-                <Link
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    to={() => `/${entityRegistry.getPathName(result.entity.type)}/${result.entity.urn}`}
-                >
-                    <SearchResultContent>
-                        <CustomAvatar
-                            size={24}
-                            name={displayName}
-                            photoUrl={avatarUrl}
-                            isGroup={result.entity.type === EntityType.CorpGroup}
-                        />
-                        <div>{displayName}</div>
-                    </SearchResultContent>
-                </Link>
+                <SearchResultContent>
+                    <CustomAvatar
+                        size={24}
+                        name={displayName}
+                        photoUrl={avatarUrl}
+                        isGroup={result.entity.type === EntityType.CorpGroup}
+                    />
+                    <div>{displayName}</div>
+                </SearchResultContent>
             </SearchResultContainer>
         );
     };
@@ -218,6 +210,31 @@ export const AddOwnersModal = ({
         }
     };
 
+    const tagRender = (props) => {
+        // eslint-disable-next-line react/prop-types
+        const { label, closable, onClose } = props;
+        const onPreventMouseDown = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+        };
+        return (
+            <Tag
+                onMouseDown={onPreventMouseDown}
+                closable={closable}
+                onClose={onClose}
+                style={{
+                    padding: '0px 7px 0px 0px',
+                    marginRight: 3,
+                    display: 'flex',
+                    justifyContent: 'start',
+                    alignItems: 'center',
+                }}
+            >
+                {label}
+            </Tag>
+        );
+    };
+
     return (
         <Modal
             title="Add Owners"
@@ -249,13 +266,7 @@ export const AddOwnersModal = ({
                             onSelect={(asset: any) => onSelectOwner(asset)}
                             onDeselect={(asset: any) => onDeselectOwner(asset)}
                             onSearch={handleActorSearch}
-                            tagRender={(tagProps) => (
-                                <OwnerPill
-                                    closable={tagProps.closable}
-                                    onClose={tagProps.onClose}
-                                    label={tagProps.label}
-                                />
-                            )}
+                            tagRender={tagRender}
                         >
                             {combinedSearchResults?.map((result) => (
                                 <Select.Option key={result?.entity?.urn} value={result.entity.urn}>
