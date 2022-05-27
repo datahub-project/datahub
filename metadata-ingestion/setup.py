@@ -334,7 +334,6 @@ base_dev_requirements = {
             "ldap",
             "looker",
             "glue",
-            "hana",
             "mariadb",
             "okta",
             "oracle",
@@ -409,8 +408,8 @@ full_test_dev_requirements = {
         for plugin in [
             "clickhouse",
             "druid",
-            "hana",
             "feast-legacy",
+            "hana",
             "hive",
             "ldap",
             "mongodb",
