@@ -1,7 +1,7 @@
 #!/bin/bash
 
 CURRENT_DIR=$(pwd)
-BUILD_DIR=../build/stage/datahub-frontend
+BUILD_DIR=../build/stage/playBinary
 CONF_DIR=$BUILD_DIR/conf
 
 set -a
@@ -17,4 +17,4 @@ export JAVA_OPTS="
 	-Dlogback.configurationFile=$CURRENT_DIR/logback.xml
 	-Dlogback.debug=true"
 
-$BUILD_DIR/bin/playBinary
+$BUILD_DIR/bin/datahub-frontend
