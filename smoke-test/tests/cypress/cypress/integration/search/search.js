@@ -53,7 +53,7 @@ describe('search', () => {
 
     cy.focused().type('CypressTerm');
 
-    cy.get('.ant-select-item-option-content').within(() => cy.contains('CypressNode.CypressTerm').click({force: true}));
+    cy.get('.ant-select-item-option-content').within(() => cy.contains('CypressTerm').click({force: true}));
 
     cy.get('[data-testid="add-tag-term-from-modal-btn"]').click({force: true});
     cy.get('[data-testid="add-tag-term-from-modal-btn"]').should('not.exist');
