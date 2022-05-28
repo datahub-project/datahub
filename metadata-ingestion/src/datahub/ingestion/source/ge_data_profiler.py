@@ -806,7 +806,14 @@ class DatahubGEProfiler:
                 bigquery_temp_table = (
                     f"{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
                 )
-                ge_config["bigquery_temp_table"] = bigquery_temp_table
+                # With this pr there is no option anymore to set the bigquery temp table:
+                # https://github.com/great-expectations/great_expectations/pull/4925
+                # This dirty hack to make it possible to control the temp table to use in Bigquery
+                # otherwise it will expect dataset_id in the connection url which is not option in our case
+                # as we batch these queries.
+                # Currently only with this option is possible to control the temp table which is created:
+                # https://github.com/great-expectations/great_expectations/blob/7e53b615c36a53f78418ce46d6bc91a7011163c0/great_expectations/datasource/sqlalchemy_datasource.py#L397
+                ge_config["snowflake_transient_table"] = bigquery_temp_table
             else:
                 assert table
                 table_parts = table.split(".")
@@ -814,7 +821,7 @@ class DatahubGEProfiler:
                     bigquery_temp_table = (
                         f"{schema}.{table_parts[0]}.ge-temp-{uuid.uuid4()}"
                     )
-                    ge_config["bigquery_temp_table"] = bigquery_temp_table
+                    ge_config["snowflake_transient_table"] = bigquery_temp_table
 
         if custom_sql is not None:
             ge_config["query"] = custom_sql
@@ -880,6 +887,7 @@ class DatahubGEProfiler:
             expectation_suite_name=expectation_suite_name,
             overwrite_existing=True,
         )
+
         batch = ge_context.data_context.get_batch(
             expectation_suite_name=expectation_suite_name,
             batch_kwargs={
@@ -887,12 +895,4 @@ class DatahubGEProfiler:
                 **batch_kwargs,
             },
         )
-        if platform is not None and platform == "bigquery":
-            name_parts = pretty_name.split(".")
-            if len(name_parts) != 3:
-                logger.error(
-                    f"Unexpected {pretty_name} while profiling. Should have 3 parts but has {len(name_parts)} parts."
-                )
-            else:
-                batch.engine.dialect.dataset_id = name_parts[1]
         return batch

@@ -138,7 +138,6 @@ where
     is_partitioning_column = 'YES'
     -- Filter out special partitions (https://cloud.google.com/bigquery/docs/partitioned-tables#date_timestamp_partitioned_tables)
     and p.partition_id not in ('__NULL__', '__UNPARTITIONED__', '__STREAMING_UNPARTITIONED__')
-    and STORAGE_TIER='ACTIVE'
     and p.table_name= '{table}'
 group by
     c.table_catalog,
