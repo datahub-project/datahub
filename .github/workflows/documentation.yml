@@ -52,9 +52,9 @@ jobs:
           ./gradlew --info docs-website:build
 
       - name: Deploy
-        if: github.event_name == 'push' && github.repository == 'datahub-project/datahub'
+        if: github.event_name == 'push'
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs-website/build
-          cname: datahubproject.io
+          # cname: datahubproject.io
