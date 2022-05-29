@@ -2,4 +2,4 @@ version: "1"
 rules:
   - base: master
     upstream: datahub-project/datahub:master
-    mergeMethod: hardreset
+    mergeMethod: merge
