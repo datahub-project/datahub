@@ -45,3 +45,19 @@ mutation unsetDomain($entityUrn: String!) {
 mutation setTagColor($urn: String!, $colorHex: String!) {
     setTagColor(urn: $urn, colorHex: $colorHex)
 }
+
+mutation updateDeprecation($input: UpdateDeprecationInput!) {
+    updateDeprecation(input: $input)
+}
+
+mutation addOwners($input: AddOwnersInput!) {
+    addOwners(input: $input)
+}
+
+mutation addTags($input: AddTagsInput!) {
+    addTags(input: $input)
+}
+
+mutation addTerms($input: AddTermsInput!) {
+    addTerms(input: $input)
+}

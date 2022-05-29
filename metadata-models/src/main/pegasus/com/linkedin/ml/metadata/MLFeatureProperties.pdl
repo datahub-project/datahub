@@ -33,7 +33,8 @@ record MLFeatureProperties {
   @Relationship = {
     "/*": {
       "name": "DerivedFrom",
-      "entityTypes": [ "dataset" ]
+      "entityTypes": [ "dataset" ],
+      "isLineage": true
     }
   }
   sources: optional array[Urn]

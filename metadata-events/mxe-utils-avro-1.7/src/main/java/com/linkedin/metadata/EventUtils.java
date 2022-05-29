@@ -11,6 +11,7 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.MetadataAuditEvent;
 import com.linkedin.mxe.MetadataChangeEvent;
+import com.linkedin.mxe.PlatformEvent;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -39,6 +40,8 @@ public class EventUtils {
 
   private static final RecordDataSchema MCL_PEGASUS_SCHEMA = new MetadataChangeLog().schema();
 
+  private static final RecordDataSchema PE_PEGASUS_SCHEMA = new PlatformEvent().schema();
+
   private static final Schema ORIGINAL_MCE_AVRO_SCHEMA =
       getAvroSchemaFromResource("avro/com/linkedin/mxe/MetadataChangeEvent.avsc");
 
@@ -57,12 +60,17 @@ public class EventUtils {
   private static final Schema ORIGINAL_FMCL_AVRO_SCHEMA =
       getAvroSchemaFromResource("avro/com/linkedin/mxe/FailedMetadataChangeProposal.avsc");
 
+  private static final Schema ORIGINAL_PE_AVRO_SCHEMA =
+      getAvroSchemaFromResource("avro/com/linkedin/mxe/PlatformEvent.avsc");
+
   private static final Schema RENAMED_MCE_AVRO_SCHEMA = com.linkedin.pegasus2avro.mxe.MetadataChangeEvent.SCHEMA$;
 
   private static final Schema RENAMED_MAE_AVRO_SCHEMA = com.linkedin.pegasus2avro.mxe.MetadataAuditEvent.SCHEMA$;
 
   private static final Schema RENAMED_FAILED_MCE_AVRO_SCHEMA =
       com.linkedin.pegasus2avro.mxe.FailedMetadataChangeEvent.SCHEMA$;
+
+  private static final Schema RENAMED_PE_AVRO_SCHEMA = com.linkedin.pegasus2avro.mxe.PlatformEvent.SCHEMA$;
 
   private static final Schema RENAMED_MCP_AVRO_SCHEMA =
       com.linkedin.pegasus2avro.mxe.MetadataChangeProposal.SCHEMA$;
@@ -137,6 +145,19 @@ public class EventUtils {
     return new MetadataChangeProposal(DataTranslator.genericRecordToDataMap(
         renameSchemaNamespace(record, RENAMED_MCP_AVRO_SCHEMA, ORIGINAL_MCP_AVRO_SCHEMA),
         MCP_PEGASUS_SCHEMA, ORIGINAL_MCP_AVRO_SCHEMA));
+  }
+
+  /**
+   * Converts a {@link GenericRecord} PE into the equivalent Pegasus model.
+   *
+   * @param record the {@link GenericRecord} that contains the PE in com.linkedin.pegasus2avro namespace
+   * @return the Pegasus {@link PlatformEvent} model
+   */
+  @Nonnull
+  public static PlatformEvent avroToPegasusPE(@Nonnull GenericRecord record) throws IOException {
+    return new PlatformEvent(DataTranslator.genericRecordToDataMap(
+        renameSchemaNamespace(record, RENAMED_PE_AVRO_SCHEMA, ORIGINAL_PE_AVRO_SCHEMA),
+        PE_PEGASUS_SCHEMA, ORIGINAL_PE_AVRO_SCHEMA));
   }
 
   /**
@@ -228,6 +249,20 @@ public class EventUtils {
         DataTranslator.dataMapToGenericRecord(failedMetadataChangeProposal.data(), failedMetadataChangeProposal.schema(),
             ORIGINAL_FMCL_AVRO_SCHEMA);
     return renameSchemaNamespace(original, ORIGINAL_FMCL_AVRO_SCHEMA, RENAMED_FMCP_AVRO_SCHEMA);
+  }
+
+  /**
+   * Converts a Pegasus Platform Event into the equivalent Avro model as a {@link GenericRecord}.
+   *
+   * @param event the Pegasus {@link PlatformEvent} model
+   * @return the Avro model with com.linkedin.pegasus2avro.event namesapce
+   * @throws IOException if the conversion fails
+   */
+  @Nonnull
+  public static GenericRecord pegasusToAvroPE(@Nonnull PlatformEvent event) throws IOException {
+    GenericRecord original =
+        DataTranslator.dataMapToGenericRecord(event.data(), event.schema(), ORIGINAL_PE_AVRO_SCHEMA);
+    return renameSchemaNamespace(original, ORIGINAL_PE_AVRO_SCHEMA, RENAMED_PE_AVRO_SCHEMA);
   }
 
   /**

@@ -1,5 +1,6 @@
 package auth.sso.oidc.custom;
 
+import com.nimbusds.oauth2.sdk.AuthorizationGrant;
 import com.nimbusds.oauth2.sdk.AuthorizationCode;
 import com.nimbusds.oauth2.sdk.AuthorizationCodeGrant;
 import com.nimbusds.oauth2.sdk.ParseException;
@@ -66,12 +67,16 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
     final ClientAuthenticationMethod chosenMethod;
     if (CommonHelper.isNotEmpty(metadataMethods)) {
       if (preferredMethod != null) {
-        if (metadataMethods.contains(preferredMethod)) {
+        if (ClientAuthenticationMethod.NONE.equals(preferredMethod) || metadataMethods.contains(preferredMethod)) {
           chosenMethod = preferredMethod;
         } else {
           throw new TechnicalException(
-              "Preferred authentication method (" + preferredMethod + ") not supported " +
-                  "by provider according to provider metadata (" + metadataMethods + ").");
+              "Preferred authentication method ("
+                  + preferredMethod
+                  + ") not supported "
+                  + "by provider according to provider metadata ("
+                  + metadataMethods
+                  + ").");
         }
       } else {
         chosenMethod = firstSupportedMethod(metadataMethods);
@@ -82,15 +87,15 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
           chosenMethod);
     }
 
-    final ClientID _clientID = new ClientID(configuration.getClientId());
-    if (ClientAuthenticationMethod.NONE.equals(chosenMethod)) {
-      clientAuthentication = new EmptyAuthentication(_clientID);
-    } else if (ClientAuthenticationMethod.CLIENT_SECRET_POST.equals(chosenMethod)) {
-      final Secret _secret = new Secret(configuration.getSecret());
-      clientAuthentication = new ClientSecretPost(_clientID, _secret);
+    final ClientID clientID = new ClientID(configuration.getClientId());
+    if (ClientAuthenticationMethod.CLIENT_SECRET_POST.equals(chosenMethod)) {
+      final Secret secret = new Secret(configuration.getSecret());
+      clientAuthentication = new ClientSecretPost(clientID, secret);
     } else if (ClientAuthenticationMethod.CLIENT_SECRET_BASIC.equals(chosenMethod)) {
-      final Secret _secret = new Secret(configuration.getSecret());
-      clientAuthentication = new ClientSecretBasic(_clientID, _secret);
+      final Secret secret = new Secret(configuration.getSecret());
+      clientAuthentication = new ClientSecretBasic(clientID, secret);
+    } else if (ClientAuthenticationMethod.NONE.equals(chosenMethod)) {
+      clientAuthentication = null; // No client authentication in none mode
     } else {
       throw new TechnicalException("Unsupported client authentication method: " + chosenMethod);
     }
@@ -127,8 +132,8 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
     if (firstSupported.isPresent()) {
       return firstSupported.get();
     } else {
-      throw new TechnicalException("None of the Token endpoint provider metadata authentication methods are supported: " +
-          metadataMethods);
+      throw new TechnicalException("None of the Token endpoint provider metadata authentication methods are supported: "
+          +  metadataMethods);
     }
   }
 
@@ -140,8 +145,7 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
       try {
         final String computedCallbackUrl = client.computeFinalCallbackUrl(context);
         // Token request
-        final TokenRequest request = new TokenRequest(configuration.findProviderMetadata().getTokenEndpointURI(),
-            this.clientAuthentication, new AuthorizationCodeGrant(code, new URI(computedCallbackUrl)));
+        final TokenRequest request = createTokenRequest(new AuthorizationCodeGrant(code, new URI(computedCallbackUrl)));
         HTTPRequest tokenHttpRequest = request.toHTTPRequest();
         tokenHttpRequest.setConnectTimeout(configuration.getConnectTimeout());
         tokenHttpRequest.setReadTimeout(configuration.getReadTimeout());
@@ -169,11 +173,13 @@ public class CustomOidcAuthenticator implements Authenticator<OidcCredentials> {
     }
   }
 
-  public ClientAuthentication getClientAuthentication() {
-    return clientAuthentication;
-  }
-
-  public void setClientAuthentication(final ClientAuthentication clientAuthentication) {
-    this.clientAuthentication = clientAuthentication;
+  private TokenRequest createTokenRequest(final AuthorizationGrant grant) {
+    if (clientAuthentication != null) {
+      return new TokenRequest(configuration.findProviderMetadata().getTokenEndpointURI(),
+          this.clientAuthentication, grant);
+    } else {
+      return new TokenRequest(configuration.findProviderMetadata().getTokenEndpointURI(),
+          new ClientID(configuration.getClientId()), grant);
+    }
   }
 }

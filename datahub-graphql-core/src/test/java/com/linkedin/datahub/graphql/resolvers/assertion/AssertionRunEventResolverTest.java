@@ -14,7 +14,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import graphql.schema.DataFetchingEnvironment;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -56,7 +56,7 @@ public class AssertionRunEventResolverTest {
     )).thenReturn(
         ImmutableList.of(
             new EnvelopedAspect()
-              .setAspect(GenericAspectUtils.serializeAspect(gmsRunEvent))
+              .setAspect(GenericRecordUtils.serializeAspect(gmsRunEvent))
         )
     );
 

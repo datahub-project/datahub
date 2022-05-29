@@ -27,17 +27,18 @@ import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
-import java.util.Collections;
-import java.util.List;
-import javax.annotation.Nonnull;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
-import org.testng.annotations.AfterTest;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
+
+import javax.annotation.Nonnull;
+import java.util.Collections;
+import java.util.List;
 
 import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
 import static com.linkedin.metadata.ElasticSearchTestUtils.syncAfterWrite;
@@ -63,13 +64,13 @@ public class LineageSearchServiceTest {
   private static final String ENTITY_NAME = "testEntity";
   private static final Urn TEST_URN = TestEntityUtil.getTestEntityUrn();
 
-  @BeforeTest
+  @BeforeClass
   public void disableAssert() {
     PathSpecBasedSchemaAnnotationVisitor.class.getClassLoader()
         .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
   }
 
-  @BeforeTest
+  @BeforeClass
   public void setup() {
     _entityRegistry = new SnapshotEntityRegistry(new Snapshot());
     _indexConvention = new IndexConventionImpl(null);
@@ -82,6 +83,10 @@ public class LineageSearchServiceTest {
     _elasticSearchService.configure();
     _cacheManager = new ConcurrentMapCacheManager();
     _graphService = mock(GraphService.class);
+    resetService();
+  }
+
+  private void resetService() {
     _lineageSearchService = new LineageSearchService(
         new SearchService(_entityRegistry, _elasticSearchService, new SimpleRanker(), _cacheManager, 100, true),
         _graphService, _cacheManager.getCache("test"));
@@ -108,9 +113,10 @@ public class LineageSearchServiceTest {
 
   private void clearCache() {
     _cacheManager.getCacheNames().forEach(cache -> _cacheManager.getCache(cache).clear());
+    resetService();
   }
 
-  @AfterTest
+  @AfterClass
   public void tearDown() {
     _elasticsearchContainer.stop();
   }

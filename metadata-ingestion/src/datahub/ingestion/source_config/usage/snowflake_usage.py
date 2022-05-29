@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Dict, Optional
 
 import pydantic
 
@@ -27,27 +27,45 @@ class SnowflakeStatefulIngestionConfig(StatefulIngestionConfig):
 class SnowflakeUsageConfig(
     BaseSnowflakeConfig, BaseUsageConfig, StatefulIngestionConfigBase
 ):
-    options: dict = {}
-    database_pattern: AllowDenyPattern = AllowDenyPattern(
-        deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
+    options: dict = pydantic.Field(
+        default_factory=dict,
+        description="Any options specified here will be passed to SQLAlchemy's create_engine as kwargs. See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.",
     )
-    email_domain: Optional[str]
-    schema_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    view_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    apply_view_usage_to_tables: bool = False
-    stateful_ingestion: Optional[SnowflakeStatefulIngestionConfig] = None
 
-    @pydantic.validator("role", always=True)
-    def role_accountadmin(cls, v):
-        if not v or v.lower() != "accountadmin":
-            # This isn't an error, since the privileges can be delegated to other
-            # roles as well: https://docs.snowflake.com/en/sql-reference/account-usage.html#enabling-account-usage-for-other-roles
-            logger.info(
-                'snowflake usage tables are only accessible by role "accountadmin" by default; you set %s',
-                v,
-            )
-        return v
+    database_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern(
+            deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
+        ),
+        description="List of regex patterns for databases to include/exclude in usage ingestion.",
+    )
+    email_domain: Optional[str] = pydantic.Field(
+        description="Email domain of your organisation so users can be displayed on UI appropriately."
+    )
+    schema_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="List of regex patterns for schemas to include/exclude in usage ingestion.",
+    )
+    table_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="List of regex patterns for tables to include in ingestion.",
+    )
+    view_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="List of regex patterns for views to include in ingestion.",
+    )
+    apply_view_usage_to_tables: bool = pydantic.Field(
+        default=False,
+        description="Allow/deny patterns for views in snowflake dataset names.",
+    )
+    stateful_ingestion: Optional[SnowflakeStatefulIngestionConfig] = pydantic.Field(
+        default=None, description="Stateful ingestion related configs"
+    )
+
+    def get_options(self) -> dict:
+        options_connect_args: Dict = super().get_sql_alchemy_connect_args()
+        options_connect_args.update(self.options.get("connect_args", {}))
+        self.options["connect_args"] = options_connect_args
+        return self.options
 
     def get_sql_alchemy_url(self):
         return super().get_sql_alchemy_url(

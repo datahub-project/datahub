@@ -1,0 +1,11 @@
+source:
+  type: data-lake
+  config:
+    env: "PROD"
+    platform: "local-data-lake"
+    base_path: "/path/to/data/folder"
+    profiling:
+      enabled: true
+
+sink:
+  # sink configs

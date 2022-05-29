@@ -1,6 +1,6 @@
 import EntityRegistry from '../../entity/EntityRegistry';
 import { Direction, EntityAndType, FetchedEntities, NodeData } from '../types';
-import constructFetchedNode from './constructFetchedNode';
+import constructFetchedNode, { shouldIncludeChildEntity } from './constructFetchedNode';
 
 export default function constructTree(
     entityAndType: EntityAndType | null | undefined,
@@ -15,6 +15,7 @@ export default function constructTree(
 
     const root: NodeData = {
         name: fetchedEntity?.name || '',
+        expandedName: fetchedEntity?.expandedName || '',
         urn: fetchedEntity?.urn,
         type: fetchedEntity?.type,
         subtype: fetchedEntity?.subtype,
@@ -39,6 +40,10 @@ export default function constructTree(
             return constructFetchedNode(child.entity.urn, fetchedEntities, direction, constructedNodes, [
                 root.urn || '',
             ]);
+        })
+        ?.filter((child) => {
+            const childEntity = fetchedEntities[child?.urn || ''];
+            return shouldIncludeChildEntity(direction, children, childEntity, fetchedEntity);
         })
         ?.filter(Boolean) as Array<NodeData>;
     return root;

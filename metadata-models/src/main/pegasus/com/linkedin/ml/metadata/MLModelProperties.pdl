@@ -67,6 +67,13 @@ record MLModelProperties includes CustomProperties, ExternalReference {
   /**
    * List of features used for MLModel training
    */
+  @Relationship = {
+    "/*": {
+      "name": "Consumes",
+      "entityTypes": [ "mlFeature" ],
+      "isLineage": true
+    }
+  }
   mlFeatures: optional array[MLFeatureUrn]
 
   /**

@@ -13,6 +13,8 @@ import java.util.stream.Collectors;
 
 @Getter
 public class ProtobufOneOfField extends ProtobufField {
+    public static final String NATIVE_TYPE = "oneof";
+    public static final String FIELD_PATH_TYPE = "[type=union]";
 
     @Builder(builderMethodName = "oneOfBuilder")
     public ProtobufOneOfField(ProtobufMessage protobufMessage,
@@ -27,12 +29,12 @@ public class ProtobufOneOfField extends ProtobufField {
 
     @Override
     public String fieldPathType() {
-        return "[type=union]";
+        return FIELD_PATH_TYPE;
     }
 
     @Override
     public String nativeType() {
-        return "oneof";
+        return NATIVE_TYPE;
     }
 
     @Override

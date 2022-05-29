@@ -11,7 +11,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.CorpGroupKey;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -56,10 +56,10 @@ public class CreateGroupResolver implements DataFetcher<CompletableFuture<String
 
           // Finally, create the MetadataChangeProposal.
           final MetadataChangeProposal proposal = new MetadataChangeProposal();
-          proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
+          proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
           proposal.setEntityType(Constants.CORP_GROUP_ENTITY_NAME);
           proposal.setAspectName(Constants.CORP_GROUP_INFO_ASPECT_NAME);
-          proposal.setAspect(GenericAspectUtils.serializeAspect(info));
+          proposal.setAspect(GenericRecordUtils.serializeAspect(info));
           proposal.setChangeType(ChangeType.UPSERT);
           return _entityClient.ingestProposal(proposal, context.getAuthentication());
         } catch (Exception e) {

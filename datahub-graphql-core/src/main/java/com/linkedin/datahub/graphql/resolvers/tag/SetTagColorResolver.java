@@ -13,7 +13,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.tag.TagProperties;
 import graphql.schema.DataFetcher;
@@ -74,7 +74,7 @@ public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolea
         proposal.setEntityUrn(tagUrn);
         proposal.setEntityType(tagUrn.getEntityType());
         proposal.setAspectName(Constants.TAG_PROPERTIES_ASPECT_NAME);
-        proposal.setAspect(GenericAspectUtils.serializeAspect(tagProperties));
+        proposal.setAspect(GenericRecordUtils.serializeAspect(tagProperties));
         proposal.setChangeType(ChangeType.UPSERT);
         _entityClient.ingestProposal(proposal, context.getAuthentication());
         return true;

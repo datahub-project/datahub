@@ -10,7 +10,7 @@ record BrowsePaths {
   /**
    * A list of valid browse paths for the entity.
    *
-   * Browse paths are expected to be backslash-separated strings. For example: 'prod/snowflake/datasetName'
+   * Browse paths are expected to be forward slash-separated strings. For example: 'prod/snowflake/datasetName'
    */
   @Searchable = {
     "/*": {

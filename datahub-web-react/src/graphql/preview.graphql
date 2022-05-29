@@ -35,6 +35,9 @@ fragment entityPreview on Entity {
         domain {
             ...entityDomain
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on CorpUser {
         username
@@ -94,6 +97,9 @@ fragment entityPreview on Entity {
         domain {
             ...entityDomain
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on Chart {
         urn
@@ -128,6 +134,9 @@ fragment entityPreview on Entity {
         domain {
             ...entityDomain
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on DataFlow {
         urn
@@ -158,6 +167,9 @@ fragment entityPreview on Entity {
         domain {
             ...entityDomain
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on DataJob {
         urn
@@ -185,6 +197,9 @@ fragment entityPreview on Entity {
         domain {
             ...entityDomain
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on GlossaryTerm {
         name
@@ -200,6 +215,9 @@ fragment entityPreview on Entity {
                 key
                 value
             }
+        }
+        deprecation {
+            ...deprecationFields
         }
     }
     ... on MLFeatureTable {
@@ -222,6 +240,9 @@ fragment entityPreview on Entity {
         platform {
             ...platformFields
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on MLModel {
         name
@@ -233,6 +254,9 @@ fragment entityPreview on Entity {
         platform {
             ...platformFields
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
     ... on MLModelGroup {
         name
@@ -243,6 +267,9 @@ fragment entityPreview on Entity {
         }
         platform {
             ...platformFields
+        }
+        deprecation {
+            ...deprecationFields
         }
     }
     ... on Tag {

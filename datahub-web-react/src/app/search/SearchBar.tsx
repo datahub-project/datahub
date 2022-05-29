@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Input, AutoComplete, Image, Typography } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
@@ -14,6 +14,7 @@ import { CustomAvatar } from '../shared/avatar';
 import { StyledTag } from '../entity/shared/components/styled/StyledTag';
 import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
 import { useGetAuthenticatedUserUrn } from '../useGetAuthenticatedUser';
+import { getPlatformName } from '../entity/shared/utils';
 
 const SuggestionContainer = styled.div`
     display: flex;
@@ -36,7 +37,7 @@ const ExploreForEntity = styled.span`
 
 const StyledAutoComplete = styled(AutoComplete)`
     width: 100%;
-    max-width: 475px;
+    max-width: 650px;
 `;
 
 const AutoCompleteContainer = styled.div`
@@ -109,9 +110,12 @@ const renderEntitySuggestion = (query: string, entity: Entity, registry: EntityR
         return renderTagSuggestion(entity as Tag, registry);
     }
     const genericEntityProps = registry.getGenericEntityProperties(entity.type, entity);
-    const platformName = genericEntityProps?.platform?.properties?.displayName || genericEntityProps?.platform?.name;
+    const platformName = getPlatformName(genericEntityProps);
     const platformLogoUrl = genericEntityProps?.platform?.properties?.logoUrl;
-    const displayName = registry.getDisplayName(entity.type, entity);
+    const displayName =
+        genericEntityProps?.properties?.qualifiedName ||
+        genericEntityProps?.name ||
+        registry.getDisplayName(entity.type, entity);
     const icon =
         (platformLogoUrl && <PreviewImage preview={false} src={platformLogoUrl} alt={platformName || ''} />) ||
         registry.getIcon(entity.type, 12, IconStyleType.ACCENT);
@@ -157,6 +161,7 @@ interface Props {
     autoCompleteStyle?: React.CSSProperties;
     entityRegistry: EntityRegistry;
     fixAutoComplete?: boolean;
+    setIsSearchBarFocused?: (isSearchBarFocused: boolean) => void;
 }
 
 const defaultProps = {
@@ -177,10 +182,12 @@ export const SearchBar = ({
     inputStyle,
     autoCompleteStyle,
     fixAutoComplete,
+    setIsSearchBarFocused,
 }: Props) => {
     const history = useHistory();
     const [searchQuery, setSearchQuery] = useState<string>();
     const [selected, setSelected] = useState<string>();
+    useEffect(() => setSelected(initialQuery), [initialQuery]);
     const searchEntityTypes = entityRegistry.getSearchEntityTypes();
     const userUrn = useGetAuthenticatedUserUrn();
     const { data } = useListRecommendationsQuery({
@@ -244,8 +251,20 @@ export const SearchBar = ({
         return emptyQueryOptions;
     }, [emptyQueryOptions, autoCompleteEntityOptions, autoCompleteQueryOptions]);
 
+    const searchBarWrapperRef = useRef<HTMLDivElement>(null);
+
+    function handleSearchBarClick(isSearchBarFocused: boolean) {
+        if (
+            setIsSearchBarFocused &&
+            (!isSearchBarFocused ||
+                (searchBarWrapperRef && searchBarWrapperRef.current && searchBarWrapperRef.current.clientWidth < 590))
+        ) {
+            setIsSearchBarFocused(isSearchBarFocused);
+        }
+    }
+
     return (
-        <AutoCompleteContainer style={style}>
+        <AutoCompleteContainer style={style} ref={searchBarWrapperRef}>
             <StyledAutoComplete
                 defaultActiveFirstOption={false}
                 style={autoCompleteStyle}
@@ -278,8 +297,8 @@ export const SearchBar = ({
             >
                 <StyledSearchBar
                     placeholder={placeholderText}
-                    onPressEnter={(e) => {
-                        e.stopPropagation();
+                    onPressEnter={() => {
+                        // e.stopPropagation();
                         onSearch(filterSearchQuery(searchQuery || ''));
                     }}
                     style={inputStyle}
@@ -287,6 +306,8 @@ export const SearchBar = ({
                     onChange={(e) => setSearchQuery(e.target.value)}
                     data-testid="search-input"
                     prefix={<SearchOutlined onClick={() => onSearch(filterSearchQuery(searchQuery || ''))} />}
+                    onFocus={() => handleSearchBarClick(true)}
+                    onBlur={() => handleSearchBarClick(false)}
                 />
             </StyledAutoComplete>
         </AutoCompleteContainer>

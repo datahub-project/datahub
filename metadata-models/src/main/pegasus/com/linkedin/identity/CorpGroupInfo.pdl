@@ -33,7 +33,7 @@ record CorpGroupInfo {
   @Relationship = {
     "/*": {
       "name": "OwnedBy",
-      "entityTypes": [ "corpUser" ]
+      "entityTypes": [ "corpuser" ]
     }
   }
   @deprecated
@@ -46,7 +46,7 @@ record CorpGroupInfo {
   @Relationship = {
     "/*": {
       "name": "IsPartOf",
-      "entityTypes": [ "corpUser" ]
+      "entityTypes": [ "corpuser" ]
     }
   }
   @deprecated

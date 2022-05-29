@@ -45,11 +45,11 @@ export default function useLazyGetEntityQuery() {
                 setFetchedEntityType(type);
                 getAsyncMLFeatureTable({ variables: { urn } });
             }
-            if (type === EntityType.MlfeatureTable) {
+            if (type === EntityType.Mlfeature) {
                 setFetchedEntityType(type);
                 getAsyncMLFeature({ variables: { urn } });
             }
-            if (type === EntityType.MlfeatureTable) {
+            if (type === EntityType.MlprimaryKey) {
                 setFetchedEntityType(type);
                 getAsyncMLPrimaryKey({ variables: { urn } });
             }

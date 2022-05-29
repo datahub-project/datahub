@@ -5,6 +5,7 @@ import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
+import com.linkedin.metadata.models.annotation.EventAnnotation;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
@@ -31,6 +32,8 @@ import org.reflections.Reflections;
 public class DataSchemaFactory {
   private final Map<String, DataSchema> entitySchemas;
   private final Map<String, DataSchema> aspectSchemas;
+  private final Map<String, DataSchema> eventSchemas;
+
   private final Map<String, Class> aspectClasses;
 
   private static final String NAME_FIELD = "name";
@@ -39,11 +42,14 @@ public class DataSchemaFactory {
   private static final String[] DEFAULT_TOP_LEVEL_NAMESPACES = new String[]{"com", "org", "io", "datahub"};
 
   public DataSchemaFactory() {
-    this("com.linkedin");
+    this(new String[]{"com.linkedin", "com.datahub"});
   }
 
   public DataSchemaFactory(String classPath) {
-    this(new String[]{classPath}, null);
+    this(new String[]{classPath});
+  }
+  public DataSchemaFactory(String[] classPaths) {
+    this(classPaths, null);
   }
 
   /**
@@ -87,12 +93,11 @@ public class DataSchemaFactory {
 
   /**
    * Construct a DataSchemaFactory with a custom class loader and a list of class namespaces to look for entities and aspects.
-   * @param classNamespaces
-   * @param customClassLoader
    */
   public DataSchemaFactory(String[] classNamespaces, ClassLoader customClassLoader) {
     entitySchemas = new HashMap<>();
     aspectSchemas = new HashMap<>();
+    eventSchemas = new HashMap<>();
     aspectClasses = new HashMap();
 
     ClassLoader standardClassLoader = null;
@@ -136,6 +141,9 @@ public class DataSchemaFactory {
           aspectSchemas.put(aspectName, finalSchema);
           aspectClasses.put(aspectName, recordClass);
         });
+        getName(schema, EventAnnotation.ANNOTATION_NAME).ifPresent(eventName -> {
+          eventSchemas.put(eventName, finalSchema);
+        });
       }
     }
   }
@@ -152,6 +160,10 @@ public class DataSchemaFactory {
 
   public Optional<DataSchema> getAspectSchema(String aspectName) {
     return Optional.ofNullable(aspectSchemas.get(aspectName));
+  }
+
+  public Optional<DataSchema> getEventSchema(String eventName) {
+    return Optional.ofNullable(eventSchemas.get(eventName));
   }
 
   public Optional<Class> getAspectClass(String aspectName) {

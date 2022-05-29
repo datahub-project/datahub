@@ -35,7 +35,7 @@ public class EntityKeyUtils {
       return urn;
     }
     if (metadataChangeProposal.hasEntityKeyAspect()) {
-      RecordTemplate keyAspectRecord = GenericAspectUtils.deserializeAspect(
+      RecordTemplate keyAspectRecord = GenericRecordUtils.deserializeAspect(
               metadataChangeProposal.getEntityKeyAspect().getValue(),
               metadataChangeProposal.getEntityKeyAspect().getContentType(),
               keyAspectSpec);
@@ -57,7 +57,7 @@ public class EntityKeyUtils {
       return urn;
     }
     if (metadataChangeLog.hasEntityKeyAspect()) {
-      RecordTemplate keyAspectRecord = GenericAspectUtils.deserializeAspect(
+      RecordTemplate keyAspectRecord = GenericRecordUtils.deserializeAspect(
           metadataChangeLog.getEntityKeyAspect().getValue(),
           metadataChangeLog.getEntityKeyAspect().getContentType(),
           keyAspectSpec);

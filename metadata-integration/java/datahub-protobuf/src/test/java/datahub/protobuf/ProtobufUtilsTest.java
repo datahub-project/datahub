@@ -29,9 +29,17 @@ public class ProtobufUtilsTest {
          */
         ProtobufGraph graph = new ProtobufGraph(fileSet, null);
         assertEquals("[meta.msg.classification_enum]: HighlyConfidential\n"
-                + "[meta.msg.team]: \"TeamB\"\n"
+                + "[meta.msg.team]: \"corpGroup:TeamB\"\n"
+                + "[meta.msg.team]: \"corpUser:datahub\"\n"
+                + "[meta.msg.technical_owner]: \"corpGroup:TechnicalOwner\"\n"
+                + "[meta.msg.domain]: \"Engineering\"\n"
                 + "[meta.msg.type]: ENTITY\n"
                 + "[meta.msg.bool_feature]: true\n"
-                + "[meta.msg.alert_channel]: \"#alerts\"\n", graph.root().messageProto().getOptions().toString());
+                + "[meta.msg.alert_channel]: \"#alerts\"\n"
+                + "[meta.msg.tag_list]: \"a, b, c\"\n"
+                + "[meta.msg.repeat_string]: \"a\"\n"
+                + "[meta.msg.repeat_string]: \"b\"\n"
+                + "[meta.msg.repeat_enum]: ENTITY\n"
+                + "[meta.msg.repeat_enum]: EVENT\n", graph.root().messageProto().getOptions().toString());
     }
 }

@@ -57,6 +57,14 @@ class BigQueryDatasetKey(ProjectIdKey):
     dataset_id: str
 
 
+class FolderKey(PlatformKey):
+    folder_abs_path: str
+
+
+class S3BucketKey(PlatformKey):
+    bucket_name: str
+
+
 class DatahubKeyJSONEncoder(json.JSONEncoder):
 
     # overload method default
@@ -158,7 +166,7 @@ def gen_containers(
         # entityKeyAspect=ContainerKeyClass(guid=schema_container_key.guid()),
         aspectName="dataPlatformInstance",
         aspect=DataPlatformInstance(
-            platform=f"{make_data_platform_urn(container_key.platform)}"
+            platform=f"{make_data_platform_urn(container_key.platform)}",
         ),
     )
     wu = MetadataWorkUnit(

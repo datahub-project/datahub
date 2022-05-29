@@ -12,6 +12,7 @@ public class Topics {
   public static final String METADATA_CHANGE_LOG_TIMESERIES = "MetadataChangeLog_Timeseries_v1";
   public static final String METADATA_CHANGE_PROPOSAL = "MetadataChangeProposal_v1";
   public static final String FAILED_METADATA_CHANGE_PROPOSAL = "FailedMetadataChangeProposal_v1";
+  public static final String PLATFORM_EVENT = "PlatformEvent_v1";
 
   public static final String DEV_METADATA_AUDIT_EVENT = "MetadataAuditEvent_v4_dev";
   public static final String DEV_METADATA_CHANGE_EVENT = "MetadataChangeEvent_v4_dev";
