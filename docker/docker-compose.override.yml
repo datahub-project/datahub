@@ -38,6 +38,6 @@ services:
       - RANGER_SSL_CONFIG=${RANGER_SSL_CONFIG:-""}
     volumes:
       - ${HOME}/.datahub/plugins/:/etc/datahub/plugins
-
+      - ${HOME}/.datahub/plugins/auth/resources/:/etc/datahub/plugins/auth/resources
 volumes:
   mysqldata:

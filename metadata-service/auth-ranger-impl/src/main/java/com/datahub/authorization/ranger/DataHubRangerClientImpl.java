@@ -2,6 +2,7 @@ package com.datahub.authorization.ranger;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.util.StringUtils;
@@ -11,8 +12,6 @@ import org.apache.ranger.plugin.audit.RangerDefaultAuditHandler;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequest;
 import org.apache.ranger.plugin.policyengine.RangerAccessResult;
 import org.apache.ranger.plugin.service.RangerBasePlugin;
-
-import java.util.Set;
 
 
 @Slf4j
@@ -29,22 +28,29 @@ public class DataHubRangerClientImpl implements DataHubRangerClient {
 
   @Override
   public void init() {
+
     // Don't need any synchronization as single Authorizer object is getting created on server startup
-    if (rangerBasePlugin != null) {
-      log.info("Ranger PolicyEngine is already initialized");
-      return;
+    if (rangerBasePlugin == null) {
+      // rangerBasePlugin is static
+      // Make sure classpath should have ranger-datahub-security.xml file
+      rangerBasePlugin = this.newRangerBasePlugin();
+      rangerBasePlugin.setResultProcessor(new RangerDefaultAuditHandler());
+
+      rangerBasePlugin.init();
+      log.info("Ranger policy engine is initialized");
     }
-    // Make sure classpath should have ranger-datahub-security.xml file
-    rangerBasePlugin = new RangerBasePlugin(SERVICE_NAME, SERVICE_NAME);
-    rangerBasePlugin.setResultProcessor(new RangerDefaultAuditHandler());
 
+    rangerClient = this.newRangerClient();
+  }
+
+  public RangerBasePlugin newRangerBasePlugin() {
+    return new RangerBasePlugin(SERVICE_NAME, SERVICE_NAME);
+  }
+
+  public RangerClient newRangerClient() {
     String rangerURL = rangerBasePlugin.getConfig().get(PROP_RANGER_URL);
-    rangerClient = new RangerClient(rangerURL, this.authorizerConfig.getAuthType(), this.authorizerConfig.getUsername(),
+    return new RangerClient(rangerURL, this.authorizerConfig.getAuthType(), this.authorizerConfig.getUsername(),
         this.authorizerConfig.getPassword(), this.authorizerConfig.getSslConfig().get());
-
-    rangerBasePlugin.getCurrentRangerAuthContext();
-    rangerBasePlugin.init();
-    log.info("Ranger policy engine is initialized");
   }
 
   @Override

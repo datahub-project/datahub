@@ -53,7 +53,8 @@ if [[ $ENABLE_PROMETHEUS == true ]]; then
   PROMETHEUS_AGENT="-javaagent:jmx_prometheus_javaagent.jar=4318:/datahub/datahub-gms/scripts/prometheus-config.yaml "
 fi
 
-# Option --classes /etc/datahub/plugins is added for Apache Ranger library to load the ranger-datahub-security.xml from classpath
+AUTH_RESOURCE_LOOK_UP_DIR="/etc/datahub/plugins/auth/resources"
+# Option --classes ${AUTH_RESOURCE_LOOK_UP_DIR} is added for Apache Ranger library to load the ranger-datahub-security.xml from classpath
 COMMON="
     $WAIT_FOR_EBEAN \
     $WAIT_FOR_CASSANDRA \
@@ -65,7 +66,7 @@ COMMON="
     $PROMETHEUS_AGENT \
     -jar /jetty-runner.jar \
     --jar jetty-util.jar \
-    --jar jetty-jmx.jar --classes /etc/datahub/plugins \
+    --jar jetty-jmx.jar --classes ${AUTH_RESOURCE_LOOK_UP_DIR} \
     --config /datahub/datahub-gms/scripts/jetty.xml \
     /datahub/datahub-gms/bin/war.war"
 

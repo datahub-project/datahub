@@ -19,7 +19,7 @@
 <configuration xmlns:xi="http://www.w3.org/2001/XInclude">
     <property>
         <name>ranger.plugin.datahub.policy.rest.url</name>
-        <value>http://54.166.82.173:6080</value>
+        <value>http://[RANGER_SERVICE_HOST]:[RANGER_SERVICE_PORT]</value>
         <description>
             URL to Ranger Admin
         </description>

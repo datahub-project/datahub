@@ -16,8 +16,8 @@ import java.util.Map;
  * It assists in creating policies on Apache Ranger Admin Portal.
  *
  */
-public class DatahubRangerAuthPlugin extends RangerBaseService {
-    private static Logger log = Logger.getLogger(DatahubRangerAuthPlugin.class.getName());
+public class DataHubRangerAuthPlugin extends RangerBaseService {
+    private static Logger log = Logger.getLogger(DataHubRangerAuthPlugin.class.getName());
 
     /**
      * This is dummy function. As this plugin doesn't have any configuration

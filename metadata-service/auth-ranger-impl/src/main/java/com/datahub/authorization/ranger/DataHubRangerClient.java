@@ -1,9 +1,9 @@
 package com.datahub.authorization.ranger;
 
+import java.util.Set;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequest;
 import org.apache.ranger.plugin.policyengine.RangerAccessResult;
 
-import java.util.Set;
 
 public interface DataHubRangerClient {
     public void init();

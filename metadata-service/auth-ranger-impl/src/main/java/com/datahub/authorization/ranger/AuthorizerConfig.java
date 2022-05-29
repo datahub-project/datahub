@@ -1,7 +1,7 @@
 package com.datahub.authorization.ranger;
 
-import java.util.Optional;
 import java.util.Map;
+import java.util.Optional;
 
 
 public class AuthorizerConfig {

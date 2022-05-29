@@ -3,7 +3,7 @@
   "label": "DataHub Ranger Plugin",
   "description": "DataHub metadata service ranger plugin",
   "guid": "4b4d4245-dd79-45fa-8854-8eb7cb1c37ad",
-  "implClass": "com.datahub.authorizer.plugin.ranger.DatahubRangerAuthPlugin",
+  "implClass": "com.datahub.authorizer.plugin.ranger.DataHubRangerAuthPlugin",
   "version": 1,
   "isEnabled": 1,
   "resources": [

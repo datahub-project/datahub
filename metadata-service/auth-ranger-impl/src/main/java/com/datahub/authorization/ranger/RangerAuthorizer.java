@@ -11,9 +11,8 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import lombok.extern.slf4j.Slf4j;
-
 import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequest;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequestImpl;
 import org.apache.ranger.plugin.policyengine.RangerAccessResourceImpl;
@@ -23,28 +22,20 @@ import org.apache.ranger.plugin.policyengine.RangerAccessResult;
 @Slf4j
 public class RangerAuthorizer implements Authorizer {
   private AuthorizerConfig authorizerConfig;
-  //private RangerAuthenticator rangerAuthenticator;
   private DataHubRangerClient dataHubRangerClient;
 
   public RangerAuthorizer() {
-    this(null, null);
-  }
-
-  /**
-   * This constructor to test RangerAuthorizer from integration test
-   * @param authorizerConfig
-   * @param dataHubRangerClient
-   */
-  public RangerAuthorizer(AuthorizerConfig authorizerConfig, DataHubRangerClient dataHubRangerClient) {
-    this.authorizerConfig = authorizerConfig;
-    this.dataHubRangerClient = dataHubRangerClient;
   }
 
   @Override
   public void init(@Nonnull Map<String, Object> authorizerConfigMap, @Nonnull final AuthorizerContext ctx) {
     this.authorizerConfig = new AuthorizerConfig(authorizerConfigMap);
-    this.dataHubRangerClient = new DataHubRangerClientImpl(this.authorizerConfig);
+    this.dataHubRangerClient = this.newDataHubRangerClient();
     this.dataHubRangerClient.init();
+  }
+
+  public DataHubRangerClientImpl newDataHubRangerClient() {
+    return new DataHubRangerClientImpl(this.authorizerConfig);
   }
 
   @Override
@@ -55,7 +46,6 @@ public class RangerAuthorizer implements Authorizer {
     Set<String> roles = this.dataHubRangerClient.getUserRoles(userIdentifier);
     Set<String> groups = this.dataHubRangerClient.getUserGroups(userIdentifier);
 
-    RangerAccessResourceImpl rangerAccessResource = new RangerAccessResourceImpl();
     // set ResourceSpec default to "platform"
     ResourceSpec resourceSpec = request.getResourceSpec().orElse(new ResourceSpec("platform", "platform"));
 
@@ -64,7 +54,9 @@ public class RangerAuthorizer implements Authorizer {
     log.debug(String.format("Access is requested for resource type: %s", resourceSpec.getType()));
     log.debug(String.format("Access is requested for resource : %s", resourceSpec.getResource()));
     log.debug(String.format("Requested privilege : %s", request.getPrivilege()));
+
     // Convert resource type to lowercase as ranger doesn't support capital letter in resource type
+    RangerAccessResourceImpl rangerAccessResource = new RangerAccessResourceImpl();
     rangerAccessResource.setValue(resourceSpec.getType().toLowerCase(), resourceSpec.getResource());
     RangerAccessRequest rangerAccessRequest =
         new RangerAccessRequestImpl(rangerAccessResource, request.getPrivilege(), userIdentifier, groups, roles);
@@ -79,7 +71,7 @@ public class RangerAuthorizer implements Authorizer {
 
     String message = String.format("Access to resource \"%s\" for privilege \"%s\" is \"%s\" for user \"%s\"",
         resourceSpec.getResource(), request.getPrivilege(), result.toString(), userIdentifier);
-    log.info(message);
+    log.debug(message);
     return new AuthorizationResult(request, result, message);
   }
 

@@ -15,9 +15,6 @@ dependencies {
       'io.jsonwebtoken:jjwt-jackson:0.11.2'
 
   compile externalDependency.lombok
-  compile externalDependency.ranger
-  compile externalDependency.rangerApiClient
-  compile externalDependency.log4j
 
   annotationProcessor externalDependency.lombok
 

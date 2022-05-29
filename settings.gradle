@@ -47,3 +47,6 @@ include 'metadata-integration:java:datahub-protobuf'
 include 'ingestion-scheduler'
 include 'datahub-ranger-plugin'
 include 'metadata-ingestion-modules:airflow-plugin'
+include 'metadata-service:auth-ranger-impl'
+findProject(':metadata-service:auth-ranger-impl')?.name = 'auth-ranger-impl'
+
