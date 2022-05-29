@@ -203,8 +203,8 @@ plugins: Dict[str, Set[str]] = {
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
     | {
-        "sqlalchemy-hana>=0.5.0; platform_machine != 'aarch64'",
-        "hdbcli>=2.11.20; platform_machine != 'aarch64'",
+        "sqlalchemy-hana>=0.5.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
+        "hdbcli>=2.11.20; platform_machine != 'aarch64' and platform_machine != 'arm64'",
     },
     "hive": sql_common
     | {
