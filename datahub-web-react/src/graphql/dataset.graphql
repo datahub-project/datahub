@@ -64,7 +64,10 @@ query getDataset($urn: String!) {
         container {
             ...entityContainer
         }
-        usageStats(resource: $urn, range: MONTH) {
+        parentContainers {
+            ...parentContainersFields
+        }
+        usageStats(range: MONTH) {
             buckets {
                 bucket
                 duration
@@ -150,6 +153,20 @@ query getDataset($urn: String!) {
             count
             start
             total
+        }
+        testResults {
+            passing {
+                test {
+                    ...testFields
+                }
+                type
+            }
+            failing {
+                test {
+                    ...testFields
+                }
+                type
+            }
         }
     }
 }

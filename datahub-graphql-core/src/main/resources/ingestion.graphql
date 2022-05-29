@@ -188,6 +188,11 @@ input ListSecretsInput {
   The number of results to be returned
   """
   count: Int
+
+  """
+  An optional search query
+  """
+  query: String
 }
 
 """
@@ -354,6 +359,11 @@ input ListIngestionSourcesInput {
   The number of results to be returned
   """
   count: Int
+
+  """
+  An optional search query
+  """
+  query: String
 }
 
 """

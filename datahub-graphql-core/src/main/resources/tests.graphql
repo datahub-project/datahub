@@ -1,0 +1,231 @@
+"""
+A metadata entity representing a DataHub Test
+"""
+type Test implements Entity {
+    """
+    The primary key of the Test itself
+    """
+    urn: String!
+
+    """
+    The standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    The name of the Test
+    """
+    name: String!
+
+    """
+    The category of the Test (user defined)
+    """
+    category: String!
+
+    """
+    Description of the test
+    """
+    description: String
+
+    """
+    Definition for the test
+    """
+    definition: TestDefinition!
+
+    """
+    Unused for tests
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+Definition of the test
+"""
+type TestDefinition {
+  """
+  JSON-based def for the test
+  """
+  json: String
+}
+
+"""
+The result type of a test that has been run
+"""
+enum TestResultType {
+    """
+    The test succeeded.
+    """
+    SUCCESS
+
+    """
+    The test failed.
+    """
+    FAILURE
+}
+
+"""
+A set of test results
+"""
+type TestResults {
+  """
+  The tests passing
+  """
+  passing: [TestResult!]!
+
+  """
+  The tests failing
+  """
+  failing: [TestResult!]!
+}
+
+"""
+The result of running a test
+"""
+type TestResult {
+  """
+  The test itself, or null if the test has been deleted
+  """
+  test: Test
+
+  """
+  The final result, e.g. either SUCCESS or FAILURE.
+  """
+  type: TestResultType!
+}
+
+extend type Dataset {
+    """
+    The results of evaluating tests
+    """
+    testResults: TestResults
+}
+
+extend type Query {
+  """
+  Fetch a Test by primary key (urn)
+  """
+  test(urn: String!): Test
+
+  """
+  List all DataHub Tests
+  """
+  listTests(input: ListTestsInput!): ListTestsResult
+}
+
+"""
+Input required when listing DataHub Tests
+"""
+input ListTestsInput {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int
+
+  """
+  The maximum number of Domains to be returned in the result set
+  """
+  count: Int
+
+  """
+  Optional query string to match on
+  """
+  query: String
+}
+
+"""
+The result obtained when listing DataHub Tests
+"""
+type ListTestsResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of Tests in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of Tests in the result set
+  """
+  total: Int!
+
+  """
+  The Tests themselves
+  """
+  tests: [Test!]!
+}
+
+input CreateTestInput {
+  """
+  Advanced: a custom id for the test.
+  """
+  id: String
+
+  """
+  The name of the Test
+  """
+  name: String!
+
+  """
+  The category of the Test (user defined)
+  """
+  category: String!
+
+  """
+  Description of the test
+  """
+  description: String
+
+  """
+  The test definition
+  """
+  definition: TestDefinitionInput!
+}
+
+input UpdateTestInput {
+  """
+  The name of the Test
+  """
+  name: String!
+
+  """
+  The category of the Test (user defined)
+  """
+  category: String!
+
+  """
+  Description of the test
+  """
+  description: String
+
+  """
+  The test definition
+  """
+  definition: TestDefinitionInput!
+}
+
+input TestDefinitionInput {
+  """
+  The string representation of the Test
+  """
+  json: String
+}
+
+extend type Mutation {
+  """
+  Create a new test
+  """
+  createTest(input: CreateTestInput!): String
+
+  """
+  Update an existing test
+  """
+  updateTest(urn: String!, input: UpdateTestInput!): String
+
+  """
+  Create an existing test - note that this will NOT delete dangling pointers until the next execution of the test.
+  """
+  deleteTest(urn: String!): Boolean
+}

@@ -2,7 +2,6 @@ import glob
 import importlib
 import itertools
 import logging
-import os
 import pathlib
 import re
 import sys
@@ -173,6 +172,10 @@ class LookMLSourceConfig(LookerCommonConfig):
     transport_options: Optional[TransportOptionsConfig] = Field(
         None,
         description="Populates the [TransportOptions](https://github.com/looker-open-source/sdk-codegen/blob/94d6047a0d52912ac082eb91616c1e7c379ab262/python/looker_sdk/rtl/transport.py#L70) struct for looker client",
+    )
+    max_file_snippet_length: int = Field(
+        512000,  # 512KB should be plenty
+        description="When extracting the view definition from a lookml file, the maximum number of characters to extract.",
     )
 
     @validator("platform_instance")
@@ -489,6 +492,10 @@ class LookerViewFileLoader:
         return replace(viewfile, connection=connection)
 
 
+VIEW_LANGUAGE_LOOKML: str = "lookml"
+VIEW_LANGUAGE_SQL: str = "sql"
+
+
 @dataclass
 class LookerView:
     id: LookerViewId
@@ -560,6 +567,7 @@ class LookerView:
         looker_viewfile: LookerViewFile,
         looker_viewfile_loader: LookerViewFileLoader,
         reporter: LookMLSourceReport,
+        max_file_snippet_length: int,
         parse_table_names_from_sql: bool = False,
         sql_parser_path: str = "datahub.utilities.sql_parser.DefaultSQLParser",
     ) -> Optional["LookerView"]:
@@ -596,6 +604,9 @@ class LookerView:
         )
         fields: List[ViewField] = dimensions + dimension_groups + measures
 
+        # also store the view logic and materialization
+        view_logic = looker_viewfile.raw_file_content[0:max_file_snippet_length]
+
         # Parse SQL from derived tables to extract dependencies
         if derived_table is not None:
             fields, sql_table_names = cls._extract_metadata_from_sql_query(
@@ -607,14 +618,12 @@ class LookerView:
                 derived_table,
                 fields,
             )
-            # also store the view logic and materialization
-            view_logic = looker_viewfile.raw_file_content
             if "sql" in derived_table:
                 view_logic = derived_table["sql"]
-                view_lang = "sql"
+                view_lang = VIEW_LANGUAGE_SQL
             if "explore_source" in derived_table:
                 view_logic = str(derived_table["explore_source"])
-                view_lang = "lookml"
+                view_lang = VIEW_LANGUAGE_LOOKML
 
             materialized = False
             for k in derived_table:
@@ -662,6 +671,11 @@ class LookerView:
             connection=connection,
             fields=fields,
             raw_file_content=looker_viewfile.raw_file_content,
+            view_details=ViewProperties(
+                materialized=False,
+                viewLogic=view_logic,
+                viewLanguage=VIEW_LANGUAGE_LOOKML,
+            ),
         )
         return output_looker_view
 
@@ -960,16 +974,13 @@ class LookMLSource(Source):
             return None
 
     def _get_custom_properties(self, looker_view: LookerView) -> DatasetPropertiesClass:
-        file_path = (
-            str(pathlib.Path(looker_view.absolute_file_path).resolve())
-            .replace(str(self.source_config.base_folder.resolve()), "")
-            .lstrip(os.sep)
+        file_path = str(
+            pathlib.Path(looker_view.absolute_file_path).relative_to(
+                self.source_config.base_folder
+            )
         )
 
         custom_properties = {
-            "looker.file.content": looker_view.raw_file_content[
-                0:512000
-            ],  # grab a limited slice of characters from the file
             "looker.file.path": file_path,
         }
         dataset_props = DatasetPropertiesClass(
@@ -1131,6 +1142,7 @@ class LookMLSource(Source):
                                 looker_viewfile,
                                 viewfile_loader,
                                 self.reporter,
+                                self.source_config.max_file_snippet_length,
                                 self.source_config.parse_table_names_from_sql,
                                 self.source_config.sql_parser,
                             )

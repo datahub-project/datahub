@@ -31,6 +31,21 @@
                             "datasourceFields": [
                                 {
                                     "__typename": "ColumnField",
+                                    "id": "xxxdc8ee-30e5-644b-cf76-48a3dea79cda",
+                                    "name": null,
+                                    "description": null,
+                                    "datasource": {
+                                        "__typename": "EmbeddedDatasource",
+                                        "id": "801c95e3-b07e-7bfe-3789-a561c7beccd3",
+                                        "name": "Marketo"
+                                    },
+                                    "dataCategory": "NOMINAL",
+                                    "role": "DIMENSION",
+                                    "dataType": "STRING",
+                                    "aggregation": null
+                                },
+                                {
+                                    "__typename": "ColumnField",
                                     "id": "277dc8ee-30e5-644b-cf76-48a3dea79cda",
                                     "name": "Name",
                                     "description": null,

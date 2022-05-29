@@ -595,8 +595,8 @@ class MetabaseSource(Source):
         return cls(ctx, config)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        yield from self.emit_dashboard_mces()
         yield from self.emit_card_mces()
+        yield from self.emit_dashboard_mces()
 
     def get_report(self) -> SourceReport:
         return self.report

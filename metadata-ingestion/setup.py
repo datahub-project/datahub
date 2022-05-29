@@ -21,9 +21,11 @@ def get_long_description():
 
 
 base_requirements = {
-    # Compatability.
+    # Compatibility.
     "dataclasses>=0.6; python_version < '3.7'",
-    "typing_extensions>=3.10.0.2",
+    # Typing extension should be >=3.10.0.2 ideally but we can't restrict due to Airflow 2.0.2 dependency conflict
+    "typing_extensions>=3.7.4.3 ;  python_version < '3.8'",
+    "typing_extensions>=3.10.0.2 ;  python_version >= '3.8'",
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
@@ -48,6 +50,7 @@ framework_common = {
     "termcolor>=1.0.0",
     "types-termcolor>=1.0.0",
     "psutil>=5.8.0",
+    "ratelimiter",
     # Markupsafe breaking change broke Jinja and some other libs
     # Pinning it to a version which works even though we are not using explicitly
     # https://github.com/aws/aws-sam-cli/issues/3661
@@ -85,10 +88,7 @@ sql_common = {
     # Required for all SQL sources.
     "sqlalchemy==1.3.24",
     # Required for SQL profiling.
-    # release 0.15.3 is not compatible with python3.6.
-    "great-expectations>=0.14.11"
-    if is_py37_or_newer
-    else "great-expectations>=0.14.11,<0.15.3",
+    "great-expectations>=0.14.11,<0.15.3",
     # datahub does not depend on Jinja2 directly but great expectations does. With Jinja2 3.1.0 GE 0.14.11 is breaking
     "Jinja2<3.1.0",
     "greenlet",
@@ -112,6 +112,8 @@ bigquery_common = {
     "google-cloud-logging",
     "google-cloud-bigquery",
     "more-itertools>=8.12.0",
+    # we do not use protobuf directly but newer version caused bigquery connector to fail
+    "protobuf<=3.20.1",
 }
 
 snowflake_common = {
@@ -144,6 +146,12 @@ data_lake_profiling = {
     "pyspark==3.0.3",
 }
 
+iceberg_common = {
+    # Iceberg Python SDK
+    "acryl-iceberg-legacy==0.0.4",
+    "azure-identity==1.10.0",
+}
+
 s3_base = {
     *data_lake_base,
     "moto[s3]",
@@ -163,14 +171,14 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {
         "apache-airflow >= 1.10.2",
     },
-    "great-expectations": sql_common | {"sqllineage==1.3.4"},
+    "great-expectations": sql_common | {"sqllineage==1.3.5"},
     # Source plugins
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
     "azure-ad": set(),
     "bigquery": sql_common
     | bigquery_common
-    | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.4", "sqlparse"},
+    | {"sqlalchemy-bigquery>=1.4.1", "sqllineage==1.3.5", "sqlparse"},
     "bigquery-usage": bigquery_common | usage_common | {"cachetools"},
     "clickhouse": sql_common | {"clickhouse-sqlalchemy==0.1.8"},
     "clickhouse-usage": sql_common
@@ -182,7 +190,7 @@ plugins: Dict[str, Set[str]] = {
     "datahub-business-glossary": set(),
     "data-lake": {*data_lake_base, *data_lake_profiling},
     "s3": {*s3_base, *data_lake_profiling},
-    "dbt": {"requests"},
+    "dbt": {"requests"} | aws_common,
     "druid": sql_common | {"pydruid>=0.6.2"},
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
     # UnsupportedProductError
@@ -192,6 +200,12 @@ plugins: Dict[str, Set[str]] = {
     "feast-legacy": {"docker"},
     "feast": {"feast==0.18.0", "flask-openid>=1.3.0"},
     "glue": aws_common,
+    # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
+    "hana": sql_common
+    | {
+        "sqlalchemy-hana>=0.5.0; platform_machine != 'aarch64'",
+        "hdbcli>=2.11.20; platform_machine != 'aarch64'",
+    },
     "hive": sql_common
     | {
         # Acryl Data maintains a fork of PyHive
@@ -200,15 +214,16 @@ plugins: Dict[str, Set[str]] = {
         # - 0.6.12 adds support for Spark Thrift Server
         "acryl-pyhive[hive]>=0.6.13"
     },
+    "iceberg": iceberg_common,
     "kafka": {*kafka_common, *kafka_protobuf},
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
     # lkml>=1.1.2 is required to support the sql_preamble expression in LookML
     "lookml": looker_common
-    | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.4"},
-    "metabase": {"requests", "sqllineage==1.3.4"},
-    "mode": {"requests", "sqllineage==1.3.4", "tenacity>=8.0.1"},
+    | {"lkml>=1.1.2", "sql-metadata==2.2.2", "sqllineage==1.3.5"},
+    "metabase": {"requests", "sqllineage==1.3.5"},
+    "mode": {"requests", "sqllineage==1.3.5", "tenacity>=8.0.1"},
     "mongodb": {"pymongo>=3.11", "packaging"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -221,16 +236,16 @@ plugins: Dict[str, Set[str]] = {
     "presto-on-hive": sql_common
     | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
-    "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.4"},
+    "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.5"},
     "redshift": sql_common
-    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.4"},
+    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.5"},
     "redshift-usage": sql_common
     | usage_common
     | {
         "sqlalchemy-redshift",
         "psycopg2-binary",
         "GeoAlchemy2",
-        "sqllineage==1.3.4",
+        "sqllineage==1.3.5",
     },
     "sagemaker": aws_common,
     "snowflake": snowflake_common,
@@ -252,6 +267,7 @@ plugins: Dict[str, Set[str]] = {
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging"},
     "powerbi": {"orderedset"} | microsoft_common,
+    "vertica": sql_common | {"sqlalchemy-vertica[vertica-python]==0.0.5"},
 }
 
 all_exclude_plugins: Set[str] = {
@@ -335,6 +351,7 @@ base_dev_requirements = {
             "hive",
             "starburst-trino-usage",
             "powerbi",
+            "vertica",
             # airflow is added below
         ]
         for dependency in plugins[plugin]
@@ -350,6 +367,7 @@ if is_py37_or_newer:
             dependency
             for plugin in [
                 "feast",
+                "iceberg",
                 "lookml",
             ]
             for dependency in plugins[plugin]
@@ -361,6 +379,7 @@ if is_py37_or_newer:
         {
             dependency
             for plugin in [
+                "iceberg",
                 "lookml",
             ]
             for dependency in plugins[plugin]
@@ -390,6 +409,7 @@ full_test_dev_requirements = {
             "clickhouse",
             "druid",
             "feast-legacy",
+            "hana",
             "hive",
             "ldap",
             "mongodb",
@@ -399,6 +419,7 @@ full_test_dev_requirements = {
             "snowflake",
             "redash",
             "kafka-connect",
+            "vertica",
         ]
         for dependency in plugins[plugin]
     ),
@@ -412,6 +433,7 @@ if is_py37_or_newer:
             for plugin in [
                 "athena",
                 "feast",
+                "iceberg",
             ]
             for dependency in plugins[plugin]
         }
@@ -437,6 +459,7 @@ entry_points = {
         "feast = datahub.ingestion.source.feast:FeastRepositorySource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
+        "hana = datahub.ingestion.source.sql.hana:HanaSource",
         "hive = datahub.ingestion.source.sql.hive:HiveSource",
         "kafka = datahub.ingestion.source.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
@@ -466,6 +489,8 @@ entry_points = {
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",
         "powerbi = datahub.ingestion.source.powerbi:PowerBiDashboardSource",
+        "iceberg = datahub.ingestion.source.iceberg.iceberg:IcebergSource",
+        "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
         "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
     ],

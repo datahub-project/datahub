@@ -88,7 +88,7 @@ distZip {
 }
 
 task copyAssets {
-  dependsOn yarnBuild
+  dependsOn distZip
   copy {
     from 'dist'
     into '../datahub-frontend/public/'

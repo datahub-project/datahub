@@ -32,6 +32,10 @@ const DownArrow = styled(CaretDownOutlined)`
     color: ${ANTD_GRAY[7]};
 `;
 
+const StyledLink = styled(Link)`
+    white-space: nowrap;
+`;
+
 interface Props {
     urn: string;
     pictureLink?: string;
@@ -85,10 +89,10 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
 
     return (
         <Dropdown overlay={menu}>
-            <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${_urn}`}>
+            <StyledLink to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${_urn}`}>
                 <CustomAvatar photoUrl={_pictureLink} style={{ marginRight: 5 }} name={name} />
                 <DownArrow />
-            </Link>
+            </StyledLink>
         </Dropdown>
     );
 };

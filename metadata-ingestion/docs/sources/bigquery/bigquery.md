@@ -86,3 +86,6 @@ Temporary tables are removed after profiling.
 Due to performance reasons, we only profile the latest partition for Partitioned tables and the latest shard for sharded tables.
 You can set partition explicitly with `partition.partition_datetime` property if you want. (partition will be applied to all partitioned tables)
 :::
+
+### Caveats
+- For Materialized views lineage is dependent on logs being retained. If your GCP logging is retained for 30 days (default) and 30 days have passed since the creation of the materialized view we won't be able to get lineage for them.

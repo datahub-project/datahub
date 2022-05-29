@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
+import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -22,6 +23,7 @@ import com.linkedin.datahub.graphql.generated.MLModelGroup;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.Notebook;
 import com.linkedin.datahub.graphql.generated.Tag;
+import com.linkedin.datahub.graphql.generated.Test;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import javax.annotation.Nonnull;
 
@@ -116,6 +118,11 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       ((DataPlatform) partialEntity).setUrn(input.toString());
       ((DataPlatform) partialEntity).setType(EntityType.DATA_PLATFORM);
     }
+    if (input.getEntityType().equals("dataPlatformInstance")) {
+      partialEntity = new DataPlatformInstance();
+      ((DataPlatformInstance) partialEntity).setUrn(input.toString());
+      ((DataPlatformInstance) partialEntity).setType(EntityType.DATA_PLATFORM_INSTANCE);
+    }
     if (input.getEntityType().equals("container")) {
       partialEntity = new Container();
       ((Container) partialEntity).setUrn(input.toString());
@@ -130,6 +137,11 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new Assertion();
       ((Assertion) partialEntity).setUrn(input.toString());
       ((Assertion) partialEntity).setType(EntityType.ASSERTION);
+    }
+    if (input.getEntityType().equals("test")) {
+      partialEntity = new Test();
+      ((Assertion) partialEntity).setUrn(input.toString());
+      ((Assertion) partialEntity).setType(EntityType.TEST);
     }
     return partialEntity;
   }

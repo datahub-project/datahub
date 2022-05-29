@@ -90,7 +90,7 @@ public class RestEmitterTest {
         + ",\"value\":\"{\\\"description\\\":\\\"Test Dataset\\\"}\"}}}";
     Assert.assertEquals(expectedContent, contentString);
   }
-
+  
   @Test
   public void testExceptions() throws URISyntaxException, IOException, ExecutionException, InterruptedException {
 
