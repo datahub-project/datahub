@@ -184,6 +184,7 @@ import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.test.TestType;
 import com.linkedin.datahub.graphql.types.usage.UsageType;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.config.DatahubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.entity.EntityService;
@@ -252,6 +253,7 @@ public class GmsGraphQLEngine {
     private final VisualConfiguration visualConfiguration;
     private final TelemetryConfiguration telemetryConfiguration;
     private final TestsConfiguration testsConfiguration;
+    private final DatahubConfiguration datahubConfiguration;
 
     private final DatasetType datasetType;
     private final CorpUserType corpUserType;
@@ -323,7 +325,8 @@ public class GmsGraphQLEngine {
         final boolean supportsImpactAnalysis,
         final VisualConfiguration visualConfiguration,
         final TelemetryConfiguration telemetryConfiguration,
-        final TestsConfiguration testsConfiguration
+        final TestsConfiguration testsConfiguration,
+        final DatahubConfiguration datahubConfiguration
         ) {
 
         this.entityClient = entityClient;
@@ -347,6 +350,7 @@ public class GmsGraphQLEngine {
         this.visualConfiguration = visualConfiguration;
         this.telemetryConfiguration = telemetryConfiguration;
         this.testsConfiguration = testsConfiguration;
+        this.datahubConfiguration = datahubConfiguration;
 
         this.datasetType = new DatasetType(entityClient);
         this.corpUserType = new CorpUserType(entityClient);
@@ -545,7 +549,8 @@ public class GmsGraphQLEngine {
                     this.supportsImpactAnalysis,
                     this.visualConfiguration,
                     this.telemetryConfiguration,
-                    this.testsConfiguration
+                    this.testsConfiguration,
+                    this.datahubConfiguration
             ))
             .dataFetcher("me", new MeResolver(this.entityClient))
             .dataFetcher("search", new SearchResolver(this.entityClient))
