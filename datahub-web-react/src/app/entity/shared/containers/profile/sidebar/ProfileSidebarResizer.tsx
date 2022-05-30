@@ -5,6 +5,7 @@ import { ANTD_GRAY } from '../../../constants';
 type Props = {
     setSidePanelWidth: (width: number) => void;
     initialSize: number;
+    isSidebarOnLeft?: boolean;
 };
 
 const ResizerBar = styled.div`
@@ -12,7 +13,7 @@ const ResizerBar = styled.div`
     border: 1px solid ${ANTD_GRAY[4]};
     cursor: col-resize;
 `;
-export const ProfileSidebarResizer = ({ setSidePanelWidth, initialSize }: Props) => {
+export const ProfileSidebarResizer = ({ setSidePanelWidth, initialSize, isSidebarOnLeft }: Props) => {
     let dragState: { initialX: number; initialSize: number } | undefined;
 
     const dragContinue = (event: MouseEvent) => {
@@ -20,7 +21,10 @@ export const ProfileSidebarResizer = ({ setSidePanelWidth, initialSize }: Props)
             return;
         }
 
-        const xDifference = event.clientX - (dragState.initialX || 0);
+        let xDifference = event.clientX - (dragState.initialX || 0);
+        if (isSidebarOnLeft) {
+            xDifference = (dragState.initialX || 0) - event.clientX;
+        }
         setSidePanelWidth(dragState.initialSize - xDifference);
     };
 
