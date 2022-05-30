@@ -19,6 +19,7 @@ class Constants:
     USER_OWNER = "user"
     GROUP_OWNER = "group"
     OPERAND_DATATYPE_SUPPORTED = [int, bool, str, float]
+    TAG_PARTITION_KEY = "PARTITION_KEY"
 
 
 class OperationProcessor:
