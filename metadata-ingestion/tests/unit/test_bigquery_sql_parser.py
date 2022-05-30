@@ -23,6 +23,8 @@ SELECT foo
   FROM `project.dataset.src_table`"""
     )
 
+    assert parser.get_tables() == ["project.dataset.src_table"]
+
 
 def test_bigquery_sql_parser_formats_input_sql():
     parser = BigQuerySQLParser(
@@ -40,6 +42,64 @@ INNER JOIN `project.dataset.src_table_b` AS b ON a.key_field = b.key_field
  INNER JOIN `project.dataset.src_table_b` AS b
     ON a.key_field = b.key_field"""
     )
+
+    assert parser.get_tables() == [
+        "project.dataset.src_table_a",
+        "project.dataset.src_table_b",
+    ]
+
+
+def test_remove_comma_before_from():
+    assert (
+        BigQuerySQLParser._remove_comma_before_from(
+            """
+select a, b,from `project.dataset.table_name_1`
+"""
+        )
+        == """
+select a, b from `project.dataset.table_name_1`
+"""
+    )
+
+    assert (
+        BigQuerySQLParser._remove_comma_before_from(
+            """
+select a, b from `project.dataset.table_name_1`
+"""
+        )
+        == """
+select a, b from `project.dataset.table_name_1`
+"""
+    )
+
+    assert (
+        BigQuerySQLParser._remove_comma_before_from(
+            """
+select
+    a,
+    b,
+from `project.dataset.table_name_1`
+"""
+        )
+        == """
+select
+    a,
+    b from `project.dataset.table_name_1`
+"""
+    )
+
+
+def test_bigquery_sql_parser_subquery():
+    parser = BigQuerySQLParser(
+        sql_query="""
+            create or replace table smoke_test_db.table_from_view_and_table
+            as (select b.date_utc, v.revenue from smoke_test_db.base_table b, smoke_test_db.view_from_table v
+            """
+    )
+    assert parser.get_tables() == [
+        "smoke_test_db.base_table",
+        "smoke_test_db.view_from_table",
+    ]
 
 
 def test_bigquery_sql_parser_comment_sign_switched_correctly():

@@ -100,7 +100,7 @@ export const SidebarStatsSection = () => {
                 ) : null}
                 {(usageStats?.aggregations?.users?.length || 0) > 0 ? (
                     <InfoItem title="Top Users" width={INFO_ITEM_WIDTH_PX}>
-                        <UsageFacepile users={usageStats?.aggregations?.users} />
+                        <UsageFacepile users={usageStats?.aggregations?.users} maxNumberDisplayed={10} />
                     </InfoItem>
                 ) : null}
             </StatsRow>
