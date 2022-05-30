@@ -2,6 +2,18 @@
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
 
+## 5/26/2022
+[Full YouTube video](https://youtu.be/taKb_zyowEE)
+
+## Agenda
+
+- Community Case Study: Hear how the G-Research team is using Cassandra as DataHub’s Backend
+- Creating & Editing Glossary Terms from the DataHub UI
+- DataHub User Onboarding via the UI
+- DataHub 201: Impact Analysis
+- Sneak Peek: Data Reliability with DataHub
+- Metadata Day Hackathon Winners
+
 ## 4/28/2022
 [Full YouTube video](https://www.youtube.com/watch?v=7iwNxHgqxtg)
 

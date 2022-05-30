@@ -16,6 +16,7 @@ import com.linkedin.datahub.graphql.generated.ResourcePrivileges;
 import com.linkedin.datahub.graphql.generated.TelemetryConfig;
 import com.linkedin.datahub.graphql.generated.TestsConfig;
 import com.linkedin.datahub.graphql.generated.VisualConfiguration;
+import com.linkedin.metadata.config.DatahubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.telemetry.TelemetryConfiguration;
@@ -40,6 +41,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final VisualConfiguration _visualConfiguration;
   private final TelemetryConfiguration _telemetryConfiguration;
   private final TestsConfiguration _testsConfiguration;
+  private final DatahubConfiguration _datahubConfiguration;
 
   public AppConfigResolver(
       final GitVersion gitVersion,
@@ -50,7 +52,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final boolean supportsImpactAnalysis,
       final VisualConfiguration visualConfiguration,
       final TelemetryConfiguration telemetryConfiguration,
-      final TestsConfiguration testsConfiguration) {
+      final TestsConfiguration testsConfiguration,
+      final DatahubConfiguration datahubConfiguration) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
     _ingestionConfiguration = ingestionConfiguration;
@@ -60,6 +63,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _visualConfiguration = visualConfiguration;
     _telemetryConfiguration = telemetryConfiguration;
     _testsConfiguration = testsConfiguration;
+    _datahubConfiguration = datahubConfiguration;
   }
 
   @Override

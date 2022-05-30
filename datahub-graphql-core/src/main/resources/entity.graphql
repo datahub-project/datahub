@@ -75,6 +75,11 @@ type Query {
     glossaryTerm(urn: String!): GlossaryTerm
 
     """
+    Fetch a Glossary Node by primary key (urn)
+    """
+    glossaryNode(urn: String!): GlossaryNode
+
+    """
     Fetch an Entity Container by primary key (urn)
     """
     container(urn: String!): Container
@@ -143,6 +148,16 @@ type Query {
     List all DataHub Domains
     """
     listDomains(input: ListDomainsInput!): ListDomainsResult
+
+    """
+    Get all GlossaryTerms without a parentNode
+    """
+    getRootGlossaryTerms(input: GetRootGlossaryEntitiesInput!): GetRootGlossaryTermsResult
+
+    """
+    Get all GlossaryNodes without a parentNode
+    """
+    getRootGlossaryNodes(input: GetRootGlossaryEntitiesInput!): GetRootGlossaryNodesResult
 }
 
 """
@@ -345,6 +360,31 @@ type Mutation {
       Input required to report an operation
       """
       input: ReportOperationInput!): String
+    
+    """
+    Create a new GlossaryTerm. Returns the urn of the newly created GlossaryTerm. If a term with the provided ID already exists, it will be overwritten.
+    """
+    createGlossaryTerm(input: CreateGlossaryEntityInput!): String
+
+    """
+    Create a new GlossaryNode. Returns the urn of the newly created GlossaryNode. If a node with the provided ID already exists, it will be overwritten.
+    """
+    createGlossaryNode(input: CreateGlossaryEntityInput!): String
+
+    """
+    Updates the parent node of a resource. Currently only GlossaryNodes and GlossaryTerms have parentNodes.
+    """
+    updateParentNode(input: UpdateParentNodeInput!): Boolean
+
+    """
+    Remove a glossary entity (GlossaryTerm or GlossaryNode). Return boolean whether it was successful or not.
+    """
+    deleteGlossaryEntity(urn: String!): Boolean
+
+    """
+    Updates the name of the entity.
+    """
+    updateName(input: UpdateNameInput!): Boolean
 }
 
 """
@@ -430,6 +470,11 @@ enum EntityType {
     The Glossary Term Entity
     """
     GLOSSARY_TERM
+
+    """
+    The Glossary Node Entity
+    """
+    GLOSSARY_NODE
 
     """
     A container of Metadata Entities
@@ -1226,6 +1271,10 @@ type GlossaryTerm implements Entity {
     """
     schemaMetadata(version: Long): SchemaMetadata
 
+    """
+    Recursively get the lineage of glossary nodes for this entity
+    """
+    parentNodes: ParentNodesResult
 }
 
 """
@@ -1317,6 +1366,71 @@ type GlossaryTermProperties {
     Schema definition of glossary term
     """
     rawSchema: String
+}
+
+"""
+A Glossary Node, or a directory in a Business Glossary represents a container of
+Glossary Terms or other Glossary Nodes
+"""
+type GlossaryNode implements Entity {
+    """
+    The primary key of the glossary term
+    """
+    urn: String!
+
+    """
+    Ownership metadata of the glossary term
+    """
+    ownership: Ownership
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Additional properties associated with the Glossary Term
+    """
+    properties: GlossaryNodeProperties
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Recursively get the lineage of glossary nodes for this entity
+    """
+    parentNodes: ParentNodesResult
+}
+
+"""
+All of the parent nodes for GlossaryTerms and GlossaryNodes
+"""
+type ParentNodesResult {
+    """
+    The number of parent nodes bubbling up for this entity
+    """
+    count: Int!
+    """
+    A list of parent nodes in order from direct parent, to parent's parent etc. If there are no nodes, return an empty list
+    """
+    nodes: [GlossaryNode!]!
+}
+
+"""
+Additional read only properties about a Glossary Node
+"""
+type GlossaryNodeProperties {
+    """
+    The name of the Glossary Term
+    """
+    name: String!
+
+    """
+    Description of the glossary term
+    """
+    description: String
 }
 
 """
@@ -6155,6 +6269,36 @@ input DescriptionUpdateInput {
 }
 
 """
+Input for updating the parent node of a resource. Currently only GlossaryNodes and GlossaryTerms have parentNodes.
+"""
+input UpdateParentNodeInput {
+    """
+    The new parent node urn
+    """
+    parentNode: String!
+
+    """
+    The primary key of the resource to update the parent node for
+    """
+    resourceUrn: String!
+}
+
+"""
+Input for updating the name of an entity
+"""
+input UpdateNameInput {
+    """
+    The new name
+    """
+    name: String!
+
+    """
+    The primary key of the resource to update the name for
+    """
+    urn: String!
+}
+
+"""
 Input provided when setting the Deprecation status for an Entity.
 """
 input UpdateDeprecationInput {
@@ -7844,6 +7988,96 @@ type ListDomainsResult {
   The Domains themselves
   """
   domains: [Domain!]!
+}
+
+"""
+Input required when getting Business Glossary entities
+"""
+input GetRootGlossaryEntitiesInput {
+    """
+    The starting offset of the result set returned
+    """
+    start: Int!
+
+    """
+    The number of Glossary Entities in the returned result set
+    """
+    count: Int!
+}
+
+"""
+The result when getting root GlossaryTerms
+"""
+type GetRootGlossaryTermsResult {
+    """
+    A list of Glossary Terms without a parent node
+    """
+    terms: [GlossaryTerm!]!
+
+    """
+    The starting offset of the result set returned
+    """
+    start: Int!
+
+    """
+    The number of terms in the returned result
+    """
+    count: Int!
+
+    """
+    The total number of terms in the result set
+    """
+    total: Int!
+}
+
+"""
+The result when getting Glossary entities
+"""
+type GetRootGlossaryNodesResult {
+    """
+    A list of Glossary Nodes without a parent node
+    """
+    nodes: [GlossaryNode!]!
+
+    """
+    The starting offset of the result set returned
+    """
+    start: Int!
+
+    """
+    The number of nodes in the returned result
+    """
+    count: Int!
+
+    """
+    The total number of nodes in the result set
+    """
+    total: Int!
+}
+
+"""
+Input required to create a new Glossary Entity - a Node or a Term.
+"""
+input CreateGlossaryEntityInput {
+    """
+    Optional! A custom id to use as the primary key identifier for the domain. If not provided, a random UUID will be generated as the id.
+    """
+    id: String
+
+    """
+    Display name for the Node or Term
+    """
+    name: String!
+
+    """
+    Description for the Node or Term
+    """
+    description: String
+
+    """
+    Optional parent node urn for the Glossary Node or Term
+    """
+    parentNode: String
 }
 
 enum HealthStatus {

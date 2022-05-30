@@ -352,9 +352,9 @@ def get_urns_by_filter(
     endpoint: str = "/entities?action=search"
     url = gms_host + endpoint
     filter_criteria = []
-    if env:
-        filter_criteria.append({"field": "origin", "value": env, "condition": "EQUAL"})
     entity_type_lower = entity_type.lower()
+    if env and entity_type_lower != "container":
+        filter_criteria.append({"field": "origin", "value": env, "condition": "EQUAL"})
     if (
         platform is not None
         and entity_type_lower == "dataset"
