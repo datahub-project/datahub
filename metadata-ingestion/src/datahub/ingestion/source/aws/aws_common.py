@@ -7,7 +7,7 @@ from botocore.config import Config
 from botocore.utils import fix_s3_host
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import EnvBasedSourceConfigBase
 
 if TYPE_CHECKING:
@@ -35,23 +35,15 @@ def assume_role(
     return assumed_role_object["Credentials"]
 
 
-class AwsSourceConfig(EnvBasedSourceConfigBase):
+class AwsConnectionConfig(ConfigModel):
     """
     Common AWS credentials config.
 
     Currently used by:
         - Glue source
         - SageMaker source
+        - dbt source
     """
-
-    database_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="regex patterns for databases to filter in ingestion.",
-    )
-    table_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="regex patterns for tables to filter in ingestion.",
-    )
 
     aws_access_key_id: Optional[str] = Field(
         default=None,
@@ -157,3 +149,22 @@ class AwsSourceConfig(EnvBasedSourceConfigBase):
 
     def get_sagemaker_client(self) -> "SageMakerClient":
         return self.get_session().client("sagemaker")
+
+
+class AwsSourceConfig(EnvBasedSourceConfigBase, AwsConnectionConfig):
+    """
+    Common AWS credentials config.
+
+    Currently used by:
+        - Glue source
+        - SageMaker source
+    """
+
+    database_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for databases to filter in ingestion.",
+    )
+    table_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for tables to filter in ingestion.",
+    )

@@ -98,6 +98,7 @@ module.exports = {
           "metadata-integration/java/datahub-protobuf/README",
           "metadata-ingestion/as-a-library",
           "metadata-integration/java/as-a-library",
+          //"metadata-ingestion-modules/airflow-plugin/README"
         ],
       },
       {

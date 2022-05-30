@@ -1,0 +1,22 @@
+source:
+  type: "iceberg"
+  config:
+    env: PROD
+    adls:
+      # Will be translated to https://{account_name}.dfs.core.windows.net
+      account_name: my_adls_account
+      # Can use sas_token or account_key
+      sas_token: "${SAS_TOKEN}"
+      # account_key: "${ACCOUNT_KEY}"
+      container_name: warehouse
+      base_path: iceberg
+    platform_instance: my_iceberg_catalog
+    table_pattern:
+      allow:
+        - marketing.*
+    profiling:
+      enabled: true
+
+sink:
+  # sink configs
+

@@ -7,7 +7,6 @@ import threading
 import traceback
 import unittest.mock
 import uuid
-from math import log10
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 from datahub.telemetry import stats, telemetry
@@ -482,7 +481,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             "profile_sql_table",
             # bucket by taking floor of log of the number of rows scanned
             {
-                "rows_profiled": 10 ** int(log10(row_count + 1)),
+                "rows_profiled": stats.discretize(row_count),
             },
         )
 
@@ -733,8 +732,9 @@ class DatahubGEProfiler:
                         )
 
                         time_percentiles = {
-                            f"table_time_taken_p{percentile}": 10
-                            ** int(log10(percentile_values[percentile] + 1))
+                            f"table_time_taken_p{percentile}": stats.discretize(
+                                percentile_values[percentile]
+                            )
                             for percentile in percentiles
                         }
 
@@ -742,8 +742,8 @@ class DatahubGEProfiler:
                         "sql_profiling_summary",
                         # bucket by taking floor of log of time taken
                         {
-                            "total_time_taken": 10 ** int(log10(total_time_taken + 1)),
-                            "count": 10 ** int(log10(len(self.times_taken) + 1)),
+                            "total_time_taken": stats.discretize(total_time_taken),
+                            "count": stats.discretize(len(self.times_taken)),
                             "platform": self.platform,
                             **time_percentiles,
                         },

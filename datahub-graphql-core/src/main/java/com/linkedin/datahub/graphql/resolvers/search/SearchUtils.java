@@ -25,6 +25,7 @@ public class SearchUtils {
           EntityType.DATA_FLOW,
           EntityType.DATA_JOB,
           EntityType.GLOSSARY_TERM,
+          EntityType.GLOSSARY_NODE,
           EntityType.TAG,
           EntityType.CORP_USER,
           EntityType.CORP_GROUP,

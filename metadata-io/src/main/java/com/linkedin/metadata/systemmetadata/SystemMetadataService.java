@@ -23,13 +23,13 @@ public interface SystemMetadataService {
 
   void insert(@Nullable SystemMetadata systemMetadata, String urn, String aspect);
 
-  List<AspectRowSummary> findByRunId(String runId, boolean includeSoftDeleted);
+  List<AspectRowSummary> findByRunId(String runId, boolean includeSoftDeleted, int from, int size);
 
-  List<AspectRowSummary> findByUrn(String urn, boolean includeSoftDeleted);
+  List<AspectRowSummary> findByUrn(String urn, boolean includeSoftDeleted, int from, int size);
 
-  List<AspectRowSummary> findByParams(Map<String, String> systemMetaParams, boolean includeSoftDeleted);
+  List<AspectRowSummary> findByParams(Map<String, String> systemMetaParams, boolean includeSoftDeleted, int from, int size);
 
-  List<AspectRowSummary> findByRegistry(String registryName, String registryVersion, boolean includeSoftDeleted);
+  List<AspectRowSummary> findByRegistry(String registryName, String registryVersion, boolean includeSoftDeleted, int from, int size);
 
   List<IngestionRunSummary> listRuns(Integer pageOffset, Integer pageSize, boolean includeSoftDeleted);
 

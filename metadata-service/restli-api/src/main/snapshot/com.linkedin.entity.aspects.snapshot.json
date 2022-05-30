@@ -702,8 +702,10 @@
       "doc" : "Instance of the data platform (e.g. db instance)",
       "optional" : true,
       "Searchable" : {
+        "addToFilters" : true,
         "fieldName" : "platformInstance",
-        "fieldType" : "URN"
+        "fieldType" : "URN",
+        "filterNameOverride" : "Platform Instance"
       }
     } ],
     "Aspect" : {
@@ -804,6 +806,10 @@
               }
             },
             "doc" : "Urn of the applied tag",
+            "Relationship" : {
+              "entityTypes" : [ "tag" ],
+              "name" : "TaggedWith"
+            },
             "Searchable" : {
               "addToFilters" : true,
               "fieldName" : "tags",
@@ -881,6 +887,10 @@
         }
       },
       "doc" : "Urn of the applied glossary term",
+      "Relationship" : {
+        "entityTypes" : [ "glossaryTerm" ],
+        "name" : "TermedWith"
+      },
       "Searchable" : {
         "addToFilters" : true,
         "fieldName" : "glossaryTerms",
@@ -1692,6 +1702,16 @@
       "type" : "com.linkedin.common.GlossaryNodeUrn",
       "doc" : "Parent node of the glossary term",
       "optional" : true
+    }, {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "Display name of the node",
+      "optional" : true,
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_PARTIAL"
+      }
     } ],
     "Aspect" : {
       "name" : "glossaryNodeInfo"
@@ -2363,6 +2383,16 @@
                 "fieldType" : "TEXT"
               }
             }, {
+              "name" : "created",
+              "type" : "com.linkedin.common.AuditStamp",
+              "doc" : "An AuditStamp corresponding to the creation of this schema field.",
+              "optional" : true
+            }, {
+              "name" : "lastModified",
+              "type" : "com.linkedin.common.AuditStamp",
+              "doc" : "An AuditStamp corresponding to the last modification of this schema field.",
+              "optional" : true
+            }, {
               "name" : "type",
               "type" : {
                 "type" : "record",
@@ -2483,7 +2513,7 @@
               "Relationship" : {
                 "/tags/*/tag" : {
                   "entityTypes" : [ "tag" ],
-                  "name" : "FieldTaggedWith"
+                  "name" : "SchemaFieldTaggedWith"
                 }
               },
               "Searchable" : {
@@ -2501,7 +2531,7 @@
               "Relationship" : {
                 "/terms/*/urn" : {
                   "entityTypes" : [ "glossaryTerm" ],
-                  "name" : "FieldWithGlossaryTerm"
+                  "name" : "SchemaFieldWithGlossaryTerm"
                 }
               },
               "Searchable" : {
@@ -2670,7 +2700,7 @@
               "Relationship" : {
                 "/tags/*/tag" : {
                   "entityTypes" : [ "tag" ],
-                  "name" : "EditableFieldTaggedWith"
+                  "name" : "EditableSchemaFieldTaggedWith"
                 }
               },
               "Searchable" : {
@@ -2688,7 +2718,7 @@
               "Relationship" : {
                 "/terms/*/urn" : {
                   "entityTypes" : [ "glossaryTerm" ],
-                  "name" : "EditableFieldWithGlossaryTerm"
+                  "name" : "EditableSchemaFieldWithGlossaryTerm"
                 }
               },
               "Searchable" : {
