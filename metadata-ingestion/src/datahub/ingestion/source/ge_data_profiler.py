@@ -10,6 +10,8 @@ import uuid
 from math import log10
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
+from great_expectations import __version__ as ge_version
+
 from datahub.telemetry import stats, telemetry
 
 # Fun compatibility hack! GE version 0.13.44 broke compatibility with SQLAlchemy 1.3.24.
@@ -751,6 +753,16 @@ class DatahubGEProfiler:
 
                     self.report.report_from_query_combiner(query_combiner.report)
 
+    def _is_legacy_ge_temp_table_creation(self) -> bool:
+        legacy_ge_bq_temp_table_creation: bool = False
+        (major, minor, patch) = ge_version.split(".")
+        if int(major) == 0 and (
+            int(minor) < 15 or (int(minor) == 15 and int(patch) < 3)
+        ):
+            legacy_ge_bq_temp_table_creation = True
+
+        return legacy_ge_bq_temp_table_creation
+
     def _generate_profile_from_request(
         self,
         query_combiner: SQLAlchemyQueryCombiner,
@@ -764,20 +776,15 @@ class DatahubGEProfiler:
             **request.batch_kwargs,
         )
 
-    def _drop_bigquery_temp_table(self, ge_config: dict) -> None:
-        if "bigquery_temp_table" in ge_config:
-            try:
-                with self.base_engine.connect() as connection:
-                    connection.execute(
-                        f"drop view if exists `{ge_config.get('bigquery_temp_table')}`"
-                    )
-                    logger.debug(
-                        f"Temp table {ge_config.get('bigquery_temp_table')} was dropped."
-                    )
-            except Exception:
-                logger.warning(
-                    f"Unable to delete bigquery temporary table: {ge_config.get('bigquery_temp_table')}"
-                )
+    def _drop_bigquery_temp_table(self, bigquery_temp_table: str) -> None:
+        try:
+            with self.base_engine.connect() as connection:
+                connection.execute(f"drop view if exists `{bigquery_temp_table}`")
+                logger.debug(f"Temp table {bigquery_temp_table} was dropped.")
+        except Exception:
+            logger.warning(
+                f"Unable to delete bigquery temporary table: {bigquery_temp_table}"
+            )
 
     def _generate_single_profile(
         self,
@@ -806,14 +813,6 @@ class DatahubGEProfiler:
                 bigquery_temp_table = (
                     f"{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
                 )
-                # With this pr there is no option anymore to set the bigquery temp table:
-                # https://github.com/great-expectations/great_expectations/pull/4925
-                # This dirty hack to make it possible to control the temp table to use in Bigquery
-                # otherwise it will expect dataset_id in the connection url which is not option in our case
-                # as we batch these queries.
-                # Currently only with this option is possible to control the temp table which is created:
-                # https://github.com/great-expectations/great_expectations/blob/7e53b615c36a53f78418ce46d6bc91a7011163c0/great_expectations/datasource/sqlalchemy_datasource.py#L397
-                ge_config["snowflake_transient_table"] = bigquery_temp_table
             else:
                 assert table
                 table_parts = table.split(".")
@@ -821,7 +820,18 @@ class DatahubGEProfiler:
                     bigquery_temp_table = (
                         f"{schema}.{table_parts[0]}.ge-temp-{uuid.uuid4()}"
                     )
-                    ge_config["snowflake_transient_table"] = bigquery_temp_table
+
+            # With this pr there is no option anymore to set the bigquery temp table:
+            # https://github.com/great-expectations/great_expectations/pull/4925
+            # This dirty hack to make it possible to control the temp table to use in Bigquery
+            # otherwise it will expect dataset_id in the connection url which is not option in our case
+            # as we batch these queries.
+            # Currently only with this option is possible to control the temp table which is created:
+            # https://github.com/great-expectations/great_expectations/blob/7e53b615c36a53f78418ce46d6bc91a7011163c0/great_expectations/datasource/sqlalchemy_datasource.py#L397
+            if self._is_legacy_ge_temp_table_creation():
+                ge_config["bigquery_temp_table"] = bigquery_temp_table
+            else:
+                ge_config["snowflake_transient_table"] = bigquery_temp_table
 
         if custom_sql is not None:
             ge_config["query"] = custom_sql
@@ -860,7 +870,8 @@ class DatahubGEProfiler:
                 self.report.report_failure(pretty_name, f"Profiling exception {e}")
                 return None
             finally:
-                self._drop_bigquery_temp_table(ge_config)
+                if bigquery_temp_table:
+                    self._drop_bigquery_temp_table(bigquery_temp_table)
 
     def _get_ge_dataset(
         self,
