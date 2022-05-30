@@ -32,4 +32,9 @@ enum ChangeType {
    * patch the changes instead of full replace
    */
   PATCH
+
+  /**
+   * Restate an aspect, eg. in a index refresh.
+   */
+  RESTATE
 }
