@@ -94,8 +94,7 @@ public class RestHighLevelClientFactory {
 
     if (username != null && password != null) {
       StringJoiner stringJoiner = new StringJoiner(":").add(username).add(password);
-      String CREDENTIALS_STRING = stringJoiner.toString();
-      String encodedBytes = Base64.getEncoder().encodeToString(CREDENTIALS_STRING.getBytes());
+      String encodedBytes = Base64.getEncoder().encodeToString(stringJoiner.toString().getBytes());
       Header[] authHeaders = {new BasicHeader("Authorization", "Basic " + encodedBytes)};
       builder.setDefaultHeaders(authHeaders);
     }
