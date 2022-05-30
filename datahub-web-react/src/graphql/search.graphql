@@ -287,6 +287,13 @@ fragment searchResultFields on Entity {
             ...deprecationFields
         }
     }
+    ... on GlossaryNode {
+        ...glossaryNode
+        parentNodes {
+            ...parentNodesFields
+        }
+
+    }
     ... on Domain {
         urn
         properties {

@@ -16,6 +16,7 @@ import {
     DataFlow,
     DataJob,
     GlossaryTerm,
+    GlossaryNode,
     EntityType,
     PlatformType,
     MlModel,
@@ -967,6 +968,71 @@ const glossaryTerm3 = {
     deprecation: null,
     __typename: 'GlossaryTerm',
 } as GlossaryTerm;
+
+export const glossaryNode1 = {
+    urn: 'urn:li:glossaryNode:example.glossarynode1',
+    type: 'GLOSSARY_NODE',
+    properties: {
+        name: 'Glossary Node 1',
+    },
+    parentNodes: {
+        count: 0,
+        nodes: [],
+    },
+    __typename: 'GlossaryNode',
+} as GlossaryNode;
+
+export const glossaryNode2 = {
+    urn: 'urn:li:glossaryNode:example.glossarynode2',
+    type: 'GLOSSARY_NODE',
+    properties: {
+        name: 'Glossary Node 2',
+    },
+    parentNodes: {
+        count: 1,
+        nodes: [glossaryNode1],
+    },
+    __typename: 'GlossaryNode',
+} as GlossaryNode;
+
+export const glossaryNode3 = {
+    urn: 'urn:li:glossaryNode:example.glossarynode3',
+    type: 'GLOSSARY_NODE',
+    properties: {
+        name: 'Glossary Node 3',
+    },
+    parentNodes: {
+        count: 2,
+        nodes: [glossaryNode2, glossaryNode1],
+    },
+    __typename: 'GlossaryNode',
+} as GlossaryNode;
+
+export const glossaryNode4 = {
+    urn: 'urn:li:glossaryNode:example.glossarynode4',
+    type: 'GLOSSARY_NODE',
+    properties: {
+        name: 'Glossary Node 4',
+    },
+    parentNodes: {
+        count: 0,
+        nodes: [],
+    },
+    __typename: 'GlossaryNode',
+} as GlossaryNode;
+
+export const glossaryNode5 = {
+    urn: 'urn:li:glossaryNode:example.glossarynode5',
+    type: 'GLOSSARY_NODE',
+    properties: {
+        name: 'Glossary Node 5',
+    },
+    parentNodes: {
+        count: 1,
+        nodes: [glossaryNode4],
+    },
+    __typename: 'GlossaryNode',
+} as GlossaryNode;
 
 const sampleTag = {
     urn: 'urn:li:tag:abc-sample-tag',

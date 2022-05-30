@@ -3,7 +3,7 @@ import logging
 import math
 import sys
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Type
+from typing import Dict, Iterable, List, Optional, Set, Type
 
 import dateutil.parser as dp
 from pydantic.fields import Field
@@ -269,6 +269,7 @@ class RedashConfig(ConfigModel):
 class RedashSourceReport(SourceReport):
     items_scanned: int = 0
     filtered: List[str] = field(default_factory=list)
+    queries_no_dataset: Set[str] = field(default_factory=set)
 
     def report_item_scanned(self) -> None:
         self.items_scanned += 1
@@ -647,7 +648,8 @@ class RedashSource(Source):
 
         # Getting chart type
         chart_type = self._get_chart_type_from_viz_data(viz_data)
-        chart_url = f"{self.config.connect_uri}/queries/{query_data.get('id')}#{viz_id}"
+        query_id = query_data.get("id")
+        chart_url = f"{self.config.connect_uri}/queries/{query_id}#{viz_id}"
         description = (
             viz_data.get("description", "") if viz_data.get("description", "") else ""
         )
@@ -658,8 +660,9 @@ class RedashSource(Source):
         datasource_urns = self._get_datasource_urns(data_source, query_data)
 
         if datasource_urns is None:
+            self.report.queries_no_dataset.add(str(query_id))
             self.report.report_warning(
-                key=f"redash-chart-{viz_id}-datasource-{data_source_id}",
+                key=f"redash-chart-{viz_id}-query-{query_id}-datasource-{data_source_id}",
                 reason=f"data_source_type={data_source_type} not yet implemented. Setting inputs to None",
             )
 

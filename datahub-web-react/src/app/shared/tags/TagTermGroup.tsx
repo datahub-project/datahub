@@ -6,12 +6,12 @@ import { BookOutlined, PlusOutlined } from '@ant-design/icons';
 
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { Domain, EntityType, GlobalTags, GlossaryTerms, SubResourceType } from '../../../types.generated';
-import AddTagTermModal from './AddTagTermModal';
 import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
 import { EMPTY_MESSAGES, ANTD_GRAY } from '../../entity/shared/constants';
 import { useRemoveTagMutation, useRemoveTermMutation } from '../../../graphql/mutations.generated';
 import { DomainLink } from './DomainLink';
 import { TagProfileDrawer } from './TagProfileDrawer';
+import AddTagsTermsModal from './AddTagsTermsModal';
 
 type Props = {
     uneditableTags?: GlobalTags | null;
@@ -124,9 +124,10 @@ export default function TagTermGroup({
     const removeTerm = (urnToRemove: string) => {
         onOpenModal?.();
         const termToRemove = editableGlossaryTerms?.terms?.find((term) => term.term.urn === urnToRemove);
+        const termName = termToRemove && entityRegistry.getDisplayName(termToRemove.term.type, termToRemove.term);
         Modal.confirm({
-            title: `Do you want to remove ${termToRemove?.term.name} term?`,
-            content: `Are you sure you want to remove the ${termToRemove?.term.name} term?`,
+            title: `Do you want to remove ${termName} term?`,
+            content: `Are you sure you want to remove the ${termName} term?`,
             onOk() {
                 if (entityUrn) {
                     removeTermMutation({
@@ -283,7 +284,7 @@ export default function TagTermGroup({
                     {...buttonProps}
                 >
                     <PlusOutlined />
-                    <span>Add Tag</span>
+                    <span>Add Tags</span>
                 </NoElementButton>
             )}
             {canAddTerm &&
@@ -297,16 +298,14 @@ export default function TagTermGroup({
                         {...buttonProps}
                     >
                         <PlusOutlined />
-                        <span>Add Term</span>
+                        <span>Add Terms</span>
                     </NoElementButton>
                 )}
             {showAddModal && !!entityUrn && !!entityType && (
-                <AddTagTermModal
+                <AddTagsTermsModal
                     type={addModalType}
-                    globalTags={editableTags}
-                    glossaryTerms={editableGlossaryTerms}
                     visible
-                    onClose={() => {
+                    onCloseModal={() => {
                         onOpenModal?.();
                         setShowAddModal(false);
                         refetch?.();
