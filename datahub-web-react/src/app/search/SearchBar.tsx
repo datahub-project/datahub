@@ -101,6 +101,18 @@ const renderUserSuggestion = (query: string, user: CorpUser, registry: EntityReg
     );
 };
 
+const getDisplayName = (registry: EntityRegistry, entity: Entity) => {
+    const genericEntityProps = registry.getGenericEntityProperties(entity.type, entity);
+    if (entity.type === EntityType.GlossaryTerm) {
+        return registry.getDisplayName(entity.type, entity);
+    }
+    return (
+        genericEntityProps?.properties?.qualifiedName ||
+        genericEntityProps?.name ||
+        registry.getDisplayName(entity.type, entity)
+    );
+};
+
 const renderEntitySuggestion = (query: string, entity: Entity, registry: EntityRegistry) => {
     // Special rendering.
     if (entity.type === EntityType.CorpUser) {
@@ -112,10 +124,7 @@ const renderEntitySuggestion = (query: string, entity: Entity, registry: EntityR
     const genericEntityProps = registry.getGenericEntityProperties(entity.type, entity);
     const platformName = getPlatformName(genericEntityProps);
     const platformLogoUrl = genericEntityProps?.platform?.properties?.logoUrl;
-    const displayName =
-        genericEntityProps?.properties?.qualifiedName ||
-        genericEntityProps?.name ||
-        registry.getDisplayName(entity.type, entity);
+    const displayName = getDisplayName(registry, entity);
     const icon =
         (platformLogoUrl && <PreviewImage preview={false} src={platformLogoUrl} alt={platformName || ''} />) ||
         registry.getIcon(entity.type, 12, IconStyleType.ACCENT);
@@ -162,6 +171,8 @@ interface Props {
     entityRegistry: EntityRegistry;
     fixAutoComplete?: boolean;
     setIsSearchBarFocused?: (isSearchBarFocused: boolean) => void;
+    onFocus?: () => void;
+    onBlur?: () => void;
 }
 
 const defaultProps = {
@@ -183,6 +194,8 @@ export const SearchBar = ({
     autoCompleteStyle,
     fixAutoComplete,
     setIsSearchBarFocused,
+    onFocus,
+    onBlur,
 }: Props) => {
     const history = useHistory();
     const [searchQuery, setSearchQuery] = useState<string>();
@@ -263,6 +276,16 @@ export const SearchBar = ({
         }
     }
 
+    function handleFocus() {
+        if (onFocus) onFocus();
+        handleSearchBarClick(true);
+    }
+
+    function handleBlur() {
+        if (onBlur) onBlur();
+        handleSearchBarClick(false);
+    }
+
     return (
         <AutoCompleteContainer style={style} ref={searchBarWrapperRef}>
             <StyledAutoComplete
@@ -305,9 +328,9 @@ export const SearchBar = ({
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     data-testid="search-input"
+                    onFocus={handleFocus}
+                    onBlur={handleBlur}
                     prefix={<SearchOutlined onClick={() => onSearch(filterSearchQuery(searchQuery || ''))} />}
-                    onFocus={() => handleSearchBarClick(true)}
-                    onBlur={() => handleSearchBarClick(false)}
                 />
             </StyledAutoComplete>
         </AutoCompleteContainer>
