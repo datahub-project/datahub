@@ -73,6 +73,7 @@ class DataHubRestEmitter:
         retry_max_times: Optional[int] = None,
         extra_headers: Optional[Dict[str, str]] = None,
         ca_certificate_path: Optional[str] = None,
+        disable_ssl_verification: bool = False,
     ):
         self._gms_server = gms_server
         self._token = token
@@ -93,6 +94,9 @@ class DataHubRestEmitter:
 
         if ca_certificate_path:
             self._session.verify = ca_certificate_path
+
+        if disable_ssl_verification:
+            self._session.verify = False
 
         if connect_timeout_sec:
             self._connect_timeout_sec = connect_timeout_sec
