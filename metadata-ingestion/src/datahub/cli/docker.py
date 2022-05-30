@@ -34,7 +34,7 @@ M1_QUICKSTART_COMPOSE_FILE = (
 
 BOOTSTRAP_MCES_FILE = "metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 
-GITHUB_BASE_URL = "https://raw.githubusercontent.com/linkedin/datahub/master"
+GITHUB_BASE_URL = "https://raw.githubusercontent.com/datahub-project/datahub/master"
 GITHUB_NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_URL = (
     f"{GITHUB_BASE_URL}/{NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE}"
 )
@@ -231,13 +231,18 @@ def quickstart(
     ]
 
     # Pull and possibly build the latest containers.
-    subprocess.run(
-        [
-            *base_command,
-            "pull",
-        ],
-        check=True,
-    )
+    try:
+        subprocess.run(
+            [*base_command, "pull"],
+            check=True,
+        )
+    except subprocess.CalledProcessError:
+        click.secho(
+            "Error while pulling images. Going to attempt to move on to docker-compose up assuming the images have "
+            "been built locally",
+            fg="red",
+        )
+
     if build_locally:
         subprocess.run(
             [

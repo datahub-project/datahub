@@ -1,6 +1,7 @@
 package com.linkedin.entity.client;
 
 import com.datahub.authentication.Authentication;
+import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
@@ -19,6 +20,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import java.net.URISyntaxException;
@@ -31,8 +33,15 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-
+// Consider renaming this to datahub client.
 public interface EntityClient {
+
+  @Nullable
+  public EntityResponse getV2(
+      @Nonnull String entityName,
+      @Nonnull final Urn urn,
+      @Nullable final Set<String> aspectNames,
+      @Nonnull final Authentication authentication) throws RemoteInvocationException, URISyntaxException;
 
   @Nonnull
   @Deprecated
@@ -43,6 +52,13 @@ public interface EntityClient {
   public Map<Urn, EntityResponse> batchGetV2(
       @Nonnull String entityName,
       @Nonnull final Set<Urn> urns,
+      @Nullable final Set<String> aspectNames,
+      @Nonnull final Authentication authentication) throws RemoteInvocationException, URISyntaxException;
+
+  @Nonnull
+  Map<Urn, EntityResponse> batchGetVersionedV2(
+      @Nonnull String entityName,
+      @Nonnull final Set<VersionedUrn> versionedUrns,
       @Nullable final Set<String> aspectNames,
       @Nonnull final Authentication authentication) throws RemoteInvocationException, URISyntaxException;
 
@@ -138,14 +154,15 @@ public interface EntityClient {
    *
    * @param input search query
    * @param filter search filters
+   * @param sortCriterion sort criterion
    * @param start start offset for search results
    * @param count max number of search results requested
    * @return Snapshot key
    * @throws RemoteInvocationException
    */
   @Nonnull
-  public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nullable Filter filter, int start,
-      int count, @Nonnull Authentication authentication) throws RemoteInvocationException;
+  public SearchResult search(@Nonnull String entity, @Nonnull String input, @Nullable Filter filter,
+      SortCriterion sortCriterion, int start, int count, @Nonnull Authentication authentication) throws RemoteInvocationException;
 
   /**
    * Searches for entities matching to a given query and filters across multiple entity types
@@ -178,7 +195,7 @@ public interface EntityClient {
    */
   @Nonnull
   public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
-      @Nonnull List<String> entities, @Nullable String input, @Nullable Filter filter,
+      @Nonnull List<String> entities, @Nonnull String input, @Nullable Filter filter,
       @Nullable SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
 
@@ -194,10 +211,6 @@ public interface EntityClient {
       throws RemoteInvocationException;
 
   public void setWritable(boolean canWrite, @Nonnull Authentication authentication) throws RemoteInvocationException;
-
-  @Nonnull
-  public long getTotalEntityCount(@Nonnull String entityName, @Nonnull Authentication authentication)
-      throws RemoteInvocationException;
 
   @Nonnull
   public Map<String, Long> batchGetTotalEntityCount(@Nonnull List<String> entityName,
@@ -273,4 +286,7 @@ public interface EntityClient {
   @Deprecated
   public DataMap getRawAspect(@Nonnull String urn, @Nonnull String aspect, @Nonnull Long version,
       @Nonnull Authentication authentication) throws RemoteInvocationException;
+
+  public void producePlatformEvent(@Nonnull String name, @Nullable String key, @Nonnull PlatformEvent event,
+      @Nonnull Authentication authentication) throws Exception;
 }

@@ -16,7 +16,7 @@ import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DataHubIngestionSourceKey;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -70,14 +70,14 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
           // Create the Ingestion source key
           final DataHubIngestionSourceKey key = new DataHubIngestionSourceKey();
           key.setId(uuidStr);
-          proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
+          proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
         }
 
         // Create the policy info.
         final DataHubIngestionSourceInfo info = mapIngestionSourceInfo(input);
         proposal.setEntityType(Constants.INGESTION_SOURCE_ENTITY_NAME);
         proposal.setAspectName(Constants.INGESTION_INFO_ASPECT_NAME);
-        proposal.setAspect(GenericAspectUtils.serializeAspect(info));
+        proposal.setAspect(GenericRecordUtils.serializeAspect(info));
         proposal.setChangeType(ChangeType.UPSERT);
 
         try {

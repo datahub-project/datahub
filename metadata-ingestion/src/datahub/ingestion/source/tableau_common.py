@@ -55,7 +55,8 @@ workbook_graphql_query = """
           id
           name
           description
-          upstreamColumns {
+          datasource {
+            id
             name
           }
           ... on ColumnField {
@@ -124,15 +125,10 @@ workbook_graphql_query = """
           name
           id
         }
-        upstreamDatabases {
-          id
-          name
-          connectionType
-          isEmbedded
-        }
         upstreamTables {
           id
           name
+          isEmbedded
           database {
             name
           }
@@ -160,6 +156,7 @@ workbook_graphql_query = """
             aggregation
             columns {
               table {
+                __typename
                 ... on CustomSQLTable {
                   id
                   name
@@ -178,6 +175,10 @@ workbook_graphql_query = """
             role
             dataType
           }
+        }
+        upstreamDatasources {
+          id
+          name
         }
         workbook {
           name
@@ -210,17 +211,15 @@ custom_sql_graphql_query = """
             __typename
             id
             name
-            upstreamDatabases {
-              id
-              name
-            }
             upstreamTables {
               id
               name
+              isEmbedded
               database {
                 name
               }
               schema
+              fullName
               connectionType
             }
             ... on PublishedDatasource {
@@ -228,6 +227,7 @@ custom_sql_graphql_query = """
             }
             ... on EmbeddedDatasource {
               workbook {
+                id
                 name
                 projectName
               }
@@ -236,8 +236,14 @@ custom_sql_graphql_query = """
         }
       }
       tables {
+        id
         name
+        isEmbedded
+        database {
+          name
+        }
         schema
+        fullName
         connectionType
       }
 }
@@ -252,15 +258,10 @@ published_datasource_graphql_query = """
     extractLastRefreshTime
     extractLastIncrementalUpdateTime
     extractLastUpdateTime
-    upstreamDatabases {
-      id
-      name
-      connectionType
-      isEmbedded
-    }
     upstreamTables {
       id
       name
+      isEmbedded
       database {
         name
       }
@@ -288,6 +289,7 @@ published_datasource_graphql_query = """
             aggregation
             columns {
                 table {
+                  __typename
                     ... on CustomSQLTable {
                         id
                         name
@@ -416,9 +418,19 @@ def make_table_urn(
     database_name = f"{upstream_db}." if upstream_db else ""
     schema_name = f"{schema}." if schema else ""
 
-    urn = builder.make_dataset_urn(
-        platform, f"{database_name}{schema_name}{final_name}", env
+    fully_qualified_table_name = f"{database_name}{schema_name}{final_name}"
+
+    # do some final adjustments on the fully qualified table name to help them line up with source systems:
+    # lowercase it
+    fully_qualified_table_name = fully_qualified_table_name.lower()
+    # strip double quotes and escaped double quotes
+    fully_qualified_table_name = (
+        fully_qualified_table_name.replace('\\"', "").replace('"', "").replace("\\", "")
     )
+    # if there are more than 3 tokens, just take the final 3
+    fully_qualified_table_name = ".".join(fully_qualified_table_name.split(".")[-3:])
+
+    urn = builder.make_dataset_urn(platform, fully_qualified_table_name, env)
     return urn
 
 
@@ -456,7 +468,7 @@ def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:
         for column in custom_sql.get("columns", []):
             for field in column.get("referencedByFields", []):
                 datasource = field.get("datasource")
-                if datasource not in datasource_for_csql:
+                if datasource not in datasource_for_csql and datasource is not None:
                     datasource_for_csql.append(datasource)
 
         unique_csql["datasources"] = datasource_for_csql

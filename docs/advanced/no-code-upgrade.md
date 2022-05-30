@@ -169,7 +169,7 @@ To update the default environment variables, you can either
 2. Define a new ".env" file containing your variables and execute
    `docker pull acryldata/datahub-upgrade && docker run acryldata/datahub-upgrade:latest -u NoCodeDataMigrationCleanup`
 
-To see the required environment variables, see the (datahub-upgrade)[../../docker/datahub-upgrade/README.md]
+To see the required environment variables, see the [datahub-upgrade](../../docker/datahub-upgrade/README.md)
 documentation
 
 #### Helm Deployments

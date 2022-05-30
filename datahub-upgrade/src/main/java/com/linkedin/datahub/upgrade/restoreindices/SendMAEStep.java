@@ -1,6 +1,8 @@
 package com.linkedin.datahub.upgrade.restoreindices;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
@@ -10,7 +12,7 @@ import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
-import com.linkedin.metadata.entity.ebean.EbeanUtils;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -21,6 +23,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+
+import static com.linkedin.metadata.Constants.*;
 
 
 public class SendMAEStep implements UpgradeStep {
@@ -53,7 +57,7 @@ public class SendMAEStep implements UpgradeStep {
     return (context) -> {
 
       context.report().addLine("Sending MAE from local DB...");
-      final int rowCount = _server.find(EbeanAspectV2.class).where().eq(EbeanAspectV2.VERSION_COLUMN, 0).findCount();
+      final int rowCount = _server.find(EbeanAspectV2.class).where().eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION).findCount();
       context.report().addLine(String.format("Found %s latest aspects in aspects table", rowCount));
 
       int totalRowsMigrated = 0;
@@ -91,7 +95,7 @@ public class SendMAEStep implements UpgradeStep {
 
           // 3. Create record from json aspect
           final RecordTemplate aspectRecord =
-              EbeanUtils.toAspectRecord(entityName, aspectName, aspect.getMetadata(), _entityRegistry);
+              EntityUtils.toAspectRecord(entityName, aspectName, aspect.getMetadata(), _entityRegistry);
 
           // 4. Verify that the aspect is a valid aspect associated with the entity
           AspectSpec aspectSpec;
@@ -104,11 +108,13 @@ public class SendMAEStep implements UpgradeStep {
             return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
           }
 
-          SystemMetadata latestSystemMetadata = EbeanUtils.parseSystemMetadata(aspect.getSystemMetadata());
+          SystemMetadata latestSystemMetadata = EntityUtils.parseSystemMetadata(aspect.getSystemMetadata());
 
           // 5. Produce MAE events for the aspect record
           _entityService.produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, null, aspectRecord, null,
-              latestSystemMetadata, ChangeType.UPSERT);
+              latestSystemMetadata,
+              new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()),
+              ChangeType.UPSERT);
 
           totalRowsMigrated++;
         }
@@ -135,7 +141,7 @@ public class SendMAEStep implements UpgradeStep {
     return _server.find(EbeanAspectV2.class)
         .select(EbeanAspectV2.ALL_COLUMNS)
         .where()
-        .eq(EbeanAspectV2.VERSION_COLUMN, 0)
+        .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
         .orderBy()
         .asc(EbeanAspectV2.URN_COLUMN)
         .orderBy()

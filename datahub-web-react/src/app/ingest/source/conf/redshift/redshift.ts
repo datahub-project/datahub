@@ -12,8 +12,9 @@ source:
         database: # Your Redshift database, e.g. SampleDatabase
 
         # Credentials
-        username: # Your Redshift username, e.g. admin
-        password: # Your Redshift password, e.g. password_01
+        # Add secret in Secrets Tab with relevant names for each variable
+        username: "\${REDSHIFT_USERNAME}" # Your Redshift username, e.g. admin
+        password: "\${REDSHIFT_PASSWORD}" # Your Redshift password, e.g. password_01
 
         # Options
         include_tables: True
@@ -25,13 +26,15 @@ source:
 sink: 
     type: datahub-rest 
     config: 
-        server: "${baseUrl}/api/gms"`;
+        server: "${baseUrl}/api/gms"
+        # Add a secret in secrets Tab
+        token: "\${GMS_TOKEN}"`;
 
 const redshiftConfig: SourceConfig = {
     type: 'redshift',
     placeholderRecipe,
     displayName: 'Redshift',
-    docsUrl: 'https://datahubproject.io/docs/metadata-ingestion/source_docs/redshift/',
+    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/redshift/',
     logoUrl: redshiftLogo,
 };
 

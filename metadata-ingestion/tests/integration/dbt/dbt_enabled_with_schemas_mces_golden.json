@@ -41,6 +41,8 @@
                             "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
+                        "name": "customer_details",
+                        "qualifiedName": null,
                         "description": "",
                         "uri": null,
                         "tags": [
@@ -49,10 +51,15 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.Ownership": {
                         "owners": [
                             {
-                                "owner": "urn:li:corpuser:@alice2",
+                                "owner": "urn:li:corpuser:alice2",
                                 "type": "DATAOWNER",
                                 "source": null
                             },
@@ -80,6 +87,9 @@
                             },
                             {
                                 "tag": "urn:li:tag:dbt:int_meta_property"
+                            },
+                            {
+                                "tag": "urn:li:tag:dbt:my_query_tag"
                             },
                             {
                                 "tag": "urn:li:tag:dbt:test_tag"
@@ -164,7 +174,8 @@
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ]
+                        ],
+                        "fineGrainedLineages": null
                     }
                 },
                 {
@@ -229,9 +240,16 @@
                             "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
+                        "name": "an-aliased-view-for-monthly-billing",
+                        "qualifiedName": null,
                         "description": "",
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 },
                 {
@@ -373,7 +391,8 @@
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ]
+                        ],
+                        "fineGrainedLineages": null
                     }
                 },
                 {
@@ -433,9 +452,16 @@
                             "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
+                        "name": "an-aliased-view-for-payments",
+                        "qualifiedName": null,
                         "description": "",
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 },
                 {
@@ -637,7 +663,8 @@
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_06,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ]
+                        ],
+                        "fineGrainedLineages": null
                     }
                 },
                 {
@@ -697,9 +724,16 @@
                             "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
+                        "name": "payments_by_customer_by_month",
+                        "qualifiedName": null,
                         "description": "",
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 },
                 {
@@ -796,7 +830,8 @@
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ]
+                        ],
+                        "fineGrainedLineages": null
                     }
                 },
                 {
@@ -858,16 +893,23 @@
                             "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
+                        "name": "actor",
+                        "qualifiedName": null,
                         "description": "description for actor table from dbt",
                         "uri": null,
                         "tags": []
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.Ownership": {
                         "owners": [
                             {
-                                "owner": "urn:li:corpuser:@alice1",
+                                "owner": "urn:li:corpuser:alice1",
                                 "type": "DATAOWNER",
                                 "source": null
                             }
@@ -996,7 +1038,8 @@
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ]
+                        ],
+                        "fineGrainedLineages": null
                     }
                 }
             ]
@@ -1048,9 +1091,16 @@
                             "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
+                        "name": "address",
+                        "qualifiedName": null,
                         "description": "a user's address",
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 },
                 {
@@ -1232,7 +1282,8 @@
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.address,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ]
+                        ],
+                        "fineGrainedLineages": null
                     }
                 }
             ]
@@ -1284,9 +1335,16 @@
                             "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
+                        "name": "category",
+                        "qualifiedName": null,
                         "description": "a user's category",
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 },
                 {
@@ -1383,7 +1441,8 @@
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.category,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ]
+                        ],
+                        "fineGrainedLineages": null
                     }
                 }
             ]
@@ -1435,9 +1494,16 @@
                             "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
+                        "name": "city",
+                        "qualifiedName": null,
                         "description": "",
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 },
                 {
@@ -1551,7 +1617,8 @@
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ]
+                        ],
+                        "fineGrainedLineages": null
                     }
                 }
             ]
@@ -1606,16 +1673,23 @@
                             "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
+                        "name": "country",
+                        "qualifiedName": null,
                         "description": "",
                         "uri": null,
                         "tags": []
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.Ownership": {
                         "owners": [
                             {
-                                "owner": "urn:li:corpuser:@bob",
+                                "owner": "urn:li:corpuser:bob",
                                 "type": "DATAOWNER",
                                 "source": null
                             }
@@ -1721,7 +1795,8 @@
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.country,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ]
+                        ],
+                        "fineGrainedLineages": null
                     }
                 }
             ]
@@ -1773,9 +1848,16 @@
                             "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
+                        "name": "customer",
+                        "qualifiedName": null,
                         "description": "description for customer table from dbt",
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 },
                 {
@@ -1991,7 +2073,8 @@
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ]
+                        ],
+                        "fineGrainedLineages": null
                     }
                 }
             ]
@@ -2043,9 +2126,16 @@
                             "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
+                        "name": "payment_p2020_01",
+                        "qualifiedName": null,
                         "description": "",
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 },
                 {
@@ -2193,7 +2283,8 @@
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_01,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ]
+                        ],
+                        "fineGrainedLineages": null
                     }
                 }
             ]
@@ -2249,16 +2340,23 @@
                             "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
+                        "name": "payment_p2020_02",
+                        "qualifiedName": null,
                         "description": "",
                         "uri": null,
                         "tags": []
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.Ownership": {
                         "owners": [
                             {
-                                "owner": "urn:li:corpuser:@charles",
+                                "owner": "urn:li:corpuser:charles",
                                 "type": "DATAOWNER",
                                 "source": null
                             }
@@ -2415,7 +2513,8 @@
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ]
+                        ],
+                        "fineGrainedLineages": null
                     }
                 }
             ]
@@ -2467,9 +2566,16 @@
                             "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
+                        "name": "payment_p2020_03",
+                        "qualifiedName": null,
                         "description": "",
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 },
                 {
@@ -2617,7 +2723,8 @@
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_03,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ]
+                        ],
+                        "fineGrainedLineages": null
                     }
                 }
             ]
@@ -2669,9 +2776,16 @@
                             "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
+                        "name": "payment_p2020_04",
+                        "qualifiedName": null,
                         "description": "",
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 },
                 {
@@ -2819,7 +2933,8 @@
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_04,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ]
+                        ],
+                        "fineGrainedLineages": null
                     }
                 }
             ]
@@ -2871,9 +2986,16 @@
                             "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
+                        "name": "payment_p2020_05",
+                        "qualifiedName": null,
                         "description": "a payment",
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 },
                 {
@@ -3021,7 +3143,8 @@
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_05,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ]
+                        ],
+                        "fineGrainedLineages": null
                     }
                 }
             ]
@@ -3073,9 +3196,16 @@
                             "catalog_version": "0.19.1"
                         },
                         "externalUrl": null,
+                        "name": "payment_p2020_06",
+                        "qualifiedName": null,
                         "description": "",
                         "uri": null,
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
                     }
                 },
                 {
@@ -3223,7 +3353,8 @@
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_06,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ]
+                        ],
+                        "fineGrainedLineages": null
                     }
                 }
             ]
@@ -3256,7 +3387,8 @@
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ]
+                        ],
+                        "fineGrainedLineages": null
                     }
                 }
             ]
@@ -3289,7 +3421,8 @@
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ]
+                        ],
+                        "fineGrainedLineages": null
                     }
                 }
             ]
@@ -3322,7 +3455,8 @@
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
                                 "type": "TRANSFORMED"
                             }
-                        ]
+                        ],
+                        "fineGrainedLineages": null
                     }
                 }
             ]

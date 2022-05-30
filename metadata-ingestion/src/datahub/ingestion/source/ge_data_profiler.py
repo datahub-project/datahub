@@ -7,7 +7,6 @@ import threading
 import traceback
 import unittest.mock
 import uuid
-from math import log10
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 from datahub.telemetry import stats, telemetry
@@ -482,7 +481,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             "profile_sql_table",
             # bucket by taking floor of log of the number of rows scanned
             {
-                "rows_profiled": 10 ** int(log10(row_count + 1)),
+                "rows_profiled": stats.discretize(row_count),
             },
         )
 
@@ -677,7 +676,10 @@ class DatahubGEProfiler:
             yield GEContext(data_context, datasource_name)
 
     def generate_profiles(
-        self, requests: List[GEProfilerRequest], max_workers: int
+        self,
+        requests: List[GEProfilerRequest],
+        max_workers: int,
+        platform: Optional[str] = None,
     ) -> Iterable[Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]]:
         with PerfTimer() as timer, concurrent.futures.ThreadPoolExecutor(
             max_workers=max_workers
@@ -704,6 +706,7 @@ class DatahubGEProfiler:
                             self._generate_profile_from_request,
                             query_combiner,
                             request,
+                            platform=platform,
                         )
                         for request in requests
                     ]
@@ -729,8 +732,9 @@ class DatahubGEProfiler:
                         )
 
                         time_percentiles = {
-                            f"table_time_taken_p{percentile}": 10
-                            ** int(log10(percentile_values[percentile] + 1))
+                            f"table_time_taken_p{percentile}": stats.discretize(
+                                percentile_values[percentile]
+                            )
                             for percentile in percentiles
                         }
 
@@ -738,8 +742,8 @@ class DatahubGEProfiler:
                         "sql_profiling_summary",
                         # bucket by taking floor of log of time taken
                         {
-                            "total_time_taken": 10 ** int(log10(total_time_taken + 1)),
-                            "count": 10 ** int(log10(len(self.times_taken) + 1)),
+                            "total_time_taken": stats.discretize(total_time_taken),
+                            "count": stats.discretize(len(self.times_taken)),
                             "platform": self.platform,
                             **time_percentiles,
                         },
@@ -751,10 +755,12 @@ class DatahubGEProfiler:
         self,
         query_combiner: SQLAlchemyQueryCombiner,
         request: GEProfilerRequest,
+        platform: Optional[str] = None,
     ) -> Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]:
         return request, self._generate_single_profile(
             query_combiner=query_combiner,
             pretty_name=request.pretty_name,
+            platform=platform,
             **request.batch_kwargs,
         )
 
@@ -781,6 +787,7 @@ class DatahubGEProfiler:
         table: str = None,
         partition: Optional[str] = None,
         custom_sql: Optional[str] = None,
+        platform: Optional[str] = None,
         **kwargs: Any,
     ) -> Optional[DatasetProfileClass]:
         bigquery_temp_table: Optional[str] = None
@@ -820,6 +827,7 @@ class DatahubGEProfiler:
                     ge_context,
                     ge_config,
                     pretty_name=pretty_name,
+                    platform=platform,
                 )
 
                 profile = _SingleDatasetProfiler(
@@ -852,6 +860,7 @@ class DatahubGEProfiler:
         ge_context: GEContext,
         batch_kwargs: dict,
         pretty_name: str,
+        platform: Optional[str] = None,
     ) -> Dataset:
         # This is effectively emulating the beginning of the process that
         # is followed by GE itself. In particular, we simply want to construct
@@ -878,4 +887,12 @@ class DatahubGEProfiler:
                 **batch_kwargs,
             },
         )
+        if platform is not None and platform == "bigquery":
+            name_parts = pretty_name.split(".")
+            if len(name_parts) != 3:
+                logger.error(
+                    f"Unexpected {pretty_name} while profiling. Should have 3 parts but has {len(name_parts)} parts."
+                )
+            else:
+                batch.engine.dialect.dataset_id = name_parts[1]
         return batch

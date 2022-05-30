@@ -21,7 +21,6 @@ public class DescriptionVisitorTest {
         DescriptionVisitor test = new DescriptionVisitor();
 
         assertEquals(Set.of("This contains nested types.\n\nOwned by TeamB"),
-                getTestProtobufGraph("protobuf", "messageB")
-                        .accept(getVisitContextBuilder("protobuf.MessageB"), List.of(test)).collect(Collectors.toSet()));
+                graph.accept(getVisitContextBuilder("protobuf.MessageB"), List.of(test)).collect(Collectors.toSet()));
     }
 }

@@ -11,7 +11,7 @@ import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
@@ -66,7 +66,7 @@ public class UpsertIngestionSourceResolverTest {
               .setChangeType(ChangeType.UPSERT)
               .setEntityType(Constants.INGESTION_SOURCE_ENTITY_NAME)
               .setAspectName(Constants.INGESTION_INFO_ASPECT_NAME)
-              .setAspect(GenericAspectUtils.serializeAspect(info))
+              .setAspect(GenericRecordUtils.serializeAspect(info))
               .setEntityUrn(TEST_INGESTION_SOURCE_URN)
         ),
         Mockito.any(Authentication.class)

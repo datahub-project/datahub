@@ -1,0 +1,14 @@
+namespace com.linkedin.telemetry
+
+/**
+* A simple wrapper around a String to persist the client ID for telemetry in DataHub's backend DB
+*/
+@Aspect = {
+    "name": "telemetryClientId"
+}
+record TelemetryClientId {
+  /**
+   * A string representing the telemetry client ID
+   */
+  clientId: string
+}

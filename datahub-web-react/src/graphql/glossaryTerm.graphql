@@ -28,6 +28,9 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
                 }
             }
         }
+        parentNodes {
+            ...parentNodesFields
+        }
         ownership {
             ...ownershipFields
         }
@@ -49,5 +52,16 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
         schemaMetadata(version: 0) {
             ...schemaMetadataFields
         }
+        deprecation {
+            ...deprecationFields
+        }
     }
+}
+
+mutation createGlossaryTerm($input: CreateGlossaryEntityInput!) {
+    createGlossaryTerm(input: $input)
+}
+
+mutation createGlossaryNode($input: CreateGlossaryEntityInput!) {
+    createGlossaryNode(input: $input)
 }

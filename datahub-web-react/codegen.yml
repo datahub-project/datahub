@@ -7,6 +7,8 @@ schema:
     - '../datahub-graphql-core/src/main/resources/recommendation.graphql'
     - '../datahub-graphql-core/src/main/resources/auth.graphql'
     - '../datahub-graphql-core/src/main/resources/ingestion.graphql'
+    - '../datahub-graphql-core/src/main/resources/timeline.graphql'
+    - '../datahub-graphql-core/src/main/resources/tests.graphql'
 config:
     scalars:
         Long: number

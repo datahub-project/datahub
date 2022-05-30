@@ -1,3 +1,4 @@
+import atexit
 import collections
 import datetime
 import functools
@@ -10,11 +11,11 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 from unittest.mock import patch
 
 # This import verifies that the dependencies are available.
-import pybigquery  # noqa: F401
-import pybigquery.sqlalchemy_bigquery
-from dateutil import parser
+import sqlalchemy_bigquery
+from dateutil.relativedelta import relativedelta
 from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
+from ratelimiter import RateLimiter
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 
@@ -25,6 +26,14 @@ from datahub.emitter.mcp_builder import (
     PlatformKey,
     ProjectIdKey,
     gen_containers,
+)
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
@@ -47,12 +56,15 @@ from datahub.ingestion.source_report.sql.bigquery import BigQueryReport
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.key import DatasetKey
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.com.linkedin.pegasus2avro.schema import RecordTypeClass
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetLineageTypeClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.utilities.bigquery_sql_parser import BigQuerySQLParser
+from datahub.utilities.mapping import Constants
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +81,11 @@ AND
         AND NOT
         protoPayload.serviceData.jobCompletedEvent.job.jobStatus.error.code:*
         AND
-        protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables:*
+        (
+            protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables:*
+            OR
+            protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedViews:*
+        )
     )
 )
 AND
@@ -91,7 +107,11 @@ AND
     AND
     protoPayload.metadata.jobChange.job.jobStatus.jobState="DONE"
     AND NOT protoPayload.metadata.jobChange.job.jobStatus.errorResult:*
-    AND protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
+    AND (
+        protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
+        OR
+        protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedViews:*
+    )
 )
 AND
 timestamp >= "{start_time}"
@@ -141,11 +161,20 @@ FROM `{project_id}.{schema}.__TABLES_SUMMARY__`
 WHERE table_id LIKE '{table}%'
 """.strip()
 
+
 # The existing implementation of this method can be found here:
-# https://github.com/googleapis/python-bigquery-sqlalchemy/blob/e0f1496c99dd627e0ed04a0c4e89ca5b14611be2/pybigquery/sqlalchemy_bigquery.py#L967-L974.
+# https://github.com/googleapis/python-bigquery-sqlalchemy/blob/main/sqlalchemy_bigquery/base.py#L1018-L1025.
 # The existing implementation does not use the schema parameter and hence
 # does not properly resolve the view definitions. As such, we must monkey
 # patch the implementation.
+
+
+def get_view_definition(self, connection, view_name, schema=None, **kw):
+    view = self._get_table(connection, view_name, schema)
+    return view.view_query
+
+
+sqlalchemy_bigquery.BigQueryDialect.get_view_definition = get_view_definition
 
 
 def bigquery_audit_metadata_query_template(
@@ -154,6 +183,9 @@ def bigquery_audit_metadata_query_template(
     """
     Receives a dataset (with project specified) and returns a query template that is used to query exported
     AuditLogs containing protoPayloads of type BigQueryAuditMetadata.
+    Include only those that:
+    - have been completed (jobStatus.jobState = "DONE")
+    - do not contain errors (jobStatus.errorResults is none)
     :param dataset: the dataset to query against in the form of $PROJECT.$DATASET
     :param use_date_sharded_tables: whether to read from date sharded audit log tables or time partitioned audit log
            tables
@@ -194,6 +226,7 @@ def bigquery_audit_metadata_query_template(
     AND timestamp < "{end_time}"
     AND protopayload_auditlog.serviceName="bigquery.googleapis.com"
     AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
+    AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.errorResults") IS NULL
     AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL;
     """
 
@@ -202,18 +235,48 @@ def bigquery_audit_metadata_query_template(
     return textwrap.dedent(query)
 
 
-def get_view_definition(self, connection, view_name, schema=None, **kw):
-    view = self._get_table(connection, view_name, schema)
-    return view.view_query
+def get_partition_range_from_partition_id(
+    partition_id: str, partition_datetime: Optional[datetime.datetime]
+) -> Tuple[datetime.datetime, datetime.datetime]:
+    duration: relativedelta
+    # if yearly partitioned,
+    if len(partition_id) == 4:
+        duration = relativedelta(years=1)
+        if not partition_datetime:
+            partition_datetime = datetime.datetime.strptime(partition_id, "%Y")
+        partition_datetime = partition_datetime.replace(month=1, day=1)
+    # elif monthly partitioned,
+    elif len(partition_id) == 6:
+        duration = relativedelta(months=1)
+        if not partition_datetime:
+            partition_datetime = datetime.datetime.strptime(partition_id, "%Y%m")
+        partition_datetime = partition_datetime.replace(day=1)
+    # elif daily partitioned,
+    elif len(partition_id) == 8:
+        duration = relativedelta(days=1)
+        if not partition_datetime:
+            partition_datetime = datetime.datetime.strptime(partition_id, "%Y%m%d")
+    # elif hourly partitioned,
+    elif len(partition_id) == 10:
+        duration = relativedelta(hours=1)
+        if not partition_datetime:
+            partition_datetime = datetime.datetime.strptime(partition_id, "%Y%m%d%H")
+    else:
+        raise ValueError(
+            f"check your partition_id {partition_id}. It must be yearly/monthly/daily/hourly."
+        )
+    upper_bound_partition_datetime = partition_datetime + duration
+    return partition_datetime, upper_bound_partition_datetime
 
-
-pybigquery.sqlalchemy_bigquery.BigQueryDialect.get_view_definition = get_view_definition
 
 # Handle the GEOGRAPHY type. We will temporarily patch the _type_map
 # in the get_workunits method of the source.
 GEOGRAPHY = make_sqlalchemy_type("GEOGRAPHY")
 register_custom_type(GEOGRAPHY)
-assert pybigquery.sqlalchemy_bigquery._type_map
+assert sqlalchemy_bigquery._types._type_map
+# STRUCT is a custom sqlalchemy data type defined by the sqlalchemy_bigquery library
+# https://github.com/googleapis/python-bigquery-sqlalchemy/blob/934e25f705fd9f226e438d075c7e00e495cce04e/sqlalchemy_bigquery/_types.py#L47
+register_custom_type(sqlalchemy_bigquery.STRUCT, output=RecordTypeClass)
 
 
 @dataclass
@@ -226,10 +289,41 @@ class BigQueryPartitionColumn:
     partition_id: str
 
 
+# We can't use close as it is not called if the ingestion is not successful
+def cleanup(config: BigQueryConfig) -> None:
+    if config._credentials_path is not None:
+        logger.debug(
+            f"Deleting temporary credential file at {config._credentials_path}"
+        )
+        os.unlink(config._credentials_path)
+
+
+@config_class(BigQueryConfig)
+@platform_name("BigQuery")
+@support_status(SupportStatus.CERTIFIED)
+@capability(
+    SourceCapability.PLATFORM_INSTANCE,
+    "BigQuery doesn't need platform instances because project ids in BigQuery are globally unique.",
+    supported=False,
+)
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
+@capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@capability(
+    SourceCapability.USAGE_STATS,
+    "Not provided by this module, use `bigquery-usage` for that.",
+    supported=False,
+)
+@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 class BigQuerySource(SQLAlchemySource):
-    config: BigQueryConfig
-    maximum_shard_ids: Dict[str, str] = dict()
-    lineage_metadata: Optional[Dict[str, Set[str]]] = None
+    """
+    This plugin extracts the following:
+    - Metadata for databases, schemas, and tables
+    - Column types associated with each table
+    - Table, row, and column statistics via optional SQL profiling
+    - Table level lineage.
+    """
 
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "bigquery")
@@ -238,6 +332,8 @@ class BigQuerySource(SQLAlchemySource):
         self.report: BigQueryReport = BigQueryReport()
         self.lineage_metadata: Optional[Dict[str, Set[str]]] = None
         self.maximum_shard_ids: Dict[str, str] = dict()
+        self.partition_info: Dict[str, str] = dict()
+        atexit.register(cleanup, config)
 
     def get_db_name(self, inspector: Inspector = None) -> str:
         if self.config.project_id:
@@ -264,6 +360,7 @@ class BigQuerySource(SQLAlchemySource):
         logger.info(
             f"Built lineage map containing {len(self.lineage_metadata)} entries."
         )
+        logger.debug(f"lineage metadata is {self.lineage_metadata}")
 
     def _compute_bigquery_lineage_via_gcp_logging(
         self, lineage_client_project_id: Optional[str]
@@ -358,15 +455,19 @@ class BigQuerySource(SQLAlchemySource):
             end_time=end_time,
         )
 
-        assert self.config.log_page_size is not None
-
         logger.info(
             f"Start loading log entries from BigQuery start_time={start_time} and end_time={end_time}"
         )
         for client in clients:
-            entries = client.list_entries(
-                filter_=filter, page_size=self.config.log_page_size
-            )
+            if self.config.rate_limit:
+                with RateLimiter(max_calls=self.config.requests_per_min, period=60):
+                    entries = client.list_entries(
+                        filter_=filter, page_size=self.config.log_page_size
+                    )
+            else:
+                entries = client.list_entries(
+                    filter_=filter, page_size=self.config.log_page_size
+                )
             for entry in entries:
                 self.report.num_total_log_entries += 1
                 yield entry
@@ -379,6 +480,10 @@ class BigQuerySource(SQLAlchemySource):
         self, bigquery_client: BigQueryClient
     ) -> Iterable[BigQueryAuditMetadata]:
         if self.config.bigquery_audit_metadata_datasets is None:
+            self.error(
+                logger, "audit-metadata", "bigquery_audit_metadata_datasets not set"
+            )
+            self.report.bigquery_audit_metadata_datasets_missing = True
             return
 
         start_time: str = (
@@ -423,7 +528,11 @@ class BigQuerySource(SQLAlchemySource):
                 f"Finished loading log entries from BigQueryAuditMetadata in {dataset}"
             )
 
-            yield from query_job
+            if self.config.rate_limit:
+                with RateLimiter(max_calls=self.config.requests_per_min, period=60):
+                    yield from query_job
+            else:
+                yield from query_job
 
     # Currently we only parse JobCompleted events but in future we would want to parse other
     # events to also create field level lineage.
@@ -488,25 +597,54 @@ class BigQuerySource(SQLAlchemySource):
 
     def _create_lineage_map(self, entries: Iterable[QueryEvent]) -> Dict[str, Set[str]]:
         lineage_map: Dict[str, Set[str]] = collections.defaultdict(set)
-        num_entries: int = 0
-        num_skipped_entries: int = 0
+        self.report.num_total_lineage_entries = 0
+        self.report.num_skipped_lineage_entries_missing_data = 0
+        self.report.num_skipped_lineage_entries_not_allowed = 0
+        self.report.num_skipped_lineage_entries_other = 0
         for e in entries:
-            num_entries += 1
-            if e.destinationTable is None or not e.referencedTables:
-                num_skipped_entries += 1
+            self.report.num_total_lineage_entries += 1
+            if e.destinationTable is None or not (
+                e.referencedTables or e.referencedViews
+            ):
+                self.report.num_skipped_lineage_entries_missing_data += 1
                 continue
-            entry_consumed: bool = False
+            # Skip if schema/table pattern don't allow the destination table
+            destination_table_str = str(e.destinationTable.remove_extras())
+            destination_table_str_parts = destination_table_str.split("/")
+            if not self.config.schema_pattern.allowed(
+                destination_table_str_parts[3]
+            ) or not self.config.table_pattern.allowed(destination_table_str_parts[-1]):
+                self.report.num_skipped_lineage_entries_not_allowed += 1
+                continue
+            has_table = False
             for ref_table in e.referencedTables:
-                destination_table_str = str(e.destinationTable.remove_extras())
                 ref_table_str = str(ref_table.remove_extras())
                 if ref_table_str != destination_table_str:
                     lineage_map[destination_table_str].add(ref_table_str)
-                    entry_consumed = True
-            if not entry_consumed:
-                num_skipped_entries += 1
-        logger.info(
-            f"Creating lineage map: total number of entries={num_entries}, number skipped={num_skipped_entries}."
-        )
+                    has_table = True
+            has_view = False
+            for ref_view in e.referencedViews:
+                ref_view_str = str(ref_view.remove_extras())
+                if ref_view_str != destination_table_str:
+                    lineage_map[destination_table_str].add(ref_view_str)
+                    has_view = True
+            if has_table and has_view:
+                # If there is a view being referenced then bigquery sends both the view as well as underlying table
+                # in the references. There is no distinction between direct/base objects accessed. So doing sql parsing
+                # to ensure we only use direct objects accessed for lineage
+                parser = BigQuerySQLParser(e.query)
+                referenced_objs = set(
+                    map(lambda x: x.split(".")[-1], parser.get_tables())
+                )
+                curr_lineage_str = lineage_map[destination_table_str]
+                new_lineage_str = set()
+                for lineage_str in curr_lineage_str:
+                    name = lineage_str.split("/")[-1]
+                    if name in referenced_objs:
+                        new_lineage_str.add(lineage_str)
+                lineage_map[destination_table_str] = new_lineage_str
+            if not (has_table or has_view):
+                self.report.num_skipped_lineage_entries_other += 1
         return lineage_map
 
     def get_latest_partition(
@@ -566,6 +704,37 @@ class BigQuerySource(SQLAlchemySource):
         else:
             return True
 
+    def add_information_for_schema(self, inspector: Inspector, schema: str) -> None:
+        url = self.config.get_sql_alchemy_url()
+        engine = create_engine(url, **self.config.options)
+        project_id = self.get_db_name(inspector)
+        with engine.connect() as con:
+            inspector = inspect(con)
+            sql = f"""
+                select table_name, column_name
+                from `{project_id}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+                where is_partitioning_column = 'YES';
+            """
+            result = con.execute(sql)
+            for row in result.fetchall():
+                table = row[0]
+                partition_column = row[1]
+                self.partition_info[f"{project_id}.{schema}.{table}"] = partition_column
+        self.report.partition_info = self.partition_info
+
+    def get_extra_tags(
+        self, inspector: Inspector, schema: str, table: str
+    ) -> Dict[str, List[str]]:
+        extra_tags: Dict[str, List[str]] = {}
+        project_id = self.get_db_name(inspector)
+
+        partition_lookup_key = f"{project_id}.{schema}.{table}"
+        if partition_lookup_key in self.partition_info:
+            extra_tags[self.partition_info[partition_lookup_key]] = [
+                Constants.TAG_PARTITION_KEY
+            ]
+        return extra_tags
+
     def generate_partition_profiler_query(
         self, schema: str, table: str, partition_datetime: Optional[datetime.datetime]
     ) -> Tuple[Optional[str], Optional[str]]:
@@ -577,14 +746,25 @@ class BigQuerySource(SQLAlchemySource):
 
         partition = self.get_latest_partition(schema, table)
         if partition:
-            partition_ts: Union[datetime.datetime, datetime.date]
-            if not partition_datetime:
-                partition_datetime = parser.parse(partition.partition_id)
+            partition_where_clause: str
             logger.debug(f"{table} is partitioned and partition column is {partition}")
+            (
+                partition_datetime,
+                upper_bound_partition_datetime,
+            ) = get_partition_range_from_partition_id(
+                partition.partition_id, partition_datetime
+            )
             if partition.data_type in ("TIMESTAMP", "DATETIME"):
-                partition_ts = partition_datetime
+                partition_where_clause = "{column_name} BETWEEN '{partition_id}' AND '{upper_bound_partition_id}'".format(
+                    column_name=partition.column_name,
+                    partition_id=partition_datetime,
+                    upper_bound_partition_id=upper_bound_partition_datetime,
+                )
             elif partition.data_type == "DATE":
-                partition_ts = partition_datetime.date()
+                partition_where_clause = "{column_name} = '{partition_id}'".format(
+                    column_name=partition.column_name,
+                    partition_id=partition_datetime.date(),
+                )
             else:
                 logger.warning(f"Not supported partition type {partition.data_type}")
                 return None, None
@@ -595,13 +775,12 @@ SELECT
 FROM
     `{table_catalog}.{table_schema}.{table_name}`
 WHERE
-    {column_name} = '{partition_id}'
+    {partition_where_clause}
             """.format(
                 table_catalog=partition.table_catalog,
                 table_schema=partition.table_schema,
                 table_name=partition.table_name,
-                column_name=partition.column_name,
-                partition_id=partition_ts,
+                partition_where_clause=partition_where_clause,
             )
 
             return (partition.partition_id, custom_sql)
@@ -612,14 +791,14 @@ WHERE
                 return shard, None
         return None, None
 
-    def is_dataset_eligable_profiling(
+    def is_dataset_eligible_for_profiling(
         self, dataset_name: str, sql_config: SQLAlchemyConfig
     ) -> bool:
         """
         Method overrides default profiling filter which checks profiling eligibility based on allow-deny pattern.
         This one also don't profile those sharded tables which are not the latest.
         """
-        if not super().is_dataset_eligable_profiling(dataset_name, sql_config):
+        if not super().is_dataset_eligible_for_profiling(dataset_name, sql_config):
             return False
 
         (project_id, schema, table) = dataset_name.split(".")
@@ -638,7 +817,11 @@ WHERE
     def add_config_to_report(self):
         self.report.start_time = self.config.start_time
         self.report.end_time = self.config.end_time
-
+        self.report.include_table_lineage = self.config.include_table_lineage
+        self.report.use_date_sharded_audit_log_tables = (
+            self.config.use_date_sharded_audit_log_tables
+        )
+        self.report.log_page_size = self.config.log_page_size
         self.report.use_exported_bigquery_audit_metadata = (
             self.config.use_exported_bigquery_audit_metadata
         )
@@ -655,7 +838,7 @@ WHERE
         if self.lineage_metadata is None:
             self._compute_big_query_lineage()
         with patch.dict(
-            "pybigquery.sqlalchemy_bigquery._type_map",
+            "sqlalchemy_bigquery._types._type_map",
             {"GEOGRAPHY": GEOGRAPHY},
             clear=False,
         ):
@@ -682,8 +865,8 @@ WHERE
         assert self.lineage_metadata
         for ref_table in self.lineage_metadata[str(bq_table)]:
             upstream_table = BigQueryTableRef.from_string_name(ref_table)
-            if upstream_table.is_temporary_table():
-                # making sure we don't process a table twice and not get into a recurisve loop
+            if upstream_table.is_temporary_table(self.config.temp_table_dataset_prefix):
+                # making sure we don't process a table twice and not get into a recursive loop
                 if ref_table in tables_seen:
                     logger.debug(
                         f"Skipping table {ref_table} because it was seen already"
@@ -702,9 +885,11 @@ WHERE
         self, dataset_urn: str
     ) -> Optional[MetadataChangeProposalWrapper]:
         if self.lineage_metadata is None:
+            logger.debug("No lineage metadata so skipping getting mcp")
             return None
         dataset_key: Optional[DatasetKey] = mce_builder.dataset_urn_to_key(dataset_urn)
         if dataset_key is None:
+            logger.debug(f"No dataset_key for {dataset_urn} so skipping getting mcp")
             return None
         project_id, dataset_name, tablename = dataset_key.name.split(".")
         bq_table = BigQueryTableRef(project_id, dataset_name, tablename)
@@ -728,6 +913,12 @@ WHERE
                     ),
                     DatasetLineageTypeClass.TRANSFORMED,
                 )
+                if self.config.upstream_lineage_in_report:
+                    current_lineage_map: Set = self.report.upstream_lineage.get(
+                        str(bq_table), set()
+                    )
+                    current_lineage_map.add(str(upstream_table))
+                    self.report.upstream_lineage[str(bq_table)] = current_lineage_map
                 upstream_list.append(upstream_table_class)
 
             if upstream_list:
@@ -858,11 +1049,3 @@ WHERE
         for wu in container_workunits:
             self.report.report_workunit(wu)
             yield wu
-
-    # We can't use close as it is not called if the ingestion is not successful
-    def __del__(self):
-        if self.config._credentials_path is not None:
-            logger.debug(
-                f"Deleting temporary credential file at {self.config._credentials_path}"
-            )
-            os.unlink(self.config._credentials_path)

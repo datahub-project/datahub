@@ -102,7 +102,7 @@ export const SchemaRow = ({
     return (
         <>
             <tr className={className}>{children}</tr>
-            {fieldPath === selectedFk?.fieldPath && (
+            {fieldPath && fieldPath === selectedFk?.fieldPath && (
                 <ForeignKeyContent>
                     <ForiegnKeyTd>
                         <HeaderContent>
@@ -110,7 +110,7 @@ export const SchemaRow = ({
                             <DatasetLink
                                 to={entityRegistry.getEntityUrl(
                                     EntityType.Dataset,
-                                    selectedFk.constraint?.foreignDataset?.urn || '',
+                                    selectedFk?.constraint?.foreignDataset?.urn || '',
                                 )}
                             >
                                 {selectedFk.constraint?.foreignDataset?.name}
@@ -121,14 +121,14 @@ export const SchemaRow = ({
                                 <CompactContext.Provider value>
                                     {entityRegistry.renderProfile(
                                         EntityType.Dataset,
-                                        selectedFk.constraint?.foreignDataset?.urn || '',
+                                        selectedFk?.constraint?.foreignDataset?.urn || '',
                                     )}
                                 </CompactContext.Provider>
                             </EntitySidePanel>
                             <ConstraintSection>
                                 <div>
                                     <TableTitle>{baseEntity.dataset?.name}</TableTitle>
-                                    {selectedFk.constraint?.sourceFields?.map((field) => (
+                                    {selectedFk?.constraint?.sourceFields?.map((field) => (
                                         <div key={field?.fieldPath}>
                                             <FieldBadge count={field?.fieldPath} />
                                         </div>
@@ -136,8 +136,8 @@ export const SchemaRow = ({
                                 </div>
                                 <ArrowContainer>{'--->'}</ArrowContainer>
                                 <div>
-                                    <TableTitle>{selectedFk.constraint?.foreignDataset?.name}</TableTitle>
-                                    {selectedFk.constraint?.foreignFields?.map((field) => (
+                                    <TableTitle>{selectedFk?.constraint?.foreignDataset?.name}</TableTitle>
+                                    {selectedFk?.constraint?.foreignFields?.map((field) => (
                                         <div key={field?.fieldPath}>
                                             <FieldBadge count={field?.fieldPath} />
                                         </div>

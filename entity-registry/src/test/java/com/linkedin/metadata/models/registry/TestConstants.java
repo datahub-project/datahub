@@ -8,6 +8,7 @@ public class TestConstants {
   public static final String BASE_DIRECTORY = "custom-test-model/build/plugins/models";
   public static final ComparableVersion TEST_VERSION = new ComparableVersion("0.0.0-dev");
   public static final String TEST_ASPECT_NAME = "testDataQualityRules";
+  public static final String TEST_EVENT_NAME = "dataQualityEvent";
 
   private TestConstants() {
   }

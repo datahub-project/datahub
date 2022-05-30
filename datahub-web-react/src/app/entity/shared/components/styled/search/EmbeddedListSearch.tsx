@@ -17,8 +17,9 @@ import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/s
 import { GetSearchResultsParams, SearchResultsInterface } from './types';
 
 const Container = styled.div`
-    overflow: scroll;
-    height: 120;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 `;
 
 // this extracts the response from useGetSearchResultsForMultipleQuery into a common interface other search endpoints can also produce
@@ -32,6 +33,20 @@ function useWrappedSearchResults(params: GetSearchResultsParams) {
             refetch(refetchParams).then((res) => res.data.searchAcrossEntities),
     };
 }
+// the addFixedQuery checks and generate the query as per params pass to embeddedListSearch
+export const addFixedQuery = (baseQuery: string, fixedQuery: string, emptyQuery: string) => {
+    let finalQuery = ``;
+    if (baseQuery && fixedQuery) {
+        finalQuery = baseQuery.includes(fixedQuery) ? `${baseQuery}` : `(*${baseQuery}*) AND (${fixedQuery})`;
+    } else if (baseQuery) {
+        finalQuery = `${baseQuery}`;
+    } else if (fixedQuery) {
+        finalQuery = `${fixedQuery}`;
+    } else {
+        return emptyQuery || '';
+    }
+    return finalQuery;
+};
 
 type SearchPageParams = {
     type?: string;
@@ -40,6 +55,7 @@ type SearchPageParams = {
 type Props = {
     emptySearchQuery?: string | null;
     fixedFilter?: FacetFilterInput | null;
+    fixedQuery?: string | null;
     placeholderText?: string | null;
     useGetSearchResults?: (params: GetSearchResultsParams) => {
         data: SearchResultsInterface | undefined | null;
@@ -52,6 +68,7 @@ type Props = {
 export const EmbeddedListSearch = ({
     emptySearchQuery,
     fixedFilter,
+    fixedQuery,
     placeholderText,
     useGetSearchResults = useWrappedSearchResults,
 }: Props) => {
@@ -60,7 +77,7 @@ export const EmbeddedListSearch = ({
     const entityRegistry = useEntityRegistry();
 
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const query: string = params.query ? (params.query as string) : '';
+    const query: string = addFixedQuery(params?.query as string, fixedQuery as string, emptySearchQuery as string);
     const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
     const filters: Array<FacetFilterInput> = useFilters(params);
@@ -104,14 +121,7 @@ export const EmbeddedListSearch = ({
     });
 
     const onSearch = (q: string) => {
-        let finalQuery = q;
-        if (q.trim().length === 0) {
-            if (emptySearchQuery) {
-                finalQuery = emptySearchQuery;
-            } else {
-                return;
-            }
-        }
+        const finalQuery = addFixedQuery(q as string, fixedQuery as string, emptySearchQuery as string);
         navigateToEntitySearchUrl({
             baseUrl: location.pathname,
             type: activeType,

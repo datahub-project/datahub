@@ -1,7 +1,6 @@
 import json
 import logging
 import time
-import urllib.parse
 from datetime import datetime
 from typing import Any, List, Optional
 
@@ -13,6 +12,7 @@ from termcolor import colored
 import datahub.cli.cli_utils
 from datahub.emitter.mce_builder import dataset_urn_to_key, schema_field_urn_to_key
 from datahub.telemetry import telemetry
+from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +74,7 @@ def get_timeline(
         # we assume the urn is already encoded
         encoded_urn: str = urn
     elif urn.startswith("urn:"):
-        encoded_urn = urllib.parse.quote(urn)
+        encoded_urn = Urn.url_encode(urn)
     else:
         raise Exception(
             f"urn {urn} does not seem to be a valid raw (starts with urn:) or encoded urn (starts with urn%3A)"
@@ -204,8 +204,8 @@ def timeline(
             if change_txn["changeEvents"] is not None:
                 for change_event in change_txn["changeEvents"]:
                     element_string = (
-                        f"({pretty_id(change_event.get('elementId'))})"
-                        if change_event.get("elementId")
+                        f"({pretty_id(change_event.get('elementId') or change_event.get('modifier'))})"
+                        if change_event.get("elementId") or change_event.get("modifier")
                         else ""
                     )
                     event_change_color: str = (
@@ -213,9 +213,13 @@ def timeline(
                         if change_event.get("semVerChange") == "MINOR"
                         else "red"
                     )
-                    target_string = pretty_id(change_event.get("target") or "")
+                    target_string = pretty_id(
+                        change_event.get("target")
+                        or change_event.get("entityUrn")
+                        or ""
+                    )
                     print(
-                        f"\t{colored(change_event['changeType'],event_change_color)} {change_event.get('category')} {target_string} {element_string}: {change_event['description']}"
+                        f"\t{colored(change_event.get('changeType') or change_event.get('operation'),event_change_color)} {change_event.get('category')} {target_string} {element_string}: {change_event['description']}"
                     )
     else:
         click.echo(

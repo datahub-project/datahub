@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Callable, Dict, Generator, List, Optional, Union
+from typing import Any, Callable, Dict, Generator, List, Optional, Type, Union
 
 import avro.schema
 
@@ -70,7 +70,7 @@ class AvroToMceSchemaConverter:
     # FieldPath format version.
     version_string: str = "[version=2.0]"
 
-    field_type_mapping: Dict[str, Any] = {
+    field_type_mapping: Dict[str, Type] = {
         AVRO_TYPE_NULL: NullTypeClass,
         "bool": BooleanTypeClass,
         "boolean": BooleanTypeClass,
@@ -88,7 +88,7 @@ class AvroToMceSchemaConverter:
         "fixed": FixedTypeClass,
     }
 
-    field_logical_type_mapping: Dict[str, Any] = {
+    field_logical_type_mapping: Dict[str, Type] = {
         "date": DateTypeClass,
         "decimal": NumberTypeClass,
         "time-micros": TimeTypeClass,
@@ -128,17 +128,50 @@ class AvroToMceSchemaConverter:
             avro.schema.LogicalSchema: self._gen_non_nested_to_mce_fields,
         }
 
+    @staticmethod
+    def _get_type_name(
+        avro_schema: avro.schema.Schema, logical_if_present: bool = False
+    ) -> str:
+        logical_type_name: Optional[str] = None
+        if logical_if_present:
+            logical_type_name = getattr(
+                avro_schema, "logical_type", None
+            ) or avro_schema.props.get("logicalType")
+        return logical_type_name or str(
+            getattr(avro_schema.type, "type", avro_schema.type)
+        )
+
+    @staticmethod
     def _get_column_type(
-        self, field_type: Union[str, dict], logical_type: Optional[str]
+        avro_schema: avro.schema.Schema, logical_type: Optional[str]
     ) -> SchemaFieldDataType:
-        tp = field_type
-        if hasattr(tp, "type"):
-            tp = tp.type  # type: ignore
-        tp = str(tp)
-        TypeClass: Any = self.field_type_mapping.get(tp)
+        type_name: str = AvroToMceSchemaConverter._get_type_name(avro_schema)
+        TypeClass: Optional[Type] = AvroToMceSchemaConverter.field_type_mapping.get(
+            type_name
+        )
         if logical_type is not None:
-            TypeClass = self.field_logical_type_mapping.get(logical_type, TypeClass)
+            TypeClass = AvroToMceSchemaConverter.field_logical_type_mapping.get(
+                logical_type, TypeClass
+            )
+        assert TypeClass is not None
         dt = SchemaFieldDataType(type=TypeClass())
+        # Handle Arrays and Maps
+        if isinstance(dt.type, ArrayTypeClass) and isinstance(
+            avro_schema, avro.schema.ArraySchema
+        ):
+            dt.type.nestedType = [
+                AvroToMceSchemaConverter._get_type_name(
+                    avro_schema.items, logical_if_present=True
+                )
+            ]
+        elif isinstance(dt.type, MapTypeClass) and isinstance(
+            avro_schema, avro.schema.MapSchema
+        ):
+            # Avro map's key is always a string. See: https://avro.apache.org/docs/current/spec.html#Maps
+            dt.type.keyType = "string"
+            dt.type.valueType = AvroToMceSchemaConverter._get_type_name(
+                avro_schema.values, logical_if_present=True
+            )
         return dt
 
     def _is_nullable(self, schema: avro.schema.Schema) -> bool:
@@ -146,10 +179,14 @@ class AvroToMceSchemaConverter:
             return self._is_nullable(schema.type)
         if isinstance(schema, avro.schema.UnionSchema):
             return any(self._is_nullable(sub_schema) for sub_schema in schema.schemas)
-        elif isinstance(schema, avro.schema.PrimitiveSchema):
-            return schema.type == AVRO_TYPE_NULL or schema.props.get("_nullable", False)
-        else:
-            return self.default_nullable
+        if (
+            isinstance(schema, avro.schema.PrimitiveSchema)
+            and schema.type == AVRO_TYPE_NULL
+        ):
+            return True
+        if isinstance(schema.props, dict):
+            return schema.props.get("_nullable", self.default_nullable)
+        return self.default_nullable
 
     def _get_cur_field_path(self) -> str:
         return ".".join(self._prefix_name_stack)
@@ -282,12 +319,21 @@ class AvroToMceSchemaConverter:
                         tags=[TagAssociationClass(tag="urn:li:tag:Deprecated")]
                     )
 
+                logical_type_name: Optional[str] = (
+                    # logicalType nested inside type
+                    getattr(actual_schema, "logical_type", None)
+                    or actual_schema.props.get("logicalType")
+                    # bare logicalType
+                    or self._actual_schema.props.get("logicalType")
+                )
+
                 field = SchemaField(
                     fieldPath=field_path,
                     # Populate it with the simple native type for now.
                     nativeDataType=native_data_type,
                     type=self._converter._get_column_type(
-                        actual_schema.type, self._actual_schema.props.get("logicalType")
+                        actual_schema,
+                        logical_type_name,
                     ),
                     description=description,
                     recursive=False,

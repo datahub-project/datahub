@@ -17,7 +17,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestSignal;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -80,7 +80,7 @@ public class CancelIngestionExecutionRequestResolver implements DataFetcher<Comp
           );
           proposal.setEntityType(Constants.EXECUTION_REQUEST_ENTITY_NAME);
           proposal.setAspectName(Constants.EXECUTION_REQUEST_SIGNAL_ASPECT_NAME);
-          proposal.setAspect(GenericAspectUtils.serializeAspect(execSignal));
+          proposal.setAspect(GenericRecordUtils.serializeAspect(execSignal));
           proposal.setChangeType(ChangeType.UPSERT);
 
           return _entityClient.ingestProposal(proposal, context.getAuthentication());

@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.SearchScoreFieldSpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import java.util.HashMap;
@@ -21,6 +22,8 @@ public class MappingsBuilder {
     mappings.put("urn", getMappingsForUrn());
     entitySpec.getSearchableFieldSpecs()
         .forEach(searchableFieldSpec -> mappings.putAll(getMappingsForField(searchableFieldSpec)));
+    entitySpec.getSearchScoreFieldSpecs()
+        .forEach(searchScoreFieldSpec -> mappings.putAll(getMappingsForSearchScoreField(searchScoreFieldSpec)));
     return ImmutableMap.of("properties", mappings);
   }
 
@@ -37,10 +40,8 @@ public class MappingsBuilder {
     if (fieldType == FieldType.KEYWORD) {
       mappingForField.put("type", "keyword");
       mappingForField.put("normalizer", "keyword_normalizer");
-      if (addToFilters) {
-        // Add keyword subfield without lowercase filter
-        mappingForField.put("fields", ImmutableMap.of("keyword", ImmutableMap.of("type", "keyword")));
-      }
+      // Add keyword subfield without lowercase filter
+      mappingForField.put("fields", ImmutableMap.of("keyword", ImmutableMap.of("type", "keyword")));
     } else if (fieldType == FieldType.TEXT || fieldType == FieldType.TEXT_PARTIAL) {
       mappingForField.put("type", "keyword");
       mappingForField.put("normalizer", "keyword_normalizer");
@@ -49,10 +50,8 @@ public class MappingsBuilder {
         subFields.put("ngram", ImmutableMap.of("type", "text", "analyzer", "partial"));
       }
       subFields.put("delimited", ImmutableMap.of("type", "text", "analyzer", "word_delimited"));
-      if (addToFilters) {
-        // Add keyword subfield without lowercase filter
-        subFields.put("keyword", ImmutableMap.of("type", "keyword"));
-      }
+      // Add keyword subfield without lowercase filter
+      subFields.put("keyword", ImmutableMap.of("type", "keyword"));
       mappingForField.put("fields", subFields);
     } else if (fieldType == FieldType.BROWSE_PATH) {
       mappingForField.put("type", "text");
@@ -67,16 +66,14 @@ public class MappingsBuilder {
       if (fieldType == FieldType.URN_PARTIAL) {
         subFields.put("ngram", ImmutableMap.of("type", "text", "analyzer", "partial_urn_component"));
       }
-      if (addToFilters) {
-        subFields.put("keyword", ImmutableMap.of("type", "keyword"));
-      }
-      if (!subFields.isEmpty()) {
-        mappingForField.put("fields", subFields);
-      }
+      subFields.put("keyword", ImmutableMap.of("type", "keyword"));
+      mappingForField.put("fields", subFields);
     } else if (fieldType == FieldType.BOOLEAN) {
       mappingForField.put("type", "boolean");
     } else if (fieldType == FieldType.COUNT) {
       mappingForField.put("type", "long");
+    } else if (fieldType == FieldType.DATETIME) {
+      mappingForField.put("type", "date");
     } else {
       log.info("FieldType {} has no mappings implemented", fieldType);
     }
@@ -90,5 +87,11 @@ public class MappingsBuilder {
         .ifPresent(fieldName -> mappings.put(fieldName, ImmutableMap.of("type", "long")));
 
     return mappings;
+  }
+
+  private static Map<String, Object> getMappingsForSearchScoreField(
+      @Nonnull final SearchScoreFieldSpec searchScoreFieldSpec) {
+    return ImmutableMap.of(searchScoreFieldSpec.getSearchScoreAnnotation().getFieldName(),
+        ImmutableMap.of("type", "double"));
   }
 }
