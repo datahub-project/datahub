@@ -1,4 +1,4 @@
-package com.datahub.notification;
+package com.datahub.notification.provider;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.cache.CacheBuilder;

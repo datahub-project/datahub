@@ -1,7 +1,7 @@
 package com.linkedin.metadata.kafka.hook.notification;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.notification.SettingsProvider;
+import com.datahub.notification.provider.SettingsProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationship;
@@ -28,6 +28,9 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.PlatformEventHeader;
+import com.linkedin.settings.NotificationSetting;
+import com.linkedin.settings.NotificationSettingValue;
+import com.linkedin.settings.global.GlobalSettingsInfo;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -41,6 +44,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang.NotImplementedException;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -77,6 +81,117 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
   @Override
   public abstract void generate(@Nonnull MetadataChangeLog event);
 
+  protected boolean isEligibleForGlobalRecipients(NotificationScenarioType type) {
+    GlobalSettingsInfo globalSettingsInfo = _settingsProvider.getGlobalSettings();
+    return globalSettingsInfo != null
+        && globalSettingsInfo.getNotifications().hasSettings()
+        && globalSettingsInfo.getNotifications().getSettings().containsKey(type.toString())
+        && NotificationSettingValue.ENABLED.equals(
+        globalSettingsInfo.getNotifications().getSettings().get(type.toString()).getValue());
+  }
+
+  protected boolean isEligibleForOwnerRecipients(NotificationScenarioType type) {
+    return false;
+  }
+
+  protected boolean isEligibleForRelatedOwnerRecipients(NotificationScenarioType type) {
+    return false;
+  }
+
+  protected boolean isEligibleForSubscriberRecipients(NotificationScenarioType type) {
+    return false;
+  }
+
+  protected List<NotificationRecipient> buildGlobalRecipients(NotificationScenarioType type) {
+    GlobalSettingsInfo globalSettingsInfo = _settingsProvider.getGlobalSettings();
+    NotificationSetting setting = globalSettingsInfo.getNotifications().getSettings().get(type.toString());
+    List<NotificationRecipient> slackRecipients = buildGlobalSlackRecipients(type, setting);
+    // Here's where we'd add other integration types (email, msft teams). For now none!
+    return slackRecipients;
+  }
+
+  protected List<NotificationRecipient> buildGlobalSlackRecipients(NotificationScenarioType type, NotificationSetting setting) {
+    // If notifications are disabled for this notification type, skip.
+    if (!isSlackEnabled() || (hasParam(setting.getParams(), "slack.enabled")
+        && Boolean.FALSE.equals(Boolean.valueOf(setting.getParams().get("isSlackEnabled"))))) {
+      // Skip notification type.
+      return Collections.emptyList();
+    }
+    // Slack is enabled. Determine which channel to send to.
+    String maybeSlackChannel = hasParam(setting.getParams(), "slack.channel")
+        ? setting.getParams().get("slack.channel")
+        : getDefaultSlackChanel();
+
+    if (maybeSlackChannel != null) {
+      return ImmutableList.of(
+          new NotificationRecipient()
+              .setId(maybeSlackChannel)
+              .setType(NotificationRecipientType.CUSTOM)
+              .setCustomType("SLACK_CHANNEL"));
+    } else {
+      // No Resolved slack channel -- warn!
+      log.warn(String.format("Failed to resolve slack channel to send notification of type %s to!", type));
+      return Collections.emptyList();
+    }
+  }
+
+  protected boolean isSlackEnabled() {
+    GlobalSettingsInfo globalSettingsInfo = _settingsProvider.getGlobalSettings();
+    return globalSettingsInfo != null
+        && globalSettingsInfo.getIntegrations().hasSlackSettings()
+        && globalSettingsInfo.getIntegrations().getSlackSettings().isEnabled();
+  }
+
+  protected String getDefaultSlackChanel() {
+    GlobalSettingsInfo globalSettingsInfo = _settingsProvider.getGlobalSettings();
+    return globalSettingsInfo != null
+        && globalSettingsInfo.getIntegrations().hasSlackSettings()
+        ? globalSettingsInfo.getIntegrations().getSlackSettings().getDefaultChannelName()
+        : null;
+  }
+
+  protected boolean hasParam(@Nullable final Map<String, String> params, final String param) {
+    return params != null && params.containsKey(param);
+  }
+
+  protected List<NotificationRecipient> buildRecipients(NotificationScenarioType notificationScenarioType, Urn entityUrn) {
+    List<NotificationRecipient> recipients = new ArrayList<>();
+
+    // If we should globally broadcast, build the broadcast recipient.
+    if (isEligibleForGlobalRecipients(notificationScenarioType)) {
+      recipients.addAll(buildGlobalRecipients(notificationScenarioType));
+    }
+
+    // TODO: Support sending notifications to owners.
+    if (isEligibleForOwnerRecipients(notificationScenarioType)) {
+      recipients.addAll(buildOwnerRecipients(entityUrn));
+    }
+
+    // TODO: Support sending notifications to related (e.g. downstream) owners.
+    if (isEligibleForRelatedOwnerRecipients(notificationScenarioType)) {
+      recipients.addAll(buildRelatedOwnerRecipients(entityUrn));
+    }
+
+    // TODO: Support sending notifications to subscribers.
+    if (isEligibleForSubscriberRecipients(notificationScenarioType)) {
+      recipients.addAll(buildSubscriberRecipients(entityUrn));
+    }
+
+    return recipients;
+  }
+
+  protected List<NotificationRecipient> buildOwnerRecipients(final Urn entityUrn) {
+    throw new NotImplementedException();
+  }
+
+  protected List<NotificationRecipient> buildRelatedOwnerRecipients(final Urn entityUrn) {
+    throw new NotImplementedException();
+  }
+
+  protected List<NotificationRecipient> buildSubscriberRecipients(final Urn entityUrn) {
+    throw new NotImplementedException();
+  }
+
   protected PlatformEvent createPlatformEvent(final NotificationRequest request) {
     PlatformEvent event = new PlatformEvent();
     event.setName(NOTIFICATION_REQUEST_EVENT_NAME);
@@ -92,14 +207,6 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
       @Nonnull final Map<String, String> templateParams,
       @Nonnull final Set<Urn> users,
       @Nonnull final Set<Urn> groups) {
-
-    final NotificationRequest notificationRequest = new NotificationRequest();
-    notificationRequest.setMessage(
-        new NotificationMessage()
-            .setTemplate(templateType)
-            .setParameters(new StringMap(templateParams))
-    );
-
     // Merge users + group users.
     final Set<Urn> finalUsers = new HashSet<>();
     finalUsers.addAll(users);
@@ -109,10 +216,22 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
       .collect(Collectors.toList()));
 
     // Add recipient for each user.
-    List<NotificationRecipient> recipients = finalUsers.stream()
+    Set<NotificationRecipient> recipients = finalUsers.stream()
         .map(user -> new NotificationRecipient().setType(NotificationRecipientType.USER).setId(user.toString()))
-        .collect(Collectors.toList());
+        .collect(Collectors.toSet());
+    return buildNotificationRequest(templateType, templateParams, recipients);
+  }
 
+  protected NotificationRequest buildNotificationRequest(
+      @Nonnull final String templateType,
+      @Nonnull final Map<String, String> templateParams,
+      @Nonnull final Set<NotificationRecipient> recipients) {
+    final NotificationRequest notificationRequest = new NotificationRequest();
+    notificationRequest.setMessage(
+        new NotificationMessage()
+            .setTemplate(templateType)
+            .setParameters(new StringMap(templateParams))
+    );
     notificationRequest.setRecipients(new NotificationRecipientArray(recipients));
     return notificationRequest;
   }

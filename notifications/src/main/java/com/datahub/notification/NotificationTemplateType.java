@@ -59,7 +59,70 @@ public enum NotificationTemplateType {
           "entityOwners",
           "downstreamEntityOwners"
       )
-  ),;
+  ),
+    /**
+     * Broadcast that an entity has changed: owners added or removed, tags, terms, domain, deprecation
+     */
+    BROADCAST_ENTITY_CHANGE(
+        ImmutableSet.of(
+            "entityName",
+            "entityPath",
+            "entityType",
+            "operation",
+            "actorUrn"
+        ),
+        ImmutableSet.of(
+            "modifierType",
+            "modifierCount",
+            "modifier0Name",
+            "modifier0Path",
+            "modifier1Name",
+            "modifier1Path",
+            "modifier2Name",
+            "modifier2Path",
+            "subResource",
+            "subResourceType"
+        )
+    ),
+    /**
+     * Broadcast a change proposal: tag, term, ownership, documentation, domain proposal.
+     */
+    BROADCAST_NEW_PROPOSAL(
+        ImmutableSet.of(
+            "operation",
+            "modifierType",
+            "modifierName",
+            "modifierPath",
+            "entityName",
+            "entityType",
+            "entityPath",
+            "actorUrn"
+        ),
+        ImmutableSet.of(
+            "subResourceType",
+            "subResourceUrn"
+        )
+    ),
+    /**
+     * Broadcast a change proposal update, eg an APPROVE or DENY.
+     */
+    BROADCAST_PROPOSAL_STATUS_CHANGE(
+        ImmutableSet.of(
+            "operation",
+            "modifierType",
+            "modifierName",
+            "modifierPath",
+            "entityName",
+            "entityType",
+            "entityPath",
+            "action",
+            "actorUrn"
+        ),
+        ImmutableSet.of(
+            "subResourceType",
+            "subResourceUrn"
+        )
+    );
 
   private final Set<String> requiredParameters;
   private final Set<String> optionalParameters;

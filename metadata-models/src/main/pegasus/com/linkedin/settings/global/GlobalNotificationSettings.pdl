@@ -8,6 +8,7 @@ import com.linkedin.settings.NotificationSetting
 record GlobalNotificationSettings {
   /**
    * Settings related to asset incidents.
+   * Deprecated! Use settings instead.
    */
   incidents: optional record GlobalIncidentsSettings {
     /**
@@ -22,4 +23,9 @@ record GlobalNotificationSettings {
      */
     broadcastIncidentStatusChangeNotification: NotificationSetting
   }
+
+   /**
+    * Global / platform notification settings
+    */
+   settings: optional map[string, NotificationSetting]
 }

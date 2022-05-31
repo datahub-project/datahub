@@ -213,7 +213,7 @@ notifications:
       enabled: ${SLACK_SINK_ENABLED:false}
       configs:
         botToken: ${SLACK_BOT_TOKEN}
-        defaultChannel: ${SLACK_DEFAULT_CHANNEL}
+        defaultChannel: ${SLACK_DEFAULT_CHANNEL:datahub-slack-notifications}
 
 # Mirroring events to external systems (e.g. Event Bridge)
 eventSinks:

@@ -1,6 +1,7 @@
 package com.datahub.notification;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.notification.provider.IdentityProvider;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;

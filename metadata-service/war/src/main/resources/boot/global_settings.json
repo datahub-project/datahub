@@ -1,4 +1,35 @@
 {
-  "integrations": {},
-  "notifications": {}
+  "integrations": {
+    "slackSettings": {
+      "enabled": false
+    }
+  },
+  "notifications": {
+    "settings": {
+      "NEW_PROPOSAL": {
+        "value": "ENABLED"
+      },
+      "PROPOSAL_STATUS_CHANGE": {
+        "value": "ENABLED"
+      },
+      "ENTITY_TAG_CHANGE": {
+        "value": "ENABLED"
+      },
+      "ENTITY_OWNER_CHANGE": {
+        "value": "ENABLED"
+      },
+      "ENTITY_GLOSSARY_TERM_CHANGE": {
+        "value": "ENABLED"
+      },
+      "ENTITY_DEPRECATION_CHANGE": {
+        "value": "ENABLED"
+      },
+      "DATASET_SCHEMA_CHANGE": {
+        "value": "ENABLED"
+      },
+      "ENTITY_DOMAIN_CHANGE": {
+        "value": "ENABLED"
+      }
+    }
+  }
 }

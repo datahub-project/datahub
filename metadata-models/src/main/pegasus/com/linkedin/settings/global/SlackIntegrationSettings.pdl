@@ -17,6 +17,11 @@ record SlackIntegrationSettings {
   botTokenSecret: optional Urn
 
   /**
+   * An encrypted bot token.
+   */
+  encryptedBotToken: optional string
+
+  /**
    * A default slack channel to use.
    */
   defaultChannelName: optional string

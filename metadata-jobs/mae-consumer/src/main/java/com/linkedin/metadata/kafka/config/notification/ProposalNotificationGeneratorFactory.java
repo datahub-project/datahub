@@ -10,7 +10,7 @@ import com.linkedin.gms.factory.notifications.SettingsProviderFactory;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
-import com.linkedin.metadata.kafka.hook.notification.incident.IncidentNotificationGenerator;
+import com.linkedin.metadata.kafka.hook.notification.proposal.ProposalNotificationGenerator;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -24,7 +24,7 @@ import org.springframework.context.annotation.Scope;
 @Import({SystemAuthenticationFactory.class, RestliEntityClientFactory.class, GraphClientFactory.class,
     SettingsProviderFactory.class})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
-public class IncidentNotificationGeneratorFactory {
+public class ProposalNotificationGeneratorFactory {
 
   @Autowired
   @Qualifier("kafkaEventProducer")
@@ -46,11 +46,11 @@ public class IncidentNotificationGeneratorFactory {
   @Qualifier("systemAuthentication")
   private Authentication _systemAuthentication;
 
-  @Bean(name = "incidentNotificationGenerator")
+  @Bean(name = "proposalNotificationGenerator")
   @Scope("singleton")
   @Nonnull
-  protected IncidentNotificationGenerator getInstance() {
-    return new IncidentNotificationGenerator(
+  protected ProposalNotificationGenerator getInstance() {
+    return new ProposalNotificationGenerator(
         _eventProducer,
         _entityClient,
         _graphClient,

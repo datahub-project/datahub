@@ -235,6 +235,10 @@ public class Constants {
   // Events
   public static final String NOTIFICATION_REQUEST_EVENT_NAME = "notificationRequest";
 
+  // Action Request
+  public static final String ACTION_REQUEST_INFO_ASPECT_NAME = "actionRequestInfo";
+  public static final String ACTION_REQUEST_STATUS_ASPECT_NAME = "actionRequestStatus";
+
   /**
    * Relationships
    */

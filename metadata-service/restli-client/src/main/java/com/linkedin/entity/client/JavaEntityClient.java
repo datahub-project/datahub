@@ -13,7 +13,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
@@ -407,7 +406,7 @@ public class JavaEntityClient implements EntityClient {
     public String ingestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
         final AuditStamp auditStamp =
-            new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(Constants.UNKNOWN_ACTOR));
+            new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(authentication.getActor().toUrnStr()));
         final List<MetadataChangeProposal> additionalChanges =
             AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService);
 

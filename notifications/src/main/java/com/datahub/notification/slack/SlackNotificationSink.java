@@ -4,9 +4,9 @@ import com.datahub.notification.NotificationContext;
 import com.datahub.notification.NotificationSink;
 import com.datahub.notification.NotificationSinkConfig;
 import com.datahub.notification.NotificationTemplateType;
-import com.datahub.notification.SecretProvider;
-import com.datahub.notification.SettingsProvider;
-import com.datahub.notification.IdentityProvider;
+import com.datahub.notification.provider.SecretProvider;
+import com.datahub.notification.provider.SettingsProvider;
+import com.datahub.notification.provider.IdentityProvider;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
@@ -48,6 +48,8 @@ import static com.datahub.notification.NotificationUtils.*;
  * As configuration, the following is required:
  *
  *    baseUrl (string): the base url where the datahub app is hosted, e.g. https://www.staging.acryl.io
+ *
+ * # TODO: Make this a templatized Notification Sink.
  */
 @Slf4j
 public class SlackNotificationSink implements NotificationSink {
@@ -58,7 +60,10 @@ public class SlackNotificationSink implements NotificationSink {
   private static final List<NotificationTemplateType> SUPPORTED_TEMPLATES = ImmutableList.of(
       NotificationTemplateType.CUSTOM,
       NotificationTemplateType.BROADCAST_NEW_INCIDENT,
-      NotificationTemplateType.BROADCAST_INCIDENT_STATUS_CHANGE
+      NotificationTemplateType.BROADCAST_INCIDENT_STATUS_CHANGE,
+      NotificationTemplateType.BROADCAST_NEW_PROPOSAL,
+      NotificationTemplateType.BROADCAST_PROPOSAL_STATUS_CHANGE,
+      NotificationTemplateType.BROADCAST_ENTITY_CHANGE
   );
   private static final String SLACK_CHANNEL_RECIPIENT_TYPE = "SLACK_CHANNEL";
   private static final String BOT_TOKEN_CONFIG_NAME = "botToken";
@@ -166,6 +171,15 @@ public class SlackNotificationSink implements NotificationSink {
       case BROADCAST_INCIDENT_STATUS_CHANGE:
         sendBroadcastNotification(notificationRequest.getRecipients(), buildIncidentStatusChangeMessage(notificationRequest));
         break;
+      case BROADCAST_NEW_PROPOSAL:
+        sendBroadcastNotification(notificationRequest.getRecipients(), buildNewProposalMessage(notificationRequest));
+        break;
+      case BROADCAST_PROPOSAL_STATUS_CHANGE:
+        sendBroadcastNotification(notificationRequest.getRecipients(), buildProposalStatusChangeMessage(notificationRequest));
+        break;
+      case BROADCAST_ENTITY_CHANGE:
+        sendBroadcastNotification(notificationRequest.getRecipients(), buildEntityChangeMessage(notificationRequest));
+        break;
       default:
         throw new UnsupportedOperationException(String.format(
             "Unsupported template type %s providing to %s",
@@ -179,6 +193,147 @@ public class SlackNotificationSink implements NotificationSink {
     final String body = request.getMessage().getParameters().get("body");
     final String messageText = String.format("*%s*\n\n%s", title, body);
     sendNotificationToRecipients(request.getRecipients(), messageText);
+  }
+
+  private String buildEntityChangeMessage(NotificationRequest request) {
+    final String actorName = getUserName(request.getMessage().getParameters().get("actorUrn"));
+    final String entityName = request.getMessage().getParameters().get("entityName");
+    final String entityUrl = String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("entityPath"));
+    final String entityType = request.getMessage().getParameters().get("entityType");
+    final String operation = request.getMessage().getParameters().get("operation");
+    final String modifierType = request.getMessage().getParameters().get("modifierType");
+    final String modifierStr = buildEntityChangeModifierString(request.getMessage().getParameters());
+
+    // TODO: Handle Sub-resources (fields, etc)
+    /*
+     * Example:
+     *     - John Joyce has added tag(s) PII, Test, Test2, + 3 more for SampleKafkaDataset.
+     *     - John Joyce has updated deprecation for SampleKafkaDataset.
+     *     - John Joyce has removed glossary term(s) a, b for SampleKafkaDataset.
+     */
+    return String.format(">:pencil2:  *%s* has %s %s%s for %s *<%s|%s>*.",
+        actorName,
+        operation,
+        modifierType,
+        modifierStr,
+        entityType,
+        entityUrl,
+        entityName
+    );
+  }
+
+  private String buildEntityChangeModifierString(Map<String, String> params) {
+    // Handle multiple modifiers.
+    final Integer modifierCount = params.get("modifierCount") != null ? Integer.valueOf(params.get("modifierCount")) : null;
+    if (modifierCount != null && modifierCount > 0) {
+      // There are modifiers.
+      StringBuilder builder = new StringBuilder(" ");
+      for (int i = 0; i < modifierCount && i < 3; i++) {
+        // For each modifier, add it to a stringbuilder
+        String modifierName = params.get(String.format("modifier%sName", i));
+        String modifierPath = params.get(String.format("modifier%sPath", i));
+        String modifierUrl = String.format("%s%s", this.baseUrl, modifierPath);
+        builder.append(String.format("*<%s|%s>*", modifierUrl, modifierName));
+        if (i < modifierCount - 1) {
+          builder.append(", ");
+        }
+      }
+      if (modifierCount > 3) {
+        // Then add + x more as the end. By default we only show the first 3.
+        builder.append(String.format("+ %s more", modifierCount - 3));
+      }
+      return builder.toString();
+    }
+    return "";
+  }
+
+  private String buildNewProposalMessage(NotificationRequest request) {
+    final String actorName = getUserName(request.getMessage().getParameters().get("actorUrn"));
+    final String entityName = request.getMessage().getParameters().get("entityName");
+    final String entityUrl = String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("entityPath"));
+    final String modifierUrl = String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("modifierPath"));
+    final String entityType = request.getMessage().getParameters().get("entityType");
+    final String modifierType = request.getMessage().getParameters().get("modifierType");
+    final String modifierName = request.getMessage().getParameters().get("modifierName");
+
+    final String maybeSubResourceType = request.getMessage().getParameters().get("subResourceType");
+    final String maybeSubResource = request.getMessage().getParameters().get("subResource");
+
+    if (maybeSubResource != null && maybeSubResourceType != null) {
+      /*
+       * Examples:
+       *
+       *     - John Joyce has proposed tag PII for schema field foo of SampleKafkaDataset.
+       *     - John Joyce has proposed glossary term FOOBAR for schema field bar of SampleKafkaDataset.
+       */
+      return String.format(":incoming_envelope: *New Proposal Raised*\n\n*%s* has proposed %s *<%s|%s>* for *%s* of %s *<%s|%s>*.",
+          actorName,
+          modifierType,
+          modifierUrl,
+          modifierName,
+          maybeSubResource,
+          entityType,
+          entityUrl,
+          entityName
+      );
+    }
+    /*
+     * Examples:
+     *
+     *     - John Joyce has proposed tag PII for SampleKafkaDataset.
+     *     - John Joyce has proposed glossary term FOOBAR for SampleKafkaDataset.
+     */
+    return String.format(":incoming_envelope: *New Proposal Raised*\n\n*%s* has proposed %s *<%s|%s>* for %s *<%s|%s>*.",
+        actorName,
+        modifierType,
+        modifierUrl,
+        modifierName,
+        entityType,
+        entityUrl,
+        entityName
+    );
+  }
+
+  private String buildProposalStatusChangeMessage(NotificationRequest request) {
+    // Fetch each user's email, this is required to understand their slack ids.
+    final String actorName = getUserName(request.getMessage().getParameters().get("actorUrn"));
+    final String entityName = request.getMessage().getParameters().get("entityName");
+    final String entityUrl = String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("entityPath"));
+    final String modifierUrl = String.format("%s%s", this.baseUrl, request.getMessage().getParameters().get("modifierPath"));
+    final String entityType = request.getMessage().getParameters().get("entityType");
+    final String modifierType = request.getMessage().getParameters().get("modifierType");
+    final String modifierName = request.getMessage().getParameters().get("modifierName");
+    final String operation = request.getMessage().getParameters().get("operation");
+    final String action = request.getMessage().getParameters().get("action");
+
+    final String maybeSubResourceType = request.getMessage().getParameters().get("subResourceType");
+    final String maybeSubResource = request.getMessage().getParameters().get("subResource");
+
+    if (maybeSubResource != null && maybeSubResourceType != null) {
+      return String.format(":incoming_envelope: *Proposal Status Changed*\n\n*%s* has %s proposal to %s %s *<%s|%s>* for *%s* of %s *<%s|%s>*.",
+          actorName,
+          action,
+          operation,
+          modifierType,
+          modifierUrl,
+          modifierName,
+          maybeSubResource,
+          entityType,
+          entityUrl,
+          entityName
+      );
+    }
+    return String.format(":incoming_envelope: *Proposal Status Changed*\n\n*%s* has %s proposal to %s %s *<%s|%s>* for %s *<%s|%s>*.",
+        actorName,
+        action,
+        operation,
+        modifierType,
+        modifierUrl,
+        modifierName,
+        entityType,
+        entityUrl,
+        entityName
+    );
   }
 
   private String buildNewIncidentMessage(NotificationRequest request) {

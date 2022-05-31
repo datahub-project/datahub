@@ -2,7 +2,7 @@ package com.linkedin.metadata.kafka.hook.notification.incident;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationTemplateType;
-import com.datahub.notification.SettingsProvider;
+import com.datahub.notification.provider.SettingsProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;

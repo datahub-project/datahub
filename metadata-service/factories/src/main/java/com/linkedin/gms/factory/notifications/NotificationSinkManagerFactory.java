@@ -1,9 +1,9 @@
 package com.linkedin.gms.factory.notifications;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.notification.SecretProvider;
-import com.datahub.notification.SettingsProvider;
-import com.datahub.notification.IdentityProvider;
+import com.datahub.notification.provider.SecretProvider;
+import com.datahub.notification.provider.SettingsProvider;
+import com.datahub.notification.provider.IdentityProvider;
 import com.datahub.notification.NotificationSink;
 import com.datahub.notification.NotificationSinkConfig;
 import com.datahub.notification.NotificationSinkManager;

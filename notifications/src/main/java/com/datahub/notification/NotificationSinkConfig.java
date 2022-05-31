@@ -1,5 +1,8 @@
 package com.datahub.notification;
 
+import com.datahub.notification.provider.IdentityProvider;
+import com.datahub.notification.provider.SecretProvider;
+import com.datahub.notification.provider.SettingsProvider;
 import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Data;

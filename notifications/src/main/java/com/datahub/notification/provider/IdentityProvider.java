@@ -1,4 +1,4 @@
-package com.datahub.notification;
+package com.datahub.notification.provider;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
@@ -72,6 +72,7 @@ public class IdentityProvider {
 
   private User mapToUser(final EntityResponse response) {
     final User user = new User();
+    user.setUrn(response.getUrn());
 
     if (response.getAspects().containsKey(CORP_USER_INFO_ASPECT_NAME)) {
       final CorpUserInfo info = new CorpUserInfo(response.getAspects().get(CORP_USER_INFO_ASPECT_NAME).getValue().data());
@@ -117,6 +118,7 @@ public class IdentityProvider {
   @Setter
   @NoArgsConstructor
   public static class User {
+    private Urn urn;
     private String displayName;
     private String firstName;
     private String lastName;
@@ -134,7 +136,10 @@ public class IdentityProvider {
       if (displayName != null) {
         return displayName;
       }
-      return String.format("%s %s", firstName, lastName);
+      if (firstName != null && lastName != null) {
+        return String.format("%s %s", firstName, lastName);
+      }
+      return urn.getId();
     }
   }
 }

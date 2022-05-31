@@ -1,11 +1,11 @@
 package com.datahub.notification.slack;
 
-import com.datahub.notification.IdentityProvider;
+import com.datahub.notification.provider.IdentityProvider;
 import com.datahub.notification.NotificationContext;
 import com.datahub.notification.NotificationSinkConfig;
 import com.datahub.notification.NotificationTemplateType;
-import com.datahub.notification.SecretProvider;
-import com.datahub.notification.SettingsProvider;
+import com.datahub.notification.provider.SecretProvider;
+import com.datahub.notification.provider.SettingsProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
