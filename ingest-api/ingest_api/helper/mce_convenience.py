@@ -7,7 +7,7 @@ import os
 import time
 from datetime import datetime as dt
 from sys import stdout
-from typing import Dict, List, Optional, TypeVar, Union
+from typing import Container, Dict, List, Optional, TypeVar, Union
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (ArrayTypeClass, AuditStampClass,
@@ -36,6 +36,7 @@ from datahub.metadata.schema_classes import (ArrayTypeClass, AuditStampClass,
                                              SystemMetadataClass,
                                              TimeTypeClass, UnionTypeClass,
                                              UnknownTypeClass, UpstreamClass,
+                                             ContainerClass,
                                              UpstreamLineageClass)
 
 from .models import FieldParamEdited
@@ -105,6 +106,9 @@ def make_institutionalmemory_mce(
 
     return mce
 
+def make_container_aspect(container):
+    aspect = ContainerClass(container=container)
+    return aspect
 
 def make_browsepath_mce(
     path: List[str],

@@ -14,10 +14,19 @@ export const AdminTab = () => {
             <>
                 <DeleteSchemaTabv2 />
                 <Divider dashed orientation="left">
-                    Change Browsing Path for Dataset
+                    Specify Browsing Path for Dataset
                 </Divider>
+                <span> &nbsp; Note: Browsepaths affects user browsing for datasets</span>
                 <EditBrowsePathTable />
-                <Divider />
+                <Divider dashed orientation="left">
+                    Specify Container for Dataset
+                </Divider>
+                <span>
+                    {' '}
+                    &nbsp; Note: Users can filter by containers when doing a search. Once a dataset has been assigned a
+                    container, you will need backend assistance to revert it back to a containerless state. This panel
+                    is used to assign/change containers.
+                </span>
                 <EditParentContainerPanel />
             </>
         );

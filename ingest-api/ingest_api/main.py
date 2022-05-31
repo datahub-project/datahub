@@ -595,3 +595,42 @@ async def delete_item(item: dataset_status_params) -> None:
             (update_schema) from {user}"
         )
         return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
+
+@app.post("/custom/update_containers")
+async def update_container(item: container_param) -> None:
+    """
+    This endpoint is to support update/create container aspect. 
+    """
+    rootLogger.info("update_container_request_received from {}".format(item.requestor))
+    rootLogger.debug("remove_dataset_request_received {}".format(item))
+    datasetName = item.dataset_name
+    token = item.user_token
+    user = item.requestor
+    container = item.container
+    if authenticate_action(token=token, user=user, dataset=datasetName):
+        mcp = MetadataChangeProposalWrapper(
+            aspect = make_container_aspect(container)
+            entityType="dataset",
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn=datasetName,
+            aspectName="container",
+            systemMetadata=SystemMetadataClass(
+                runId=f"{datasetName}_container_{str(int(time.time()))}"
+            ),
+        )
+        response = emit_mcp_respond(
+            metadata_record=mcp,
+            owner=item.requestor,
+            event=f"Status Update removed:{item.desired_state}",
+            token=item.user_token,
+        )
+        rootLogger.error(response)
+        return JSONResponse(
+            content={"message": response["message"]}, status_code=response["status_code"]
+        )
+    else:
+        rootLogger.error(
+            f"authentication failed for request\
+            (update_container) from {user}"
+        )
+        return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)

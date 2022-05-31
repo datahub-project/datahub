@@ -84,6 +84,12 @@ class prop_params(BaseModel):
     properties: List[Dict]
 
 
+class container_param(BaseModel):
+    dataset_name: str
+    requestor: str
+    user_token: str
+    container: str    
+
 # class echo_param(BaseModel):
 #     user_input: Any
 

@@ -102,7 +102,16 @@ export const SetParentContainer = (props: Props) => {
     };
     return (
         <>
-            <Form.Item name="parentContainerSelect" label="Specify a Container for the Dataset (Optional)">
+            <Form.Item
+                name="parentContainerSelect"
+                label="Specify a Container for the Dataset (Optional)"
+                rules={[
+                    {
+                        required: true,
+                        message: 'A container must be specified.',
+                    },
+                ]}
+            >
                 <Select
                     style={{ width: 200 }}
                     showSearch
