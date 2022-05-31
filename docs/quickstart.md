@@ -4,7 +4,7 @@
 
 To deploy a new instance of DataHub, perform the following steps.
 
-1. Install [docker](https://docs.docker.com/install/), [jq](https://stedolan.github.io/jq/download/) and [docker-compose](https://docs.docker.com/compose/install/) (if
+1. Install [docker](https://docs.docker.com/install/), [jq](https://stedolan.github.io/jq/download/) and [docker-compose v1 ](https://github.com/docker/compose/blob/master/INSTALL.md) (if
    using Linux). Make sure to allocate enough hardware resources for Docker engine. Tested & confirmed config: 2 CPUs,
    8GB RAM, 2GB Swap area, and 10GB disk space.
 
@@ -41,6 +41,7 @@ To deploy a new instance of DataHub, perform the following steps.
    username and password.
 
 5. To ingest the sample metadata, run the following CLI command from your terminal
+
    ```
    datahub docker ingest-sample-data
    ```

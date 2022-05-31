@@ -11,14 +11,40 @@ fragment globalTagsFields on GlobalTags {
     }
 }
 
+fragment glossaryNode on GlossaryNode {
+    urn
+    type
+    properties {
+        name
+    }
+    children: relationships(
+            input: {
+                types: ["IsPartOf"]
+                direction: INCOMING
+                start: 0
+                count: 1000
+            }
+        ) {
+            count
+        }
+}
+
+fragment glossaryTerm on GlossaryTerm {
+    urn
+    name
+    type
+    hierarchicalName
+    properties {
+        name
+        definition
+        termSource
+    }
+}
+
 fragment glossaryTerms on GlossaryTerms {
     terms {
         term {
-            urn
-            name
-            properties {
-                name
-            }
+            ...glossaryTerm
         }
     }
 }
@@ -37,6 +63,12 @@ fragment parentContainersFields on ParentContainersResult {
     }
 }
 
+fragment parentNodesFields on ParentNodesResult {
+    count
+    nodes {
+        ...glossaryNode
+    }
+}
 
 fragment ownershipFields on Ownership {
     owners {

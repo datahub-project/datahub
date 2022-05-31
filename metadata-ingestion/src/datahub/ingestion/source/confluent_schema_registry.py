@@ -227,7 +227,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 imported_schemas,
                 is_key_schema=is_key_schema,
             )
-        else:
+        elif not self.source_config.ignore_warnings_on_schema_type:
             self.report.report_warning(
                 topic,
                 f"Parsing kafka schema type {schema.schema_type} is currently not implemented",

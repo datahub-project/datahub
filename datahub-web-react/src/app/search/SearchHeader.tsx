@@ -1,4 +1,4 @@
-import * as React from 'react';
+import React, { useState } from 'react';
 import { Image, Layout } from 'antd';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
@@ -75,6 +75,7 @@ export const SearchHeader = ({
     authenticatedUserPictureLink,
     entityRegistry,
 }: Props) => {
+    const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
     const themeConfig = useTheme();
     const appConfig = useAppConfig();
 
@@ -98,11 +99,12 @@ export const SearchHeader = ({
                     onSearch={onSearch}
                     onQueryChange={onQueryChange}
                     entityRegistry={entityRegistry}
+                    setIsSearchBarFocused={setIsSearchBarFocused}
                     fixAutoComplete
                 />
             </LogoSearchContainer>
             <NavGroup>
-                <AdminHeaderLinks />
+                <AdminHeaderLinks areLinksHidden={isSearchBarFocused} />
                 <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
             </NavGroup>
         </Header>
