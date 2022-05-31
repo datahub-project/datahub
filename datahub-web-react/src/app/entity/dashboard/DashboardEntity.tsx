@@ -19,6 +19,7 @@ import { DashboardPreview } from './preview/DashboardPreview';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -72,7 +73,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             useEntityQuery={useGetDashboardQuery}
             useUpdateQuery={useUpdateDashboardMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            showDeprecateOption
+            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
             tabs={[
                 {
                     name: 'Documentation',

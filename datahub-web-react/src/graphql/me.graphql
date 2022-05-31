@@ -29,6 +29,7 @@ query getMe {
             manageSecrets
             manageDomains
             manageTests
+            manageGlossaries
         }
     }
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button, DatePicker, Form, Input, message, Modal } from 'antd';
-import { useUpdateDeprecationMutation } from '../../../../../../graphql/mutations.generated';
+import { useUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
 
 type Props = {
     urn: string;

@@ -128,7 +128,8 @@ public class GraphQLEngineFactory {
           _graphService.supportsMultiHop(),
           _visualConfiguration,
           _configProvider.getTelemetry(),
-          _configProvider.getMetadataTests()
+          _configProvider.getMetadataTests(),
+          _configProvider.getDatahub()
           ).builder().build();
     }
     return new GmsGraphQLEngine(
@@ -150,7 +151,8 @@ public class GraphQLEngineFactory {
         _graphService.supportsMultiHop(),
         _visualConfiguration,
         _configProvider.getTelemetry(),
-        _configProvider.getMetadataTests()
+        _configProvider.getMetadataTests(),
+        _configProvider.getDatahub()
     ).builder().build();
   }
 }

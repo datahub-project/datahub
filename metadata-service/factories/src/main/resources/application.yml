@@ -54,6 +54,7 @@ secretService:
   encryptionKey: ${SECRET_SERVICE_ENCRYPTION_KEY:ENCRYPTION_KEY}
 
 datahub:
+  serverType: ${DATAHUB_SERVER_TYPE:prod}
   gms:
     host: ${DATAHUB_GMS_HOST:${GMS_HOST:localhost}}
     port: ${DATAHUB_GMS_PORT:${GMS_PORT:8080}}
