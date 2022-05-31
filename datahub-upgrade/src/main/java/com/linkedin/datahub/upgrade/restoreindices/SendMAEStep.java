@@ -57,7 +57,7 @@ public class SendMAEStep implements UpgradeStep {
     return (context) -> {
 
       context.report().addLine("Sending MAE from local DB...");
-      final int rowCount = _server.find(EbeanAspectV2.class).where().eq(EbeanAspectV2.VERSION_COLUMN, 0).findCount();
+      final int rowCount = _server.find(EbeanAspectV2.class).where().eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION).findCount();
       context.report().addLine(String.format("Found %s latest aspects in aspects table", rowCount));
 
       int totalRowsMigrated = 0;
@@ -114,7 +114,7 @@ public class SendMAEStep implements UpgradeStep {
           _entityService.produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, null, aspectRecord, null,
               latestSystemMetadata,
               new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()),
-              ChangeType.UPSERT);
+              ChangeType.RESTATE);
 
           totalRowsMigrated++;
         }
@@ -141,7 +141,7 @@ public class SendMAEStep implements UpgradeStep {
     return _server.find(EbeanAspectV2.class)
         .select(EbeanAspectV2.ALL_COLUMNS)
         .where()
-        .eq(EbeanAspectV2.VERSION_COLUMN, 0)
+        .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
         .orderBy()
         .asc(EbeanAspectV2.URN_COLUMN)
         .orderBy()

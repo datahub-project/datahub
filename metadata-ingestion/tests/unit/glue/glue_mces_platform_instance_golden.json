@@ -137,6 +137,7 @@
                   "globalTags": null,
                   "glossaryTerms": null,
                   "isPartOfKey": false,
+                  "isPartitioningKey": null,
                   "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                 },
                 {
@@ -154,6 +155,7 @@
                   "globalTags": null,
                   "glossaryTerms": null,
                   "isPartOfKey": false,
+                  "isPartitioningKey": null,
                   "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                 },
                 {
@@ -171,6 +173,7 @@
                   "globalTags": null,
                   "glossaryTerms": null,
                   "isPartOfKey": false,
+                  "isPartitioningKey": null,
                   "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                 },
                 {
@@ -188,6 +191,7 @@
                   "globalTags": null,
                   "glossaryTerms": null,
                   "isPartOfKey": false,
+                  "isPartitioningKey": null,
                   "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                 },
                 {
@@ -205,6 +209,7 @@
                   "globalTags": null,
                   "glossaryTerms": null,
                   "isPartOfKey": false,
+                  "isPartitioningKey": null,
                   "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                 },
                 {
@@ -222,6 +227,7 @@
                   "globalTags": null,
                   "glossaryTerms": null,
                   "isPartOfKey": false,
+                  "isPartitioningKey": null,
                   "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                 },
                 {
@@ -239,6 +245,7 @@
                   "globalTags": null,
                   "glossaryTerms": null,
                   "isPartOfKey": false,
+                  "isPartitioningKey": null,
                   "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                 },
                 {
@@ -256,6 +263,7 @@
                   "globalTags": null,
                   "glossaryTerms": null,
                   "isPartOfKey": false,
+                  "isPartitioningKey": null,
                   "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                 }
               ],
@@ -272,10 +280,14 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-                "tags": [
-                    {"tag": "urn:li:tag:foo:bar"},
-                    {"tag": "urn:li:tag:baz:bob"}
-                ]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:baz:bob"
+                },
+                {
+                  "tag": "urn:li:tag:foo:bar"
+                }
+              ]
             }
           }
         ]
@@ -427,7 +439,9 @@
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.ArrayType": {
-                        "nestedType": null
+                        "nestedType": [
+                          "record"
+                        ]
                       }
                     }
                   },
@@ -436,6 +450,7 @@
                   "globalTags": null,
                   "glossaryTerms": null,
                   "isPartOfKey": false,
+                  "isPartitioningKey": null,
                   "jsonProps": "{\"native_data_type\": \"array<struct<name:string,position:array<double>,location:array<double>>>\"}"
                 },
                 {
@@ -453,6 +468,7 @@
                   "globalTags": null,
                   "glossaryTerms": null,
                   "isPartOfKey": false,
+                  "isPartitioningKey": null,
                   "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                 },
                 {
@@ -463,7 +479,9 @@
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.ArrayType": {
-                        "nestedType": null
+                        "nestedType": [
+                          "double"
+                        ]
                       }
                     }
                   },
@@ -472,6 +490,7 @@
                   "globalTags": null,
                   "glossaryTerms": null,
                   "isPartOfKey": false,
+                  "isPartitioningKey": null,
                   "jsonProps": "{\"native_data_type\": \"array<double>\"}"
                 },
                 {
@@ -482,7 +501,9 @@
                   "type": {
                     "type": {
                       "com.linkedin.pegasus2avro.schema.ArrayType": {
-                        "nestedType": null
+                        "nestedType": [
+                          "double"
+                        ]
                       }
                     }
                   },
@@ -491,6 +512,7 @@
                   "globalTags": null,
                   "glossaryTerms": null,
                   "isPartOfKey": false,
+                  "isPartitioningKey": null,
                   "jsonProps": "{\"native_data_type\": \"array<double>\"}"
                 }
               ],
@@ -507,10 +529,14 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-                "tags": [
-                    {"tag": "urn:li:tag:foo:bar"},
-                    {"tag": "urn:li:tag:baz:bob"}
-                ]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:baz:bob"
+                },
+                {
+                  "tag": "urn:li:tag:foo:bar"
+                }
+              ]
             }
           }
         ]
@@ -630,6 +656,7 @@
                   "globalTags": null,
                   "glossaryTerms": null,
                   "isPartOfKey": false,
+                  "isPartitioningKey": null,
                   "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                 },
                 {
@@ -647,6 +674,7 @@
                   "globalTags": null,
                   "glossaryTerms": null,
                   "isPartOfKey": false,
+                  "isPartitioningKey": null,
                   "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                 },
                 {
@@ -664,6 +692,7 @@
                   "globalTags": null,
                   "glossaryTerms": null,
                   "isPartOfKey": false,
+                  "isPartitioningKey": null,
                   "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                 },
                 {
@@ -681,6 +710,7 @@
                   "globalTags": null,
                   "glossaryTerms": null,
                   "isPartOfKey": false,
+                  "isPartitioningKey": null,
                   "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                 },
                 {
@@ -698,6 +728,7 @@
                   "globalTags": null,
                   "glossaryTerms": null,
                   "isPartOfKey": false,
+                  "isPartitioningKey": null,
                   "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                 }
               ],
@@ -714,10 +745,14 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-                "tags": [
-                    {"tag": "urn:li:tag:foo:bar"},
-                    {"tag": "urn:li:tag:baz:bob"}
-                ]
+              "tags": [
+                {
+                  "tag": "urn:li:tag:baz:bob"
+                },
+                {
+                  "tag": "urn:li:tag:foo:bar"
+                }
+              ]
             }
           }
         ]
