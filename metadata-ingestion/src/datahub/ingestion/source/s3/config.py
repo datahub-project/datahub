@@ -142,9 +142,7 @@ class PathSpec(ConfigModel):
         compiled_include_tmp = parse.compile(values["_parsable_include"])
         values["_compiled_include"] = compiled_include_tmp
         logger.debug(f'Setting _compiled_include: {values["_compiled_include"]}')
-        values["_glob_include"] = re.sub(
-            "\{[^}]+\}", "*", values["include"]  # noqa: W605
-        )
+        values["_glob_include"] = re.sub(r"\{[^}]+\}", "*", values["include"])
         logger.debug(f'Setting _glob_include: {values.get("_glob_include")}')
 
         if values.get("table_name") is None:

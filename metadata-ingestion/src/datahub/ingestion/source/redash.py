@@ -3,7 +3,7 @@ import logging
 import math
 import sys
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Type
+from typing import Dict, Iterable, List, Optional, Set, Type
 
 import dateutil.parser as dp
 from pydantic.fields import Field
@@ -269,6 +269,7 @@ class RedashConfig(ConfigModel):
 class RedashSourceReport(SourceReport):
     items_scanned: int = 0
     filtered: List[str] = field(default_factory=list)
+    queries_no_dataset: Set[str] = field(default_factory=set)
 
     def report_item_scanned(self) -> None:
         self.items_scanned += 1
@@ -332,11 +333,14 @@ class RedashSource(Source):
             f"Running Redash ingestion with parse_table_names_from_sql={self.parse_table_names_from_sql}"
         )
 
+    def error(self, log: logging.Logger, key: str, reason: str) -> None:
+        self.report.report_failure(key, reason)
+        log.error(f"{key} => {reason}")
+
     def test_connection(self) -> None:
         test_response = self.client._get(f"{self.config.connect_uri}/api")
         if test_response.status_code == 200:
             logger.info("Redash API connected succesfully")
-            pass
         else:
             raise ValueError(f"Failed to connect to {self.config.connect_uri}/api")
 
@@ -349,9 +353,6 @@ class RedashSource(Source):
     def _import_sql_parser_cls(cls, sql_parser_path: str) -> Type[SQLParser]:
         assert "." in sql_parser_path, "sql_parser-path must contain a ."
         module_name, cls_name = sql_parser_path.rsplit(".", 1)
-        import sys
-
-        logger.debug(sys.path)
         parser_cls = getattr(importlib.import_module(module_name), cls_name)
         if not issubclass(parser_cls, SQLParser):
             raise ValueError(f"must be derived from {SQLParser}; got {parser_cls}")
@@ -421,6 +422,8 @@ class RedashSource(Source):
         platform = self._get_platform_based_on_datasource(data_source)
         database_name = self._get_database_name_based_on_datasource(data_source)
         data_source_syntax = data_source.get("syntax")
+        data_source_id = data_source.get("id")
+        query_id = sql_query_data.get("id")
 
         if database_name:
             query = sql_query_data.get("query", "")
@@ -439,8 +442,11 @@ class RedashSource(Source):
                             )
                         )
                 except Exception as e:
-                    logger.error(e)
-                    logger.error(query)
+                    self.error(
+                        logger,
+                        f"sql-parsing-query-{query_id}-datasource-{data_source_id}",
+                        f"exception {e} in parsing {query}",
+                    )
 
                 # make sure dataset_urns is not empty list
                 return dataset_urns if len(dataset_urns) > 0 else None
@@ -540,6 +546,9 @@ class RedashSource(Source):
         dashboards_response = self.client.dashboards(1, PAGE_SIZE)
         total_dashboards = dashboards_response["count"]
         max_page = total_dashboards // PAGE_SIZE
+        logger.info(
+            f"/api/dashboards total count {total_dashboards} and max page {max_page}"
+        )
 
         while (
             current_dashboards_page <= max_page
@@ -549,7 +558,9 @@ class RedashSource(Source):
                 page=current_dashboards_page, page_size=PAGE_SIZE
             )
 
-            logger.info(f"/api/dashboards on page {current_dashboards_page}")
+            logger.info(
+                f"/api/dashboards on page {current_dashboards_page} / {max_page}"
+            )
 
             current_dashboards_page += 1
 
@@ -637,7 +648,8 @@ class RedashSource(Source):
 
         # Getting chart type
         chart_type = self._get_chart_type_from_viz_data(viz_data)
-        chart_url = f"{self.config.connect_uri}/queries/{query_data.get('id')}#{viz_id}"
+        query_id = query_data.get("id")
+        chart_url = f"{self.config.connect_uri}/queries/{query_id}#{viz_id}"
         description = (
             viz_data.get("description", "") if viz_data.get("description", "") else ""
         )
@@ -648,8 +660,9 @@ class RedashSource(Source):
         datasource_urns = self._get_datasource_urns(data_source, query_data)
 
         if datasource_urns is None:
+            self.report.queries_no_dataset.add(str(query_id))
             self.report.report_warning(
-                key=f"redash-chart-{viz_id}",
+                key=f"redash-chart-{viz_id}-query-{query_id}-datasource-{data_source_id}",
                 reason=f"data_source_type={data_source_type} not yet implemented. Setting inputs to None",
             )
 
@@ -673,6 +686,7 @@ class RedashSource(Source):
         _queries_response = self.client.queries(1, PAGE_SIZE)
         total_queries = _queries_response["count"]
         max_page = total_queries // PAGE_SIZE
+        logger.info(f"/api/queries total count {total_queries} and max page {max_page}")
 
         while (
             current_queries_page <= max_page
@@ -682,7 +696,7 @@ class RedashSource(Source):
                 page=current_queries_page, page_size=PAGE_SIZE
             )
 
-            logger.info(f"/api/queries on page {current_queries_page}")
+            logger.info(f"/api/queries on page {current_queries_page} / {max_page}")
 
             current_queries_page += 1
 

@@ -114,7 +114,7 @@ public class SendMAEStep implements UpgradeStep {
           _entityService.produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, null, aspectRecord, null,
               latestSystemMetadata,
               new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()),
-              ChangeType.UPSERT);
+              ChangeType.RESTATE);
 
           totalRowsMigrated++;
         }

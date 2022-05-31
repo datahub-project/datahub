@@ -27,6 +27,7 @@ public class Constants {
   public static final String DATA_JOB_ENTITY_NAME = "dataJob";
   public static final String DATA_PLATFORM_ENTITY_NAME = "dataPlatform";
   public static final String GLOSSARY_TERM_ENTITY_NAME = "glossaryTerm";
+  public static final String GLOSSARY_NODE_ENTITY_NAME = "glossaryNode";
   public static final String ML_FEATURE_ENTITY_NAME = "mlFeature";
   public static final String ML_FEATURE_TABLE_ENTITY_NAME = "mlFeatureTable";
   public static final String ML_MODEL_ENTITY_NAME = "mlModel";
@@ -171,6 +172,10 @@ public class Constants {
   public static final String GLOSSARY_TERM_KEY_ASPECT_NAME = "glossaryTermKey";
   public static final String GLOSSARY_TERM_INFO_ASPECT_NAME = "glossaryTermInfo";
   public static final String GLOSSARY_RELATED_TERM_ASPECT_NAME = "glossaryRelatedTerms";
+
+ // Glossary node
+  public static final String GLOSSARY_NODE_KEY_ASPECT_NAME = "glossaryNodeKey";
+  public static final String GLOSSARY_NODE_INFO_ASPECT_NAME = "glossaryNodeInfo";
 
   // Domain
   public static final String DOMAIN_KEY_ASPECT_NAME = "domainKey";
