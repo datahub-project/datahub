@@ -7,7 +7,6 @@ import com.datastax.oss.driver.api.core.DriverException;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
-import com.datastax.oss.driver.api.core.metadata.schema.ClusteringOrder;
 import com.datastax.oss.driver.api.core.paging.OffsetPager;
 import com.datastax.oss.driver.api.core.paging.OffsetPager.Page;
 import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
@@ -95,9 +94,8 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   public long countEntities() {
     validateConnection();
     SimpleStatement ss = selectFrom(CassandraAspect.TABLE_NAME)
-        .distinct()
-        .column(CassandraAspect.URN_COLUMN)
         .countAll()
+        .groupBy(CassandraAspect.URN_COLUMN)
         .build();
 
     return _cqlSession.execute(ss).one().getLong(0);
@@ -110,6 +108,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
         .column(CassandraAspect.URN_COLUMN)
         .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
         .limit(1)
+        .allowFiltering()
         .build();
 
     ResultSet rs = _cqlSession.execute(ss);
@@ -451,7 +450,6 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     validateConnection();
     SimpleStatement ss = selectFrom(CassandraAspect.TABLE_NAME)
         .column(CassandraAspect.URN_COLUMN)
-        .orderBy(CassandraAspect.URN_COLUMN, ClusteringOrder.ASC)
         .build();
 
     ResultSet rs = _cqlSession.execute(ss);
