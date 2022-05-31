@@ -98,6 +98,7 @@ module.exports = {
           "metadata-integration/java/datahub-protobuf/README",
           "metadata-ingestion/as-a-library",
           "metadata-integration/java/as-a-library",
+          //"metadata-ingestion-modules/airflow-plugin/README"
         ],
       },
       {
@@ -200,6 +201,11 @@ module.exports = {
             label: "Querying Metadata Entities",
             id: "docs/api/graphql/querying-entities",
           },
+          {
+            type: "doc",
+            label: "Access Token Management",
+            id: "docs/api/graphql/token-management",
+          },
         ],
       },
     ],
@@ -289,6 +295,7 @@ module.exports = {
       "docs/deploy/aws",
       "docs/deploy/gcp",
       "docs/deploy/confluent-cloud",
+      "docs/deploy/telemetry",
       // Purposely not including the following:
       // - "docker/datahub-frontend/README",
       // - "docker/datahub-gms/README",

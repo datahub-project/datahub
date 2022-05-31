@@ -193,7 +193,7 @@ class NifiProcessorProvenanceEventAnalyzer:
         s3_url = f"s3://{s3_bucket}/{s3_key}"
         s3_url = s3_url[: s3_url.rindex("/")]
         dataset_name = s3_url.replace("s3://", "").replace("/", ".")
-        platform = "urn:li:dataPlatform:s3"
+        platform = "s3"
         dataset_urn = builder.make_dataset_urn(platform, dataset_name, self.env)
         return ExternalDataset(
             platform,

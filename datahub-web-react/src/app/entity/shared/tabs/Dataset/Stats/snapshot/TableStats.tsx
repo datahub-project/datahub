@@ -70,7 +70,7 @@ export default function TableStats({
                 {users && (
                     <InfoItem title="Top Users">
                         <div style={{ paddingTop: 8 }}>
-                            <UsageFacepile users={users} />
+                            <UsageFacepile users={users} maxNumberDisplayed={10} />
                         </div>
                     </InfoItem>
                 )}

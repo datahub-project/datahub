@@ -6,7 +6,7 @@ import { EMPTY_MESSAGES } from '../../../../constants';
 import { useEntityData, useRefetch } from '../../../../EntityContext';
 import { useEntityCommonPrivileges } from '../../../../EntityAuthorizationContext';
 import { SidebarHeader } from '../SidebarHeader';
-import { AddOwnerModal } from './AddOwnerModal';
+import { AddOwnersModal } from './AddOwnersModal';
 
 export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
     const { urn, entityType, entityData } = useEntityData();
@@ -41,14 +41,14 @@ export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
                     </Button>
                 )}
             </div>
-            <AddOwnerModal
+            <AddOwnersModal
                 urn={urn}
                 defaultOwnerType={properties?.defaultOwnerType}
                 hideOwnerType={properties?.hideOwnerType || false}
                 type={entityType}
                 visible={showAddModal}
                 refetch={refetch}
-                onClose={() => {
+                onCloseModal={() => {
                     setShowAddModal(false);
                 }}
             />

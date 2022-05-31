@@ -6,7 +6,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
@@ -27,7 +27,10 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.apache.commons.lang.StringUtils;
 
-import static com.linkedin.metadata.timeline.differ.DifferUtils.*;
+import static com.linkedin.metadata.timeline.differ.DifferUtils.convertEntityGlossaryTermChangeEvents;
+import static com.linkedin.metadata.timeline.differ.DifferUtils.convertEntityTagChangeEvents;
+import static com.linkedin.metadata.timeline.differ.DifferUtils.getFieldPathV1;
+import static com.linkedin.metadata.timeline.differ.DifferUtils.getSchemaFieldUrn;
 
 
 public class SchemaMetadataDiffer implements AspectDiffer<SchemaMetadata> {
@@ -369,32 +372,10 @@ public class SchemaMetadataDiffer implements AspectDiffer<SchemaMetadata> {
           .build();
   }
 
-  private static ChangeEvent getIncompatibleChangeEvent(SchemaMetadata baseSchema, SchemaMetadata targetSchema,
-      AuditStamp auditStamp) {
-    if (baseSchema != null && targetSchema != null) {
-      if (!baseSchema.getPlatform().equals(targetSchema.getPlatform())) {
-        return ChangeEvent.builder()
-            .semVerChange(SemanticChangeType.EXCEPTIONAL)
-            .description("Incompatible schema types," + baseSchema.getPlatform() + ", " + targetSchema.getPlatform())
-            .auditStamp(auditStamp)
-            .build();
-      }
-      if (!baseSchema.getSchemaName().equals(targetSchema.getSchemaName())) {
-        return ChangeEvent.builder()
-            .semVerChange(SemanticChangeType.EXCEPTIONAL)
-            .description(
-                "Schema names are not same," + baseSchema.getSchemaName() + ", " + targetSchema.getSchemaName())
-            .auditStamp(auditStamp)
-            .build();
-      }
-    }
-    return null;
-  }
-
   @SuppressWarnings("ConstantConditions")
-  private static SchemaMetadata getSchemaMetadataFromAspect(EbeanAspectV2 ebeanAspectV2) {
-    if (ebeanAspectV2 != null && ebeanAspectV2.getMetadata() != null) {
-      return RecordUtils.toRecordTemplate(SchemaMetadata.class, ebeanAspectV2.getMetadata());
+  private static SchemaMetadata getSchemaMetadataFromAspect(EntityAspect entityAspect) {
+    if (entityAspect != null && entityAspect.getMetadata() != null) {
+      return RecordUtils.toRecordTemplate(SchemaMetadata.class, entityAspect.getMetadata());
     }
     return null;
   }
@@ -445,7 +426,7 @@ public class SchemaMetadataDiffer implements AspectDiffer<SchemaMetadata> {
   }
 
   @Override
-  public ChangeTransaction getSemanticDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue,
+  public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
       ChangeCategory changeCategory, JsonPatch rawDiff, boolean rawDiffRequested) {
     if (!previousValue.getAspect().equals(SCHEMA_METADATA_ASPECT_NAME) || !currentValue.getAspect()
         .equals(SCHEMA_METADATA_ASPECT_NAME)) {
@@ -456,16 +437,11 @@ public class SchemaMetadataDiffer implements AspectDiffer<SchemaMetadata> {
     SchemaMetadata targetSchema = getSchemaMetadataFromAspect(currentValue);
     assert (targetSchema != null);
     List<ChangeEvent> changeEvents = new ArrayList<>();
-    ChangeEvent incompatibleChangeEvent = getIncompatibleChangeEvent(baseSchema, targetSchema, null);
-    if (incompatibleChangeEvent != null) {
-      changeEvents.add(incompatibleChangeEvent);
-    } else {
-      try {
-        changeEvents.addAll(
-            computeDiffs(baseSchema, targetSchema, DatasetUrn.createFromString(currentValue.getUrn()), changeCategory, null));
-      } catch (URISyntaxException e) {
-        throw new IllegalArgumentException("Malformed DatasetUrn " + currentValue.getUrn());
-      }
+    try {
+      changeEvents.addAll(
+          computeDiffs(baseSchema, targetSchema, DatasetUrn.createFromString(currentValue.getUrn()), changeCategory, null));
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException("Malformed DatasetUrn " + currentValue.getUrn());
     }
 
     // Assess the highest change at the transaction(schema) level.

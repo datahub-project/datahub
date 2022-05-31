@@ -37,7 +37,12 @@ const LinkButton = styled(Button)`
     }
 `;
 
-export const SidebarAboutSection = () => {
+interface Props {
+    hideLinksButton?: boolean;
+}
+
+export const SidebarAboutSection = ({ properties }: { properties?: Props }) => {
+    const hideLinksButton = properties?.hideLinksButton;
     const { entityData } = useEntityData();
     const refetch = useRefetch();
     const routeToTab = useRouteToTab();
@@ -76,7 +81,7 @@ export const SidebarAboutSection = () => {
                     >
                         <EditOutlined /> Add Documentation
                     </SpacedButton>
-                    <AddLinkModal refetch={refetch} />
+                    {!hideLinksButton && <AddLinkModal refetch={refetch} />}
                 </>
             )}
             {description && (
@@ -107,11 +112,11 @@ export const SidebarAboutSection = () => {
                             {link.description || link.label}
                         </LinkButton>
                     ))}
-                    {editDocumentation && <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />}
+                    {!hideLinksButton && editDocumentation && <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />}
                 </SidebarLinkList>
             ) : (
                 <SidebarLinkList>
-                    {!isUntouched && editDocumentation && (
+                    {!isUntouched && editDocumentation && !hideLinksButton && (
                         <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />
                     )}
                 </SidebarLinkList>

@@ -1,7 +1,7 @@
 import json
 import uuid
 from textwrap import dedent
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import sqlalchemy
 
@@ -175,7 +175,11 @@ class TrinoSource(SQLAlchemySource):
         return cls(config, ctx)
 
     def get_schema_fields_for_column(
-        self, dataset_name: str, column: dict, pk_constraints: dict = None
+        self,
+        dataset_name: str,
+        column: dict,
+        pk_constraints: dict = None,
+        tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
 
         fields = super().get_schema_fields_for_column(

@@ -21,6 +21,10 @@ import CompactContext from '../../../../shared/CompactContext';
 import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
 import analytics, { EventType } from '../../../../analytics';
 import { ProfileSidebarResizer } from './sidebar/ProfileSidebarResizer';
+import { EntityMenuItems } from '../../EntityDropdown/EntityDropdown';
+import GlossaryBrowser from '../../../../glossary/GlossaryBrowser/GlossaryBrowser';
+import GlossarySearch from '../../../../glossary/GlossarySearch';
+import { BrowserWrapper, MAX_BROWSER_WIDTH, MIN_BROWSWER_WIDTH } from '../../../../glossary/BusinessGlossaryPage';
 
 type Props<T, U> = {
     urn: string;
@@ -44,7 +48,10 @@ type Props<T, U> = {
     getOverrideProperties: (T) => GenericEntityProperties;
     tabs: EntityTab[];
     sidebarSections: EntitySidebarSection[];
-    showDeprecateOption?: boolean;
+    customNavBar?: React.ReactNode;
+    headerDropdownItems?: Set<EntityMenuItems>;
+    displayGlossaryBrowser?: boolean;
+    isNameEditable?: boolean;
 };
 
 const ContentContainer = styled.div`
@@ -145,7 +152,10 @@ export const EntityProfile = <T, U>({
     getOverrideProperties,
     tabs,
     sidebarSections,
-    showDeprecateOption,
+    customNavBar,
+    headerDropdownItems,
+    displayGlossaryBrowser,
+    isNameEditable,
 }: Props<T, U>): JSX.Element => {
     const isLineageMode = useIsLineageMode();
     const entityRegistry = useEntityRegistry();
@@ -158,6 +168,13 @@ export const EntityProfile = <T, U>({
     }));
 
     const [sidebarWidth, setSidebarWidth] = useState(INITIAL_SIDEBAR_WIDTH);
+    const [browserWidth, setBrowserWith] = useState(window.innerWidth * 0.2);
+    const [shouldUpdateBrowser, setShouldUpdateBrowser] = useState(false);
+
+    function refreshBrowser() {
+        setShouldUpdateBrowser(true);
+        setTimeout(() => setShouldUpdateBrowser(false), 0);
+    }
 
     const routeToTab = useCallback(
         ({
@@ -236,7 +253,7 @@ export const EntityProfile = <T, U>({
                     )}
                     {!loading && (
                         <>
-                            <EntityHeader showDeprecateOption={showDeprecateOption} />
+                            <EntityHeader headerDropdownItems={headerDropdownItems} />
                             <Divider />
                             <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
                         </>
@@ -264,7 +281,8 @@ export const EntityProfile = <T, U>({
             }}
         >
             <EntityAuthorizationContext.Provider value={PRIVILEGES}>
-                {showBrowseBar && <EntityProfileNavBar urn={urn} entityType={entityType} />}
+                {customNavBar}
+                {showBrowseBar && !customNavBar && <EntityProfileNavBar urn={urn} entityType={entityType} />}
                 {entityData?.status?.removed === true && (
                     <Alert
                         message="This entity is not discoverable via search or lineage graph. Contact your DataHub admin for more information."
@@ -280,10 +298,31 @@ export const EntityProfile = <T, U>({
                         <LineageExplorer type={entityType} urn={urn} />
                     ) : (
                         <>
+                            {displayGlossaryBrowser && (
+                                <>
+                                    <BrowserWrapper width={browserWidth}>
+                                        <GlossarySearch />
+                                        <GlossaryBrowser openToEntity refreshBrowser={shouldUpdateBrowser} />
+                                    </BrowserWrapper>
+                                    <ProfileSidebarResizer
+                                        setSidePanelWidth={(width) =>
+                                            setBrowserWith(
+                                                Math.min(Math.max(width, MIN_BROWSWER_WIDTH), MAX_BROWSER_WIDTH),
+                                            )
+                                        }
+                                        initialSize={browserWidth}
+                                        isSidebarOnLeft
+                                    />
+                                </>
+                            )}
                             <HeaderAndTabs>
                                 <HeaderAndTabsFlex>
                                     <Header>
-                                        <EntityHeader showDeprecateOption={showDeprecateOption} />
+                                        <EntityHeader
+                                            headerDropdownItems={headerDropdownItems}
+                                            isNameEditable={isNameEditable}
+                                            refreshBrowser={refreshBrowser}
+                                        />
                                         <EntityTabs
                                             tabs={[...tabsWithDefaults, ...autoRenderTabs]}
                                             selectedTab={routedTab}
