@@ -65,7 +65,7 @@ export const SidebarStatsSection = () => {
     const hasLatestProfiles = latestProfile?.rowCount || latestProfile?.columnCount;
 
     const routeToTab = useRouteToTab();
-    console.log('usageStats', hasUsageStatsAggregations);
+
     return (
         <div>
             <HeaderContainer>
