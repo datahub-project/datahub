@@ -531,8 +531,9 @@ def generate(
                 get_additional_deps_for_extra(extra_plugin) if extra_plugin else []
             )
         except Exception as e:
-            print(f"Failed to process {plugin_name} due to {e}")
-            metrics["plugins"]["failed"] = metrics["plugins"]["failed"] + 1
+            print(f"Failed to process {plugin_name} due to exception")
+            print(repr(e))
+            metrics["plugins"]["failed"] = metrics["plugins"].get("failed", 0) + 1
 
         if source_type and hasattr(source_type, "get_config_class"):
             try:
