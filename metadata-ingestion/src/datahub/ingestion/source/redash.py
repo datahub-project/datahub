@@ -247,11 +247,11 @@ class RedashConfig(ConfigModel):
         default=True, description="Only ingest published dashboards and charts."
     )
     page_size: int = Field(
-        default=25, description="Limit on number of items to be queried at once"
+        default=25, description="Limit on number of items to be queried at once."
     )
     api_page_limit: int = Field(
         default=sys.maxsize,
-        description="Limit on ingested dashboards and charts API pagination.",
+        description="Limit on number of pages queried for ingesting dashboards and charts API during pagination.",
     )
     parse_table_names_from_sql: bool = Field(
         default=False, description="See note below."
