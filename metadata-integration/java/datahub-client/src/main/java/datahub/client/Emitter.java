@@ -30,7 +30,6 @@ public interface Emitter extends Closeable {
    * @param callback if not null, is called from the IO thread. Should be a quick operation.
    * @return a {@link Future} for callers to inspect the result of the operation or block until one is available
    * @throws IOException
-   * @throws URISyntaxException 
    */
   Future<MetadataWriteResponse> emit(@Nonnull MetadataChangeProposalWrapper mcpw, Callback callback) throws IOException;
 
