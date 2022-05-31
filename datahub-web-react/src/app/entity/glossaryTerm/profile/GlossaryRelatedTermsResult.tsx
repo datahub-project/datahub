@@ -10,7 +10,7 @@ import { PreviewType } from '../../Entity';
 
 export type Props = {
     glossaryRelatedTermType: string;
-    glossaryRelatedTermResult: Array<any>;
+    glossaryRelatedTermUrns: Array<string>;
 };
 
 const ListContainer = styled.div`
@@ -33,12 +33,8 @@ const Profile = styled.div`
 
 const messageStyle = { marginTop: '10%' };
 
-export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, glossaryRelatedTermResult }: Props) {
+export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, glossaryRelatedTermUrns }: Props) {
     const entityRegistry = useEntityRegistry();
-    const glossaryRelatedTermUrns: Array<string> = [];
-    glossaryRelatedTermResult.forEach((item: any) => {
-        glossaryRelatedTermUrns.push(item?.entity?.urn);
-    });
     const glossaryTermInfo: QueryResult<GetGlossaryTermQuery, Exact<{ urn: string }>>[] = [];
 
     for (let i = 0; i < glossaryRelatedTermUrns.length; i++) {

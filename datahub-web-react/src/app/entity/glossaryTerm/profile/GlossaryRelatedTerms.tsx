@@ -1,12 +1,12 @@
 import { Menu } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useEntityData } from '../../shared/EntityContext';
 import GlossaryRelatedTermsResult from './GlossaryRelatedTermsResult';
 
-export enum RelatedTermTypes {
-    hasRelatedTerms = 'Contains',
-    isRelatedTerms = 'Inherits',
+enum RelatedTermsTypes {
+    CONTAINS,
+    INHERITS,
 }
 
 const DetailWrapper = styled.div`
@@ -25,43 +25,42 @@ const Content = styled.div`
 
 export default function GlossayRelatedTerms() {
     const { entityData } = useEntityData();
-    const [selectedKey, setSelectedKey] = useState('');
-    const menuOptionsArray = Object.keys(RelatedTermTypes);
+    const [selectedType, setSelectedType] = useState<RelatedTermsTypes>(RelatedTermsTypes.CONTAINS);
+    const relatedTermUrns = new Set<string>();
 
-    useEffect(() => {
-        if (menuOptionsArray && menuOptionsArray.length > 0 && selectedKey.length === 0) {
-            setSelectedKey(menuOptionsArray[0]);
-        }
-    }, [menuOptionsArray, selectedKey]);
-
-    const onMenuClick = ({ key }) => {
-        setSelectedKey(key);
-    };
+    if (selectedType === RelatedTermsTypes.CONTAINS) {
+        entityData?.hasRelatedTerms?.relationships.forEach((term) => relatedTermUrns.add(term.entity?.urn || ''));
+        entityData?.childTerms?.relationships.forEach((term) => relatedTermUrns.add(term.entity?.urn || ''));
+    } else {
+        entityData?.isRelatedTerms?.relationships.forEach((term) => relatedTermUrns.add(term.entity?.urn || ''));
+        entityData?.parentTerms?.relationships.forEach((term) => relatedTermUrns.add(term.entity?.urn || ''));
+    }
 
     return (
         <DetailWrapper>
             <MenuWrapper>
-                <Menu
-                    selectable={false}
-                    mode="inline"
-                    style={{ width: 256 }}
-                    selectedKeys={[selectedKey]}
-                    onClick={(key) => {
-                        onMenuClick(key);
-                    }}
-                >
-                    {menuOptionsArray.map((option) => (
-                        <Menu.Item data-testid={option} key={option}>
-                            {RelatedTermTypes[option]}
-                        </Menu.Item>
-                    ))}
+                <Menu selectable={false} mode="inline" style={{ width: 256 }} selectedKeys={[selectedType.toString()]}>
+                    <Menu.Item
+                        data-testid="hasRelatedTerms"
+                        key={RelatedTermsTypes.CONTAINS}
+                        onClick={() => setSelectedType(RelatedTermsTypes.CONTAINS)}
+                    >
+                        Contains
+                    </Menu.Item>
+                    <Menu.Item
+                        data-testid="isRelatedTerms"
+                        key={RelatedTermsTypes.INHERITS}
+                        onClick={() => setSelectedType(RelatedTermsTypes.INHERITS)}
+                    >
+                        Inherits
+                    </Menu.Item>
                 </Menu>
             </MenuWrapper>
             <Content>
-                {selectedKey && entityData && (
+                {entityData && (
                     <GlossaryRelatedTermsResult
-                        glossaryRelatedTermType={RelatedTermTypes[selectedKey]}
-                        glossaryRelatedTermResult={entityData[selectedKey]?.relationships || []}
+                        glossaryRelatedTermType={selectedType === RelatedTermsTypes.CONTAINS ? 'Contains' : 'Inherits'}
+                        glossaryRelatedTermUrns={Array.from(relatedTermUrns) || []}
                     />
                 )}
             </Content>
