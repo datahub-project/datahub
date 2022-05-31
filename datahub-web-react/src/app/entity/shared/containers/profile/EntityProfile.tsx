@@ -126,9 +126,12 @@ const PRIVILEGES = {
     editLinks: false,
     editDeprecation: false,
     // Datasets Privileges
-    editSchemaFieldDescription: true,
-    editSchemaFieldTags: true,
+    editSchemaFieldDescription: false,
+    editSchemaAddFieldDescription: false,
+    editSchemaFieldTags: false,
+    editSchemaAddFieldTags: false,
     editSchemaFieldGlossaryTerms: false,
+    editSchemaAddFieldGlossaryTerms: false,
 };
 
 /**
@@ -260,7 +263,6 @@ export const EntityProfile = <T, U>({
                 lineage,
             }}
         >
-            {/* TODO: Add EntityAuthorizationContext.Provider */}
             <EntityAuthorizationContext.Provider value={PRIVILEGES}>
                 {showBrowseBar && <EntityProfileNavBar urn={urn} entityType={entityType} />}
                 {entityData?.status?.removed === true && (

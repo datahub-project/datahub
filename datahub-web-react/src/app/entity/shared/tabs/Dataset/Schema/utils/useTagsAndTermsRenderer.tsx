@@ -8,7 +8,7 @@ export default function useTagsAndTermsRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
     tagHoveredIndex: string | undefined,
     setTagHoveredIndex: (index: string | undefined) => void,
-    options: { showTags: boolean; showTerms: boolean },
+    options: { showTags: boolean; showTerms: boolean; canRemove?: boolean; canAddTerm?: boolean; canAddTag?: boolean },
 ) {
     const { urn } = useEntityData();
     const refetch = useRefetch();
@@ -25,10 +25,14 @@ export default function useTagsAndTermsRenderer(
                     editableTags={options.showTags ? relevantEditableFieldInfo?.globalTags : null}
                     uneditableGlossaryTerms={options.showTerms ? record.glossaryTerms : null}
                     editableGlossaryTerms={options.showTerms ? relevantEditableFieldInfo?.glossaryTerms : null}
-                    canRemove
+                    canRemove={options.canRemove}
                     buttonProps={{ size: 'small' }}
-                    canAddTag={tagHoveredIndex === `${record.fieldPath}-${rowIndex}` && options.showTags}
-                    canAddTerm={tagHoveredIndex === `${record.fieldPath}-${rowIndex}` && options.showTerms}
+                    canAddTag={
+                        options.canAddTag && tagHoveredIndex === `${record.fieldPath}-${rowIndex}` && options.showTags
+                    }
+                    canAddTerm={
+                        options.canAddTerm && tagHoveredIndex === `${record.fieldPath}-${rowIndex}` && options.showTerms
+                    }
                     onOpenModal={() => setTagHoveredIndex(undefined)}
                     entityUrn={urn}
                     entityType={EntityType.Dataset}

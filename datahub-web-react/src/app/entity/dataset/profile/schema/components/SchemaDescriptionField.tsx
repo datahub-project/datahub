@@ -10,6 +10,7 @@ import StripMarkdownText, { removeMarkdown } from '../../../../shared/components
 import MarkdownViewer from '../../../../shared/components/legacy/MarkdownViewer';
 import SchemaEditableContext from '../../../../../shared/SchemaEditableContext';
 import { useEntityData } from '../../../../shared/EntityContext';
+import { useEntitySchemaPrivileges } from '../../../../shared/EntityAuthorizationContext';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 
 const EditIcon = styled(EditOutlined)`
@@ -92,6 +93,7 @@ export default function DescriptionField({ description, onUpdate, isEdited = fal
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const onCloseModal = () => setShowAddModal(false);
     const { urn, entityType } = useEntityData();
+    const { editSchemaFieldDescription, editSchemaAddFieldDescription } = useEntitySchemaPrivileges();
 
     const sendAnalytics = () => {
         analytics.event({
@@ -117,7 +119,7 @@ export default function DescriptionField({ description, onUpdate, isEdited = fal
     };
 
     const EditButton =
-        (isSchemaEditable && description && (
+        (editSchemaFieldDescription && isSchemaEditable && description && (
             <EditIcon twoToneColor="#52c41a" onClick={() => setShowAddModal(true)} />
         )) ||
         undefined;
@@ -165,7 +167,7 @@ export default function DescriptionField({ description, onUpdate, isEdited = fal
                     </StripMarkdownText>
                 </>
             )}
-            {isSchemaEditable && isEdited && <EditedLabel>(edited)</EditedLabel>}
+            {editSchemaFieldDescription && isSchemaEditable && isEdited && <EditedLabel>(edited)</EditedLabel>}
             {showAddModal && (
                 <div>
                     <UpdateDescriptionModal
@@ -178,7 +180,7 @@ export default function DescriptionField({ description, onUpdate, isEdited = fal
                     />
                 </div>
             )}
-            {showAddDescription && (
+            {editSchemaAddFieldDescription && showAddDescription && (
                 <AddNewDescription type="text" onClick={() => setShowAddModal(true)}>
                     + Add Description
                 </AddNewDescription>

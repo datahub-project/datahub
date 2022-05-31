@@ -21,6 +21,7 @@ import { SchemaRow } from './components/SchemaRow';
 import { FkContext } from './utils/selectedFkContext';
 import useSchemaBlameRenderer from './utils/useSchemaBlameRenderer';
 import { ANTD_GRAY } from '../../../constants';
+import { useEntitySchemaPrivileges } from '../../../EntityAuthorizationContext';
 
 const TableContainer = styled.div`
     &&& .ant-table-tbody > tr > .ant-table-cell-with-append {
@@ -60,16 +61,26 @@ export default function SchemaTable({
     const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
     const [selectedFkFieldPath, setSelectedFkFieldPath] =
         useState<null | { fieldPath: string; constraint?: ForeignKeyConstraint | null }>(null);
+    const {
+        editSchemaFieldTags,
+        editSchemaAddFieldTags,
+        editSchemaFieldGlossaryTerms,
+        editSchemaAddFieldGlossaryTerms,
+    } = useEntitySchemaPrivileges();
 
     const descriptionRender = useDescriptionRenderer(editableSchemaMetadata);
     const usageStatsRenderer = useUsageStatsRenderer(usageStats);
     const tagRenderer = useTagsAndTermsRenderer(editableSchemaMetadata, tagHoveredIndex, setTagHoveredIndex, {
         showTags: true,
         showTerms: false,
+        canRemove: editSchemaFieldTags,
+        canAddTag: editSchemaAddFieldTags,
     });
     const termRenderer = useTagsAndTermsRenderer(editableSchemaMetadata, tagHoveredIndex, setTagHoveredIndex, {
         showTags: false,
         showTerms: true,
+        canRemove: editSchemaFieldGlossaryTerms,
+        canAddTerm: editSchemaAddFieldGlossaryTerms,
     });
     const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, setSelectedFkFieldPath);
     const schemaBlameRenderer = useSchemaBlameRenderer(schemaFieldBlameList);
@@ -98,7 +109,7 @@ export default function SchemaTable({
 
     const tagColumn = {
         width: 125,
-        title: 'Tags',
+        title: 'Tags2',
         dataIndex: 'globalTags',
         key: 'tag',
         render: tagRenderer,
@@ -107,7 +118,7 @@ export default function SchemaTable({
 
     const termColumn = {
         width: 125,
-        title: 'Terms',
+        title: 'Terms2',
         dataIndex: 'globalTags',
         key: 'tag',
         render: termRenderer,
