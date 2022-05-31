@@ -1,7 +1,7 @@
 import json
 import tempfile
 import time
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from click.testing import CliRunner, Result
 
@@ -78,8 +78,7 @@ def datahub_delete(params: List[str], num_ts_rows_delete: int) -> None:
     assert f"{num_ts_rows_delete} timeseries aspect rows" in delete_result.output
 
 
-# def test_timeseries_delete(wait_for_healthchecks) -> None:
-def test_timeseries_delete() -> None:
+def test_timeseries_delete(wait_for_healthchecks: Any) -> None:
     num_test_profiles: int = 10
     verification_batch_size: int = int(num_test_profiles / 2)
     num_latest_profiles_to_delete = 2
