@@ -315,7 +315,7 @@ def post_delete_endpoint(
     payload_obj: dict,
     path: str,
     cached_session_host: Optional[Tuple[Session, str]] = None,
-) -> typing.Tuple[str, int]:
+) -> typing.Tuple[str, int, int]:
     if not cached_session_host:
         session, gms_host = get_session_and_host()
     else:
@@ -329,16 +329,17 @@ def post_delete_endpoint_with_session_and_url(
     session: Session,
     url: str,
     payload_obj: dict,
-) -> typing.Tuple[str, int]:
+) -> typing.Tuple[str, int, int]:
     payload = json.dumps(payload_obj)
 
     response = session.post(url, payload)
 
     summary = parse_run_restli_response(response)
-    urn = summary.get("urn", "")
-    rows_affected = summary.get("rows", 0)
+    urn: str = summary.get("urn", "")
+    rows_affected: int = summary.get("rows", 0)
+    timeseries_rows_affected: int = summary.get("timeseriesRows", 0)
 
-    return urn, rows_affected
+    return urn, rows_affected, timeseries_rows_affected
 
 
 def get_urns_by_filter(

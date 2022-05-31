@@ -36,6 +36,7 @@ class DeletionResult:
     start_time: int = int(time.time() * 1000.0)
     end_time: int = 0
     num_records: int = 0
+    num_timeseries_records: int = 0
     num_entities: int = 0
     sample_records: Optional[List[List[str]]] = None
 
@@ -52,6 +53,7 @@ class DeletionResult:
             if another_result.num_records != UNKNOWN_NUM_RECORDS
             else UNKNOWN_NUM_RECORDS
         )
+        self.num_timeseries_records += another_result.num_timeseries_records
         self.num_entities += another_result.num_entities
         if another_result.sample_records:
             if not self.sample_records:
@@ -242,7 +244,10 @@ def delete(
     if not dry_run:
         message = "soft delete" if soft else "hard delete"
         click.echo(
-            f"Took {(deletion_result.end_time-deletion_result.start_time)/1000.0} seconds to {message} {deletion_result.num_records} rows for {deletion_result.num_entities} entities"
+            f"Took {(deletion_result.end_time-deletion_result.start_time)/1000.0} seconds to {message}"
+            f" {deletion_result.num_records} versioned rows"
+            f" and {deletion_result.num_timeseries_records} timeseries aspect rows"
+            f" for {deletion_result.num_entities} entities."
         )
     else:
         click.echo(
@@ -363,12 +368,13 @@ def _delete_one_urn(
                 payload_obj["endTimeMillis"] = int(
                     round(endTimeMillis.timestamp() * 1000)
                 )
-            urn, rows_affected = cli_utils.post_delete_endpoint(
+            urn, rows_affected, ts_rows_affected = cli_utils.post_delete_endpoint(
                 payload_obj,
                 "/entities?action=delete",
                 cached_session_host=cached_session_host,
             )
             deletion_result.num_records = rows_affected
+            deletion_result.num_timeseries_records = ts_rows_affected
         else:
             logger.info(f"[Dry-run] Would hard-delete {urn}")
             deletion_result.num_records = UNKNOWN_NUM_RECORDS  # since we don't know how many rows will be affected
