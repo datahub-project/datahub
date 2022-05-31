@@ -117,6 +117,7 @@ PLATFORM_TO_SQLALCHEMY_URI_TESTER_MAP: Dict[str, Callable[[str], bool]] = Ordere
         _platform_alchemy_uri_tester_gen("bigquery"),
         _platform_alchemy_uri_tester_gen("clickhouse"),
         _platform_alchemy_uri_tester_gen("druid"),
+        _platform_alchemy_uri_tester_gen("hana"),
         _platform_alchemy_uri_tester_gen("hive"),
         _platform_alchemy_uri_tester_gen("mongodb"),
         _platform_alchemy_uri_tester_gen("mssql"),
@@ -136,16 +137,15 @@ PLATFORM_TO_SQLALCHEMY_URI_TESTER_MAP: Dict[str, Callable[[str], bool]] = Ordere
         _platform_alchemy_uri_tester_gen("postgres", "postgresql"),
         _platform_alchemy_uri_tester_gen("snowflake"),
         _platform_alchemy_uri_tester_gen("trino"),
+        _platform_alchemy_uri_tester_gen("vertica"),
     ]
 )
 
 
 def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
-
     for platform, tester in PLATFORM_TO_SQLALCHEMY_URI_TESTER_MAP.items():
         if tester(sqlalchemy_uri):
             return platform
-
     return "external"
 
 
@@ -718,6 +718,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 if not sql_config.schema_pattern.allowed(schema):
                     self.report.report_dropped(f"{schema}.*")
                     continue
+                self.add_information_for_schema(inspector, schema)
 
                 yield from self.gen_schema_containers(schema, db_name)
 
@@ -870,6 +871,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     )
         except Exception as e:
             self.report.report_failure(f"{schema}", f"Tables error: {e}")
+
+    def add_information_for_schema(self, inspector: Inspector, schema: str) -> None:
+        pass
 
     def get_extra_tags(
         self, inspector: Inspector, schema: str, table: str

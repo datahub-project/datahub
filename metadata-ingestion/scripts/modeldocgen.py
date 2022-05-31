@@ -34,7 +34,6 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     StringTypeClass,
     SubTypesClass,
-    SystemMetadataClass,
     TagAssociationClass,
 )
 
@@ -42,6 +41,7 @@ logger = logging.getLogger(__name__)
 
 
 # TODO: Support generating docs for each event type in entity registry.
+
 
 def capitalize_first(something: str) -> str:
     return something[0:1].upper() + something[1:]
@@ -89,9 +89,11 @@ class AspectDefinition:
     schema: Optional[avro.schema.Schema] = None
     type: Optional[str] = None
 
+
 @dataclass
 class EventDefinition:
     name: str
+
 
 entity_registry: Dict[str, EntityDefinition] = {}
 
@@ -386,7 +388,7 @@ def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
             )
             foreign_keys: List[ForeignKeyConstraintClass] = []
             source_dataset_urn = make_dataset_urn(
-                platform=make_data_platform_urn("datahub"),
+                platform="datahub",
                 name=f"{entity_display_name}",
             )
             for f_field in schema_fields:
@@ -444,7 +446,7 @@ def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
                             destination_entity_name = capitalize_first(entity_type)
 
                             foreign_dataset_urn = make_dataset_urn(
-                                platform=make_data_platform_urn("datahub"),
+                                platform="datahub",
                                 name=destination_entity_name,
                             )
                             fkey = ForeignKeyConstraintClass(
@@ -478,7 +480,7 @@ def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
 
             dataset = DatasetSnapshotClass(
                 urn=make_dataset_urn(
-                    platform=make_data_platform_urn("datahub"),
+                    platform="datahub",
                     name=f"{entity_display_name}",
                 ),
                 aspects=[

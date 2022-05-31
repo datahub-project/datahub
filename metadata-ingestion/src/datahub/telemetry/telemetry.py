@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, Optional, TypeVar
 from mixpanel import Consumer, Mixpanel
 
 import datahub as datahub_package
+from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
 
@@ -214,7 +215,8 @@ class Telemetry:
     def ping(
         self,
         event_name: str,
-        properties: Optional[Dict[str, Any]] = None,
+        properties: Dict[str, Any] = {},
+        server: Optional[DataHubGraph] = None,
     ) -> None:
         """
         Send a single telemetry event.
@@ -230,10 +232,29 @@ class Telemetry:
         # send event
         try:
             logger.debug("Sending Telemetry")
+            properties.update(self._server_props(server))
             self.mp.track(self.client_id, event_name, properties)
 
         except Exception as e:
             logger.debug(f"Error reporting telemetry: {e}")
+
+    def _server_props(self, server: Optional[DataHubGraph]) -> Dict[str, str]:
+        if not server:
+            return {
+                "server_type": "n/a",
+                "server_version": "n/a",
+                "server_id": "n/a",
+            }
+        else:
+            return {
+                "server_type": server.server_config.get("datahub", {}).get(
+                    "serverType", "missing"
+                ),
+                "server_version": server.server_config.get("versions", {})
+                .get("linkedin/datahub", {})
+                .get("version", "missing"),
+                "server_id": server.server_id or "missing",
+            }
 
 
 telemetry_instance = Telemetry()

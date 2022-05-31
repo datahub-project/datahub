@@ -11,7 +11,7 @@ from datahub.configuration.yaml import YamlConfigurationMechanism
 
 
 def resolve_element(element: str) -> str:
-    if re.search("(\$\{).+(\})", element):  # noqa: W605
+    if re.search(r"(\$\{).+(\})", element):
         return expandvars(element, nounset=True)
     elif element.startswith("$"):
         try:
@@ -22,16 +22,16 @@ def resolve_element(element: str) -> str:
         return element
 
 
-def resolve_list(ele_list: list) -> list:
-    new_v = []
+def _resolve_list(ele_list: list) -> list:
+    new_v: list = []
     for ele in ele_list:
         if isinstance(ele, str):
-            new_v.append(resolve_element(ele))  # type:ignore
+            new_v.append(resolve_element(ele))
         elif isinstance(ele, list):
-            new_v.append(resolve_list(ele))  # type:ignore
+            new_v.append(_resolve_list(ele))
         elif isinstance(ele, dict):
             resolve_env_variables(ele)
-            new_v.append(resolve_env_variables(ele))  # type:ignore
+            new_v.append(resolve_env_variables(ele))
         else:
             new_v.append(ele)
     return new_v
@@ -42,7 +42,7 @@ def resolve_env_variables(config: dict) -> dict:
         if isinstance(v, dict):
             resolve_env_variables(v)
         elif isinstance(v, list):
-            config[k] = resolve_list(v)
+            config[k] = _resolve_list(v)
         elif isinstance(v, str):
             config[k] = resolve_element(v)
     return config

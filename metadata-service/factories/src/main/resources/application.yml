@@ -54,6 +54,7 @@ secretService:
   encryptionKey: ${SECRET_SERVICE_ENCRYPTION_KEY:ENCRYPTION_KEY}
 
 datahub:
+  serverType: ${DATAHUB_SERVER_TYPE:prod}
   gms:
     host: ${DATAHUB_GMS_HOST:${GMS_HOST:localhost}}
     port: ${DATAHUB_GMS_PORT:${GMS_PORT:8080}}
@@ -91,6 +92,8 @@ visualConfig:
     logoUrl: ${REACT_APP_LOGO_URL:#{null}}
 
 # Storage Layer
+
+# Only required if entityService.impl is ebean
 ebean:
   username: ${EBEAN_DATASOURCE_USERNAME:datahub}
   password: ${EBEAN_DATASOURCE_PASSWORD:datahub}
@@ -104,6 +107,7 @@ ebean:
   waitTimeoutMillis: ${EBEAN_WAIT_TIMEOUT_MILLIS:1000}
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
 
+# Only required if entityService.impl is cassandra
 cassandra:
   datasourceUsername: ${CASSANDRA_DATASOURCE_USERNAME:cassandra}
   datasourcePassword: ${CASSANDRA_DATASOURCE_PASSWORD:cassandra}
@@ -176,3 +180,6 @@ spring:
 springdoc:
   cache:
     disabled: true
+
+metadataTests:
+  enabled: ${METADATA_TESTS_ENABLED:true}
