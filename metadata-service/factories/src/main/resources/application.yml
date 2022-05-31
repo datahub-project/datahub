@@ -198,7 +198,7 @@ springdoc:
     disabled: true
 
 metadataTests:
-  enabled: ${METADATA_TESTS_ENABLED:true}
+  enabled: ${METADATA_TESTS_ENABLED:false}
 
 # Notifications config
 notifications:
