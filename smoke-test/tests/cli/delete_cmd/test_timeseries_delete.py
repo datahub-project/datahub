@@ -67,7 +67,7 @@ def datahub_get_and_verify_profile(
         assert profile_from_get == expected_profile
 
 
-def datahub_delete(params: List[str], num_ts_rows_delete: int) -> None:
+def datahub_delete(params: List[str]) -> None:
     sync_elastic()
 
     args: List[str] = ["delete"]
@@ -75,7 +75,6 @@ def datahub_delete(params: List[str], num_ts_rows_delete: int) -> None:
     args.append("--hard")
     delete_result: Result = runner.invoke(datahub, args, input="y\ny\n")
     assert delete_result.exit_code == 0
-    assert f"{num_ts_rows_delete} timeseries aspect rows" in delete_result.output
 
 
 def test_timeseries_delete(wait_for_healthchecks: Any) -> None:
@@ -118,11 +117,10 @@ def test_timeseries_delete(wait_for_healthchecks: Any) -> None:
             "--end-time",
             delete_ts_end,
         ],
-        2,
     )
     assert expected_profile_after_latest_deletion is not None
     datahub_get_and_verify_profile(expected_profile_after_latest_deletion)
 
     # 3. Delete everything via the delete command & validate that we don't get any profiles back.
-    datahub_delete(["-p", "test_platform"], 8)
+    datahub_delete(["-p", "test_platform"])
     datahub_get_and_verify_profile(None)
