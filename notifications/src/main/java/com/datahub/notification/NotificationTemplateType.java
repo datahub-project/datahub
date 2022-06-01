@@ -85,6 +85,20 @@ public enum NotificationTemplateType {
         )
     ),
     /**
+     * Broadcast that an managed ingestion run has changed.
+     */
+    BROADCAST_INGESTION_RUN_CHANGE(
+        ImmutableSet.of(
+            "sourceName",
+            "sourceType",
+            "statusText"
+        ),
+        ImmutableSet.of(
+            "ingestionSourceUrn",
+            "executionRequestUrn"
+        )
+    ),
+    /**
      * Broadcast a change proposal: tag, term, ownership, documentation, domain proposal.
      */
     BROADCAST_NEW_PROPOSAL(

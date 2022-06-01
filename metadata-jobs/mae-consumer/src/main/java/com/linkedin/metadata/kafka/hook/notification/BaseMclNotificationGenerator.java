@@ -9,6 +9,7 @@ import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -327,6 +328,27 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
     } catch (Exception e) {
       log.error(String.format("Failed to fetch membership for group %s. Skipping sending notification to group members!", groupUrn), e);
       return Collections.emptyList();
+    }
+  }
+
+  @Nullable
+  protected DataMap getAspectData(Urn urn, String aspectName) {
+    try {
+      EntityResponse response = _entityClient.getV2(
+          urn.getEntityType(),
+          urn,
+          ImmutableSet.of(aspectName),
+          _systemAuthentication
+      );
+      if (response != null && response.getAspects().containsKey(aspectName)) {
+        return response.getAspects().get(aspectName).getValue().data();
+      } else {
+        log.warn(String.format("Failed to get aspect data for  urn %s aspect %s", urn.toString(), aspectName));
+        return null;
+      }
+    } catch (Exception e) {
+      log.error(String.format("Failed to get aspect data for  urn %s aspect %s", urn.toString(), aspectName));
+      return null;
     }
   }
 

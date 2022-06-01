@@ -63,7 +63,8 @@ public class SlackNotificationSink implements NotificationSink {
       NotificationTemplateType.BROADCAST_INCIDENT_STATUS_CHANGE,
       NotificationTemplateType.BROADCAST_NEW_PROPOSAL,
       NotificationTemplateType.BROADCAST_PROPOSAL_STATUS_CHANGE,
-      NotificationTemplateType.BROADCAST_ENTITY_CHANGE
+      NotificationTemplateType.BROADCAST_ENTITY_CHANGE,
+      NotificationTemplateType.BROADCAST_INGESTION_RUN_CHANGE
   );
   private static final String SLACK_CHANNEL_RECIPIENT_TYPE = "SLACK_CHANNEL";
   private static final String BOT_TOKEN_CONFIG_NAME = "botToken";
@@ -179,6 +180,9 @@ public class SlackNotificationSink implements NotificationSink {
         break;
       case BROADCAST_ENTITY_CHANGE:
         sendBroadcastNotification(notificationRequest.getRecipients(), buildEntityChangeMessage(notificationRequest));
+        break;
+      case BROADCAST_INGESTION_RUN_CHANGE:
+        sendBroadcastNotification(notificationRequest.getRecipients(), buildIngestionRunChangeMessage(notificationRequest));
         break;
       default:
         throw new UnsupportedOperationException(String.format(
@@ -466,6 +470,28 @@ public class SlackNotificationSink implements NotificationSink {
             ownersStr.length() > 0 ? ownersStr : "N/A",
             downstreamOwnersStr.length() > 0 ? downstreamOwnersStr : "N/A"
         )
+    );
+  }
+
+  private String buildIngestionRunChangeMessage(NotificationRequest request) {
+    final String sourceName = request.getMessage().getParameters().get("sourceName");
+    final String sourceType = request.getMessage().getParameters().get("sourceType");
+    final String statusText = request.getMessage().getParameters().get("statusText");
+    final String ingestionUrl = String.format("%s%s", this.baseUrl, "/ingestion");
+
+    /*
+     * Example:
+     *     - Ingestion source my-ingestion-source of type kafka has failed!
+     *     - Ingestion source my-ingestion-source of type bigquery-usage has completed!
+     *     - Ingestion source my-ingestion-source of type looker has been cancelled!
+     *     - Ingestion source my-ingestion-source of type okta has timed out!
+     *     - Ingestion source my-ingestion-source of type snowflake has started!
+     */
+    return String.format(">:electric_plug:   Ingestion source *%s* of type *%s* has %s! <%s|View ingestion sources>.",
+        sourceName,
+        sourceType,
+        statusText,
+        ingestionUrl
     );
   }
 

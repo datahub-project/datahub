@@ -215,6 +215,13 @@ public class Constants {
   public static final String EXECUTION_REQUEST_INPUT_ASPECT_NAME = "dataHubExecutionRequestInput";
   public static final String EXECUTION_REQUEST_SIGNAL_ASPECT_NAME = "dataHubExecutionRequestSignal";
   public static final String EXECUTION_REQUEST_RESULT_ASPECT_NAME = "dataHubExecutionRequestResult";
+  public static final String EXECUTION_REQUEST_STATUS_RUNNING = "RUNNING";
+  public static final String EXECUTION_REQUEST_STATUS_FAILURE = "FAILURE";
+  public static final String EXECUTION_REQUEST_STATUS_SUCCESS = "SUCCESS";
+  public static final String EXECUTION_REQUEST_STATUS_TIMEOUT = "TIMEOUT";
+  public static final String EXECUTION_REQUEST_STATUS_CANCELLED = "CANCELLED";
+  public static final String EXECUTION_REQUEST_SOURCE_MANUAL_INGESTION_SOURCE = "MANUAL_INGESTION_SOURCE";
+  public static final String EXECUTION_REQUEST_SOURCE_SCHEDULED_INGESTION_SOURCE = "SCHEDULED_INGESTION_SOURCE";
 
   // DataHub Access Token
   public static final String ACCESS_TOKEN_KEY_ASPECT_NAME = "dataHubAccessTokenKey";

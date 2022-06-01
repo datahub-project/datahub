@@ -13,6 +13,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.identity.CorpGroupInfo;
+import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.tag.TagProperties;
 import javax.annotation.Nonnull;
@@ -63,6 +64,8 @@ public class EntityNameProvider {
         return getUserName(entityUrn);
       case Constants.CORP_GROUP_ENTITY_NAME:
         return getGroupName(entityUrn);
+      case Constants.INGESTION_SOURCE_ENTITY_NAME:
+        return getIngestionSourceName(entityUrn);
       case "schemaField":
         return getSchemaFieldName(entityUrn);
       default:
@@ -140,6 +143,15 @@ public class EntityNameProvider {
       return info.hasDisplayName() ? info.getDisplayName() : groupUrn.getId();
     }
     return groupUrn.toString();
+  }
+
+  private String getIngestionSourceName(Urn ingestionSourceUrn) {
+    DataMap data = getAspectData(ingestionSourceUrn, Constants.INGESTION_INFO_ASPECT_NAME);
+    if (data != null) {
+      DataHubIngestionSourceInfo info = new DataHubIngestionSourceInfo(data);
+      return info.hasName() ? info.getName() : ingestionSourceUrn.toString();
+    }
+    return ingestionSourceUrn.toString();
   }
 
   private String getSchemaFieldName(Urn schemaFieldUrn) {
