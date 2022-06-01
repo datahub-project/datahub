@@ -4441,6 +4441,16 @@ enum ChartType {
     A box plot chart
     """
     BOX_PLOT
+
+    """
+    A word cloud chart
+    """
+    WORD_CLOUD
+
+    """
+    A Cohort Analysis chart
+    """
+    COHORT
 }
 
 """
