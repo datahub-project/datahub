@@ -60,6 +60,10 @@ export const SidebarStatsSection = () => {
 
     const lastUpdatedTime = latestOperation && toLocalDateTimeString(latestOperation?.lastUpdatedTimestamp);
 
+    const hasUsageStatsAggregations =
+        usageStats?.aggregations?.totalSqlQueries || (usageStats?.aggregations?.users?.length || 0) > 0;
+    const hasLatestProfiles = latestProfile?.rowCount || latestProfile?.columnCount;
+    const hasLatestOperation = latestOperation?.timestampMillis;
     const routeToTab = useRouteToTab();
 
     return (
@@ -71,42 +75,46 @@ export const SidebarStatsSection = () => {
                 </StatsButton>
             </HeaderContainer>
             {/* Dataset Profile Entry */}
-            <StatsRow>
-                {latestProfile?.rowCount ? (
-                    <InfoItem
-                        title="Rows"
-                        onClick={() => routeToTab({ tabName: 'Queries' })}
-                        width={INFO_ITEM_WIDTH_PX}
-                    >
-                        <HeaderInfoBody>{countSeparator(latestProfile?.rowCount)}</HeaderInfoBody>
-                    </InfoItem>
-                ) : null}
-                {latestProfile?.columnCount ? (
-                    <InfoItem title="Columns" width={INFO_ITEM_WIDTH_PX}>
-                        <HeaderInfoBody>{latestProfile?.columnCount}</HeaderInfoBody>
-                    </InfoItem>
-                ) : null}
-            </StatsRow>
+            {hasLatestProfiles && (
+                <StatsRow>
+                    {latestProfile?.rowCount ? (
+                        <InfoItem
+                            title="Rows"
+                            onClick={() => routeToTab({ tabName: 'Queries' })}
+                            width={INFO_ITEM_WIDTH_PX}
+                        >
+                            <HeaderInfoBody>{countSeparator(latestProfile?.rowCount)}</HeaderInfoBody>
+                        </InfoItem>
+                    ) : null}
+                    {latestProfile?.columnCount ? (
+                        <InfoItem title="Columns" width={INFO_ITEM_WIDTH_PX}>
+                            <HeaderInfoBody>{latestProfile?.columnCount}</HeaderInfoBody>
+                        </InfoItem>
+                    ) : null}
+                </StatsRow>
+            )}
             {/* Usage Stats Entry */}
-            <StatsRow>
-                {usageStats?.aggregations?.totalSqlQueries ? (
-                    <InfoItem
-                        title="Monthly Queries"
-                        onClick={() => routeToTab({ tabName: 'Queries' })}
-                        width={INFO_ITEM_WIDTH_PX}
-                    >
-                        <HeaderInfoBody>{usageStats?.aggregations?.totalSqlQueries}</HeaderInfoBody>
-                    </InfoItem>
-                ) : null}
-                {(usageStats?.aggregations?.users?.length || 0) > 0 ? (
-                    <InfoItem title="Top Users" width={INFO_ITEM_WIDTH_PX}>
-                        <UsageFacepile users={usageStats?.aggregations?.users} maxNumberDisplayed={10} />
-                    </InfoItem>
-                ) : null}
-            </StatsRow>
+            {hasUsageStatsAggregations && (
+                <StatsRow>
+                    {usageStats?.aggregations?.totalSqlQueries ? (
+                        <InfoItem
+                            title="Monthly Queries"
+                            onClick={() => routeToTab({ tabName: 'Queries' })}
+                            width={INFO_ITEM_WIDTH_PX}
+                        >
+                            <HeaderInfoBody>{usageStats?.aggregations?.totalSqlQueries}</HeaderInfoBody>
+                        </InfoItem>
+                    ) : null}
+                    {(usageStats?.aggregations?.users?.length || 0) > 0 ? (
+                        <InfoItem title="Top Users" width={INFO_ITEM_WIDTH_PX}>
+                            <UsageFacepile users={usageStats?.aggregations?.users} maxNumberDisplayed={10} />
+                        </InfoItem>
+                    ) : null}
+                </StatsRow>
+            )}
             {/* Operation Entry */}
-            <StatsRow>
-                {latestOperation?.timestampMillis ? (
+            {hasLatestOperation ? (
+                <StatsRow>
                     <InfoItem
                         title="Last Updated"
                         onClick={() => routeToTab({ tabName: 'Queries' })}
@@ -114,8 +122,8 @@ export const SidebarStatsSection = () => {
                     >
                         <HeaderInfoBody>{lastUpdatedTime}</HeaderInfoBody>
                     </InfoItem>
-                ) : null}
-            </StatsRow>
+                </StatsRow>
+            ) : null}
         </div>
     );
 };
