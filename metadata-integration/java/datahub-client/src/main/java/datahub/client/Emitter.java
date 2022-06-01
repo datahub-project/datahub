@@ -5,7 +5,6 @@ import datahub.event.MetadataChangeProposalWrapper;
 import datahub.event.UpsertAspectRequest;
 import java.io.Closeable;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
