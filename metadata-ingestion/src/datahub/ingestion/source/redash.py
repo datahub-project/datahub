@@ -4,7 +4,6 @@ import math
 import sys
 from dataclasses import dataclass, field
 from multiprocessing.pool import ThreadPool
-from tkinter import Y
 from typing import Dict, Iterable, List, Optional, Set, Type
 
 import dateutil.parser as dp
@@ -258,7 +257,7 @@ class RedashConfig(ConfigModel):
     )
     parallelism: int = Field(
         default=1,
-        description="[Incubating feature] Parallelism to use while processing.",
+        description="Parallelism to use while processing.",
     )
     parse_table_names_from_sql: bool = Field(
         default=False, description="See note below."
@@ -582,19 +581,14 @@ class RedashSource(Source):
         dashboards_response = self.client.dashboards(
             page=current_page, page_size=self.config.page_size
         )
-
         for dashboard_response in dashboards_response["results"]:
-
             dashboard_name = dashboard_response["name"]
-
             self.report.report_item_scanned()
-
             if (not self.config.dashboard_patterns.allowed(dashboard_name)) or (
                 self.config.skip_draft and dashboard_response["is_draft"]
             ):
                 self.report.report_dropped(dashboard_name)
                 continue
-
             # Continue producing MCE
             try:
                 # This is undocumented but checking the Redash source
@@ -727,9 +721,7 @@ class RedashSource(Source):
                 page=current_page, page_size=self.config.page_size
             )
             for query_response in queries_response["results"]:
-
                 chart_name = query_response["name"]
-
                 self.report.report_item_scanned()
 
                 if (not self.config.chart_patterns.allowed(chart_name)) or (
@@ -737,7 +729,6 @@ class RedashSource(Source):
                 ):
                     self.report.report_dropped(chart_name)
                     continue
-
                 query_id = query_response["id"]
                 query_data = self.client._get(f"/api/queries/{query_id}").json()
                 logger.debug(query_data)
