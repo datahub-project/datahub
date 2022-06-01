@@ -270,6 +270,7 @@ public class SearchRequestHandler {
   private SearchEntity getResult(@Nonnull SearchHit hit) {
     return new SearchEntity().setEntity(getUrnFromSearchHit(hit))
         .setMatchedFields(new MatchedFieldArray(extractMatchedFields(hit.getHighlightFields())))
+        .setScore(hit.getScore())
         .setFeatures(new DoubleMap(extractFeatures(hit)));
   }
 

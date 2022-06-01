@@ -38,6 +38,12 @@ fragment dataFlowFields on DataFlow {
     status {
         removed
     }
+    deprecation {
+        ...deprecationFields
+    }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
 }
 
 query getDataFlow($urn: String!) {
@@ -79,6 +85,9 @@ query getDataFlow($urn: String!) {
                         }
                         glossaryTerms {
                             ...glossaryTerms
+                        }
+                        deprecation {
+                            ...deprecationFields
                         }
                     }
                 }

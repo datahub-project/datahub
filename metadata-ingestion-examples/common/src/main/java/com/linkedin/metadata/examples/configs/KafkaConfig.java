@@ -22,7 +22,7 @@ public class KafkaConfig {
   @Value("${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081}")
   private String kafkaSchemaRegistryUrl;
 
-  @Bean(name = "kafkaEventProducer")
+  @Bean(name = "kafkaProducer")
   public Producer<String, GenericRecord> kafkaProducerFactory(KafkaProperties properties) {
     KafkaProperties.Producer producerProps = properties.getProducer();
 

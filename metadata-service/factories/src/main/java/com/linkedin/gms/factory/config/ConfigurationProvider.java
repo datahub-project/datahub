@@ -1,7 +1,11 @@
 package com.linkedin.gms.factory.config;
 
 import com.datahub.authentication.AuthenticationConfiguration;
+import com.datahub.authorization.AuthorizationConfiguration;
+import com.linkedin.metadata.config.DatahubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
+import com.linkedin.metadata.config.TestsConfiguration;
+import com.linkedin.metadata.telemetry.TelemetryConfiguration;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -19,12 +23,23 @@ public class ConfigurationProvider {
    */
   private AuthenticationConfiguration authentication;
   /**
+   * Authentication related configs
+   */
+  private AuthorizationConfiguration authorization;
+  /**
    * Ingestion related configs
    */
   private IngestionConfiguration ingestion;
-
   /**
    * Telemetry related configs
    */
   private TelemetryConfiguration telemetry;
+  /**
+   * Tests related configs
+   */
+  private TestsConfiguration metadataTests;
+  /**
+   * DataHub top-level server configurations
+   */
+  private DatahubConfiguration datahub;
 }

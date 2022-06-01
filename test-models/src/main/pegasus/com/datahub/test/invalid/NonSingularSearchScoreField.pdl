@@ -1,0 +1,9 @@
+namespace com.datahub.test.invalid
+
+@Aspect = {
+  "name": "invalidAspect"
+}
+record NonSingularSearchScoreField {
+  @SearchScore = {}
+  scoreArray: array[int]
+}

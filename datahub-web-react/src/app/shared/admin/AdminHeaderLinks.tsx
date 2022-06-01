@@ -4,12 +4,15 @@ import {
     ApiOutlined,
     BankOutlined,
     BarChartOutlined,
+    BookOutlined,
     SettingOutlined,
     UsergroupAddOutlined,
     FolderOutlined,
+    ContainerOutlined,
+    DownOutlined,
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
-import { Button } from 'antd';
+import { Button, Dropdown, Menu } from 'antd';
 import { useAppConfig } from '../../useAppConfig';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 
@@ -17,7 +20,30 @@ const AdminLink = styled.span`
     margin-right: 4px;
 `;
 
-export function AdminHeaderLinks() {
+const LinksWrapper = styled.div<{ areLinksHidden?: boolean }>`
+    opacity: 1;
+    white-space: nowrap;
+    transition: opacity 0.5s;
+
+    ${(props) =>
+        props.areLinksHidden &&
+        `
+        opacity: 0;
+        width: 0;
+    `}
+`;
+
+const MenuItem = styled(Menu.Item)`
+    font-size: 12px;
+    font-weight: bold;
+`;
+
+interface Props {
+    areLinksHidden?: boolean;
+}
+
+export function AdminHeaderLinks(props: Props) {
+    const { areLinksHidden } = props;
     const me = useGetAuthenticatedUser();
     const { config } = useAppConfig();
 
@@ -34,23 +60,15 @@ export function AdminHeaderLinks() {
     const showIngestion =
         isIngestionEnabled && me && me.platformPrivileges.manageIngestion && me.platformPrivileges.manageSecrets;
     const showDomains = me?.platformPrivileges?.manageDomains || false;
+    const showGlossary = me?.platformPrivileges?.manageGlossaries || false;
 
     return (
-        <>
+        <LinksWrapper areLinksHidden={areLinksHidden}>
             {showAnalytics && (
                 <AdminLink>
                     <Link to="/analytics">
                         <Button type="text">
                             <BarChartOutlined /> Analytics
-                        </Button>
-                    </Link>
-                </AdminLink>
-            )}
-            {showDomains && (
-                <AdminLink>
-                    <Link to="/domains">
-                        <Button type="text">
-                            <FolderOutlined /> Domains
                         </Button>
                     </Link>
                 </AdminLink>
@@ -82,6 +100,35 @@ export function AdminHeaderLinks() {
                     </Link>
                 </AdminLink>
             )}
+            {(showGlossary || showDomains) && (
+                <Dropdown
+                    trigger={['click']}
+                    overlay={
+                        <Menu>
+                            {showGlossary && (
+                                <MenuItem key="0">
+                                    <Link to="/glossary">
+                                        <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} /> Glossary
+                                    </Link>
+                                </MenuItem>
+                            )}
+                            {showDomains && (
+                                <MenuItem key="1">
+                                    <Link to="/domains">
+                                        <FolderOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} /> Domains
+                                    </Link>
+                                </MenuItem>
+                            )}
+                        </Menu>
+                    }
+                >
+                    <AdminLink>
+                        <Button type="text">
+                            <ContainerOutlined /> Manage <DownOutlined style={{ fontSize: '12px' }} />
+                        </Button>
+                    </AdminLink>
+                </Dropdown>
+            )}
             {showSettings && (
                 <AdminLink style={{ marginRight: 16 }}>
                     <Link to="/settings">
@@ -91,6 +138,6 @@ export function AdminHeaderLinks() {
                     </Link>
                 </AdminLink>
             )}
-        </>
+        </LinksWrapper>
     );
 }

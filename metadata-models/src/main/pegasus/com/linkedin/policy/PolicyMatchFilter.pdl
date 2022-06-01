@@ -1,0 +1,13 @@
+namespace com.linkedin.policy
+
+/**
+ * The filter for specifying the resource or actor to apply privileges to
+ */
+record PolicyMatchFilter {
+
+  /**
+   * A list of criteria to apply conjunctively (so all criteria must pass)
+   */
+  criteria: array[PolicyMatchCriterion]
+
+}

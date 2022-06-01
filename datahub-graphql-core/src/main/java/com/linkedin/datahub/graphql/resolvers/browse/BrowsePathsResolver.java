@@ -22,9 +22,9 @@ public class BrowsePathsResolver implements DataFetcher<CompletableFuture<List<B
 
     private static final Logger _logger = LoggerFactory.getLogger(BrowsePathsResolver.class.getName());
 
-    private final Map<EntityType, BrowsableEntityType<?>> _typeToEntity;
+    private final Map<EntityType, BrowsableEntityType<?, ?>> _typeToEntity;
 
-    public BrowsePathsResolver(@Nonnull final List<BrowsableEntityType<?>> browsableEntities) {
+    public BrowsePathsResolver(@Nonnull final List<BrowsableEntityType<?, ?>> browsableEntities) {
         _typeToEntity = browsableEntities.stream().collect(Collectors.toMap(
                 BrowsableEntityType::type,
                 entity -> entity

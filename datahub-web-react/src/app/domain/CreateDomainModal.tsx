@@ -22,8 +22,6 @@ type Props = {
 };
 
 const SUGGESTED_DOMAIN_NAMES = ['Engineering', 'Marketing', 'Sales', 'Product'];
-/** Regex Validations */
-export const USER_NAME_REGEX = new RegExp('^[a-zA-Z ]*$');
 
 export default function CreateDomainModal({ visible, onClose, onCreate }: Props) {
     const [stagedName, setStagedName] = useState('');
@@ -99,11 +97,7 @@ export default function CreateDomainModal({ visible, onClose, onCreate }: Props)
                                 message: 'Enter a Domain name.',
                             },
                             { whitespace: true },
-                            { min: 2, max: 50 },
-                            {
-                                pattern: USER_NAME_REGEX,
-                                message: '',
-                            },
+                            { min: 1, max: 50 },
                         ]}
                         hasFeedback
                     >

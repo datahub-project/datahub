@@ -69,7 +69,9 @@ def test_bq_usage_source(pytestconfig, tmp_path):
             PipelineContext(run_id="bq-usage-test"),
         )
         entries = list(
-            source._get_bigquery_log_entries(source._make_bigquery_clients())
+            source._get_bigquery_log_entries_via_gcp_logging(
+                source._make_bigquery_logging_clients()
+            )
         )
 
         entries = [entry._replace(logger=None) for entry in entries]

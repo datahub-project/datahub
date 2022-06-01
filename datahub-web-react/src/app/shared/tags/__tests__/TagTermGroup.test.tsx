@@ -110,9 +110,9 @@ describe('TagTermGroup', () => {
                 </TestPageContainer>
             </MockedProvider>,
         );
-        expect(queryByText('Add Tag')).toBeInTheDocument();
+        expect(queryByText('Add Tags')).toBeInTheDocument();
         expect(queryByText('Search for tag...')).not.toBeInTheDocument();
-        const AddTagButton = getByText('Add Tag');
+        const AddTagButton = getByText('Add Tags');
         fireEvent.click(AddTagButton);
         expect(queryByText('Search for tag...')).toBeInTheDocument();
     });
@@ -132,9 +132,9 @@ describe('TagTermGroup', () => {
                 </TestPageContainer>
             </MockedProvider>,
         );
-        expect(queryByText('Add Term')).toBeInTheDocument();
+        expect(queryByText('Add Terms')).toBeInTheDocument();
         expect(queryByText('Search for glossary term...')).not.toBeInTheDocument();
-        const AddTagButton = getByText('Add Term');
+        const AddTagButton = getByText('Add Terms');
         fireEvent.click(AddTagButton);
         expect(queryByText('Search for glossary term...')).toBeInTheDocument();
     });

@@ -14,7 +14,7 @@ CREATE TABLE foo2 (
     name VARCHAR (50) NOT NULL,
     start_date DATE,
     start_year INTEGER,
-    score INTEGER,
+    score NUMERIC(2),
     PRIMARY KEY (id)
 );
 

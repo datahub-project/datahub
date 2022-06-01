@@ -15,20 +15,26 @@ import org.apache.avro.specific.SpecificRecord;
 public interface TopicConvention {
   /**
    * The name of the metadata change event (v4) kafka topic.
+   * Note that MetadataChangeEvents are deprecated, replaced by {@link MetadataChangeProposal}.
    */
   @Nonnull
+  @Deprecated
   String getMetadataChangeEventTopicName();
 
   /**
    * The name of the metadata audit event (v4) kafka topic.
+   * Note that MetadataAuditEvents are deprecated, replaced by {@link MetadataChangeLog}.
    */
   @Nonnull
+  @Deprecated
   String getMetadataAuditEventTopicName();
 
   /**
    * The name of the failed metadata change event (v4) kafka topic.
+   * Note that FailedMetadataChangeEvents are deprecated, replaced by {@link FailedMetadataChangeProposal}.
    */
   @Nonnull
+  @Deprecated
   String getFailedMetadataChangeEventTopicName();
 
   /**
@@ -56,12 +62,19 @@ public interface TopicConvention {
   String getFailedMetadataChangeProposalTopicName();
 
   /**
+   * The name of the platform event topic.
+   */
+  @Nonnull
+  String getPlatformEventTopicName();
+
+  /**
    * Returns the name of the metadata change event (v5) kafka topic.
    *
    * @param urn the urn of the entity being updated
    * @param aspect the aspect name being updated
    */
   @Nonnull
+  @Deprecated
   String getMetadataChangeEventTopicName(@Nonnull Urn urn, @Nonnull RecordTemplate aspect);
 
   /**
@@ -70,6 +83,7 @@ public interface TopicConvention {
    * @param urn the urn of the entity being updated
    * @param aspect the aspect name being updated
    */
+  @Deprecated
   Class<? extends SpecificRecord> getMetadataChangeEventType(@Nonnull Urn urn, @Nonnull RecordTemplate aspect);
 
   /**
@@ -79,6 +93,7 @@ public interface TopicConvention {
    * @param aspect the aspect name being updated
    */
   @Nonnull
+  @Deprecated
   String getMetadataAuditEventTopicName(@Nonnull Urn urn, @Nonnull RecordTemplate aspect);
 
   /**
@@ -87,6 +102,7 @@ public interface TopicConvention {
    * @param urn the urn of the entity being updated
    * @param aspect the aspect name being updated
    */
+  @Deprecated
   Class<? extends SpecificRecord> getMetadataAuditEventType(@Nonnull Urn urn, @Nonnull RecordTemplate aspect);
 
 
@@ -97,6 +113,7 @@ public interface TopicConvention {
    * @param aspect the aspect name being updated
    */
   @Nonnull
+  @Deprecated
   String getFailedMetadataChangeEventTopicName(@Nonnull Urn urn, @Nonnull RecordTemplate aspect);
 
   /**
@@ -105,5 +122,6 @@ public interface TopicConvention {
    * @param urn the urn of the entity being updated
    * @param aspect the aspect name being updated
    */
+  @Deprecated
   Class<? extends SpecificRecord> getFailedMetadataChangeEventType(@Nonnull Urn urn, @Nonnull RecordTemplate aspect);
 }

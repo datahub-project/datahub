@@ -9,7 +9,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DataHubRetentionKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.retention.DataHubRetentionConfig;
@@ -28,7 +28,11 @@ import lombok.Value;
 
 
 /**
- * Service coupled with an entity service to handle retention
+ * Service coupled with an {@link EntityService} to handle aspect record retention.
+ *
+ * TODO: This class is abstract with storage-specific implementations. It'd be nice to pull storage and retention
+ *       concerns apart, let (into {@link AspectDao}) deal with storage, and merge all retention concerns into a single
+ *       class.
  */
 public abstract class RetentionService {
   protected static final String ALL = "*";
@@ -63,10 +67,11 @@ public abstract class RetentionService {
 
   // Get list of datahub retention keys that match the input entity name and aspect name
   protected List<Urn> getRetentionKeys(@Nonnull String entityName, @Nonnull String aspectName) {
-    return ImmutableList.of(new DataHubRetentionKey().setEntityName(entityName).setAspectName(aspectName),
-        new DataHubRetentionKey().setEntityName(entityName).setAspectName(ALL),
-        new DataHubRetentionKey().setEntityName(ALL).setAspectName(aspectName),
-        new DataHubRetentionKey().setEntityName(ALL).setAspectName(ALL))
+    return ImmutableList.of(
+            new DataHubRetentionKey().setEntityName(entityName).setAspectName(aspectName),
+            new DataHubRetentionKey().setEntityName(entityName).setAspectName(ALL),
+            new DataHubRetentionKey().setEntityName(ALL).setAspectName(aspectName),
+            new DataHubRetentionKey().setEntityName(ALL).setAspectName(ALL))
         .stream()
         .map(key -> EntityKeyUtils.convertEntityKeyToUrn(key, DATAHUB_RETENTION_ENTITY))
         .collect(Collectors.toList());
@@ -90,7 +95,7 @@ public abstract class RetentionService {
     retentionKey.setAspectName(aspectName != null ? aspectName : ALL);
     Urn retentionUrn = EntityKeyUtils.convertEntityKeyToUrn(retentionKey, DATAHUB_RETENTION_ENTITY);
     MetadataChangeProposal keyProposal = new MetadataChangeProposal();
-    GenericAspect keyAspect = GenericAspectUtils.serializeAspect(retentionKey);
+    GenericAspect keyAspect = GenericRecordUtils.serializeAspect(retentionKey);
     keyProposal.setAspect(keyAspect);
     keyProposal.setAspectName(DATAHUB_RETENTION_KEY_ASPECT);
     keyProposal.setEntityType(DATAHUB_RETENTION_ENTITY);
@@ -100,7 +105,7 @@ public abstract class RetentionService {
         new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
     getEntityService().ingestProposal(keyProposal, auditStamp);
     MetadataChangeProposal aspectProposal = keyProposal.clone();
-    GenericAspect retentionAspect = GenericAspectUtils.serializeAspect(retentionConfig);
+    GenericAspect retentionAspect = GenericRecordUtils.serializeAspect(retentionConfig);
     aspectProposal.setAspect(retentionAspect);
     aspectProposal.setAspectName(DATAHUB_RETENTION_ASPECT);
     return getEntityService().ingestProposal(aspectProposal, auditStamp).isDidUpdate();
@@ -163,13 +168,13 @@ public abstract class RetentionService {
 
   /**
    * Apply retention policies given the urn and aspect name and policies
-   *  @param urn Urn of the entity
+   * @param urn Urn of the entity
    * @param aspectName Name of the aspect
    * @param retentionPolicy Retention policies to apply
-   * @param context Additional context that could be used to apply retention
+   * @param retentionContext Additional context that could be used to apply retention
    */
   public abstract void applyRetention(@Nonnull Urn urn, @Nonnull String aspectName, Retention retentionPolicy,
-      Optional<RetentionContext> context);
+      Optional<RetentionContext> retentionContext);
 
   /**
    * Batch apply retention to all records that match the input entityName and aspectName

@@ -12,7 +12,6 @@ import lombok.Getter;
 import org.jgrapht.GraphPath;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -30,8 +29,8 @@ public class VisitContext {
         return graph.root();
     }
 
-    public Optional<GraphPath<ProtobufElement, FieldTypeEdge>> getFirstFieldPath(ProtobufField field) {
-        return graph.getAllPaths(root(), field).stream().findFirst();
+    public Stream<GraphPath<ProtobufElement, FieldTypeEdge>> streamAllPaths(ProtobufField field) {
+        return graph.getAllPaths(root(), field).stream();
     }
 
     public String getFieldPath(GraphPath<ProtobufElement, FieldTypeEdge> path) {
