@@ -60,7 +60,7 @@ module.exports = {
       "releases",
     ],
     "Getting Started": ["docs/quickstart", "docs/cli", "docs/debugging"],
-    "Metadata Ingestion": [
+    Ingestion: [
       // add a custom label since the default is 'Metadata Ingestion'
       // note that we also have to add the path to this file in sidebarsjs_hardcoded_titles in generateDocsDir.ts
       {
@@ -118,7 +118,7 @@ module.exports = {
         ],
       },
     ],
-    "Metadata Modeling": [
+    Modeling: [
       "docs/modeling/metadata-model",
       "docs/modeling/extending-the-metadata-model",
       {
