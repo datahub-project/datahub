@@ -95,13 +95,7 @@ public class RestHighLevelClientFactory {
   @Nonnull
   private static RestClientBuilder loadRestHttpClient(@Nonnull String host, int port, String pathPrefix, int threadCount,
       int connectionRequestTimeout, String username, String password) {
-    RestClientBuilder builder = RestClient.builder(new HttpHost(host, port, "http"))
-        .setHttpClientConfigCallback(httpAsyncClientBuilder -> httpAsyncClientBuilder
-            .setDefaultIOReactorConfig(IOReactorConfig.custom().setIoThreadCount(threadCount).build()));
-
-    if (!StringUtils.isEmpty(pathPrefix)) {
-      builder.setPathPrefix(pathPrefix);
-    }
+    builder = loadRestHttpClient(host, port, pathPrefix, threadCount, connectionRequestTimeout);
     
     builder.setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
       public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpAsyncClientBuilder) {
@@ -114,10 +108,7 @@ public class RestHighLevelClientFactory {
         return httpAsyncClientBuilder;
       }
     });
-
-    builder.setRequestConfigCallback(
-        requestConfigBuilder -> requestConfigBuilder.setConnectionRequestTimeout(connectionRequestTimeout));
-
+    
     return builder;
   }
 
