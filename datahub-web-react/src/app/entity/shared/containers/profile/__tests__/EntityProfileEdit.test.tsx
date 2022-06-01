@@ -13,7 +13,7 @@ import { EntityType } from '../../../../../../types.generated';
 import { SidebarAboutSection } from '../sidebar/SidebarAboutSection';
 import { EditSchemaTab } from '../../../tabs/Dataset/Schema/EditSchemaTab';
 import { checkOwnership } from '../../../../dataset/whoAmI';
-import { EditPropertiesTab } from '../../../tabs/Dataset/Schema/EditPropertiesTab';
+import { EditPropertiesTab } from '../../../tabs/Dataset/PropertiesEdit/EditPropertiesTab';
 import { AdminTab } from '../../../tabs/Dataset/Schema/AdminTab';
 import { editMocks } from '../../../../../../MocksCustom';
 
@@ -147,6 +147,46 @@ describe('EntityProfile Edit', () => {
 
         await waitFor(() => expect(screen.getAllByText('Dataset Admin')).toHaveLength(1));
         userEvent.click(getByText('Dataset Admin'));
+        userEvent.click(getByText('Soft Delete Dataset'));
         await waitFor(() => expect(screen.getByText('Deactivate Dataset')).toBeInTheDocument());
+    });
+    it('Render dataset admin properties - show existing name', async () => {
+        const { getByText } = render(
+            <MockedProvider mocks={editMocks} addTypename={false}>
+                <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
+                    <EntityProfile
+                        urn="urn:li:dataset:3"
+                        entityType={EntityType.Dataset}
+                        useEntityQuery={useGetDatasetQuery}
+                        useUpdateQuery={useUpdateDatasetMutation}
+                        getOverrideProperties={() => ({})}
+                        tabs={[
+                            {
+                                name: 'Dataset Admin',
+                                component: AdminTab,
+                                display: {
+                                    visible: (_, _dataset: GetDatasetQuery) => {
+                                        return checkOwnership(_dataset);
+                                    },
+                                    enabled: (_, _dataset: GetDatasetQuery) => {
+                                        return true;
+                                    },
+                                },
+                            },
+                        ]}
+                        sidebarSections={[
+                            {
+                                component: SidebarAboutSection,
+                            },
+                        ]}
+                    />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+        await waitFor(() => expect(screen.getAllByText('Dataset Admin')).toHaveLength(1));
+        userEvent.click(getByText('Dataset Admin'));
+        userEvent.click(getByText('Edit Dataset Display Name'));
+        await waitFor(() => expect(screen.getByDisplayValue('Yet Another Dataset')).toBeInTheDocument());
     });
 });

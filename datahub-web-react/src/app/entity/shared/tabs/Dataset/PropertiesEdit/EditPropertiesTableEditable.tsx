@@ -16,9 +16,8 @@ import { WhereAmI } from '../../../../../home/whereAmI';
 export const EditPropertiesTableEditable = () => {
     const urlBase = WhereAmI();
     const publishUrl = `${urlBase}custom/update_properties`;
-    console.log(`Submit url: ${publishUrl}`);
+    // console.log(`Submit url: ${publishUrl}`);
     const queryFields = useBaseEntity<GetDatasetQuery>()?.dataset?.properties?.customProperties;
-    const datasetDescription = useBaseEntity<GetDatasetQuery>()?.dataset?.properties?.description || '';
 
     const urn = useBaseEntity<GetDatasetQuery>()?.dataset?.urn;
     // const currUser = useGetAuthenticatedUser()?.corpUser?.urn || '-';
@@ -196,7 +195,6 @@ export const EditPropertiesTableEditable = () => {
         const dataSubmission = {
             dataset_name: urn,
             requestor: currUser,
-            description: datasetDescription,
             properties: dataClone,
             user_token: userToken,
         };

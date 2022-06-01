@@ -21,7 +21,7 @@ import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
 import { EditSchemaTab } from '../shared/tabs/Dataset/Schema/EditSchemaTab';
 import { AdminTab } from '../shared/tabs/Dataset/Schema/AdminTab';
-import { EditPropertiesTab } from '../shared/tabs/Dataset/Schema/EditPropertiesTab';
+import { EditPropertiesTab } from '../shared/tabs/Dataset/PropertiesEdit/EditPropertiesTab';
 import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';

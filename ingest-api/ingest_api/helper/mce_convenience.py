@@ -120,7 +120,6 @@ def make_browsepath_mce(
     mce = BrowsePathsClass(paths=path)
     return mce
 
-
 def derive_platform_name(input: str) -> str:
     """
     derive platform info, needed to create schemaaspect

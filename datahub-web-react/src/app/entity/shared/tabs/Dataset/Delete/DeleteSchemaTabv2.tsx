@@ -28,7 +28,7 @@ function CheckStatus(entity) {
 export const DeleteSchemaTabv2 = () => {
     const urlBase = WhereAmI();
     const publishUrl = `${urlBase}custom/update_dataset_status`;
-    console.log(`Submit url: ${publishUrl}`);
+    // console.log(`Submit url: ${publishUrl}`);
     const [visible, setVisible] = React.useState(false);
     const [confirmLoading, setConfirmLoading] = React.useState(false);
     const baseEntity = useBaseEntity<GetDatasetQuery>();
@@ -50,8 +50,10 @@ export const DeleteSchemaTabv2 = () => {
     const currUserUrn = FindMyUrn();
     const userToken = GetMyToken(currUserUrn);
     // console.log(`user is ${currUser} and token is ${userToken}, received at ${Date().toLocaleString()}`);
-    const printSuccessMsg = (status) => {
+    const printSuccessMsg = async (status) => {
         message.success(`Status:${status} - Request submitted successfully`, 3).then();
+        await timeout(3000);
+        window.location.reload();
     };
     const printErrorMsg = (errorMsg) => {
         message.error(errorMsg, 3).then();
@@ -69,8 +71,6 @@ export const DeleteSchemaTabv2 = () => {
             .catch((exception) => {
                 printErrorMsg(exception.toString());
             });
-        await timeout(3000);
-        window.location.reload();
     };
 
     const showPopconfirm = () => {

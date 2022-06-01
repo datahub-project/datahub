@@ -1,6 +1,8 @@
 import { GetDatasetDocument } from './graphql/dataset.generated';
 import { Dataset, EntityType, PlatformType, SchemaFieldDataType } from './types.generated';
 import { GetMeDocument } from './graphql/me.generated';
+import { GetContainerDocument } from './graphql/container.generated';
+import { GetSearchResultsDocument, GetSearchResultsQuery } from './graphql/search.generated';
 
 const user3 = {
     username: 'sdas',
@@ -56,6 +58,38 @@ const user1 = {
         email: 'sdas@domain.com',
     },
 };
+
+export const customContainer = {    
+    urn: 'urn:li:container:customContainer',
+    type: EntityType.Container,
+    platform: {
+        urn: 'urn:li:dataPlatform:kafka',
+        name: 'Kafka',
+        info: {
+            displayName: 'Kafka',
+            type: PlatformType.MessageBroker,
+            datasetNameDelimiter: '.',
+            logoUrl: '',
+        },
+        type: EntityType.DataPlatform,
+    },
+    properties: {
+        name: 'newContainer',
+        description: null,
+        customProperties: null,
+        externalUrl: null,
+    },
+    editableProperties: null,
+    ownership: null,
+    institutionalMemory: null,
+    tags: null,
+    glossaryTerms: null,
+    subTypes: null,
+    domain: null,
+    deprecation: null,
+    entities: null,
+    container: null,
+}
 
 export const dataset3 = {
     __typename: 'Dataset',
@@ -280,6 +314,21 @@ export const editMocks = [
     },
     {
         request: {
+            query: GetContainerDocument,
+            variables: {
+                urn: 'urn:li:container:customContainer',
+            },
+        },
+        result: {
+            data: {
+                container: {
+                    ...customContainer,
+                },
+            },
+        },
+    },
+    {
+        request: {
             query: GetMeDocument,
             variables: {},
         },
@@ -300,6 +349,47 @@ export const editMocks = [
                     },
                 },
             },
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsDocument,
+            variables: {
+                input: {
+                    types: 'Container',
+                    query: '*',
+                    start: 0,
+                    count: 10,
+                    filters: [
+                        {
+                            field: 'platform',
+                            value: 'urn:li:dataPlatform:kafka',
+                        },
+                    ],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                search: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Container',
+                                ...customContainer,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [],
+                },
+            } as GetSearchResultsQuery,
         },
     },
 ];
