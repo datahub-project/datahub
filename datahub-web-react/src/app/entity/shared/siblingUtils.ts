@@ -1,5 +1,4 @@
 import { Dataset } from '../../../types.generated';
-import { GenericEntityProperties } from './types';
 
 const FIELDS_TO_EXCLUDE_FROM_SIBLINGS = ['container'];
 
@@ -42,55 +41,6 @@ export const getPrimarySiblingFromEntity = (entity: Dataset) => {
     }
 
     return entity;
-};
-
-export const getUpstreamsAndDownstreamsFromEntityAndSiblings = (entity: GenericEntityProperties | null) => {
-    if (!entity) {
-        return { allUpstreams: [], allDownstreams: [] };
-    }
-
-    // logic for handling lineage is special because we want to merge the entity with its siblings lineage
-    let siblingsUpstreams: any[] = [];
-    let siblingsDownstreams: any[] = [];
-
-    // eslint-disable-next-line @typescript-eslint/dot-notation
-    let datasetDownstreamsWithoutSiblings = entity?.['downstream']?.relationships || [];
-    // eslint-disable-next-line @typescript-eslint/dot-notation
-    let datasetUpstreamsWithoutSiblings = entity?.['upstream']?.relationships || [];
-
-    if (entity.siblings) {
-        if (entity.siblings.isPrimary) {
-            const siblingUrns = entity.siblings.siblings?.map((sibling) => sibling?.urn);
-            datasetDownstreamsWithoutSiblings = datasetDownstreamsWithoutSiblings.filter(
-                (downstream) => !siblingUrns?.includes(downstream?.entity?.urn),
-            );
-            datasetUpstreamsWithoutSiblings = datasetUpstreamsWithoutSiblings.filter(
-                (upstream) => !siblingUrns?.includes(upstream?.entity?.urn),
-            );
-            siblingsUpstreams =
-                entity.siblings.siblings
-                    // eslint-disable-next-line @typescript-eslint/dot-notation
-                    ?.flatMap((sibling) => sibling?.['upstream']?.relationships || [])
-                    .filter((relationship) => relationship.entity.urn !== entity.urn) || [];
-            siblingsDownstreams =
-                entity.siblings.siblings
-                    // eslint-disable-next-line @typescript-eslint/dot-notation
-                    ?.flatMap((sibling) => sibling?.['downstream']?.relationships || [])
-                    .filter((relationship) => relationship.entity.urn !== entity.urn) || [];
-        }
-    }
-
-    const allDownstreams = [...siblingsDownstreams, ...datasetDownstreamsWithoutSiblings]
-        ?.filter((relationship) => relationship.entity)
-        .map((relationship) => relationship.entity)
-        .map((relatedEntity) => getPrimarySiblingFromEntity(relatedEntity));
-
-    const allUpstreams = [...siblingsUpstreams, ...datasetUpstreamsWithoutSiblings]
-        ?.filter((relationship) => relationship.entity)
-        .map((relationship) => relationship.entity)
-        .map((relatedEntity) => getPrimarySiblingFromEntity(relatedEntity));
-
-    return { allUpstreams, allDownstreams };
 };
 
 export const combineEntityDataWithSiblings = <T>(baseEntity: T): T => {

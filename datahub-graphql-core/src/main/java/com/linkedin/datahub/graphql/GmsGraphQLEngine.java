@@ -207,6 +207,7 @@ import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
@@ -253,6 +254,7 @@ public class GmsGraphQLEngine {
     private final EntityClient entityClient;
     private final GraphClient graphClient;
     private final UsageClient usageClient;
+    private final SiblingGraphService siblingGraphService;
 
     private final EntityService entityService;
     private final AnalyticsService analyticsService;
@@ -342,11 +344,13 @@ public class GmsGraphQLEngine {
         final boolean supportsImpactAnalysis,
         final VisualConfiguration visualConfiguration,
         final TelemetryConfiguration telemetryConfiguration,
-        final TestsConfiguration testsConfiguration
+        final TestsConfiguration testsConfiguration,
+        final SiblingGraphService siblingGraphService
         ) {
 
         this.entityClient = entityClient;
         this.graphClient = graphClient;
+        this.siblingGraphService = siblingGraphService;
         this.usageClient = usageClient;
 
         this.analyticsService = analyticsService;
@@ -806,7 +810,7 @@ public class GmsGraphQLEngine {
         builder
             .type("Dataset", typeWiring -> typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
-                .dataFetcher("lineage", new EntityLineageResultResolver(graphClient))
+                .dataFetcher("lineage", new EntityLineageResultResolver(graphClient, siblingGraphService))
                 .dataFetcher("domain",
                     new LoadableTypeResolver<>(
                         domainType,
@@ -996,7 +1000,7 @@ public class GmsGraphQLEngine {
     private void configureDashboardResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Dashboard", typeWiring -> typeWiring
             .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
-            .dataFetcher("lineage", new EntityLineageResultResolver(graphClient))
+            .dataFetcher("lineage", new EntityLineageResultResolver(graphClient, siblingGraphService))
             .dataFetcher("platform", new LoadableTypeResolver<>(dataPlatformType,
                 (env) -> ((Dashboard) env.getSource()).getPlatform().getUrn()))
             .dataFetcher("domain", new LoadableTypeResolver<>(
@@ -1036,7 +1040,7 @@ public class GmsGraphQLEngine {
     private void configureChartResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Chart", typeWiring -> typeWiring
             .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
-            .dataFetcher("lineage", new EntityLineageResultResolver(graphClient))
+            .dataFetcher("lineage", new EntityLineageResultResolver(graphClient, siblingGraphService))
             .dataFetcher("platform", new LoadableTypeResolver<>(dataPlatformType,
                 (env) -> ((Chart) env.getSource()).getPlatform().getUrn()))
             .dataFetcher("domain", new LoadableTypeResolver<>(
@@ -1120,7 +1124,7 @@ public class GmsGraphQLEngine {
         builder
             .type("DataJob", typeWiring -> typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
-                .dataFetcher("lineage", new EntityLineageResultResolver(graphClient))
+                .dataFetcher("lineage", new EntityLineageResultResolver(graphClient, siblingGraphService))
                 .dataFetcher("dataFlow", new LoadableTypeResolver<>(dataFlowType,
                     (env) -> ((DataJob) env.getSource()).getDataFlow().getUrn()))
                 .dataFetcher("domain", new LoadableTypeResolver<>(
@@ -1163,7 +1167,7 @@ public class GmsGraphQLEngine {
         builder
             .type("DataFlow", typeWiring -> typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
-                .dataFetcher("lineage", new EntityLineageResultResolver(graphClient))
+                .dataFetcher("lineage", new EntityLineageResultResolver(graphClient, siblingGraphService))
                 .dataFetcher("platform", new LoadableTypeResolver<>(dataPlatformType,
                     (env) -> ((DataFlow) env.getSource()).getPlatform().getUrn()))
                 .dataFetcher("domain", new LoadableTypeResolver<>(
@@ -1192,7 +1196,7 @@ public class GmsGraphQLEngine {
         builder
             .type("MLFeatureTable", typeWiring -> typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
-                .dataFetcher("lineage", new EntityLineageResultResolver(graphClient))
+                .dataFetcher("lineage", new EntityLineageResultResolver(graphClient, siblingGraphService))
                 .dataFetcher("platform",
                         new LoadableTypeResolver<>(dataPlatformType,
                                 (env) -> ((MLFeatureTable) env.getSource()).getPlatform().getUrn()))
@@ -1242,7 +1246,7 @@ public class GmsGraphQLEngine {
             )
             .type("MLModel", typeWiring -> typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
-                .dataFetcher("lineage", new EntityLineageResultResolver(graphClient))
+                .dataFetcher("lineage", new EntityLineageResultResolver(graphClient, siblingGraphService))
                 .dataFetcher("platform", new LoadableTypeResolver<>(dataPlatformType,
                     (env) -> ((MLModel) env.getSource()).getPlatform().getUrn()))
                 .dataFetcher("dataPlatformInstance",
@@ -1275,7 +1279,7 @@ public class GmsGraphQLEngine {
             )
             .type("MLModelGroup", typeWiring -> typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
-                .dataFetcher("lineage", new EntityLineageResultResolver(graphClient))
+                .dataFetcher("lineage", new EntityLineageResultResolver(graphClient, siblingGraphService))
                 .dataFetcher("platform", new LoadableTypeResolver<>(dataPlatformType,
                     (env) -> ((MLModelGroup) env.getSource()).getPlatform().getUrn())
                 )
@@ -1303,7 +1307,7 @@ public class GmsGraphQLEngine {
             )
             .type("MLFeature", typeWiring -> typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
-                .dataFetcher("lineage",  new EntityLineageResultResolver(graphClient))
+                .dataFetcher("lineage",  new EntityLineageResultResolver(graphClient, siblingGraphService))
                 .dataFetcher("dataPlatformInstance",
                     new LoadableTypeResolver<>(dataPlatformInstanceType,
                         (env) -> {
@@ -1321,7 +1325,7 @@ public class GmsGraphQLEngine {
             )
             .type("MLPrimaryKey", typeWiring -> typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
-                .dataFetcher("lineage", new EntityLineageResultResolver(graphClient))
+                .dataFetcher("lineage", new EntityLineageResultResolver(graphClient, siblingGraphService))
                 .dataFetcher("dataPlatformInstance",
                     new LoadableTypeResolver<>(dataPlatformInstanceType,
                         (env) -> {
@@ -1388,7 +1392,7 @@ public class GmsGraphQLEngine {
     private void configureDataProcessInstanceResolvers(final RuntimeWiring.Builder builder) {
         builder.type("DataProcessInstance", typeWiring -> typeWiring
             .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
-            .dataFetcher("lineage", new EntityLineageResultResolver(graphClient))
+            .dataFetcher("lineage", new EntityLineageResultResolver(graphClient, siblingGraphService))
             .dataFetcher("state",
                 new TimeSeriesAspectResolver(
                     this.entityClient,

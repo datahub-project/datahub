@@ -106,17 +106,6 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   // If th upstream is a single source system node & subtype is source, then associate the upstream as your sibling
   private void handleDbtDatasetEvent(MetadataChangeLog event, DatasetUrn datasetUrn) {
-    Siblings siblingAspectOfEntity =
-        (Siblings) _entityService.getLatestAspect(
-            datasetUrn,
-            SIBLINGS_ASPECT_NAME
-        );
-
-    // if the dbt node already have a sibling entity, we don't need to search for one.
-    if (siblingAspectOfEntity != null) {
-      return;
-    }
-
     // we need both UpstreamLineage & Subtypes to determine whether to associate
     UpstreamLineage upstreamLineage = null;
     SubTypes subTypesAspectOfEntity = null;
@@ -160,20 +149,20 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   private void handleSourceDatasetEvent(MetadataChangeLog event, DatasetUrn sourceUrn) {
 
     // if the source entity is a sibling we need to make sure it stays soft deleted
-    if (event.getAspectName().equals(STATUS_ASPECT_NAME)) {
-      Status eventStatusAspect = getStatusFromEvent(event);
-      if (!eventStatusAspect.isRemoved()) {
-        Siblings existingSourceSiblingAspect =
-            (Siblings) _entityService.getLatestAspect(sourceUrn, SIBLINGS_ASPECT_NAME);
-
-        if (
-            existingSourceSiblingAspect != null
-                && existingSourceSiblingAspect.hasSiblings()
-                && existingSourceSiblingAspect.getSiblings().size() > 0) {
-          softDeleteEntity(sourceUrn);
-        }
-      }
-    }
+//    if (event.getAspectName().equals(STATUS_ASPECT_NAME)) {
+//      Status eventStatusAspect = getStatusFromEvent(event);
+//      if (!eventStatusAspect.isRemoved()) {
+//        Siblings existingSourceSiblingAspect =
+//            (Siblings) _entityService.getLatestAspect(sourceUrn, SIBLINGS_ASPECT_NAME);
+//
+//        if (
+//            existingSourceSiblingAspect != null
+//                && existingSourceSiblingAspect.hasSiblings()
+//                && existingSourceSiblingAspect.getSiblings().size() > 0) {
+//          softDeleteEntity(sourceUrn);
+//        }
+//      }
+//    }
 
     if (event.getAspectName().equals(UPSTREAM_LINEAGE_ASPECT_NAME)) {
       UpstreamLineage upstreamLineage = getUpstreamLineageFromEvent(event);
@@ -193,16 +182,18 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         (Siblings) _entityService.getLatestAspect(dbtUrn, SIBLINGS_ASPECT_NAME);
     Siblings existingSourceSiblingAspect =
         (Siblings) _entityService.getLatestAspect(sourceUrn, SIBLINGS_ASPECT_NAME);
-    Status existingSourceStatusAspect =
-        (Status) _entityService.getLatestAspect(sourceUrn, STATUS_ASPECT_NAME);
+//    Status existingSourceStatusAspect =
+//        (Status) _entityService.getLatestAspect(sourceUrn, STATUS_ASPECT_NAME);
 
     log.info("Associating {} and {} as siblings.", dbtUrn.toString(), sourceUrn.toString());
 
     if (
         existingDbtSiblingAspect != null
             && existingSourceSiblingAspect != null
-            && existingSourceStatusAspect != null
-            && existingSourceStatusAspect.isRemoved()
+//            && existingSourceStatusAspect != null
+            && existingDbtSiblingAspect.getSiblings().contains(sourceUrn.toString())
+            && existingDbtSiblingAspect.getSiblings().contains(dbtUrn.toString())
+//            && existingSourceStatusAspect.isRemoved()
     ) {
       // we have already connected them- we can abort here
       return;
@@ -256,9 +247,9 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     sourceSiblingProposal.setEntityUrn(sourceUrn);
 
     _entityService.ingestProposal(sourceSiblingProposal, auditStamp);
-
-    // soft delete the sibling
-    softDeleteEntity(sourceUrn);
+//
+//    // soft delete the sibling
+//    softDeleteEntity(sourceUrn);
   }
 
   /**
@@ -270,7 +261,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         && (
             event.getAspectName().equals("upstreamLineage")
                 || event.getAspectName().equals("subType")
-                || event.getAspectName().equals("status")
+//                || event.getAspectName().equals("status")
           );
   }
 
@@ -332,26 +323,26 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         entitySpec.getAspectSpec(SUB_TYPES_ASPECT_NAME));
   }
 
-  /**
-   * Deserializes and returns an instance of {@link Status} extracted from a {@link MetadataChangeLog} event.
-   */
-  private Status getStatusFromEvent(final MetadataChangeLog event) {
-    EntitySpec entitySpec;
-    if (!event.getAspectName().equals(STATUS_ASPECT_NAME)) {
-      return null;
-    }
-
-    try {
-      entitySpec = _entityRegistry.getEntitySpec(event.getEntityType());
-    } catch (IllegalArgumentException e) {
-      log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
-      throw new RuntimeException("Failed to get Status from MetadataChangeLog event. Skipping processing.", e);
-    }
-    return (Status) GenericRecordUtils.deserializeAspect(
-        event.getAspect().getValue(),
-        event.getAspect().getContentType(),
-        entitySpec.getAspectSpec(STATUS_ASPECT_NAME));
-  }
+//  /**
+//   * Deserializes and returns an instance of {@link Status} extracted from a {@link MetadataChangeLog} event.
+//   */
+//  private Status getStatusFromEvent(final MetadataChangeLog event) {
+//    EntitySpec entitySpec;
+//    if (!event.getAspectName().equals(STATUS_ASPECT_NAME)) {
+//      return null;
+//    }
+//
+//    try {
+//      entitySpec = _entityRegistry.getEntitySpec(event.getEntityType());
+//    } catch (IllegalArgumentException e) {
+//      log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
+//      throw new RuntimeException("Failed to get Status from MetadataChangeLog event. Skipping processing.", e);
+//    }
+//    return (Status) GenericRecordUtils.deserializeAspect(
+//        event.getAspect().getValue(),
+//        event.getAspect().getContentType(),
+//        entitySpec.getAspectSpec(STATUS_ASPECT_NAME));
+//  }
 
   @SneakyThrows
   private AuditStamp getAuditStamp() {
@@ -359,21 +350,21 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     return new AuditStamp().setActor(Urn.createFromString(SIBLING_ASSOCIATION_SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
   }
 
-  private void softDeleteEntity(Urn sourceUrn) {
-    // soft delete the sibling
-    Status sourceStatusAspect = new Status();
-    sourceStatusAspect.setRemoved(true);
-
-    MetadataChangeProposal sourceStatusProposal = new MetadataChangeProposal();
-    GenericAspect sourceStatusSerialized = GenericRecordUtils.serializeAspect(sourceStatusAspect);
-
-    sourceStatusProposal.setAspect(sourceStatusSerialized);
-    sourceStatusProposal.setAspectName(STATUS_ASPECT_NAME);
-    sourceStatusProposal.setEntityType(DATASET_ENTITY_NAME);
-    sourceStatusProposal.setChangeType(ChangeType.UPSERT);
-    sourceStatusProposal.setEntityUrn(sourceUrn);
-
-    _entityService.ingestProposal(sourceStatusProposal, getAuditStamp());
-  }
+//  private void softDeleteEntity(Urn sourceUrn) {
+//    // soft delete the sibling
+//    Status sourceStatusAspect = new Status();
+//    sourceStatusAspect.setRemoved(true);
+//
+//    MetadataChangeProposal sourceStatusProposal = new MetadataChangeProposal();
+//    GenericAspect sourceStatusSerialized = GenericRecordUtils.serializeAspect(sourceStatusAspect);
+//
+//    sourceStatusProposal.setAspect(sourceStatusSerialized);
+//    sourceStatusProposal.setAspectName(STATUS_ASPECT_NAME);
+//    sourceStatusProposal.setEntityType(DATASET_ENTITY_NAME);
+//    sourceStatusProposal.setChangeType(ChangeType.UPSERT);
+//    sourceStatusProposal.setEntityUrn(sourceUrn);
+//
+//   _entityService.ingestProposal(sourceStatusProposal, getAuditStamp());
+//  }
 
 }
