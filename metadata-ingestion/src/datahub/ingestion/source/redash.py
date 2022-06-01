@@ -578,39 +578,44 @@ class RedashSource(Source):
         if current_page > self.api_page_limit:
             logger.info(f"{current_page} > {self.api_page_limit} so returning")
             return result
-        dashboards_response = self.client.dashboards(
-            page=current_page, page_size=self.config.page_size
-        )
-        for dashboard_response in dashboards_response["results"]:
-            dashboard_name = dashboard_response["name"]
-            self.report.report_item_scanned()
-            if (not self.config.dashboard_patterns.allowed(dashboard_name)) or (
-                self.config.skip_draft and dashboard_response["is_draft"]
-            ):
-                self.report.report_dropped(dashboard_name)
-                continue
-            # Continue producing MCE
-            try:
-                # This is undocumented but checking the Redash source
-                # the API is id based not slug based
-                # Tested the same with a Redash instance
-                dashboard_id = dashboard_response["id"]
-                dashboard_data = self.client._get(
-                    "api/dashboards/{}".format(dashboard_id)
-                ).json()
-            except Exception:
-                # This does not work in our testing but keeping for now because
-                # people in community are using Redash connector successfully
-                dashboard_slug = dashboard_response["slug"]
-                dashboard_data = self.client.dashboard(dashboard_slug)
-            logger.debug(dashboard_data)
-            dashboard_snapshot = self._get_dashboard_snapshot(dashboard_data)
-            mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-            wu = MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
-            self.report.report_workunit(wu)
+        with PerfTimer() as timer:
+            dashboards_response = self.client.dashboards(
+                page=current_page, page_size=self.config.page_size
+            )
+            for dashboard_response in dashboards_response["results"]:
+                dashboard_name = dashboard_response["name"]
+                self.report.report_item_scanned()
+                if (not self.config.dashboard_patterns.allowed(dashboard_name)) or (
+                    self.config.skip_draft and dashboard_response["is_draft"]
+                ):
+                    self.report.report_dropped(dashboard_name)
+                    continue
+                # Continue producing MCE
+                try:
+                    # This is undocumented but checking the Redash source
+                    # the API is id based not slug based
+                    # Tested the same with a Redash instance
+                    dashboard_id = dashboard_response["id"]
+                    dashboard_data = self.client._get(
+                        "api/dashboards/{}".format(dashboard_id)
+                    ).json()
+                except Exception:
+                    # This does not work in our testing but keeping for now because
+                    # people in community are using Redash connector successfully
+                    dashboard_slug = dashboard_response["slug"]
+                    dashboard_data = self.client.dashboard(dashboard_slug)
+                logger.debug(dashboard_data)
+                dashboard_snapshot = self._get_dashboard_snapshot(dashboard_data)
+                mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
+                wu = MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
+                self.report.report_workunit(wu)
 
-            result.append(wu)
-        return result
+                result.append(wu)
+
+            self.report.timing[f"dashboard-{current_page}"] = int(
+                timer.elapsed_seconds()
+            )
+            return result
 
     def _emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
         # Get total number of dashboards to calculate maximum page number
