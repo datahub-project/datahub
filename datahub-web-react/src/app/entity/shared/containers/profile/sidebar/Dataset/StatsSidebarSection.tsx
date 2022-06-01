@@ -63,7 +63,7 @@ export const SidebarStatsSection = () => {
     const hasUsageStatsAggregations =
         usageStats?.aggregations?.totalSqlQueries || (usageStats?.aggregations?.users?.length || 0) > 0;
     const hasLatestProfiles = latestProfile?.rowCount || latestProfile?.columnCount;
-
+    const hasLatestOperation = latestOperation?.timestampMillis;
     const routeToTab = useRouteToTab();
 
     return (
@@ -113,7 +113,7 @@ export const SidebarStatsSection = () => {
                 </StatsRow>
             )}
             {/* Operation Entry */}
-            {latestOperation?.timestampMillis ? (
+            {hasLatestOperation ? (
                 <StatsRow>
                     <InfoItem
                         title="Last Updated"
