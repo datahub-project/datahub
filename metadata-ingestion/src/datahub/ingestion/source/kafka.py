@@ -2,7 +2,7 @@ import logging
 import types
 from dataclasses import dataclass, field
 from importlib import import_module
-from typing import Dict, Iterable, List, Optional, Tuple, Type, cast
+from typing import Dict, Iterable, List, Optional, Type, cast
 
 import confluent_kafka
 import pydantic
@@ -119,9 +119,9 @@ class KafkaSource(StatefulIngestionSourceBase):
         cls, config: KafkaSourceConfig, report: KafkaSourceReport
     ) -> KafkaSchemaRegistryBase:
         try:
-            module_path, class_name = config.schema_registry_class.rsplit(
-                ".", 1
-            )  # type: Tuple[str, str]
+            module_path: str
+            class_name: str
+            module_path, class_name = config.schema_registry_class.rsplit(".", 1)
             module: types.ModuleType = import_module(module_path)
             schema_registry_class: Type = getattr(module, class_name)
             return schema_registry_class.create(config, report)
@@ -262,7 +262,7 @@ class KafkaSource(StatefulIngestionSourceBase):
                 )
             )
 
-    def _extract_record(self, topic: str) -> Iterable[MetadataWorkUnit]:  # noqa: C901
+    def _extract_record(self, topic: str) -> Iterable[MetadataWorkUnit]:
         logger.debug(f"topic = {topic}")
 
         # 1. Create the default dataset snapshot for the topic.

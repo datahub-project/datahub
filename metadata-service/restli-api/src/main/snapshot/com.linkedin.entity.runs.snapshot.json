@@ -1455,6 +1455,16 @@
       "type" : "com.linkedin.common.GlossaryNodeUrn",
       "doc" : "Parent node of the glossary term",
       "optional" : true
+    }, {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "Display name of the node",
+      "optional" : true,
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "enableAutocomplete" : true,
+        "fieldType" : "TEXT_PARTIAL"
+      }
     } ],
     "Aspect" : {
       "name" : "glossaryNodeInfo"

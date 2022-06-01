@@ -17,6 +17,7 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     GlossaryTermsClass,
     OwnershipClass,
+    TelemetryClientIdClass,
 )
 from datahub.utilities.urns.urn import Urn
 
@@ -50,6 +51,14 @@ class DataHubGraph(DatahubRestEmitter):
             ca_certificate_path=self.config.ca_certificate_path,
         )
         self.test_connection()
+        try:
+            client_id: Optional[TelemetryClientIdClass] = self.get_aspect_v2(
+                "urn:li:telemetry:clientId", TelemetryClientIdClass, "telemetryClientId"
+            )
+            self.server_id = client_id.clientId if client_id else "missing"
+        except Exception as e:
+            self.server_id = "missing"
+            logger.debug("Failed to get server id", e)
 
     def _get_generic(self, url: str) -> Dict:
         try:

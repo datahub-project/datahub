@@ -1,3 +1,5 @@
+import platform
+
 import pytest
 from freezegun import freeze_time
 
@@ -10,6 +12,10 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.slow_integration
+@pytest.mark.skipif(
+    platform.machine().lower() == "aarch64",
+    reason="The hdbcli dependency is not available for aarch64",
+)
 def test_hana_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/hana"
 

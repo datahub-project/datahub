@@ -19,9 +19,7 @@ df = spark.sql("select v1.c1 as a, v1.c2 as b, v2.c1 as c, v2.c2 as d from v1 jo
 #InsertIntoHadoopFsRelationCommand
 df.write.mode('overwrite').csv(DATA_DIR + "/" + TEST_CASE_NAME+"/out.csv")
 
-spark.sparkContext.stop()
 
-spark.stop()
 
 
 

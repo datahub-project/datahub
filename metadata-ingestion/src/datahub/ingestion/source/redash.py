@@ -3,7 +3,7 @@ import logging
 import math
 import sys
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Type
+from typing import Dict, Iterable, List, Optional, Set, Type
 
 import dateutil.parser as dp
 from pydantic.fields import Field
@@ -41,8 +41,6 @@ from datahub.utilities.sql_parser import SQLParser
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
-PAGE_SIZE = 25
 
 DEFAULT_DATA_SOURCE_PLATFORM = "external"
 DEFAULT_DATA_BASE_NAME = "default"
@@ -195,8 +193,9 @@ class BigqueryQualifiedNameParser(QualifiedNameParser):
     def get_full_qualified_name(self, database_name: str, table_name: str) -> str:
         self.get_segments(table_name)
         _database_name = self.segments_dict.get("database_name") or database_name
-        _schema_name = self.segments_dict.get("schema_name")
-        _table_name = self.segments_dict.get("table_name")
+        # We want to throw error if either of these is None
+        _schema_name = self.segments_dict["schema_name"]
+        _table_name = self.segments_dict["table_name"]
 
         return f"{_database_name}{self.split_char}{_schema_name}{self.split_char}{_table_name}"
 
@@ -247,9 +246,12 @@ class RedashConfig(ConfigModel):
     skip_draft: bool = Field(
         default=True, description="Only ingest published dashboards and charts."
     )
+    page_size: int = Field(
+        default=25, description="Limit on number of items to be queried at once."
+    )
     api_page_limit: int = Field(
         default=sys.maxsize,
-        description="Limit on ingested dashboards and charts API pagination.",
+        description="Limit on number of pages queried for ingesting dashboards and charts API during pagination.",
     )
     parse_table_names_from_sql: bool = Field(
         default=False, description="See note below."
@@ -269,6 +271,18 @@ class RedashConfig(ConfigModel):
 class RedashSourceReport(SourceReport):
     items_scanned: int = 0
     filtered: List[str] = field(default_factory=list)
+    queries_no_dataset: Set[str] = field(default_factory=set)
+    total_queries: Optional[int] = field(
+        default=None,
+    )
+    page_reached_queries: Optional[int] = field(default=None)
+    max_page_queries: Optional[int] = field(default=None)
+    total_dashboards: Optional[int] = field(
+        default=None,
+    )
+    page_reached_dashboards: Optional[int] = field(default=None)
+    max_page_dashboards: Optional[int] = field(default=None)
+    api_page_limit: Optional[float] = field(default=None)
 
     def report_item_scanned(self) -> None:
         self.items_scanned += 1
@@ -288,14 +302,12 @@ class RedashSource(Source):
     - Redash chart table lineages (disabled by default)
     """
 
-    config: RedashConfig
-    report: RedashSourceReport
     platform = "redash"
 
     def __init__(self, ctx: PipelineContext, config: RedashConfig):
         super().__init__(ctx)
-        self.config = config
-        self.report = RedashSourceReport()
+        self.config: RedashConfig = config
+        self.report: RedashSourceReport = RedashSourceReport()
 
         # Handle trailing slash removal
         self.config.connect_uri = self.config.connect_uri.strip("/")
@@ -542,19 +554,22 @@ class RedashSource(Source):
         skip_draft = self.config.skip_draft
 
         # Get total number of dashboards to calculate maximum page number
-        dashboards_response = self.client.dashboards(1, PAGE_SIZE)
+        dashboards_response = self.client.dashboards(1, self.config.page_size)
         total_dashboards = dashboards_response["count"]
-        max_page = total_dashboards // PAGE_SIZE
+        max_page = math.ceil(total_dashboards / self.config.page_size)
         logger.info(
             f"/api/dashboards total count {total_dashboards} and max page {max_page}"
         )
+        self.report.total_dashboards = total_dashboards
+        self.report.max_page_dashboards = max_page
 
         while (
             current_dashboards_page <= max_page
             and current_dashboards_page <= self.api_page_limit
         ):
+            self.report.page_reached_dashboards = current_dashboards_page
             dashboards_response = self.client.dashboards(
-                page=current_dashboards_page, page_size=PAGE_SIZE
+                page=current_dashboards_page, page_size=self.config.page_size
             )
 
             logger.info(
@@ -647,7 +662,8 @@ class RedashSource(Source):
 
         # Getting chart type
         chart_type = self._get_chart_type_from_viz_data(viz_data)
-        chart_url = f"{self.config.connect_uri}/queries/{query_data.get('id')}#{viz_id}"
+        query_id = query_data.get("id")
+        chart_url = f"{self.config.connect_uri}/queries/{query_id}#{viz_id}"
         description = (
             viz_data.get("description", "") if viz_data.get("description", "") else ""
         )
@@ -658,8 +674,9 @@ class RedashSource(Source):
         datasource_urns = self._get_datasource_urns(data_source, query_data)
 
         if datasource_urns is None:
+            self.report.queries_no_dataset.add(str(query_id))
             self.report.report_warning(
-                key=f"redash-chart-{viz_id}-datasource-{data_source_id}",
+                key=f"redash-chart-{viz_id}-query-{query_id}-datasource-{data_source_id}",
                 reason=f"data_source_type={data_source_type} not yet implemented. Setting inputs to None",
             )
 
@@ -676,21 +693,24 @@ class RedashSource(Source):
         return chart_snapshot
 
     def _emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
-        current_queries_page = 1
+        current_queries_page: int = 1
         skip_draft = self.config.skip_draft
 
         # Get total number of queries to calculate maximum page number
-        _queries_response = self.client.queries(1, PAGE_SIZE)
+        _queries_response = self.client.queries(1, self.config.page_size)
         total_queries = _queries_response["count"]
-        max_page = total_queries // PAGE_SIZE
+        max_page = math.ceil(total_queries / self.config.page_size)
         logger.info(f"/api/queries total count {total_queries} and max page {max_page}")
+        self.report.total_queries = total_queries
+        self.report.max_page_queries = max_page
 
         while (
             current_queries_page <= max_page
             and current_queries_page <= self.api_page_limit
         ):
+            self.report.page_reached_queries = current_queries_page
             queries_response = self.client.queries(
-                page=current_queries_page, page_size=PAGE_SIZE
+                page=current_queries_page, page_size=self.config.page_size
             )
 
             logger.info(f"/api/queries on page {current_queries_page} / {max_page}")
@@ -722,8 +742,12 @@ class RedashSource(Source):
 
                     yield wu
 
+    def add_config_to_report(self) -> None:
+        self.report.api_page_limit = self.config.api_page_limit
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         self.test_connection()
+        self.add_config_to_report()
         yield from self._emit_chart_mces()
         yield from self._emit_dashboard_mces()
 
