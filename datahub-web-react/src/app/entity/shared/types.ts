@@ -84,6 +84,7 @@ export type GenericEntityProperties = {
     parentContainers?: Maybe<ParentContainersResult>;
     children?: Maybe<EntityRelationshipsResult>;
     parentNodes?: Maybe<ParentNodesResult>;
+    childTerms?: Maybe<EntityRelationshipsResult>;
 };
 
 export type GenericEntityUpdate = {
