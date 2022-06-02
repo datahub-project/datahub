@@ -13,5 +13,11 @@
         }
     },
     "proposedDelta": null,
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 0,
+        "runId": "urn:li:dataset:(urn:li:dataPlatform:csv,my_test_dataset,PROD)_status_1625108310",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 }

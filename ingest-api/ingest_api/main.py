@@ -528,7 +528,7 @@ async def create_item(item: create_dataset_params) -> None:
         )
         dataset_snapshot.aspects.append(
             make_dataset_description_mce(
-                dataset_name=datasetName,
+                dataset_name=item.dataset_name,
                 description=dataset_description,
                 customProperties=properties,
             )

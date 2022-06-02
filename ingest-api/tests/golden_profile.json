@@ -6,8 +6,14 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 12345, \"messageId\": \"testing\", \"fieldProfiles\": [{\"fieldPath\": \"field1\", \"sampleValues\": [\"f1s1\", \"f1s2\"]}, {\"fieldPath\": \"field2\", \"sampleValues\": [\"f2s1\", \"f2s2\"]}]}",
+        "value": "{\"timestampMillis\": 12345, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"messageId\": \"testing\", \"fieldProfiles\": [{\"fieldPath\": \"field1\", \"sampleValues\": [\"f1s1\", \"f1s2\"]}, {\"fieldPath\": \"field2\", \"sampleValues\": [\"f2s1\", \"f2s2\"]}]}",
         "contentType": "application/json"
     },
-    "systemMetadata": null
+    "systemMetadata": {
+        "lastObserved": 0,
+        "runId": "urn:li:dataset:(urn:li:dataPlatform:csv,my_test_dataset3,PROD)_profile_1625108310",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
 }
