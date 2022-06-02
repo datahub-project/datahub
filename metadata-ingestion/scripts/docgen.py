@@ -720,7 +720,7 @@ def generate(
                         "Note that a `.` is used to denote nested fields in the YAML recipe.\n\n"
                     )
                     f.write(
-                        "\n<details>\n<summary>View All Configuration Options</summary>\n\n"
+                        "\n<details open>\n<summary>View All Configuration Options</summary>\n\n"
                     )
                     for doc in plugin_docs["config"]:
                         f.write(doc)
