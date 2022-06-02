@@ -1,5 +1,5 @@
 import { GetDatasetDocument } from './graphql/dataset.generated';
-import { Dataset, EntityType, PlatformType, SchemaFieldDataType } from './types.generated';
+import { Container, Dataset, EntityType, PlatformType, SchemaFieldDataType } from './types.generated';
 import { GetMeDocument } from './graphql/me.generated';
 import { GetContainerDocument } from './graphql/container.generated';
 import { GetSearchResultsDocument, GetSearchResultsQuery } from './graphql/search.generated';
@@ -59,7 +59,8 @@ const user1 = {
     },
 };
 
-export const customContainer = {    
+const customContainer = {    
+    __typename: 'Container',
     urn: 'urn:li:container:customContainer',
     type: EntityType.Container,
     platform: {
@@ -71,25 +72,29 @@ export const customContainer = {
             datasetNameDelimiter: '.',
             logoUrl: '',
         },
+        displayName: 'kafka',
+        properties: null,
         type: EntityType.DataPlatform,
+        __typename: 'DataPlatform',
     },
     properties: {
+        __typename: 'ContainerProperties',
         name: 'newContainer',
         description: null,
         customProperties: null,
-        externalUrl: null,
     },
-    editableProperties: null,
-    ownership: null,
-    institutionalMemory: null,
-    tags: null,
-    glossaryTerms: null,
-    subTypes: null,
-    domain: null,
-    deprecation: null,
-    entities: null,
-    container: null,
-}
+    subTypes: {
+        __typename: 'SubTypes',
+        typeNames: ['any'],
+    },
+    deprecation: {
+        __typename: 'Deprecation',
+        deprecated: false,
+        decommissionTime: 0,
+        note: '',
+        actor: 'urn:li:corpuser:blah',
+    },
+} as Container;
 
 export const dataset3 = {
     __typename: 'Dataset',
@@ -283,7 +288,9 @@ export const dataset3 = {
         },
     ],
     domain: null,
-    container: null,
+    container: {
+        ...customContainer
+    },
     lineage: null,
     relationships: null,
     health: null,

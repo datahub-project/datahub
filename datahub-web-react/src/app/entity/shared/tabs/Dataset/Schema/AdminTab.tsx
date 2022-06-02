@@ -24,15 +24,19 @@ export const AdminTab = () => {
                         <DeleteSchemaTabv2 />
                     </Panel>
                     <Panel header="Edit Browsepath" key="2">
-                        <span> &nbsp; Note: Browsepaths affects user browsing for datasets</span>
+                        <span>
+                            {' '}
+                            &nbsp; Note: Browsepaths affects user browsing for datasets. You can specify the location of
+                            where the dataset is found.
+                        </span>
                         <EditBrowsePathTable />
                     </Panel>
                     <Panel header="Edit Dataset Container" key="3">
                         <span>
                             {' '}
-                            &nbsp; Note: Users can filter by containers when doing a search. Once a dataset has been
-                            assigned a container, you will need backend assistance to revert it back to a containerless
-                            state. This panel is used to assign/change containers.
+                            &nbsp; You can think of containers as physical collections of datasets. Note: Users can
+                            search for by eligible containers belonging to the appropriate data source and assign it as
+                            the container by pressing submit. This panel is used to assign/change containers.
                         </span>
                         <EditParentContainerPanel />
                     </Panel>
@@ -40,8 +44,8 @@ export const AdminTab = () => {
                         <span>
                             {' '}
                             &nbsp; By default, adhoc datasets are generated with a UUID in the name to avoid conflict.
-                            You can specify a display name that replaces it (and searchable as well). Note that the
-                            dataset URL is fixed and cannot be changed.
+                            You can specify a display name that replaces it (and searchable as well). Note however that
+                            the dataset URL is fixed at the point of dataset creation and cannot be changed.
                         </span>
                         <EditDisplayName />
                     </Panel>

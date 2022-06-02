@@ -123,7 +123,7 @@ describe('EntityProfile Edit', () => {
                         getOverrideProperties={() => ({})}
                         tabs={[
                             {
-                                name: 'Dataset Admin',
+                                name: 'Dataset Administration',
                                 component: AdminTab,
                                 display: {
                                     visible: (_, _dataset: GetDatasetQuery) => {
@@ -145,8 +145,8 @@ describe('EntityProfile Edit', () => {
             </MockedProvider>,
         );
 
-        await waitFor(() => expect(screen.getAllByText('Dataset Admin')).toHaveLength(1));
-        userEvent.click(getByText('Dataset Admin'));
+        await waitFor(() => expect(screen.getAllByText('Dataset Administration')).toHaveLength(1));
+        userEvent.click(getByText('Dataset Administration'));
         userEvent.click(getByText('Soft Delete Dataset'));
         await waitFor(() => expect(screen.getByText('Deactivate Dataset')).toBeInTheDocument());
     });
@@ -162,7 +162,7 @@ describe('EntityProfile Edit', () => {
                         getOverrideProperties={() => ({})}
                         tabs={[
                             {
-                                name: 'Dataset Admin',
+                                name: 'Dataset Administration',
                                 component: AdminTab,
                                 display: {
                                     visible: (_, _dataset: GetDatasetQuery) => {
@@ -184,9 +184,10 @@ describe('EntityProfile Edit', () => {
             </MockedProvider>,
         );
 
-        await waitFor(() => expect(screen.getAllByText('Dataset Admin')).toHaveLength(1));
-        userEvent.click(getByText('Dataset Admin'));
-        userEvent.click(getByText('Edit Dataset Display Name'));
-        await waitFor(() => expect(screen.getByDisplayValue('Yet Another Dataset')).toBeInTheDocument());
+        await waitFor(() => expect(screen.getAllByText('Dataset Administration')).toHaveLength(1));
+        userEvent.click(getByText('Dataset Administration'));
+        userEvent.click(getByText('Edit Dataset Container'));
+        // should see more than 1 instance of container name - the default place next to the platform icon
+        await waitFor(() => expect(screen.getAllByText('newContainer').length).toBeGreaterThan(1));
     });
 });

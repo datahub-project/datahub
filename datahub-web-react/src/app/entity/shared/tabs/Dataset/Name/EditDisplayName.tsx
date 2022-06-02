@@ -1,15 +1,12 @@
 import axios from 'axios';
 import React, { useState } from 'react';
-import { Button, Form, Input, message } from 'antd';
+import { Button, Form, Input } from 'antd';
 import { FieldStringOutlined } from '@ant-design/icons/';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { WhereAmI } from '../../../../../home/whereAmI';
 import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
 import { useBaseEntity } from '../../../EntityContext';
-
-function timeout(delay: number) {
-    return new Promise((res) => setTimeout(res, delay));
-}
+import { printErrorMsg, printSuccessMsg } from '../ApiCallUtils';
 
 export const EditDisplayName = () => {
     const urlBase = WhereAmI();
@@ -32,14 +29,6 @@ export const EditDisplayName = () => {
     const resetForm = () => {
         setModifiedState(true);
         formState.resetFields();
-    };
-    const printSuccessMsg = async (status) => {
-        message.success(`Status:${status} - Request submitted successfully`, 3).then();
-        await timeout(3000);
-        window.location.reload();
-    };
-    const printErrorMsg = (error) => {
-        message.error(error, 3).then();
     };
 
     const updateForm = () => {

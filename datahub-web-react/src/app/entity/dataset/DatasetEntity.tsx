@@ -154,7 +154,9 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Validation',
                     component: ValidationsTab,
                     display: {
-                        visible: (_, _1) => true,
+                        visible: (_, dataset: GetDatasetQuery) => {
+                            return (dataset?.dataset?.assertions?.total || 0) > 0;
+                        },
                         enabled: (_, dataset: GetDatasetQuery) => {
                             return (dataset?.dataset?.assertions?.total || 0) > 0;
                         },
@@ -213,7 +215,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     },
                 },
                 {
-                    name: 'Dataset Admin',
+                    name: 'Dataset Administration',
                     component: AdminTab,
                     display: {
                         visible: (_, _dataset: GetDatasetQuery) => {

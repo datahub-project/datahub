@@ -1,16 +1,12 @@
-import { Button, Form, message } from 'antd';
+import { Button, Form } from 'antd';
 import axios from 'axios';
 import React, { useState } from 'react';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { WhereAmI } from '../../../../../home/whereAmI';
 import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
 import { useBaseEntity } from '../../../EntityContext';
-// import { Select } from 'antd';
+import { printErrorMsg, printSuccessMsg } from '../ApiCallUtils';
 import { SetParentContainer } from './SetParentContainer';
-
-function timeout(delay: number) {
-    return new Promise((res) => setTimeout(res, delay));
-}
 
 export const EditParentContainerPanel = () => {
     const urlBase = WhereAmI();
@@ -44,12 +40,7 @@ export const EditParentContainerPanel = () => {
         setModifiedState(true);
         formState.resetFields();
     };
-    const printSuccessMsg = (status) => {
-        message.success(`Status:${status} - Request submitted successfully`, 3).then();
-    };
-    const printErrorMsg = (error) => {
-        message.error(error, 3).then();
-    };
+
     const onFinish = async (values) => {
         const proposedContainer = values.parentContainerSelect[0];
         // container is always 1 only, hence list to singular value
@@ -65,8 +56,6 @@ export const EditParentContainerPanel = () => {
             .catch((error) => {
                 printErrorMsg(error.toString());
             });
-        await timeout(3000);
-        window.location.reload();
     };
 
     return (

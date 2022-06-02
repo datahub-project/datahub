@@ -1,6 +1,6 @@
 // import { Empty } from 'antd';
 import React, { useState } from 'react';
-import { Button, Divider, Form, Input, message, Table, Typography } from 'antd';
+import { Button, Divider, Form, Input, Table, Typography } from 'antd';
 import PropTypes from 'prop-types';
 import axios from 'axios';
 // import adhocConfig from '../../../../../../conf/Adhoc';
@@ -9,6 +9,7 @@ import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
 import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
 import { WhereAmI } from '../../../../../home/whereAmI';
+import { printErrorMsg, printSuccessMsg } from '../ApiCallUtils';
 // import { useBaseEntity } from '../../../EntityContext';
 // import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // editable version
@@ -183,12 +184,6 @@ export const EditPropertiesTableEditable = () => {
             }),
         };
     });
-    const printSuccessMsg = (status) => {
-        message.success(`Status:${status} - Request submitted successfully`, 3).then();
-    };
-    const printErrorMsg = (error) => {
-        message.error(error, 3).then();
-    };
 
     const submitData = () => {
         const dataClone = data.map((x) => x);

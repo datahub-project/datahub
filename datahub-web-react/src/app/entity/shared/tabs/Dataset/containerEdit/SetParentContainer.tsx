@@ -34,33 +34,15 @@ interface Props {
 }
 
 export const SetParentContainer = (props: Props) => {
+    // need this to render the display name of the container
+    // decided not to put name of parent container of selected container - the new feature in 0.8.36 would be better
     const entityRegistry = useEntityRegistry();
     const [selectedContainers, setSelectedContainers] = useState('');
-    // const [parentContainer, setParentContainer] = useState('');
     const [containerSearch, { data: containerSearchData }] = useGetSearchResultsLazyQuery();
-    // const [parentCon, { data: parentConData }] = useGetContainerLazyQuery({
-    //     variables: {
-    //         urn: selectedContainers,
-    //     },
-    // });
     const searchResults = containerSearchData?.search?.searchResults || [];
-
-    // useEffect(() => {
-    //     if (selectedContainers !== '') {
-    //         parentCon({
-    //             variables: {
-    //                 urn: selectedContainers,
-    //             },
-    //         });
-    //     }
-    // }, [parentCon, selectedContainers]);
-    // useEffect(() => {
-    //     setParentContainer(parentConData?.container?.container?.urn || '');
-    // }, [parentConData]);
-    // console.log(`the current parentcontainer is ${parentContainer}`);
-    // this portion is copied from AddGroupMembersModal - it nicely renders the result list
     const renderSearchResult = (result: SearchResult) => {
         const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
+        console.log(`display name is ${displayName}`);
         return (
             <SearchResultContainer>
                 <SearchResultContent>
@@ -93,12 +75,10 @@ export const SetParentContainer = (props: Props) => {
     };
     const onSelectMember = (urn: string) => {
         setSelectedContainers(urn);
-        console.group(`Selected ${urn} as the container for dataset`);
     };
     const removeOption = () => {
         console.log(`removing ${selectedContainers}`);
         setSelectedContainers('');
-        // setParentContainer('');
     };
     return (
         <>
@@ -117,7 +97,7 @@ export const SetParentContainer = (props: Props) => {
                     showSearch
                     autoFocus
                     filterOption={false}
-                    value={entityRegistry.getDisplayName(EntityType.Container, selectedContainers)}
+                    value={JSON.stringify(selectedContainers)}
                     mode="multiple"
                     showArrow={false}
                     placeholder="Search for a parent container.."
