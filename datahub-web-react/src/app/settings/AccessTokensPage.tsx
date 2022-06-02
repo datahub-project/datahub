@@ -67,12 +67,15 @@ const PaginationContainer = styled.div`
 const DEFAULT_PAGE_SIZE = 10;
 
 export const AccessTokensPage = () => {
-    const isTokenAuthEnabled = useAppConfigQuery().data?.appConfig?.authConfig?.tokenAuthEnabled;
     const [isCreatingToken, setIsCreatingToken] = useState(false);
 
     // Current User Urn
     const authenticatedUser = useGetAuthenticatedUser();
     const currentUserUrn = authenticatedUser?.corpUser.urn || '';
+
+    const isTokenAuthEnabled = useAppConfigQuery().data?.appConfig?.authConfig?.tokenAuthEnabled;
+    const canGeneratePersonalAccessTokens =
+        isTokenAuthEnabled && authenticatedUser?.platformPrivileges.generatePersonalAccessTokens;
 
     // Access Tokens list paging.
     const [page, setPage] = useState(1);
@@ -112,13 +115,23 @@ export const AccessTokensPage = () => {
     // Revoke token Handler
     const onRemoveToken = (token: any) => {
         Modal.confirm({
-            title: `Delete ${token?.name}`,
-            content: `Revoking an access token means that you can no longer to use this.`,
+            title: 'Are you sure you want to revoke this token?',
+            content: `Anyone using this token will no longer be able to access the DataHub API. You cannot undo this action.`,
             onOk() {
-                revokeAccessToken({ variables: { tokenId: token.id } });
-                setTimeout(function () {
-                    tokensRefetch?.();
-                }, 2000);
+                revokeAccessToken({ variables: { tokenId: token.id } })
+                    .catch((e) => {
+                        message.destroy();
+                        message.error({ content: `Failed to revoke Token!: \n ${e.message || ''}`, duration: 3 });
+                    })
+                    .finally(() => {
+                        message.success({
+                            content: `Token revoked successfully !`,
+                            duration: 3,
+                        });
+                        setTimeout(function () {
+                            tokensRefetch?.();
+                        }, 3000);
+                    });
             },
             onCancel() {},
             okText: 'Yes',
@@ -217,8 +230,13 @@ export const AccessTokensPage = () => {
             </PersonTokenDescriptionText>
             <TabToolbar>
                 <div>
-                    <Button type="text" onClick={() => setIsCreatingToken(true)} data-testid="add-token-button">
-                        <PlusOutlined /> Create new token
+                    <Button
+                        type="text"
+                        onClick={() => setIsCreatingToken(true)}
+                        data-testid="add-token-button"
+                        disabled={canGeneratePersonalAccessTokens}
+                    >
+                        <PlusOutlined /> Generate new token
                     </Button>
                 </div>
             </TabToolbar>
@@ -250,7 +268,7 @@ export const AccessTokensPage = () => {
                     // Hack to deal with eventual consistency.
                     setTimeout(function () {
                         tokensRefetch?.();
-                    }, 2000);
+                    }, 3000);
                 }}
             />
         </SourceContainer>

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { message, Button, Input, Modal, Typography, Form, Select } from 'antd';
+import styled from 'styled-components';
 
 import { useEnterKeyListener } from '../shared/useEnterKeyListener';
-import { ACCESS_TOKEN_DURATIONS, ACCESS_TOKEN_TYPES } from './utils';
+import { ACCESS_TOKEN_DURATIONS, getTokenExpireDate } from './utils';
 import { useCreateAccessTokenMutation } from '../../graphql/auth.generated';
 import { AccessTokenDuration, AccessTokenType, CreateAccessTokenInput } from '../../types.generated';
 
@@ -13,20 +14,41 @@ type Props = {
     onCreate: () => void;
 };
 
+const ExpirationSelectContainer = styled.div`
+    padding: 1px;
+`;
+
+const ExpirationDurationSelect = styled(Select)`
+    && {
+        width: 100%;
+        margin-top: 1em;
+        margin-bottom: 1em;
+    }
+`;
+
 export default function CreateTokenModal({ currentUserUrn, visible, onClose, onCreate }: Props) {
     const [tokenName, setTokenName] = useState('');
     const [tokenDescription, setTokenDescription] = useState('');
-    const [selectedTokenDuration, setSelectedTokenDuration] = useState(ACCESS_TOKEN_DURATIONS[0].duration);
-    const [selectedTokenType, setSelectedTokenType] = useState(ACCESS_TOKEN_TYPES[0].type);
+    const [isTokenDurationChanged, setIsTokenDurationChanged] = useState(false);
+    const [selectedTokenDuration, setSelectedTokenDuration] = useState(ACCESS_TOKEN_DURATIONS[2].duration);
 
     const [createAccessToken] = useCreateAccessTokenMutation();
     const [createButtonEnabled, setCreateButtonEnabled] = useState(true);
     const [form] = Form.useForm();
 
+    const onModalClose = () => {
+        setTokenName('');
+        setTokenDescription('');
+        setSelectedTokenDuration(ACCESS_TOKEN_DURATIONS[2].duration);
+        setIsTokenDurationChanged(false);
+        form.resetFields();
+        onClose();
+    };
+
     const onCreateToken = () => {
         const input: CreateAccessTokenInput = {
             actorUrn: currentUserUrn,
-            type: selectedTokenType,
+            type: AccessTokenType.Personal,
             duration: selectedTokenDuration,
             name: tokenName,
             description: tokenDescription,
@@ -38,17 +60,18 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
             })
             .finally(() => {
                 message.success({
-                    content: `Created Token!`,
+                    content: `Token Created Successfully!`,
                     duration: 3,
                 });
                 onCreate();
-                setTokenName('');
-                setTokenDescription('');
-                setSelectedTokenDuration(ACCESS_TOKEN_DURATIONS[0].duration);
-                setSelectedTokenType(ACCESS_TOKEN_TYPES[0].type);
-                form.resetFields();
             });
-        onClose();
+        onModalClose();
+    };
+
+    // Function to handle the selection of Token Duration
+    const onSelectTokenDurationHandler = (duration: AccessTokenDuration) => {
+        setIsTokenDurationChanged(true);
+        setSelectedTokenDuration(duration);
     };
 
     // Handle the Enter press
@@ -60,10 +83,10 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
         <Modal
             title="Create new Token"
             visible={visible}
-            onCancel={onClose}
+            onCancel={onModalClose}
             footer={
                 <>
-                    <Button onClick={onClose} type="text">
+                    <Button onClick={onModalClose} type="text">
                         Cancel
                     </Button>
                     <Button id="createTokenButton" onClick={onCreateToken} disabled={createButtonEnabled}>
@@ -111,34 +134,22 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
                         />
                     </Form.Item>
                 </Form.Item>
-                <Form.Item label={<Typography.Text strong>Type</Typography.Text>}>
-                    <Form.Item name="type">
-                        <Select
-                            value={selectedTokenType}
-                            onSelect={(type) => setSelectedTokenType(type as AccessTokenType)}
-                        >
-                            {ACCESS_TOKEN_TYPES.map((type) => (
-                                <Select.Option key={type.text} value={type.type}>
-                                    {type.text}
-                                </Select.Option>
-                            ))}
-                        </Select>
-                    </Form.Item>
-                </Form.Item>
-                <Form.Item label={<Typography.Text strong>Expire in</Typography.Text>}>
-                    <Form.Item name="expire_in">
-                        <Select
-                            value={selectedTokenDuration}
-                            onSelect={(duration) => setSelectedTokenDuration(duration as AccessTokenDuration)}
-                        >
-                            {ACCESS_TOKEN_DURATIONS.map((duration) => (
-                                <Select.Option key={duration.text} value={duration.duration}>
-                                    {duration.text}
-                                </Select.Option>
-                            ))}
-                        </Select>
-                    </Form.Item>
-                </Form.Item>
+                <ExpirationSelectContainer>
+                    <Typography.Text strong>Expires in</Typography.Text>
+                    <ExpirationDurationSelect
+                        value={selectedTokenDuration}
+                        onSelect={(duration) => onSelectTokenDurationHandler(duration as AccessTokenDuration)}
+                    >
+                        {ACCESS_TOKEN_DURATIONS.map((duration) => (
+                            <Select.Option key={duration.text} value={duration.duration}>
+                                {duration.text}
+                            </Select.Option>
+                        ))}
+                    </ExpirationDurationSelect>
+                    {isTokenDurationChanged && (
+                        <Typography.Text>{getTokenExpireDate(selectedTokenDuration)}</Typography.Text>
+                    )}
+                </ExpirationSelectContainer>
             </Form>
         </Modal>
     );
