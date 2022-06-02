@@ -1,16 +1,11 @@
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from datahub.metadata.schema_classes import (
-    
-    ChangeTypeClass,
-    DomainPropertiesClass,
-)
+from datahub.metadata.schema_classes import ChangeTypeClass, DomainPropertiesClass
 
 gms_endpoint = "http://localhost:8080"
 
 graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
 new_urn = "urn:li:domain:mydomain"
-
 
 
 event = MetadataChangeProposalWrapper(

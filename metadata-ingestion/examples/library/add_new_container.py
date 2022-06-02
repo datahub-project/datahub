@@ -2,16 +2,15 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 
 # read-modify-write requires access to the DataHubGraph (RestEmitter is not enough)
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-
 from datahub.metadata.schema_classes import (
-    ContainerPropertiesClass,
-    ContainerClass,
     ChangeTypeClass,
-    DataPlatformInstanceClass
+    ContainerClass,
+    ContainerPropertiesClass,
+    DataPlatformInstanceClass,
 )
 
 gms_endpoint = "http://localhost:8080"
-token='xxx-your-token-here-xxx'
+token = "xxx-your-token-here-xxx"
 graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint, token=token))
 new_urn = "urn:li:container:csv_container2"
 # event = MetadataChangeProposalWrapper(
@@ -53,9 +52,7 @@ event = MetadataChangeProposalWrapper(
     changeType=ChangeTypeClass.UPSERT,
     entityUrn=new_urn2,
     aspectName="container",
-    aspect=ContainerClass(
-        container=new_urn
-    ),
+    aspect=ContainerClass(container=new_urn),
 )
 
 graph.emit(event)
@@ -64,9 +61,6 @@ event = MetadataChangeProposalWrapper(
     changeType=ChangeTypeClass.UPSERT,
     entityUrn=new_urn2,
     aspectName="dataPlatformInstance",
-    aspect=DataPlatformInstanceClass(
-        platform="urn:li:dataPlatform:csv"
-    ),
+    aspect=DataPlatformInstanceClass(platform="urn:li:dataPlatform:csv"),
 )
 graph.emit(event)
-

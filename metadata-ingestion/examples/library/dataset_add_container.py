@@ -1,25 +1,23 @@
 import logging
-from typing import Optional
 
-from datahub.emitter.mce_builder import make_dataset_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+
 # Imports for metadata model classes
-from datahub.metadata.schema_classes import (
-    ContainerClass,  
-    ChangeTypeClass  
-)
+from datahub.metadata.schema_classes import ChangeTypeClass, ContainerClass
 
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
-token='token here'
+token = "token here"
 
 # Inputs -> owner, ownership_type, dataset
-dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v3,PROD)"
+dataset_urn = (
+    "urn:li:dataset:(urn:li:dataPlatform:mysql,datahub.metadata_aspect_v3,PROD)"
+)
 
 
 # Some objects to help with conditional pathways later
-container_instance = ContainerClass(container = "")
+container_instance = ContainerClass(container="")
 
 
 event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
