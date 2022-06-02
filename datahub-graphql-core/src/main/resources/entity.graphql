@@ -390,6 +390,16 @@ type Mutation {
     Updates the name of the entity.
     """
     updateName(input: UpdateNameInput!): Boolean
+
+    """
+    Add multiple related Terms to a Glossary Term to establish relationships
+    """
+    addRelatedTerms(input: RelatedTermsInput!): Boolean
+
+    """
+    Remove multiple related Terms for a Glossary Term
+    """
+    removeRelatedTerms(input: RelatedTermsInput!): Boolean
 }
 
 """
@@ -6081,6 +6091,42 @@ enum SubResourceType {
     A Dataset field or column
     """
     DATASET_FIELD
+}
+
+
+"""
+Input provided when adding Terms to an asset
+"""
+input RelatedTermsInput {
+    """
+    The Glossary Term urn to add or remove this relationship to/from
+    """
+    urn: String!
+
+    """
+    The primary key of the Glossary Term to add or remove
+    """
+    termUrns: [String!]!
+
+    """
+    The type of relationship we're adding or removing to/from for a Glossary Term
+    """
+    relationshipType: TermRelationshipType!
+}
+
+"""
+A type of Metadata Entity sub resource
+"""
+enum TermRelationshipType {
+    """
+    When a Term inherits from, or has an 'Is A' relationship with another Term
+    """
+    isA
+
+    """
+    When a Term contains, or has a 'Has A' relationship with another Term
+    """
+    hasA
 }
 
 """
