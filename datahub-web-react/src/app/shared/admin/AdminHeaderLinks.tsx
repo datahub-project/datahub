@@ -2,15 +2,12 @@ import styled from 'styled-components';
 import * as React from 'react';
 import {
     ApiOutlined,
-    BankOutlined,
     BarChartOutlined,
     BookOutlined,
     SettingOutlined,
-    UsergroupAddOutlined,
     FolderOutlined,
     ContainerOutlined,
     DownOutlined,
-    TeamOutlined,
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button, Dropdown, Menu } from 'antd';
@@ -49,13 +46,9 @@ export function AdminHeaderLinks(props: Props) {
     const { config } = useAppConfig();
 
     const isAnalyticsEnabled = config?.analyticsConfig.enabled;
-    const isPoliciesEnabled = config?.policiesConfig.enabled;
-    const isIdentityManagementEnabled = config?.identityManagementConfig.enabled;
     const isIngestionEnabled = config?.managedIngestionConfig.enabled;
 
     const showAnalytics = (isAnalyticsEnabled && me && me.platformPrivileges.viewAnalytics) || false;
-    const showPolicies = (isPoliciesEnabled && me && me.platformPrivileges.managePolicies) || false;
-    const showUsersGroups = (isIdentityManagementEnabled && me && me.platformPrivileges.manageIdentities) || false;
     const showSettings = true;
     const showIngestion =
         isIngestionEnabled && me && me.platformPrivileges.manageIngestion && me.platformPrivileges.manageSecrets;
@@ -106,40 +99,7 @@ export function AdminHeaderLinks(props: Props) {
                 >
                     <AdminLink>
                         <Button type="text">
-                            <ContainerOutlined /> Manage <DownOutlined style={{ fontSize: '6px' }} />
-                        </Button>
-                    </AdminLink>
-                </Dropdown>
-            )}
-            {(showUsersGroups || showPolicies) && (
-                <Dropdown
-                    trigger={['click']}
-                    overlay={
-                        <Menu>
-                            {showUsersGroups && (
-                                <MenuItem key="0">
-                                    <Link to="/identities">
-                                        <Button type="text">
-                                            <UsergroupAddOutlined /> Users & Groups
-                                        </Button>
-                                    </Link>
-                                </MenuItem>
-                            )}
-                            {showPolicies && (
-                                <MenuItem key="1">
-                                    <Link to="/policies">
-                                        <Button type="text">
-                                            <BankOutlined /> Policies
-                                        </Button>
-                                    </Link>
-                                </MenuItem>
-                            )}
-                        </Menu>
-                    }
-                >
-                    <AdminLink>
-                        <Button type="text">
-                            <TeamOutlined /> Access <DownOutlined style={{ fontSize: '6px' }} />
+                            <ContainerOutlined /> Govern <DownOutlined style={{ fontSize: '6px' }} />
                         </Button>
                     </AdminLink>
                 </Dropdown>
