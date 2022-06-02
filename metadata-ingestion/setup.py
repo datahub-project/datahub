@@ -91,6 +91,9 @@ sql_common = {
     "great-expectations>=0.14.11,<0.15.3",
     # datahub does not depend on Jinja2 directly but great expectations does. With Jinja2 3.1.0 GE 0.14.11 is breaking
     "Jinja2<3.1.0",
+    # datahub does not depend on traitlets directly but great expectations does.
+    # https://github.com/ipython/traitlets/issues/741
+    "traitlets<5.2.2",
     "greenlet",
 }
 
@@ -203,8 +206,8 @@ plugins: Dict[str, Set[str]] = {
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
     | {
-        "sqlalchemy-hana>=0.5.0; platform_machine != 'aarch64'",
-        "hdbcli>=2.11.20; platform_machine != 'aarch64'",
+        "sqlalchemy-hana>=0.5.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
+        "hdbcli>=2.11.20; platform_machine != 'aarch64' and platform_machine != 'arm64'",
     },
     "hive": sql_common
     | {

@@ -69,11 +69,9 @@ public class RestHighLevelClientFactory {
   protected RestHighLevelClient createInstance() {
     RestClientBuilder restClientBuilder;
     if (useSSL) {
-      restClientBuilder = loadRestHttpsClient(host, port, pathPrefix, threadCount, connectionRequestTimeout, sslContext, username,
-              password);
+      restClientBuilder = loadRestHttpsClient(host, port, pathPrefix, threadCount, connectionRequestTimeout, sslContext, username, password);
     } else {
-      restClientBuilder = loadRestHttpClient(host, port, pathPrefix, threadCount, connectionRequestTimeout, username,
-              password);
+      restClientBuilder = loadRestHttpClient(host, port, pathPrefix, threadCount, connectionRequestTimeout, username, password);
     }
 
     return new RestHighLevelClient(restClientBuilder);
@@ -102,6 +100,26 @@ public class RestHighLevelClientFactory {
     builder.setRequestConfigCallback(
             requestConfigBuilder -> requestConfigBuilder.setConnectionRequestTimeout(connectionRequestTimeout));
 
+    return builder;
+  }
+  
+  @Nonnull
+  private static RestClientBuilder loadRestHttpClient(@Nonnull String host, int port, String pathPrefix, int threadCount,
+      int connectionRequestTimeout, String username, String password) {
+    RestClientBuilder builder = loadRestHttpClient(host, port, pathPrefix, threadCount, connectionRequestTimeout);
+    
+    builder.setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
+      public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpAsyncClientBuilder) {
+        httpAsyncClientBuilder.setDefaultIOReactorConfig(IOReactorConfig.custom().setIoThreadCount(threadCount).build());
+        
+        final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+        credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(username, password));
+        httpAsyncClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
+        
+        return httpAsyncClientBuilder;
+      }
+    });
+    
     return builder;
   }
 
