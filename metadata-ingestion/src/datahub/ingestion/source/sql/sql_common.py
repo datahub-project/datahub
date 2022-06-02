@@ -92,7 +92,6 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.telemetry import telemetry
-from datahub.utilities.mapping import Constants
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
 
 if TYPE_CHECKING:
@@ -118,6 +117,7 @@ PLATFORM_TO_SQLALCHEMY_URI_TESTER_MAP: Dict[str, Callable[[str], bool]] = Ordere
         _platform_alchemy_uri_tester_gen("bigquery"),
         _platform_alchemy_uri_tester_gen("clickhouse"),
         _platform_alchemy_uri_tester_gen("druid"),
+        _platform_alchemy_uri_tester_gen("hana"),
         _platform_alchemy_uri_tester_gen("hive"),
         _platform_alchemy_uri_tester_gen("mongodb"),
         _platform_alchemy_uri_tester_gen("mssql"),
@@ -137,16 +137,15 @@ PLATFORM_TO_SQLALCHEMY_URI_TESTER_MAP: Dict[str, Callable[[str], bool]] = Ordere
         _platform_alchemy_uri_tester_gen("postgres", "postgresql"),
         _platform_alchemy_uri_tester_gen("snowflake"),
         _platform_alchemy_uri_tester_gen("trino"),
+        _platform_alchemy_uri_tester_gen("vertica"),
     ]
 )
 
 
 def get_platform_from_sqlalchemy_uri(sqlalchemy_uri: str) -> str:
-
     for platform, tester in PLATFORM_TO_SQLALCHEMY_URI_TESTER_MAP.items():
         if tester(sqlalchemy_uri):
             return platform
-
     return "external"
 
 
@@ -719,6 +718,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 if not sql_config.schema_pattern.allowed(schema):
                     self.report.report_dropped(f"{schema}.*")
                     continue
+                self.add_information_for_schema(inspector, schema)
 
                 yield from self.gen_schema_containers(schema, db_name)
 
@@ -871,6 +871,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     )
         except Exception as e:
             self.report.report_failure(f"{schema}", f"Tables error: {e}")
+
+    def add_information_for_schema(self, inspector: Inspector, schema: str) -> None:
+        pass
 
     def get_extra_tags(
         self, inspector: Inspector, schema: str, table: str
@@ -1087,12 +1090,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
         gtc: Optional[GlobalTagsClass] = None
-        is_partition_key: Optional[bool] = None
         if tags:
-            if Constants.TAG_PARTITION_KEY in tags:
-                is_partition_key = True
-            else:
-                is_partition_key = False
             tags_str = [make_tag_urn(t) for t in tags]
             tags_tac = [TagAssociationClass(t) for t in tags_str]
             gtc = GlobalTagsClass(tags_tac)
@@ -1104,7 +1102,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             nullable=column["nullable"],
             recursive=False,
             globalTags=gtc,
-            isPartitioningKey=is_partition_key,
         )
         if (
             pk_constraints is not None

@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { TransformMatrix } from '@vx/zoom/lib/types';
 
-import { NodeData, Direction, EntitySelectParams, TreeProps } from './types';
+import { NodeData, Direction, EntitySelectParams, TreeProps, EntityAndType } from './types';
 import LineageTreeNodeAndEdgeRenderer from './LineageTreeNodeAndEdgeRenderer';
 import layoutTree from './utils/layoutTree';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
@@ -13,7 +13,7 @@ type LineageTreeProps = {
     };
     onEntityClick: (EntitySelectParams) => void;
     onEntityCenter: (EntitySelectParams) => void;
-    onLineageExpand: (LineageExpandParams) => void;
+    onLineageExpand: (data: EntityAndType) => void;
     selectedEntity?: EntitySelectParams;
     hoveredEntity?: EntitySelectParams;
     setHoveredEntity: (EntitySelectParams) => void;

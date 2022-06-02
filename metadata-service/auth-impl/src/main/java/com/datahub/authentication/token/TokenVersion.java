@@ -6,13 +6,19 @@ import java.util.Optional;
 
 
 /**
- * Represents a type of JWT access token granted by the {@link TokenService}.
+ * Represents a type of JWT access token granted by the {@link StatelessTokenService}.
  */
 public enum TokenVersion {
   /**
-   * The first version of the DataHub access token (latest).
+   * The first version of the DataHub access token.
    */
-  ONE(1);
+  ONE(1),
+
+  /**
+   * The second version of the DataHub access token (latest).
+   * Used to represent tokens that are stateful and are stored within DataHub.
+   */
+  TWO(2);
 
   public final int numericValue;
 

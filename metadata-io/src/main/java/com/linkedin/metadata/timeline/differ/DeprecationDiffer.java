@@ -5,15 +5,16 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
-import java.util.Collections;
-import java.util.List;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
+import java.util.List;
 
 
 /**
@@ -21,7 +22,7 @@ import javax.annotation.Nullable;
  */
 public class DeprecationDiffer implements AspectDiffer<Deprecation> {
   @Override
-  public ChangeTransaction getSemanticDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue,
+  public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
       ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
     // TODO: Migrate away from using getSemanticDiff.
     throw new UnsupportedOperationException();

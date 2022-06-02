@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+import sys
 import textwrap
 from importlib.metadata import metadata, requires
 from typing import Any, Dict, List, Optional
@@ -132,7 +133,7 @@ def gen_md_table(
                 type_name="Enum",
                 required=field_dict.get("required") or False,
                 description=f"one of {','.join(field_dict['enum'])}",
-                default=field_dict.get("default") or "None",
+                default=str(field_dict.get("default", "None")),
             )
         )
         # md_str.append(
@@ -157,7 +158,7 @@ def gen_md_table(
                             description=get_enum_description(
                                 value.get("description"), def_dict["enum"]
                             ),
-                            default=str(value.get("default")) or "",
+                            default=str(value.get("default", "")),
                             required=required_field,
                         )
                         md_str.append(row)
@@ -167,7 +168,7 @@ def gen_md_table(
                             path=get_prefixed_name(field_prefix, field_name),
                             type_name=f"{reference.split('/')[-1]} (see below for fields)",
                             description=value.get("description") or "",
-                            default=str(value.get("default")) or "",
+                            default=str(value.get("default", "")),
                             required=required_field,
                         )
                         md_str.append(row)
@@ -194,7 +195,7 @@ def gen_md_table(
                         type_name="Enum",
                         description=f"one of {','.join(def_dict['enum'])}",
                         required=required_field,
-                        default=value.get("default") or "None",
+                        default=str(value.get("default", "None")),
                     )
                     #                    f"| {get_prefixed_name(field_prefix, field_name)} | Enum | one of {','.join(def_dict['enum'])} | {def_dict['type']} | \n"
                 )
@@ -216,7 +217,7 @@ def gen_md_table(
                             path=get_prefixed_name(field_prefix, field_name),
                             type_name=f"Dict[str, {value_ref.split('/')[-1]}]",
                             description=value.get("description") or "",
-                            default=value.get("default") or "",
+                            default=str(value.get("default", "")),
                             required=required_field,
                         )
                         md_str.append(row)
@@ -237,7 +238,7 @@ def gen_md_table(
                                 if value_type
                                 else "Dict",
                                 description=value.get("description") or "",
-                                default=value.get("default") or "",
+                                default=str(value.get("default", "")),
                                 required=required_field,
                             )
                         )
@@ -247,7 +248,7 @@ def gen_md_table(
                         path=get_prefixed_name(field_prefix, field_name),
                         type_name=f"{object_definition.split('/')[-1]} (see below for fields)",
                         description=value.get("description") or "",
-                        default=value.get("default") or "",
+                        default=str(value.get("default", "")),
                         required=required_field,
                     )
 
@@ -272,7 +273,7 @@ def gen_md_table(
                         path=get_prefixed_name(field_prefix, field_name),
                         type_name=f"Array of {items_type}",
                         description=value.get("description") or "",
-                        default=str(value.get("default")) or "None",
+                        default=str(value.get("default", "None")),
                         required=required_field,
                     )
                     #                    f"| {get_prefixed_name(field_prefix, field_name)} | Array of {items_type} | {value.get('description') or ''} | {value.get('default')} |  \n"
@@ -284,7 +285,7 @@ def gen_md_table(
                         path=get_prefixed_name(field_prefix, field_name),
                         type_name=value["type"],
                         description=value.get("description") or "",
-                        default=value.get("default") or "None",
+                        default=str(value.get("default", "None")),
                         required=required_field,
                     )
                     # f"| {get_prefixed_name(field_prefix, field_name)} | {value['type']} | {value.get('description') or ''} | {value.get('default')} | \n"
@@ -298,7 +299,7 @@ def gen_md_table(
                     path=get_prefixed_name(field_prefix, field_name),
                     type_name=f"{object_definition.split('/')[-1]} (see below for fields)",
                     description=value.get("description") or "",
-                    default=value.get("default") or "",
+                    default=str(value.get("default", "")),
                     required=required_field,
                 )
 
@@ -319,7 +320,7 @@ def gen_md_table(
                         path=get_prefixed_name(field_prefix, field_name),
                         type_name="Generic dict",
                         description=value.get("description", ""),
-                        default=value.get("default", "None"),
+                        default=str(value.get("default", "None")),
                         required=required_field,
                     )
                     # f"| {get_prefixed_name(field_prefix, field_name)} | Any dict | {value.get('description') or ''} | {value.get('default')} |\n"
@@ -519,8 +520,9 @@ def generate(
             # output = subprocess.check_output(
             #    ["/bin/bash", "-c", f"pip install -e '.[{key}]'"]
             # )
-
-            source_registry._ensure_not_lazy(plugin_name)
+            class_or_exception = source_registry._ensure_not_lazy(plugin_name)
+            if isinstance(class_or_exception, Exception):
+                raise class_or_exception
             logger.debug(f"Processing {plugin_name}")
             source_type = source_registry.get(plugin_name)
             logger.debug(f"Source class is {source_type}")
@@ -528,10 +530,10 @@ def generate(
             extra_deps = (
                 get_additional_deps_for_extra(extra_plugin) if extra_plugin else []
             )
-
         except Exception as e:
-            print(f"Failed to process {plugin_name} due to {e}")
-            metrics["plugins"]["failed"] = metrics["plugins"]["failed"] + 1
+            print(f"Failed to process {plugin_name} due to exception")
+            print(repr(e))
+            metrics["plugins"]["failed"] = metrics["plugins"].get("failed", 0) + 1
 
         if source_type and hasattr(source_type, "get_config_class"):
             try:
@@ -745,6 +747,8 @@ def generate(
     print("############################################")
     print(json.dumps(metrics, indent=2))
     print("############################################")
+    if metrics["plugins"].get("failed", 0) > 0:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

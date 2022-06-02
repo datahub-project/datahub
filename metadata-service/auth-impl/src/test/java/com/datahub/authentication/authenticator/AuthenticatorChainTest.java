@@ -5,7 +5,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.AuthenticationExpiredException;
 import com.datahub.authentication.Authenticator;
-import com.datahub.authentication.AuthenticatorContext;
+import com.datahub.authentication.AuthenticationRequest;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -29,7 +29,7 @@ public class AuthenticatorChainTest {
     authenticatorChain.register(mockAuthenticator2);
 
     // Verify that the mock authentication is returned on Authenticate.
-    final AuthenticatorContext mockContext = Mockito.mock(AuthenticatorContext.class);
+    final AuthenticationRequest mockContext = Mockito.mock(AuthenticationRequest.class);
 
     Authentication result = authenticatorChain.authenticate(mockContext);
 
@@ -51,7 +51,7 @@ public class AuthenticatorChainTest {
     authenticatorChain.register(mockAuthenticator);
 
     // Verify that the mock authentication is returned on Authenticate.
-    final AuthenticatorContext mockContext = Mockito.mock(AuthenticatorContext.class);
+    final AuthenticationRequest mockContext = Mockito.mock(AuthenticationRequest.class);
 
     Authentication result = authenticatorChain.authenticate(mockContext);
 
@@ -69,7 +69,7 @@ public class AuthenticatorChainTest {
     authenticatorChain.register(mockAuthenticator);
 
     // Verify that the mock authentication is returned on Authenticate.
-    final AuthenticatorContext mockContext = Mockito.mock(AuthenticatorContext.class);
+    final AuthenticationRequest mockContext = Mockito.mock(AuthenticationRequest.class);
 
     assertThrows(AuthenticationExpiredException.class, () -> authenticatorChain.authenticate(mockContext));
   }

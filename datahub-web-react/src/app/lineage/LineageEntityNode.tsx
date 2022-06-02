@@ -1,15 +1,16 @@
-import React, { useContext, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { Group } from '@vx/group';
 import { LinkHorizontal } from '@vx/shape';
 import styled from 'styled-components';
 
 import { useEntityRegistry } from '../useEntityRegistry';
 import { IconStyleType } from '../entity/Entity';
-import { NodeData, Direction, VizNode, EntitySelectParams } from './types';
+import { NodeData, Direction, VizNode, EntitySelectParams, EntityAndType } from './types';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { capitalizeFirstLetter } from '../shared/textUtil';
 import { nodeHeightFromTitleLength } from './utils/nodeHeightFromTitleLength';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
+import useLazyGetEntityQuery from './utils/useLazyGetEntityQuery';
 
 const CLICK_DELAY_THRESHOLD = 1000;
 const DRAG_DISTANCE_THRESHOLD = 20;
@@ -81,13 +82,20 @@ export default function LineageEntityNode({
     onEntityCenter: (EntitySelectParams) => void;
     onHover: (EntitySelectParams) => void;
     onDrag: (params: EntitySelectParams, event: React.MouseEvent) => void;
-    onExpandClick: (LineageExpandParams) => void;
+    onExpandClick: (data: EntityAndType) => void;
     direction: Direction;
     nodesToRenderByUrn: Record<string, VizNode>;
 }) {
     const { expandTitles } = useContext(LineageExplorerContext);
     const [isExpanding, setIsExpanding] = useState(false);
     const [expandHover, setExpandHover] = useState(false);
+    const { getAsyncEntity, asyncData } = useLazyGetEntityQuery();
+
+    useEffect(() => {
+        if (asyncData) {
+            onExpandClick(asyncData);
+        }
+    }, [asyncData, onExpandClick]);
 
     const entityRegistry = useEntityRegistry();
     const unexploredHiddenChildren =
@@ -139,7 +147,9 @@ export default function LineageEntityNode({
                     <Group
                         onClick={() => {
                             setIsExpanding(true);
-                            onExpandClick({ urn: node.data.urn, type: node.data.type, direction });
+                            if (node.data.urn && node.data.type) {
+                                getAsyncEntity(node.data.urn, node.data.type);
+                            }
                         }}
                         onMouseOver={() => {
                             setExpandHover(true);

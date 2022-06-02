@@ -8,10 +8,9 @@ import styled from 'styled-components';
 import { Message } from '../shared/Message';
 import { useEntityRegistry } from '../useEntityRegistry';
 import CompactContext from '../shared/CompactContext';
-import { EntityAndType, EntitySelectParams, FetchedEntities, LineageExpandParams } from './types';
+import { EntityAndType, EntitySelectParams, FetchedEntities } from './types';
 import LineageViz from './LineageViz';
 import extendAsyncEntities from './utils/extendAsyncEntities';
-import useLazyGetEntityQuery from './utils/useLazyGetEntityQuery';
 import useGetEntityQuery from './utils/useGetEntityQuery';
 import { EntityType } from '../../types.generated';
 import { capitalizeFirstLetter } from '../shared/textUtil';
@@ -58,7 +57,6 @@ export default function LineageExplorer({ urn, type }: Props) {
     const entityRegistry = useEntityRegistry();
 
     const { loading, error, data } = useGetEntityQuery(urn, type);
-    const { getAsyncEntity, asyncData } = useLazyGetEntityQuery();
 
     const [isDrawerVisible, setIsDrawVisible] = useState(false);
     const [selectedEntity, setSelectedEntity] = useState<EntitySelectParams | undefined>(undefined);
@@ -94,10 +92,7 @@ export default function LineageExplorer({ urn, type }: Props) {
         if (type && data) {
             maybeAddAsyncLoadedEntity(data);
         }
-        if (asyncData) {
-            maybeAddAsyncLoadedEntity(asyncData);
-        }
-    }, [data, asyncData, asyncEntities, setAsyncEntities, maybeAddAsyncLoadedEntity, urn, previousUrn, type]);
+    }, [data, asyncEntities, setAsyncEntities, maybeAddAsyncLoadedEntity, urn, previousUrn, type]);
 
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
@@ -124,8 +119,8 @@ export default function LineageExplorer({ urn, type }: Props) {
                                 `${entityRegistry.getEntityUrl(params.type, params.urn)}/?is_lineage_mode=true`,
                             );
                         }}
-                        onLineageExpand={(params: LineageExpandParams) => {
-                            getAsyncEntity(params.urn, params.type);
+                        onLineageExpand={(asyncData: EntityAndType) => {
+                            maybeAddAsyncLoadedEntity(asyncData);
                         }}
                     />
                 </div>
