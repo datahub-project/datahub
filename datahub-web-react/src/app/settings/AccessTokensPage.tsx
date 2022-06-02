@@ -234,7 +234,7 @@ export const AccessTokensPage = () => {
                         type="text"
                         onClick={() => setIsCreatingToken(true)}
                         data-testid="add-token-button"
-                        disabled={canGeneratePersonalAccessTokens}
+                        disabled={!canGeneratePersonalAccessTokens}
                     >
                         <PlusOutlined /> Generate new token
                     </Button>
