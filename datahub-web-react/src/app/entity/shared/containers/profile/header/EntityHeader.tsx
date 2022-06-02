@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckOutlined, CopyOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons';
+import { InfoCircleOutlined, RightOutlined } from '@ant-design/icons';
 import { Typography, Button, Tooltip, Popover } from 'antd';
 import styled from 'styled-components/macro';
 import moment from 'moment';
@@ -16,6 +16,7 @@ import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser'
 import { EntityType, PlatformPrivileges } from '../../../../../../types.generated';
 import EntityCount from './EntityCount';
 import EntityName from './EntityName';
+import CopyUrn from '../../../../../shared/CopyUrn';
 
 const TitleWrapper = styled.div`
     display: flex;
@@ -189,15 +190,7 @@ export const EntityHeader = ({ refreshBrowser, headerDropdownItems, isNameEditab
             </MainHeaderContent>
             <SideHeaderContent>
                 <TopButtonsWrapper>
-                    <Tooltip title="Copy URN. An URN uniquely identifies an entity on DataHub.">
-                        <Button
-                            icon={copiedUrn ? <CheckOutlined /> : <CopyOutlined />}
-                            onClick={() => {
-                                navigator.clipboard.writeText(urn);
-                                setCopiedUrn(true);
-                            }}
-                        />
-                    </Tooltip>
+                    <CopyUrn urn={urn} isActive={copiedUrn} onClick={() => setCopiedUrn(true)} />
                     {headerDropdownItems && (
                         <EntityDropdown
                             menuItems={headerDropdownItems}

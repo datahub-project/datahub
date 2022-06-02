@@ -10,6 +10,7 @@ import {
     FolderOutlined,
     ContainerOutlined,
     DownOutlined,
+    TeamOutlined,
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button, Dropdown, Menu } from 'antd';
@@ -17,7 +18,7 @@ import { useAppConfig } from '../../useAppConfig';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 
 const AdminLink = styled.span`
-    margin-right: 4px;
+    margin-right: 0px;
 `;
 
 const LinksWrapper = styled.div<{ areLinksHidden?: boolean }>`
@@ -53,9 +54,8 @@ export function AdminHeaderLinks(props: Props) {
     const isIngestionEnabled = config?.managedIngestionConfig.enabled;
 
     const showAnalytics = (isAnalyticsEnabled && me && me.platformPrivileges.viewAnalytics) || false;
-    const showPolicyBuilder = (isPoliciesEnabled && me && me.platformPrivileges.managePolicies) || false;
-    const showIdentityManagement =
-        (isIdentityManagementEnabled && me && me.platformPrivileges.manageIdentities) || false;
+    const showPolicies = (isPoliciesEnabled && me && me.platformPrivileges.managePolicies) || false;
+    const showUsersGroups = (isIdentityManagementEnabled && me && me.platformPrivileges.manageIdentities) || false;
     const showSettings = true;
     const showIngestion =
         isIngestionEnabled && me && me.platformPrivileges.manageIngestion && me.platformPrivileges.manageSecrets;
@@ -73,29 +73,11 @@ export function AdminHeaderLinks(props: Props) {
                     </Link>
                 </AdminLink>
             )}
-            {showIdentityManagement && (
-                <AdminLink>
-                    <Link to="/identities">
-                        <Button type="text">
-                            <UsergroupAddOutlined /> Users & Groups
-                        </Button>
-                    </Link>
-                </AdminLink>
-            )}
             {showIngestion && (
                 <AdminLink>
                     <Link to="/ingestion">
                         <Button type="text">
                             <ApiOutlined /> Ingestion
-                        </Button>
-                    </Link>
-                </AdminLink>
-            )}
-            {showPolicyBuilder && (
-                <AdminLink>
-                    <Link to="/policies">
-                        <Button type="text">
-                            <BankOutlined /> Policies
                         </Button>
                     </Link>
                 </AdminLink>
@@ -124,13 +106,46 @@ export function AdminHeaderLinks(props: Props) {
                 >
                     <AdminLink>
                         <Button type="text">
-                            <ContainerOutlined /> Manage <DownOutlined style={{ fontSize: '12px' }} />
+                            <ContainerOutlined /> Manage <DownOutlined style={{ fontSize: '6px' }} />
+                        </Button>
+                    </AdminLink>
+                </Dropdown>
+            )}
+            {(showUsersGroups || showPolicies) && (
+                <Dropdown
+                    trigger={['click']}
+                    overlay={
+                        <Menu>
+                            {showUsersGroups && (
+                                <MenuItem key="0">
+                                    <Link to="/identities">
+                                        <Button type="text">
+                                            <UsergroupAddOutlined /> Users & Groups
+                                        </Button>
+                                    </Link>
+                                </MenuItem>
+                            )}
+                            {showPolicies && (
+                                <MenuItem key="1">
+                                    <Link to="/policies">
+                                        <Button type="text">
+                                            <BankOutlined /> Policies
+                                        </Button>
+                                    </Link>
+                                </MenuItem>
+                            )}
+                        </Menu>
+                    }
+                >
+                    <AdminLink>
+                        <Button type="text">
+                            <TeamOutlined /> Access <DownOutlined style={{ fontSize: '6px' }} />
                         </Button>
                     </AdminLink>
                 </Dropdown>
             )}
             {showSettings && (
-                <AdminLink style={{ marginRight: 16 }}>
+                <AdminLink style={{ marginRight: 12 }}>
                     <Link to="/settings">
                         <Button type="text">
                             <SettingOutlined />
