@@ -105,6 +105,7 @@ The Kafka emitter is a thin wrapper on top of the SerializingProducer class from
 
 **_Note_**: The Kafka emitter uses Avro to serialize the Metadata events to Kafka. Changing the serializer will result in unprocessable events as DataHub currently expects the metadata events over Kafka to be serialized in Avro.
 
+
 ### Usage
 
 ```java
