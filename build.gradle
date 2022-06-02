@@ -117,6 +117,8 @@ project.ext.externalDependency = [
     'playDocs': 'com.typesafe.play:play-docs_2.12:2.7.6',
     'playGuice': 'com.typesafe.play:play-guice_2.12:2.7.6',
     'playJavaJdbc': 'com.typesafe.play:play-java-jdbc_2.12:2.7.6',
+    'playAkkaHttpServer': 'com.typesafe.play:play-akka-http-server_2.12:2.7.6',
+    'playServer': 'com.typesafe.play:play-server_2.12:2.7.6',
     'playTest': 'com.typesafe.play:play-test_2.12:2.7.6',
     'pac4j': 'org.pac4j:pac4j-oidc:3.6.0',
     'playPac4j': 'org.pac4j:play-pac4j_2.12:8.0.2',
