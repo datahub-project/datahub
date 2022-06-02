@@ -59,7 +59,7 @@ const user1 = {
     },
 };
 
-const customContainer = {    
+const customContainer = {
     __typename: 'Container',
     urn: 'urn:li:container:customContainer',
     type: EntityType.Container,
@@ -289,7 +289,7 @@ export const dataset3 = {
     ],
     domain: null,
     container: {
-        ...customContainer
+        ...customContainer,
     },
     lineage: null,
     relationships: null,
