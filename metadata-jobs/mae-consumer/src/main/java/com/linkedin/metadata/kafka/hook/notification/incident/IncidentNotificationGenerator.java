@@ -8,6 +8,7 @@ import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.incident.IncidentInfo;
@@ -15,14 +16,15 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.BaseMclNotificationGenerator;
+import com.linkedin.metadata.kafka.hook.notification.NotificationScenarioType;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
-import com.linkedin.settings.NotificationSettingValue;
-import com.linkedin.settings.global.GlobalSettingsInfo;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -61,7 +63,7 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
 
       log.debug(String.format("Found eligible new incident event to notify. urn: %s", event.getEntityUrn().toString()));
 
-      generateNewIncidentNotifications(
+      sendNewIncidentNotifications(
           event.getEntityUrn(),
           GenericRecordUtils.deserializeAspect(
               event.getAspect().getValue(),
@@ -72,7 +74,7 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
 
       log.debug(String.format("Found eligible incident status change event to notify. urn: %s", event.getEntityUrn().toString()));
 
-      generateUpdatedIncidentNotifications(
+      sendIncidentStatusChangeNotifications(
           event.getEntityUrn(),
           GenericRecordUtils.deserializeAspect(
               event.getPreviousAspectValue().getValue(),
@@ -94,38 +96,23 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
         && (ChangeType.UPSERT.equals(event.getChangeType()) || ChangeType.CREATE.equals(event.getChangeType()));
   }
 
-  public void generateNewIncidentNotifications(
-      @Nonnull final Urn urn,
-      @Nonnull final IncidentInfo info) {
-    // TODO: Support other notification types on new incidents - e.g. notify owners directly.
-    if (shouldBroadcastNewIncident()) {
-      // Broadcast new incident.
-      broadcastNewIncident(urn, info);
-    }
-  }
-
-  public void generateUpdatedIncidentNotifications(
-      @Nonnull final Urn urn,
-      @Nonnull final IncidentInfo prevInfo,
-      @Nonnull final IncidentInfo newInfo) {
-    // TODO: Support other notification types on updated incidents - e.g. notify owners directly.
-      if (shouldBroadcastIncidentStatusChange()) {
-        // Broadcast incident status change.
-        broadcastIncidentStatusChange(urn, prevInfo, newInfo);
-      }
-  }
-
   /**
    * Sends a notification of template type "BROADCAST_NEW_INCIDENT" when an incident is created.
    */
-  private void broadcastNewIncident(
+  private void sendNewIncidentNotifications(
       @Nonnull final Urn urn,
       @Nonnull final IncidentInfo info) {
 
-    log.info(info.toString());
+    log.debug(info.toString());
 
-    // Notify a specific slack channel to alert the owners of the asset.
     final Urn entityUrn = info.getEntities().get(0);
+
+    Set<NotificationRecipient> recipients = new HashSet<>(buildRecipients(NotificationScenarioType.NEW_INCIDENT, entityUrn));
+    if (recipients.isEmpty()) {
+      log.info("Skipping incident generation - no recipients");
+      return;
+    }
+
     final Ownership maybeOwnership = getEntityOwnership(entityUrn);
     final List<Urn> owners = maybeOwnership != null
         ? maybeOwnership
@@ -155,8 +142,7 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
     final NotificationRequest notificationRequest = buildNotificationRequest(
         NotificationTemplateType.BROADCAST_NEW_INCIDENT.name(),
         templateParams,
-        Collections.emptySet(),
-        Collections.emptySet()
+        recipients
     );
 
     log.info(String.format("Broadcasting new incident for entity %s...", entityUrn));
@@ -166,13 +152,20 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
   /**
    * Sends a notification of template type "BROADCAST_INCIDENT_STATUS_CHANGE" when an incident's status is changed.
    */
-  private void broadcastIncidentStatusChange(
+  private void sendIncidentStatusChangeNotifications(
       @Nonnull final Urn urn,
       @Nonnull final IncidentInfo prevInfo,
       @Nonnull final IncidentInfo newInfo) {
 
     // Notify a specific slack channel to alert the owners of the asset.
     final Urn entityUrn = newInfo.getEntities().get(0);
+
+    Set<NotificationRecipient> recipients = new HashSet<>(buildRecipients(NotificationScenarioType.INCIDENT_STATUS_CHANGE, entityUrn));
+    if (recipients.isEmpty()) {
+      log.info("Skipping incident generation - no recipients");
+      return;
+    }
+
     final Ownership maybeOwnership = getEntityOwnership(entityUrn);
     final List<Urn> owners = maybeOwnership != null
         ? maybeOwnership
@@ -205,39 +198,12 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
     final NotificationRequest notificationRequest = buildNotificationRequest(
         NotificationTemplateType.BROADCAST_INCIDENT_STATUS_CHANGE.name(),
         templateParams,
-        Collections.emptySet(), // no users or groups targeted specifically since its broadcast
-        Collections.emptySet()
+        recipients
     );
 
     log.info(String.format("Broadcasting incident status change for entity %s...", entityUrn));
     sendNotificationRequest(notificationRequest);
 
-  }
-
-  /**
-   * Returns true if the incident notification of type "broadcast new incident" has been enabled in the settings.
-   */
-  private boolean shouldBroadcastNewIncident() {
-    GlobalSettingsInfo globalSettingsInfo = _settingsProvider.getGlobalSettings();
-    return globalSettingsInfo != null
-        && globalSettingsInfo.getIntegrations().getSlackSettings().isEnabled()
-        && globalSettingsInfo.getNotifications().hasIncidents()
-        && globalSettingsInfo.getNotifications().getIncidents().hasBroadcastNewIncidentNotification()
-        && NotificationSettingValue.ENABLED.equals(
-            globalSettingsInfo.getNotifications().getIncidents().getBroadcastNewIncidentNotification().getValue());
-  }
-
-  /**
-   * Returns true if the incident notification of type "broadcast incident status change" has been enabled in the settings.
-   */
-  private boolean shouldBroadcastIncidentStatusChange() {
-    GlobalSettingsInfo globalSettingsInfo = _settingsProvider.getGlobalSettings();
-    return globalSettingsInfo != null
-        && globalSettingsInfo.getIntegrations().getSlackSettings().isEnabled()
-        && globalSettingsInfo.getNotifications().hasIncidents()
-        && globalSettingsInfo.getNotifications().getIncidents().hasBroadcastIncidentStatusChangeNotification()
-        && NotificationSettingValue.ENABLED.equals(
-            globalSettingsInfo.getNotifications().getIncidents().getBroadcastIncidentStatusChangeNotification().getValue());
   }
 
   private boolean isNewIncident(final MetadataChangeLog event) {

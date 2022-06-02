@@ -394,7 +394,7 @@ public class SlackNotificationSink implements NotificationSink {
         String.format(":warning: *New Incident Raised* \n\nA new incident has been raised on asset %s%s.",
             url,
             actorName != null ? String.format(" by *%s*", actorName) : ""),
-        String.format("\n\n *Incident Name*: %s\n*Incident Description*: %s\n\n *Asset Owners*: %s\n*Downstream Asset Owners*: %s",
+        String.format("\n\n*Incident Name*: %s\n*Incident Description*: %s\n\n*Asset Owners*: %s\n*Downstream Asset Owners*: %s",
             title != null ? title : "None",
             description != null ? description : "None",
             ownersStr.length() > 0 ? ownersStr : "N/A",
@@ -464,7 +464,7 @@ public class SlackNotificationSink implements NotificationSink {
         String.format("\n\n *Message*: %s\n",
             message != null ? message : "None"
         ),
-        String.format("\n\n *Incident Name*: %s\n*Incident Description*: %s\n\n *Asset Owners*: %s\n*Downstream Asset Owners*: %s",
+        String.format("\n\n*Incident Name*: %s\n*Incident Description*: %s\n\n*Asset Owners*: %s\n*Downstream Asset Owners*: %s",
             title != null ? title : "None",
             description != null ? description : "None",
             ownersStr.length() > 0 ? ownersStr : "N/A",

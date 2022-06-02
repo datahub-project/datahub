@@ -29,6 +29,12 @@
       },
       "ENTITY_DOMAIN_CHANGE": {
         "value": "ENABLED"
+      },
+      "NEW_INCIDENT": {
+        "value": "ENABLED"
+      },
+      "INCIDENT_STATUS_CHANGE": {
+        "value": "ENABLED"
       }
     }
   }
