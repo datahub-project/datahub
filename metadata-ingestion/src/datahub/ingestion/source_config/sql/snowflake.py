@@ -99,10 +99,6 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
     # Note: this config model is also used by the snowflake-usage source.
 
     scheme: str = "snowflake"
-    oauth_config: OauthConfiguration = pydantic.Field(
-        default=None,
-        description="oauth configuration - https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-with-oauth",
-    )
     username: Optional[str] = pydantic.Field(
         default=None, description="Snowflake username."
     )
@@ -117,6 +113,10 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         default=None,
         exclude=True,
         description="Password for your private key if using key pair authentication.",
+    )
+    oauth_config: Optional[OauthConfiguration] = pydantic.Field(
+        default=None,
+        description="oauth configuration - https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-with-oauth",
     )
     authentication_type: str = pydantic.Field(
         default="DEFAULT_AUTHENTICATOR",
@@ -174,7 +174,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         return values
 
     @pydantic.validator("authentication_type", always=True)
-    def authenticator_type_is_valid(cls, v, values, **kwargs):
+    def authenticator_type_is_valid(cls, v, values, field):
         if v not in VALID_AUTH_TYPES.keys():
             raise ValueError(
                 f"unsupported authenticator type '{v}' was provided,"
@@ -189,6 +189,10 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                         f"but should be set when using {v} authentication"
                     )
             elif v == "OAUTH_AUTHENTICATOR":
+                if values.get("oauth_config") is None:
+                    raise ValueError(
+                        f"'oauth_config' is none but should be set when using {v} authentication"
+                    )
                 if values.get("oauth_config").provider is None:
                     raise ValueError(
                         f"'oauth_config.provider' is none "
@@ -241,6 +245,9 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         return v
 
     def get_oauth_connection(self):
+        assert (
+            self.oauth_config
+        ), "oauth_config should be provided if using oauth based authentication"
         generator = OauthTokenGenerator(
             self.oauth_config.client_id,
             self.oauth_config.authority_url,
