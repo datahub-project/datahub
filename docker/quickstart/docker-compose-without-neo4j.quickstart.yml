@@ -155,7 +155,7 @@ services:
     - MYSQL_PASSWORD=datahub
     - DATAHUB_DB_NAME=datahub
     hostname: mysql-setup
-    image: acryldata/datahub-mysql-setup:head
+    image: acryldata/datahub-mysql-setup:${DATAHUB_VERSION:-head}
   schema-registry:
     container_name: schema-registry
     depends_on:
