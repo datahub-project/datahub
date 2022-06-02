@@ -1,5 +1,6 @@
 package datahub.spark;
 
+import datahub.spark.consumer.impl.CoalesceJobsEmitter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -56,6 +57,8 @@ public class DatahubSparkListener extends SparkListener {
   public static final String PIPELINE_KEY = "metadata.pipeline";
   public static final String PIPELINE_PLATFORM_INSTANCE_KEY = PIPELINE_KEY + ".platformInstance";
 
+  public static final String COALESCE_KEY = "coalesce_jobs";
+  
   private final Map<String, AppStartEvent> appDetails = new ConcurrentHashMap<>();
   private final Map<String, Map<Long, SQLQueryExecStartEvent>> appSqlDetails = new ConcurrentHashMap<>();
   private final Map<String, McpEmitter> appEmitters = new ConcurrentHashMap<>();
@@ -281,7 +284,11 @@ public class DatahubSparkListener extends SparkListener {
       AppStartEvent evt = new AppStartEvent(LineageUtils.getMaster(ctx), getPipelineName(ctx), appId, ctx.startTime(),
           ctx.sparkUser(), pipelineConfig);
 
-      appEmitters.computeIfAbsent(appId, s -> new McpEmitter(datahubConf)).accept(evt);
+      appEmitters.computeIfAbsent(appId,
+          s -> datahubConf.hasPath(COALESCE_KEY) && datahubConf.getBoolean(COALESCE_KEY)
+              ? new CoalesceJobsEmitter(datahubConf)
+              : new McpEmitter(datahubConf))
+          .accept(evt);
       consumers().forEach(c -> c.accept(evt));
       appDetails.put(appId, evt);
       appSqlDetails.put(appId, new ConcurrentHashMap<>());
