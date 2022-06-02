@@ -254,7 +254,7 @@ export const PoliciesPage = () => {
                 deletePolicy({ variables: { urn: policy?.urn as string } }); // There must be a focus policy urn.
                 setTimeout(function () {
                     policiesRefetch();
-                }, 2000);
+                }, 3000);
                 onCancelViewPolicy();
             },
             onCancel() {},
@@ -281,6 +281,9 @@ export const PoliciesPage = () => {
                 input: toPolicyInput(newPolicy),
             },
         });
+        setTimeout(function () {
+            policiesRefetch();
+        }, 3000);
         setShowViewPolicyModal(false);
     };
 
@@ -295,7 +298,7 @@ export const PoliciesPage = () => {
         message.success('Successfully saved policy.');
         setTimeout(function () {
             policiesRefetch();
-        }, 2000);
+        }, 3000);
         onClosePolicyBuilder();
     };
 
@@ -414,6 +417,8 @@ export const PoliciesPage = () => {
         type: policy?.type,
         urn: policy?.urn,
     }));
+
+    console.log('policies:: ', policies);
 
     return (
         <SearchablePage>

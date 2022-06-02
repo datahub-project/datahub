@@ -36,10 +36,6 @@ const SearchResultContent = styled.div`
     align-items: center;
 `;
 
-const SearchResultDisplayName = styled.div`
-    margin-right: 8px;
-`;
-
 /**
  * Component used to construct the "actors" portion of a DataHub
  * access Policy by populating an ActorFilter object.
@@ -160,14 +156,12 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
             <SearchResultContainer>
                 <SearchResultContent>
                     <CustomAvatar
-                        size={18}
+                        size={24}
                         name={displayName}
                         photoUrl={avatarUrl}
                         isGroup={result.entity.type === EntityType.CorpGroup}
                     />
-                    <SearchResultDisplayName>
-                        <div>{displayName}</div>
-                    </SearchResultDisplayName>
+                    <div>{displayName}</div>
                 </SearchResultContent>
             </SearchResultContainer>
         );
