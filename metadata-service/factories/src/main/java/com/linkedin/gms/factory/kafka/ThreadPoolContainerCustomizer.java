@@ -11,7 +11,8 @@ public class ThreadPoolContainerCustomizer
   @Override
   public void configure(ConcurrentMessageListenerContainer<String, GenericRecord> container) {
     ThreadPoolTaskExecutor threadPoolTaskExecutor = new ThreadPoolTaskExecutor();
-    // Min pool size defaults to 1 so we just need to limit the concurrency by the configured value
+    // Default Queue Capacity is set to max, so we want to allow the thread pool to add concurrent threads up to configured value
+    threadPoolTaskExecutor.setCorePoolSize(container.getConcurrency());
     threadPoolTaskExecutor.setMaxPoolSize(container.getConcurrency());
     threadPoolTaskExecutor.initialize();
     container.getContainerProperties().setConsumerTaskExecutor(threadPoolTaskExecutor);
