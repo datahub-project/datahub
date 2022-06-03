@@ -68,7 +68,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
         >
             <ModalSection>
                 <StyledAlert
-                    type="warning"
+                    type="info"
                     message={
                         <span>
                             <StyledInfoCircleOutlined />

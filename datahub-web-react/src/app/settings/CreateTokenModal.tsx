@@ -32,7 +32,6 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
     const [tokenDescription, setTokenDescription] = useState('');
     const [selectedTokenDuration, setSelectedTokenDuration] = useState(ACCESS_TOKEN_DURATIONS[2].duration);
 
-    const [isTokenDurationChanged, setIsTokenDurationChanged] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [createButtonEnabled, setCreateButtonEnabled] = useState(true);
 
@@ -58,7 +57,6 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
         setTokenName('');
         setTokenDescription('');
         setSelectedTokenDuration(ACCESS_TOKEN_DURATIONS[2].duration);
-        setIsTokenDurationChanged(false);
         form.resetFields();
         onClose();
     };
@@ -87,7 +85,6 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
 
     // Function to handle the selection of Token Duration
     const onSelectTokenDurationHandler = (duration: AccessTokenDuration) => {
-        setIsTokenDurationChanged(true);
         setSelectedTokenDuration(duration);
     };
 
@@ -164,9 +161,7 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
                                 </Select.Option>
                             ))}
                         </ExpirationDurationSelect>
-                        {isTokenDurationChanged && (
-                            <Typography.Text>{getTokenExpireDate(selectedTokenDuration)}</Typography.Text>
-                        )}
+                        <Typography.Text type="secondary">{getTokenExpireDate(selectedTokenDuration)}</Typography.Text>
                     </ExpirationSelectContainer>
                 </Form>
             </Modal>
