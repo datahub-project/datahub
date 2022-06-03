@@ -226,4 +226,10 @@ entities:
     keyAspect: testKey
     aspects:
       - testInfo
+  - name: dataHubUpgrade
+    category: internal
+    keyAspect: dataHubUpgradeKey
+    aspects:
+      - dataHubUpgradeRequest
+      - dataHubUpgradeResult
 events:
