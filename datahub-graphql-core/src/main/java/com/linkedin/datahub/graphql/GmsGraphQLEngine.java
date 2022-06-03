@@ -166,6 +166,8 @@ import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.GlobalSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.UpdateGlobalSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.SetTagColorResolver;
 import com.linkedin.datahub.graphql.resolvers.test.CreateTestResolver;
 import com.linkedin.datahub.graphql.resolvers.test.DeleteTestResolver;
@@ -497,6 +499,7 @@ public class GmsGraphQLEngine {
         // Not in OSS
         configureActionRequestResolvers(builder);
         configureResolvedAuditStampResolvers(builder);
+        configureGlobalSettingsResolvers(builder);
     }
 
     public GraphQLEngine.Builder builder() {
@@ -601,6 +604,17 @@ public class GmsGraphQLEngine {
             .dataFetcher("tag",
                 new LoadableTypeResolver<>(tagType,
                     (env) -> ((TagProposalParams) env.getSource()).getTag().getUrn()))
+        );
+    }
+
+    private void configureGlobalSettingsResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("Query", typeWiring -> typeWiring
+            .dataFetcher("globalSettings",
+                new GlobalSettingsResolver(entityClient))
+        );
+        builder.type("Mutation", typeWiring -> typeWiring
+            .dataFetcher("updateGlobalSettings",
+                new UpdateGlobalSettingsResolver(entityClient, secretService))
         );
     }
 

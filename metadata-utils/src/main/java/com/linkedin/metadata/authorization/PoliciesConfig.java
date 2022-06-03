@@ -84,6 +84,11 @@ public class PoliciesConfig {
       "Manage Glossaries",
       "Create, edit, and remove Glossary Entities");
 
+  public static final Privilege MANAGE_GLOBAL_SETTINGS = Privilege.of(
+      "MANAGE_GLOBAL_SETTINGS",
+      "Manage Platform Settings",
+      "View and change platform-level settings, like integrations & notifications.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
       MANAGE_POLICIES_PRIVILEGE,
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
@@ -96,7 +101,8 @@ public class PoliciesConfig {
       GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
       MANAGE_ACCESS_TOKENS,
       MANAGE_TESTS_PRIVILEGE,
-      MANAGE_GLOSSARIES_PRIVILEGE
+      MANAGE_GLOSSARIES_PRIVILEGE,
+      MANAGE_GLOBAL_SETTINGS
   );
 
   // Resource Privileges //

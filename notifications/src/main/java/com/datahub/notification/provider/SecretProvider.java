@@ -55,6 +55,13 @@ public class SecretProvider {
     return _secretService.decrypt(encryptedSecret);
   }
 
+  /**
+   * Simply decrypts an encrypted secret string
+   */
+  public String decryptSecret(final String secret) {
+    return _secretService.decrypt(secret);
+   }
+
   private String getEncryptedSecret(final Urn secretUrn) throws RemoteInvocationException, URISyntaxException {
     EntityResponse response = _entityClient.getV2(
         Constants.SECRETS_ENTITY_NAME,

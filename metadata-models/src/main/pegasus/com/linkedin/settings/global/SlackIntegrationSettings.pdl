@@ -12,11 +12,6 @@ record SlackIntegrationSettings {
   enabled: boolean
 
   /**
-   * The urn of a DataHub secret containing the bot token secret. Required if the integration is enabled.
-   */
-  botTokenSecret: optional Urn
-
-  /**
    * An encrypted bot token.
    */
   encryptedBotToken: optional string

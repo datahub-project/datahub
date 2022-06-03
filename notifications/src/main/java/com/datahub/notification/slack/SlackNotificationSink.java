@@ -675,9 +675,9 @@ public class SlackNotificationSink implements NotificationSink {
       // Next, attempt to instantiate a slack client using a bot token from static config or settings. Bot token provided in dynamic settings
       // takes precedence over that provided in static sink config.
       if (globalSettings.getIntegrations().hasSlackSettings()
-          && globalSettings.getIntegrations().getSlackSettings().hasBotTokenSecret()) {
+          && globalSettings.getIntegrations().getSlackSettings().hasEncryptedBotToken()) {
         try {
-          final String botToken = this.secretProvider.getSecretValue(globalSettings.getIntegrations().getSlackSettings().getBotTokenSecret());
+          final String botToken = this.secretProvider.decryptSecret(globalSettings.getIntegrations().getSlackSettings().getEncryptedBotToken());
           this.slackClient = slack.methods(botToken);
         } catch (Exception e) {
           log.error("Caught exception while attempting to resolve bot token secret. Failed to create slack client.", e);
