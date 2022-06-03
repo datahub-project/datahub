@@ -1,11 +1,11 @@
 package utils;
 
-import org.junit.Test;
+import org.testng.annotations.Test;
 
 import static org.junit.Assert.*;
 
 public class SearchUtilTest {
-    @Test
+    @Tedatahub-frontend/test/utils/SearchUtilTest.javast
     public void testEscapeForwardSlash() {
         // escape "/"
         assertEquals("\\\\/foo\\\\/bar", SearchUtil.escapeForwardSlash("/foo/bar"));
