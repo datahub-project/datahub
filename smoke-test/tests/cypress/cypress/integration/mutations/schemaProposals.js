@@ -9,7 +9,7 @@ describe('schemaProposals', () => {
     // Proposing a tag
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
     cy.get('[data-testid="schema-field-field_foo-tags"]').trigger('mouseover', {force: true});
-    cy.get('[data-testid="schema-field-field_foo-tags"]').within(() => cy.contains('Add Tag').click());
+    cy.get('[data-testid="schema-field-field_foo-tags"]').within(() => cy.contains('Add Tags').click());
 
     cy.focused().type('TagToPropose');
     cy.wait(3000);
@@ -35,7 +35,7 @@ describe('schemaProposals', () => {
     // Proposing a term
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
     cy.get('[data-testid="schema-field-field_foo-terms"]').trigger('mouseover', {force: true});
-    cy.get('[data-testid="schema-field-field_foo-terms"]').within(() => cy.contains('Add Term').click());
+    cy.get('[data-testid="schema-field-field_foo-terms"]').within(() => cy.contains('Add Terms').click());
 
     cy.focused().type('CypressNode.TermToPropose');
     cy.wait(3000);
@@ -62,7 +62,7 @@ describe('schemaProposals', () => {
     // Proposing a tag
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
     cy.get('[data-testid="schema-field-field_foo-tags"]').trigger('mouseover', {force: true});
-    cy.get('[data-testid="schema-field-field_foo-tags"]').within(() => cy.contains('Add Tag').click());
+    cy.get('[data-testid="schema-field-field_foo-tags"]').within(() => cy.contains('Add Tags').click());
 
     cy.focused().type('TagToPropose');
     cy.wait(3000);
@@ -91,7 +91,7 @@ describe('schemaProposals', () => {
     // Proposing a term
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
     cy.get('[data-testid="schema-field-field_foo-terms"]').trigger('mouseover', {force: true});
-    cy.get('[data-testid="schema-field-field_foo-terms"]').within(() => cy.contains('Add Term').click());
+    cy.get('[data-testid="schema-field-field_foo-terms"]').within(() => cy.contains('Add Terms').click());
 
     cy.focused().type('CypressNode.TermToPropose');
     cy.wait(3000);
@@ -122,7 +122,7 @@ describe('schemaProposals', () => {
       // Proposing a tag
       cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
       cy.get('[data-testid="schema-field-field_foo-tags"]').trigger('mouseover', {force: true});
-      cy.get('[data-testid="schema-field-field_foo-tags"]').within(() => cy.contains('Add Tag').click());
+      cy.get('[data-testid="schema-field-field_foo-tags"]').within(() => cy.contains('Add Tags').click());
 
       cy.focused().type('TagToPropose');
       cy.wait(3000);
@@ -159,7 +159,7 @@ describe('schemaProposals', () => {
       // Proposing a term
       cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
       cy.get('[data-testid="schema-field-field_foo-terms"]').trigger('mouseover', {force: true});
-      cy.get('[data-testid="schema-field-field_foo-terms"]').within(() => cy.contains('Add Term').click());
+      cy.get('[data-testid="schema-field-field_foo-terms"]').within(() => cy.contains('Add Terms').click());
 
       cy.focused().type('CypressNode.TermToPropose');
       cy.wait(3000);
@@ -198,7 +198,7 @@ describe('schemaProposals', () => {
       // Proposing a tag
       cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
       cy.get('[data-testid="schema-field-field_foo-tags"]').trigger('mouseover', {force: true});
-      cy.get('[data-testid="schema-field-field_foo-tags"]').within(() => cy.contains('Add Tag').click());
+      cy.get('[data-testid="schema-field-field_foo-tags"]').within(() => cy.contains('Add Tags').click());
 
       cy.focused().type('TagToPropose');
       cy.wait(1000);
@@ -244,7 +244,7 @@ describe('schemaProposals', () => {
       // Proposing a term
       cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
       cy.get('[data-testid="schema-field-field_foo-terms"]').trigger('mouseover', {force: true});
-      cy.get('[data-testid="schema-field-field_foo-terms"]').within(() => cy.contains('Add Term').click());
+      cy.get('[data-testid="schema-field-field_foo-terms"]').within(() => cy.contains('Add Terms').click());
 
       cy.focused().type('CypressNode.TermToPropose');
       cy.wait(1000);
