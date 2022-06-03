@@ -13,6 +13,7 @@ public class ThreadPoolContainerCustomizer
     ThreadPoolTaskExecutor threadPoolTaskExecutor = new ThreadPoolTaskExecutor();
     // Min pool size defaults to 1 so we just need to limit the concurrency by the configured value
     threadPoolTaskExecutor.setMaxPoolSize(container.getConcurrency());
+    threadPoolTaskExecutor.initialize();
     container.getContainerProperties().setConsumerTaskExecutor(threadPoolTaskExecutor);
   }
 }
