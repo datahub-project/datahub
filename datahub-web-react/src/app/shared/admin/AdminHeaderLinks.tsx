@@ -6,7 +6,7 @@ import {
     BookOutlined,
     SettingOutlined,
     FolderOutlined,
-    ContainerOutlined,
+    SolutionOutlined,
     DownOutlined,
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
@@ -99,7 +99,7 @@ export function AdminHeaderLinks(props: Props) {
                 >
                     <AdminLink>
                         <Button type="text">
-                            <ContainerOutlined /> Govern <DownOutlined style={{ fontSize: '6px' }} />
+                            <SolutionOutlined /> Govern <DownOutlined style={{ fontSize: '6px' }} />
                         </Button>
                     </AdminLink>
                 </Dropdown>
