@@ -28,6 +28,7 @@ import { ValidationsTab } from '../shared/tabs/Dataset/Validations/ValidationsTa
 import { OperationsTab } from './profile/OperationsTab';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
+import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -85,7 +86,7 @@ export class DatasetEntity implements Entity<Dataset> {
             useEntityQuery={useGetDatasetQuery}
             useUpdateQuery={useUpdateDatasetMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            showDeprecateOption
+            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
             tabs={[
                 {
                     name: 'Schema',

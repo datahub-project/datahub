@@ -1,13 +1,13 @@
 import React from 'react';
 import { Typography } from 'antd';
 import styled from 'styled-components';
-import { SearchablePage } from '../search/SearchablePage';
 import { RoutedTabs } from '../shared/RoutedTabs';
 import { GroupList } from './group/GroupList';
 import { UserList } from './user/UserList';
 
 const PageContainer = styled.div`
     padding-top: 20px;
+    width: 100%;
 `;
 
 const PageHeaderContainer = styled.div`
@@ -30,7 +30,7 @@ const Content = styled.div`
     height: calc(100vh - 60px);
 
     &&& .ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
-        padding-left: 15px;
+        padding-left: 28px;
     }
 `;
 
@@ -40,7 +40,7 @@ enum TabType {
 }
 const ENABLED_TAB_TYPES = [TabType.Users, TabType.Groups];
 
-export const ManageIdentitiesPage = () => {
+export const ManageIdentities = () => {
     /**
      * Determines which view should be visible: users or groups list.
      */
@@ -70,18 +70,16 @@ export const ManageIdentitiesPage = () => {
     const onTabChange = () => null;
 
     return (
-        <SearchablePage>
-            <PageContainer>
-                <PageHeaderContainer>
-                    <PageTitle level={3}>Manage Users & Groups</PageTitle>
-                    <Typography.Paragraph type="secondary">
-                        View your DataHub users & groups. Take administrative actions.
-                    </Typography.Paragraph>
-                </PageHeaderContainer>
-                <Content>
-                    <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
-                </Content>
-            </PageContainer>
-        </SearchablePage>
+        <PageContainer>
+            <PageHeaderContainer>
+                <PageTitle level={3}>Manage Users & Groups</PageTitle>
+                <Typography.Paragraph type="secondary">
+                    View your DataHub users & groups. Take administrative actions.
+                </Typography.Paragraph>
+            </PageHeaderContainer>
+            <Content>
+                <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
+            </Content>
+        </PageContainer>
     );
 };

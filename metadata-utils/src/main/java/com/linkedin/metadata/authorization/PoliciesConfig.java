@@ -79,6 +79,11 @@ public class PoliciesConfig {
       "Manage Tests",
       "Create and remove Asset Tests.");
 
+  public static final Privilege MANAGE_GLOSSARIES_PRIVILEGE = Privilege.of(
+      "MANAGE_GLOSSARIES",
+      "Manage Glossaries",
+      "Create, edit, and remove Glossary Entities");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
       MANAGE_POLICIES_PRIVILEGE,
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
@@ -90,7 +95,8 @@ public class PoliciesConfig {
       MANAGE_DOMAINS_PRIVILEGE,
       GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
       MANAGE_ACCESS_TOKENS,
-      MANAGE_TESTS_PRIVILEGE
+      MANAGE_TESTS_PRIVILEGE,
+      MANAGE_GLOSSARIES_PRIVILEGE
   );
 
   // Resource Privileges //

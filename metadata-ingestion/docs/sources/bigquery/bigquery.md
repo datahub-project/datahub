@@ -20,6 +20,8 @@
    logging.logEntries.list
    logging.privateLogEntries.list
    resourcemanager.projects.get
+   bigquery.readsessions.create
+   bigquery.readsessions.getData
 ```
 #### Create a service account
 

@@ -28,6 +28,8 @@ import {
     DataPlatformInstance,
     ParentContainersResult,
     SiblingProperties,
+    EntityRelationshipsResult,
+    ParentNodesResult,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -82,6 +84,8 @@ export type GenericEntityProperties = {
     deprecation?: Maybe<Deprecation>;
     siblings?: Maybe<SiblingProperties>;
     parentContainers?: Maybe<ParentContainersResult>;
+    children?: Maybe<EntityRelationshipsResult>;
+    parentNodes?: Maybe<ParentNodesResult>;
 };
 
 export type GenericEntityUpdate = {
