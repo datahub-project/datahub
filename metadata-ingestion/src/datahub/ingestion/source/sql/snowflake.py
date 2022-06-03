@@ -1,6 +1,7 @@
 import json
 import logging
 from collections import defaultdict
+from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import pydantic
@@ -68,6 +69,7 @@ class SnowflakeSource(SQLAlchemySource):
         super().__init__(config, ctx, "snowflake")
         self._lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
         self._external_lineage_map: Optional[Dict[str, Set[str]]] = None
+
         self.report: SnowflakeReport = SnowflakeReport()
         self.config: SnowflakeConfig = config
         self.provision_role_in_progress: bool = False
@@ -177,8 +179,12 @@ class SnowflakeSource(SQLAlchemySource):
             else:
                 self.report.report_dropped(db)
 
-    def get_identifier(self, *, schema: str, entity: str, **kwargs: Any) -> str:
-        regular = super().get_identifier(schema=schema, entity=entity, **kwargs)
+    def get_identifier(
+        self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
+    ) -> str:
+        regular = super().get_identifier(
+            schema=schema, entity=entity, inspector=inspector, **kwargs
+        )
         return f"{self.current_database.lower()}.{regular}"
 
     def _populate_view_upstream_lineage(self, engine: sqlalchemy.engine.Engine) -> None:
@@ -747,6 +753,38 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
         ):
             return False
         return True
+
+    def generate_profile_candidates(
+        self, inspector: Inspector, threshold_time: datetime
+    ) -> List[str]:
+
+        _profile_candidates = []
+
+        db_rows = inspector.engine.execute(
+            text(
+                """
+SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME
+FROM INFORMATION_SCHEMA.TABLES
+WHERE LAST_ALTERED >= '{date}' AND TABLE_TYPE= 'BASE TABLE'
+            """.format(
+                    date=datetime.strftime(threshold_time, "%Y-%m-%d %H:%M:%S.%f %z")
+                )
+            )
+        )
+
+        db_name = self.current_database
+
+        for db_row in db_rows:
+            _profile_candidates.append(
+                self.get_identifier(
+                    schema=db_row.table_schema,
+                    entity=db_row.table_name,
+                    inspector=inspector,
+                ).lower()
+            )
+
+        logger.debug(f"Generating profiling candidates for db {db_name}")
+        return _profile_candidates
 
     # Stateful Ingestion specific overrides
     # NOTE: There is no special state associated with this source yet than what is provided by sql_common.
