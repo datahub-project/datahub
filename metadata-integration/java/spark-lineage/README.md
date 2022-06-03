@@ -59,6 +59,8 @@ spark = SparkSession.builder()
 | spark.datahub.metadata.pipeline.platformInstance|          |         | Pipeline level platform instance                                        |
 | spark.datahub.metadata.dataset.platformInstance|          |         | dataset level platform instance                                        |
 | spark.datahub.metadata.dataset.env              |          | PROD    | [Supported values](https://datahubproject.io/docs/graphql/enums#fabrictype). In all other cases, will fallback to PROD           |
+| spark.datahub.coalesce_jobs              |          |  false     |  Only one datajob(taask) will be emitted containing all input and output datasets for the spark application          |
+| spark.datahub.parent.datajob_urn              |          |       | Specified dataset will be set as upstream dataset for datajob created. Effective only when spark.datahub.coalesce_jobs is set to true     |
 
 
 ## What to Expect: The Metadata Model
