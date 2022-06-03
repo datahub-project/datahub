@@ -2,8 +2,9 @@ import { Menu, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../entity/shared/constants';
+
 import { SearchablePage } from '../search/SearchablePage';
-import { AccessTokensPage } from './AccessTokensPage';
+import { AccessTokens } from './AccessTokens';
 
 const PageContainer = styled.div`
     display: flex;
@@ -55,7 +56,7 @@ export const SettingsPage = () => {
                         <Menu.Item key="access-tokens">Access Tokens</Menu.Item>
                     </Menu>
                 </SettingsBarContainer>
-                {selectedKey === 'access-tokens' && <AccessTokensPage />}
+                {selectedKey === 'access-tokens' && <AccessTokens />}
             </PageContainer>
         </SearchablePage>
     );
