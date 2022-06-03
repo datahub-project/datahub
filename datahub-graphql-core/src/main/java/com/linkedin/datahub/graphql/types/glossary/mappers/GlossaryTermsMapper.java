@@ -4,8 +4,6 @@ import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import javax.annotation.Nonnull;
 import java.util.stream.Collectors;
-
-import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryTerms;
 import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
