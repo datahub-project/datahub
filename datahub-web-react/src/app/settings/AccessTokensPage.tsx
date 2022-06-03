@@ -157,7 +157,7 @@ export const AccessTokensPage = () => {
             title: 'Name',
             dataIndex: 'name',
             key: 'name',
-            render: (name: string) => name || '',
+            render: (name: string) => <b>{name}</b>,
         },
         {
             title: 'Description',
@@ -234,7 +234,7 @@ export const AccessTokensPage = () => {
                         type="text"
                         onClick={() => setIsCreatingToken(true)}
                         data-testid="add-token-button"
-                        disabled={!canGeneratePersonalAccessTokens}
+                        disabled={canGeneratePersonalAccessTokens}
                     >
                         <PlusOutlined /> Generate new token
                     </Button>

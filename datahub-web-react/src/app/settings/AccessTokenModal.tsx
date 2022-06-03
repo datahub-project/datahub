@@ -72,7 +72,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                     message={
                         <span>
                             <StyledInfoCircleOutlined />
-                            Make sure to copy your personal access token now. You won’t be able to see it again!.
+                            Make sure to copy your personal access token now. You won’t be able to see it again.
                         </span>
                     }
                 />

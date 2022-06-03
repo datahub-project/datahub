@@ -119,7 +119,7 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
                     }
                 >
                     <Form.Item label={<Typography.Text strong>Name</Typography.Text>}>
-                        <Typography.Paragraph>Give your new Token a name. </Typography.Paragraph>
+                        <Typography.Paragraph>Give your new token a name. </Typography.Paragraph>
                         <Form.Item
                             name="name"
                             rules={[
