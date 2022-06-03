@@ -1,0 +1,30 @@
+namespace com.linkedin.common
+
+/**
+ * Standardized Notebook identifier
+ */
+@java.class = "com.linkedin.common.urn.NotebookUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:datahub",
+  "entityType" : "notebook",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "Notebook",
+  "doc" : "Standardized Notebook identifier",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "name" : "notebookTool",
+    "doc" : "The name of the Notebook tool such as querybook etc.",
+    "type" : "string",
+    "maxLength" : 20
+  },
+  {
+    "name" : "notebookId",
+    "doc" : "Unique id for the Notebook. This id should be globally unique for a Notebook tool even when there are multiple deployments of it. As an example, Notebook URL could be used here for querybook such as 'querybook.com/notebook/773'",
+    "type" : "string",
+    "maxLength" : 200
+  }],
+  "maxLength" : 240
+}
+typeref NotebookUrn = string

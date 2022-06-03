@@ -8,6 +8,7 @@ from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type
 
 from elasticsearch import Elasticsearch
 from pydantic import validator
+from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.source_common import DatasetSourceConfigBase
@@ -18,6 +19,14 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
@@ -146,9 +155,10 @@ class ElasticToSchemaFieldConverter:
         converter = cls()
         properties = elastic_mappings.get("properties")
         if not properties:
-            raise ValueError(
+            logger.warning(
                 f"Missing 'properties' in elastic search mappings={json.dumps(elastic_mappings)}!"
             )
+            return
         yield from converter._get_schema_fields(properties)
 
 
@@ -165,12 +175,54 @@ class ElasticsearchSourceReport(SourceReport):
 
 
 class ElasticsearchSourceConfig(DatasetSourceConfigBase):
-    host: str = "localhost:9200"
-    username: Optional[str] = None
-    password: Optional[str] = None
-    url_prefix: str = ""
-    index_pattern: AllowDenyPattern = AllowDenyPattern(
-        allow=[".*"], deny=["^_.*", "^ilm-history.*"]
+    host: str = Field(
+        default="localhost:9200", description="The elastic search host URI."
+    )
+    username: Optional[str] = Field(
+        default=None, description="The username credential."
+    )
+    password: Optional[str] = Field(
+        default=None, description="The password credential."
+    )
+
+    use_ssl: bool = Field(
+        default=False, description="Whether to use SSL for the connection or not."
+    )
+
+    verify_certs: bool = Field(
+        default=False, description="Whether to verify SSL certificates."
+    )
+
+    ca_certs: Optional[str] = Field(
+        default=None, description="Path to a certificate authority (CA) certificate."
+    )
+
+    client_cert: Optional[str] = Field(
+        default=None,
+        description="Path to the file containing the private key and the certificate, or cert only if using client_key.",
+    )
+
+    client_key: Optional[str] = Field(
+        default=None,
+        description="Path to the file containing the private key if using separate cert and key files.",
+    )
+
+    ssl_assert_hostname: bool = Field(
+        default=False, description="Use hostname verification if not False."
+    )
+
+    ssl_assert_fingerprint: Optional[str] = Field(
+        default=None,
+        description="Verify the supplied certificate fingerprint if not None.",
+    )
+
+    url_prefix: str = Field(
+        default="",
+        description="There are cases where an enterprise would have multiple elastic search clusters. One way for them to manage is to have a single endpoint for all the elastic search clusters and use url_prefix for routing requests to different clusters.",
+    )
+    index_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern(allow=[".*"], deny=["^_.*", "^ilm-history.*"]),
+        description="regex patterns for indexes to filter in ingestion.",
     )
 
     @validator("host")
@@ -208,13 +260,32 @@ class ElasticsearchSourceConfig(DatasetSourceConfigBase):
         return self.username, self.password or ""
 
 
+@platform_name("Elastic Search")
+@config_class(ElasticsearchSourceConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 class ElasticsearchSource(Source):
+
+    """
+    This plugin extracts the following:
+
+    - Metadata for indexes
+    - Column types associated with each index field
+    """
+
     def __init__(self, config: ElasticsearchSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.source_config = config
         self.client = Elasticsearch(
             self.source_config.host,
             http_auth=self.source_config.http_auth,
+            use_ssl=self.source_config.use_ssl,
+            verify_certs=self.source_config.verify_certs,
+            ca_certs=self.source_config.ca_certs,
+            client_cert=self.source_config.client_cert,
+            client_key=self.source_config.client_key,
+            ssl_assert_hostname=self.source_config.ssl_assert_hostname,
+            ssl_assert_fingerprint=self.source_config.ssl_assert_fingerprint,
             url_prefix=self.source_config.url_prefix,
         )
         self.report = ElasticsearchSourceReport()
@@ -289,6 +360,8 @@ class ElasticsearchSource(Source):
         schema_fields = list(
             ElasticToSchemaFieldConverter.get_schema_fields(index_mappings)
         )
+        if not schema_fields:
+            return
 
         # 1.2 Generate the SchemaMetadata aspect
         schema_metadata = SchemaMetadata(

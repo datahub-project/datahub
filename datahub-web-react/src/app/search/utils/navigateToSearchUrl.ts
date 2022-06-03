@@ -26,7 +26,7 @@ export const navigateToSearchUrl = ({
     const search = QueryString.stringify(
         {
             ...filtersToQueryStringParams(constructedFilters),
-            query: newQuery,
+            query: encodeURIComponent(newQuery || ''),
             page: newPage,
         },
         { arrayFormat: 'comma' },
@@ -56,7 +56,7 @@ export const navigateToSearchLineageUrl = ({
     const search = QueryString.stringify(
         {
             ...filtersToQueryStringParams(constructedFilters),
-            query: newQuery,
+            query: encodeURIComponent(newQuery || ''),
             page: newPage,
         },
         { arrayFormat: 'comma' },

@@ -7,7 +7,7 @@ import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
-import com.linkedin.gms.factory.kafka.KafkaEventProducerFactory;
+import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -35,7 +35,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Import({RestliEntityClientFactory.class, SystemAuthenticationFactory.class, KafkaEventConsumerFactory.class,
-    KafkaEventProducerFactory.class})
+    DataHubKafkaProducerFactory.class})
 @Conditional(MetadataChangeProposalProcessorCondition.class)
 @EnableKafka
 @RequiredArgsConstructor

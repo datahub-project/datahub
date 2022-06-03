@@ -1,35 +1,48 @@
 import { List, Typography } from 'antd';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import { MlFeature, MlPrimaryKey, Dataset, EntityType } from '../../../../types.generated';
+import { GetMlFeatureTableQuery } from '../../../../graphql/mlFeatureTable.generated';
+import { Dataset, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { PreviewType } from '../../Entity';
-
-export type Props = {
-    features?: Array<MlFeature | MlPrimaryKey>;
-};
+import { useBaseEntity } from '../../shared/EntityContext';
+import { notEmpty } from '../../shared/utils';
 
 const ViewRawButtonContainer = styled.div`
     display: flex;
     justify-content: flex-end;
 `;
 
-export default function SourcesView({ features }: Props) {
+export default function SourcesView() {
     const entityRegistry = useEntityRegistry();
+    const baseEntity = useBaseEntity<GetMlFeatureTableQuery>();
+    const featureTable = baseEntity?.mlFeatureTable;
+
+    const features = useMemo(
+        () =>
+            featureTable?.properties &&
+            (featureTable?.properties?.mlFeatures || featureTable?.properties?.mlPrimaryKeys)
+                ? [
+                      ...(featureTable?.properties?.mlPrimaryKeys || []),
+                      ...(featureTable?.properties?.mlFeatures || []),
+                  ].filter(notEmpty)
+                : [],
+        [featureTable?.properties],
+    );
 
     const sources = useMemo(
         () =>
-            features?.reduce((accumulator: Array<Dataset>, feature: MlFeature | MlPrimaryKey) => {
-                if (feature.__typename === 'MLFeature' && feature.featureProperties?.sources) {
+            features?.reduce((accumulator: Array<Dataset>, feature) => {
+                if (feature.__typename === 'MLFeature' && feature.properties?.sources) {
                     // eslint-disable-next-line array-callback-return
-                    feature.featureProperties?.sources.map((source: Dataset | null) => {
+                    feature.properties?.sources.map((source: Dataset | null) => {
                         if (source && accumulator.findIndex((dataset) => dataset.urn === source?.urn) === -1) {
                             accumulator.push(source);
                         }
                     });
-                } else if (feature.__typename === 'MLPrimaryKey' && feature.primaryKeyProperties?.sources) {
+                } else if (feature.__typename === 'MLPrimaryKey' && feature.properties?.sources) {
                     // eslint-disable-next-line array-callback-return
-                    feature.primaryKeyProperties?.sources.map((source: Dataset | null) => {
+                    feature.properties?.sources.map((source: Dataset | null) => {
                         if (source && accumulator.findIndex((dataset) => dataset.urn === source?.urn) === -1) {
                             accumulator.push(source);
                         }

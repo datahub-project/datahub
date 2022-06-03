@@ -14,7 +14,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.key.DomainKey;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -58,10 +58,10 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
 
         // Create the MCP
         final MetadataChangeProposal proposal = new MetadataChangeProposal();
-        proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
+        proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
         proposal.setEntityType(Constants.DOMAIN_ENTITY_NAME);
         proposal.setAspectName(Constants.DOMAIN_PROPERTIES_ASPECT_NAME);
-        proposal.setAspect(GenericAspectUtils.serializeAspect(mapDomainProperties(input)));
+        proposal.setAspect(GenericRecordUtils.serializeAspect(mapDomainProperties(input)));
         proposal.setChangeType(ChangeType.UPSERT);
         return _entityClient.ingestProposal(proposal, context.getAuthentication());
       } catch (Exception e) {

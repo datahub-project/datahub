@@ -16,6 +16,8 @@ import { DataJobFlowTab } from '../shared/tabs/Entity/DataJobFlowTab';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { RunsTab } from './tabs/RunsTab';
+import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 
 /**
  * Definition of the DataHub DataJob entity.
@@ -63,6 +65,7 @@ export class DataJobEntity implements Entity<DataJob> {
             useEntityQuery={useGetDataJobQuery}
             useUpdateQuery={useUpdateDataJobMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
+            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
             tabs={[
                 {
                     name: 'Documentation',
@@ -84,6 +87,14 @@ export class DataJobEntity implements Entity<DataJob> {
                         enabled: (_, dataJob: GetDataJobQuery) =>
                             (dataJob?.dataJob?.incoming?.count || 0) !== 0 ||
                             (dataJob?.dataJob?.outgoing?.count || 0) !== 0,
+                    },
+                },
+                {
+                    name: 'Runs',
+                    component: RunsTab,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, dataJob: GetDataJobQuery) => (dataJob?.dataJob?.runs?.total || 0) !== 0,
                     },
                 },
             ]}
@@ -163,6 +174,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 description={data.editableProperties?.description || data.properties?.description}
                 platformName={platformName}
                 platformLogo={data?.dataFlow?.platform?.properties?.logoUrl || ''}
+                platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 domain={data.domain}

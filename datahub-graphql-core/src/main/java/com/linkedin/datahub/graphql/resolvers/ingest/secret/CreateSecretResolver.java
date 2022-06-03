@@ -10,7 +10,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DataHubSecretKey;
 import com.linkedin.metadata.secret.SecretService;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.secret.DataHubSecretValue;
 import graphql.schema.DataFetcher;
@@ -50,7 +50,7 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
         // Create the Ingestion source key --> use the display name as a unique id to ensure it's not duplicated.
         final DataHubSecretKey key = new DataHubSecretKey();
         key.setId(input.getName());
-        proposal.setEntityKeyAspect(GenericAspectUtils.serializeAspect(key));
+        proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
 
         // Create the secret value.
         final DataHubSecretValue value = new DataHubSecretValue();
@@ -60,7 +60,7 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
 
         proposal.setEntityType(Constants.SECRETS_ENTITY_NAME);
         proposal.setAspectName(Constants.SECRET_VALUE_ASPECT_NAME);
-        proposal.setAspect(GenericAspectUtils.serializeAspect(value));
+        proposal.setAspect(GenericRecordUtils.serializeAspect(value));
         proposal.setChangeType(ChangeType.UPSERT);
 
         System.out.println(String.format("About to ingest %s", proposal));

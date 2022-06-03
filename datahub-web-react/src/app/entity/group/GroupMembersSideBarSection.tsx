@@ -1,4 +1,4 @@
-import { Tag } from 'antd';
+import { Tag, Tooltip } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -53,7 +53,11 @@ export default function GroupMembersSideBarSection({ total, relationships, onSee
                                         photoUrl={user.editableProperties?.pictureLink || undefined}
                                         useDefaultAvatar={false}
                                     />
-                                    {name}
+                                    {name.length > 15 ? (
+                                        <Tooltip title={name}>{`${name.substring(0, 15)}..`}</Tooltip>
+                                    ) : (
+                                        <span>{name}</span>
+                                    )}
                                 </Link>
                             </MemberTag>
                         );

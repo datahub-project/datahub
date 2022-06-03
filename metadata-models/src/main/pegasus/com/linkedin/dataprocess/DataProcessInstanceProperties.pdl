@@ -1,0 +1,54 @@
+namespace com.linkedin.dataprocess
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+import com.linkedin.common.Urn
+import com.linkedin.common.JobFlowUrn
+import com.linkedin.common.DataJobUrn
+
+/**
+ * The inputs and outputs of this data process
+ */
+@Aspect = {
+  "name": "dataProcessInstanceProperties",
+}
+record DataProcessInstanceProperties includes CustomProperties, ExternalReference {
+
+  /**
+   * Process name
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  name: string
+
+  /**
+   * Process type
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "addToFilters": true,
+    "filterNameOverride": "Process Type"
+  }
+  type: optional enum DataProcessType {
+    BATCH_SCHEDULED,
+    BATCH_AD_HOC,
+    STREAMING,
+  }
+
+  /**
+  * Audit stamp containing who reported the lineage and when
+  */
+  @Searchable = {
+    "/time": {
+      "fieldType": "COUNT",
+      "queryByDefault": false
+      "fieldName": "created"
+    }
+  }
+  created: AuditStamp
+
+}

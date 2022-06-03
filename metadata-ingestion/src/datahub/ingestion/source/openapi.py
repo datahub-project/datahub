@@ -4,9 +4,19 @@ import warnings
 from abc import ABC
 from typing import Dict, Generator, Iterable, Optional, Tuple
 
+from pydantic.fields import Field
+
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.openapi_parser import (
@@ -36,15 +46,15 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class OpenApiConfig(ConfigModel):
-    name: str
-    url: str
-    swagger_file: str
-    ignore_endpoints: list = []
-    username: str = ""
-    password: str = ""
-    forced_examples: dict = {}
-    token: Optional[str] = None
-    get_token: dict = {}
+    name: str = Field(description="")
+    url: str = Field(description="")
+    swagger_file: str = Field(description="")
+    ignore_endpoints: list = Field(default=[], description="")
+    username: str = Field(default="", description="")
+    password: str = Field(default="", description="")
+    forced_examples: dict = Field(default={}, description="")
+    token: Optional[str] = Field(default=None, description="")
+    get_token: dict = Field(default={}, description="")
 
     def get_swagger(self) -> Dict:
         if self.get_token or self.token is not None:
@@ -101,7 +111,32 @@ class ApiWorkUnit(MetadataWorkUnit):
     pass
 
 
+@platform_name("OpenAPI", id="openapi")
+@config_class(OpenApiConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.PLATFORM_INSTANCE, supported=False, description="")
 class APISource(Source, ABC):
+    """
+
+    This plugin is meant to gather dataset-like informations about OpenApi Endpoints.
+
+    As example, if by calling GET at the endpoint at `https://test_endpoint.com/api/users/` you obtain as result:
+    ```JSON
+    [{"user": "albert_physics",
+      "name": "Albert Einstein",
+      "job": "nature declutterer",
+      "is_active": true},
+      {"user": "phytagoras",
+      "name": "Phytagoras of Kroton",
+      "job": "Phylosopher on steroids",
+      "is_active": true}
+    ]
+    ```
+
+    in Datahub you will see a dataset called `test_endpoint/users` which contains as fields `user`, `name` and `job`.
+
+    """
+
     def __init__(self, config: OpenApiConfig, ctx: PipelineContext, platform: str):
         super().__init__(ctx)
         self.config = config

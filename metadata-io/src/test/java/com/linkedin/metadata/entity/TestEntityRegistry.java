@@ -2,12 +2,15 @@ package com.linkedin.metadata.entity;
 
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
+import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 
 public class TestEntityRegistry implements EntityRegistry {
@@ -32,9 +35,21 @@ public class TestEntityRegistry implements EntityRegistry {
     return entityNameToSpec.get(lowercaseEntityName);
   }
 
+  @Nullable
+  @Override
+  public EventSpec getEventSpec(@Nonnull String eventName) {
+    return null;
+  }
+
   @Nonnull
   @Override
   public Map<String, EntitySpec> getEntitySpecs() {
     return entityNameToSpec;
+  }
+
+  @Nonnull
+  @Override
+  public Map<String, EventSpec> getEventSpecs() {
+    return Collections.emptyMap();
   }
 }

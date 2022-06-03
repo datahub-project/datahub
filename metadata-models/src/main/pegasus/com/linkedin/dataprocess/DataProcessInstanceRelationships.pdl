@@ -1,0 +1,65 @@
+namespace com.linkedin.dataprocess
+
+import com.linkedin.common.Urn
+
+/**
+ * Information about Data process relationships
+ */
+@Aspect = {
+  "name": "dataProcessInstanceRelationships"
+}
+record DataProcessInstanceRelationships {
+
+  /**
+   * The parent entity whose run instance it is
+   */
+  @Relationship = {
+      "name": "InstanceOf",
+      "entityTypes": [ "dataJob", "dataFlow" ]
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "parentTemplate",
+      "fieldType": "URN",
+      "queryByDefault": false
+    }
+  }
+  parentTemplate: optional Urn
+
+  /**
+   * The parent DataProcessInstance where it belongs to.
+   * If it is a Airflow Task then it should belong to an Airflow Dag run as well
+   * which will be another DataProcessInstance
+   */
+  @Relationship = {
+      "name": "ChildOf",
+      "entityTypes": [ "dataProcessInstance" ]
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "parentInstance",
+      "fieldType": "URN",
+      "queryByDefault": false
+    }
+  }
+  parentInstance: optional Urn
+
+  /**
+   * Input DataProcessInstance which triggered this dataprocess instance
+   */
+  @Relationship = {
+    "/*": {
+      "name": "UpstreamOf",
+      "entityTypes": [ "dataProcessInstance" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "upstream",
+      "fieldType": "URN",
+      "numValuesFieldName": "numUpstreams",
+      "queryByDefault": false
+    }
+  }
+  upstreamInstances: array[Urn]
+}

@@ -10,7 +10,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DataHubSecretKey;
 import com.linkedin.metadata.secret.SecretService;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.secret.DataHubSecretValue;
@@ -62,8 +62,8 @@ public class CreateSecretResolverTest {
                 .setChangeType(ChangeType.UPSERT)
                 .setEntityType(Constants.SECRETS_ENTITY_NAME)
                 .setAspectName(Constants.SECRET_VALUE_ASPECT_NAME)
-                .setAspect(GenericAspectUtils.serializeAspect(value))
-                .setEntityKeyAspect(GenericAspectUtils.serializeAspect(key))
+                .setAspect(GenericRecordUtils.serializeAspect(value))
+                .setEntityKeyAspect(GenericRecordUtils.serializeAspect(key))
         ),
         Mockito.any(Authentication.class)
     );

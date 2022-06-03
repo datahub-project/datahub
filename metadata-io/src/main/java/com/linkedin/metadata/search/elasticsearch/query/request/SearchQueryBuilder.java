@@ -2,16 +2,23 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.annotation.SearchScoreAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import org.elasticsearch.common.lucene.search.function.CombineFunction;
+import org.elasticsearch.common.lucene.search.function.FieldValueFactorFunction;
+import org.elasticsearch.common.lucene.search.function.FunctionScoreQuery;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.QueryStringQueryBuilder;
+import org.elasticsearch.index.query.functionscore.FieldValueFactorFunctionBuilder;
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
 
@@ -30,7 +37,9 @@ public class SearchQueryBuilder {
   }
 
   public static QueryBuilder buildQuery(@Nonnull EntitySpec entitySpec, @Nonnull String query) {
-    return QueryBuilders.functionScoreQuery(buildInternalQuery(entitySpec, query), buildFilterFunctions(entitySpec));
+    return QueryBuilders.functionScoreQuery(buildInternalQuery(entitySpec, query), buildScoreFunctions(entitySpec))
+        .scoreMode(FunctionScoreQuery.ScoreMode.AVG) // Average score functions
+        .boostMode(CombineFunction.MULTIPLY); // Multiply score function with the score from query
   }
 
   private static QueryBuilder buildInternalQuery(@Nonnull EntitySpec entitySpec, @Nonnull String query) {
@@ -72,22 +81,59 @@ public class SearchQueryBuilder {
     return finalQuery;
   }
 
-  private static FunctionScoreQueryBuilder.FilterFunctionBuilder[] buildFilterFunctions(
-      @Nonnull EntitySpec entitySpec) {
-    return entitySpec.getSearchableFieldSpecs()
+  private static FunctionScoreQueryBuilder.FilterFunctionBuilder[] buildScoreFunctions(@Nonnull EntitySpec entitySpec) {
+    List<FunctionScoreQueryBuilder.FilterFunctionBuilder> finalScoreFunctions = new ArrayList<>();
+    // Add a default weight of 1.0 to make sure the score function is larger than 1
+    finalScoreFunctions.add(
+        new FunctionScoreQueryBuilder.FilterFunctionBuilder(ScoreFunctionBuilders.weightFactorFunction(1.0f)));
+    entitySpec.getSearchableFieldSpecs()
         .stream()
         .flatMap(fieldSpec -> fieldSpec.getSearchableAnnotation()
             .getWeightsPerFieldValue()
             .entrySet()
             .stream()
-            .map(entry -> buildFilterFunction(fieldSpec.getSearchableAnnotation().getFieldName(), entry.getKey(),
+            .map(entry -> buildWeightFactorFunction(fieldSpec.getSearchableAnnotation().getFieldName(), entry.getKey(),
                 entry.getValue())))
-        .toArray(FunctionScoreQueryBuilder.FilterFunctionBuilder[]::new);
+        .forEach(finalScoreFunctions::add);
+
+    entitySpec.getSearchScoreFieldSpecs()
+        .stream()
+        .map(fieldSpec -> buildScoreFunctionFromSearchScoreAnnotation(fieldSpec.getSearchScoreAnnotation()))
+        .forEach(finalScoreFunctions::add);
+
+    return finalScoreFunctions.toArray(new FunctionScoreQueryBuilder.FilterFunctionBuilder[0]);
   }
 
-  private static FunctionScoreQueryBuilder.FilterFunctionBuilder buildFilterFunction(@Nonnull String fieldName,
+  private static FunctionScoreQueryBuilder.FilterFunctionBuilder buildWeightFactorFunction(@Nonnull String fieldName,
       @Nonnull Object fieldValue, double weight) {
     return new FunctionScoreQueryBuilder.FilterFunctionBuilder(QueryBuilders.termQuery(fieldName, fieldValue),
         ScoreFunctionBuilders.weightFactorFunction((float) weight));
+  }
+
+  private static FunctionScoreQueryBuilder.FilterFunctionBuilder buildScoreFunctionFromSearchScoreAnnotation(
+      @Nonnull SearchScoreAnnotation annotation) {
+    FieldValueFactorFunctionBuilder scoreFunction =
+        ScoreFunctionBuilders.fieldValueFactorFunction(annotation.getFieldName());
+    scoreFunction.factor((float) annotation.getWeight());
+    scoreFunction.missing(annotation.getDefaultValue());
+    annotation.getModifier().ifPresent(modifier -> scoreFunction.modifier(mapModifier(modifier)));
+    return new FunctionScoreQueryBuilder.FilterFunctionBuilder(scoreFunction);
+  }
+
+  private static FieldValueFactorFunction.Modifier mapModifier(SearchScoreAnnotation.Modifier modifier) {
+    switch (modifier) {
+      case LOG:
+        return FieldValueFactorFunction.Modifier.LOG1P;
+      case LN:
+        return FieldValueFactorFunction.Modifier.LN1P;
+      case SQRT:
+        return FieldValueFactorFunction.Modifier.SQRT;
+      case SQUARE:
+        return FieldValueFactorFunction.Modifier.SQUARE;
+      case RECIPROCAL:
+        return FieldValueFactorFunction.Modifier.RECIPROCAL;
+      default:
+        return FieldValueFactorFunction.Modifier.NONE;
+    }
   }
 }

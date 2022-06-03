@@ -25,6 +25,12 @@ from datahub.ingestion.transformer.add_dataset_properties import (
     AddDatasetPropertiesResolverBase,
     SimpleAddDatasetProperties,
 )
+from datahub.ingestion.transformer.add_dataset_schema_tags import (
+    PatternAddDatasetSchemaTags,
+)
+from datahub.ingestion.transformer.add_dataset_schema_terms import (
+    PatternAddDatasetSchemaTerms,
+)
 from datahub.ingestion.transformer.add_dataset_tags import (
     AddDatasetTags,
     PatternAddDatasetTags,
@@ -90,7 +96,7 @@ def create_and_run_test_pipeline(
     path: str,
 ) -> str:
     with mock.patch(
-        "tests.unit.test_source.TestSource.get_workunits"
+        "tests.unit.test_source.FakeSource.get_workunits"
     ) as mock_getworkunits:
         mock_getworkunits.return_value = [
             workunit.MetadataWorkUnit(
@@ -106,7 +112,7 @@ def create_and_run_test_pipeline(
         pipeline = Pipeline.create(
             config_dict={
                 "source": {
-                    "type": "tests.unit.test_source.TestSource",
+                    "type": "tests.unit.test_source.FakeSource",
                     "config": {},
                 },
                 "transformers": transformers,
@@ -1114,7 +1120,7 @@ def test_mcp_multiple_transformers(mock_time, tmp_path):
     pipeline = Pipeline.create(
         config_dict={
             "source": {
-                "type": "tests.unit.test_source.TestSource",
+                "type": "tests.unit.test_source.FakeSource",
                 "config": {},
             },
             "transformers": [
@@ -1406,3 +1412,191 @@ def test_old_transformers_working_as_before(mock_time):
     assert outputs[0].record == dataset_mcps[0]
     assert outputs[1].record == dataset_mcps[1]
     assert isinstance(outputs[-1].record, EndOfStream)
+
+
+def test_pattern_dataset_schema_terms_transformation(mock_time):
+    dataset_mce = make_generic_dataset(
+        aspects=[
+            models.SchemaMetadataClass(
+                schemaName="customer",  # not used
+                platform=builder.make_data_platform_urn(
+                    "hive"
+                ),  # important <- platform must be an urn
+                version=0,
+                # when the source system has a notion of versioning of schemas, insert this in, otherwise leave as 0
+                hash="",
+                # when the source system has a notion of unique schemas identified via hash, include a hash, else leave it as empty string
+                platformSchema=models.OtherSchemaClass(
+                    rawSchema="__insert raw schema here__"
+                ),
+                fields=[
+                    models.SchemaFieldClass(
+                        fieldPath="address",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.StringTypeClass()
+                        ),
+                        nativeDataType="VARCHAR(100)",
+                        # use this to provide the type of the field in the source system's vernacular
+                    ),
+                    models.SchemaFieldClass(
+                        fieldPath="first_name",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.StringTypeClass()
+                        ),
+                        nativeDataType="VARCHAR(100)",
+                        # use this to provide the type of the field in the source system's vernacular
+                    ),
+                    models.SchemaFieldClass(
+                        fieldPath="last_name",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.StringTypeClass()
+                        ),
+                        nativeDataType="VARCHAR(100)",
+                        # use this to provide the type of the field in the source system's vernacular
+                    ),
+                ],
+            )
+        ]
+    )
+
+    transformer = PatternAddDatasetSchemaTerms.create(
+        {
+            "term_pattern": {
+                "rules": {
+                    ".*first_name.*": [
+                        builder.make_term_urn("Name"),
+                        builder.make_term_urn("FirstName"),
+                    ],
+                    ".*last_name.*": [
+                        builder.make_term_urn("Name"),
+                        builder.make_term_urn("LastName"),
+                    ],
+                }
+            },
+        },
+        PipelineContext(run_id="test-schema-terms"),
+    )
+
+    outputs = list(
+        transformer.transform(
+            [
+                RecordEnvelope(input, metadata={})
+                for input in [dataset_mce, EndOfStream()]
+            ]
+        )
+    )
+
+    assert len(outputs) == 2
+    # Check that glossary terms were added.
+    schema_aspect = outputs[0].record.proposedSnapshot.aspects[0]
+    assert schema_aspect
+    assert schema_aspect.fields[0].fieldPath == "address"
+    assert schema_aspect.fields[0].glossaryTerms is None
+    assert schema_aspect.fields[1].fieldPath == "first_name"
+    assert schema_aspect.fields[1].glossaryTerms.terms[0].urn == builder.make_term_urn(
+        "Name"
+    )
+    assert schema_aspect.fields[1].glossaryTerms.terms[1].urn == builder.make_term_urn(
+        "FirstName"
+    )
+    assert schema_aspect.fields[2].fieldPath == "last_name"
+    assert schema_aspect.fields[2].glossaryTerms.terms[0].urn == builder.make_term_urn(
+        "Name"
+    )
+    assert schema_aspect.fields[2].glossaryTerms.terms[1].urn == builder.make_term_urn(
+        "LastName"
+    )
+
+
+def test_pattern_dataset_schema_tags_transformation(mock_time):
+    dataset_mce = make_generic_dataset(
+        aspects=[
+            models.SchemaMetadataClass(
+                schemaName="customer",  # not used
+                platform=builder.make_data_platform_urn(
+                    "hive"
+                ),  # important <- platform must be an urn
+                version=0,
+                # when the source system has a notion of versioning of schemas, insert this in, otherwise leave as 0
+                hash="",
+                # when the source system has a notion of unique schemas identified via hash, include a hash, else leave it as empty string
+                platformSchema=models.OtherSchemaClass(
+                    rawSchema="__insert raw schema here__"
+                ),
+                fields=[
+                    models.SchemaFieldClass(
+                        fieldPath="address",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.StringTypeClass()
+                        ),
+                        nativeDataType="VARCHAR(100)",
+                        # use this to provide the type of the field in the source system's vernacular
+                    ),
+                    models.SchemaFieldClass(
+                        fieldPath="first_name",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.StringTypeClass()
+                        ),
+                        nativeDataType="VARCHAR(100)",
+                        # use this to provide the type of the field in the source system's vernacular
+                    ),
+                    models.SchemaFieldClass(
+                        fieldPath="last_name",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.StringTypeClass()
+                        ),
+                        nativeDataType="VARCHAR(100)",
+                        # use this to provide the type of the field in the source system's vernacular
+                    ),
+                ],
+            )
+        ]
+    )
+
+    transformer = PatternAddDatasetSchemaTags.create(
+        {
+            "tag_pattern": {
+                "rules": {
+                    ".*first_name.*": [
+                        builder.make_tag_urn("Name"),
+                        builder.make_tag_urn("FirstName"),
+                    ],
+                    ".*last_name.*": [
+                        builder.make_tag_urn("Name"),
+                        builder.make_tag_urn("LastName"),
+                    ],
+                }
+            },
+        },
+        PipelineContext(run_id="test-schema-tags"),
+    )
+
+    outputs = list(
+        transformer.transform(
+            [
+                RecordEnvelope(input, metadata={})
+                for input in [dataset_mce, EndOfStream()]
+            ]
+        )
+    )
+
+    assert len(outputs) == 2
+    # Check that glossary terms were added.
+    schema_aspect = outputs[0].record.proposedSnapshot.aspects[0]
+    assert schema_aspect
+    assert schema_aspect.fields[0].fieldPath == "address"
+    assert schema_aspect.fields[0].globalTags is None
+    assert schema_aspect.fields[1].fieldPath == "first_name"
+    assert schema_aspect.fields[1].globalTags.tags[0].tag == builder.make_tag_urn(
+        "Name"
+    )
+    assert schema_aspect.fields[1].globalTags.tags[1].tag == builder.make_tag_urn(
+        "FirstName"
+    )
+    assert schema_aspect.fields[2].fieldPath == "last_name"
+    assert schema_aspect.fields[2].globalTags.tags[0].tag == builder.make_tag_urn(
+        "Name"
+    )
+    assert schema_aspect.fields[2].globalTags.tags[1].tag == builder.make_tag_urn(
+        "LastName"
+    )

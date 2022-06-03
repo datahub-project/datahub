@@ -12,3 +12,5 @@ entities:
     aspects:
       - chartInfo
       - status
+events:
+  - name: testEvent

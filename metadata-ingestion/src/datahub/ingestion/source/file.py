@@ -2,7 +2,15 @@ import json
 from dataclasses import dataclass, field
 from typing import Iterable, Iterator, Union
 
+from pydantic.fields import Field
+
 from datahub.configuration.common import ConfigModel
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -45,11 +53,18 @@ def iterate_generic_file(
 
 
 class FileSourceConfig(ConfigModel):
-    filename: str
+    filename: str = Field(description="Path to file to ingest.")
 
 
+@platform_name("File")
+@config_class(FileSourceConfig)
+@support_status(SupportStatus.CERTIFIED)
 @dataclass
 class GenericFileSource(Source):
+    """
+    This plugin pulls metadata from a previously generated file. The [file sink](../../../../metadata-ingestion/sink_docs/file.md) can produce such files, and a number of samples are included in the [examples/mce_files](../../../../metadata-ingestion/examples/mce_files) directory.
+    """
+
     config: FileSourceConfig
     report: SourceReport = field(default_factory=SourceReport)
 

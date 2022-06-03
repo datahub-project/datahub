@@ -1,5 +1,7 @@
 namespace com.linkedin.metadata.run
 
+import com.linkedin.entity.Aspect
+
 record AspectRowSummary {
     runId: string
     aspectName: string
@@ -8,4 +10,5 @@ record AspectRowSummary {
     metadata: string
     version: long
     keyAspect: boolean
+    aspect: optional Aspect
 }

@@ -10,6 +10,7 @@ export const Preview = ({
     description,
     platformName,
     platformLogo,
+    platformInstanceId,
     owners,
     domain,
     globalTags,
@@ -21,6 +22,7 @@ export const Preview = ({
     description?: string | null;
     platformName: string;
     platformLogo?: string | null;
+    platformInstanceId?: string;
     owners?: Array<Owner> | null;
     domain?: Domain | null;
     globalTags?: GlobalTags | null;
@@ -37,6 +39,7 @@ export const Preview = ({
             type="Data Task"
             platform={capitalizedPlatform}
             logoUrl={platformLogo || ''}
+            platformInstanceId={platformInstanceId}
             owners={owners}
             tags={globalTags || undefined}
             domain={domain}

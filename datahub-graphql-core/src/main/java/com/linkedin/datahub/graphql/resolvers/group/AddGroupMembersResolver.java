@@ -16,7 +16,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.metadata.authorization.PoliciesConfig;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -110,7 +110,7 @@ public class AddGroupMembersResolver implements DataFetcher<CompletableFuture<Bo
       proposal.setEntityUrn(Urn.createFromString(userUrnStr));
       proposal.setEntityType(CORP_USER_ENTITY_NAME);
       proposal.setAspectName(GROUP_MEMBERSHIP_ASPECT_NAME);
-      proposal.setAspect(GenericAspectUtils.serializeAspect(groupMembership));
+      proposal.setAspect(GenericRecordUtils.serializeAspect(groupMembership));
       proposal.setChangeType(ChangeType.UPSERT);
       _entityClient.ingestProposal(proposal, context.getAuthentication());
     } catch (Exception e) {

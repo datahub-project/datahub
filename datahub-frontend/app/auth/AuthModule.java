@@ -12,7 +12,6 @@ import com.linkedin.metadata.restli.DefaultRestliClientFactory;
 import com.linkedin.util.Configuration;
 import com.datahub.authentication.Authentication;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.Collections;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.pac4j.core.client.Client;

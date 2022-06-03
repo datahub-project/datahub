@@ -16,7 +16,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.utils.GenericAspectUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
@@ -69,7 +69,7 @@ public class UnsetDomainResolverTest {
     proposal.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN));
     proposal.setEntityType(Constants.DATASET_ENTITY_NAME);
     proposal.setAspectName(Constants.DOMAINS_ASPECT_NAME);
-    proposal.setAspect(GenericAspectUtils.serializeAspect(newDomains));
+    proposal.setAspect(GenericRecordUtils.serializeAspect(newDomains));
     proposal.setChangeType(ChangeType.UPSERT);
 
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
@@ -123,7 +123,7 @@ public class UnsetDomainResolverTest {
     proposal.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN));
     proposal.setEntityType(Constants.DATASET_ENTITY_NAME);
     proposal.setAspectName(Constants.DOMAINS_ASPECT_NAME);
-    proposal.setAspect(GenericAspectUtils.serializeAspect(newDomains));
+    proposal.setAspect(GenericRecordUtils.serializeAspect(newDomains));
     proposal.setChangeType(ChangeType.UPSERT);
 
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(

@@ -54,7 +54,7 @@ public class MceCli implements CommandLineRunner {
   }
 
   @Inject
-  @Named("kafkaEventProducer")
+  @Named("kafkaProducer")
   private Producer<String, GenericRecord> _producer;
 
   @Inject

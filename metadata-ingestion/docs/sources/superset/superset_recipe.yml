@@ -1,0 +1,13 @@
+source:
+  type: superset
+  config:
+    # Coordinates
+    connect_uri: http://localhost:8088
+
+    # Credentials
+    username: user
+    password: pass
+    provider: ldap
+
+sink:
+  # sink configs

@@ -53,10 +53,27 @@ public class PoliciesConfig {
       "Generate personal access tokens for use with DataHub APIs.");
 
 
+  public static final Privilege MANAGE_ACCESS_TOKENS = Privilege.of(
+      "MANAGE_ACCESS_TOKENS",
+      "Manage All Access Tokens",
+      "Create, list and revoke access tokens on behalf of users in DataHub. Be careful - Actors with this "
+          + "privilege are effectively super users that can impersonate other users."
+  );
+
   public static final Privilege MANAGE_DOMAINS_PRIVILEGE = Privilege.of(
       "MANAGE_DOMAINS",
       "Manage Domains",
       "Create and remove Asset Domains.");
+
+  public static final Privilege MANAGE_TESTS_PRIVILEGE = Privilege.of(
+      "MANAGE_TESTS",
+      "Manage Tests",
+      "Create and remove Asset Tests.");
+
+  public static final Privilege MANAGE_GLOSSARIES_PRIVILEGE = Privilege.of(
+      "MANAGE_GLOSSARIES",
+      "Manage Glossaries",
+      "Create, edit, and remove Glossary Entities");
 
   public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
       MANAGE_POLICIES_PRIVILEGE,
@@ -65,10 +82,18 @@ public class PoliciesConfig {
       MANAGE_DOMAINS_PRIVILEGE,
       MANAGE_INGESTION_PRIVILEGE,
       MANAGE_SECRETS_PRIVILEGE,
-      GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE
+      GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
+      MANAGE_ACCESS_TOKENS,
+      MANAGE_TESTS_PRIVILEGE,
+      MANAGE_GLOSSARIES_PRIVILEGE
   );
 
   // Resource Privileges //
+
+  public static final Privilege VIEW_ENTITY_PAGE_PRIVILEGE = Privilege.of(
+      "VIEW_ENTITY_PAGE",
+      "View Entity Page",
+      "The ability to view the entity page.");
 
   public static final Privilege EDIT_ENTITY_TAGS_PRIVILEGE = Privilege.of(
       "EDIT_ENTITY_TAGS",
@@ -115,12 +140,18 @@ public class PoliciesConfig {
       "Edit Assertions",
       "The ability to add and remove assertions from an entity.");
 
+  public static final Privilege EDIT_ENTITY_OPERATIONS_PRIVILEGE = Privilege.of(
+      "EDIT_ENTITY_OPERATIONS",
+      "Edit Operations",
+      "The ability to report or edit operations information about an entity.");
+
   public static final Privilege EDIT_ENTITY_PRIVILEGE = Privilege.of(
       "EDIT_ENTITY",
       "Edit All",
       "The ability to edit any information about an entity. Super user privileges.");
 
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES = ImmutableList.of(
+      VIEW_ENTITY_PAGE_PRIVILEGE,
       EDIT_ENTITY_TAGS_PRIVILEGE,
       EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
       EDIT_ENTITY_OWNERS_PRIVILEGE,
@@ -150,6 +181,16 @@ public class PoliciesConfig {
       "Edit Dataset Column Descriptions",
       "The ability to edit the column (field) descriptions associated with a dataset schema."
   );
+
+  public static final Privilege VIEW_DATASET_USAGE_PRIVILEGE = Privilege.of(
+      "VIEW_DATASET_USAGE",
+      "View Dataset Usage",
+      "The ability to access dataset usage information (includes usage statistics and queries).");
+
+  public static final Privilege VIEW_DATASET_PROFILE_PRIVILEGE = Privilege.of(
+      "VIEW_DATASET_PROFILE",
+      "View Dataset Profile",
+      "The ability to access dataset profile (snapshot statistics)");
 
   // Tag Privileges
   public static final Privilege EDIT_TAG_COLOR_PRIVILEGE = Privilege.of(
@@ -181,6 +222,8 @@ public class PoliciesConfig {
       "Datasets indexed by DataHub", Stream.of(
           COMMON_ENTITY_PRIVILEGES,
           ImmutableList.of(
+              VIEW_DATASET_USAGE_PRIVILEGE,
+              VIEW_DATASET_PROFILE_PRIVILEGE,
               EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE,
               EDIT_DATASET_COL_TAGS_PRIVILEGE,
               EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,
@@ -205,6 +248,14 @@ public class PoliciesConfig {
       COMMON_ENTITY_PRIVILEGES
   );
 
+  // Data Doc Privileges
+  public static final ResourcePrivileges NOTEBOOK_PRIVILEGES = ResourcePrivileges.of(
+      "notebook",
+      "Notebook",
+      "Notebook indexed by DataHub",
+      COMMON_ENTITY_PRIVILEGES
+  );
+
   // Data Flow Privileges
   public static final ResourcePrivileges DATA_FLOW_PRIVILEGES = ResourcePrivileges.of(
       "dataFlow",
@@ -226,7 +277,8 @@ public class PoliciesConfig {
       "tag",
       "Tags",
       "Tags indexed by DataHub",
-      ImmutableList.of(EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_TAG_COLOR_PRIVILEGE, EDIT_ENTITY_DOCS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
+      ImmutableList.of(VIEW_ENTITY_PAGE_PRIVILEGE, EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_TAG_COLOR_PRIVILEGE,
+          EDIT_ENTITY_DOCS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
   );
 
   // Container Privileges
@@ -242,7 +294,8 @@ public class PoliciesConfig {
       "domain",
       "Domains",
       "Domains created on DataHub",
-      ImmutableList.of(EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_DOCS_PRIVILEGE, EDIT_ENTITY_DOC_LINKS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
+      ImmutableList.of(VIEW_ENTITY_PAGE_PRIVILEGE, EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_DOCS_PRIVILEGE,
+          EDIT_ENTITY_DOC_LINKS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
   );
 
   // Glossary Term Privileges
@@ -251,6 +304,7 @@ public class PoliciesConfig {
       "Glossary Terms",
       "Glossary Terms created on DataHub",
       ImmutableList.of(
+          VIEW_ENTITY_PAGE_PRIVILEGE,
           EDIT_ENTITY_OWNERS_PRIVILEGE,
           EDIT_ENTITY_DOCS_PRIVILEGE,
           EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
@@ -264,6 +318,7 @@ public class PoliciesConfig {
       "Groups",
       "Groups on DataHub",
       ImmutableList.of(
+          VIEW_ENTITY_PAGE_PRIVILEGE,
           EDIT_ENTITY_OWNERS_PRIVILEGE,
           EDIT_GROUP_MEMBERS_PRIVILEGE,
           EDIT_CONTACT_INFO_PRIVILEGE,
@@ -277,12 +332,13 @@ public class PoliciesConfig {
       "Users",
       "Users on DataHub",
       ImmutableList.of(
+          VIEW_ENTITY_PAGE_PRIVILEGE,
           EDIT_CONTACT_INFO_PRIVILEGE,
           EDIT_USER_PROFILE_PRIVILEGE,
           EDIT_ENTITY_PRIVILEGE)
   );
 
-  public static final List<ResourcePrivileges> RESOURCE_PRIVILEGES = ImmutableList.of(
+  public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES = ImmutableList.of(
       DATASET_PRIVILEGES,
       DASHBOARD_PRIVILEGES,
       CHART_PRIVILEGES,
@@ -293,8 +349,23 @@ public class PoliciesConfig {
       DOMAIN_PRIVILEGES,
       GLOSSARY_TERM_PRIVILEGES,
       CORP_GROUP_PRIVILEGES,
-      CORP_USER_PRIVILEGES
+      CORP_USER_PRIVILEGES,
+      NOTEBOOK_PRIVILEGES
   );
+
+  // Merge all entity specific resource privileges to create a superset of all resource privileges
+  public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES = ResourcePrivileges.of(
+      "all",
+      "All Types",
+      "All Types",
+      ENTITY_RESOURCE_PRIVILEGES.stream().flatMap(resourcePrivileges -> resourcePrivileges.getPrivileges().stream()).distinct().collect(
+          Collectors.toList())
+  );
+
+  public static final List<ResourcePrivileges> RESOURCE_PRIVILEGES =
+      ImmutableList.<ResourcePrivileges>builder().addAll(ENTITY_RESOURCE_PRIVILEGES)
+          .add(ALL_RESOURCE_PRIVILEGES)
+          .build();
 
   @Data
   @Getter
