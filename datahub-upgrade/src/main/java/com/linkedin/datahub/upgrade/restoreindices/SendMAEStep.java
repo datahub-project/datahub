@@ -108,7 +108,7 @@ public class SendMAEStep implements UpgradeStep {
           // 4. Create record from json aspect
           final RecordTemplate aspectRecord;
           try {
-            EntityUtils.toAspectRecord(entityName, aspectName, aspect.getMetadata(), _entityRegistry);
+            aspectRecord = EntityUtils.toAspectRecord(entityName, aspectName, aspect.getMetadata(), _entityRegistry);
           } catch (Exception e) {
             context.report()
                 .addLine(String.format("Failed to deserialize row %s for entity %s, aspect %s: %s. Ignoring row.",
