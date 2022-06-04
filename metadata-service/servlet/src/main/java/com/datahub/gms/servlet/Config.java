@@ -94,6 +94,11 @@ public class Config extends HttpServlet {
     }};
     config.put("managedIngestion", ingestionConfig);
 
+    Map<String, Object> datahubConfig = new HashMap<String, Object>() {{
+      put("serverType", configProvider.getDatahub().serverType);
+    }};
+    config.put("datahub", datahubConfig);
+
     resp.setContentType("application/json");
     PrintWriter out = resp.getWriter();
 

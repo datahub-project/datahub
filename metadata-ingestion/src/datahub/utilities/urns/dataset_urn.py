@@ -1,4 +1,4 @@
-from typing import List, Set
+from typing import List, Optional, Set
 
 from datahub.metadata.schema_classes import FabricTypeClass
 from datahub.utilities.urns.data_platform_urn import DataPlatformUrn
@@ -55,13 +55,25 @@ class DatasetUrn(Urn):
 
     @classmethod
     def create_from_ids(
-        cls, platform_id: str, table_name: str, env: str
+        cls,
+        platform_id: str,
+        table_name: str,
+        env: str,
+        platform_instance: Optional[str] = None,
     ) -> "DatasetUrn":
-        entity_id: List[str] = [
-            str(DataPlatformUrn.create_from_id(platform_id)),
-            table_name,
-            env,
-        ]
+        entity_id: List[str]
+        if platform_instance:
+            entity_id = [
+                str(DataPlatformUrn.create_from_id(platform_id)),
+                f"{platform_instance}.{table_name}",
+                env,
+            ]
+        else:
+            entity_id = [
+                str(DataPlatformUrn.create_from_id(platform_id)),
+                table_name,
+                env,
+            ]
         return cls(DatasetUrn.ENTITY_TYPE, entity_id)
 
     @staticmethod

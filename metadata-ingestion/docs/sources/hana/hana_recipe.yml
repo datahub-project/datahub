@@ -1,0 +1,13 @@
+source:
+  type: hana
+  config:
+    # Coordinates
+    host_port: localhost:39041
+    database: dbname
+
+    # Credentials
+    username: ${HANA_USER}
+    password: ${HANA_PASS}
+
+sink:
+  # sink configs

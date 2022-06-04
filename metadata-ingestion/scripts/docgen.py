@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+import sys
 import textwrap
 from importlib.metadata import metadata, requires
 from typing import Any, Dict, List, Optional
@@ -519,8 +520,9 @@ def generate(
             # output = subprocess.check_output(
             #    ["/bin/bash", "-c", f"pip install -e '.[{key}]'"]
             # )
-
-            source_registry._ensure_not_lazy(plugin_name)
+            class_or_exception = source_registry._ensure_not_lazy(plugin_name)
+            if isinstance(class_or_exception, Exception):
+                raise class_or_exception
             logger.debug(f"Processing {plugin_name}")
             source_type = source_registry.get(plugin_name)
             logger.debug(f"Source class is {source_type}")
@@ -528,10 +530,10 @@ def generate(
             extra_deps = (
                 get_additional_deps_for_extra(extra_plugin) if extra_plugin else []
             )
-
         except Exception as e:
-            print(f"Failed to process {plugin_name} due to {e}")
-            metrics["plugins"]["failed"] = metrics["plugins"]["failed"] + 1
+            print(f"Failed to process {plugin_name} due to exception")
+            print(repr(e))
+            metrics["plugins"]["failed"] = metrics["plugins"].get("failed", 0) + 1
 
         if source_type and hasattr(source_type, "get_config_class"):
             try:
@@ -603,6 +605,11 @@ def generate(
                 os.makedirs(config_dir, exist_ok=True)
                 with open(f"{config_dir}/{plugin_name}_config.json", "w") as f:
                     f.write(source_config_class.schema_json(indent=2))
+                
+                create_or_update(source_documentation,
+                                    [platform_id, "plugins", plugin_name, "config_schema"],
+                    source_config_class.schema_json(indent=2) or "",
+                )
 
                 table_md = gen_md_table_from_struct(source_config_class.schema())
                 create_or_update(
@@ -642,6 +649,7 @@ def generate(
 
         with open(platform_doc_file, "w") as f:
             if "name" in platform_docs:
+                f.write(f"import Tabs from '@theme/Tabs';\nimport TabItem from '@theme/TabItem';\n\n")
                 f.write(f"# {platform_docs['name']}\n")
             if len(platform_docs["plugins"].keys()) > 1:
                 # More than one plugin used to provide integration with this platform
@@ -714,15 +722,26 @@ def generate(
                     f.write("\n```\n")
                 if "config" in plugin_docs:
                     f.write("\n### Config Details\n")
+                    f.write("""<Tabs>
+                <TabItem value="options" label="Options" default>\n\n""")
                     f.write(
                         "Note that a `.` is used to denote nested fields in the YAML recipe.\n\n"
                     )
                     f.write(
-                        "\n<details>\n<summary>View All Configuration Options</summary>\n\n"
+                        "\n<details open>\n<summary>View All Configuration Options</summary>\n\n"
                     )
                     for doc in plugin_docs["config"]:
                         f.write(doc)
                     f.write("\n</details>\n\n")
+                    f.write(f"""</TabItem>
+<TabItem value="schema" label="Schema">
+
+The [JSONSchema](https://json-schema.org/) for this configuration is inlined below.\n\n
+```javascript
+{plugin_docs['config_schema']}
+```\n\n
+</TabItem>
+</Tabs>\n\n""")
                 # insert custom plugin docs after config details
                 f.write(plugin_docs.get("custom_docs", ""))
                 if "classname" in plugin_docs:
@@ -745,6 +764,8 @@ def generate(
     print("############################################")
     print(json.dumps(metrics, indent=2))
     print("############################################")
+    if metrics["plugins"].get("failed", 0) > 0:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

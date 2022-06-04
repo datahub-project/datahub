@@ -65,6 +65,7 @@ services:
     depends_on:
     - mysql
     environment:
+    - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
     - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
     - AUTH_POLICIES_ENABLED=${AUTH_POLICIES_ENABLED:-true}
     - RANGER_AUTHORIZER_ENABLED=${RANGER_AUTHORIZER_ENABLED:-false}
@@ -165,7 +166,7 @@ services:
     - MYSQL_PASSWORD=datahub
     - DATAHUB_DB_NAME=datahub
     hostname: mysql-setup
-    image: acryldata/datahub-mysql-setup:head
+    image: acryldata/datahub-mysql-setup:${DATAHUB_VERSION:-head}
   neo4j:
     container_name: neo4j
     environment:

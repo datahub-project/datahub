@@ -62,6 +62,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
         platformPrivileges.setManageSecrets(canManageSecrets(context));
         platformPrivileges.setManageTokens(canManageTokens(context));
         platformPrivileges.setManageTests(canManageTests(context));
+        platformPrivileges.setManageGlossaries(canManageGlossaries(context));
 
         // Construct and return authenticated user object.
         final AuthenticatedUser authUser = new AuthenticatedUser();
@@ -121,6 +122,13 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
    */
   private boolean canManageTokens(final QueryContext context) {
     return isAuthorized(context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_ACCESS_TOKENS);
+  }
+
+  /**
+   * Returns true if the authenticated user has privileges to manage glossaries
+   */
+  private boolean canManageGlossaries(final QueryContext context) {
+    return isAuthorized(context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE);
   }
 
   /**
