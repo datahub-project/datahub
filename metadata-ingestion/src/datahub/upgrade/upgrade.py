@@ -40,29 +40,6 @@ class DataHubVersionStats(BaseModel):
     client: ClientVersionStats
 
 
-def compute_rank(version_string: str) -> float:
-    weights = {0: 1000000, 1: 10000, 2: 10000, 3: 1000, 4: 100}
-    split_versions = version_string.split(".")
-    if len(split_versions) < 4:
-        return compute_rank(version_string + ".0")
-    total_rank: float = 0
-    for i, version in enumerate(split_versions):
-        try:
-            v_i = int(version)
-            total_rank += weights[i] * v_i
-        except Exception:
-            if "rc" in version:
-                # rc based versions get pushed back
-                v_i_splits = version.split("rc")
-                if len(v_i_splits) == 2:
-                    sub_rank = int(v_i_splits[0]) - 1 + int(v_i_splits[1]) / 10.0
-                else:
-                    # we cop out and compute based on the most significant digit
-                    sub_rank = int(v_i_splits[0]) - 1
-                total_rank += weights[i] * sub_rank
-    return total_rank
-
-
 def retrieve_versions(  # noqa: C901
     server: Optional[DataHubGraph] = None,
 ) -> Optional[DataHubVersionStats]:
