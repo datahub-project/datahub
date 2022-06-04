@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.aspect
+
+import com.linkedin.common.BrowsePaths
+import com.linkedin.schema.ThriftEnumKey
+import com.linkedin.schema.ThriftEnumProperties
+
+/**
+ * A union of all supported metadata aspects for a Dataset
+ */
+typeref ThriftEnumAspect = union[
+  ThriftEnumKey,
+  ThriftEnumProperties,
+  BrowsePaths
+]

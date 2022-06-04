@@ -1,0 +1,25 @@
+namespace com.linkedin.schema
+
+
+
+/**
+ * Store Properties of a thrift enum type
+ */
+@Aspect = {
+  "name": "thriftEnumProperties"
+}
+record ThriftEnumProperties {
+
+  /**
+   * Client provided a list of items from thrift document.
+   */
+  items: array[ThriftEnumItem]
+
+  /**
+   * Client provided annotations for types for enum items.
+   */
+  annotations: optional array[ThriftAnnotation]
+
+  namespace_: optional map[string, string]
+
+}

@@ -226,4 +226,9 @@ entities:
     keyAspect: testKey
     aspects:
       - testInfo
+  - name: thriftEnum
+    keyAspect: thriftEnumKey
+    aspects:
+      - thriftEnumProperties
+      - browsePaths
 events:

@@ -44,6 +44,7 @@ public class Constants {
   public static final String NOTEBOOK_ENTITY_NAME = "notebook";
   public static final String DATA_PLATFORM_INSTANCE_ENTITY_NAME = "dataPlatformInstance";
   public static final String ACCESS_TOKEN_ENTITY_NAME = "dataHubAccessToken";
+  public static final String THRIFT_ENUM_ENTITY_NAME = "thriftEnum";
 
   /**
    * Aspects
@@ -225,6 +226,12 @@ public class Constants {
   public static final String DATA_PROCESS_INSTANCE_PROPERTIES_ASPECT_NAME = "dataProcessInstanceProperties";
   public static final String DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME = "dataProcessInstanceRunEvent";
 
+  /**
+   * ThriftEnum
+   */
+  public static final String THRIFT_ENUM_KEY_ASPECT_NAME = "thriftEnumKey";
+  public static final String THRIFT_ENUM_PROPERTIES_ASPECT_NAME = "thriftEnumProperties";
+  
   private Constants() {
   }
 }

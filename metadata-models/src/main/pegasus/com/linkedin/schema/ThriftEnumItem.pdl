@@ -1,0 +1,12 @@
+namespace com.linkedin.schema
+
+/**
+ * Schema holder for Thrift Enum item.
+ */
+record ThriftEnumItem {
+
+
+  key: string
+  value: optional union[int, string]
+  annotations: optional array[ThriftAnnotation]
+}

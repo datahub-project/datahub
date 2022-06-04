@@ -1,0 +1,22 @@
+namespace com.linkedin.schema
+
+/**
+ * Key to retrieve Thrift Enum Type.
+ */
+@Aspect = {
+  "name": "thriftEnumKey"
+}
+record ThriftEnumKey {
+
+  /**
+   * Thrift Enum Type name e.g. PageViewEvent, identity.Profile, ams.account_management_tracking
+   */
+  @Searchable = {
+    "fieldName": "id"
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }  
+  name: string
+
+}

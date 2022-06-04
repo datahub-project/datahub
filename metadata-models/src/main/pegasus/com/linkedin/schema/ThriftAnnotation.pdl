@@ -1,0 +1,13 @@
+namespace com.linkedin.schema
+
+/**
+ * Schema holder for Thrift schema types.
+ */
+record ThriftAnnotation {
+
+  /**
+   * The native schema in the dataset's platform.
+   */
+  key: string
+  value: optional union[int, string]
+}

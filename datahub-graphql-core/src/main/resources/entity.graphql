@@ -158,6 +158,11 @@ type Query {
     Get all GlossaryNodes without a parentNode
     """
     getRootGlossaryNodes(input: GetRootGlossaryEntitiesInput!): GetRootGlossaryNodesResult
+    
+    """
+    Fetch a ThriftEnum by primary key
+    """
+    thriftEnum(urn: String!): ThriftEnum
 }
 
 """
@@ -540,6 +545,11 @@ enum EntityType {
     A DataHub Test
     """
     TEST
+
+    """
+    The generic ThriftEnum
+    """
+    THRIFT_ENUM
 }
 
 """
@@ -8140,4 +8150,95 @@ input StringMapEntryInput {
   The value fo the map entry
   """
   value: String
+}
+
+"""
+The generic ThriftEnum Entity
+"""
+type ThriftEnum implements Entity {
+
+  """
+    The primary key of the ThriftEnum
+  """
+    urn: String!
+
+  """
+    A standard Entity Type
+  """
+    type: EntityType!
+
+  """
+    The name for the ThriftEnum
+"""
+    name: String!
+
+  """
+    The namespaces for the ThriftEnum
+"""
+    namespaces: [ThriftNamespace!]
+    
+  """
+    The list of items from ThriftEnum.
+  """
+    items: [ThriftEnumItem!]
+
+  """
+    The list of annotations from ThriftEnum.
+  """
+    annotations: [ThriftAnnotation!]
+
+    """
+    Granular API for querying edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+type ThriftNamespace {
+  """
+    The language of thrift namespace
+  """
+    language: String!
+
+  """
+    The namespace of the language
+  """
+    value: String!
+}
+type ThriftEnumItem {
+    """
+    The key of the EnumItem
+"""
+    key: String!
+
+"""
+    The value of the EnumItem
+"""
+    value: ThriftEnumItemValue
+
+  """
+    The list of annotations from ThriftEnumItem
+    """
+    annotations: [ThriftAnnotation!]
+}
+
+type ThriftEnumItemValue {
+    intValue: Int
+    stringValue: String
+}
+
+type ThriftAnnotation {
+  """
+    The key of the ThriftAnnotation
+  """
+  key: String!
+
+  """
+    The value of the ThriftAnnotation
+  """
+    value: ThriftAnnotationValue!
+}
+
+type ThriftAnnotationValue {
+    intValue: Int
+    stringValue: String
 }

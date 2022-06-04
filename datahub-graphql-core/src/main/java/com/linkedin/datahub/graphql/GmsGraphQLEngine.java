@@ -196,6 +196,7 @@ import com.linkedin.datahub.graphql.types.mlmodel.MLPrimaryKeyType;
 import com.linkedin.datahub.graphql.types.notebook.NotebookType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.test.TestType;
+import com.linkedin.datahub.graphql.types.thrift.ThriftEnumType;
 import com.linkedin.datahub.graphql.types.usage.UsageType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.config.DatahubConfiguration;
@@ -295,6 +296,8 @@ public class GmsGraphQLEngine {
     private final DataPlatformInstanceType dataPlatformInstanceType;
     private final AccessTokenMetadataType accessTokenMetadataType;
     private final TestType testType;
+    private final ThriftEnumType thriftEnumType;
+
 
     /**
      * Configures the graph objects that can be fetched primary key.
@@ -393,6 +396,8 @@ public class GmsGraphQLEngine {
         this.dataPlatformInstanceType = new DataPlatformInstanceType(entityClient);
         this.accessTokenMetadataType = new AccessTokenMetadataType(entityClient);
         this.testType = new TestType(entityClient);
+        this.thriftEnumType = new ThriftEnumType(entityClient);
+
         // Init Lists
         this.entityTypes = ImmutableList.of(
             datasetType,
@@ -418,7 +423,8 @@ public class GmsGraphQLEngine {
             versionedDatasetType,
             dataPlatformInstanceType,
             accessTokenMetadataType,
-            testType
+            testType,            
+            thriftEnumType
         );
         this.loadableTypes = new ArrayList<>(entityTypes);
         this.ownerTypes = ImmutableList.of(corpUserType, corpGroupType);
@@ -621,6 +627,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("listTests", new ListTestsResolver(entityClient))
             .dataFetcher("getRootGlossaryTerms", new GetRootGlossaryTermsResolver(this.entityClient))
             .dataFetcher("getRootGlossaryNodes", new GetRootGlossaryNodesResolver(this.entityClient))
+            .dataFetcher("thriftEnum", getResolver(thriftEnumType))
         );
     }
 
