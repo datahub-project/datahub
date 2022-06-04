@@ -6,6 +6,7 @@ import click
 
 from datahub.cli.cli_utils import guess_entity_type, post_entity
 from datahub.telemetry import telemetry
+from datahub.upgrade import upgrade
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 @click.option("-a", "--aspect", required=True, type=str)
 @click.option("-d", "--aspect-data", required=True, type=str)
 @click.pass_context
+@upgrade.check_upgrade
 @telemetry.with_telemetry
 def put(ctx: Any, urn: str, aspect: str, aspect_data: str) -> None:
     """Update a single aspect of an entity"""
