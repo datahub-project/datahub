@@ -180,7 +180,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
 
     const tagRender = (props) => {
         // eslint-disable-next-line react/prop-types
-        const { label, closable, onClose } = props;
+        const { label, closable, onClose, value } = props;
         const onPreventMouseDown = (event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -191,7 +191,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                 closable={closable}
                 onClose={onClose}
                 style={{
-                    padding: '0px 7px 0px 0px',
+                    padding: value === 'All' ? '0px 7px 0px 7px' : '0px 7px 0px 0px',
                     marginRight: 3,
                     display: 'flex',
                     justifyContent: 'start',
