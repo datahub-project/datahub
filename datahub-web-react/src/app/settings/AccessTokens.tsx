@@ -68,6 +68,7 @@ const DEFAULT_PAGE_SIZE = 10;
 
 export const AccessTokens = () => {
     const [isCreatingToken, setIsCreatingToken] = useState(false);
+    const [removedTokens, setRemovedTokens] = useState<string[]>([]);
 
     // Current User Urn
     const authenticatedUser = useGetAuthenticatedUser();
@@ -108,6 +109,7 @@ export const AccessTokens = () => {
 
     const totalTokens = tokensData?.listAccessTokens.total || 0;
     const tokens = useMemo(() => tokensData?.listAccessTokens.tokens || [], [tokensData]);
+    const filteredTokens = tokens.filter((token) => !removedTokens.includes(token.id));
 
     // Any time a access token  is removed or created, refetch the list.
     const [revokeAccessToken, { error: revokeTokenError }] = useRevokeAccessTokenMutation();
@@ -118,16 +120,15 @@ export const AccessTokens = () => {
             title: 'Are you sure you want to revoke this token?',
             content: `Anyone using this token will no longer be able to access the DataHub API. You cannot undo this action.`,
             onOk() {
+                // Hack to deal with eventual consistency.
+                const newTokenIds = [...removedTokens, token.id];
+                setRemovedTokens(newTokenIds);
                 revokeAccessToken({ variables: { tokenId: token.id } })
                     .catch((e) => {
                         message.destroy();
                         message.error({ content: `Failed to revoke Token!: \n ${e.message || ''}`, duration: 3 });
                     })
                     .finally(() => {
-                        message.success({
-                            content: `Token revoked successfully !`,
-                            duration: 3,
-                        });
                         setTimeout(function () {
                             tokensRefetch?.();
                         }, 3000);
@@ -140,7 +141,7 @@ export const AccessTokens = () => {
         });
     };
 
-    const tableData = tokens?.map((token) => ({
+    const tableData = filteredTokens?.map((token) => ({
         urn: token.urn,
         type: token.type,
         id: token.id,
