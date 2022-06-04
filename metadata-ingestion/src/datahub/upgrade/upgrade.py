@@ -64,15 +64,14 @@ def retrieve_versions(  # noqa: C901
             current_version_info = releases.get(current_version_string)
             current_version_date = None
             if current_version_info:
-                current_version_date = datetime.fromisoformat(
-                    current_version_info[0].get("upload_time")
+                current_version_date = datetime.strptime(
+                    current_version_info[0].get("upload_time"), "%Y-%m-%dT%H:%M:%S"
                 )
             latest_release_info = releases.get(latest_cli_release_string)
             latest_version_date = None
             if latest_release_info:
-                latest_version_date = datetime.fromisoformat(
-                    latest_release_info[0].get("upload_time")
-                )
+                latest_version_date = datetime.strptime(
+                    latest_release_info[0].get("upload_time"), "%Y-%m-%dT%H:%M:%S")
             client_version_stats = ClientVersionStats(
                 current=VersionStats(
                     version=current_version, release_date=current_version_date

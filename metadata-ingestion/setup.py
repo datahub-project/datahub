@@ -58,7 +58,7 @@ framework_common = {
     "markupsafe>=1.1.1,<=2.0.1",
     "Deprecated",
     "types-Deprecated",
-    "humanize",
+    "humanfriendly",
 }
 
 kafka_common = {
