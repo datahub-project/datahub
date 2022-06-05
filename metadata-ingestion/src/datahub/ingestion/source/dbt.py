@@ -1274,7 +1274,7 @@ class DBTSource(StatefulIngestionSourceBase):
                     node.name,
                     self.config.target_platform,
                     self.config.env,
-                    None,
+                    self.config.platform_instance,
                 )
             )
         if upstream_urns:

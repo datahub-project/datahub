@@ -258,7 +258,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -276,7 +275,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -294,7 +292,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -312,7 +309,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -455,7 +451,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -473,7 +468,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -491,7 +485,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -509,7 +502,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -527,7 +519,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -545,7 +536,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -733,7 +723,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -751,7 +740,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -769,7 +757,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -921,7 +908,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -945,7 +931,6 @@
                                 },
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -963,7 +948,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -981,7 +965,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -999,7 +982,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.actor,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ],
@@ -1107,7 +1090,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1125,7 +1107,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1143,7 +1124,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1161,7 +1141,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1179,7 +1158,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1197,7 +1175,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1215,7 +1192,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1233,7 +1209,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -1251,7 +1226,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.address,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.address,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ],
@@ -1359,7 +1334,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1377,7 +1351,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1395,7 +1368,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -1413,7 +1385,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.category,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.category,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ],
@@ -1521,7 +1493,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1539,7 +1510,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1557,7 +1527,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1575,7 +1544,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -1593,7 +1561,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.city,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ],
@@ -1720,7 +1688,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1738,7 +1705,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1756,7 +1722,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -1774,7 +1739,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.country,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.country,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ],
@@ -1882,7 +1847,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1900,7 +1864,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1918,7 +1881,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1936,7 +1898,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1954,7 +1915,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1972,7 +1932,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1990,7 +1949,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2008,7 +1966,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2026,7 +1983,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2044,7 +2000,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -2062,7 +2017,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.customer,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ],
@@ -2170,7 +2125,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2188,7 +2142,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2206,7 +2159,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2224,7 +2176,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2242,7 +2193,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2260,7 +2210,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -2278,7 +2227,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_01,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_01,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ],
@@ -2406,7 +2355,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2424,7 +2372,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2442,7 +2389,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2460,7 +2406,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2478,7 +2423,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2496,7 +2440,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -2514,7 +2457,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_02,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ],
@@ -2622,7 +2565,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2640,7 +2582,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2658,7 +2599,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2676,7 +2616,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2694,7 +2633,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2712,7 +2650,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -2730,7 +2667,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_03,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_03,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ],
@@ -2838,7 +2775,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2856,7 +2792,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2874,7 +2809,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2892,7 +2826,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2910,7 +2843,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -2928,7 +2860,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -2946,7 +2877,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_04,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_04,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ],
@@ -3054,7 +2985,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -3072,7 +3002,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -3090,7 +3019,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -3108,7 +3036,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -3126,7 +3053,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -3144,7 +3070,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -3162,7 +3087,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_05,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_05,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ],
@@ -3270,7 +3195,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -3288,7 +3212,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -3306,7 +3229,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -3324,7 +3246,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -3342,7 +3263,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -3360,7 +3280,6 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -3378,7 +3297,7 @@
                                     "actor": "urn:li:corpuser:unknown",
                                     "impersonator": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_06,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,dbt-instance-1.pagila.public.payment_p2020_06,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ],
