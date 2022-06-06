@@ -309,7 +309,9 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             nonnull_count = self.dataset.get_column_nonnull_count(column)
             column_spec.nonnull_count = nonnull_count
         except Exception as e:
-            logger.debug(f"Exception was {e}")
+            logger.debug(
+                f"Caught exception while attempting to get column cardinality for column {column}. {e}"
+            )
             self.report.report_warning(
                 "Profiling - Unable to get cardinality",
                 f"{self.dataset_name}.{column}",
@@ -364,7 +366,9 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         try:
             column_profile.median = str(self.dataset.get_column_median(column))
         except Exception as e:
-            logger.debug(f"Exception was {e}")
+            logger.debug(
+                f"Caught exception while attempting to get column median for column {column}. {e}"
+            )
             self.report.report_warning(
                 "Profiling - Unable to get medians", f"{self.dataset_name}.{column}"
             )
@@ -378,7 +382,9 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         try:
             column_profile.stdev = str(self.dataset.get_column_stdev(column))
         except Exception as e:
-            logger.debug(f"Exception was {e}")
+            logger.debug(
+                f"Caught exception while attempting to get column stddev for column {column}. {e}"
+            )
             self.report.report_warning(
                 "Profiling - Unable to get stddev", f"{self.dataset_name}.{column}"
             )
@@ -415,7 +421,9 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     )
                 ]
         except Exception as e:
-            logger.debug(f"Exception was {e}")
+            logger.debug(
+                f"Caught exception while attempting to get column quantiles for column {column}. {e}"
+            )
             self.report.report_warning(
                 "Profiling - Unable to get quantiles", f"{self.dataset_name}.{column}"
             )
@@ -456,7 +464,9 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     ],
                 )
         except Exception as e:
-            logger.debug(f"Exception was {e}")
+            logger.debug(
+                f"Caught exception while attempting to get column histogram for column {column}. {e}"
+            )
             self.report.report_warning(
                 "Profiling - Unable to get histogram", f"{self.dataset_name}.{column}"
             )
