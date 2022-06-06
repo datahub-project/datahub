@@ -459,7 +459,7 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
 
 
 def match_target_platform_instance(target_platform_instance: str,
-                                   dbt_platform_instance: str,
+                                   dbt_platform_instance: Optional[str],
                                    platform_value: str,
                                    schema: str) -> str:
     if platform_value == DBT_PLATFORM:
@@ -1291,7 +1291,8 @@ class DBTSource(StatefulIngestionSourceBase):
                     node.name,
                     self.config.target_platform,
                     self.config.env,
-                    None,
+                    match_target_platform_instance(self.config.target_platform_instance, None,
+                                                   self.config.target_platform, node.schema)
                 )
             )
         if upstream_urns:
