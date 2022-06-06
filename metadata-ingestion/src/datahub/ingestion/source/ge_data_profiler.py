@@ -309,7 +309,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             nonnull_count = self.dataset.get_column_nonnull_count(column)
             column_spec.nonnull_count = nonnull_count
         except Exception as e:
-            logger.debug(e)
+            logger.debug(f"Exception was {e}")
             self.report.report_warning(
                 "Profiling - Unable to get cardinality",
                 f"{self.dataset_name}.{column}",
