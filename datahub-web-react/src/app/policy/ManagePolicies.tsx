@@ -4,8 +4,6 @@ import styled from 'styled-components';
 import * as QueryString from 'query-string';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useLocation } from 'react-router';
-
-import { SearchablePage } from '../search/SearchablePage';
 import PolicyBuilderModal from './PolicyBuilderModal';
 import {
     Policy,
@@ -86,6 +84,10 @@ const EditPolicyButton = styled(Button)`
     margin-right: 16px;
 `;
 
+const PageContainer = styled.span`
+    width: 100%;
+`;
+
 const DEFAULT_PAGE_SIZE = 10;
 
 type PrivilegeOptionType = {
@@ -139,7 +141,7 @@ const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyUpdateInput => {
 };
 
 // TODO: Cleanup the styling.
-export const PoliciesPage = () => {
+export const ManagePolicies = () => {
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -416,7 +418,7 @@ export const PoliciesPage = () => {
     }));
 
     return (
-        <SearchablePage>
+        <PageContainer>
             {policiesLoading && !policiesData && (
                 <Message type="loading" content="Loading policies..." style={{ marginTop: '10%' }} />
             )}
@@ -424,9 +426,9 @@ export const PoliciesPage = () => {
             {updateError && message.error('Failed to update the Policy :(')}
             <PoliciesContainer>
                 <PoliciesHeaderContainer>
-                    <PoliciesTitle level={2}>Manage Policies</PoliciesTitle>
+                    <PoliciesTitle level={2}>Manage Access Policies</PoliciesTitle>
                     <Typography.Paragraph type="secondary">
-                        Manage access for DataHub Users & Groups using Policies.
+                        Manage access for DataHub Users & Groups using Access Policies.
                     </Typography.Paragraph>
                 </PoliciesHeaderContainer>
             </PoliciesContainer>
@@ -492,6 +494,6 @@ export const PoliciesPage = () => {
                     privileges={getPrivilegeNames(focusPolicy)}
                 />
             )}
-        </SearchablePage>
+        </PageContainer>
     );
 };

@@ -1,6 +1,6 @@
 import pytest
 
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigurationError, OauthConfiguration
 from datahub.ingestion.source.sql.snowflake import SnowflakeConfig
 
 
@@ -10,6 +10,65 @@ def test_snowflake_source_throws_error_on_account_id_missing():
             {
                 "username": "user",
                 "password": "password",
+            }
+        )
+
+
+def test_snowflake_throws_error_on_client_id_missing_if_using_oauth():
+    oauth_dict = {
+        "provider": "microsoft",
+        "scopes": ["https://microsoft.com/f4b353d5-ef8d/.default"],
+        "client_secret": "6Hb9apkbc6HD7",
+        "authority_url": "https://login.microsoftonline.com/yourorganisation.com",
+    }
+    # assert that this is a valid oauth config on its own
+    OauthConfiguration.parse_obj(oauth_dict)
+    with pytest.raises(ValueError):
+        SnowflakeConfig.parse_obj(
+            {
+                "account_id": "test",
+                "authentication_type": "OAUTH_AUTHENTICATOR",
+                "oauth_config": oauth_dict,
+            }
+        )
+
+
+def test_snowflake_throws_error_on_client_secret_missing_if_use_certificate_is_false():
+    oauth_dict = {
+        "client_id": "882e9831-7ea51cb2b954",
+        "provider": "microsoft",
+        "scopes": ["https://microsoft.com/f4b353d5-ef8d/.default"],
+        "use_certificate": False,
+        "authority_url": "https://login.microsoftonline.com/yourorganisation.com",
+    }
+    OauthConfiguration.parse_obj(oauth_dict)
+
+    with pytest.raises(ValueError):
+        SnowflakeConfig.parse_obj(
+            {
+                "account_id": "test",
+                "authentication_type": "OAUTH_AUTHENTICATOR",
+                "oauth_config": oauth_dict,
+            }
+        )
+
+
+def test_snowflake_throws_error_on_encoded_oauth_private_key_missing_if_use_certificate_is_true():
+    oauth_dict = {
+        "client_id": "882e9831-7ea51cb2b954",
+        "provider": "microsoft",
+        "scopes": ["https://microsoft.com/f4b353d5-ef8d/.default"],
+        "use_certificate": True,
+        "authority_url": "https://login.microsoftonline.com/yourorganisation.com",
+        "encoded_oauth_public_key": "fkdsfhkshfkjsdfiuwrwfkjhsfskfhksjf==",
+    }
+    OauthConfiguration.parse_obj(oauth_dict)
+    with pytest.raises(ValueError):
+        SnowflakeConfig.parse_obj(
+            {
+                "account_id": "test",
+                "authentication_type": "OAUTH_AUTHENTICATOR",
+                "oauth_config": oauth_dict,
             }
         )
 

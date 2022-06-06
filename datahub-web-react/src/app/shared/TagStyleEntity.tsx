@@ -18,6 +18,9 @@ import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.genera
 import analytics, { EventType, EntityActionType } from '../analytics';
 import { GetSearchResultsParams, SearchResultInterface } from '../entity/shared/components/styled/search/types';
 import { AddOwnersModal } from '../entity/shared/containers/profile/sidebar/Ownership/AddOwnersModal';
+import CopyUrn from './CopyUrn';
+import EntityDropdown from '../entity/shared/EntityDropdown';
+import { EntityMenuItems } from '../entity/shared/EntityDropdown/EntityDropdown';
 
 function useWrappedSearchResults(params: GetSearchResultsParams) {
     const { data, loading, error } = useGetSearchResultsForMultipleQuery(params);
@@ -146,6 +149,16 @@ const TagName = styled.div`
     justify-content: left;
 `;
 
+const ActionButtons = styled.div`
+    display: flex;
+`;
+
+const TagHeader = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: top;
+`;
+
 const { Paragraph } = Typography;
 
 type Props = {
@@ -180,6 +193,7 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
     const [colorValue, setColorValue] = useState('');
     const ownersEmpty = !data?.tag?.ownership?.owners?.length;
     const [showAddModal, setShowAddModal] = useState(false);
+    const [copiedUrn, setCopiedUrn] = useState(false);
 
     useEffect(() => {
         setUpdatedDescription(description);
@@ -302,22 +316,28 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
     return (
         <>
             {/* Tag Title */}
-            <div>
-                <TitleLabel>Tag</TitleLabel>
-                <TagName>
-                    <ColorPicker>
-                        <ColorPickerButton style={{ backgroundColor: colorValue }} onClick={handlePickerClick} />
-                    </ColorPicker>
-                    <TitleText>
-                        {(data?.tag && entityRegistry.getDisplayName(EntityType.Tag, data?.tag)) || ''}
-                    </TitleText>
-                </TagName>
+            <TagHeader>
+                <div>
+                    <TitleLabel>Tag</TitleLabel>
+                    <TagName>
+                        <ColorPicker>
+                            <ColorPickerButton style={{ backgroundColor: colorValue }} onClick={handlePickerClick} />
+                        </ColorPicker>
+                        <TitleText>
+                            {(data?.tag && entityRegistry.getDisplayName(EntityType.Tag, data?.tag)) || ''}
+                        </TitleText>
+                    </TagName>
+                </div>
+                <ActionButtons>
+                    <CopyUrn urn={urn} isActive={copiedUrn} onClick={() => setCopiedUrn(true)} />
+                    <EntityDropdown menuItems={new Set([EntityMenuItems.COPY_URL])} />
+                </ActionButtons>
                 {displayColorPicker && (
                     <ColorPickerPopOver ref={colorPickerRef}>
                         <ChromePicker color={colorValue} onChange={handleColorChange} />
                     </ColorPickerPopOver>
                 )}
-            </div>
+            </TagHeader>
             <Divider />
             {/* Tag Description */}
             <DescriptionLabel>About</DescriptionLabel>

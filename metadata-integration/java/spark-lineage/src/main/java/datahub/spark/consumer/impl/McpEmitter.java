@@ -44,7 +44,7 @@ public class McpEmitter implements LineageConsumer {
     return emitter;
   }
 
-  private void emit(List<MetadataChangeProposalWrapper> mcpws) {
+  protected void emit(List<MetadataChangeProposalWrapper> mcpws) {
     Optional<Emitter> emitter = getEmitter();
     if (emitter.isPresent()) {
       mcpws.stream().map(mcpw -> {
