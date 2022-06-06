@@ -313,7 +313,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column cardinality for column {column}. {e}"
             )
             self.report.report_warning(
-                "Profiling - Unable to get cardinality",
+                "Profiling - Unable to get column cardinality",
                 f"{self.dataset_name}.{column}",
             )
 
@@ -370,7 +370,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column median for column {column}. {e}"
             )
             self.report.report_warning(
-                "Profiling - Unable to get medians", f"{self.dataset_name}.{column}"
+                "Profiling - Unable to get column medians",
+                f"{self.dataset_name}.{column}",
             )
 
     @_run_with_query_combiner
@@ -386,7 +387,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column stddev for column {column}. {e}"
             )
             self.report.report_warning(
-                "Profiling - Unable to get stddev", f"{self.dataset_name}.{column}"
+                "Profiling - Unable to get column stddev",
+                f"{self.dataset_name}.{column}",
             )
 
     @_run_with_query_combiner
@@ -425,7 +427,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column quantiles for column {column}. {e}"
             )
             self.report.report_warning(
-                "Profiling - Unable to get quantiles", f"{self.dataset_name}.{column}"
+                "Profiling - Unable to get column quantiles",
+                f"{self.dataset_name}.{column}",
             )
 
     @_run_with_query_combiner
@@ -468,7 +471,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"Caught exception while attempting to get column histogram for column {column}. {e}"
             )
             self.report.report_warning(
-                "Profiling - Unable to get histogram", f"{self.dataset_name}.{column}"
+                "Profiling - Unable to get column histogram",
+                f"{self.dataset_name}.{column}",
             )
 
     @_run_with_query_combiner
