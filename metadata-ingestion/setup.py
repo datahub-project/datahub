@@ -58,6 +58,7 @@ framework_common = {
     "markupsafe>=1.1.1,<=2.0.1",
     "Deprecated",
     "types-Deprecated",
+    "humanfriendly",
 }
 
 kafka_common = {
@@ -91,6 +92,9 @@ sql_common = {
     "great-expectations>=0.14.11,<0.15.3",
     # datahub does not depend on Jinja2 directly but great expectations does. With Jinja2 3.1.0 GE 0.14.11 is breaking
     "Jinja2<3.1.0",
+    # datahub does not depend on traitlets directly but great expectations does.
+    # https://github.com/ipython/traitlets/issues/741
+    "traitlets<5.2.2",
     "greenlet",
 }
 
@@ -122,6 +126,7 @@ snowflake_common = {
     # Required for all Snowflake sources
     "snowflake-sqlalchemy<=1.2.4",
     "cryptography",
+    "msal",
 }
 
 trino = {
@@ -294,6 +299,7 @@ mypy_stubs = {
     "types-tabulate",
     # avrogen package requires this
     "types-pytz",
+    "types-pyOpenSSL",
 }
 
 base_dev_requirements = {

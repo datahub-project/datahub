@@ -23,7 +23,7 @@ class HanaConfig(BasicSQLAlchemyConfig):
     scheme: str = pydantic.Field(default="hana+hdbcli")
 
 
-@platform_name("Hana")
+@platform_name("SAP HANA", id="hana")
 @config_class(HanaConfig)
 @support_status(SupportStatus.TESTING)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
