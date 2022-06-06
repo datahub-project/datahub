@@ -5,7 +5,7 @@ import com.github.fge.jsonpatch.JsonPatch;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.dataset.DatasetProperties;
-import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
@@ -17,8 +17,10 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.timeline.differ.EditableDatasetPropertiesDiffer.*;
+import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.timeline.differ.EditableDatasetPropertiesDiffer.DESCRIPTION_ADDED;
+import static com.linkedin.metadata.timeline.differ.EditableDatasetPropertiesDiffer.DESCRIPTION_CHANGED;
+import static com.linkedin.metadata.timeline.differ.EditableDatasetPropertiesDiffer.DESCRIPTION_REMOVED;
 
 
 public class DatasetPropertiesDiffer implements AspectDiffer<DatasetProperties> {
@@ -63,15 +65,15 @@ public class DatasetPropertiesDiffer implements AspectDiffer<DatasetProperties> 
   }
 
   @Nullable
-  private static DatasetProperties getDatasetPropertiesFromAspect(EbeanAspectV2 ebeanAspectV2) {
-    if (ebeanAspectV2 != null && ebeanAspectV2.getMetadata() != null) {
-      return RecordUtils.toRecordTemplate(DatasetProperties.class, ebeanAspectV2.getMetadata());
+  private static DatasetProperties getDatasetPropertiesFromAspect(EntityAspect entityAspect) {
+    if (entityAspect != null && entityAspect.getMetadata() != null) {
+      return RecordUtils.toRecordTemplate(DatasetProperties.class, entityAspect.getMetadata());
     }
     return null;
   }
 
   @Override
-  public ChangeTransaction getSemanticDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue,
+  public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
       ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
     if (!previousValue.getAspect().equals(DATASET_PROPERTIES_ASPECT_NAME) || !currentValue.getAspect()
         .equals(DATASET_PROPERTIES_ASPECT_NAME)) {

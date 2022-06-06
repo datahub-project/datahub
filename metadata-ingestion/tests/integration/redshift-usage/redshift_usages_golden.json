@@ -7,7 +7,7 @@
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
-        "value": "{\"timestampMillis\": 1629795600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"lastUpdatedTimestamp\": 1631664000000, \"actor\": \"urn:li:corpuser:test-name\", \"operationType\": \"INSERT\"}",
+        "value": "{\"timestampMillis\": 1629795600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"actor\": \"urn:li:corpuser:test-name\", \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1631664000000}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -26,7 +26,7 @@
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
-        "value": "{\"timestampMillis\": 1629795600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"lastUpdatedTimestamp\": 1631664000000, \"actor\": \"urn:li:corpuser:real_shirshanka\", \"operationType\": \"INSERT\"}",
+        "value": "{\"timestampMillis\": 1629795600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"actor\": \"urn:li:corpuser:real_shirshanka\", \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1631664000000}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -45,7 +45,7 @@
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
-        "value": "{\"timestampMillis\": 1629795600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"lastUpdatedTimestamp\": 1631664000000, \"actor\": \"urn:li:corpuser:real_shirshanka\", \"operationType\": \"DELETE\"}",
+        "value": "{\"timestampMillis\": 1629795600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"actor\": \"urn:li:corpuser:real_shirshanka\", \"operationType\": \"DELETE\", \"lastUpdatedTimestamp\": 1631664000000}",
         "contentType": "application/json"
     },
     "systemMetadata": {
