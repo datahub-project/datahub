@@ -51,7 +51,7 @@ task generateGraphQLSchema(type: Exec) {
   commandLine './generateGraphQLSchema.sh'
 }
 
-task generateJsonSchema(type: Exec) {
+task generateJsonSchema(type: Exec, dependsOn: [':metadata-ingestion:docGen']) {
   workingDir "$projectDir/genJsonSchema"
   commandLine './generateJsonSchema.sh'
 }

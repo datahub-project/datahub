@@ -6,7 +6,7 @@
 /graphql/combined.graphql
 
 # Generated Json Schema
-/static/datahub_json_schema.json
+/static/schemas/datahub_ingestion_schema.json
 
 # Dependencies
 /node_modules
