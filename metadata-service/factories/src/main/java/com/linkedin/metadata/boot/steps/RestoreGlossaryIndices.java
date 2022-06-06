@@ -127,12 +127,12 @@ public class RestoreGlossaryIndices implements BootstrapStep {
     for (Urn termUrn: termUrns) {
       EntityResponse termEntityResponse = termInfoResponses.get(termUrn);
       if (termEntityResponse == null) {
-        log.info("Term not in set of entity responses {}", termUrn);
+        log.warn("Term not in set of entity responses {}", termUrn);
         continue;
       }
       GlossaryTermInfo termInfo = mapTermInfo(termEntityResponse);
       if (termInfo == null) {
-        log.info("Received null termInfo for urn {}", termUrn);
+        log.warn("Received null termInfo for urn {}", termUrn);
         continue;
       }
 
@@ -168,12 +168,12 @@ public class RestoreGlossaryIndices implements BootstrapStep {
     for (Urn nodeUrn: nodeUrns) {
       EntityResponse nodeEntityResponse = nodeInfoResponses.get(nodeUrn);
       if (nodeEntityResponse == null) {
-        log.info("Node not in set of entity responses {}", nodeUrn);
+        log.warn("Node not in set of entity responses {}", nodeUrn);
         continue;
       }
       GlossaryNodeInfo nodeInfo = mapNodeInfo(nodeEntityResponse);
       if (nodeInfo == null) {
-        log.info("Received null nodeInfo for urn {}", nodeUrn);
+        log.warn("Received null nodeInfo for urn {}", nodeUrn);
         continue;
       }
 
