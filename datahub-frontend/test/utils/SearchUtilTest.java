@@ -5,7 +5,7 @@ import org.testng.annotations.Test;
 import static org.junit.Assert.*;
 
 public class SearchUtilTest {
-    @Tedatahub-frontend/test/utils/SearchUtilTest.javast
+    @Test
     public void testEscapeForwardSlash() {
         // escape "/"
         assertEquals("\\\\/foo\\\\/bar", SearchUtil.escapeForwardSlash("/foo/bar"));
