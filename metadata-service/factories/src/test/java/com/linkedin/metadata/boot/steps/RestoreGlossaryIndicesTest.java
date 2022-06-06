@@ -20,8 +20,6 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.upgrade.DataHubUpgradeRequest;
-import com.linkedin.upgrade.DataHubUpgradeResult;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
