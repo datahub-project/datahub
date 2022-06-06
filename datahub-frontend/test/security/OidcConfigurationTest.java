@@ -28,7 +28,7 @@ import static org.junit.Assert.*;
 
 public class OidcConfigurationTest {
 
-  private static final com.typesafe.config.Config config = new Config() {
+  private static final com.typesafe.config.Config CONFIG = new Config() {
 
     private final Map<String, Object> _map = new HashMap<>();
 
@@ -312,9 +312,9 @@ public class OidcConfigurationTest {
   @Test
   public void readTimeoutPropagation() {
 
-    config.withValue(OIDC_READ_TIMEOUT, ConfigValueFactory.fromAnyRef("10000"));
-    OidcConfigs oidcConfigs = new OidcConfigs(config);
+    CONFIG.withValue(OIDC_READ_TIMEOUT, ConfigValueFactory.fromAnyRef("10000"));
+    OidcConfigs oidcConfigs = new OidcConfigs(CONFIG);
     OidcProvider oidcProvider = new OidcProvider(oidcConfigs);
-    assertEquals(10000, ((OidcClient)oidcProvider.client()).getConfiguration().getReadTimeout());
+    assertEquals(10000, ((OidcClient) oidcProvider.client()).getConfiguration().getReadTimeout());
   }
 }
