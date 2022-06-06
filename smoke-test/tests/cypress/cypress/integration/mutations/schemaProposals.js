@@ -42,7 +42,7 @@ describe('schemaProposals', () => {
 
     cy.get('.ant-select-item-option-content').within(() => {
       cy.wait(1000);
-      cy.contains('CypressNode.TermToPropose').click({force: true});
+      cy.contains('TermToPropose').click({force: true});
     });
     cy.get('[data-testid="create-proposal-btn"]').click({force: true});
     cy.wait(5000);
@@ -98,7 +98,7 @@ describe('schemaProposals', () => {
 
     cy.get('.ant-select-item-option-content').within(() => {
       cy.wait(1000);
-      cy.contains('CypressNode.TermToPropose').click({force: true});
+      cy.contains('TermToPropose').click({force: true});
     });
     cy.get('[data-testid="create-proposal-btn"]').click({force: true});
     cy.wait(5000);
@@ -138,7 +138,7 @@ describe('schemaProposals', () => {
       cy.get('input[data-testid=search-input]').typeSearchDisableCache('TagToPropose');
       cy.contains('DatasetToProposeOn');
       cy.contains('TagToPropose');
-      cy.contains('Proposed Schema Tag');
+      cy.contains('Proposed Tag');
 
       // Rejecting proposal
       cy.contains('My Requests').click({force: true});
@@ -166,7 +166,7 @@ describe('schemaProposals', () => {
 
       cy.get('.ant-select-item-option-content').within(() => {
         cy.wait(1000);
-        cy.contains('CypressNode.TermToPropose').click({force: true});
+        cy.contains('TermToPropose').click({force: true});
       });
       cy.get('[data-testid="create-proposal-btn"]').click({force: true});
       cy.wait(5000);
@@ -177,7 +177,7 @@ describe('schemaProposals', () => {
       cy.get('input[data-testid=search-input]').typeSearchDisableCache('TermToPropose');
       cy.contains('DatasetToProposeOn');
       cy.contains('TermToPropose');
-      cy.contains('Proposed Schema Glossary Term');
+      cy.contains('Proposed Term');
 
       // Rejecting proposals
       cy.contains('My Requests').click({force: true});
@@ -214,7 +214,7 @@ describe('schemaProposals', () => {
       cy.get('input[data-testid=search-input]').typeSearchDisableCache('TagToPropose');
       cy.contains('DatasetToProposeOn');
       cy.contains('TagToPropose');
-      cy.contains('Proposed Schema Tag');
+      cy.contains('Proposed Tag');
 
       // Accepting proposal
       cy.contains('My Requests').click({force: true});
@@ -251,7 +251,7 @@ describe('schemaProposals', () => {
 
       cy.get('.ant-select-item-option-content').within(() => {
         cy.wait(1000);
-        cy.contains('CypressNode.TermToPropose').click({force: true});
+        cy.contains('TermToPropose').click({force: true});
       });
       cy.get('[data-testid="create-proposal-btn"]').click({force: true});
       cy.wait(5000);
@@ -262,7 +262,7 @@ describe('schemaProposals', () => {
       cy.get('input[data-testid=search-input]').typeSearchDisableCache('TermToPropose');
       cy.contains('DatasetToProposeOn');
       cy.contains('TermToPropose');
-      cy.contains('Proposed Schema Glossary Term');
+      cy.contains('Proposed Term');
 
       // Accepting proposal
       cy.contains('My Requests').click({force: true});

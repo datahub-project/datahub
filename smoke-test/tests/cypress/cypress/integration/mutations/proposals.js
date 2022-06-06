@@ -11,7 +11,7 @@ describe('proposals', () => {
 
     cy.get('[data-testid="proposed-tag-TagToPropose"]').should('not.exist');
 
-    cy.contains('Add Tag').click({ force: true });
+    cy.contains('Add Tags').click({ force: true });
     cy.wait(1000);
 
     cy.focused().type('TagToPropose');
@@ -37,7 +37,7 @@ describe('proposals', () => {
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
 
     cy.get('[data-testid="proposed-term-TermToPropose"]').should('not.exist');
-    cy.contains('Add Term').click({force: true});
+    cy.contains('Add Terms').click({force: true});
     cy.wait(1000);
 
     cy.focused().type('TermToPropose');
@@ -63,7 +63,7 @@ describe('proposals', () => {
 
     // Proposing the tag
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
-    cy.contains('Add Tag').click({force: true});
+    cy.contains('Add Tags').click({force: true});
 
     cy.focused().type('TagToPropose');
     cy.wait(3000);
@@ -97,7 +97,7 @@ describe('proposals', () => {
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
 
     cy.get('[data-testid="proposed-term-TermToPropose"]').should('not.exist');
-    cy.contains('Add Term').click({force: true});
+    cy.contains('Add Terms').click({force: true});
     cy.wait(1000);
 
     cy.focused().type('TermToPropose');
@@ -132,7 +132,7 @@ describe('proposals', () => {
 
     cy.get('[data-testid="proposed-tag-TagToPropose"]').should('not.exist');
 
-    cy.contains('Add Tag').click({ force: true });
+    cy.contains('Add Tags').click({ force: true });
 
     cy.focused().type('TagToPropose');
     cy.wait(3000);
@@ -176,7 +176,7 @@ describe('proposals', () => {
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
 
     cy.get('[data-testid="proposed-term-TermToPropose"]').should('not.exist');
-    cy.contains('Add Term').click({force: true});
+    cy.contains('Add Terms').click({force: true});
 
     cy.focused().type('TermToPropose');
     cy.wait(3000);
@@ -195,7 +195,7 @@ describe('proposals', () => {
     cy.get('input[data-testid=search-input]').typeSearchDisableCache('TermToPropose');
     cy.contains('DatasetToProposeOn');
     cy.contains('TermToPropose');
-    cy.contains('Proposed Glossary Term');
+    cy.contains('Proposed Term');
 
     cy.wait(1000);
 
@@ -219,7 +219,7 @@ describe('proposals', () => {
 
     // Proposing the tag
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
-    cy.contains('Add Tag').click({force: true});
+    cy.contains('Add Tags').click({force: true});
 
     cy.focused().type('TagToPropose');
     cy.wait(3000);
@@ -264,7 +264,7 @@ describe('proposals', () => {
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
 
     cy.get('[data-testid="proposed-term-TermToPropose"]').should('not.exist');
-    cy.contains('Add Term').click({force: true});
+    cy.contains('Add Terms').click({force: true});
 
     cy.focused().type('TermToPropose');
     cy.wait(3000);
