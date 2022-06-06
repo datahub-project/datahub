@@ -13,7 +13,7 @@ export default function GlossaryRelatedEntity() {
     const { entityData }: any = useEntityData();
     const glossaryTermHierarchicalName = entityData?.hierarchicalName;
     let fixedQueryString = `glossaryTerms:"${glossaryTermHierarchicalName}" OR fieldGlossaryTerms:"${glossaryTermHierarchicalName}" OR editedFieldGlossaryTerms:"${glossaryTermHierarchicalName}"`;
-    entityData?.childTerms?.relationships.forEach((term) => {
+    entityData?.isAChildren?.relationships.forEach((term) => {
         const name = term.entity?.hierarchicalName;
         fixedQueryString += `OR glossaryTerms:"${name}" OR fieldGlossaryTerms:"${name}" OR editedFieldGlossaryTerms:"${name}"`;
     });

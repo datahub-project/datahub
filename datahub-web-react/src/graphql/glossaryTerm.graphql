@@ -28,7 +28,7 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
                 }
             }
         }
-        childTerms: relationships(input: { types: ["IsA"], direction: INCOMING, start: $start, count: $count }) {
+        isAChildren: relationships(input: { types: ["IsA"], direction: INCOMING, start: $start, count: $count }) {
             start
             count
             total
