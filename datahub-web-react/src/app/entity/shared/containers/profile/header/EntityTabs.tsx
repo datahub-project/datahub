@@ -4,6 +4,7 @@ import styled from 'styled-components';
 
 import { EntityTab } from '../../../types';
 import { useBaseEntity, useEntityData, useRouteToTab } from '../../../EntityContext';
+import { useAppConfig } from '../../../../../useAppConfig';
 
 type Props = {
     tabs: EntityTab[];
@@ -25,6 +26,7 @@ const Tab = styled(Tabs.TabPane)`
 `;
 
 export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
+    const appConfig = useAppConfig();
     const { entityData } = useEntityData();
     const routeToTab = useRouteToTab();
     const baseEntity = useBaseEntity<T>();
@@ -37,7 +39,7 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
         }
     }, [tabs, selectedTab, routeToTab]);
 
-    const visibleTabs = tabs.filter((tab) => tab.display?.visible(entityData, baseEntity));
+    const visibleTabs = tabs.filter((tab) => tab.display?.visible(entityData, baseEntity, appConfig.config));
 
     return (
         <UnborderedTabs

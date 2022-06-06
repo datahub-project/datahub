@@ -10,17 +10,15 @@ import useFilters from '../../../../search/utils/useFilters';
 import { SearchCfg } from '../../../../../conf';
 import analytics, { EventType } from '../../../../analytics';
 import { EmbeddedListSearch } from '../../components/styled/search/EmbeddedListSearch';
-import generateUseSearchResultsViaRelationshipHook from './generateUseSearchResultsViaRelationshipHook';
+import generateUseSearchResultsViaRelationshipHook from '../Lineage/generateUseSearchResultsViaRelationshipHook';
+import { useEntityData } from '../../EntityContext';
 
 const ImpactAnalysisWrapper = styled.div`
     flex: 1;
 `;
 
-type Props = {
-    urn: string;
-};
-
-export const ImpactAnalysis = ({ urn }: Props) => {
+export const ImpactAnalysis = () => {
+    const { urn } = useEntityData();
     const location = useLocation();
 
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });

@@ -14,6 +14,7 @@ import { SidebarAboutSection } from '../shared/containers/profile/sidebar/Sideba
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
+import { ImpactAnalysis } from '../shared/tabs/ImpactAnalysis/ImpactAnalysis';
 
 /**
  * Definition of the DataHub MLPrimaryKey entity.
@@ -87,6 +88,18 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
                                 (result?.mlPrimaryKey?.upstream?.total || 0) > 0 ||
                                 (result?.mlPrimaryKey?.downstream?.total || 0) > 0
                             );
+                        },
+                    },
+                },
+                {
+                    name: 'Impact',
+                    component: ImpactAnalysis,
+                    display: {
+                        visible: (_, _1, config) => {
+                            return !!config && config.lineageConfig.supportsImpactAnalysis;
+                        },
+                        enabled: (_, result: GetMlPrimaryKeyQuery) => {
+                            return (result?.mlPrimaryKey?.downstream?.total || 0) > 0;
                         },
                     },
                 },

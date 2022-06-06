@@ -15,6 +15,7 @@ import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab'
 import { FeatureTableTab } from '../shared/tabs/ML/MlFeatureFeatureTableTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
+import { ImpactAnalysis } from '../shared/tabs/ImpactAnalysis/ImpactAnalysis';
 
 /**
  * Definition of the DataHub MLFeature entity.
@@ -89,6 +90,18 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                                 (result?.mlFeature?.upstream?.total || 0) > 0 ||
                                 (result?.mlFeature?.downstream?.total || 0) > 0
                             );
+                        },
+                    },
+                },
+                {
+                    name: 'Impact',
+                    component: ImpactAnalysis,
+                    display: {
+                        visible: (_, _1, config) => {
+                            return !!config && config.lineageConfig.supportsImpactAnalysis;
+                        },
+                        enabled: (_, result: GetMlFeatureQuery) => {
+                            return (result?.mlFeature?.downstream?.total || 0) > 0;
                         },
                     },
                 },

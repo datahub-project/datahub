@@ -18,6 +18,7 @@ import { capitalizeFirstLetter } from '../../shared/textUtil';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { RunsTab } from './tabs/RunsTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
+import { ImpactAnalysis } from '../shared/tabs/ImpactAnalysis/ImpactAnalysis';
 
 /**
  * Definition of the DataHub DataJob entity.
@@ -84,6 +85,18 @@ export class DataJobEntity implements Entity<DataJob> {
                     component: LineageTab,
                     display: {
                         visible: (_, _1) => true,
+                        enabled: (_, dataJob: GetDataJobQuery) =>
+                            (dataJob?.dataJob?.incoming?.count || 0) !== 0 ||
+                            (dataJob?.dataJob?.outgoing?.count || 0) !== 0,
+                    },
+                },
+                {
+                    name: 'Impact',
+                    component: ImpactAnalysis,
+                    display: {
+                        visible: (_, _1, config) => {
+                            return !!config && config.lineageConfig.supportsImpactAnalysis;
+                        },
                         enabled: (_, dataJob: GetDataJobQuery) =>
                             (dataJob?.dataJob?.incoming?.count || 0) !== 0 ||
                             (dataJob?.dataJob?.outgoing?.count || 0) !== 0,

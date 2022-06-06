@@ -27,6 +27,7 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 import { ValidationsTab } from '../shared/tabs/Dataset/Validations/ValidationsTab';
 import { OperationsTab } from './profile/OperationsTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
+import { ImpactAnalysis } from '../shared/tabs/ImpactAnalysis/ImpactAnalysis';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -118,6 +119,18 @@ export class DatasetEntity implements Entity<Dataset> {
                                 (dataset?.dataset?.upstream?.total || 0) > 0 ||
                                 (dataset?.dataset?.downstream?.total || 0) > 0
                             );
+                        },
+                    },
+                },
+                {
+                    name: 'Impact',
+                    component: ImpactAnalysis,
+                    display: {
+                        visible: (_, _1, config) => {
+                            return !!config && config.lineageConfig.supportsImpactAnalysis;
+                        },
+                        enabled: (_, dataset: GetDatasetQuery) => {
+                            return (dataset?.dataset?.downstream?.total || 0) > 0;
                         },
                     },
                 },
