@@ -881,9 +881,6 @@ class DatahubGEProfiler:
                     platform=platform,
                 )
 
-                print(
-                    f"{pretty_name} partition was {partition} config was {self.config}"
-                )
                 profile = _SingleDatasetProfiler(
                     batch,
                     pretty_name,
