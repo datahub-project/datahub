@@ -58,7 +58,7 @@ class DataHubGraph(DatahubRestEmitter):
             self.server_id = client_id.clientId if client_id else "missing"
         except Exception as e:
             self.server_id = "missing"
-            logger.debug("Failed to get server id", e)
+            logger.debug(f"Failed to get server id due to {e}")
 
     def _get_generic(self, url: str) -> Dict:
         try:

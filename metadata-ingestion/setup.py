@@ -58,6 +58,7 @@ framework_common = {
     "markupsafe>=1.1.1,<=2.0.1",
     "Deprecated",
     "types-Deprecated",
+    "humanfriendly",
 }
 
 kafka_common = {
@@ -125,6 +126,7 @@ snowflake_common = {
     # Required for all Snowflake sources
     "snowflake-sqlalchemy<=1.2.4",
     "cryptography",
+    "msal",
 }
 
 trino = {
@@ -297,6 +299,7 @@ mypy_stubs = {
     "types-tabulate",
     # avrogen package requires this
     "types-pytz",
+    "types-pyOpenSSL",
 }
 
 base_dev_requirements = {

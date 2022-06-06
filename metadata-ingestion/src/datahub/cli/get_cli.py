@@ -7,6 +7,7 @@ from click.exceptions import UsageError
 
 from datahub.cli.cli_utils import get_aspects_for_entity
 from datahub.telemetry import telemetry
+from datahub.upgrade import upgrade
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 @click.option("--urn", required=False, type=str)
 @click.option("-a", "--aspect", required=False, multiple=True, type=str)
 @click.pass_context
+@upgrade.check_upgrade
 @telemetry.with_telemetry
 def get(ctx: Any, urn: Optional[str], aspect: List[str]) -> None:
     """

@@ -89,6 +89,7 @@ project.ext.externalDependency = [
     'jgrapht': 'org.jgrapht:jgrapht-core:1.5.1',
     'jsonSchemaAvro': 'com.github.fge:json-schema-avro:0.1.4',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
+    'jsonSmart': 'net.minidev:json-smart:2.4.6',
     'junitJupiterApi': "org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion",
     'junitJupiterParams': "org.junit.jupiter:junit-jupiter-params:$junitJupiterVersion",
     'junitJupiterEngine': "org.junit.jupiter:junit-jupiter-engine:$junitJupiterVersion",
