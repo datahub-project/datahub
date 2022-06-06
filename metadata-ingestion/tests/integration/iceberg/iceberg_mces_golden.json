@@ -1,0 +1,163 @@
+[
+{
+    "auditHeader": null,
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespace.iceberg_test,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "owner": "new_owner",
+                            "provider": "ICEBERG",
+                            "location": "/namespace/iceberg_test"
+                        },
+                        "externalUrl": null,
+                        "name": null,
+                        "qualifiedName": null,
+                        "description": null,
+                        "uri": null,
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:new_owner",
+                                "type": "TECHNICAL_OWNER",
+                                "source": null
+                            },
+                            {
+                                "owner": "urn:li:corpGroup:new_owner",
+                                "type": "TECHNICAL_OWNER",
+                                "source": null
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "namespace.iceberg_test",
+                        "platform": "urn:li:dataPlatform:iceberg",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown",
+                            "impersonator": null
+                        },
+                        "deleted": null,
+                        "dataset": null,
+                        "cluster": null,
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                                "rawSchema": "Schema(1: level: required string(level documentation),2: event_time: required timestamptz(event_time documentation),3: message: required string(message documentation),4: call_stack: optional list<string>(call_stack documentation))"
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=string].level",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": "level documentation",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": null,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": false}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=long].event_time",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": "event_time documentation",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "timestamptz",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": null,
+                                "jsonProps": "{\"logicalType\": \"timestamp-micros\", \"native_data_type\": \"timestamptz\", \"_nullable\": false}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=string].message",
+                                "jsonPath": null,
+                                "nullable": false,
+                                "description": "message documentation",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": null,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": false}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=string].call_stack",
+                                "jsonPath": null,
+                                "nullable": true,
+                                "description": "call_stack documentation",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
+                                            "nestedType": [
+                                                "string"
+                                            ]
+                                        }
+                                    }
+                                },
+                                "nativeDataType": "list<string>",
+                                "recursive": false,
+                                "globalTags": null,
+                                "glossaryTerms": null,
+                                "isPartOfKey": false,
+                                "isPartitioningKey": null,
+                                "jsonProps": "{\"native_data_type\": \"list<string>\", \"_nullable\": true}"
+                            }
+                        ],
+                        "primaryKeys": null,
+                        "foreignKeysSpecs": null,
+                        "foreignKeys": null
+                    }
+                }
+            ]
+        }
+    },
+    "proposedDelta": null,
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "iceberg-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+}
+]

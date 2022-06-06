@@ -160,7 +160,7 @@ ALTER TABLE metadata_aspect_v2 CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_
 ## I've modified the default user.props file to include a custom username and password, but I don't see the new user(s) inside the Users & Groups tab. Why not? 
 
 Currently, `user.props` is a file used by the JAAS PropertyFileLoginModule solely for the purpose of **Authentication**. The file is not used as an source from which to
-ingest additional metadata about the user. For that, you'll need to ingest some custom information about your new user using the Rest.li APIs or the [File-based ingestion source](https://datahubproject.io/docs/metadata-ingestion/source_docs/file).
+ingest additional metadata about the user. For that, you'll need to ingest some custom information about your new user using the Rest.li APIs or the [File-based ingestion source](./generated/ingestion/sources/file.md).
 
 For an example of a file that ingests user information, check out [single_mce.json](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/mce_files/single_mce.json), which ingests a single user object into DataHub. Notice that the "urn" field provided
 will need to align with the custom username you've provided in user.props file. For example, if your user.props file contains:

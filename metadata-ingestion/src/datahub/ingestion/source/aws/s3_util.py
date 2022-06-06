@@ -45,3 +45,11 @@ def get_bucket_name(s3_uri: str) -> str:
             f"Not an S3 URI. Must start with one of the following prefixes: {str(S3_PREFIXES)}"
         )
     return strip_s3_prefix(s3_uri).split("/")[0]
+
+
+def get_key_prefix(s3_uri: str) -> str:
+    if not is_s3_uri(s3_uri):
+        raise ValueError(
+            f"Not an S3 URI. Must start with one of the following prefixes: {str(S3_PREFIXES)}"
+        )
+    return strip_s3_prefix(s3_uri).split("/", maxsplit=1)[1]

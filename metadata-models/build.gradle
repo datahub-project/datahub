@@ -1,3 +1,6 @@
+import io.datahubproject.GenerateJsonSchemaTask
+
+
 apply plugin: 'pegasus'
 
 
@@ -13,3 +16,9 @@ mainAvroSchemaJar.dependsOn generateAvroSchema
 
 pegasus.main.generationModes = [PegasusGenerationMode.PEGASUS, PegasusGenerationMode.AVRO]
 
+
+tasks.register('generateJsonSchema', GenerateJsonSchemaTask) {
+  it.setInputDirectory("$projectDir/src/mainGeneratedAvroSchema")
+  it.setOutputDirectory("$projectDir/src/generatedJsonSchema")
+  dependsOn generateAvroSchema
+}

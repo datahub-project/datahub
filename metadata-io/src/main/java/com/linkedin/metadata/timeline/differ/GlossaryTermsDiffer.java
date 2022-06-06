@@ -2,29 +2,32 @@ package com.linkedin.metadata.timeline.differ;
 
 import com.datahub.util.RecordUtils;
 import com.github.fge.jsonpatch.JsonPatch;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.GlossaryTermAssociationArray;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
+import com.linkedin.metadata.timeline.data.entity.GlossaryTermChangeEvent;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import javax.annotation.Nonnull;
 
-import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
 
 
-public class GlossaryTermsDiffer implements Differ {
+public class GlossaryTermsDiffer implements AspectDiffer<GlossaryTerms> {
   private static final String GLOSSARY_TERM_ADDED_FORMAT = "Term '%s' added to entity '%s'.";
   private static final String GLOSSARY_TERM_REMOVED_FORMAT = "Term '%s' removed from entity '%s'.";
 
   public static List<ChangeEvent> computeDiffs(GlossaryTerms baseGlossaryTerms, GlossaryTerms targetGlossaryTerms,
-      String entityUrn) {
+      String entityUrn, AuditStamp auditStamp) {
     List<ChangeEvent> changeEvents = new ArrayList<>();
 
     sortGlossaryTermsByGlossaryTermUrn(baseGlossaryTerms);
@@ -47,26 +50,30 @@ public class GlossaryTermsDiffer implements Differ {
         ++targetGlossaryTermIdx;
       } else if (comparison < 0) {
         // GlossaryTerm got removed.
-        changeEvents.add(ChangeEvent.builder()
-            .elementId(baseGlossaryTermAssociation.getUrn().toString())
-            .target(entityUrn)
+        changeEvents.add(GlossaryTermChangeEvent.entityGlossaryTermChangeEventBuilder()
+            .modifier(baseGlossaryTermAssociation.getUrn().toString())
+            .entityUrn(entityUrn)
             .category(ChangeCategory.GLOSSARY_TERM)
-            .changeType(ChangeOperation.REMOVE)
+            .operation(ChangeOperation.REMOVE)
             .semVerChange(SemanticChangeType.MINOR)
             .description(
                 String.format(GLOSSARY_TERM_REMOVED_FORMAT, baseGlossaryTermAssociation.getUrn().getId(), entityUrn))
+            .termUrn(baseGlossaryTermAssociation.getUrn())
+            .auditStamp(auditStamp)
             .build());
         ++baseGlossaryTermIdx;
       } else {
         // GlossaryTerm got added.
-        changeEvents.add(ChangeEvent.builder()
-            .elementId(targetGlossaryTermAssociation.getUrn().toString())
-            .target(entityUrn)
+        changeEvents.add(GlossaryTermChangeEvent.entityGlossaryTermChangeEventBuilder()
+            .modifier(targetGlossaryTermAssociation.getUrn().toString())
+            .entityUrn(entityUrn)
             .category(ChangeCategory.GLOSSARY_TERM)
-            .changeType(ChangeOperation.ADD)
+            .operation(ChangeOperation.ADD)
             .semVerChange(SemanticChangeType.MINOR)
             .description(
                 String.format(GLOSSARY_TERM_ADDED_FORMAT, targetGlossaryTermAssociation.getUrn().getId(), entityUrn))
+            .termUrn(targetGlossaryTermAssociation.getUrn())
+            .auditStamp(auditStamp)
             .build());
         ++targetGlossaryTermIdx;
       }
@@ -75,28 +82,32 @@ public class GlossaryTermsDiffer implements Differ {
     while (baseGlossaryTermIdx < baseTerms.size()) {
       // Handle removed glossary terms.
       GlossaryTermAssociation baseGlossaryTermAssociation = baseTerms.get(baseGlossaryTermIdx);
-      changeEvents.add(ChangeEvent.builder()
-          .elementId(baseGlossaryTermAssociation.getUrn().toString())
-          .target(entityUrn)
+      changeEvents.add(GlossaryTermChangeEvent.entityGlossaryTermChangeEventBuilder()
+          .modifier(baseGlossaryTermAssociation.getUrn().toString())
+          .entityUrn(entityUrn)
           .category(ChangeCategory.GLOSSARY_TERM)
-          .changeType(ChangeOperation.REMOVE)
+          .operation(ChangeOperation.REMOVE)
           .semVerChange(SemanticChangeType.MINOR)
           .description(
               String.format(GLOSSARY_TERM_REMOVED_FORMAT, baseGlossaryTermAssociation.getUrn().getId(), entityUrn))
+          .termUrn(baseGlossaryTermAssociation.getUrn())
+          .auditStamp(auditStamp)
           .build());
       ++baseGlossaryTermIdx;
     }
     while (targetGlossaryTermIdx < targetTerms.size()) {
       // Handle newly added glossary terms.
       GlossaryTermAssociation targetGlossaryTermAssociation = targetTerms.get(targetGlossaryTermIdx);
-      changeEvents.add(ChangeEvent.builder()
-          .elementId(targetGlossaryTermAssociation.getUrn().toString())
-          .target(entityUrn)
+      changeEvents.add(GlossaryTermChangeEvent.entityGlossaryTermChangeEventBuilder()
+          .modifier(targetGlossaryTermAssociation.getUrn().toString())
+          .entityUrn(entityUrn)
           .category(ChangeCategory.GLOSSARY_TERM)
-          .changeType(ChangeOperation.ADD)
+          .operation(ChangeOperation.ADD)
           .semVerChange(SemanticChangeType.MINOR)
           .description(
               String.format(GLOSSARY_TERM_ADDED_FORMAT, targetGlossaryTermAssociation.getUrn().getId(), entityUrn))
+          .termUrn(targetGlossaryTermAssociation.getUrn())
+          .auditStamp(auditStamp)
           .build());
       ++targetGlossaryTermIdx;
     }
@@ -112,15 +123,15 @@ public class GlossaryTermsDiffer implements Differ {
     globalGlossaryTerms.setTerms(new GlossaryTermAssociationArray(glossaryTerms));
   }
 
-  private static GlossaryTerms getGlossaryTermsFromAspect(EbeanAspectV2 ebeanAspectV2) {
-    if (ebeanAspectV2 != null && ebeanAspectV2.getMetadata() != null) {
-      return RecordUtils.toRecordTemplate(GlossaryTerms.class, ebeanAspectV2.getMetadata());
+  private static GlossaryTerms getGlossaryTermsFromAspect(EntityAspect entityAspect) {
+    if (entityAspect != null && entityAspect.getMetadata() != null) {
+      return RecordUtils.toRecordTemplate(GlossaryTerms.class, entityAspect.getMetadata());
     }
     return null;
   }
 
   @Override
-  public ChangeTransaction getSemanticDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue,
+  public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
       ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
     if (!previousValue.getAspect().equals(GLOSSARY_TERMS_ASPECT_NAME) || !currentValue.getAspect()
         .equals(GLOSSARY_TERMS_ASPECT_NAME)) {
@@ -131,7 +142,7 @@ public class GlossaryTermsDiffer implements Differ {
     GlossaryTerms targetGlossaryTerms = getGlossaryTermsFromAspect(currentValue);
     List<ChangeEvent> changeEvents = new ArrayList<>();
     if (element == ChangeCategory.GLOSSARY_TERM) {
-      changeEvents.addAll(computeDiffs(baseGlossaryTerms, targetGlossaryTerms, currentValue.getUrn()));
+      changeEvents.addAll(computeDiffs(baseGlossaryTerms, targetGlossaryTerms, currentValue.getUrn(), null));
     }
 
     // Assess the highest change at the transaction(schema) level.
@@ -149,5 +160,16 @@ public class GlossaryTermsDiffer implements Differ {
         .rawDiff(rawDiffsRequested ? rawDiff : null)
         .actor(currentValue.getCreatedBy())
         .build();
+  }
+
+  @Override
+  public List<ChangeEvent> getChangeEvents(
+      @Nonnull Urn urn,
+      @Nonnull String entity,
+      @Nonnull String aspect,
+      @Nonnull Aspect<GlossaryTerms> from,
+      @Nonnull Aspect<GlossaryTerms> to,
+      @Nonnull AuditStamp auditStamp) {
+    return computeDiffs(from.getValue(), to.getValue(), urn.toString(), auditStamp);
   }
 }

@@ -1,6 +1,8 @@
 package com.linkedin.datahub.upgrade.restoreindices;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
@@ -9,8 +11,8 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
-import com.linkedin.metadata.entity.ebean.EbeanUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -21,6 +23,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+
+import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
+import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 
 
 public class SendMAEStep implements UpgradeStep {
@@ -53,7 +58,8 @@ public class SendMAEStep implements UpgradeStep {
     return (context) -> {
 
       context.report().addLine("Sending MAE from local DB...");
-      final int rowCount = _server.find(EbeanAspectV2.class).where().eq(EbeanAspectV2.VERSION_COLUMN, 0).findCount();
+      final int rowCount =
+          _server.find(EbeanAspectV2.class).where().eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION).findCount();
       context.report().addLine(String.format("Found %s latest aspects in aspects table", rowCount));
 
       int totalRowsMigrated = 0;
@@ -72,9 +78,9 @@ public class SendMAEStep implements UpgradeStep {
             urn = Urn.createFromString(aspect.getKey().getUrn());
           } catch (Exception e) {
             context.report()
-                .addLine(
-                    String.format("Failed to bind Urn with value %s into Urn object: %s", aspect.getKey().getUrn(), e));
-            return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+                .addLine(String.format("Failed to bind Urn with value %s into Urn object: %s. Ignoring row.",
+                    aspect.getKey().getUrn(), e));
+            continue;
           }
 
           // 2. Verify that the entity associated with the aspect is found in the registry.
@@ -84,31 +90,39 @@ public class SendMAEStep implements UpgradeStep {
             entitySpec = _entityRegistry.getEntitySpec(entityName);
           } catch (Exception e) {
             context.report()
-                .addLine(String.format("Failed to find Entity with name %s in Entity Registry: %s", entityName, e));
-            return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+                .addLine(String.format("Failed to find entity with name %s in Entity Registry: %s. Ignoring row.",
+                    entityName, e));
+            continue;
           }
           final String aspectName = aspect.getKey().getAspect();
 
-          // 3. Create record from json aspect
-          final RecordTemplate aspectRecord =
-              EbeanUtils.toAspectRecord(entityName, aspectName, aspect.getMetadata(), _entityRegistry);
-
-          // 4. Verify that the aspect is a valid aspect associated with the entity
-          AspectSpec aspectSpec;
-          try {
-            aspectSpec = entitySpec.getAspectSpec(aspectName);
-          } catch (Exception e) {
+          // 3. Verify that the aspect is a valid aspect associated with the entity
+          AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
+          if (aspectSpec == null) {
             context.report()
-                .addLine(String.format("Failed to find aspect spec with name %s associated with entity named %s: %s",
-                    aspectName, entityName, e));
-            return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+                .addLine(String.format("Failed to find aspect with name %s associated with entity named %s",
+                    aspectName, entityName));
+            continue;
           }
 
-          SystemMetadata latestSystemMetadata = EbeanUtils.parseSystemMetadata(aspect.getSystemMetadata());
+          // 4. Create record from json aspect
+          final RecordTemplate aspectRecord;
+          try {
+            aspectRecord = EntityUtils.toAspectRecord(entityName, aspectName, aspect.getMetadata(), _entityRegistry);
+          } catch (Exception e) {
+            context.report()
+                .addLine(String.format("Failed to deserialize row %s for entity %s, aspect %s: %s. Ignoring row.",
+                    aspect.getMetadata(), entityName, aspectName, e));
+            continue;
+          }
+
+          SystemMetadata latestSystemMetadata = EntityUtils.parseSystemMetadata(aspect.getSystemMetadata());
 
           // 5. Produce MAE events for the aspect record
           _entityService.produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, null, aspectRecord, null,
-              latestSystemMetadata, ChangeType.UPSERT);
+              latestSystemMetadata,
+              new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()),
+              ChangeType.RESTATE);
 
           totalRowsMigrated++;
         }
@@ -135,7 +149,7 @@ public class SendMAEStep implements UpgradeStep {
     return _server.find(EbeanAspectV2.class)
         .select(EbeanAspectV2.ALL_COLUMNS)
         .where()
-        .eq(EbeanAspectV2.VERSION_COLUMN, 0)
+        .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION)
         .orderBy()
         .asc(EbeanAspectV2.URN_COLUMN)
         .orderBy()

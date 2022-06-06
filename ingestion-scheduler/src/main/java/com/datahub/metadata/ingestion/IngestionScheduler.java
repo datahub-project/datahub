@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -88,7 +89,8 @@ public class IngestionScheduler {
     final BatchRefreshSchedulesRunnable batchRefreshSchedulesRunnable = new BatchRefreshSchedulesRunnable(
         _systemAuthentication,
         _entityClient,
-        this::scheduleNextIngestionSourceExecution);
+        this::scheduleNextIngestionSourceExecution,
+        this::unscheduleAll);
 
     // Schedule a recurring batch-reload task.
     _sharedExecutorService.scheduleAtFixedRate(
@@ -100,11 +102,23 @@ public class IngestionScheduler {
    * Removes the next scheduled execution of a particular ingestion source, if it exists.
    */
   public void unscheduleNextIngestionSourceExecution(final Urn ingestionSourceUrn) {
+    log.info("Unscheduling ingestion source with urn {}", ingestionSourceUrn);
     // Deleting an ingestion source schedule. Un-schedule the next execution.
     ScheduledFuture<?> future = _nextIngestionSourceExecutionCache.get(ingestionSourceUrn);
     if (future != null) {
-      future.cancel(true);
+      future.cancel(false); // Do not interrupt running processes
       _nextIngestionSourceExecutionCache.remove(ingestionSourceUrn);
+    }
+  }
+
+  /**
+   * Un-schedule all ingestion sources that are scheduled for execution. This is performed on refresh of ingestion sources.
+   */
+  public void unscheduleAll() {
+    // Deleting an ingestion source schedule. Un-schedule the next execution.
+    Set<Urn> scheduledSources = new HashSet<>(_nextIngestionSourceExecutionCache.keySet()); // Create copy to avoid concurrent mod.
+    for (Urn urn : scheduledSources) {
+      unscheduleNextIngestionSourceExecution(urn);
     }
   }
 
@@ -173,14 +187,17 @@ public class IngestionScheduler {
     private final Authentication _systemAuthentication;
     private final EntityClient _entityClient;
     private final BiConsumer<Urn, DataHubIngestionSourceInfo> _scheduleNextIngestionSourceExecution;
+    private final Runnable _unscheduleAll;
 
     public BatchRefreshSchedulesRunnable(
         @Nonnull final Authentication systemAuthentication,
         @Nonnull final EntityClient entityClient,
-        @Nonnull final BiConsumer<Urn, DataHubIngestionSourceInfo> scheduleNextIngestionSourceExecution) {
+        @Nonnull final BiConsumer<Urn, DataHubIngestionSourceInfo> scheduleNextIngestionSourceExecution,
+        @Nonnull final Runnable unscheduleAll) {
       _systemAuthentication = Objects.requireNonNull(systemAuthentication);
       _entityClient = Objects.requireNonNull(entityClient);
       _scheduleNextIngestionSourceExecution = Objects.requireNonNull(scheduleNextIngestionSourceExecution);
+      _unscheduleAll = unscheduleAll;
     }
 
     @Override
@@ -212,6 +229,11 @@ public class IngestionScheduler {
 
             // 3. Reschedule ingestion sources based on the fetched schedules (inside "info")
             log.debug("Received batch of Ingestion Source Info aspects. Attempting to re-schedule execution requests.");
+
+            // First unschedule all currently scheduled runs (to make sure consistency is maintained)
+            _unscheduleAll.run();
+
+            // Then schedule the next ingestion runs
             scheduleNextIngestionRuns(new ArrayList<>(ingestionSources.values()));
 
             total = ingestionSourceUrns.getTotal();

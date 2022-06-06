@@ -1,26 +1,17 @@
 package datahub.client.rest;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedin.data.DataMap;
-import com.linkedin.data.template.JacksonDataTemplateCodec;
-import com.linkedin.mxe.MetadataChangeProposal;
-import datahub.client.Callback;
-import datahub.client.Emitter;
-import datahub.client.MetadataResponseFuture;
-import datahub.client.MetadataWriteResponse;
-import datahub.event.EventFormatter;
-import datahub.event.MetadataChangeProposalWrapper;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+
 import javax.annotation.concurrent.ThreadSafe;
-import lombok.extern.slf4j.Slf4j;
+
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.config.RequestConfig;
@@ -30,6 +21,21 @@ import org.apache.http.concurrent.FutureCallback;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.data.DataMap;
+import com.linkedin.data.template.JacksonDataTemplateCodec;
+import com.linkedin.mxe.MetadataChangeProposal;
+
+import datahub.client.Callback;
+import datahub.client.Emitter;
+import datahub.client.MetadataResponseFuture;
+import datahub.client.MetadataWriteResponse;
+import datahub.event.EventFormatter;
+import datahub.event.MetadataChangeProposalWrapper;
+import datahub.event.UpsertAspectRequest;
+import lombok.extern.slf4j.Slf4j;
 
 
 @ThreadSafe
@@ -58,6 +64,7 @@ public class RestEmitter implements Emitter {
 
   private final RestEmitterConfig config;
   private final String ingestProposalUrl;
+  private final String ingestOpenApiUrl;
   private final String configUrl;
 
   private final ObjectMapper objectMapper = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
@@ -82,6 +89,7 @@ public class RestEmitter implements Emitter {
     this.httpClient = this.config.getAsyncHttpClientBuilder().build();
     this.httpClient.start();
     this.ingestProposalUrl = this.config.getServer() + "/aspects?action=ingestProposal";
+    this.ingestOpenApiUrl = config.getServer() + "/openapi/entities/v1/";
     this.configUrl = this.config.getServer() + "/config";
     this.eventFormatter = this.config.getEventFormatter();
   }
@@ -150,7 +158,7 @@ public class RestEmitter implements Emitter {
   @Override
   public Future<MetadataWriteResponse> emit(MetadataChangeProposalWrapper mcpw,
       Callback callback) throws IOException {
-    return emit(this.eventFormatter.convert(mcpw), callback);
+      return emit(this.eventFormatter.convert(mcpw), callback);
   }
 
   @Override
@@ -239,5 +247,70 @@ public class RestEmitter implements Emitter {
   @Override
   public void close() throws IOException {
     this.httpClient.close();
+  }
+
+  @Override
+  public Future<MetadataWriteResponse> emit(List<UpsertAspectRequest> request, Callback callback)
+      throws IOException {
+    log.debug("Emit: URL: {}, Payload: {}\n", this.ingestOpenApiUrl, request);
+    return this.postOpenAPI(request, callback);
+  }
+
+  private Future<MetadataWriteResponse> postOpenAPI(List<UpsertAspectRequest> payload, Callback callback)
+      throws IOException {
+    HttpPost httpPost = new HttpPost(ingestOpenApiUrl);
+    httpPost.setHeader("Content-Type", "application/json");
+    httpPost.setHeader("Accept", "application/json");
+    this.config.getExtraHeaders().forEach((k, v) -> httpPost.setHeader(k, v));
+    if (this.config.getToken() != null) {
+      httpPost.setHeader("Authorization", "Bearer " + this.config.getToken());
+    }
+    httpPost.setEntity(new StringEntity(objectMapper.writeValueAsString(payload)));
+    AtomicReference<MetadataWriteResponse> responseAtomicReference = new AtomicReference<>();
+    CountDownLatch responseLatch = new CountDownLatch(1);
+    FutureCallback<HttpResponse> httpCallback = new FutureCallback<HttpResponse>() {
+      @Override
+      public void completed(HttpResponse response) {
+        MetadataWriteResponse writeResponse = null;
+        try {
+          writeResponse = mapResponse(response);
+          responseAtomicReference.set(writeResponse);
+        } catch (Exception e) {
+          // do nothing
+        }
+        responseLatch.countDown();
+        if (callback != null) {
+          try {
+            callback.onCompletion(writeResponse);
+          } catch (Exception e) {
+            log.error("Error executing user callback on completion.", e);
+          }
+        }
+      }
+
+      @Override
+      public void failed(Exception ex) {
+        if (callback != null) {
+          try {
+            callback.onFailure(ex);
+          } catch (Exception e) {
+            log.error("Error executing user callback on failure.", e);
+          }
+        }
+      }
+
+      @Override
+      public void cancelled() {
+        if (callback != null) {
+          try {
+            callback.onFailure(new RuntimeException("Cancelled"));
+          } catch (Exception e) {
+            log.error("Error executing user callback on failure due to cancellation.", e);
+          }
+        }
+      }
+    };
+    Future<HttpResponse> requestFuture = httpClient.execute(httpPost, httpCallback);
+    return new MetadataResponseFuture(requestFuture, responseAtomicReference, responseLatch);
   }
 }

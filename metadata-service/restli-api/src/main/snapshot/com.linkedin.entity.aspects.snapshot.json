@@ -425,7 +425,7 @@
         "type" : "enum",
         "name" : "ChartType",
         "doc" : "The various types of charts",
-        "symbols" : [ "BAR", "PIE", "SCATTER", "TABLE", "TEXT", "LINE", "AREA", "HISTOGRAM", "BOX_PLOT" ],
+        "symbols" : [ "BAR", "PIE", "SCATTER", "TABLE", "TEXT", "LINE", "AREA", "HISTOGRAM", "BOX_PLOT", "WORD_CLOUD", "COHORT" ],
         "symbolDocs" : {
           "BAR" : "Chart showing a Bar chart",
           "PIE" : "Chart showing a Pie chart",
@@ -702,8 +702,10 @@
       "doc" : "Instance of the data platform (e.g. db instance)",
       "optional" : true,
       "Searchable" : {
+        "addToFilters" : true,
         "fieldName" : "platformInstance",
-        "fieldType" : "URN"
+        "fieldType" : "URN",
+        "filterNameOverride" : "Platform Instance"
       }
     } ],
     "Aspect" : {
@@ -804,6 +806,10 @@
               }
             },
             "doc" : "Urn of the applied tag",
+            "Relationship" : {
+              "entityTypes" : [ "tag" ],
+              "name" : "TaggedWith"
+            },
             "Searchable" : {
               "addToFilters" : true,
               "fieldName" : "tags",
@@ -811,6 +817,11 @@
               "filterNameOverride" : "Tag",
               "hasValuesFieldName" : "hasTags"
             }
+          }, {
+            "name" : "context",
+            "type" : "string",
+            "doc" : "Additional context about the association",
+            "optional" : true
           } ]
         }
       },
@@ -881,12 +892,22 @@
         }
       },
       "doc" : "Urn of the applied glossary term",
+      "Relationship" : {
+        "entityTypes" : [ "glossaryTerm" ],
+        "name" : "TermedWith"
+      },
       "Searchable" : {
         "addToFilters" : true,
         "fieldName" : "glossaryTerms",
         "fieldType" : "URN",
-        "filterNameOverride" : "Glossary Term"
+        "filterNameOverride" : "Glossary Term",
+        "hasValuesFieldName" : "hasGlossaryTerms"
       }
+    }, {
+      "name" : "context",
+      "type" : "string",
+      "doc" : "Additional context about the association",
+      "optional" : true
     } ]
   }, "com.linkedin.common.GlossaryTermUrn", {
     "type" : "record",
@@ -1668,11 +1689,12 @@
     "name" : "ChangeType",
     "namespace" : "com.linkedin.events.metadata",
     "doc" : "Descriptor for a change action",
-    "symbols" : [ "UPSERT", "CREATE", "UPDATE", "DELETE", "PATCH" ],
+    "symbols" : [ "UPSERT", "CREATE", "UPDATE", "DELETE", "PATCH", "RESTATE" ],
     "symbolDocs" : {
       "CREATE" : "NOT SUPPORTED YET\ninsert if not exists. otherwise fail",
       "DELETE" : "NOT SUPPORTED YET\ndelete action",
       "PATCH" : "NOT SUPPORTED YET\npatch the changes instead of full replace",
+      "RESTATE" : "Restate an aspect, eg. in a index refresh.",
       "UPDATE" : "NOT SUPPORTED YET\nupdate if exists. otherwise fail",
       "UPSERT" : "insert if not exists. otherwise update"
     }
@@ -1690,7 +1712,27 @@
       "name" : "parentNode",
       "type" : "com.linkedin.common.GlossaryNodeUrn",
       "doc" : "Parent node of the glossary term",
-      "optional" : true
+      "optional" : true,
+      "Relationship" : {
+        "entityTypes" : [ "glossaryNode" ],
+        "name" : "IsPartOf"
+      },
+      "Searchable" : {
+        "fieldName" : "parentNode",
+        "fieldType" : "URN",
+        "hasValuesFieldName" : "hasParentNode"
+      }
+    }, {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "Display name of the node",
+      "optional" : true,
+      "Searchable" : {
+        "boostScore" : 10.0,
+        "enableAutocomplete" : true,
+        "fieldName" : "displayName",
+        "fieldType" : "TEXT_PARTIAL"
+      }
     } ],
     "Aspect" : {
       "name" : "glossaryNodeInfo"
@@ -1720,7 +1762,16 @@
       "name" : "parentNode",
       "type" : "com.linkedin.common.GlossaryNodeUrn",
       "doc" : "Parent node of the glossary term",
-      "optional" : true
+      "optional" : true,
+      "Relationship" : {
+        "entityTypes" : [ "glossaryNode" ],
+        "name" : "IsPartOf"
+      },
+      "Searchable" : {
+        "fieldName" : "parentNode",
+        "fieldType" : "URN",
+        "hasValuesFieldName" : "hasParentNode"
+      }
     }, {
       "name" : "termSource",
       "type" : "string",
@@ -2362,6 +2413,16 @@
                 "fieldType" : "TEXT"
               }
             }, {
+              "name" : "created",
+              "type" : "com.linkedin.common.AuditStamp",
+              "doc" : "An AuditStamp corresponding to the creation of this schema field.",
+              "optional" : true
+            }, {
+              "name" : "lastModified",
+              "type" : "com.linkedin.common.AuditStamp",
+              "doc" : "An AuditStamp corresponding to the last modification of this schema field.",
+              "optional" : true
+            }, {
               "name" : "type",
               "type" : {
                 "type" : "record",
@@ -2479,6 +2540,12 @@
               "type" : "com.linkedin.common.GlobalTags",
               "doc" : "Tags associated with the field",
               "optional" : true,
+              "Relationship" : {
+                "/tags/*/tag" : {
+                  "entityTypes" : [ "tag" ],
+                  "name" : "SchemaFieldTaggedWith"
+                }
+              },
               "Searchable" : {
                 "/tags/*/tag" : {
                   "boostScore" : 0.5,
@@ -2491,6 +2558,12 @@
               "type" : "com.linkedin.common.GlossaryTerms",
               "doc" : "Glossary terms associated with the field",
               "optional" : true,
+              "Relationship" : {
+                "/terms/*/urn" : {
+                  "entityTypes" : [ "glossaryTerm" ],
+                  "name" : "SchemaFieldWithGlossaryTerm"
+                }
+              },
               "Searchable" : {
                 "/terms/*/urn" : {
                   "boostScore" : 0.5,
@@ -2503,6 +2576,11 @@
               "type" : "boolean",
               "doc" : "For schema fields that are part of complex keys, set this field to true\nWe do this to easily distinguish between value and key fields",
               "default" : false
+            }, {
+              "name" : "isPartitioningKey",
+              "type" : "boolean",
+              "doc" : "For Datasets which are partitioned, this determines the partitioning key.",
+              "optional" : true
             }, {
               "name" : "jsonProps",
               "type" : "string",
@@ -2649,6 +2727,12 @@
               "type" : "com.linkedin.common.GlobalTags",
               "doc" : "Tags associated with the field",
               "optional" : true,
+              "Relationship" : {
+                "/tags/*/tag" : {
+                  "entityTypes" : [ "tag" ],
+                  "name" : "EditableSchemaFieldTaggedWith"
+                }
+              },
               "Searchable" : {
                 "/tags/*/tag" : {
                   "boostScore" : 0.5,
@@ -2661,6 +2745,12 @@
               "type" : "com.linkedin.common.GlossaryTerms",
               "doc" : "Glossary terms associated with the field",
               "optional" : true,
+              "Relationship" : {
+                "/terms/*/urn" : {
+                  "entityTypes" : [ "glossaryTerm" ],
+                  "name" : "EditableSchemaFieldWithGlossaryTerm"
+                }
+              },
               "Searchable" : {
                 "/terms/*/urn" : {
                   "boostScore" : 0.5,
@@ -2766,6 +2856,7 @@
         "Relationship" : {
           "/*" : {
             "entityTypes" : [ "dataset" ],
+            "isLineage" : true,
             "name" : "DerivedFrom"
           }
         }
@@ -3189,7 +3280,14 @@
           "items" : "com.linkedin.common.MLFeatureUrn"
         },
         "doc" : "List of features used for MLModel training",
-        "optional" : true
+        "optional" : true,
+        "Relationship" : {
+          "/*" : {
+            "entityTypes" : [ "mlFeature" ],
+            "isLineage" : true,
+            "name" : "Consumes"
+          }
+        }
       }, {
         "name" : "tags",
         "type" : {
@@ -3425,11 +3523,12 @@
     }, {
       "name" : "aspectName",
       "type" : "string",
-      "doc" : "Aspect of the entity being written to\nNot filling this out implies that the writer wants to affect the entire entity\nNote: This is only valid for CREATE and DELETE operations.\n",
+      "doc" : "Aspect of the entity being written to\nNot filling this out implies that the writer wants to affect the entire entity\nNote: This is only valid for CREATE, UPSERT, and DELETE operations.\n",
       "optional" : true
     }, {
       "name" : "aspect",
       "type" : "GenericAspect",
+      "doc" : "The value of the new aspect.",
       "optional" : true
     }, {
       "name" : "systemMetadata",

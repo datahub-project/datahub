@@ -1,0 +1,7 @@
+namespace com.linkedin.platform.event.v1
+
+/**
+ * Arbitrary key-value parameters for an Entity Change Event. (any record).
+ */
+record Parameters {
+}

@@ -66,6 +66,21 @@ type PlatformPrivileges {
   Whether the user is able to manage UI-based secrets
   """
   manageSecrets: Boolean!
+
+  """
+  Whether the user should be able to manage tokens on behalf of other users.
+  """
+  manageTokens: Boolean!
+
+  """
+  Whether the user is able to manage Tests
+  """
+  manageTests: Boolean!
+
+  """
+  Whether the user should be able to manage Glossaries
+  """
+  manageGlossaries: Boolean!
 }
 
 """
@@ -77,6 +92,11 @@ type AppConfig {
   App version
   """
   appVersion: String
+
+  """
+  Auth-related configurations
+  """
+  authConfig: AuthConfig!
 
   """
   Configurations related to the Analytics Feature
@@ -107,6 +127,16 @@ type AppConfig {
   Configurations related to visual appearance, allows styling the UI without rebuilding the bundle
   """
   visualConfig: VisualConfiguration!
+
+  """
+  Configurations related to tracking users in the app
+  """
+  telemetryConfig: TelemetryConfig!
+
+  """
+  Configurations related to DataHub tests
+  """
+  testsConfig: TestsConfig!
 }
 
 """
@@ -117,6 +147,16 @@ type VisualConfiguration {
   Custom logo url for the homepage & top banner
   """
   logoUrl: String
+}
+
+"""
+Configurations related to tracking users in the app
+"""
+type TelemetryConfig {
+  """
+  Env variable for whether or not third party logging should be enabled for this instance
+  """
+  enableThirdPartyLogging: Boolean
 }
 
 """
@@ -138,6 +178,17 @@ type AnalyticsConfig {
   """
   enabled: Boolean!
 }
+
+"""
+Configurations related to auth
+"""
+type AuthConfig {
+  """
+  Whether token-based auth is enabled.
+  """
+  tokenAuthEnabled: Boolean!
+}
+
 
 """
 Configurations related to the Policies Feature
@@ -221,6 +272,16 @@ Configurations related to managed, UI based ingestion
 type ManagedIngestionConfig {
   """
   Whether ingestion screen is enabled in the UI
+  """
+  enabled: Boolean!
+}
+
+"""
+Configurations related to DataHub Tests feature
+"""
+type TestsConfig {
+  """
+  Whether Tests feature is enabled
   """
   enabled: Boolean!
 }

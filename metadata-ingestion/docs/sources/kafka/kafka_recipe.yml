@@ -1,0 +1,11 @@
+source:
+  type: "kafka"
+  config:
+    platform_instance: "YOUR_CLUSTER_ID"
+    connection:
+      bootstrap: "broker:9092"
+      schema_registry_url: http://localhost:8081
+
+sink:
+  # sink configs
+

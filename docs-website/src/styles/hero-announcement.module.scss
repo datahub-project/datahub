@@ -1,0 +1,17 @@
+.hero__alert {
+  margin-bottom: 2rem;
+  @media (min-width: 690px) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .button {
+    text-decoration: none;
+    margin: 0.5rem 0 0 0;
+    display: block;
+    white-space: nowrap;
+    @media (min-width: 690px) {
+      margin: 0 0 0 0.5rem;
+    }
+  }
+}

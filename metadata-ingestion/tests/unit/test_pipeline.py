@@ -4,6 +4,7 @@ from unittest.mock import patch
 import pytest
 from freezegun import freeze_time
 
+from datahub.configuration.common import DynamicTypedConfig
 from datahub.ingestion.api.committable import CommitPolicy, Committable
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.source import Source, SourceReport
@@ -41,6 +42,93 @@ class TestPipeline(object):
         pipeline.pretty_print_summary()
         mock_source.assert_called_once()
         mock_sink.assert_called_once()
+
+    @freeze_time(FROZEN_TIME)
+    @patch(
+        "datahub.emitter.rest_emitter.DatahubRestEmitter.test_connection",
+        return_value={"noCode": True},
+    )
+    @patch(
+        "datahub.ingestion.graph.client.DataHubGraph.get_config",
+        return_value={"noCode": True},
+    )
+    def test_configure_without_sink(self, mock_emitter, mock_graph):
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"filename": "test_file.json"},
+                },
+            }
+        )
+        # assert that the default sink config is for a DatahubRestSink
+        assert isinstance(pipeline.config.sink, DynamicTypedConfig)
+        assert pipeline.config.sink.type == "datahub-rest"
+        assert pipeline.config.sink.config == {
+            "server": "http://localhost:8080",
+            "token": "",
+        }
+
+    @freeze_time(FROZEN_TIME)
+    @patch(
+        "datahub.emitter.rest_emitter.DatahubRestEmitter.test_connection",
+        return_value={"noCode": True},
+    )
+    @patch(
+        "datahub.ingestion.graph.client.DataHubGraph.get_config",
+        return_value={"noCode": True},
+    )
+    def test_configure_with_rest_sink_initializes_graph(
+        self, mock_source, mock_test_connection
+    ):
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"filename": "test_events.json"},
+                },
+                "sink": {
+                    "type": "datahub-rest",
+                    "config": {
+                        "server": "http://somehost.someplace.some:8080",
+                        "token": "foo",
+                    },
+                },
+            }
+        )
+        # assert that the default sink config is for a DatahubRestSink
+        assert isinstance(pipeline.config.sink, DynamicTypedConfig)
+        assert pipeline.config.sink.type == "datahub-rest"
+        assert pipeline.config.sink.config == {
+            "server": "http://somehost.someplace.some:8080",
+            "token": "foo",
+        }
+        assert pipeline.ctx.graph is not None, "DataHubGraph should be initialized"
+        assert pipeline.ctx.graph.config.server == pipeline.config.sink.config["server"]
+        assert pipeline.ctx.graph.config.token == pipeline.config.sink.config["token"]
+
+    @freeze_time(FROZEN_TIME)
+    @patch("datahub.ingestion.source.kafka.KafkaSource.get_workunits", autospec=True)
+    def test_configure_with_file_sink_does_not_init_graph(self, mock_source):
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "kafka",
+                    "config": {"connection": {"bootstrap": "localhost:9092"}},
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": "test.json",
+                    },
+                },
+            }
+        )
+        # assert that the default sink config is for a DatahubRestSink
+        assert isinstance(pipeline.config.sink, DynamicTypedConfig)
+        assert pipeline.config.sink.type == "file"
+        assert pipeline.config.sink.config == {"filename": "test.json"}
+        assert pipeline.ctx.graph is None, "DataHubGraph should not be initialized"
 
     @freeze_time(FROZEN_TIME)
     def test_run_including_fake_transformation(self):

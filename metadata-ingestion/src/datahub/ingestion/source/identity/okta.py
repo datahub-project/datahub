@@ -10,10 +10,19 @@ from okta.client import Client as OktaClient
 from okta.exceptions import OktaAPIException
 from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
 from pydantic import validator
+from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
@@ -31,44 +40,96 @@ logger = logging.getLogger(__name__)
 
 
 class OktaConfig(ConfigModel):
-
     # Required: Domain of the Okta deployment. Example: dev-33231928.okta.com
-    okta_domain = "dev-44231988.okta.com"
+    okta_domain: str = Field(
+        default="dev-33231928.okta.com",
+        description="The location of your Okta Domain, without a protocol. Can be found in Okta Developer console.",
+    )
     # Required: An API token generated from Okta.
-    okta_api_token = "00be4R_M2MzDqXawbWgfKGpKee0kuEOfX1RCQSRx00"
+    okta_api_token: str = Field(
+        default="00be4R_M2MzDqXawbWgfKGpKee0kuEOfX1RCQSRx00",
+        description="An API token generated for the DataHub application inside your Okta Developer Console.",
+    )
 
     # Optional: Whether to ingest users, groups, or both.
-    ingest_users: bool = True
-    ingest_groups: bool = True
-    ingest_group_membership: bool = True
+    ingest_users: bool = Field(
+        default=True, description="Whether users should be ingested into DataHub."
+    )
+    ingest_groups: bool = Field(
+        default=True, description="Whether groups should be ingested into DataHub."
+    )
+    ingest_group_membership: bool = Field(
+        default=True,
+        description="Whether group membership should be ingested into DataHub. ingest_groups must be True if this is True.",
+    )
 
     # Optional: Customize the mapping to DataHub Username from an attribute appearing in the Okta User
     # profile. Reference: https://developer.okta.com/docs/reference/api/users/
-    okta_profile_to_username_attr: str = "login"
-    okta_profile_to_username_regex: str = "([^@]+)"
+    okta_profile_to_username_attr: str = Field(
+        default="login",
+        description="Which Okta User Profile attribute to use as input to DataHub username mapping.",
+    )
+    okta_profile_to_username_regex: str = Field(
+        default="([^@]+)",
+        description="A regex used to parse the DataHub username from the attribute specified in `okta_profile_to_username_attr`.",
+    )
 
     # Optional: Customize the mapping to DataHub Group from an attribute appearing in the Okta Group
     # profile. Reference: https://developer.okta.com/docs/reference/api/groups/
-    okta_profile_to_group_name_attr: str = "name"
-    okta_profile_to_group_name_regex: str = "(.*)"
+    okta_profile_to_group_name_attr: str = Field(
+        default="name",
+        description="Which Okta Group Profile attribute to use as input to DataHub group name mapping.",
+    )
+    okta_profile_to_group_name_regex: str = Field(
+        default="(.*)",
+        description="A regex used to parse the DataHub group name from the attribute specified in `okta_profile_to_group_name_attr`.",
+    )
 
     # Optional: Include deprovisioned or suspended Okta users in the ingestion.
-    include_deprovisioned_users = False
-    include_suspended_users = False
+    include_deprovisioned_users: bool = Field(
+        default=False,
+        description="Whether to ingest users in the DEPROVISIONED state from Okta.",
+    )
+    include_suspended_users: bool = Field(
+        default=False,
+        description="Whether to ingest users in the SUSPENDED state from Okta.",
+    )
 
     # Optional: Page size for reading groups and users from Okta API.
-    page_size = 100
+    page_size: int = Field(
+        default=100,
+        description="The number of entities requested from Okta's REST APIs in one request.",
+    )
 
     # Optional: Set the delay for fetching batches of entities from Okta. Okta has rate limiting in place.
-    delay_seconds = 0.01
+    delay_seconds: Union[float, int] = Field(
+        default=0.01,
+        description="Number of seconds to wait between calls to Okta's REST APIs. (Okta rate limits). Defaults to 10ms.",
+    )
 
     # Optional: Filter and search expression for ingesting a subset of users. Only one can be specified at a time.
-    okta_users_filter: Optional[str] = None
-    okta_users_search: Optional[str] = None
+    okta_users_filter: Optional[str] = Field(
+        default=None,
+        description="Okta filter expression (not regex) for ingesting users. Only one of `okta_users_filter` and `okta_users_search` can be set. See (https://developer.okta.com/docs/reference/api/users/#list-users-with-a-filter) for more info.",
+    )
+    okta_users_search: Optional[str] = Field(
+        default=None,
+        description="Okta search expression (not regex) for ingesting users. Only one of `okta_users_filter` and `okta_users_search` can be set. See (https://developer.okta.com/docs/reference/api/users/#list-users-with-search) for more info.",
+    )
 
     # Optional: Filter and search expression for ingesting a subset of groups. Only one can be specified at a time.
-    okta_groups_filter: Optional[str] = None
-    okta_groups_search: Optional[str] = None
+    okta_groups_filter: Optional[str] = Field(
+        default=None,
+        description="Okta filter expression (not regex) for ingesting groups. Only one of `okta_groups_filter` and `okta_groups_search` can be set. See (https://developer.okta.com/docs/reference/api/groups/#filters) for more info.",
+    )
+    okta_groups_search: Optional[str] = Field(
+        default=None,
+        description="Okta search expression (not regex) for ingesting groups. Only one of `okta_groups_filter` and `okta_groups_search` can be set. See (https://developer.okta.com/docs/reference/api/groups/#list-groups-with-search) for more info.",
+    )
+
+    # Optional: Whether to mask sensitive information from workunit ID's. On by default.
+    mask_group_id: bool = True
+    mask_user_id: bool = True
 
     @validator("okta_users_search")
     def okta_users_one_of_filter_or_search(cls, v, values):
@@ -107,8 +168,83 @@ class OktaSourceReport(SourceReport):
 #   - Group Membership Edges: 1000 (1 per User)
 #   - Run Time (Wall Clock): 2min 7sec
 #
+
+
+@platform_name("Okta")
+@config_class(OktaConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.DESCRIPTIONS, "Optionally enabled via configuration")
 class OktaSource(Source):
-    """Ingest Okta Users & Groups into Datahub"""
+    """
+    This plugin extracts the following:
+
+    - Users
+    - Groups
+    - Group Membership
+
+    from your Okta instance.
+
+    ### Extracting DataHub Users
+
+    #### Usernames
+
+    Usernames serve as unique identifiers for users on DataHub. This connector extracts usernames using the
+    "login" field of an [Okta User Profile](https://developer.okta.com/docs/reference/api/users/#profile-object).
+    By default, the 'login' attribute, which contains an email, is parsed to extract the text before the "@" and map that to the DataHub username.
+
+    If this is not how you wish to map to DataHub usernames, you can provide a custom mapping using the configurations options detailed below. Namely, `okta_profile_to_username_attr`
+    and `okta_profile_to_username_regex`.
+
+    #### Profiles
+
+    This connector also extracts basic user profile information from Okta. The following fields of the Okta User Profile are extracted
+    and mapped to the DataHub `CorpUserInfo` aspect:
+
+    - display name
+    - first name
+    - last name
+    - email
+    - title
+    - department
+    - country code
+
+    ### Extracting DataHub Groups
+
+    #### Group Names
+
+    Group names serve as unique identifiers for groups on DataHub. This connector extracts group names using the "name" attribute of an Okta Group Profile.
+    By default, a URL-encoded version of the full group name is used as the unique identifier (CorpGroupKey) and the raw "name" attribute is mapped
+    as the display name that will appear in DataHub's UI.
+
+    If this is not how you wish to map to DataHub group names, you can provide a custom mapping using the configurations options detailed below. Namely, `okta_profile_to_group_name_attr`
+    and `okta_profile_to_group_name_regex`.
+
+    #### Profiles
+
+    This connector also extracts basic group information from Okta. The following fields of the Okta Group Profile are extracted and mapped to the
+    DataHub `CorpGroupInfo` aspect:
+
+    - name
+    - description
+
+    ### Extracting Group Membership
+
+    This connector additional extracts the edges between Users and Groups that are stored in Okta. It maps them to the `GroupMembership` aspect
+    associated with DataHub users (CorpUsers). Today this has the unfortunate side effect of **overwriting** any Group Membership information that
+    was created outside of the connector. That means if you've used the DataHub REST API to assign users to groups, this information will be overridden
+    when the Okta source is executed. If you intend to *always* pull users, groups, and their relationships from your Identity Provider, then
+    this should not matter.
+
+    This is a known limitation in our data model that is being tracked by [this ticket](https://github.com/datahub-project/datahub/issues/3065).
+
+    ### Filtering and Searching
+    You can also choose to ingest a subset of users or groups to Datahub by adding flags for filtering or searching. For
+    users, set either the `okta_users_filter` or `okta_users_search` flag (only one can be set at a time). For groups, set
+    either the `okta_groups_filter` or `okta_groups_search` flag. Note that these are not regular expressions. See [below](#config-details) for full configuration
+    options.
+
+
+    """
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -130,9 +266,16 @@ class OktaSource(Source):
         if self.config.ingest_groups:
             okta_groups = list(self._get_okta_groups(event_loop))
             datahub_corp_group_snapshots = self._map_okta_groups(okta_groups)
-            for datahub_corp_group_snapshot in datahub_corp_group_snapshots:
+            for group_count, datahub_corp_group_snapshot in enumerate(
+                datahub_corp_group_snapshots
+            ):
                 mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_group_snapshot)
-                wu = MetadataWorkUnit(id=datahub_corp_group_snapshot.urn, mce=mce)
+                wu_id = (
+                    f"group-{group_count + 1}"
+                    if self.config.mask_group_id
+                    else datahub_corp_group_snapshot.urn
+                )
+                wu = MetadataWorkUnit(id=wu_id, mce=mce)
                 self.report.report_workunit(wu)
                 yield wu
 
@@ -183,7 +326,9 @@ class OktaSource(Source):
             okta_users = self._get_okta_users(event_loop)
             filtered_okta_users = filter(self._filter_okta_user, okta_users)
             datahub_corp_user_snapshots = self._map_okta_users(filtered_okta_users)
-            for datahub_corp_user_snapshot in datahub_corp_user_snapshots:
+            for user_count, datahub_corp_user_snapshot in enumerate(
+                datahub_corp_user_snapshots
+            ):
 
                 # Add GroupMembership aspect populated in Step 2 if applicable.
                 if (
@@ -198,7 +343,12 @@ class OktaSource(Source):
                     assert datahub_group_membership is not None
                     datahub_corp_user_snapshot.aspects.append(datahub_group_membership)
                 mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_user_snapshot)
-                wu = MetadataWorkUnit(id=datahub_corp_user_snapshot.urn, mce=mce)
+                wu_id = (
+                    f"user-{user_count + 1}"
+                    if self.config.mask_user_id
+                    else datahub_corp_user_snapshot.urn
+                )
+                wu = MetadataWorkUnit(id=wu_id, mce=mce)
                 self.report.report_workunit(wu)
                 yield wu
 

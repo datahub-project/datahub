@@ -11,8 +11,9 @@ import java.util.List;
  * GQL graph type that can be loaded from a downstream service by primary key.
  *
  * @param <T>: The GraphQL object type corresponding to the type.
+ * @param <K> the key type for the DataLoader
  */
-public interface LoadableType<T> {
+public interface LoadableType<T, K> {
 
     /**
      * Returns generated GraphQL class associated with the type
@@ -29,20 +30,20 @@ public interface LoadableType<T> {
     /**
      * Retrieves an entity by urn string. Null is provided in place of an entity object if an entity cannot be found.
      *
-     * @param urn to retrieve
+     * @param key to retrieve
      * @param context the {@link QueryContext} corresponding to the request.
      */
-    default DataFetcherResult<T> load(@Nonnull final String urn, @Nonnull final QueryContext context) throws Exception {
-        return batchLoad(ImmutableList.of(urn), context).get(0);
+    default DataFetcherResult<T> load(@Nonnull final K key, @Nonnull final QueryContext context) throws Exception {
+        return batchLoad(ImmutableList.of(key), context).get(0);
     };
 
     /**
      * Retrieves an list of entities given a list of urn strings. The list returned is expected to
      * be of same length of the list of urns, where nulls are provided in place of an entity object if an entity cannot be found.
      *
-     * @param urns to retrieve
+     * @param keys to retrieve
      * @param context the {@link QueryContext} corresponding to the request.
      */
-    List<DataFetcherResult<T>> batchLoad(@Nonnull final List<String> urns, @Nonnull final QueryContext context) throws Exception;
+    List<DataFetcherResult<T>> batchLoad(@Nonnull final List<K> keys, @Nonnull final QueryContext context) throws Exception;
 
 }

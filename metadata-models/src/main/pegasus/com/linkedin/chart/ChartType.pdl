@@ -37,4 +37,8 @@ enum ChartType {
   HISTOGRAM
 
   BOX_PLOT
+
+  WORD_CLOUD
+
+  COHORT
 }
