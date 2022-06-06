@@ -126,6 +126,7 @@ snowflake_common = {
     # Required for all Snowflake sources
     "snowflake-sqlalchemy<=1.2.4",
     "cryptography",
+    "msal",
 }
 
 trino = {
@@ -298,6 +299,7 @@ mypy_stubs = {
     "types-tabulate",
     # avrogen package requires this
     "types-pytz",
+    "types-pyOpenSSL",
 }
 
 base_dev_requirements = {
