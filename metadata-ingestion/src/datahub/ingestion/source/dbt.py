@@ -123,6 +123,9 @@ class DBTConfig(StatefulIngestionConfigBase):
     target_platform: str = Field(
         description="The platform that dbt is loading onto. (e.g. bigquery / redshift / postgres etc.)"
     )
+    target_platform_instance: Optional[str] = Field(
+        description="The platform instance which each target node will be assigned by default"
+    )
     load_schemas: bool = Field(
         default=True,
         description="This flag is only consulted when disable_dbt_node_creation is set to True. Load schemas for target_platform entities from dbt catalog file, not necessary when you are already ingesting this metadata from the data platform directly. If set to False, table schema details (e.g. columns) will not be ingested.",
