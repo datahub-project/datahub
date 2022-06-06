@@ -95,10 +95,17 @@ class SnowflakeSource(SQLAlchemySource):
             database=database, username=username, password=password, role=role
         )
         logger.debug(f"sql_alchemy_url={url}")
-        return create_engine(
-            url,
-            **self.config.get_options(),
-        )
+        if self.config.authentication_type == "OAUTH_AUTHENTICATOR":
+            return create_engine(
+                url,
+                creator=self.config.get_oauth_connection,
+                **self.config.get_options(),
+            )
+        else:
+            return create_engine(
+                url,
+                **self.config.get_options(),
+            )
 
     def inspect_session_metadata(self) -> Any:
         db_engine = self.get_metadata_engine()

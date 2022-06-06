@@ -23,6 +23,7 @@ from datahub.configuration import SensitiveError
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
+from datahub.upgrade import upgrade
 from datahub.utilities import memory_leak_detector
 
 logger = logging.getLogger(__name__)
@@ -81,6 +82,7 @@ def ingest() -> None:
     help="Supress display of variable values in logs by supressing elaborae stacktrace (stackprinter) during ingestion failures",
 )
 @click.pass_context
+@upgrade.check_upgrade
 @telemetry.with_telemetry
 @memory_leak_detector.with_leak_detection
 def run(
@@ -131,6 +133,7 @@ def run(
         logger.info("Finished metadata pipeline")
         pipeline.log_ingestion_stats()
         ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
+        upgrade.maybe_print_upgrade_message(pipeline.ctx.graph)
         sys.exit(ret)
 
 
@@ -166,6 +169,7 @@ def parse_restli_response(response):
     default=False,
     help="If enabled, will list ingestion runs which have been soft deleted",
 )
+@upgrade.check_upgrade
 @telemetry.with_telemetry
 def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> None:
     """List recent ingestion runs to datahub"""
@@ -213,6 +217,7 @@ def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> N
     help="If enabled, will include aspects that have been soft deleted",
 )
 @click.option("-a", "--show-aspect", required=False, is_flag=True)
+@upgrade.check_upgrade
 @telemetry.with_telemetry
 def show(
     run_id: str, start: int, count: int, include_soft_deletes: bool, show_aspect: bool
@@ -256,6 +261,7 @@ def show(
     default="./rollback-reports",
     help="Path to directory where rollback reports will be saved to",
 )
+@upgrade.check_upgrade
 @telemetry.with_telemetry
 def rollback(
     run_id: str, force: bool, dry_run: bool, safe: bool, report_dir: str

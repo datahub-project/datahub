@@ -38,11 +38,16 @@ dependencies {
   implementation externalDependency.jerseyCore
   implementation externalDependency.jerseyGuava
 
-  implementation externalDependency.pac4j
+  implementation(externalDependency.pac4j) {
+    exclude group: "net.minidev", module: "json-smart"
+  }
+  implementation externalDependency.jsonSmart
   implementation externalDependency.playPac4j
   implementation externalDependency.shiroCore
   implementation externalDependency.playCache
   implementation externalDependency.playWs
+  implementation externalDependency.playServer
+  implementation externalDependency.playAkkaHttpServer
   implementation externalDependency.kafkaClients
 
   testImplementation externalDependency.mockito

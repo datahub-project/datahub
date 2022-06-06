@@ -51,6 +51,11 @@ task generateGraphQLSchema(type: Exec) {
   commandLine './generateGraphQLSchema.sh'
 }
 
+task generateJsonSchema(type: Exec, dependsOn: [':metadata-ingestion:docGen']) {
+  workingDir "$projectDir/genJsonSchema"
+  commandLine './generateJsonSchema.sh'
+}
+
 /*
   Wrappers around Yarn Tasks.
  */
@@ -67,7 +72,7 @@ task generateGraphQLDocumentation(type: YarnTask, dependsOn: [yarnInstall, gener
   args = ['docusaurus', 'docs:generate:graphql']
 }
 
-task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall, generateGraphQLDocumentation, ':metadata-ingestion:modelDocGen', ':metadata-ingestion:docGen'] ) {
+task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall, generateGraphQLDocumentation, generateJsonSchema, ':metadata-ingestion:modelDocGen', ':metadata-ingestion:docGen'] ) {
   inputs.files(projectMdFiles)
   outputs.cacheIf { true }
   args = ['run', 'generate']
