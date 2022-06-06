@@ -52,6 +52,7 @@ dependencies {
 
   testImplementation externalDependency.mockito
   testImplementation externalDependency.playTest
+  testCompile externalDependency.testng
 
   compileOnly externalDependency.lombok
   runtime externalDependency.guice

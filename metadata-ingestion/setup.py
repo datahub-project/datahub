@@ -59,6 +59,7 @@ framework_common = {
     "Deprecated",
     "types-Deprecated",
     "humanfriendly",
+    "packaging",
 }
 
 kafka_common = {
@@ -327,7 +328,6 @@ base_dev_requirements = {
     "jsonpickle",
     "build",
     "twine",
-    "packaging",
     *list(
         dependency
         for plugin in [
