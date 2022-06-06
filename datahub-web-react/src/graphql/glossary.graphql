@@ -1,0 +1,29 @@
+query getRootGlossaryTerms {
+    getRootGlossaryTerms(input: { start: 0, count: 1000 }) {
+        count
+        start
+        total
+        terms {
+            ...glossaryTerm
+        }
+    }
+}
+
+query getRootGlossaryNodes {
+    getRootGlossaryNodes(input: { start: 0, count: 1000 }) {
+        count
+        start
+        total
+        nodes {
+            ...glossaryNode
+        }
+    }
+}
+
+mutation updateParentNode($input: UpdateParentNodeInput!) {
+    updateParentNode(input: $input)
+}
+
+mutation deleteGlossaryEntity($urn: String!) {
+    deleteGlossaryEntity(urn: $urn)
+}

@@ -1,17 +1,5 @@
 package datahub.client.rest;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.linkedin.data.DataMap;
-import com.linkedin.data.template.JacksonDataTemplateCodec;
-import com.linkedin.mxe.MetadataChangeProposal;
-import datahub.client.Callback;
-import datahub.client.Emitter;
-import datahub.client.MetadataResponseFuture;
-import datahub.client.MetadataWriteResponse;
-import datahub.event.EventFormatter;
-import datahub.event.MetadataChangeProposalWrapper;
-import datahub.event.UpsertAspectRequest;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -21,8 +9,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+
 import javax.annotation.concurrent.ThreadSafe;
-import lombok.extern.slf4j.Slf4j;
+
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.config.RequestConfig;
@@ -32,6 +21,21 @@ import org.apache.http.concurrent.FutureCallback;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.data.DataMap;
+import com.linkedin.data.template.JacksonDataTemplateCodec;
+import com.linkedin.mxe.MetadataChangeProposal;
+
+import datahub.client.Callback;
+import datahub.client.Emitter;
+import datahub.client.MetadataResponseFuture;
+import datahub.client.MetadataWriteResponse;
+import datahub.event.EventFormatter;
+import datahub.event.MetadataChangeProposalWrapper;
+import datahub.event.UpsertAspectRequest;
+import lombok.extern.slf4j.Slf4j;
 
 
 @ThreadSafe
@@ -154,7 +158,7 @@ public class RestEmitter implements Emitter {
   @Override
   public Future<MetadataWriteResponse> emit(MetadataChangeProposalWrapper mcpw,
       Callback callback) throws IOException {
-    return emit(this.eventFormatter.convert(mcpw), callback);
+      return emit(this.eventFormatter.convert(mcpw), callback);
   }
 
   @Override

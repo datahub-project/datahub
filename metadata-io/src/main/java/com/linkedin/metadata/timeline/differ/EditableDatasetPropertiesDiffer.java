@@ -5,18 +5,19 @@ import com.github.fge.jsonpatch.JsonPatch;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.dataset.EditableDatasetProperties;
-import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
+
+import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import javax.annotation.Nonnull;
 
-import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.EDITABLE_DATASET_PROPERTIES_ASPECT_NAME;
 
 
 public class EditableDatasetPropertiesDiffer implements AspectDiffer<EditableDatasetProperties> {
@@ -73,15 +74,15 @@ public class EditableDatasetPropertiesDiffer implements AspectDiffer<EditableDat
     return null;
   }
 
-  private static EditableDatasetProperties getEditableDatasetPropertiesFromAspect(EbeanAspectV2 ebeanAspectV2) {
-    if (ebeanAspectV2 != null && ebeanAspectV2.getMetadata() != null) {
-      return RecordUtils.toRecordTemplate(EditableDatasetProperties.class, ebeanAspectV2.getMetadata());
+  private static EditableDatasetProperties getEditableDatasetPropertiesFromAspect(EntityAspect entityAspect) {
+    if (entityAspect != null && entityAspect.getMetadata() != null) {
+      return RecordUtils.toRecordTemplate(EditableDatasetProperties.class, entityAspect.getMetadata());
     }
     return null;
   }
 
   @Override
-  public ChangeTransaction getSemanticDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue,
+  public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
       ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
     if (!previousValue.getAspect().equals(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME) || !currentValue.getAspect()
         .equals(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME)) {

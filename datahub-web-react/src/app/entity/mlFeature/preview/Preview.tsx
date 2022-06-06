@@ -7,6 +7,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 export const Preview = ({
     urn,
     name,
+    platformInstanceId,
     featureNamespace,
     description,
     owners,
@@ -15,6 +16,7 @@ export const Preview = ({
     urn: string;
     name: string;
     featureNamespace: string;
+    platformInstanceId?: string;
     description?: string | null;
     owners?: Array<Owner> | null;
     platform?: DataPlatform | null | undefined;
@@ -24,6 +26,7 @@ export const Preview = ({
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Mlfeature, urn)}
             name={name}
+            platformInstanceId={platformInstanceId}
             description={description || ''}
             platform={capitalizeFirstLetterOnly(platform?.properties?.displayName) || featureNamespace}
             logoUrl={platform?.properties?.logoUrl || ''}

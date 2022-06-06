@@ -2,7 +2,9 @@ package com.linkedin.gms.factory.config;
 
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authorization.AuthorizationConfiguration;
+import com.linkedin.metadata.config.DatahubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
+import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.telemetry.TelemetryConfiguration;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.config.VisualConfiguration;
@@ -37,4 +39,12 @@ public class ConfigurationProvider {
    * Viz related configs
    */
   private VisualConfiguration visualConfig;
+  /**
+   * Tests related configs
+   */
+  private TestsConfiguration metadataTests;
+  /**
+   * DataHub top-level server configurations
+   */
+  private DatahubConfiguration datahub;
 }

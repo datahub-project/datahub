@@ -7,7 +7,7 @@ import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
@@ -19,7 +19,7 @@ import java.util.Comparator;
 import java.util.List;
 import javax.annotation.Nonnull;
 
-import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 
 
 public class OwnershipDiffer implements AspectDiffer<Ownership> {
@@ -122,9 +122,9 @@ public class OwnershipDiffer implements AspectDiffer<Ownership> {
     return changeEvents;
   }
 
-  private static Ownership getOwnershipFromAspect(EbeanAspectV2 ebeanAspectV2) {
-    if (ebeanAspectV2 != null && ebeanAspectV2.getMetadata() != null) {
-      return RecordUtils.toRecordTemplate(Ownership.class, ebeanAspectV2.getMetadata());
+  private static Ownership getOwnershipFromAspect(EntityAspect entityAspect) {
+    if (entityAspect != null && entityAspect.getMetadata() != null) {
+      return RecordUtils.toRecordTemplate(Ownership.class, entityAspect.getMetadata());
     }
     return null;
   }
@@ -139,7 +139,7 @@ public class OwnershipDiffer implements AspectDiffer<Ownership> {
   }
 
   @Override
-  public ChangeTransaction getSemanticDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue,
+  public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
       ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
     if (!previousValue.getAspect().equals(OWNERSHIP_ASPECT_NAME) || !currentValue.getAspect()
         .equals(OWNERSHIP_ASPECT_NAME)) {

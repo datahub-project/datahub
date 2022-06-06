@@ -8,6 +8,9 @@ set -euxo pipefail
 #   - The gradle build has already been run.
 #   - Python 3.6+ is installed and in the PATH.
 
+# Log the locally loaded images
+# docker images | grep "datahub-"
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR"
 
@@ -16,12 +19,8 @@ source venv/bin/activate
 pip install --upgrade pip wheel setuptools
 pip install -r requirements.txt
 
-datahub docker quickstart \
-	--build-locally \
-	--quickstart-compose-file ../docker/docker-compose-without-neo4j.yml \
-	--quickstart-compose-file ../docker/docker-compose-without-neo4j.override.yml \
-	--quickstart-compose-file ../docker/docker-compose.dev.yml \
-	--dump-logs-on-failure
+echo "DATAHUB_VERSION = $DATAHUB_VERSION"
+DATAHUB_TELEMETRY_ENABLED=false datahub docker quickstart --quickstart-compose-file ../docker/quickstart/docker-compose-without-neo4j.quickstart.yml --dump-logs-on-failure
 
 (cd tests/cypress ; yarn install)
 

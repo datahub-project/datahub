@@ -82,10 +82,13 @@ public class SQLQueryExecStartEvent extends LineageEvent {
     return customProps;
   }
 
-  private DataJobInputOutput jobIO() {
+  public DatasetUrnArray getOuputDatasets() {
     DatasetUrnArray out = new DatasetUrnArray();
     out.add(datasetLineage.getSink().urn());
+    return out;
+  }
 
+  public DatasetUrnArray getInputDatasets() {
     DatasetUrnArray in = new DatasetUrnArray();
 
     Set<SparkDataset> sources = new TreeSet<>(new Comparator<SparkDataset>() {
@@ -99,7 +102,12 @@ public class SQLQueryExecStartEvent extends LineageEvent {
       in.add(source.urn());
     }
 
-    DataJobInputOutput io = new DataJobInputOutput().setInputDatasets(in).setOutputDatasets(out);
+    return in;
+  }
+
+  private DataJobInputOutput jobIO() {
+    DataJobInputOutput io = new DataJobInputOutput().setInputDatasets(getInputDatasets())
+        .setOutputDatasets(getOuputDatasets());
     return io;
   }
 }

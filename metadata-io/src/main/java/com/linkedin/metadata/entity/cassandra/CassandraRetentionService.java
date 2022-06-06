@@ -12,6 +12,8 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
+import com.linkedin.metadata.entity.EntityAspectIdentifier;
+import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;
 import com.linkedin.retention.TimeBasedRetention;
@@ -72,26 +74,26 @@ public class CassandraRetentionService extends RetentionService {
   public void batchApplyRetention(@Nullable String entityName, @Nullable String aspectName) {
     // TODO: This method is not actually batching anything. Cassandra makes it complicated.
     log.debug("Applying retention to all records");
-    List<CassandraAspect.PrimaryKey> candidates = queryCandidates(entityName, aspectName);
+    List<EntityAspectIdentifier> candidates = queryCandidates(entityName, aspectName);
     int numCandidates = candidates.size();
     log.info("Found {} urn, aspect pairs with more than 1 version", numCandidates);
     Map<String, DataHubRetentionConfig> retentionPolicyMap = getAllRetentionPolicies();
 
     long i = 0;
-    for (CassandraAspect.PrimaryKey pKey : candidates) {
+    for (EntityAspectIdentifier id : candidates) {
       // Only run for cases where there's multiple versions of the aspect
-      if (pKey.getVersion() == 0) {
+      if (id.getVersion() == 0) {
         continue;
       }
       // 1. Extract an Entity type from the entity Urn
       Urn urn;
       try {
-        urn = Urn.createFromString(pKey.getUrn());
+        urn = Urn.createFromString(id.getUrn());
       } catch (Exception e) {
-        log.error("Failed to serialize urn {}", pKey.getUrn(), e);
+        log.error("Failed to serialize urn {}", id.getUrn(), e);
         continue;
       }
-      final String aspectNameFromRecord = pKey.getAspect();
+      final String aspectNameFromRecord = id.getAspect();
       // Get the retention policies to apply from the local retention policy map
       Optional<Retention> retentionPolicy = getRetentionKeys(urn.getEntityType(), aspectNameFromRecord).stream()
           .map(key -> retentionPolicyMap.get(key.toString()))
@@ -99,7 +101,7 @@ public class CassandraRetentionService extends RetentionService {
           .findFirst()
           .map(DataHubRetentionConfig::getRetention);
       retentionPolicy.ifPresent(retention ->
-          applyRetention(urn, aspectNameFromRecord, retention, Optional.of(new RetentionContext(Optional.of(pKey.getVersion())))));
+          applyRetention(urn, aspectNameFromRecord, retention, Optional.of(new RetentionContext(Optional.of(id.getVersion())))));
 
       i += 1;
       if (i % _batchSize == 0) {
@@ -114,7 +116,7 @@ public class CassandraRetentionService extends RetentionService {
       @Nonnull final Urn urn,
       @Nonnull final String aspectName,
       @Nonnull final VersionBasedRetention retention,
-      Optional<Long> maxVersionFromUpdate) {
+      @Nonnull Optional<Long> maxVersionFromUpdate) {
 
     long largestVersion = maxVersionFromUpdate.orElseGet(() -> getMaxVersion(urn, aspectName));
 
@@ -154,7 +156,7 @@ public class CassandraRetentionService extends RetentionService {
     _cqlSession.execute(ss);
   }
 
-  private List<CassandraAspect.PrimaryKey> queryCandidates(@Nullable String entityName, @Nullable String aspectName) {
+  private List<EntityAspectIdentifier> queryCandidates(@Nullable String entityName, @Nullable String aspectName) {
     Select select = selectFrom(CassandraAspect.TABLE_NAME)
         .selectors(
             Selector.column(CassandraAspect.URN_COLUMN),
@@ -171,7 +173,7 @@ public class CassandraRetentionService extends RetentionService {
     select = select.groupBy(ImmutableList.of(Selector.column(CassandraAspect.URN_COLUMN), Selector.column(CassandraAspect.ASPECT_COLUMN)));
     SimpleStatement ss = select.build();
     ResultSet rs = _cqlSession.execute(ss);
-    return rs.all().stream().map(CassandraAspect.PrimaryKey::fromRow).collect(Collectors.toList());
+    return rs.all().stream().map(CassandraAspect::rowToAspectIdentifier).collect(Collectors.toList());
   }
 
   private Map<String, DataHubRetentionConfig> getAllRetentionPolicies() {
@@ -183,9 +185,9 @@ public class CassandraRetentionService extends RetentionService {
         .build();
     ResultSet rs = _cqlSession.execute(ss);
     return rs.all().stream()
-        .map(CassandraAspect::fromRow)
+        .map(CassandraAspect::rowToEntityAspect)
         .collect(Collectors.toMap(
-            CassandraAspect::getUrn,
+            EntityAspect::getUrn,
             aspect -> RecordUtils.toRecordTemplate(DataHubRetentionConfig.class, aspect.getMetadata())));
   }
 }
