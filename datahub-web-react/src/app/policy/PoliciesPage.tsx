@@ -418,8 +418,6 @@ export const PoliciesPage = () => {
         urn: policy?.urn,
     }));
 
-    console.log('policies:: ', policies);
-
     return (
         <SearchablePage>
             {policiesLoading && !policiesData && (
