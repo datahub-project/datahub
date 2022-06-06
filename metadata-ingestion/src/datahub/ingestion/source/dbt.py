@@ -458,11 +458,21 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
     return custom_properties
 
 
+def match_target_platform_instance(target_platform_instance: str,
+                                   dbt_platform_instance: str,
+                                   platform_value: str,
+                                   schema: str) -> str:
+    if platform_value == DBT_PLATFORM:
+        return dbt_platform_instance
+    return target_platform_instance
+
+
 def get_upstreams(
     upstreams: List[str],
     all_nodes: Dict[str, Dict[str, Any]],
     use_identifiers: bool,
     target_platform: str,
+    target_platform_instance: str,
     environment: str,
     disable_dbt_node_creation: bool,
     platform_instance: Optional[str],
@@ -511,7 +521,9 @@ def get_upstreams(
                 name,
                 platform_value,
                 environment,
-                platform_instance if platform_value == DBT_PLATFORM else None,
+                match_target_platform_instance(target_platform_instance=target_platform_instance,
+                                               dbt_platform_instance=platform_instance, platform_value=platform_value,
+                                               schema=all_nodes[upstream]["schema"])
             )
         )
     return upstream_urns
@@ -924,7 +936,8 @@ class DBTSource(StatefulIngestionSourceBase):
                 node.name,
                 mce_platform,
                 self.config.env,
-                self.config.platform_instance if mce_platform == DBT_PLATFORM else None,
+                match_target_platform_instance(self.config.target_platform_instance, self.config.platform_instance,
+                                               mce_platform, node.schema)
             )
             self.save_checkpoint(node_datahub_urn)
 
@@ -1262,9 +1275,10 @@ class DBTSource(StatefulIngestionSourceBase):
             manifest_nodes_raw,
             self.config.use_identifiers,
             self.config.target_platform,
+            self.config.target_platform_instance,
             self.config.env,
             self.config.disable_dbt_node_creation,
-            None,
+            None
         )
 
         # if a node is of type source in dbt, its upstream lineage should have the corresponding table/view
@@ -1296,6 +1310,7 @@ class DBTSource(StatefulIngestionSourceBase):
             manifest_nodes_raw,
             self.config.use_identifiers,
             self.config.target_platform,
+            self.config.target_platform_instance,
             self.config.env,
             self.config.disable_dbt_node_creation,
             None,
