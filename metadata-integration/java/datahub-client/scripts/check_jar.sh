@@ -24,13 +24,13 @@ jar -tvf $jarFile |\
       grep -v "license.header" |\
       grep -v "module-info.class" |\
       grep -v "client.properties" |\
-      grep -v "MetadataChangeProposal.avsc" |\
       grep -v "kafka/" |\
       grep -v "win/" |\
-      grep -v "include" |\
+      grep -v "include/" |\
       grep -v "linux/" |\
       grep -v "darvin/" |\
-      grep -v "aix/"
+      grep -v "aix/" |\
+      grep -v "MetadataChangeProposal.avsc"
 
 if [ $? -ne 0 ]; then
   echo "✅ No unexpected class paths found in ${jarFile}"
