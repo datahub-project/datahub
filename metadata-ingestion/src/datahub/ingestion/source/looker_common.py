@@ -462,6 +462,11 @@ class LookerUtil:
                 primary_keys.append(schema_field.fieldPath)
         return fields, primary_keys
 
+    @staticmethod
+    def _display_name(name: str) -> str:
+        """Returns a display name that corresponds to the Looker conventions"""
+        return name.replace("_", " ").title() if name else name
+
 
 @dataclass
 class LookerExplore:
@@ -701,7 +706,7 @@ class LookerExplore:
         if self.source_file is not None:
             custom_properties["looker.explore.file"] = str(self.source_file)
         dataset_props = DatasetPropertiesClass(
-            name=self.name,
+            name=str(self.label) if self.label else LookerUtil._display_name(self.name),
             description=self.description,
             customProperties=custom_properties,
         )

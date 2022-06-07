@@ -44,6 +44,7 @@ public class Constants {
   public static final String NOTEBOOK_ENTITY_NAME = "notebook";
   public static final String DATA_PLATFORM_INSTANCE_ENTITY_NAME = "dataPlatformInstance";
   public static final String ACCESS_TOKEN_ENTITY_NAME = "dataHubAccessToken";
+  public static final String DATA_HUB_UPGRADE_ENTITY_NAME = "dataHubUpgrade";
 
   /**
    * Aspects
@@ -209,6 +210,11 @@ public class Constants {
   // DataHub Access Token
   public static final String ACCESS_TOKEN_KEY_ASPECT_NAME = "dataHubAccessTokenKey";
   public static final String ACCESS_TOKEN_INFO_NAME = "dataHubAccessTokenInfo";
+
+  // DataHub Upgrade
+  public static final String DATA_HUB_UPGRADE_KEY_ASPECT_NAME = "dataHubUpgradeKey";
+  public static final String DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME = "dataHubUpgradeRequest";
+  public static final String DATA_HUB_UPGRADE_RESULT_ASPECT_NAME = "dataHubUpgradeResult";
 
 
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";

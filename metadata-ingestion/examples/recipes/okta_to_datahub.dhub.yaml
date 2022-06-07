@@ -1,6 +1,8 @@
 ---
 source:
-  type: "okta"
+  type: okta
+  config:
+
 sink:
   type: "datahub-rest"
   config:

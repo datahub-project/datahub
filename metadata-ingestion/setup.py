@@ -41,7 +41,7 @@ framework_common = {
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.2",
+    "avro-gen3==0.7.4",
     "avro>=1.10.2,<1.11",
     "python-dateutil>=2.8.0",
     "stackprinter",
@@ -59,6 +59,7 @@ framework_common = {
     "Deprecated",
     "types-Deprecated",
     "humanfriendly",
+    "packaging",
 }
 
 kafka_common = {
@@ -113,7 +114,7 @@ looker_common = {
 
 bigquery_common = {
     # Google cloud logging library
-    "google-cloud-logging",
+    "google-cloud-logging<3.1.2",
     "google-cloud-bigquery",
     "more-itertools>=8.12.0",
     # we do not use protobuf directly but newer version caused bigquery connector to fail
@@ -327,7 +328,6 @@ base_dev_requirements = {
     "jsonpickle",
     "build",
     "twine",
-    "packaging",
     *list(
         dependency
         for plugin in [
