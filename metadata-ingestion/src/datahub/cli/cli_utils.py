@@ -200,7 +200,7 @@ def test_connection():
 
 
 def test_connectivity_complain_exit(operation_name: str) -> None:
-    """Test connectivty to metadata-service, log operation name and exit"""
+    """Test connectivity to metadata-service, log operation name and exit"""
     # First test connectivity
     try:
         test_connection()
