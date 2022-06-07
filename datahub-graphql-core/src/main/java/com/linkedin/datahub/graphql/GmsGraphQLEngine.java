@@ -160,8 +160,10 @@ import com.linkedin.datahub.graphql.resolvers.tag.SetTagColorResolver;
 import com.linkedin.datahub.graphql.resolvers.test.CreateTestResolver;
 import com.linkedin.datahub.graphql.resolvers.test.DeleteTestResolver;
 import com.linkedin.datahub.graphql.resolvers.test.ListTestsResolver;
+import com.linkedin.datahub.graphql.resolvers.test.RunTestsResolver;
 import com.linkedin.datahub.graphql.resolvers.test.TestResultsResolver;
 import com.linkedin.datahub.graphql.resolvers.test.UpdateTestResolver;
+import com.linkedin.datahub.graphql.resolvers.test.ValidateTestResolver;
 import com.linkedin.datahub.graphql.resolvers.timeline.GetSchemaBlameResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
@@ -211,8 +213,10 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.telemetry.TelemetryConfiguration;
+import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
@@ -266,6 +270,8 @@ public class GmsGraphQLEngine {
     private final boolean supportsImpactAnalysis;
     private final TimeseriesAspectService timeseriesAspectService;
     private final TimelineService timelineService;
+    private final EntitySearchService entitySearchService;
+    private final TestEngine testEngine;
 
     private final IngestionConfiguration ingestionConfiguration;
     private final AuthenticationConfiguration authenticationConfiguration;
@@ -331,11 +337,13 @@ public class GmsGraphQLEngine {
         final UsageClient usageClient,
         final AnalyticsService analyticsService,
         final EntityService entityService,
+        final EntitySearchService entitySearchService,
         final RecommendationsService recommendationsService,
         final StatefulTokenService statefulTokenService,
         final TimeseriesAspectService timeseriesAspectService,
         final EntityRegistry entityRegistry,
         final SecretService secretService,
+        final TestEngine testEngine,
         final IngestionConfiguration ingestionConfiguration,
         final AuthenticationConfiguration authenticationConfiguration,
         final AuthorizationConfiguration authorizationConfiguration,
@@ -345,7 +353,7 @@ public class GmsGraphQLEngine {
         final VisualConfiguration visualConfiguration,
         final TelemetryConfiguration telemetryConfiguration,
         final TestsConfiguration testsConfiguration
-        ) {
+    ) {
 
         this.entityClient = entityClient;
         this.graphClient = graphClient;
@@ -353,6 +361,7 @@ public class GmsGraphQLEngine {
 
         this.analyticsService = analyticsService;
         this.entityService = entityService;
+        this.entitySearchService = entitySearchService;
         this.recommendationsService = recommendationsService;
         this.statefulTokenService = statefulTokenService;
         this.secretService = secretService;
@@ -361,6 +370,7 @@ public class GmsGraphQLEngine {
         this.supportsImpactAnalysis = supportsImpactAnalysis;
         this.timeseriesAspectService = timeseriesAspectService;
         this.timelineService = timelineService;
+        this.testEngine = testEngine;
 
         this.ingestionConfiguration = Objects.requireNonNull(ingestionConfiguration);
         this.authenticationConfiguration = Objects.requireNonNull(authenticationConfiguration);
@@ -394,6 +404,7 @@ public class GmsGraphQLEngine {
         this.dataPlatformInstanceType = new DataPlatformInstanceType(entityClient);
         this.accessTokenMetadataType = new AccessTokenMetadataType(entityClient);
         this.testType = new TestType(entityClient);
+
         // Init Lists
         this.entityTypes = ImmutableList.of(
             datasetType,
@@ -654,7 +665,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("executionRequest", new GetIngestionExecutionRequestResolver(this.entityClient))
             .dataFetcher("getSchemaBlame", new GetSchemaBlameResolver(this.timelineService))
             .dataFetcher("test", getResolver(testType))
-            .dataFetcher("listTests", new ListTestsResolver(entityClient))
+            .dataFetcher("listTests", new ListTestsResolver(entityService, entitySearchService))
+            .dataFetcher("validateTest", new ValidateTestResolver(testEngine))
             // Proposals not in OSS
             .dataFetcher("listActionRequests",
                 new ListActionRequestsResolver(entityClient))
@@ -726,9 +738,10 @@ public class GmsGraphQLEngine {
             .dataFetcher("createIngestionExecutionRequest", new CreateIngestionExecutionRequestResolver(this.entityClient, this.ingestionConfiguration))
             .dataFetcher("cancelIngestionExecutionRequest", new CancelIngestionExecutionRequestResolver(this.entityClient))
             .dataFetcher("deleteAssertion", new DeleteAssertionResolver(this.entityClient, this.entityService))
-            .dataFetcher("createTest", new CreateTestResolver(this.entityClient))
-            .dataFetcher("updateTest", new UpdateTestResolver(this.entityClient))
-            .dataFetcher("deleteTest", new DeleteTestResolver(this.entityClient))
+            .dataFetcher("createTest", new CreateTestResolver(this.entityClient, this.testEngine))
+            .dataFetcher("updateTest", new UpdateTestResolver(this.entityClient, this.testEngine))
+            .dataFetcher("deleteTest", new DeleteTestResolver(this.entityClient, this.testEngine))
+            .dataFetcher("runTests", new RunTestsResolver(this.testEngine))
             .dataFetcher("reportOperation", new ReportOperationResolver(this.entityClient))
             // Proposals not in OSS
             .dataFetcher("proposeTag", new ProposeTagResolver(entityService, entityClient))

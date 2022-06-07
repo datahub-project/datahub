@@ -48,6 +48,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
+import io.opentelemetry.extension.annotations.WithSpan;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
@@ -260,6 +261,7 @@ public class EntityService {
    * @param aspectNames set of aspects to fetch
    * @return a map of {@link Urn} to {@link Entity} object
    */
+  @WithSpan
   public Map<Urn, EntityResponse> getEntitiesV2(
       @Nonnull final String entityName,
       @Nonnull final Set<Urn> urns,

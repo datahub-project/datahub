@@ -4,39 +4,41 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.test.TestEngine;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
-import static com.linkedin.datahub.graphql.resolvers.test.TestUtils.*;
+import lombok.RequiredArgsConstructor;
+
+import static com.linkedin.datahub.graphql.resolvers.test.TestUtils.canManageTests;
 
 
 /**
  * Resolver responsible for hard deleting a particular DataHub Test. Requires MANAGE_TESTS
  * privilege.
  */
-public class DeleteTestResolver implements DataFetcher<CompletableFuture<Boolean>> {
+@RequiredArgsConstructor
+public class DeleteTestResolver implements DataFetcher<CompletableFuture<String>> {
 
   private final EntityClient _entityClient;
-
-  public DeleteTestResolver(final EntityClient entityClient) {
-    _entityClient = entityClient;
-  }
+  private final TestEngine _testEngine;
 
   @Override
-  public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
-    final String testUrn = environment.getArgument("urn");
-    final Urn urn = Urn.createFromString(testUrn);
-    return CompletableFuture.supplyAsync(() -> {
-      if (canManageTests(context)) {
+    if (canManageTests(context)) {
+      final String testUrn = environment.getArgument("urn");
+      final Urn urn = Urn.createFromString(testUrn);
+      return CompletableFuture.supplyAsync(() -> {
         try {
           _entityClient.deleteEntity(urn, context.getAuthentication());
-          return true;
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to perform delete against Test with urn %s", testUrn), e);
         }
-      }
-      throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-    });
+        _testEngine.invalidateCache();
+        return testUrn;
+      });
+    }
+    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
   }
 }
