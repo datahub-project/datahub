@@ -126,7 +126,7 @@ type AppConfig {
   """
   Configurations related to visual appearance, allows styling the UI without rebuilding the bundle
   """
-  visualConfig: VisualConfiguration!
+  visualConfig: VisualConfig!
 
   """
   Configurations related to tracking users in the app
@@ -142,7 +142,7 @@ type AppConfig {
 """
 Configurations related to visual appearance of the app
 """
-type VisualConfiguration {
+type VisualConfig {
   """
   Custom logo url for the homepage & top banner
   """

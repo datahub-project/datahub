@@ -4,7 +4,6 @@ import com.datahub.authentication.token.StatefulTokenService;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
-import com.linkedin.datahub.graphql.generated.VisualConfiguration;
 import com.linkedin.entity.client.JavaEntityClient;
 import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
 import com.linkedin.gms.factory.common.GitVersionFactory;
@@ -95,10 +94,6 @@ public class GraphQLEngineFactory {
   private GitVersion _gitVersion;
 
   @Autowired
-  @Qualifier("visualConfig")
-  private VisualConfiguration _visualConfiguration;
-
-  @Autowired
   @Qualifier("timelineService")
   private TimelineService _timelineService;
 
@@ -126,7 +121,7 @@ public class GraphQLEngineFactory {
           _gitVersion,
           _timelineService,
           _graphService.supportsMultiHop(),
-          _visualConfiguration,
+          _configProvider.getVisualConfig(),
           _configProvider.getTelemetry(),
           _configProvider.getMetadataTests(),
           _configProvider.getDatahub()
@@ -149,7 +144,7 @@ public class GraphQLEngineFactory {
         _gitVersion,
         _timelineService,
         _graphService.supportsMultiHop(),
-        _visualConfiguration,
+        _configProvider.getVisualConfig(),
         _configProvider.getTelemetry(),
         _configProvider.getMetadataTests(),
         _configProvider.getDatahub()
