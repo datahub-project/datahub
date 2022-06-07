@@ -162,7 +162,7 @@ type Query {
     """
     Get whether or not not an entity exists
     """
-    getDoesEntityExist(urn: String!): Boolean
+    entityExisst(urn: String!): Boolean
 }
 
 """
