@@ -1,3 +1,4 @@
+import contextlib
 import traceback
 from typing import Any, Iterable
 
@@ -389,13 +390,10 @@ def _patch_policy(settings):
 
 
 def _patch_datahub_policy():
-    try:
+    with contextlib.suppress(ImportError):
         import airflow_local_settings
 
         _patch_policy(airflow_local_settings)
-    except ImportError:
-        pass
-
     from airflow.models.dagbag import settings
 
     _patch_policy(settings)
