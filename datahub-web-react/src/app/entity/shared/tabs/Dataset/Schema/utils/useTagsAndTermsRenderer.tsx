@@ -3,7 +3,7 @@ import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '../
 import TagTermGroup from '../../../../../../shared/tags/TagTermGroup';
 import { findFieldPathProposal } from '../../../../../../shared/tags/utils/proposalUtils';
 import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
-import { useBaseEntity, useEntityData, useRefetch } from '../../../../EntityContext';
+import { useBaseEntity, useMutationUrn, useRefetch } from '../../../../EntityContext';
 
 export default function useTagsAndTermsRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
@@ -11,7 +11,7 @@ export default function useTagsAndTermsRenderer(
     setTagHoveredIndex: (index: string | undefined) => void,
     options: { showTags: boolean; showTerms: boolean },
 ) {
-    const { urn } = useEntityData();
+    const urn = useMutationUrn();
     const baseEntity = useBaseEntity();
     const refetch = useRefetch();
 

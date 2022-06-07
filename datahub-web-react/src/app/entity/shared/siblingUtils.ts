@@ -100,10 +100,6 @@ export const combineEntityDataWithSiblings = <T>(baseEntity: T): T => {
         extractedBaseEntity,
     ) as T;
 
-    if ('siblings' in baseEntity) {
-        combinedBaseEntity.siblings = siblingAspect;
-    }
-
     return { [baseEntityKey]: combinedBaseEntity } as unknown as T;
 };
 

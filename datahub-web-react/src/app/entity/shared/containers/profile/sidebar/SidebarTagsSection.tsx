@@ -3,7 +3,7 @@ import styled from 'styled-components';
 
 import TagTermGroup from '../../../../../shared/tags/TagTermGroup';
 import { SidebarHeader } from './SidebarHeader';
-import { useBaseEntity, useEntityData, useRefetch } from '../../../EntityContext';
+import { useBaseEntity, useEntityData, useMutationUrn, useRefetch } from '../../../EntityContext';
 import { findTopLevelProposals } from '../../../../../shared/tags/utils/proposalUtils';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import ConstraintGroup from '../../../../../shared/constraints/ConstraintGroup';
@@ -16,7 +16,9 @@ export const SidebarTagsSection = ({ properties }: { properties?: any }) => {
     const canAddTag = properties?.hasTags;
     const canAddTerm = properties?.hasTerms;
 
-    const { urn, entityType, entityData } = useEntityData();
+    const mutationUrn = useMutationUrn();
+
+    const { entityType, entityData } = useEntityData();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
 
     const refetch = useRefetch();
@@ -29,7 +31,7 @@ export const SidebarTagsSection = ({ properties }: { properties?: any }) => {
                 canAddTag={canAddTag}
                 canRemove
                 showEmptyMessage
-                entityUrn={urn}
+                entityUrn={mutationUrn}
                 entityType={entityType}
                 refetch={refetch}
                 // eslint-disable-next-line
@@ -45,7 +47,7 @@ export const SidebarTagsSection = ({ properties }: { properties?: any }) => {
                     canAddTerm={canAddTerm}
                     canRemove
                     showEmptyMessage
-                    entityUrn={urn}
+                    entityUrn={mutationUrn}
                     entityType={entityType}
                     refetch={refetch}
                     // eslint-disable-next-line
