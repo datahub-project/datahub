@@ -1,7 +1,4 @@
 # App Layer
-
-logging.level: DEBUG
-
 authentication:
   # Enable if you want all requests to the Metadata Service to be authenticated. Disabled by default.
   enabled: ${METADATA_SERVICE_AUTH_ENABLED:false}
@@ -42,10 +39,8 @@ authorization:
     - type: com.datahub.authorization.ranger.RangerAuthorizer
       enabled: ${RANGER_AUTHORIZER_ENABLED:false}
       configs:
-        authType: "simple" # Possible values are "simple" and "kerberos"
         username: ${RANGER_USERNAME}
-        password: ${RANGER_PASSWORD}  # For authType "kerberos" set it to path of the keytab file
-        sslConfig: ${RANGER_SSL_CONFIG} # Needed if Apache Ranger is running on HTTPS. File path of SSL configuration. Sample file can be found at https://github.com/apache/ranger/blob/master/ranger-examples/sample-client/conf/ssl-client.xml
+        password: ${RANGER_PASSWORD}
 
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}

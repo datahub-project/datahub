@@ -82,7 +82,7 @@
     </property>
     <property>
         <name>ranger.plugin.datahub.service.name</name>
-        <value>privacera_datahub</value>
+        <value>ranger_datahub</value>
         <description>
             Name of the Ranger service containing policies for this datahub instance
         </description>

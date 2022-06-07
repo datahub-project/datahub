@@ -27,7 +27,7 @@ test {
 
 dependencies {
     implementation 'org.apache.ranger:ranger-plugins-common:2.2.0'
-    compile externalDependency.log4j
+    compile 'org.apache.logging.log4j:log4j-1.2-api:2.17.1'
 
     testCompile externalDependency.testng
 }

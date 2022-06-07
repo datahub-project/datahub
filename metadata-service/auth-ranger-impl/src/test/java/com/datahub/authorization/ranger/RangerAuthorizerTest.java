@@ -3,6 +3,8 @@ package com.datahub.authorization.ranger;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerContext;
+import com.datahub.authorization.ranger.response.UserById;
+import com.datahub.authorization.ranger.response.UserByName;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -10,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import org.apache.ranger.RangerClient;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequest;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequestImpl;
 import org.apache.ranger.plugin.policyengine.RangerAccessResourceImpl;
@@ -42,12 +43,13 @@ class RangerAccessRequestMatcher implements ArgumentMatcher<RangerAccessRequest>
 
 public class RangerAuthorizerTest {
   private RangerBasePlugin rangerBasePlugin;
-  private RangerClient rangerClient;
+  private RangerRestClientWrapper rangerRestClientWrapper;
 
-  private DataHubRangerClientImpl dataHubRangerClientImpl;
+  private DataHubRangerClient _dataHubRangerClient;
 
   private RangerAuthorizer rangerAuthorizer;
   private List<String> roles;
+  private List<String> groups;
 
   RangerAccessResourceImpl rangerAccessResource;
   private Map<String, Object> authorizerConfigMap;
@@ -56,20 +58,12 @@ public class RangerAuthorizerTest {
   public void setupTest() throws Exception {
     // Mock Apache Ranger library classes
     rangerBasePlugin = mock(RangerBasePlugin.class);
-    rangerClient = mock(RangerClient.class);
+    rangerRestClientWrapper = mock(RangerRestClientWrapper.class);
 
     // Spy our class method to inject Mock objects of Apache Ranger library classes
     rangerAuthorizer = spy(RangerAuthorizer.class);
 
-    authorizerConfigMap = new HashMap<>();
-    authorizerConfigMap.put("username", "foo");
-    authorizerConfigMap.put("password", "bar");
-    authorizerConfigMap.put("sslConfig", "SSLCONFIG");
-
-    dataHubRangerClientImpl = spy(new DataHubRangerClientImpl(new AuthorizerConfig(authorizerConfigMap)));
-
-    roles = new ArrayList<>();
-    roles.add("admin");
+    _dataHubRangerClient = spy(new DataHubRangerClient(new AuthorizerConfig("foo", "bar")));
 
     rangerAccessResource = new RangerAccessResourceImpl();
     rangerAccessResource.setValue("platform", "platform");
@@ -77,13 +71,21 @@ public class RangerAuthorizerTest {
     // Mock
     doNothing().when(rangerBasePlugin).setResultProcessor(null);
     doNothing().when(rangerBasePlugin).init();
-    doReturn(rangerBasePlugin).when(dataHubRangerClientImpl).newRangerBasePlugin();
-    doReturn(rangerClient).when(dataHubRangerClientImpl).newRangerClient();
-    doReturn(dataHubRangerClientImpl).when(rangerAuthorizer).newDataHubRangerClient();
+    doReturn(rangerBasePlugin).when(_dataHubRangerClient).newRangerBasePlugin();
+    doReturn(rangerRestClientWrapper).when(_dataHubRangerClient).newRangerRestClientWrapper();
+    doReturn(_dataHubRangerClient).when(rangerAuthorizer).newDataHubRangerClient();
 
-    when(rangerClient.getUserRoles("datahub")).thenReturn(roles);
+    roles = new ArrayList<>();
+    roles.add("admin");
+    when(rangerRestClientWrapper.getUserRole("datahub")).thenReturn(roles);
 
-    when(dataHubRangerClientImpl.newRangerBasePlugin()).thenReturn(rangerBasePlugin);
+    Map<String, Object> userByIdResponse = new HashMap<>();
+    groups = new ArrayList<>();
+    groups.add("public");
+    userByIdResponse.put(UserById.GROUP_NAME_LIST, groups);
+    when(rangerRestClientWrapper.getUserById(1)).thenReturn(new UserById(userByIdResponse));
+
+    when(_dataHubRangerClient.newRangerBasePlugin()).thenReturn(rangerBasePlugin);
 
     rangerAuthorizer.init(authorizerConfigMap, new AuthorizerContext(null));
   }
@@ -92,8 +94,8 @@ public class RangerAuthorizerTest {
   public void testAuthorizationAllow() throws Exception {
 
     RangerAccessRequest rangerAccessRequest =
-        new RangerAccessRequestImpl(rangerAccessResource, PoliciesConfig.VIEW_ANALYTICS_PRIVILEGE.getType(),
-            "datahub", null, this.roles.stream().collect(Collectors.toSet()));
+        new RangerAccessRequestImpl(rangerAccessResource, PoliciesConfig.VIEW_ANALYTICS_PRIVILEGE.getType(), "datahub",
+            this.groups.stream().collect(Collectors.toSet()), this.roles.stream().collect(Collectors.toSet()));
 
     RangerAccessResult rangerAccessResult = new RangerAccessResult(1, "datahub", null, null);
     // For rangerAccessRequest the access should be allowed
@@ -101,6 +103,10 @@ public class RangerAuthorizerTest {
 
     when(rangerBasePlugin.isAccessAllowed(argThat(new RangerAccessRequestMatcher(rangerAccessRequest)))).thenReturn(
         rangerAccessResult);
+    // mock Apache Ranger API response as per username "github"
+    Map<String, Object> userByNameResponse = new HashMap<>();
+    userByNameResponse.put(UserByName.ID, 1);
+    when(rangerRestClientWrapper.getUserByName("datahub")).thenReturn(new UserByName(userByNameResponse));
 
     assert this.callAuthorizer("urn:li:corpuser:datahub").getType() == AuthorizationResult.Type.ALLOW;
   }
@@ -109,12 +115,17 @@ public class RangerAuthorizerTest {
   public void testAuthorizationDeny() throws Exception {
 
     RangerAccessRequest rangerAccessRequest =
-        new RangerAccessRequestImpl(rangerAccessResource, PoliciesConfig.VIEW_ANALYTICS_PRIVILEGE.getType(),
-            "X", null, this.roles.stream().collect(Collectors.toSet()));
+        new RangerAccessRequestImpl(rangerAccessResource, PoliciesConfig.VIEW_ANALYTICS_PRIVILEGE.getType(), "X",
+            this.groups.stream().collect(Collectors.toSet()), this.roles.stream().collect(Collectors.toSet()));
 
     RangerAccessResult rangerAccessResult = new RangerAccessResult(1, "datahub", null, null);
     // For rangerAccessRequest the access should be denied
     rangerAccessResult.setIsAllowed(false);
+
+    // mock Apache Ranger API response as per username "X"
+    Map<String, Object> userByNameResponse = new HashMap<>();
+    userByNameResponse.put(UserByName.ID, 1);
+    when(rangerRestClientWrapper.getUserByName("X")).thenReturn(new UserByName(userByNameResponse));
 
     when(rangerBasePlugin.isAccessAllowed(argThat(new RangerAccessRequestMatcher(rangerAccessRequest)))).thenReturn(
         rangerAccessResult);

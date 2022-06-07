@@ -31,7 +31,6 @@ import org.springframework.context.annotation.Scope;
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Import({DataHubAuthorizerFactory.class})
 public class AuthorizerChainFactory {
-  private final static String DEFAULT_AUTHORIZER = "datahub";
   @Autowired
   private ConfigurationProvider configurationProvider;
 

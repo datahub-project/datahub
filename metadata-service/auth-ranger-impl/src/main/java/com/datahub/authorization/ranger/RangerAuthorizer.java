@@ -6,7 +6,9 @@ import com.datahub.authorization.AuthorizedActors;
 import com.datahub.authorization.Authorizer;
 import com.datahub.authorization.AuthorizerContext;
 import com.datahub.authorization.ResourceSpec;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
@@ -29,19 +31,19 @@ public class RangerAuthorizer implements Authorizer {
 
   @Override
   public void init(@Nonnull Map<String, Object> authorizerConfigMap, @Nonnull final AuthorizerContext ctx) {
-    this.authorizerConfig = new AuthorizerConfig(authorizerConfigMap);
+    this.authorizerConfig = (new ObjectMapper()).convertValue(authorizerConfigMap, AuthorizerConfig.class);
     this.dataHubRangerClient = this.newDataHubRangerClient();
     this.dataHubRangerClient.init();
   }
 
-  public DataHubRangerClientImpl newDataHubRangerClient() {
-    return new DataHubRangerClientImpl(this.authorizerConfig);
+  public DataHubRangerClient newDataHubRangerClient() {
+    return new DataHubRangerClient(this.authorizerConfig);
   }
 
   @Override
   public AuthorizationResult authorize(AuthorizationRequest request) {
-    String[] actorUrnPart = request.getActorUrn().split(":");
-    String userIdentifier = actorUrnPart[actorUrnPart.length - 1];
+
+    String userIdentifier = UrnUtils.getUrn(request.getActorUrn()).getId();
 
     Set<String> roles = this.dataHubRangerClient.getUserRoles(userIdentifier);
     Set<String> groups = this.dataHubRangerClient.getUserGroups(userIdentifier);
