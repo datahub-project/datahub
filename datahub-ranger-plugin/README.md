@@ -42,7 +42,7 @@ Replace variables with corresponding values in curl command
 ```bash 
 curl -u <ranger-admin-username>:<ranger-admin-password> -X POST -H "Accept: application/json" -H "Content-Type: application/json" --data @servicedef.json http://<ranger-host>:6080/service/public/v2/api/servicedef
 ```
-6. Login into the Privacera Portal to performs below steps. 
+6. Login into the Apache Ranger UI (Privacera Portal) to performs below steps. 
    1. Verify **datahub-ranger-plugin** is registered successfully: The  **datahub-ranger-plugin** should be visible as **DATAHUB**  in  *Access Management -> Resource Policies*. 
    2. Create a service under the plugin **DATAHUB** with name **ranger_datahub**
 
