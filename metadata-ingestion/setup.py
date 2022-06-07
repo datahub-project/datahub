@@ -123,7 +123,7 @@ bigquery_common = {
     # but need to limit versions to reduce time taken for resolution
     "google-cloud-core>=2.3.0",
     "google-cloud-bigquery-storage>=2.13.1",
-    "google-resumable-media>2.3.3",
+    "google-resumable-media>=2.3.3",
 }
 
 snowflake_common = {
