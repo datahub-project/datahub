@@ -43,7 +43,9 @@ Replace variables with corresponding values in curl command
 curl -u <ranger-admin-username>:<ranger-admin-password> -X POST -H "Accept: application/json" -H "Content-Type: application/json" --data @servicedef.json http://<ranger-host>:6080/service/public/v2/api/servicedef
 ```
 
-Now, you should have the DataHub plugin registered with Apache Ranger. Next, we'll create a sample user and add them to our first policy.
+### Defining a Ranger Policy
+
+Now, you should have the DataHub plugin registered with Apache Ranger. Next, we'll create a sample user and add them to our first resource policy.
 
 1. Login into the Apache Ranger UI (Privacera Portal) to performs below steps. 
 2. Verify **datahub-ranger-plugin** is registered successfully: The  **datahub-ranger-plugin** should be visible as **DATAHUB**  in  *Access Management -> Resource Policies*. 
@@ -58,7 +60,9 @@ Now, you should have the DataHub plugin registered with Apache Ranger. Next, we'
 
    To do this performs below steps
       - Create a user  **datahub** 
-      - Create a policy under **ranger_datahub** service which should have a resource  **platform**  of resource type  **platform**  and allow all permissions to  **datahub**  user for the resource  **platform**. This will enable the "datahub" to have full platform admin privileges. 
+      - Create a policy under **ranger_datahub** service. To assign [Platform Privileges](https://datahubproject.io/docs/policies/) (e.g. Admin privileges), simply use the "platform" resource type which is defined. To test the flow, we can simply assign the **datahub** user all platform privileges that are available through the Ranger UI. This will enable the "datahub" to have full platform admin privileges. 
+
+     > To define fine-grained resource privileges, e.g. for DataHub Datasets, Dashboards, Charts, and more, you can simply select the appropriate Resource Type in the Ranger policy builder. You should also see a list of privileges that are supported for each resource type, which correspond to the actions that you can perform. To learn more about supported privileges, check out the DataHub [Policies Guide](https://datahubproject.io/docs/policies/). 
       
       DataHub platform access policy screenshot: <br/>
       
