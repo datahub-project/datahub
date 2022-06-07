@@ -71,6 +71,24 @@ fragment searchResultFields on Entity {
         deprecation {
             ...deprecationFields
         }
+        siblings {
+            isPrimary
+            siblings {
+                urn
+                type
+                ... on Dataset {
+                    platform {
+                        ...platformFields
+                    }
+                    name
+                    properties {
+                        name
+                        description
+                        qualifiedName
+                    }
+                }
+            }
+        }
     }
     ... on CorpUser {
         username

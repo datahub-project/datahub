@@ -137,6 +137,7 @@ export default class EntityRegistry {
                         type: (relationship.entity as EntityInterface).type,
                     })),
                 status: genericEntityProperties?.status,
+                siblingPlatforms: genericEntityProperties?.siblingPlatforms,
             } as FetchedEntity) || undefined
         );
     }

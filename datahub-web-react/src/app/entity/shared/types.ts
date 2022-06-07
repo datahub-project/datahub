@@ -82,6 +82,7 @@ export type GenericEntityProperties = {
     deprecation?: Maybe<Deprecation>;
     siblings?: Maybe<SiblingProperties>;
     parentContainers?: Maybe<ParentContainersResult>;
+    siblingPlatforms?: Maybe<DataPlatform[]>;
 };
 
 export type GenericEntityUpdate = {

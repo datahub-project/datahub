@@ -1,10 +1,5 @@
 import { dataset3WithLineage, dataset4WithLineage } from '../../../../Mocks';
-import {
-    omitEmpty,
-    getPrimarySiblingFromEntity,
-    getUpstreamsAndDownstreamsFromEntityAndSiblings,
-    combineEntityDataWithSiblings,
-} from '../siblingUtils';
+import { combineEntityDataWithSiblings } from '../siblingUtils';
 
 const usageStats = {
     buckets: [
@@ -61,36 +56,7 @@ datasetUnprimary.siblings = {
     siblings: [datasetPrimary],
 };
 
-describe('siblingUtisl', () => {
-    describe('omitEmpty', () => {
-        it('will not overwrite nulls from a sibling onto an entity', () => {
-            expect(omitEmpty({ a: null, b: 3, c: [], d: { buckets: [] } }, false)).toMatchObject({
-                b: 3,
-            });
-        });
-
-        it('will not include sibling container', () => {
-            expect(
-                omitEmpty(
-                    { a: null, b: 3, c: [], d: { buckets: [] }, container: { urn: 'urn:li:container:123' } },
-                    true,
-                ),
-            ).toMatchObject({
-                b: 3,
-            });
-        });
-    });
-
-    describe('getPrimarySiblingsFromEntity', () => {
-        it('will get the primary sibling if it is that', () => {
-            expect(getPrimarySiblingFromEntity(datasetPrimary)).toEqual(datasetPrimary);
-        });
-
-        it('will get the primary sibling if it is not that', () => {
-            expect(getPrimarySiblingFromEntity(datasetUnprimary)).toEqual(datasetPrimary);
-        });
-    });
-
+describe('siblingUtils', () => {
     describe('getUpstreamsAndDownstreamsFromEntityAndSiblings', () => {
         it('will merge its siblings lineage into itself if primary', () => {
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
