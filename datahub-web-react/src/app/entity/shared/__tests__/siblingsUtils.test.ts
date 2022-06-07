@@ -1,4 +1,5 @@
 import { dataset3WithLineage, dataset4WithLineage } from '../../../../Mocks';
+import { EntityType } from '../../../../types.generated';
 import { combineEntityDataWithSiblings } from '../siblingUtils';
 
 const usageStats = {
@@ -43,58 +44,97 @@ const usageStats = {
     __typename: 'UsageQueryResult',
 };
 
-const datasetPrimary = { ...dataset3WithLineage };
-const datasetUnprimary = { ...dataset4WithLineage, usageStats };
-
-datasetPrimary.siblings = {
-    isPrimary: true,
-    siblings: [datasetUnprimary],
+const datasetPrimary = {
+    ...dataset3WithLineage,
+    properties: {
+        ...dataset3WithLineage.properties,
+        description: 'primary description',
+    },
+    editableProperties: {
+        description: '',
+    },
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:primary-tag',
+                    name: 'primary-tag',
+                    description: 'primary tag',
+                    properties: {
+                        name: 'primary-tag',
+                        description: 'primary tag',
+                        colorHex: 'primary tag color',
+                    },
+                },
+            },
+        ],
+    },
+};
+const datasetUnprimary = {
+    ...dataset4WithLineage,
+    usageStats,
+    properties: {
+        ...dataset4WithLineage.properties,
+        description: 'unprimary description',
+    },
+    editableProperties: {
+        description: 'secondary description',
+    },
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:unprimary-tag',
+                    name: 'unprimary-tag',
+                    description: 'unprimary tag',
+                    properties: {
+                        name: 'unprimary-tag',
+                        description: 'unprimary tag',
+                        colorHex: 'unprimary tag color',
+                    },
+                },
+            },
+        ],
+    },
 };
 
-datasetUnprimary.siblings = {
-    isPrimary: false,
-    siblings: [datasetPrimary],
+const datasetPrimaryWithSiblings = {
+    ...datasetPrimary,
+    siblings: {
+        isPrimary: true,
+        siblings: [datasetUnprimary],
+    },
 };
+
+// const datasetUnprimaryWithSiblings = {
+//     ...datasetUnprimary,
+//     siblings: {
+//         isPrimary: true,
+//         siblings: [datasetPrimary],
+//     },
+// };
 
 describe('siblingUtils', () => {
-    describe('getUpstreamsAndDownstreamsFromEntityAndSiblings', () => {
-        it('will merge its siblings lineage into itself if primary', () => {
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore
-            const { allUpstreams, allDownstreams } = getUpstreamsAndDownstreamsFromEntityAndSiblings(datasetPrimary);
-
-            // dataset4, the sibling, should be missing
-            expect(allUpstreams.map((entity) => entity?.urn)).toEqual([
-                // from sibling
-                'urn:li:dataset:6',
-                'urn:li:dataset:5',
-                // from self
-                'urn:li:dataset:7',
-            ]);
-
-            expect(allDownstreams.map((entity) => entity?.urn)).toEqual([]);
-        });
-
-        it('will not merge its siblings lineage into itself if not primary', () => {
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-ignore
-            const { allUpstreams, allDownstreams } = getUpstreamsAndDownstreamsFromEntityAndSiblings(datasetUnprimary);
-
-            expect(allUpstreams.map((entity) => entity?.urn)).toEqual([
-                // from self
-                'urn:li:dataset:6',
-                'urn:li:dataset:5',
-            ]);
-
-            expect(allDownstreams.map((entity) => entity?.urn)).toEqual(['urn:li:dataset:3']);
-        });
-    });
-
     describe('combineEntityDataWithSiblings', () => {
         it('combines my metadata with my siblings', () => {
-            const baseEntity = { dataset: datasetPrimary };
+            const baseEntity = { dataset: datasetPrimaryWithSiblings };
             expect(baseEntity.dataset.usageStats).toBeNull();
-            expect(combineEntityDataWithSiblings(baseEntity).dataset.usageStats).toEqual(usageStats);
+            const combinedData = combineEntityDataWithSiblings(baseEntity);
+            // will merge properties only one entity has
+            expect(combinedData.dataset.usageStats).toEqual(usageStats);
+
+            // will merge arrays
+            expect(combinedData.dataset.globalTags.tags).toHaveLength(2);
+            expect(combinedData.dataset.globalTags.tags[0].tag.urn).toEqual('urn:li:tag:unprimary-tag');
+            expect(combinedData.dataset.globalTags.tags[1].tag.urn).toEqual('urn:li:tag:primary-tag');
+
+            // will overwrite string properties w/ primary
+            expect(combinedData.dataset.editableProperties.description).toEqual('secondary description');
+
+            // will take secondary string properties in the case of empty string
+            expect(combinedData.dataset.properties.description).toEqual('primary description');
         });
     });
 });

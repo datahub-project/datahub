@@ -1,11 +1,14 @@
 import merge from 'deepmerge';
 import { Entity, MatchedField, Maybe, SiblingProperties } from '../../../types.generated';
 
-function clean(obj) {
+function cleanHelper(obj, visited) {
+    if (visited.has(obj)) return;
+    visited.add(obj);
+
     const object = obj;
     Object.entries(object).forEach(([k, v]) => {
         if (v && typeof v === 'object') {
-            clean(v);
+            cleanHelper(v, visited);
         }
         if ((v && typeof v === 'object' && !Object.keys(v).length) || v === null || v === undefined || v === '') {
             if (Array.isArray(object)) {
@@ -16,6 +19,11 @@ function clean(obj) {
         }
     });
     return object;
+}
+
+function clean(obj) {
+    const visited = new Set();
+    return cleanHelper(obj, visited);
 }
 
 const combineMerge = (target, source, options) => {
