@@ -256,7 +256,7 @@ export const ManagePolicies = () => {
                 deletePolicy({ variables: { urn: policy?.urn as string } }); // There must be a focus policy urn.
                 setTimeout(function () {
                     policiesRefetch();
-                }, 2000);
+                }, 3000);
                 onCancelViewPolicy();
             },
             onCancel() {},
@@ -283,6 +283,9 @@ export const ManagePolicies = () => {
                 input: toPolicyInput(newPolicy),
             },
         });
+        setTimeout(function () {
+            policiesRefetch();
+        }, 3000);
         setShowViewPolicyModal(false);
     };
 
@@ -297,7 +300,7 @@ export const ManagePolicies = () => {
         message.success('Successfully saved policy.');
         setTimeout(function () {
             policiesRefetch();
-        }, 2000);
+        }, 3000);
         onClosePolicyBuilder();
     };
 
@@ -461,7 +464,7 @@ export const ManagePolicies = () => {
                     dataSource={tableData}
                     rowKey="urn"
                     locale={{
-                        emptyText: <Empty description="No Ingestion Sources!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                        emptyText: <Empty description="No Policies!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
                     pagination={false}
                 />
