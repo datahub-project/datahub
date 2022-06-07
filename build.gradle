@@ -2,7 +2,7 @@ buildscript {
   ext.junitJupiterVersion = '5.6.1'
   ext.pegasusVersion = '29.22.16'
   ext.mavenVersion = '3.6.3'
-  ext.springVersion = '5.3.19'
+  ext.springVersion = '5.3.20'
   ext.springBootVersion = '2.5.12'
   apply from: './repositories.gradle'
   buildscript.repositories.addAll(project.repositories)
