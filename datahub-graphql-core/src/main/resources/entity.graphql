@@ -158,6 +158,11 @@ type Query {
     Get all GlossaryNodes without a parentNode
     """
     getRootGlossaryNodes(input: GetRootGlossaryEntitiesInput!): GetRootGlossaryNodesResult
+
+    """
+    Get whether or not not an entity exists
+    """
+    entityExisst(urn: String!): Boolean
 }
 
 """
