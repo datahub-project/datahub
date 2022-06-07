@@ -194,7 +194,7 @@ def get_session_and_host():
 
 def test_connection():
     (session, host) = get_session_and_host()
-    url = host + "/config"
+    url = f"{host}/config"
     response = session.get(url)
     response.raise_for_status()
 
@@ -556,7 +556,7 @@ def get_entity(
     endpoint: str = f"/entitiesV2/{encoded_urn}"
 
     if aspect and len(aspect):
-        endpoint = endpoint + "?aspects=List(" + ",".join(aspect) + ")"
+        endpoint = f"{endpoint}?aspects=List(" + ",".join(aspect) + ")"
 
     response = session.get(gms_host + endpoint)
     response.raise_for_status()
