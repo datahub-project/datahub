@@ -21,7 +21,7 @@ def get_long_description():
 
 
 base_requirements = {
-    # Compatability.
+    # Compatibility.
     "dataclasses>=0.6; python_version < '3.7'",
     "typing_extensions>=3.10.0.2",
     "mypy_extensions>=0.4.3",

@@ -130,7 +130,7 @@ def get_details_from_config():
             gms_token = gms_config.token
             return gms_host, gms_token
         except yaml.YAMLError as exc:
-            click.secho(f"{DATAHUB_CONFIG_PATH} malformatted, error: {exc}", bold=True)
+            click.secho(f"{DATAHUB_CONFIG_PATH} malformed, error: {exc}", bold=True)
     return None, None
 
 

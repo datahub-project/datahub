@@ -215,7 +215,7 @@ def datahub_on_success_callback(context, *args, **kwargs):
     for inlet in inlets:
         datajob.inlets.append(inlet.urn)
 
-    # We have to use _oulets because outlets is empty
+    # We have to use _outlets because outlets is empty
     for outlet in task._outlets:
         datajob.outlets.append(outlet.urn)
 

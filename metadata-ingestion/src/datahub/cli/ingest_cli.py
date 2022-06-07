@@ -79,7 +79,7 @@ def ingest() -> None:
     type=bool,
     is_flag=True,
     default=False,
-    help="Supress display of variable values in logs by supressing elaborae stacktrace (stackprinter) during ingestion failures",
+    help="Suppress display of variable values in logs by suppressing elaborate stacktrace (stackprinter) during ingestion failures",
 )
 @click.pass_context
 @upgrade.check_upgrade

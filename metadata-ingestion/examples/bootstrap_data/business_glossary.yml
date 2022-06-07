@@ -40,7 +40,7 @@ nodes:
         inherits:
           - Classification.Sensitive
   - name: ClientsAndAccounts
-    description: Provides basic concepts such as account, account holder, account provider, relationship manager that are commonly used by financial services providers to describe customers and to determine counterparty identities
+    description: Provides basic concepts such as account, account holder, account provider, relationship manager that are commonly used by financial services providers to describe customers and to determine counterparts identities
     owners:
       groups:
         - finance
