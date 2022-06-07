@@ -117,6 +117,8 @@ bigquery_common = {
     "google-cloud-logging<3.1.2",
     "google-cloud-bigquery",
     "more-itertools>=8.12.0",
+    # we do not use protobuf directly but newer version caused bigquery connector to fail
+    "protobuf<=3.20.1",
 }
 
 snowflake_common = {
