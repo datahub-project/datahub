@@ -18,7 +18,7 @@ import { SidebarTagsSection } from '../shared/containers/profile/sidebar/Sidebar
 import { SidebarStatsSection } from '../shared/containers/profile/sidebar/Dataset/StatsSidebarSection';
 import StatsTab from '../shared/tabs/Dataset/Stats/StatsTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
-import { capitalizeFirstLetter } from '../../shared/textUtil';
+import { capitalizeFirstLetter, capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
@@ -27,7 +27,7 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 import { ValidationsTab } from '../shared/tabs/Dataset/Validations/ValidationsTab';
 import { OperationsTab } from './profile/OperationsTab';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
-import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
+// import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -187,13 +187,13 @@ export class DatasetEntity implements Entity<Dataset> {
                 {
                     component: SidebarAboutSection,
                 },
-                {
-                    component: SidebarSiblingsSection,
-                    display: {
-                        visible: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.siblings?.siblings?.length || 0) > 0,
-                    },
-                },
+                // {
+                //     component: SidebarSiblingsSection,
+                //     display: {
+                //         visible: (_, dataset: GetDatasetQuery) =>
+                //             (dataset?.dataset?.siblings?.siblings?.length || 0) > 0,
+                //     },
+                // },
                 {
                     component: SidebarViewDefinitionSection,
                     display: {
@@ -269,6 +269,7 @@ export class DatasetEntity implements Entity<Dataset> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Dataset;
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 urn={data.urn}
@@ -278,6 +279,10 @@ export class DatasetEntity implements Entity<Dataset> {
                 platformName={data.platform.properties?.displayName || data.platform.name}
                 platformLogo={data.platform.properties?.logoUrl}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
+                platformNames={genericProperties?.siblingPlatforms?.map((platform) =>
+                    capitalizeFirstLetterOnly(platform.properties?.displayName || platform.name),
+                )}
+                platformLogos={genericProperties?.siblingPlatforms?.map((platform) => platform.properties?.logoUrl)}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 domain={data.domain}

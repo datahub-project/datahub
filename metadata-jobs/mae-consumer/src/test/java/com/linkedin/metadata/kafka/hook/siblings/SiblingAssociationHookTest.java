@@ -105,20 +105,6 @@ public class SiblingAssociationHookTest {
         Mockito.eq(proposal2),
         Mockito.any(AuditStamp.class)
     );
-
-    final Status sourceStatusAspect = new Status().setRemoved(true);
-
-    final MetadataChangeProposal proposal3 = new MetadataChangeProposal();
-    proposal3.setEntityUrn(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)"));
-    proposal3.setEntityType(DATASET_ENTITY_NAME);
-    proposal3.setAspectName(STATUS_ASPECT_NAME);
-    proposal3.setAspect(GenericRecordUtils.serializeAspect(sourceStatusAspect));
-    proposal3.setChangeType(ChangeType.UPSERT);
-
-    Mockito.verify(_mockEntityService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal3),
-        Mockito.any(AuditStamp.class)
-    );
   }
 
   @Test
@@ -222,17 +208,5 @@ public class SiblingAssociationHookTest {
     );
 
     final Status sourceStatusAspect = new Status().setRemoved(true);
-
-    final MetadataChangeProposal proposal3 = new MetadataChangeProposal();
-    proposal3.setEntityUrn(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)"));
-    proposal3.setEntityType(DATASET_ENTITY_NAME);
-    proposal3.setAspectName(STATUS_ASPECT_NAME);
-    proposal3.setAspect(GenericRecordUtils.serializeAspect(sourceStatusAspect));
-    proposal3.setChangeType(ChangeType.UPSERT);
-
-    Mockito.verify(_mockEntityService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal3),
-        Mockito.any(AuditStamp.class)
-    );
   }
 }

@@ -8,30 +8,31 @@ import StyledMDEditor from '../../../components/styled/StyledMDEditor';
 import TabToolbar from '../../../components/styled/TabToolbar';
 
 import { GenericEntityUpdate } from '../../../types';
-import { useEntityData, useEntityUpdate, useRefetch } from '../../../EntityContext';
+import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '../../../EntityContext';
 import { useUpdateDescriptionMutation } from '../../../../../../graphql/mutations.generated';
 import { DiscardDescriptionModal } from './DiscardDescriptionModal';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../../utils';
 
 export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) => {
-    const { urn, entityType, entityData } = useEntityData();
+    const mutationUrn = useMutationUrn();
+    const { entityType, entityData } = useEntityData();
     const refetch = useRefetch();
     const updateEntity = useEntityUpdate<GenericEntityUpdate>();
     const [updateDescriptionMutation] = useUpdateDescriptionMutation();
 
     const localStorageDictionary = localStorage.getItem(EDITED_DESCRIPTIONS_CACHE_NAME);
     const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
-    const description = editedDescriptions.hasOwnProperty(urn)
-        ? editedDescriptions[urn]
+    const description = editedDescriptions.hasOwnProperty(mutationUrn)
+        ? editedDescriptions[mutationUrn]
         : entityData?.editableProperties?.description || entityData?.properties?.description || '';
 
     const [updatedDescription, setUpdatedDescription] = useState(description);
-    const [isDescriptionUpdated, setIsDescriptionUpdated] = useState(editedDescriptions.hasOwnProperty(urn));
+    const [isDescriptionUpdated, setIsDescriptionUpdated] = useState(editedDescriptions.hasOwnProperty(mutationUrn));
     const [cancelModalVisible, setCancelModalVisible] = useState(false);
 
     const updateDescriptionLegacy = () => {
         return updateEntity?.({
-            variables: { urn, input: { editableProperties: { description: updatedDescription || '' } } },
+            variables: { urn: mutationUrn, input: { editableProperties: { description: updatedDescription || '' } } },
         });
     };
 
@@ -40,7 +41,7 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
             variables: {
                 input: {
                     description: updatedDescription,
-                    resourceUrn: urn,
+                    resourceUrn: mutationUrn,
                 },
             },
         });
@@ -61,11 +62,11 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
                 type: EventType.EntityActionEvent,
                 actionType: EntityActionType.UpdateDescription,
                 entityType,
-                entityUrn: urn,
+                entityUrn: mutationUrn,
             });
             message.success({ content: 'Description Updated', duration: 2 });
             // Updating the localStorage after save
-            delete editedDescriptions[urn];
+            delete editedDescriptions[mutationUrn];
             if (Object.keys(editedDescriptions).length === 0) {
                 localStorage.removeItem(EDITED_DESCRIPTIONS_CACHE_NAME);
             } else {
@@ -98,12 +99,12 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
 
         if (isDescriptionUpdated) {
             delayDebounceFn = setTimeout(() => {
-                editedDescriptionsLocal[urn] = updatedDescription;
+                editedDescriptionsLocal[mutationUrn] = updatedDescription;
                 localStorage.setItem(EDITED_DESCRIPTIONS_CACHE_NAME, JSON.stringify(editedDescriptionsLocal));
             }, 5000);
         }
         return () => clearTimeout(delayDebounceFn);
-    }, [urn, isDescriptionUpdated, updatedDescription, localStorageDictionary]);
+    }, [mutationUrn, isDescriptionUpdated, updatedDescription, localStorageDictionary]);
 
     // Handling the Discard Modal
     const showModal = () => {
@@ -117,7 +118,7 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
     }
 
     const onDiscard = () => {
-        delete editedDescriptions[urn];
+        delete editedDescriptions[mutationUrn];
         if (Object.keys(editedDescriptions).length === 0) {
             localStorage.removeItem(EDITED_DESCRIPTIONS_CACHE_NAME);
         } else {

@@ -297,21 +297,45 @@ query getDataset($urn: String!) {
 }
 
 fragment siblingFields on Dataset {
-    upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
-        ...fullLineageResults
-    }
-    downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
-        ...fullLineageResults
-    }
     ...nonRecursiveDatasetFields
+    schemaMetadata(version: 0) {
+        ...schemaMetadataFields
+    }
+    editableSchemaMetadata {
+        editableSchemaFieldInfo {
+            fieldPath
+            description
+            globalTags {
+                ...globalTagsFields
+            }
+            glossaryTerms {
+                ...glossaryTerms
+            }
+        }
+    }
+    deprecation {
+        actor
+        deprecated
+        note
+        decommissionTime
+    }
+    globalTags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
     subTypes {
         typeNames
     }
     domain {
         ...entityDomain
     }
-    container {
-        ...entityContainer
+    upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+        ...fullLineageResults
+    }
+    downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+        ...fullLineageResults
     }
     usageStats(resource: $urn, range: MONTH) {
         buckets {
@@ -358,6 +382,17 @@ fragment siblingFields on Dataset {
             stdev
             sampleValues
         }
+    }
+    parentContainers {
+        ...parentContainersFields
+    }
+    ...viewProperties
+    assertions(start: 0, count: 1) {
+        total
+    }
+    operations(limit: 1) {
+        timestampMillis
+        lastUpdatedTimestamp
     }
 }
 
