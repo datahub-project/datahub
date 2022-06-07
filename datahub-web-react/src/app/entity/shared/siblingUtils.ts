@@ -2,7 +2,7 @@ import merge from 'deepmerge';
 import { Entity, MatchedField, Maybe, SiblingProperties } from '../../../types.generated';
 
 function cleanHelper(obj, visited) {
-    if (visited.has(obj)) return;
+    if (visited.has(obj)) return obj;
     visited.add(obj);
 
     const object = obj;

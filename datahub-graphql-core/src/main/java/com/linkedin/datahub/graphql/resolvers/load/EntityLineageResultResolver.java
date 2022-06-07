@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityLineageResult;
 import com.linkedin.datahub.graphql.generated.LineageDirection;
