@@ -49,6 +49,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -59,6 +61,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -66,6 +69,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -76,6 +81,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -83,6 +89,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -93,6 +101,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -100,6 +109,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -110,6 +121,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -117,6 +129,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -127,6 +141,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -139,10 +154,12 @@
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
                         "tags": [
                             {
-                                "tag": "urn:li:tag:foo:bar"
+                                "tag": "urn:li:tag:baz:bob",
+                                "context": null
                             },
                             {
-                                "tag": "urn:li:tag:baz:bob"
+                                "tag": "urn:li:tag:foo:bar",
+                                "context": null
                             }
                         ]
                     }
@@ -186,7 +203,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:s3\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -243,7 +260,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:s3\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -319,7 +336,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:s3\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -395,7 +412,7 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
+        "value": "{\"platform\": \"urn:li:dataPlatform:s3\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:s3,PROD)\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -513,6 +530,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -523,6 +542,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -530,6 +550,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -540,6 +562,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -547,6 +570,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -557,6 +582,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -564,6 +590,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -574,6 +602,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -581,6 +610,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -591,6 +622,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -603,10 +635,12 @@
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
                         "tags": [
                             {
-                                "tag": "urn:li:tag:foo:bar"
+                                "tag": "urn:li:tag:baz:bob",
+                                "context": null
                             },
                             {
-                                "tag": "urn:li:tag:baz:bob"
+                                "tag": "urn:li:tag:foo:bar",
+                                "context": null
                             }
                         ]
                     }
