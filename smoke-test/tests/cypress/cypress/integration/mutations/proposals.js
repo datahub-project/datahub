@@ -119,7 +119,7 @@ describe('proposals', () => {
     cy.wait(1000);
 
     // Deleting the term (data cleanup)
-    cy.get('a[href="/glossary/urn:li:glossaryTerm:CypressNode.TermToPropose"]').within(() => cy.get('span[aria-label=close]').click({force: true}));
+    cy.contains('TermToPropose').within(() => cy.get('span[aria-label=close]').click());
     cy.contains('Yes').click({force: true});
     cy.wait(1000);
   });
@@ -297,7 +297,7 @@ describe('proposals', () => {
     cy.get('[data-testid="proposed-term-TermToPropose"]').should('not.exist');
     cy.wait(1000);
 
-    cy.get('a[href="/glossary/urn:li:glossaryTerm:CypressNode.TermToPropose"]').within(() => cy.get('span[aria-label=close]').click({force: true}));
+    cy.contains('TermToPropose').within(() => cy.get('span[aria-label=close]').click());
     cy.contains('Yes').click({force: true});
     cy.wait(1000);
   });

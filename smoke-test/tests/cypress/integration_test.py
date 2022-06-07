@@ -13,12 +13,16 @@ def ingest_cleanup_data():
     ingest_file_via_rest("tests/cypress/schema-blame-data.json")
     # acryl-main-data is for data specific to tests in the acryl-main-branch to avoid merge conflicts with OSS
     ingest_file_via_rest("tests/cypress/acryl-main-data.json")
-    yield
+    # yield
     print("removing test data")
     delete_urns_from_file("tests/cypress/data.json")
     delete_urns_from_file("tests/cypress/schema-blame-data.json")
     delete_urns_from_file("tests/cypress/acryl-main-data.json")
 
+def test_cleanup(frontend_session, wait_for_healthchecks):
+    delete_urns_from_file("tests/cypress/data.json")
+    delete_urns_from_file("tests/cypress/schema-blame-data.json")
+    delete_urns_from_file("tests/cypress/acryl-main-data.json")
 
 def test_run_cypress(frontend_session, wait_for_healthchecks):
     # Run with --record option only if CYPRESS_RECORD_KEY is non-empty
