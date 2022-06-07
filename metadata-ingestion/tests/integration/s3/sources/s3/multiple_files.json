@@ -1,7 +1,6 @@
 {
   "type": "s3",
   "config": {
-    "platform": "test-platform",
     "platform_instance": "test-platform-instance",
     "env": "DEV",
     "path_specs": [{
