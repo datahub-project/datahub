@@ -42,22 +42,29 @@ Replace variables with corresponding values in curl command
 ```bash 
 curl -u <ranger-admin-username>:<ranger-admin-password> -X POST -H "Accept: application/json" -H "Content-Type: application/json" --data @servicedef.json http://<ranger-host>:6080/service/public/v2/api/servicedef
 ```
-6. Login into the Apache Ranger UI (Privacera Portal) to performs below steps. 
-   1. Verify **datahub-ranger-plugin** is registered successfully: The  **datahub-ranger-plugin** should be visible as **DATAHUB**  in  *Access Management -> Resource Policies*. 
-   2. Create a service under the plugin **DATAHUB** with name **ranger_datahub**
+
+Now, you should have the DataHub plugin registered with Apache Ranger. Next, we'll create a sample user and add them to our first policy.
+
+1. Login into the Apache Ranger UI (Privacera Portal) to performs below steps. 
+2. Verify **datahub-ranger-plugin** is registered successfully: The  **datahub-ranger-plugin** should be visible as **DATAHUB**  in  *Access Management -> Resource Policies*. 
+3. Create a service under the plugin **DATAHUB** with name **ranger_datahub**
 
       **DATAHUB** plugin and **ranger_datahub** service is shown in below screenshot: <br/>
       
       ![Privacera Portal DATAHUB screenshot](./doc-images/datahub-plugin.png)
 
-   3. Create policies under service **ranger_datahub** to control DataHub authorization.
-   4. Allow DataHub root user, i.e. **datahub** to control DataHub services: To do this performs below steps
-      - Create a user  **datahub**
-      - Create a policy under **ranger_datahub** service which should have a resource  **platform**  of resource type  **platform**  and allow all permissions to  **datahub**  user for the resource  **platform**
+4. Create a new policy under service **ranger_datahub** - this will be used to control DataHub authorization. 
+5. Create a test user & assign them to a policy. We'll use the `datahub` user, which is the default root user inside DataHub.
+
+   To do this performs below steps
+      - Create a user  **datahub** 
+      - Create a policy under **ranger_datahub** service which should have a resource  **platform**  of resource type  **platform**  and allow all permissions to  **datahub**  user for the resource  **platform**. This will enable the "datahub" to have full platform admin privileges. 
       
       DataHub platform access policy screenshot: <br/>
       
       ![Privacera Portal DATAHUB screenshot](./doc-images/datahub-platform-access-policy.png)
+
+Once we've created our first policy, we can set up DataHub to start authorizing requests using Ranger policies. 
 
 
 ## Configuring your DataHub Deployment
@@ -76,27 +83,31 @@ Perform the following steps to configure DataHub to send incoming requests to Ap
     </property>
 
 ```
-3. Configuring DataHub to use Ranger Authorizer: Perform below steps on DataHub's host machine
+3. Configure DataHub to use a Ranger **Authorizer**. On the host where `datahub-gms` is deployed, follow these steps:
    1. Create directory **~/.datahub/plugins/auth/resources/**: Executes below command
    ```bash
    mkdir -p ~/.datahub/plugins/auth/resources/
    ```
    2. Copy **ranger-datahub-security.xml** file to ~/.datahub/plugins/auth/resources/ 
-   3. Disable DataHub default policy authorizer: Executes below command 
+   3. [Optional] Disable the DataHub default policy authorizer by setting the following environment variable on the `datahub-gms` container: 
    ```bash
    export AUTH_POLICIES_ENABLED=false
    ```
-   4. Enable Apache Ranger authorizer: Executes below command 
+   4. Enable the Apache Ranger authorizer by setting the following environment variable on the `datahub-gms` container: 
    ```bash
    export RANGER_AUTHORIZER_ENABLED=true 
    ```
-   5. Set the Apache Ranger admin username: In below command replace <username\> by Apache Ranger Service username and execute the command
+   5. Set the Apache Ranger admin username by setting the following environment variable on the `datahub-gms` container:
    ```bash
    export RANGER_USERNAME=<username>
    ```
-   6. Set the Apache Ranger admin password: In below command replace <password\> by Apache Ranger Service user's password and execute the command 
+   6. Set the Apache Ranger admin username by setting the following environment variable on the `datahub-gms` container:
    ```bash
    export RANGER_PASSWORD=<password>
    ```
-   7. Redeploy the DataHub
-4. Verify root **datahub** user is able to access DataHub Portal: Login to DataHub portal as **datahub** and **datahub** user should be able to access all the DataHub functionalities
+   7. Redeploy DataHub (`datahub-gms`) with the new environment variables 
+
+That's it! Now we can test out the integration. 
+
+### Validating your Setup
+To verify that things are working as expected, we can test that the root **datahub** user has all Platform Privileges and is able to perform all operations: managing users & groups, creating domains, and more. To do this, simply log into your DataHub deployment via the root DataHub user. 
