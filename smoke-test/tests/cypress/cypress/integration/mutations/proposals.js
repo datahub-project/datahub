@@ -43,9 +43,9 @@ describe('proposals', () => {
     cy.focused().type('TermToPropose');
     cy.wait(3000);
 
-    cy.contains('CypressNode.TermToPropose').click({force: true});
+    cy.contains('TermToPropose').click({force: true});
 
-    cy.get('.ant-select-item-option-content').within(() => cy.contains('CypressNode.TermToPropose').click({force: true}));
+    cy.get('.ant-select-item-option-content').within(() => cy.contains('TermToPropose').click({force: true}));
     cy.get('[data-testid="create-proposal-btn"]').click({force: true});
     cy.wait(5000);
     cy.reload();
@@ -103,9 +103,9 @@ describe('proposals', () => {
     cy.focused().type('TermToPropose');
     cy.wait(3000);
 
-    cy.contains('CypressNode.TermToPropose').click({force: true});
+    cy.contains('TermToPropose').click({force: true});
 
-    cy.get('.ant-select-item-option-content').within(() => cy.contains('CypressNode.TermToPropose').click({force: true}));
+    cy.get('.ant-select-item-option-content').within(() => cy.contains('TermToPropose').click({force: true}));
     cy.get('[data-testid="create-proposal-btn"]').click({force: true});
     cy.wait(5000);
     cy.reload();
@@ -150,7 +150,6 @@ describe('proposals', () => {
     cy.get('input[data-testid=search-input]').typeSearchDisableCache('TagToPropose');
     cy.contains('DatasetToProposeOn');
     cy.contains('TagToPropose');
-    cy.contains('Proposed Tag');
 
     cy.wait(1000);
 
@@ -181,9 +180,9 @@ describe('proposals', () => {
     cy.focused().type('TermToPropose');
     cy.wait(3000);
 
-    cy.contains('CypressNode.TermToPropose').click({force: true});
+    cy.contains('TermToPropose').click({force: true});
 
-    cy.get('.ant-select-item-option-content').within(() => cy.contains('CypressNode.TermToPropose').click({ force: true }));
+    cy.get('.ant-select-item-option-content').within(() => cy.contains('TermToPropose').click({ force: true }));
     cy.get('[data-testid="create-proposal-btn"]').click({force: true});
     cy.wait(5000);
     cy.reload();
@@ -195,7 +194,6 @@ describe('proposals', () => {
     cy.get('input[data-testid=search-input]').typeSearchDisableCache('TermToPropose');
     cy.contains('DatasetToProposeOn');
     cy.contains('TermToPropose');
-    cy.contains('Proposed Term');
 
     cy.wait(1000);
 
@@ -269,9 +267,9 @@ describe('proposals', () => {
     cy.focused().type('TermToPropose');
     cy.wait(3000);
 
-    cy.contains('CypressNode.TermToPropose').click({force: true});
+    cy.contains('TermToPropose').click({force: true});
 
-    cy.get('.ant-select-item-option-content').within(() => cy.contains('CypressNode.TermToPropose').click({ force: true }));
+    cy.get('.ant-select-item-option-content').within(() => cy.contains('TermToPropose').click({ force: true }));
     cy.get('[data-testid="create-proposal-btn"]').click({force: true});
     cy.wait(5000);
     cy.reload();
