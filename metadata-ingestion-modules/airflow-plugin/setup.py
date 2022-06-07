@@ -1,4 +1,5 @@
 import os
+import pathlib
 import sys
 from typing import Dict, Set
 
@@ -14,10 +15,7 @@ with open("./src/datahub_airflow_plugin/__init__.py") as fp:
 
 def get_long_description():
     root = os.path.dirname(__file__)
-    with open(os.path.join(root, "README.md")) as f:
-        description = f.read()
-
-    return description
+    return pathlib.Path(os.path.join(root, "README.md")).read_text()
 
 
 base_requirements = {
