@@ -5,10 +5,10 @@ import boto3
 from boto3.session import Session
 from botocore.config import Config
 from botocore.utils import fix_s3_host
+from pydantic.fields import Field
 
-from datahub.configuration import ConfigModel
-from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import DEFAULT_ENV
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.source_common import EnvBasedSourceConfigBase
 
 if TYPE_CHECKING:
 
@@ -35,28 +35,45 @@ def assume_role(
     return assumed_role_object["Credentials"]
 
 
-class AwsSourceConfig(ConfigModel):
+class AwsConnectionConfig(ConfigModel):
     """
     Common AWS credentials config.
 
     Currently used by:
         - Glue source
         - SageMaker source
+        - dbt source
     """
 
-    env: str = DEFAULT_ENV
-
-    database_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    table_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-
-    aws_access_key_id: Optional[str] = None
-    aws_secret_access_key: Optional[str] = None
-    aws_session_token: Optional[str] = None
-    aws_role: Optional[Union[str, List[str]]] = None
-    aws_profile: Optional[str] = None
-    aws_region: str
-    aws_endpoint_url: Optional[str] = None
-    aws_proxy: Optional[Dict[str, str]] = None
+    aws_access_key_id: Optional[str] = Field(
+        default=None,
+        description="Autodetected. See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html",
+    )
+    aws_secret_access_key: Optional[str] = Field(
+        default=None,
+        description="Autodetected. See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html",
+    )
+    aws_session_token: Optional[str] = Field(
+        default=None,
+        description="Autodetected. See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html",
+    )
+    aws_role: Optional[Union[str, List[str]]] = Field(
+        default=None,
+        description="Autodetected. See https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html",
+    )
+    aws_profile: Optional[str] = Field(
+        default=None,
+        description="Named AWS profile to use, if not set the default will be used",
+    )
+    aws_region: str = Field(description="AWS region code.")
+    aws_endpoint_url: Optional[str] = Field(
+        default=None,
+        description="Autodetected. See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/core/session.html",
+    )
+    aws_proxy: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="Autodetected. See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/core/session.html",
+    )
 
     def get_session(self) -> Session:
         if (
@@ -132,3 +149,22 @@ class AwsSourceConfig(ConfigModel):
 
     def get_sagemaker_client(self) -> "SageMakerClient":
         return self.get_session().client("sagemaker")
+
+
+class AwsSourceConfig(EnvBasedSourceConfigBase, AwsConnectionConfig):
+    """
+    Common AWS credentials config.
+
+    Currently used by:
+        - Glue source
+        - SageMaker source
+    """
+
+    database_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for databases to filter in ingestion.",
+    )
+    table_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for tables to filter in ingestion.",
+    )

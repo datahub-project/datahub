@@ -1,8 +1,10 @@
 import json
 import logging
+import os
 import time
 from dataclasses import dataclass
 from datetime import timezone
+from decimal import Decimal
 from typing import Any, Dict, List, Optional, Union
 
 from great_expectations.checkpoint.actions import ValidationAction
@@ -54,6 +56,8 @@ from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeCla
 from datahub.utilities.sql_parser import DefaultSQLParser
 
 logger = logging.getLogger(__name__)
+if os.getenv("DATAHUB_DEBUG", False):
+    logger.setLevel(logging.DEBUG)
 
 GE_PLATFORM_NAME = "great-expectations"
 
@@ -130,7 +134,7 @@ class DataHubValidationAction(ValidationAction):
             datasets = self.get_dataset_partitions(batch_identifier, data_asset)
 
             if len(datasets) == 0 or datasets[0]["dataset_urn"] is None:
-                logger.info("Metadata not sent to datahub. No datasets found.")
+                warn("Metadata not sent to datahub. No datasets found.")
                 return {"datahub_notification_result": "none required"}
 
             # Returns assertion info and assertion results
@@ -142,7 +146,15 @@ class DataHubValidationAction(ValidationAction):
                 datasets,
             )
 
+            logger.info("Sending metadata to datahub ...")
+            logger.info("Dataset URN - {urn}".format(urn=datasets[0]["dataset_urn"]))
+
             for assertion in assertions:
+
+                logger.info(
+                    "Assertion URN - {urn}".format(urn=assertion["assertionUrn"])
+                )
+
                 # Construct a MetadataChangeProposalWrapper object.
                 assertion_info_mcp = MetadataChangeProposalWrapper(
                     entityType="assertion",
@@ -174,7 +186,7 @@ class DataHubValidationAction(ValidationAction):
 
                     # Emit Result! (timseries aspect)
                     emitter.emit_mcp(dataset_assertionResult_mcp)
-
+            logger.info("Metadata sent to datahub.")
             result = "DataHub notification succeeded"
         except Exception as e:
             result = "DataHub notification failed"
@@ -244,6 +256,11 @@ class DataHubValidationAction(ValidationAction):
                     }
                 )
             )
+            logger.debug(
+                "GE expectation_suite_name - {name}, expectation_type - {type}, Assertion URN - {urn}".format(
+                    name=expectation_suite_name, type=expectation_type, urn=assertionUrn
+                )
+            )
             assertionInfo: AssertionInfo = self.get_assertion_info(
                 expectation_type,
                 kwargs,
@@ -260,6 +277,7 @@ class DataHubValidationAction(ValidationAction):
                 {
                     k: convert_to_string(v)
                     for k, v in validation_result_suite.evaluation_parameters.items()
+                    if k and v
                 }
                 if validation_result_suite.evaluation_parameters
                 else None
@@ -539,6 +557,8 @@ class DataHubValidationAction(ValidationAction):
     def get_dataset_partitions(self, batch_identifier, data_asset):
         dataset_partitions = []
 
+        logger.debug("Finding datasets being validated")
+
         # for now, we support only v3-api and sqlalchemy execution engine
         if isinstance(data_asset, Validator) and isinstance(
             data_asset.execution_engine, SqlAlchemyExecutionEngine
@@ -643,13 +663,16 @@ class DataHubValidationAction(ValidationAction):
                     )
             else:
                 warn(
-                    f"DataHubValidationAction does not recognize this GE batch spec type- {type(ge_batch_spec)}."
+                    "DataHubValidationAction does not recognize this GE batch spec type- {batch_spec_type}.".format(
+                        batch_spec_type=type(ge_batch_spec)
+                    )
                 )
         else:
             # TODO - v2-spec - SqlAlchemyDataset support
             warn(
-                f"DataHubValidationAction does not recognize this GE data asset type - {type(data_asset)}. \
-                        This is either using v2-api or execution engine other than sqlalchemy."
+                "DataHubValidationAction does not recognize this GE data asset type - {asset_type}. This is either using v2-api or execution engine other than sqlalchemy.".format(
+                    asset_type=type(data_asset)
+                )
             )
 
         return dataset_partitions
@@ -693,8 +716,9 @@ def make_dataset_urn_from_sqlalchemy_uri(
     elif data_platform in ["trino", "snowflake"]:
         if schema_name is None or url_instance.database is None:
             warn(
-                f"DataHubValidationAction failed to locate schema name and/or database name \
-                    for {data_platform}."
+                "DataHubValidationAction failed to locate schema name and/or database name for {data_platform}.".format(
+                    data_platform=data_platform
+                )
             )
             return None
         # If data platform is snowflake, we artificially lowercase the Database name.
@@ -709,8 +733,9 @@ def make_dataset_urn_from_sqlalchemy_uri(
     elif data_platform == "bigquery":
         if url_instance.host is None or url_instance.database is None:
             warn(
-                f"DataHubValidationAction failed to locate host and/or database name for \
-                    {data_platform}. "
+                "DataHubValidationAction failed to locate host and/or database name for {data_platform}. ".format(
+                    data_platform=data_platform
+                )
             )
             return None
         schema_name = "{}.{}".format(url_instance.host, url_instance.database)
@@ -742,8 +767,24 @@ class DataHubStdAssertion:
     parameters: Optional[AssertionStdParameters] = None
 
 
-def convert_to_string(var):
-    return str(var) if isinstance(var, (str, int, float)) else json.dumps(var)
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, Decimal):
+            return str(o)
+        return super(DecimalEncoder, self).default(o)
+
+
+def convert_to_string(var: Any) -> str:
+    try:
+        tmp = (
+            str(var)
+            if isinstance(var, (str, int, float))
+            else json.dumps(var, cls=DecimalEncoder)
+        )
+    except TypeError as e:
+        logger.debug(e)
+        tmp = str(var)
+    return tmp
 
 
 def warn(msg):

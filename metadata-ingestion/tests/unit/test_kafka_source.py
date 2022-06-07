@@ -15,7 +15,8 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.kafka import KafkaSource
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.kafka import KafkaSource, KafkaSourceConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
@@ -25,12 +26,13 @@ from datahub.metadata.schema_classes import (
 )
 
 
-class KafkaSourceTest(unittest.TestCase):
+class KafkaSourceTest(object):
     @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
     def test_kafka_source_configuration(self, mock_kafka):
         ctx = PipelineContext(run_id="test")
-        kafka_source = KafkaSource.create(
-            {"connection": {"bootstrap": "foobar:9092"}}, ctx
+        kafka_source = KafkaSource(
+            KafkaSourceConfig.parse_obj({"connection": {"bootstrap": "foobar:9092"}}),
+            ctx,
         )
         kafka_source.close()
         assert mock_kafka.call_count == 1
@@ -43,8 +45,11 @@ class KafkaSourceTest(unittest.TestCase):
         mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
 
         ctx = PipelineContext(run_id="test")
-        kafka_source = KafkaSource.create(
-            {"connection": {"bootstrap": "localhost:9092"}}, ctx
+        kafka_source = KafkaSource(
+            KafkaSourceConfig.parse_obj(
+                {"connection": {"bootstrap": "localhost:9092"}}
+            ),
+            ctx,
         )
         workunits = list(kafka_source.get_workunits())
 
@@ -111,6 +116,7 @@ class KafkaSourceTest(unittest.TestCase):
 
         # We should only have 1 topic + sub-type wu.
         assert len(workunits) == 2
+        assert isinstance(workunits[0], MetadataWorkUnit)
         assert isinstance(workunits[0].metadata, MetadataChangeEvent)
         proposed_snap = workunits[0].metadata.proposedSnapshot
         assert proposed_snap.urn == make_dataset_urn_with_platform_instance(
@@ -303,6 +309,7 @@ class KafkaSourceTest(unittest.TestCase):
         assert len(workunits) == 8
         i: int = -1
         for wu in workunits:
+            assert isinstance(wu, MetadataWorkUnit)
             if not isinstance(wu.metadata, MetadataChangeEvent):
                 continue
             mce: MetadataChangeEvent = wu.metadata
@@ -338,3 +345,86 @@ class KafkaSourceTest(unittest.TestCase):
                 # The schemaMetadata aspect should not be present for this.
                 for aspect in mce.proposedSnapshot.aspects:
                     assert not isinstance(aspect, SchemaMetadataClass)
+
+    @pytest.mark.parametrize(
+        "ignore_warnings_on_schema_type",
+        [
+            pytest.param(
+                False,
+                id="ignore_warnings_on_schema_type-FALSE",
+            ),
+            pytest.param(
+                True,
+                id="ignore_warnings_on_schema_type-TRUE",
+            ),
+        ],
+    )
+    @patch(
+        "datahub.ingestion.source.kafka.confluent_kafka.schema_registry.schema_registry_client.SchemaRegistryClient",
+        autospec=True,
+    )
+    @patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+    def test_kafka_ignore_warnings_on_schema_type(
+        self,
+        mock_kafka_consumer,
+        mock_schema_registry_client,
+        ignore_warnings_on_schema_type,
+    ):
+        # define the key and value schemas for topic1
+        topic1_key_schema = RegisteredSchema(
+            schema_id="schema_id_2",
+            schema=Schema(
+                schema_str="{}",
+                schema_type="JSON",
+            ),
+            subject="topic1-key",
+            version=1,
+        )
+        topic1_value_schema = RegisteredSchema(
+            schema_id="schema_id_1",
+            schema=Schema(
+                schema_str="{}",
+                schema_type="JSON",
+            ),
+            subject="topic1-value",
+            version=1,
+        )
+
+        # Mock the kafka consumer
+        mock_kafka_instance = mock_kafka_consumer.return_value
+        mock_cluster_metadata = MagicMock()
+        mock_cluster_metadata.topics = ["topic1"]
+        mock_kafka_instance.list_topics.return_value = mock_cluster_metadata
+
+        # Mock the schema registry client
+        mock_schema_registry_client.return_value.get_subjects.return_value = [
+            "topic1-key",
+            "topic1-value",
+        ]
+
+        # - mock get_latest_version
+        def mock_get_latest_version(subject_name: str) -> Optional[RegisteredSchema]:
+            if subject_name == "topic1-key":
+                return topic1_key_schema
+            elif subject_name == "topic1-value":
+                return topic1_value_schema
+            return None
+
+        mock_schema_registry_client.return_value.get_latest_version = (
+            mock_get_latest_version
+        )
+
+        # Test the kafka source
+        source_config = {
+            "connection": {"bootstrap": "localhost:9092"},
+            "ignore_warnings_on_schema_type": f"{ignore_warnings_on_schema_type}",
+        }
+        ctx = PipelineContext(run_id="test")
+        kafka_source = KafkaSource.create(source_config, ctx)
+        workunits = list(kafka_source.get_workunits())
+
+        assert len(workunits) == 1
+        if ignore_warnings_on_schema_type:
+            assert not kafka_source.report.warnings
+        else:
+            assert kafka_source.report.warnings

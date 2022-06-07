@@ -109,9 +109,11 @@ def test_data_lake_local_ingest(pytestconfig, source_file, tmp_path, mock_time):
     source = json.load(f)
 
     config_dict = {}
-    source["config"]["path_spec"]["include"] = source["config"]["path_spec"][
-        "include"
-    ].replace("s3://my-test-bucket/", "tests/integration/s3/test_data/local_system/")
+    for path_spec in source["config"]["path_specs"]:
+        path_spec["include"] = path_spec["include"].replace(
+            "s3://my-test-bucket/", "tests/integration/s3/test_data/local_system/"
+        )
+
     source["config"]["profiling"]["enabled"] = True
     source["config"].pop("aws_config")
     # Only pop the key/value for configs that contain the key

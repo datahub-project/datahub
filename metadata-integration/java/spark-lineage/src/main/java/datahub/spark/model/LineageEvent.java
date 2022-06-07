@@ -15,7 +15,7 @@ public abstract class LineageEvent {
 
   public abstract List<MetadataChangeProposalWrapper> asMetadataEvents();
 
-  protected String timeStr() {
+  public String timeStr() {
     return new Date(getTime()).toInstant().toString();
   }
 }

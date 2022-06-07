@@ -1,12 +1,17 @@
-from pydantic import validator
+from pydantic import Field, validator
 
 from datahub.configuration.common import ConfigModel, ConfigurationError
 
 
 class GitHubInfo(ConfigModel):
-    repo: str
-    branch: str = "main"
-    base_url: str = "https://github.com"
+    repo: str = Field(
+        description="Name of your github repo. e.g. repo for https://github.com/datahub-project/datahub is `datahub-project/datahub`."
+    )
+    branch: str = Field(
+        "main",
+        description="Branch on which your files live by default. Typically main or master.",
+    )
+    base_url: str = Field("https://github.com", description="Base url for Github")
 
     @validator("repo")
     def repo_should_be_org_slash_repo(cls, repo: str) -> str:

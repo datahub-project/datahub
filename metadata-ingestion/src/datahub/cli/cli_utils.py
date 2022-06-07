@@ -242,6 +242,21 @@ def parse_run_restli_response(response: requests.Response) -> dict:
     return summary
 
 
+def format_aspect_summaries(summaries: list) -> typing.List[typing.List[str]]:
+    local_timezone = datetime.now().astimezone().tzinfo
+    return [
+        [
+            row.get("urn"),
+            row.get("aspectName"),
+            datetime.fromtimestamp(row.get("timestamp") / 1000).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+            + f" ({local_timezone})",
+        ]
+        for row in summaries
+    ]
+
+
 def post_rollback_endpoint(
     payload_obj: dict,
     path: str,
@@ -266,19 +281,7 @@ def post_rollback_endpoint(
     if len(rows) == 0:
         click.secho(f"No entities found. Payload used: {payload}", fg="yellow")
 
-    local_timezone = datetime.now().astimezone().tzinfo
-    structured_rolled_back_results = [
-        [
-            row.get("urn"),
-            row.get("aspectName"),
-            datetime.fromtimestamp(row.get("timestamp") / 1000).strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
-            + f" ({local_timezone})",
-        ]
-        for row in rolled_back_aspects
-    ]
-
+    structured_rolled_back_results = format_aspect_summaries(rolled_back_aspects)
     return (
         structured_rolled_back_results,
         entities_affected,
@@ -287,6 +290,25 @@ def post_rollback_endpoint(
         unsafe_entity_count,
         unsafe_entities,
     )
+
+
+def post_delete_references_endpoint(
+    payload_obj: dict,
+    path: str,
+    cached_session_host: Optional[Tuple[Session, str]] = None,
+) -> Tuple[int, List[Dict]]:
+    if not cached_session_host:
+        session, gms_host = get_session_and_host()
+    else:
+        session, gms_host = cached_session_host
+    url = gms_host + path
+
+    payload = json.dumps(payload_obj)
+    response = session.post(url, payload)
+    summary = parse_run_restli_response(response)
+    reference_count = summary.get("total", 0)
+    related_aspects = summary.get("relatedAspects", [])
+    return reference_count, related_aspects
 
 
 def post_delete_endpoint(
@@ -330,9 +352,9 @@ def get_urns_by_filter(
     endpoint: str = "/entities?action=search"
     url = gms_host + endpoint
     filter_criteria = []
-    if env:
-        filter_criteria.append({"field": "origin", "value": env, "condition": "EQUAL"})
     entity_type_lower = entity_type.lower()
+    if env and entity_type_lower != "container":
+        filter_criteria.append({"field": "origin", "value": env, "condition": "EQUAL"})
     if (
         platform is not None
         and entity_type_lower == "dataset"
@@ -533,10 +555,11 @@ def get_entity(
         )
     endpoint: str = f"/entitiesV2/{encoded_urn}"
 
-    if aspect:
+    if aspect and len(aspect):
         endpoint = endpoint + "?aspects=List(" + ",".join(aspect) + ")"
 
     response = session.get(gms_host + endpoint)
+    response.raise_for_status()
     return response.json()
 
 
@@ -670,7 +693,7 @@ def get_latest_timeseries_aspect_values(
 
 def get_aspects_for_entity(
     entity_urn: str,
-    aspects: List[str],
+    aspects: List[str] = [],
     typed: bool = False,
     cached_session_host: Optional[Tuple[Session, str]] = None,
 ) -> Dict[str, Union[dict, DictWrapper]]:
