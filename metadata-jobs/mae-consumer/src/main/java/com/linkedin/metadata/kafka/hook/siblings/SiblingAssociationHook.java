@@ -297,4 +297,10 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         event.getAspect().getContentType(),
         entitySpec.getAspectSpec(SUB_TYPES_ASPECT_NAME));
   }
+
+  @SneakyThrows
+  private AuditStamp getAuditStamp() {
+    AuditStamp auditStamp = null;
+    return new AuditStamp().setActor(Urn.createFromString(SIBLING_ASSOCIATION_SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+  }
 }
