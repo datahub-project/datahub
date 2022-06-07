@@ -25,18 +25,22 @@ from datahub.metadata.schema_classes import (
 )
 
 # default mapping for attrs
+# general attrs
 attrs_mapping: Dict[str, Any] = {}
-attrs_mapping["sAMAccountName"] = "sAMAccountName"
-attrs_mapping["uid"] = "uid"
-attrs_mapping["objectClass"] = "objectClass"
-attrs_mapping["manager"] = "manager"
-attrs_mapping["givenName"] = "givenName"
-attrs_mapping["sn"] = "sn"
-attrs_mapping["cn"] = "cn"
-attrs_mapping["mail"] = "mail"
+attrs_mapping["urn"] = "sAMAccountName"
+
+# user related attrs
+attrs_mapping["fullName"] = "cn"
+attrs_mapping["lastName"] = "sn"
+attrs_mapping["firstName"] = "givenName"
 attrs_mapping["displayName"] = "displayName"
+attrs_mapping["manager"] = "manager"
+attrs_mapping["mail"] = "mail"
 attrs_mapping["departmentNumber"] = "departmentNumber"
 attrs_mapping["title"] = "title"
+
+# group related attrs
+attrs_mapping["group_urn"] = "cn"
 attrs_mapping["owner"] = "owner"
 attrs_mapping["managedBy"] = "managedBy"
 attrs_mapping["uniqueMember"] = "uniqueMember"
@@ -102,11 +106,14 @@ class LDAPSourceConfig(ConfigModel):
 
 def guess_person_ldap(attrs: Dict[str, Any], config: LDAPSourceConfig) -> Optional[str]:
     """Determine the user's LDAP based on the DN and attributes."""
-    if config.attrs_mapping["sAMAccountName"] in attrs:
-        return attrs[config.attrs_mapping["sAMAccountName"]][0].decode()
-    if config.attrs_mapping["uid"] in attrs:
-        return attrs[config.attrs_mapping["uid"]][0].decode()
-    return None
+    if config.attrs_mapping["urn"] in attrs:
+        return attrs[config.attrs_mapping["urn"]][0].decode()
+    else:  # for backward compatiblity
+        if "sAMAccountName" in attrs:
+            return attrs["sAMAccountName"][0].decode()
+        if "uid" in attrs:
+            return attrs["uid"][0].decode()
+        return None
 
 
 @dataclasses.dataclass
@@ -195,17 +202,15 @@ class LDAPSource(Source):
                     continue
 
                 if (
-                    b"inetOrgPerson" in attrs[self.config.attrs_mapping["objectClass"]]
-                    or b"posixAccount"
-                    in attrs[self.config.attrs_mapping["objectClass"]]
-                    or b"person" in attrs[self.config.attrs_mapping["objectClass"]]
+                    b"inetOrgPerson" in attrs["objectClass"]
+                    or b"posixAccount" in attrs["objectClass"]
+                    or b"person" in attrs["objectClass"]
                 ):
                     yield from self.handle_user(dn, attrs)
                 elif (
-                    b"posixGroup" in attrs[self.config.attrs_mapping["objectClass"]]
-                    or b"organizationalUnit"
-                    in attrs[self.config.attrs_mapping["objectClass"]]
-                    or b"group" in attrs[self.config.attrs_mapping["objectClass"]]
+                    b"posixGroup" in attrs["objectClass"]
+                    or b"organizationalUnit" in attrs["objectClass"]
+                    or b"group" in attrs["objectClass"]
                 ):
                     yield from self.handle_group(dn, attrs)
                 else:
@@ -272,13 +277,13 @@ class LDAPSource(Source):
         ldap_user = guess_person_ldap(attrs, self.config)
 
         if self.config.drop_missing_first_last_name and (
-            self.config.attrs_mapping["givenName"] not in attrs
-            or self.config.attrs_mapping["sn"] not in attrs
+            self.config.attrs_mapping["firstName"] not in attrs
+            or self.config.attrs_mapping["lastName"] not in attrs
         ):
             return None
-        full_name = attrs[self.config.attrs_mapping["cn"]][0].decode()
-        first_name = attrs[self.config.attrs_mapping["givenName"]][0].decode()
-        last_name = attrs[self.config.attrs_mapping["sn"]][0].decode()
+        full_name = attrs[self.config.attrs_mapping["fullName"]][0].decode()
+        first_name = attrs[self.config.attrs_mapping["firstName"]][0].decode()
+        last_name = attrs[self.config.attrs_mapping["lastName"]][0].decode()
 
         email = (
             (attrs[self.config.attrs_mapping["mail"]][0]).decode()
@@ -323,7 +328,7 @@ class LDAPSource(Source):
 
     def build_corp_group_mce(self, attrs: dict) -> Optional[MetadataChangeEvent]:
         """Creates a MetadataChangeEvent for LDAP groups."""
-        cn = attrs.get(self.config.attrs_mapping["cn"])
+        cn = attrs.get(self.config.attrs_mapping["group_urn"])
         if cn:
             full_name = cn[0].decode()
             owners = parse_from_attrs(attrs, self.config.attrs_mapping["owner"])
