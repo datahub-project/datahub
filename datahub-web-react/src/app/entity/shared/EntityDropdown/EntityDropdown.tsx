@@ -116,7 +116,7 @@ function EntityDropdown(props: Props) {
             <Dropdown
                 overlay={
                     <Menu>
-                        {menuItems.has(EntityMenuItems.COPY_URL) && (
+                        {menuItems.has(EntityMenuItems.COPY_URL) && navigator.clipboard && (
                             <Menu.Item key="0">
                                 <MenuItem
                                     onClick={() => {

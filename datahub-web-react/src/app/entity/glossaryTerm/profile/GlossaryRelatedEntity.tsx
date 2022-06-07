@@ -12,7 +12,11 @@ const GroupAssetsWrapper = styled(Row)`
 export default function GlossaryRelatedEntity() {
     const { entityData }: any = useEntityData();
     const glossaryTermHierarchicalName = entityData?.hierarchicalName;
-    const fixedQueryString = `glossaryTerms:"${glossaryTermHierarchicalName}" OR fieldGlossaryTerms:"${glossaryTermHierarchicalName}" OR editedFieldGlossaryTerms:"${glossaryTermHierarchicalName}"`;
+    let fixedQueryString = `glossaryTerms:"${glossaryTermHierarchicalName}" OR fieldGlossaryTerms:"${glossaryTermHierarchicalName}" OR editedFieldGlossaryTerms:"${glossaryTermHierarchicalName}"`;
+    entityData?.isAChildren?.relationships.forEach((term) => {
+        const name = term.entity?.hierarchicalName;
+        fixedQueryString += `OR glossaryTerms:"${name}" OR fieldGlossaryTerms:"${name}" OR editedFieldGlossaryTerms:"${name}"`;
+    });
 
     return (
         <GroupAssetsWrapper>

@@ -86,6 +86,7 @@ public class KafkaEventConsumerFactory {
     ConcurrentKafkaListenerContainerFactory<String, GenericRecord> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
     factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(props));
+    factory.setContainerCustomizer(new ThreadPoolContainerCustomizer());
     factory.setConcurrency(this.kafkaListenerConcurrency);
 
     log.info("Event-based KafkaListenerContainerFactory built successfully");
