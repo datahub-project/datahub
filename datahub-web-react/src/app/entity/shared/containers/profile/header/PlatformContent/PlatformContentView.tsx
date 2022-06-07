@@ -127,13 +127,12 @@ function PlatformContentView(props: Props) {
                     {!!platformLogoUrl && !platformLogoUrls && (
                         <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />
                     )}
-                    {(!!platformLogoUrls && (
+                    {!!platformLogoUrls && (
                         <>
                             <PreviewImage preview={false} src={platformLogoUrls[0] || ''} alt={platformName} />
                             <PreviewImage preview={false} src={platformLogoUrls[1] || ''} alt={platformName} />
                         </>
-                    )) ||
-                        entityLogoComponent}
+                    )}
                 </LogoIcon>
             )}
             <PlatformText>
