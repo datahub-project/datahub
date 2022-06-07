@@ -1,0 +1,44 @@
+{
+  "name" : "test",
+  "namespace" : "com.linkedin.test",
+  "path" : "/test",
+  "schema" : "com.linkedin.test.TestInfo",
+  "doc" : "Single unified resource for fetching, updating, searching, & browsing DataHub entities\n\ngenerated from: com.linkedin.metadata.resources.test.MetadataTestResource",
+  "simple" : {
+    "supports" : [ ],
+    "actions" : [ {
+      "name" : "batchEvaluate",
+      "parameters" : [ {
+        "name" : "urns",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+      }, {
+        "name" : "tests",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true
+      }, {
+        "name" : "push",
+        "type" : "boolean",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.test.BatchedTestResults"
+    }, {
+      "name" : "evaluate",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      }, {
+        "name" : "tests",
+        "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+        "optional" : true
+      }, {
+        "name" : "push",
+        "type" : "boolean",
+        "optional" : true
+      } ],
+      "returns" : "com.linkedin.test.TestResults"
+    } ],
+    "entity" : {
+      "path" : "/test"
+    }
+  }
+}

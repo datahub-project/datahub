@@ -1,0 +1,201 @@
+{
+  "models" : [ {
+    "type" : "typeref",
+    "name" : "Urn",
+    "namespace" : "com.linkedin.common",
+    "ref" : "string",
+    "java" : {
+      "class" : "com.linkedin.common.urn.Urn"
+    }
+  }, {
+    "type" : "record",
+    "name" : "BatchedTestResults",
+    "namespace" : "com.linkedin.test",
+    "doc" : "Batched test results returning test results per entity",
+    "fields" : [ {
+      "name" : "results",
+      "type" : {
+        "type" : "map",
+        "values" : {
+          "type" : "record",
+          "name" : "TestResults",
+          "doc" : "Information about a Test Result",
+          "fields" : [ {
+            "name" : "failing",
+            "type" : {
+              "type" : "array",
+              "items" : {
+                "type" : "record",
+                "name" : "TestResult",
+                "doc" : "Information about a Test Result",
+                "fields" : [ {
+                  "name" : "test",
+                  "type" : "com.linkedin.common.Urn",
+                  "doc" : "The urn of the test"
+                }, {
+                  "name" : "type",
+                  "type" : {
+                    "type" : "enum",
+                    "name" : "TestResultType",
+                    "symbols" : [ "SUCCESS", "FAILURE" ],
+                    "symbolDocs" : {
+                      "FAILURE" : " The Test Failed",
+                      "SUCCESS" : " The Test Succeeded"
+                    }
+                  },
+                  "doc" : "The type of the result"
+                } ]
+              }
+            },
+            "doc" : "Results that are failing",
+            "Relationship" : {
+              "/*/test" : {
+                "entityTypes" : [ "test" ],
+                "name" : "IsFailing"
+              }
+            },
+            "Searchable" : {
+              "/*/test" : {
+                "fieldName" : "failingTests",
+                "fieldType" : "URN",
+                "hasValuesFieldName" : "hasFailingTests"
+              }
+            }
+          }, {
+            "name" : "passing",
+            "type" : {
+              "type" : "array",
+              "items" : "TestResult"
+            },
+            "doc" : "Results that are passing",
+            "Relationship" : {
+              "/*/test" : {
+                "entityTypes" : [ "test" ],
+                "name" : "IsPassing"
+              }
+            },
+            "Searchable" : {
+              "/*/test" : {
+                "fieldName" : "passingTests",
+                "fieldType" : "URN",
+                "hasValuesFieldName" : "hasPassingTests"
+              }
+            }
+          } ],
+          "Aspect" : {
+            "name" : "testResults"
+          }
+        }
+      },
+      "doc" : "Test result per entity"
+    } ]
+  }, {
+    "type" : "record",
+    "name" : "TestDefinition",
+    "namespace" : "com.linkedin.test",
+    "fields" : [ {
+      "name" : "type",
+      "type" : {
+        "type" : "enum",
+        "name" : "TestDefinitionType",
+        "symbols" : [ "JSON" ],
+        "symbolDocs" : {
+          "JSON" : "JSON / YAML test def"
+        }
+      },
+      "doc" : "The Test Definition Type"
+    }, {
+      "name" : "json",
+      "type" : "string",
+      "doc" : "JSON format configuration for the test",
+      "optional" : true
+    } ]
+  }, "com.linkedin.test.TestDefinitionType", {
+    "type" : "record",
+    "name" : "TestInfo",
+    "namespace" : "com.linkedin.test",
+    "doc" : "Information about a DataHub Test",
+    "fields" : [ {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "The name of the test",
+      "Searchable" : {
+        "fieldType" : "TEXT_PARTIAL"
+      }
+    }, {
+      "name" : "category",
+      "type" : "string",
+      "doc" : "Category of the test",
+      "Searchable" : {
+        "fieldType" : "KEYWORD"
+      }
+    }, {
+      "name" : "description",
+      "type" : "string",
+      "doc" : "Description of the test",
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "TEXT"
+      }
+    }, {
+      "name" : "definition",
+      "type" : "TestDefinition",
+      "doc" : "Configuration for the Test"
+    }, {
+      "name" : "lastUpdatedTimestamp",
+      "type" : "long",
+      "doc" : "Timestamp when the test was last updated",
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "DATETIME"
+      }
+    } ],
+    "Aspect" : {
+      "name" : "testInfo"
+    }
+  }, "com.linkedin.test.TestResult", "com.linkedin.test.TestResultType", "com.linkedin.test.TestResults" ],
+  "schema" : {
+    "name" : "test",
+    "namespace" : "com.linkedin.test",
+    "path" : "/test",
+    "schema" : "com.linkedin.test.TestInfo",
+    "doc" : "Single unified resource for fetching, updating, searching, & browsing DataHub entities\n\ngenerated from: com.linkedin.metadata.resources.test.MetadataTestResource",
+    "simple" : {
+      "supports" : [ ],
+      "actions" : [ {
+        "name" : "batchEvaluate",
+        "parameters" : [ {
+          "name" : "urns",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }"
+        }, {
+          "name" : "tests",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "optional" : true
+        }, {
+          "name" : "push",
+          "type" : "boolean",
+          "optional" : true
+        } ],
+        "returns" : "com.linkedin.test.BatchedTestResults"
+      }, {
+        "name" : "evaluate",
+        "parameters" : [ {
+          "name" : "urn",
+          "type" : "string"
+        }, {
+          "name" : "tests",
+          "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "optional" : true
+        }, {
+          "name" : "push",
+          "type" : "boolean",
+          "optional" : true
+        } ],
+        "returns" : "com.linkedin.test.TestResults"
+      } ],
+      "entity" : {
+        "path" : "/test"
+      }
+    }
+  }
+}
