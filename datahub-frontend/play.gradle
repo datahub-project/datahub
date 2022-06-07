@@ -34,6 +34,7 @@ dependencies {
   implementation externalDependency.graphqlJava
   implementation externalDependency.antlr4Runtime
   implementation externalDependency.antlr4
+  implementation externalDependency.akkaHttp
 
   implementation externalDependency.jerseyCore
   implementation externalDependency.jerseyGuava
@@ -56,7 +57,9 @@ dependencies {
 
   compileOnly externalDependency.lombok
   runtime externalDependency.guice
-  runtime externalDependency.playDocs
+  runtime (externalDependency.playDocs) {
+    exclude group: 'com.typesafe.akka', module: 'akka-http-core_2.12'
+  }
   runtime externalDependency.playGuice
   runtime externalDependency.logbackClassic
 
