@@ -462,6 +462,7 @@ class LookerUtil:
                 primary_keys.append(schema_field.fieldPath)
         return fields, primary_keys
 
+    @staticmethod
     def _display_name(name: str) -> str:
         """Returns a display name that corresponds to the Looker conventions"""
         return name.replace("_", " ").title() if name else name
