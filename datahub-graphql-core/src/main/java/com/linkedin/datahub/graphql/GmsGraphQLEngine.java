@@ -622,7 +622,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("listTests", new ListTestsResolver(entityClient))
             .dataFetcher("getRootGlossaryTerms", new GetRootGlossaryTermsResolver(this.entityClient))
             .dataFetcher("getRootGlossaryNodes", new GetRootGlossaryNodesResolver(this.entityClient))
-            .dataFetcher("getDoesEntityExist", new EntityExistsResolver(this.entityService))
+            .dataFetcher("entityExists", new EntityExistsResolver(this.entityService))
         );
     }
 
