@@ -1,6 +1,8 @@
 package com.linkedin.gms.factory.common;
 
-import com.linkedin.metadata.graph.DgraphGraphService;
+import com.linkedin.metadata.graph.dgraph.DgraphGraphService;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.models.registry.LineageRegistry;
 import io.dgraph.DgraphClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -18,9 +20,14 @@ public class DgraphGraphServiceFactory {
   @Qualifier("dgraphClient")
   private DgraphClient dgraphClient;
 
+  @Autowired
+  @Qualifier("entityRegistry")
+  private EntityRegistry entityRegistry;
+
   @Bean(name = "dgraphGraphService")
   @Nonnull
   protected DgraphGraphService getInstance() {
-    return new DgraphGraphService(dgraphClient);
+    LineageRegistry lineageRegistry = new LineageRegistry(entityRegistry);
+    return new DgraphGraphService(lineageRegistry, dgraphClient);
   }
 }
