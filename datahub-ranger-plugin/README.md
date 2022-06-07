@@ -3,22 +3,27 @@ title: "Configuring Authorization with Apache Ranger"
 hide_title: true
 ---
 # Configuring Authorization with Apache Ranger
-DataHub integration with Apache Ranger allows the DataHub customers to control DataHub authorization from Apache Ranger.
-Customer can create users, groups and roles on Apache Ranger to control the authorization of users on DataHub.
+DataHub integration with Apache Ranger allows DataHub Authorization policies to be controlled inside Apache Ranger.
+Admins can create users, groups and roles on Apache Ranger, and then assign them to Ranger policies to control the authorization of requests to DataHub.
 
-DataHub Apache Ranger Plugin configuration is consist of below configuration sections 
-1. Configuring Apache Ranger Deployment
-2. Configuring the DataHub Deployment
+We'll break down configuration of the DataHub Apache Ranger Plugin into two parts:
 
-> Disclaimer: All configuration shown in this documented were verified against [Privacera Platform](https://privacera.com/) v6.3.0.1.
+1. Configuring your Apache Ranger Deployment
+2. Configuring your DataHub Deployment
+
+> Disclaimer: All configurations shown in this documented were tested against [Privacera Platform](https://privacera.com/) v6.3.0.1.
 
 # Prerequisites 
-- Apache Ranger and DataHub are configured with same IDP
-- Apache Ranger service should be running on HTTP
-- Basic authentication should be enabled on Apache Ranger Service
+- Apache Ranger and DataHub are configured for authentication via same IDP (either LDAP + JaaS or OIDC SSO)
+- Apache Ranger service available via HTTP
+- Basic authentication is enabled on Apache Ranger Service
 
 # Configuration 
-## Configuring Apache Ranger Deployment
+
+## Configuring your Apache Ranger Deployment
+
+Perform the following steps to configure an Apache Ranger deployment to support creating access policies compatible with DataHub. 
+
 1. Download the **datahub-ranger-plugin** from [Maven](https://mvnrepository.com/artifact/io.acryl/datahub-ranger-plugin)
 2. Create a "datahub" directory inside the "ranger-plugins" directory where Apache Ranger is deployed. For example, to do this in a Privacera container
 ```bash
@@ -55,8 +60,10 @@ curl -u <ranger-admin-username>:<ranger-admin-password> -X POST -H "Accept: appl
       ![Privacera Portal DATAHUB screenshot](./doc-images/datahub-platform-access-policy.png)
 
 
-## Configuring the DataHub Deployment
-Perform below steps to integrate DataHub with Apache Ranger Service.
+## Configuring your DataHub Deployment
+
+Perform the following steps to configure DataHub to send incoming requests to Apache Ranger for authorization.
+
 1. Download Apache Ranger security xml [ranger-datahub-security.xml](../datahub-ranger-plugin/conf/ranger-datahub-security.xml)
 2. In  **ranger-datahub-security.xml**  edit the value of property  *ranger.plugin.datahub.policy.rest.url*. Sample snippet is shown below
 ```xml
@@ -92,4 +99,4 @@ Perform below steps to integrate DataHub with Apache Ranger Service.
    export RANGER_PASSWORD=<password>
    ```
    7. Redeploy the DataHub
-4. Verify user **datahub** is able to access DataHub Portal: Login to DataHub portal as **datahub** and **datahub** user should be able to access all the DataHub functionalities
+4. Verify root **datahub** user is able to access DataHub Portal: Login to DataHub portal as **datahub** and **datahub** user should be able to access all the DataHub functionalities
