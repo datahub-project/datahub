@@ -78,3 +78,11 @@ mutation createGlossaryTerm($input: CreateGlossaryEntityInput!) {
 mutation createGlossaryNode($input: CreateGlossaryEntityInput!) {
     createGlossaryNode(input: $input)
 }
+
+mutation addRelatedTerms($input: RelatedTermsInput!) {
+    addRelatedTerms(input: $input)
+}
+
+mutation removeRelatedTerms($input: RelatedTermsInput!) {
+    removeRelatedTerms(input: $input)
+}

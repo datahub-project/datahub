@@ -1,12 +1,17 @@
-import { QueryResult } from '@apollo/client';
-import { Divider, List, Typography } from 'antd';
-import React from 'react';
-import styled from 'styled-components';
-import { GetGlossaryTermQuery, useGetGlossaryTermQuery } from '../../../../graphql/glossaryTerm.generated';
-import { EntityType, Exact } from '../../../../types.generated';
+import { PlusOutlined } from '@ant-design/icons';
+import { Button, Typography } from 'antd';
+import React, { useState } from 'react';
+import styled from 'styled-components/macro';
+import { TermRelationshipType } from '../../../../types.generated';
 import { Message } from '../../../shared/Message';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { PreviewType } from '../../Entity';
+import { ANTD_GRAY } from '../../shared/constants';
+import AddRelatedTermsModal from './AddRelatedTermsModal';
+import RelatedTerm from './RelatedTerm';
+
+export enum RelatedTermTypes {
+    hasRelatedTerms = 'Contains',
+    isRelatedTerms = 'Inherits',
+}
 
 export type Props = {
     glossaryRelatedTermType: string;
@@ -14,47 +19,32 @@ export type Props = {
 };
 
 const ListContainer = styled.div`
-    display: default;
-    flex-grow: default;
+    width: 100%;
 `;
 
 const TitleContainer = styled.div`
+    align-items: center;
+    border-bottom: solid 1px ${ANTD_GRAY[4]};
+    display: flex;
+    justify-content: space-between;
+    padding: 15px 20px;
     margin-bottom: 30px;
-`;
-
-const ListItem = styled.div`
-    margin: 40px;
-    padding-bottom: 5px;
-`;
-
-const Profile = styled.div`
-    marging-bottom: 20px;
 `;
 
 const messageStyle = { marginTop: '10%' };
 
 export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, glossaryRelatedTermResult }: Props) {
-    const entityRegistry = useEntityRegistry();
+    const [isShowingAddModal, setIsShowingAddModal] = useState(false);
     const glossaryRelatedTermUrns: Array<string> = [];
     glossaryRelatedTermResult.forEach((item: any) => {
         glossaryRelatedTermUrns.push(item?.entity?.urn);
     });
-    const glossaryTermInfo: QueryResult<GetGlossaryTermQuery, Exact<{ urn: string }>>[] = [];
+    const contentLoading = false;
+    const relationshipType =
+        glossaryRelatedTermType === RelatedTermTypes.hasRelatedTerms
+            ? TermRelationshipType.HasA
+            : TermRelationshipType.IsA;
 
-    for (let i = 0; i < glossaryRelatedTermUrns.length; i++) {
-        glossaryTermInfo.push(
-            // eslint-disable-next-line react-hooks/rules-of-hooks
-            useGetGlossaryTermQuery({
-                variables: {
-                    urn: glossaryRelatedTermUrns[i],
-                },
-            }),
-        );
-    }
-
-    const contentLoading = glossaryTermInfo.some((item) => {
-        return item.loading;
-    });
     return (
         <>
             {contentLoading ? (
@@ -62,27 +52,20 @@ export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, gl
             ) : (
                 <ListContainer>
                     <TitleContainer>
-                        <Typography.Title level={3}>{glossaryRelatedTermType}</Typography.Title>
-                        <Divider />
+                        <Typography.Title style={{ margin: '0' }} level={3}>
+                            {glossaryRelatedTermType}
+                        </Typography.Title>
+                        <Button type="text" onClick={() => setIsShowingAddModal(true)}>
+                            <PlusOutlined /> Add Terms
+                        </Button>
                     </TitleContainer>
-                    <List
-                        dataSource={glossaryTermInfo}
-                        renderItem={(item) => {
-                            return (
-                                <ListItem>
-                                    <Profile>
-                                        {entityRegistry.renderPreview(
-                                            EntityType.GlossaryTerm,
-                                            PreviewType.PREVIEW,
-                                            item?.data?.glossaryTerm,
-                                        )}
-                                    </Profile>
-                                    <Divider />
-                                </ListItem>
-                            );
-                        }}
-                    />
+                    {glossaryRelatedTermUrns.map((urn) => (
+                        <RelatedTerm key={urn} urn={urn} relationshipType={relationshipType} />
+                    ))}
                 </ListContainer>
+            )}
+            {isShowingAddModal && (
+                <AddRelatedTermsModal onClose={() => setIsShowingAddModal(false)} relationshipType={relationshipType} />
             )}
         </>
     );
