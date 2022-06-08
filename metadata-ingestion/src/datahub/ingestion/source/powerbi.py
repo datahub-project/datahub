@@ -555,7 +555,7 @@ class PowerBiAPI:
             DATASET_ID=dataset.id,
         )
         # Hit PowerBi
-        LOGGER.info("Request to datasource URL={}".format(datasource_get_endpoint))
+        LOGGER.info(f"Request to datasource URL={datasource_get_endpoint}")
         response = requests.get(
             url=datasource_get_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
@@ -565,18 +565,15 @@ class PowerBiAPI:
         if response.status_code != 200:
             message: str = "Failed to fetch datasource from power-bi for"
             LOGGER.warning(message)
-            LOGGER.warning("{}={}".format(Constant.WorkspaceId, dataset.workspace_id))
-            LOGGER.warning("{}={}".format(Constant.DatasetId, dataset.id))
+            LOGGER.warning(f"{Constant.WorkspaceId}={dataset.workspace_id}")
+            LOGGER.warning(f"{Constant.DatasetId}={dataset.id}")
             raise ConnectionError(message)
 
         res = response.json()
         value = res["value"]
         if len(value) == 0:
-            LOGGER.info(
-                "datasource is not found for dataset {}({})".format(
-                    dataset.name, dataset.id
-                )
-            )
+            LOGGER.info(f"datasource is not found for dataset {dataset.name}({dataset.id})")
+
             return None
         # Consider only zero index datasource
         datasource_dict = value[0]
@@ -642,13 +639,8 @@ class PowerBiAPI:
             else:
                 report_fields["createdFrom"] = PowerBiAPI.Tile.CreatedFrom.VISUALIZATION
 
-            LOGGER.info(
-                "Tile {}({}) is created from {}".format(
-                    tile_instance.get("title"),
-                    tile_instance.get("id"),
-                    report_fields["createdFrom"],
-                )
-            )
+            LOGGER.info(f'Tile {tile_instance.get("title")}({tile_instance.get("id")}) is created from {report_fields["createdFrom"]}')
+
 
             return report_fields
 
@@ -698,7 +690,7 @@ class PowerBiAPI:
             POWERBI_ADMIN_BASE_URL=self.__config.admin_base_url
         )
 
-        def create_scan_job():
+        def create_scan_job():  # sourcery skip: avoid-builtin-shadow
             """
             Create scan job on PowerBi for the workspace
             """
@@ -718,9 +710,8 @@ class PowerBiAPI:
             )
 
             if res.status_code not in (200, 202):
-                message = "API({}) return error code {} for workpace id({})".format(
-                    scan_create_endpoint, res.status_code, workspace_id
-                )
+                message = f"API({scan_create_endpoint}) return error code {res.status_code} for workspace id({workspace_id})"
+
 
                 LOGGER.warning(message)
 
@@ -736,47 +727,40 @@ class PowerBiAPI:
             """
             minimum_sleep = 3
             if timeout < minimum_sleep:
-                LOGGER.info(
-                    "Setting timeout to minimum_sleep time {} seconds".format(
-                        minimum_sleep
-                    )
-                )
+                LOGGER.info(f"Setting timeout to minimum_sleep time {minimum_sleep} seconds")
                 timeout = minimum_sleep
 
-            max_trial = int(timeout / minimum_sleep)
-            LOGGER.info("Max trial {}".format(max_trial))
+            max_trial = timeout // minimum_sleep
+            LOGGER.info(f"Max trial {max_trial}")
             scan_get_endpoint = PowerBiAPI.API_ENDPOINTS[Constant.SCAN_GET]
             scan_get_endpoint = scan_get_endpoint.format(
                 POWERBI_ADMIN_BASE_URL=self.__config.admin_base_url, SCAN_ID=scan_id
             )
 
-            LOGGER.info("Hitting URL={}".format(scan_get_endpoint))
+            LOGGER.info(f"Hitting URL={scan_get_endpoint}")
 
             trail = 1
             while True:
-                LOGGER.info("Trial = {}".format(trail))
+                LOGGER.info(f"Trial = {trail}")
                 res = requests.get(
                     scan_get_endpoint,
                     headers={Constant.Authorization: self.get_access_token()},
                 )
                 if res.status_code != 200:
-                    message = "API({}) return error code {} for scan id({})".format(
-                        scan_get_endpoint, res.status_code, scan_id
-                    )
+                    message = f"API({scan_get_endpoint}) return error code {res.status_code} for scan id({scan_id})"
+
 
                     LOGGER.warning(message)
 
                     raise ConnectionError(message)
 
                 if res.json()["status"].upper() == "Succeeded".upper():
-                    LOGGER.info(
-                        "Scan result is available for scan id({})".format(scan_id)
-                    )
+                    LOGGER.info(f"Scan result is available for scan id({scan_id})")
                     return True
 
                 if trail == max_trial:
                     break
-                LOGGER.info("Sleeping for {} seconds".format(minimum_sleep))
+                LOGGER.info(f"Sleeping for {minimum_sleep} seconds")
                 sleep(minimum_sleep)
                 trail += 1
 
@@ -785,7 +769,7 @@ class PowerBiAPI:
 
         def get_scan_result(scan_id: str) -> dict:
             LOGGER.info("Fetching scan  result")
-            LOGGER.info("{}={}".format(Constant.SCAN_ID, scan_id))
+            LOGGER.info(f"{Constant.SCAN_ID}={scan_id}")
             scan_result_get_endpoint = PowerBiAPI.API_ENDPOINTS[
                 Constant.SCAN_RESULT_GET
             ]
@@ -793,15 +777,14 @@ class PowerBiAPI:
                 POWERBI_ADMIN_BASE_URL=self.__config.admin_base_url, SCAN_ID=scan_id
             )
 
-            LOGGER.info("Hittin URL={}".format(scan_result_get_endpoint))
+            LOGGER.info(f"Hitting URL={scan_result_get_endpoint}")
             res = requests.get(
                 scan_result_get_endpoint,
                 headers={Constant.Authorization: self.get_access_token()},
             )
             if res.status_code != 200:
-                message = "API({}) return error code {} for scan id({})".format(
-                    scan_result_get_endpoint, res.status_code, scan_id
-                )
+                message = f"API({scan_result_get_endpoint}) return error code {res.status_code} for scan id({scan_id})"
+
 
                 LOGGER.warning(message)
 
@@ -817,11 +800,8 @@ class PowerBiAPI:
             dataset_map: dict = {}
 
             if datasets is None or len(datasets) == 0:
-                LOGGER.warning(
-                    "Workspace {}({}) does not have datasets".format(
-                        scan_result["name"], scan_result["id"]
-                    )
-                )
+                LOGGER.warning(f'Workspace {scan_result["name"]}({scan_result["id"]}) does not have datasets')
+
                 LOGGER.info("Returning empty datasets")
                 return dataset_map
 
@@ -840,19 +820,13 @@ class PowerBiAPI:
                     dataset_instance.datasource
                     and dataset_instance.datasource.metadata.is_relational is True
                 ):
-                    LOGGER.info(
-                        "Processing tables attribute for dataset {}({})".format(
-                            dataset_instance.name, dataset_instance.id
-                        )
-                    )
+                    LOGGER.info(f"Processing tables attribute for dataset {dataset_instance.name}({dataset_instance.id})")
+
 
                     for table in dataset_dict["tables"]:
                         if "Value.NativeQuery(" in table["source"][0]["expression"]:
-                            LOGGER.warning(
-                                "Table {} is created from Custom SQL. Ignoring in processing".format(
-                                    table["name"]
-                                )
-                            )
+                            LOGGER.warning(f'Table {table["name"]} is created from Custom SQL. Ignoring in processing')
+
                             continue
 
                         # PowerBi table name contains schema name and table name. Format is <SchemaName> <TableName>
@@ -972,29 +946,18 @@ class Mapper:
             dataset.datasource is None
             or dataset.datasource.metadata.is_relational is False
         ):
-            LOGGER.warning(
-                "Dataset {}({}) is not created from relational datasource".format(
-                    dataset.name, dataset.id
-                )
-            )
+            LOGGER.warning(f"Dataset {dataset.name}({dataset.id}) is not created from relational datasource")
+
             return dataset_mcps
 
-        LOGGER.info(
-            "Converting dataset={}(id={}) to datahub dataset".format(
-                dataset.name, dataset.id
-            )
-        )
+        LOGGER.info(f"Converting dataset={dataset.name}(id={dataset.id}) to datahub dataset")
+
 
         for table in dataset.tables:
             # Create an URN for dataset
-            ds_urn = builder.make_dataset_urn(
-                platform=self.__config.dataset_type_mapping[dataset.datasource.type],
-                name="{}.{}.{}".format(
-                    dataset.datasource.database, table.schema_name, table.name
-                ),
-                env=self.__config.env,
-            )
-            LOGGER.info("{}={}".format(Constant.Dataset_URN, ds_urn))
+            ds_urn = builder.make_dataset_urn(platform=self.__config.dataset_type_mapping[dataset.datasource.type], name=f"{dataset.datasource.database}.{table.schema_name}.{table.name}", env=self.__config.env)
+
+            LOGGER.info(f"{Constant.Dataset_URN}={ds_urn}")
             # Create datasetProperties mcp
             ds_properties = DatasetPropertiesClass(description=table.name)
 
@@ -1202,11 +1165,8 @@ class Mapper:
         Map PowerBi user to datahub user
         """
 
-        LOGGER.info(
-            "Converting user {}(id={}) to datahub's user".format(
-                user.displayName, user.id
-            )
-        )
+        LOGGER.info(f"Converting user {user.displayName}(id={user.id}) to datahub's user")
+
 
         # Create an URN for user
         user_urn = builder.make_user_urn(user.get_urn_part())
@@ -1263,10 +1223,10 @@ class Mapper:
         chart_mcps = []
 
         # Return empty list if input list is empty
-        if len(tiles) == 0:
+        if not tiles:
             return [], []
 
-        LOGGER.info("Converting tiles(count={}) to charts".format(len(tiles)))
+        LOGGER.info(f"Converting tiles(count={len(tiles)}) to charts")
 
         for tile in tiles:
             if tile is None:
@@ -1288,9 +1248,8 @@ class Mapper:
     ) -> Set[EquableMetadataWorkUnit]:
         mcps = []
 
-        LOGGER.info(
-            "Converting dashboard={} to datahub dashboard".format(dashboard.displayName)
-        )
+        LOGGER.info(f"Converting dashboard={dashboard.displayName} to datahub dashboard")
+
 
         # Convert user to CorpUser
         user_mcps = self.to_datahub_users(dashboard.users)
@@ -1388,12 +1347,10 @@ class PowerBiDashboardSource(Source):
                 self.reporter.report_dashboards_scanned()
                 self.reporter.report_charts_scanned(count=len(dashboard.tiles))
             except Exception as e:
-                message = "Error ({}) occurred while loading dashboard {}(id={}) tiles.".format(
-                    e, dashboard.displayName, dashboard.id
-                )
+                message = f"Error ({e}) occurred while loading dashboard {dashboard.displayName}(id={dashboard.id}) tiles."
+
                 LOGGER.exception(message, e)
                 self.reporter.report_warning(dashboard.id, message)
-
             # Convert PowerBi Dashboard and child entities to Datahub work unit to ingest into Datahub
             workunits = self.mapper.to_datahub_work_units(dashboard)
             for workunit in workunits:
