@@ -102,6 +102,8 @@ if TYPE_CHECKING:
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+MISSING_COLUMN_INFO = "missing column information"
+
 
 def _platform_alchemy_uri_tester_gen(
     platform: str, opt_starts_with: Optional[str] = None
@@ -1040,7 +1042,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         try:
             columns = inspector.get_columns(table, schema)
             if len(columns) == 0:
-                self.report.report_warning(dataset_name, "missing column information")
+                self.report.report_warning(MISSING_COLUMN_INFO, dataset_name)
         except Exception as e:
             self.report.report_warning(
                 dataset_name,
@@ -1301,6 +1303,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     ) -> Tuple[Optional[str], Optional[str]]:
         return None, None
 
+    def is_table_partitioned(
+        self, database: Optional[str], schema: str, table: str
+    ) -> Optional[bool]:
+        return None
+
     # Override if you want to do additional checks
     def is_dataset_eligible_for_profiling(
         self, dataset_name: str, sql_config: SQLAlchemyConfig
@@ -1339,9 +1346,24 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 logger.debug(f"{dataset_name} has already been seen, skipping...")
                 continue
 
+            missing_column_info_warn = self.report.warnings.get(MISSING_COLUMN_INFO)
+            if (
+                missing_column_info_warn is not None
+                and dataset_name in missing_column_info_warn
+            ):
+                continue
+
             (partition, custom_sql) = self.generate_partition_profiler_query(
                 schema, table, self.config.profiling.partition_datetime
             )
+
+            if partition is None and self.is_table_partitioned(
+                database=None, schema=schema, table=table
+            ):
+                self.report.report_warning(
+                    "profile skipped as partitioned table empty", dataset_name
+                )
+                continue
 
             if (
                 partition is not None
