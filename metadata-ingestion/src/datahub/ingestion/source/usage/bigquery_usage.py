@@ -992,6 +992,11 @@ class BigQueryUsageSource(Source):
                 if not self._is_table_allowed(event.resource):
                     self.report.num_filtered_read_events += 1
                     continue
+
+                if event.readReason:
+                    self.report.read_reasons_stat[event.readReason] = (
+                        self.report.read_reasons_stat.get(event.readReason, 0) + 1
+                    )
                 self.report.num_read_events += 1
 
             missing_query_entry = QueryEvent.get_missing_key_entry(entry)
