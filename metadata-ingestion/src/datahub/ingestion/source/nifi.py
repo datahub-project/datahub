@@ -337,10 +337,7 @@ class NifiSource(Source):
 
         if self.config.site_url_to_site_name is None:
             self.config.site_url_to_site_name = {}
-        if (
-            not urljoin(self.config.site_url, "/nifi/")
-            in self.config.site_url_to_site_name
-        ):
+        if urljoin(self.config.site_url, "/nifi/") not in self.config.site_url_to_site_name:
             self.config.site_url_to_site_name[
                 urljoin(self.config.site_url, "/nifi/")
             ] = self.config.site_name
@@ -774,7 +771,7 @@ class NifiSource(Source):
         rootpg = self.nifi_flow.root_process_group
         flow_name = rootpg.name  # self.config.site_name
         flow_urn = builder.make_data_flow_urn(NIFI, rootpg.id, self.config.env)
-        flow_properties = dict()
+        flow_properties = {}
         if self.nifi_flow.clustered is not None:
             flow_properties["clustered"] = str(self.nifi_flow.clustered)
         if self.nifi_flow.version is not None:
