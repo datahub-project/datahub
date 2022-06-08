@@ -102,6 +102,8 @@ if TYPE_CHECKING:
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+MISSING_COLUMN_INFO = "missing column information"
+
 
 def _platform_alchemy_uri_tester_gen(
     platform: str, opt_starts_with: Optional[str] = None
@@ -1040,7 +1042,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         try:
             columns = inspector.get_columns(table, schema)
             if len(columns) == 0:
-                self.report.report_warning("missing column information", dataset_name)
+                self.report.report_warning(MISSING_COLUMN_INFO, dataset_name)
         except Exception as e:
             self.report.report_warning(
                 dataset_name,
@@ -1342,6 +1344,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 tables_seen.add(dataset_name)
             else:
                 logger.debug(f"{dataset_name} has already been seen, skipping...")
+                continue
+
+            missing_column_info_warn = self.report.warnings.get(MISSING_COLUMN_INFO)
+            if (
+                missing_column_info_warn is not None
+                and dataset_name in missing_column_info_warn
+            ):
                 continue
 
             (partition, custom_sql) = self.generate_partition_profiler_query(
