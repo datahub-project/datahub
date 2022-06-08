@@ -104,8 +104,8 @@ def schema_field_urn_to_key(schema_field_urn: str) -> Optional[SchemaFieldKeyCla
     pattern = r"urn:li:schemaField:\((.*),(.*)\)"
     results = re.search(pattern, schema_field_urn)
     if results is not None:
-        dataset_urn: str = results.group(1)
-        field_path: str = results.group(2)
+        dataset_urn: str = results[1]
+        field_path: str = results[2]
         return SchemaFieldKeyClass(parent=dataset_urn, fieldPath=field_path)
     return None
 
@@ -114,9 +114,7 @@ def dataset_urn_to_key(dataset_urn: str) -> Optional[DatasetKeyClass]:
     pattern = r"urn:li:dataset:\(urn:li:dataPlatform:(.*),(.*),(.*)\)"
     results = re.search(pattern, dataset_urn)
     if results is not None:
-        return DatasetKeyClass(
-            platform=results.group(1), name=results.group(2), origin=results.group(3)
-        )
+        return DatasetKeyClass(platform=results[1], name=results[2], origin=results[3])
     return None
 
 
@@ -128,9 +126,7 @@ def container_new_urn_to_key(dataset_urn: str) -> Optional[ContainerKeyClass]:
     pattern = r"urn:dh:container:0:\((.*)\)"
     results = re.search(pattern, dataset_urn)
     if results is not None:
-        return ContainerKeyClass(
-            guid=results.group(1),
-        )
+        return ContainerKeyClass(guid=results[1])
     return None
 
 
@@ -146,9 +142,7 @@ def container_urn_to_key(guid: str) -> Optional[ContainerKeyClass]:
     pattern = r"urn:li:container:(.*)"
     results = re.search(pattern, guid)
     if results is not None:
-        return ContainerKeyClass(
-            guid=results.group(1),
-        )
+        return ContainerKeyClass(guid=results[1])
     return None
 
 
@@ -156,8 +150,7 @@ def datahub_guid(obj: dict) -> str:
     obj_str = json.dumps(
         pre_json_transform(obj), separators=(",", ":"), sort_keys=True
     ).encode("utf-8")
-    datahub_guid = md5(obj_str).hexdigest()
-    return datahub_guid
+    return md5(obj_str).hexdigest()
 
 
 def make_assertion_urn(assertion_id: str) -> str:
