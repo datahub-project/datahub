@@ -34,7 +34,7 @@ const redshiftConfig: SourceConfig = {
     type: 'redshift',
     placeholderRecipe,
     displayName: 'Redshift',
-    docsUrl: 'https://datahubproject.io/docs/metadata-ingestion/source_docs/redshift/',
+    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/redshift/',
     logoUrl: redshiftLogo,
 };
 

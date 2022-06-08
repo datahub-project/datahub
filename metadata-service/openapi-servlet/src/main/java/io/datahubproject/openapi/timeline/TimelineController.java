@@ -5,6 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Set;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @AllArgsConstructor
 @RequestMapping("/timeline/v1")
+@Tag(name = "Timeline", description = "An API for retrieving historical updates to entities and their related documentation.")
 public class TimelineController {
 
   private final TimelineService _timelineService;
@@ -28,13 +30,13 @@ public class TimelineController {
   /**
    *
    * @param rawUrn
-   * @param start
-   * @param end
-   * @param startVersionStamp
-   * @param endVersionStamp
+   * @param startTime
+   * @param endTime
    * @param raw
    * @param categories
    * @return
+   * @throws URISyntaxException
+   * @throws JsonProcessingException
    */
   @GetMapping(path = "/{urn}", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<List<ChangeTransaction>> getTimeline(

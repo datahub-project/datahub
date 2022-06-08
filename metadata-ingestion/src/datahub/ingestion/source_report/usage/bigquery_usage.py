@@ -11,7 +11,8 @@ class BigQueryUsageSourceReport(SourceReport):
     dropped_table: Counter[str] = dataclasses.field(default_factory=collections.Counter)
     total_log_entries: Optional[int] = None
     num_read_events: Optional[int] = None
-    num_filtered_events: Optional[int] = None
+    num_filtered_read_events: Optional[int] = None
+    num_filtered_query_events: Optional[int] = None
     num_query_events: Optional[int] = None
     use_v2_audit_metadata: Optional[bool] = None
     log_page_size: Optional[int] = None

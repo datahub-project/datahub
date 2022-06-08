@@ -11,11 +11,17 @@ record DataHubPolicyInfo {
   /**
    * Display name of the Policy
    */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL"
+  }
   displayName: string
 
   /**
    * Description of the Policy
    */
+  @Searchable = {
+    "fieldType": "TEXT"
+  }
   description: string
 
   /**
@@ -48,4 +54,11 @@ record DataHubPolicyInfo {
    */
   editable: boolean = true
 
+  /**
+   * Timestamp when the policy was last updated
+   */
+  @Searchable = {
+    "fieldType": "DATETIME"
+  }
+  lastUpdatedTimestamp: optional long
 }

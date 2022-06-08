@@ -1,0 +1,16 @@
+# see https://datahubproject.io/docs/generated/ingestion/sources/metabase for complete documentation
+source:
+  type: "metabase"
+  config:
+    username: admin@metabase.com
+    password: admin12345
+    connect_uri: http://localhost:3000/
+    default_schema: public
+    database_alias_map:
+      h2: sample-dataset.db
+
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

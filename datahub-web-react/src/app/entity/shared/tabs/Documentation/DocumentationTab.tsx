@@ -23,7 +23,12 @@ const DocumentationContainer = styled.div`
     margin: 0 32px;
 `;
 
-export const DocumentationTab = () => {
+interface Props {
+    hideLinksButton?: boolean;
+}
+
+export const DocumentationTab = ({ properties }: { properties?: Props }) => {
+    const hideLinksButton = properties?.hideLinksButton;
     const { urn, entityData } = useEntityData();
     const refetch = useRefetch();
     const description = entityData?.editableProperties?.description || entityData?.properties?.description || '';
@@ -56,7 +61,7 @@ export const DocumentationTab = () => {
                             >
                                 <EditOutlined /> Edit
                             </Button>
-                            <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />
+                            {!hideLinksButton && <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />}
                         </div>
                     </TabToolbar>
                     <DocumentationContainer>
@@ -66,7 +71,7 @@ export const DocumentationTab = () => {
                             <Typography.Text type="secondary">No documentation added yet.</Typography.Text>
                         )}
                         <Divider />
-                        <LinkList refetch={refetch} />
+                        {!hideLinksButton && <LinkList refetch={refetch} />}
                     </DocumentationContainer>
                 </>
             ) : (
@@ -74,7 +79,7 @@ export const DocumentationTab = () => {
                     <Button onClick={() => routeToTab({ tabName: 'Documentation', tabParams: { editing: true } })}>
                         <EditOutlined /> Add Documentation
                     </Button>
-                    <AddLinkModal refetch={refetch} />
+                    {!hideLinksButton && <AddLinkModal refetch={refetch} />}
                 </EmptyTab>
             )}
         </>

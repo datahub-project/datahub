@@ -1,4 +1,4 @@
-# Spark Integration
+# Spark
 To integrate Spark with DataHub, we provide a lightweight Java agent that listens for Spark application and job events and pushes metadata out to DataHub in real-time. The agent listens to events such application start/end, and SQLExecution start/end to create pipelines (i.e. DataJob) and tasks (i.e. DataFlow) in Datahub along with lineage to datasets that are being read from and written to. Read on to learn how to configure this for different Spark scenarios.
 
 ## Configuring Spark agent
@@ -59,6 +59,8 @@ spark = SparkSession.builder()
 | spark.datahub.metadata.pipeline.platformInstance|          |         | Pipeline level platform instance                                        |
 | spark.datahub.metadata.dataset.platformInstance|          |         | dataset level platform instance                                        |
 | spark.datahub.metadata.dataset.env              |          | PROD    | [Supported values](https://datahubproject.io/docs/graphql/enums#fabrictype). In all other cases, will fallback to PROD           |
+| spark.datahub.coalesce_jobs              |          |  false     |  Only one datajob(taask) will be emitted containing all input and output datasets for the spark application          |
+| spark.datahub.parent.datajob_urn              |          |       | Specified dataset will be set as upstream dataset for datajob created. Effective only when spark.datahub.coalesce_jobs is set to true     |
 
 
 ## What to Expect: The Metadata Model
@@ -93,6 +95,7 @@ This initial release has been tested with the following environments:
 Note that testing for other environments such as Databricks is planned in near future.
 
 ### Spark commands supported
+
 Below is a list of Spark commands that are parsed currently:
 - InsertIntoHadoopFsRelationCommand
 - SaveIntoDataSourceCommand (jdbc)
@@ -100,6 +103,12 @@ Below is a list of Spark commands that are parsed currently:
 - InsertIntoHiveTable
 
 Effectively, these support data sources/sinks corresponding to Hive, HDFS and JDBC.
+
+DataFrame.persist command is supported for below LeafExecNodes:
+- FileSourceScanExec
+- HiveTableScanExec
+- RowDataSourceScanExec
+- InMemoryTableScanExec
 
 ### Spark commands not yet supported
 - View related commands
@@ -130,7 +139,7 @@ YY/MM/DD HH:mm:ss INFO McpEmitter: REST Emitter Configuration: Token XXXXX
 ```
 On pushing data to server
 ```
-YY/MM/DD HH:mm:ss INFO McpEmitter: MetadataWriteResponse(success=true, responseContent={"value":"<URN>"}, underlyingResponse=HTTP/1.1 200 OK [Date: day, DD month year HH:mm:ss GMT, Content-Type: application/json, X-RestLi-Protocol-Version: 2.0.0, Content-Length: 97, Server: Jetty(9.4.20.v20190813)] [Content-Length: 97,Chunked: false])
+YY/MM/DD HH:mm:ss INFO McpEmitter: MetadataWriteResponse(success=true, responseContent={"value":"<URN>"}, underlyingResponse=HTTP/1.1 200 OK [Date: day, DD month year HH:mm:ss GMT, Content-Type: application/json, X-RestLi-Protocol-Version: 2.0.0, Content-Length: 97, Server: Jetty(9.4.46.v20220331)] [Content-Length: 97,Chunked: false])
 ```
 On application end
 ```

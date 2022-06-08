@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.domain.DomainProperties;
+import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.identity.CorpGroupEditableInfo;
 import com.linkedin.metadata.Constants;
@@ -132,7 +133,22 @@ public class DescriptionUtils {
     glossaryTermInfo.setDefinition(newDescription); // We call description 'definition' for glossary terms. Not great, we know. :(
     persistAspect(resourceUrn, Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, glossaryTermInfo, actor, entityService);
   }
-  
+
+  public static void updateGlossaryNodeDescription(
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService entityService
+  ) {
+    GlossaryNodeInfo glossaryNodeInfo = (GlossaryNodeInfo) getAspectFromEntity(
+        resourceUrn.toString(), Constants.GLOSSARY_NODE_INFO_ASPECT_NAME, entityService, null);
+    if (glossaryNodeInfo == null) {
+      throw new IllegalArgumentException("Glossary Node does not exist");
+    }
+    glossaryNodeInfo.setDefinition(newDescription);
+    persistAspect(resourceUrn, Constants.GLOSSARY_NODE_INFO_ASPECT_NAME, glossaryNodeInfo, actor, entityService);
+  }
+
   public static void updateNotebookDescription(
       String newDescription,
       Urn resourceUrn,

@@ -24,9 +24,9 @@ public class BrowseResolver implements DataFetcher<CompletableFuture<BrowseResul
 
     private static final Logger _logger = LoggerFactory.getLogger(BrowseResolver.class.getName());
 
-    private final Map<EntityType, BrowsableEntityType<?>> _typeToEntity;
+    private final Map<EntityType, BrowsableEntityType<?, ?>> _typeToEntity;
 
-    public BrowseResolver(@Nonnull final List<BrowsableEntityType<?>> browsableEntities) {
+    public BrowseResolver(@Nonnull final List<BrowsableEntityType<?, ?>> browsableEntities) {
         _typeToEntity = browsableEntities.stream().collect(Collectors.toMap(
                 BrowsableEntityType::type,
                 entity -> entity

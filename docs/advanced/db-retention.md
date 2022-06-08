@@ -45,7 +45,7 @@ On GMS start up, retention policies are initialized with:
 1. First, the default provided **version-based** retention to keep **20 latest aspects** for all entity-aspect pairs. 
 2. Second, we read YAML files from the `/etc/datahub/plugins/retention` directory and overlay them on the default set of policies we provide.
 
-For docker, we set docker-compose to mount `${HOME}/.datahub/plugins` directory to `/etc/datahub/plugins` directory
+For docker, we set docker-compose to mount `${HOME}/.datahub` directory to `/etc/datahub` directory
 within the containers, so you can customize the initial set of retention policies by creating
 a `${HOME}/.datahub/plugins/retention/retention.yaml` file.
 

@@ -1,4 +1,4 @@
-import * as React from 'react';
+import React, { useState } from 'react';
 import { Image, Layout } from 'antd';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
@@ -13,6 +13,7 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 import { AdminHeaderLinks } from '../shared/admin/AdminHeaderLinks';
 import ContactLink from '../shared/admin/ContactLink';
 import { useAppConfig } from '../useAppConfig';
+import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
 
 const { Header } = Layout;
 
@@ -77,6 +78,7 @@ export const SearchHeader = ({
     authenticatedUserPictureLink,
     entityRegistry,
 }: Props) => {
+    const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
     const themeConfig = useTheme();
     const appConfig = useAppConfig();
 
@@ -85,7 +87,11 @@ export const SearchHeader = ({
             <LogoSearchContainer>
                 <Link to="/">
                     <LogoImage
-                        src={appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl}
+                        src={
+                            appConfig.config !== DEFAULT_APP_CONFIG
+                                ? appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl
+                                : undefined
+                        }
                         preview={false}
                     />
                 </Link>
@@ -96,6 +102,7 @@ export const SearchHeader = ({
                     onSearch={onSearch}
                     onQueryChange={onQueryChange}
                     entityRegistry={entityRegistry}
+                    setIsSearchBarFocused={setIsSearchBarFocused}
                     fixAutoComplete
                 />
             </LogoSearchContainer>
@@ -103,7 +110,7 @@ export const SearchHeader = ({
                 <ContactLink />
                 <HelpLink />
                 <AdhocLink />
-                <AdminHeaderLinks />
+                <AdminHeaderLinks areLinksHidden={isSearchBarFocused} />
                 <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
             </NavGroup>
         </Header>

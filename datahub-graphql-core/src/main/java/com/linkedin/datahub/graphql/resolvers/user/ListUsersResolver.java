@@ -10,7 +10,8 @@ import com.linkedin.datahub.graphql.generated.ListUsersResult;
 import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.query.ListResult;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collection;
@@ -29,6 +30,7 @@ public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUser
 
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
+  private static final String DEFAULT_QUERY = "";
 
   private final EntityClient _entityClient;
 
@@ -45,22 +47,26 @@ public class ListUsersResolver implements DataFetcher<CompletableFuture<ListUser
       final ListUsersInput input = bindArgument(environment.getArgument("input"), ListUsersInput.class);
       final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
       final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
+      final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
       return CompletableFuture.supplyAsync(() -> {
         try {
           // First, get all policy Urns.
-          final ListResult gmsResult =
-              _entityClient.list(CORP_USER_ENTITY_NAME, Collections.emptyMap(), start, count, context.getAuthentication());
+          final SearchResult gmsResult =
+              _entityClient.search(CORP_USER_ENTITY_NAME, query, Collections.emptyMap(), start, count, context.getAuthentication());
 
           // Then, get hydrate all users.
           final Map<Urn, EntityResponse> entities = _entityClient.batchGetV2(CORP_USER_ENTITY_NAME,
-              new HashSet<>(gmsResult.getEntities()), null, context.getAuthentication());
+              new HashSet<>(gmsResult.getEntities().stream()
+                  .map(SearchEntity::getEntity)
+                  .collect(Collectors.toList())
+              ), null, context.getAuthentication());
 
           // Now that we have entities we can bind this to a result.
           final ListUsersResult result = new ListUsersResult();
-          result.setStart(gmsResult.getStart());
-          result.setCount(gmsResult.getCount());
-          result.setTotal(gmsResult.getTotal());
+          result.setStart(gmsResult.getFrom());
+          result.setCount(gmsResult.getPageSize());
+          result.setTotal(gmsResult.getNumEntities());
           result.setUsers(mapEntities(entities.values()));
           return result;
         } catch (Exception e) {
