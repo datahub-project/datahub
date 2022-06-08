@@ -1040,7 +1040,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         try:
             columns = inspector.get_columns(table, schema)
             if len(columns) == 0:
-                self.report.report_warning(dataset_name, "missing column information")
+                self.report.report_warning("missing column information", dataset_name)
         except Exception as e:
             self.report.report_warning(
                 dataset_name,
@@ -1301,6 +1301,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     ) -> Tuple[Optional[str], Optional[str]]:
         return None, None
 
+    def is_table_partitioned(
+        self, database: Optional[str], schema: str, table: str
+    ) -> Optional[bool]:
+        return None
+
     # Override if you want to do additional checks
     def is_dataset_eligible_for_profiling(
         self, dataset_name: str, sql_config: SQLAlchemyConfig
@@ -1342,6 +1347,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             (partition, custom_sql) = self.generate_partition_profiler_query(
                 schema, table, self.config.profiling.partition_datetime
             )
+
+            if partition is None and self.is_table_partitioned(
+                database=None, schema=schema, table=table
+            ):
+                self.report.report_warning(
+                    "profile skipped as partitioned table empty", dataset_name
+                )
+                continue
 
             if (
                 partition is not None
