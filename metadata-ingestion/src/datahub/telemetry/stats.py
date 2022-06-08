@@ -27,9 +27,7 @@ def calculate_percentiles(
         min(i, size - 1) for i in percentile_indices
     ]  # in case of rounding errors
 
-    values = {p: data_sorted[i] for p, i in zip(percentiles, percentile_indices)}
-
-    return values
+    return {p: data_sorted[i] for p, i in zip(percentiles, percentile_indices)}
 
 
 def discretize(statistic: Union[float, int]) -> int:
