@@ -1,3 +1,4 @@
+import { FullLineageResultsFragment } from '../../graphql/lineage.generated';
 import {
     Chart,
     Dashboard,
@@ -34,7 +35,9 @@ export type FetchedEntity = {
     icon?: string;
     // children?: Array<string>;
     upstreamChildren?: Array<EntityAndType>;
+    numUpstreamChildren?: number;
     downstreamChildren?: Array<EntityAndType>;
+    numDownstreamChildren?: number;
     fullyFetched?: boolean;
     platform?: string;
     status?: Maybe<Status>;
@@ -129,3 +132,9 @@ export type EntityAndType =
           type: EntityType.MlprimaryKey;
           entity: MlPrimaryKey;
       };
+
+export interface LineageResult {
+    urn: string;
+    upstream?: Maybe<{ __typename?: 'EntityLineageResult' } & FullLineageResultsFragment>;
+    downstream?: Maybe<{ __typename?: 'EntityLineageResult' } & FullLineageResultsFragment>;
+}

@@ -20,10 +20,10 @@ query getDataJob($urn: String!) {
             ...fullRelationshipResults
         }
         upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
-            ...fullLineageResults
+            ...partialLineageResults
         }
         downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
-            ...fullLineageResults
+            ...partialLineageResults
         }
         status {
             removed
@@ -49,6 +49,18 @@ query getDataJobRuns($urn: String!, $start: Int!, $count: Int!) {
     dataJob(urn: $urn) {
         runs(start: $start, count: $count) {
             ...runResults
+        }
+    }
+}
+
+query getDataJobLineage($urn: String!) {
+    dataJob(urn: $urn) {
+        urn
+        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+            ...fullLineageResults
+        }
+        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+            ...fullLineageResults
         }
     }
 }

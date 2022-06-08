@@ -22,6 +22,18 @@ query getMLModelGroup($urn: String!) {
             ...fullRelationshipResults
         }
         upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+            ...partialLineageResults
+        }
+        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+            ...partialLineageResults
+        }
+    }
+}
+
+query getMLModelGroupLineage($urn: String!) {
+    mlModelGroup(urn: $urn) {
+        urn
+        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
             ...fullLineageResults
         }
         downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
@@ -29,3 +41,4 @@ query getMLModelGroup($urn: String!) {
         }
     }
 }
+

@@ -11,6 +11,7 @@ import { capitalizeFirstLetter } from '../shared/textUtil';
 import { nodeHeightFromTitleLength } from './utils/nodeHeightFromTitleLength';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
 import useLazyGetEntityQuery from './utils/useLazyGetEntityQuery';
+import useLazyGetEntityLineageQuery from './utils/useLazyGetEntityLineageQuery';
 
 const CLICK_DELAY_THRESHOLD = 1000;
 const DRAG_DISTANCE_THRESHOLD = 20;
@@ -90,12 +91,17 @@ export default function LineageEntityNode({
     const [isExpanding, setIsExpanding] = useState(false);
     const [expandHover, setExpandHover] = useState(false);
     const { getAsyncEntity, asyncData } = useLazyGetEntityQuery();
+    const { getAsyncEntityLineage, asyncLineageData } = useLazyGetEntityLineageQuery();
 
     useEffect(() => {
-        if (asyncData) {
-            onExpandClick(asyncData);
+        if (asyncData && asyncLineageData) {
+            const combinedData = {
+                type: asyncData.type,
+                entity: { ...asyncData.entity, ...asyncLineageData },
+            } as EntityAndType;
+            onExpandClick(combinedData);
         }
-    }, [asyncData, onExpandClick]);
+    }, [asyncData, asyncLineageData, onExpandClick]);
 
     const entityRegistry = useEntityRegistry();
     const unexploredHiddenChildren =
@@ -149,6 +155,7 @@ export default function LineageEntityNode({
                             setIsExpanding(true);
                             if (node.data.urn && node.data.type) {
                                 getAsyncEntity(node.data.urn, node.data.type);
+                                getAsyncEntityLineage(node.data.urn, node.data.type);
                             }
                         }}
                         onMouseOver={() => {

@@ -50,10 +50,10 @@ query getDataFlow($urn: String!) {
     dataFlow(urn: $urn) {
         ...dataFlowFields
         upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
-            ...fullLineageResults
+            ...partialLineageResults
         }
         downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
-            ...fullLineageResults
+            ...partialLineageResults
         }
         childJobs: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 100 }) {
             start
@@ -99,5 +99,17 @@ query getDataFlow($urn: String!) {
 mutation updateDataFlow($urn: String!, $input: DataFlowUpdateInput!) {
     updateDataFlow(urn: $urn, input: $input) {
         urn
+    }
+}
+
+query getDataFlowLineage($urn: String!) {
+    dataFlow(urn: $urn) {
+        urn
+        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+            ...fullLineageResults
+        }
+        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+            ...fullLineageResults
+        }
     }
 }

@@ -171,3 +171,9 @@ fragment leafLineageResults on EntityLineageResult {
         }
     }
 }
+
+fragment partialLineageResults on EntityLineageResult {
+    start
+    count
+    total
+}

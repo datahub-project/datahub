@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
 
 import { Alert, Button, Drawer } from 'antd';
@@ -15,6 +15,7 @@ import useGetEntityQuery from './utils/useGetEntityQuery';
 import { EntityType } from '../../types.generated';
 import { capitalizeFirstLetter } from '../shared/textUtil';
 import { ANTD_GRAY } from '../entity/shared/constants';
+import useGetEntityLineageQuery from './utils/useGetEntityLineageQuery';
 
 const DEFAULT_DISTANCE_FROM_TOP = 106;
 
@@ -56,7 +57,15 @@ export default function LineageExplorer({ urn, type }: Props) {
 
     const entityRegistry = useEntityRegistry();
 
+    const { loading: lineageLoading, error: lineageError, data: lineageData } = useGetEntityLineageQuery(urn, type);
     const { loading, error, data } = useGetEntityQuery(urn, type);
+    const combinedData: EntityAndType | null | undefined = useMemo(
+        () =>
+            data && lineageData
+                ? ({ type: data.type, entity: { ...data.entity, ...lineageData } } as EntityAndType)
+                : undefined,
+        [data, lineageData],
+    );
 
     const [isDrawerVisible, setIsDrawVisible] = useState(false);
     const [selectedEntity, setSelectedEntity] = useState<EntitySelectParams | undefined>(undefined);
@@ -89,12 +98,12 @@ export default function LineageExplorer({ urn, type }: Props) {
     };
 
     useEffect(() => {
-        if (type && data) {
-            maybeAddAsyncLoadedEntity(data);
+        if (type && combinedData) {
+            maybeAddAsyncLoadedEntity(combinedData);
         }
-    }, [data, asyncEntities, setAsyncEntities, maybeAddAsyncLoadedEntity, urn, previousUrn, type]);
+    }, [combinedData, asyncEntities, setAsyncEntities, maybeAddAsyncLoadedEntity, urn, previousUrn, type]);
 
-    if (error || (!loading && !error && !data)) {
+    if (error || (!loading && !error && !data) || lineageError || (!lineageLoading && !lineageError && !lineageData)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;
     }
 
@@ -103,13 +112,13 @@ export default function LineageExplorer({ urn, type }: Props) {
 
     return (
         <>
-            {loading && <LoadingMessage type="loading" content="Loading..." />}
-            {!!data && (
+            {(loading || lineageLoading) && <LoadingMessage type="loading" content="Loading..." />}
+            {!!data && !!lineageData && (
                 <div>
                     <LineageViz
                         selectedEntity={selectedEntity}
                         fetchedEntities={asyncEntities}
-                        entityAndType={data}
+                        entityAndType={combinedData}
                         onEntityClick={(params: EntitySelectParams) => {
                             setIsDrawVisible(true);
                             setSelectedEntity(params);
