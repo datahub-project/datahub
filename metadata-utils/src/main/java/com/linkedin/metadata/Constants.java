@@ -15,6 +15,8 @@ public class Constants {
 
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
 
+  public static final String GLOBAL_INVITE_TOKEN = "urn:li:inviteToken:global";
+
   /**
    * Entities
    */
@@ -45,6 +47,8 @@ public class Constants {
   public static final String DATA_PLATFORM_INSTANCE_ENTITY_NAME = "dataPlatformInstance";
   public static final String ACCESS_TOKEN_ENTITY_NAME = "dataHubAccessToken";
   public static final String DATA_HUB_UPGRADE_ENTITY_NAME = "dataHubUpgrade";
+  public static final String INVITE_TOKEN_ENTITY_NAME = "inviteToken";
+
 
   /**
    * Aspects
@@ -68,6 +72,7 @@ public class Constants {
   public static final String CORP_USER_EDITABLE_INFO_ASPECT_NAME = "corpUserEditableInfo";
   public static final String CORP_USER_INFO_ASPECT_NAME = "corpUserInfo";
   public static final String CORP_USER_STATUS_ASPECT_NAME = "corpUserStatus";
+  public static final String CORP_USER_CREDENTIALS_ASPECT_NAME = "corpUserCredentials";
 
   // Group
   public static final String CORP_GROUP_KEY_ASPECT_NAME = "corpGroupKey";
@@ -217,6 +222,10 @@ public class Constants {
   public static final String DATA_HUB_UPGRADE_RESULT_ASPECT_NAME = "dataHubUpgradeResult";
 
 
+  // Invite Token
+  public static final String INVITE_TOKEN_ASPECT_NAME = "inviteToken";
+
+  // acryl-main only
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";
 
   /**
