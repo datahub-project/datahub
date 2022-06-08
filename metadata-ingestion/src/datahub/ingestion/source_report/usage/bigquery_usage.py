@@ -1,9 +1,7 @@
 import collections
 import dataclasses
 from datetime import datetime
-from typing import Counter, Optional, Dict
-
-from mypy.solve import defaultdict
+from typing import Counter, Optional
 
 from datahub.ingestion.api.source import SourceReport
 
