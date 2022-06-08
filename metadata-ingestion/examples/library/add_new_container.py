@@ -12,28 +12,11 @@ from datahub.metadata.schema_classes import (
 gms_endpoint = "http://localhost:8080"
 token = "xxx-your-token-here-xxx"
 graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint, token=token))
+
+# Code below creates a new container, "man-123-bin" with its associated 
+# properties AND link it to the parent container new_urn.
+
 new_urn = "urn:li:container:csv_container2"
-# event = MetadataChangeProposalWrapper(
-#     entityType="container",
-#     changeType=ChangeTypeClass.UPSERT,
-#     entityUrn=new_urn,
-#     aspectName="containerProperties",
-#     aspect=ContainerPropertiesClass(
-#         name="csv_container2",
-#         description="some platformless container",
-#     ),
-# )
-# graph.emit(event)
-# event = MetadataChangeProposalWrapper(
-#     entityType="container",
-#     changeType=ChangeTypeClass.UPSERT,
-#     entityUrn=new_urn,
-#     aspectName="dataPlatformInstance",
-#     aspect=DataPlatformInstanceClass(
-#         platform="urn:li:dataPlatform:csv"
-#     ),
-# )
-# graph.emit(event)
 
 new_urn2 = "urn:li:container:man-123-bin"
 event = MetadataChangeProposalWrapper(

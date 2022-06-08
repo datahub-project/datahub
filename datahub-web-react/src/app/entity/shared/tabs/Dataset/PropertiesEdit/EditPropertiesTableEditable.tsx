@@ -196,7 +196,10 @@ export const EditPropertiesTableEditable = () => {
         console.log(dataSubmission);
         axios
             .post(publishUrl, dataSubmission)
-            .then((response) => printSuccessMsg(response.status))
+            .then((response) => {
+                printSuccessMsg(response.status);
+                window.location.reload();
+            })
             .catch((error) => {
                 printErrorMsg(error.toString());
             });

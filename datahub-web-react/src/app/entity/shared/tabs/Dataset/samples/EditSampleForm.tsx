@@ -132,7 +132,10 @@ export const EditSampleForm = () => {
         // console.log(`data to be submitted is ${JSON.stringify(deleteSubmission)}`);
         axios
             .post(delUrl, deleteSubmission)
-            .then((response) => printSuccessMsg(response.status))
+            .then((response) => {
+                printSuccessMsg(response.status);
+                window.location.reload();
+            })
             .catch((error) => {
                 printErrorMsg(error.toString());
             });
@@ -148,7 +151,10 @@ export const EditSampleForm = () => {
         };
         axios
             .post(makeUrl, createSubmission)
-            .then((response) => printSuccessMsg(response.status))
+            .then((response) => {
+                printSuccessMsg(response.status);
+                window.location.reload();
+            })
             .catch((error) => {
                 printErrorMsg(error.toString());
             });

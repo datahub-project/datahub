@@ -31,7 +31,7 @@ export const EditBrowsePathTable = () => {
     const publishUrl = `${urlBase}custom/update_browsepath`;
     console.log(`the final url is ${publishUrl}`);
     const [originalData, setOriginalData] = useState();
-    const [disabledSave, setDisabledSave] = useState(true);
+    const [modifiedState, setModifiedState] = useState(false);
     const layout = {
         labelCol: {
             span: 6,
@@ -69,20 +69,25 @@ export const EditBrowsePathTable = () => {
                 browsePaths: values.browsepathList,
                 user_token: userToken,
             })
-            .then((response) => printSuccessMsg(response.status))
+            .then((response) => {
+                printSuccessMsg(response.status);
+                setModifiedState(false);
+                window.location.reload();
+            })
             .catch((error) => {
                 printErrorMsg(error.toString());
             });
     };
     const onReset = () => {
         form.resetFields();
+        setModifiedState(false);
         form.setFieldsValue({
             browsepathList: originalData,
         });
     };
     const handleFormChange = () => {
         const hasErrors = form.getFieldsError().some(({ errors }) => errors.length);
-        setDisabledSave(hasErrors);
+        setModifiedState(!hasErrors);
     };
     useEffect(() => {
         const formatted = computeFinal(data);
@@ -94,7 +99,7 @@ export const EditBrowsePathTable = () => {
     }, [form, data]);
     return (
         <Form name="dynamic_item" {...layout} form={form} onFinish={onFinish} onFieldsChange={handleFormChange}>
-            <Button type="primary" htmlType="submit" disabled={disabledSave}>
+            <Button type="primary" htmlType="submit" disabled={!modifiedState}>
                 Submit
             </Button>
             &nbsp;

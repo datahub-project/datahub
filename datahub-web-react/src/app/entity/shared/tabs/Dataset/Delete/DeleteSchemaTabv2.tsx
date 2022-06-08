@@ -56,7 +56,10 @@ export const DeleteSchemaTabv2 = () => {
                 desired_state: !CheckStatus(baseEntity),
                 user_token: userToken,
             })
-            .then((response) => printSuccessMsg(response.status))
+            .then((response) => {
+                printSuccessMsg(response.status);
+                window.location.reload();
+            })
             .catch((exception) => {
                 printErrorMsg(exception.toString());
             });

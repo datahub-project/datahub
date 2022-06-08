@@ -14,9 +14,10 @@ export const EditDisplayName = () => {
     const currUser = FindWhoAmI();
     const userUrn = FindMyUrn();
     const userToken = GetMyToken(userUrn);
-    const datasetUrn = useBaseEntity<GetDatasetQuery>()?.dataset?.urn;
+    const baseEntity = useBaseEntity<GetDatasetQuery>();
+    const currUrn = baseEntity && baseEntity.dataset && baseEntity.dataset?.urn;
     const existingProperties = useBaseEntity<GetDatasetQuery>()?.dataset?.properties;
-    const [modifiedState, setModifiedState] = useState(true);
+    const [modifiedState, setModifiedState] = useState(false);
     const [formState] = Form.useForm();
     const layout = {
         labelCol: {
@@ -27,24 +28,37 @@ export const EditDisplayName = () => {
         },
     };
     const resetForm = () => {
-        setModifiedState(true);
+        setModifiedState(false);
         formState.resetFields();
     };
 
     const updateForm = () => {
-        const hasBeenModified = formState.getFieldValue('displayName') === (existingProperties?.name || '');
-        setModifiedState(hasBeenModified);
+        if (existingProperties?.name !== undefined) {
+            if (formState.getFieldValue('displayName') !== '') {
+                setModifiedState(true);
+            } else {
+                setModifiedState(false);
+            }
+        } else if (formState.getFieldValue('displayName') !== existingProperties?.name) {
+            setModifiedState(true);
+        } else {
+            setModifiedState(false);
+        }
     };
     const submitForm = async (values) => {
         const submission = {
-            dataset_name: datasetUrn,
+            dataset_name: currUrn,
             requestor: currUser,
             displayName: values.displayName,
             user_token: userToken,
         };
         axios
             .post(updateUrl, submission)
-            .then((response) => printSuccessMsg(response.status))
+            .then((response) => {
+                printSuccessMsg(response.status);
+                setModifiedState(false);
+                window.location.reload();
+            })
             .catch((error) => {
                 printErrorMsg(error.toString());
             });
@@ -60,7 +74,7 @@ export const EditDisplayName = () => {
                 onValuesChange={updateForm}
                 onFinish={submitForm}
             >
-                <Button type="primary" htmlType="submit" disabled={modifiedState}>
+                <Button type="primary" htmlType="submit" disabled={!modifiedState}>
                     Submit
                 </Button>
                 &nbsp;
