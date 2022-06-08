@@ -78,6 +78,7 @@ services:
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
     - MAE_CONSUMER_ENABLED=true
     - MCE_CONSUMER_ENABLED=true
+    - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
     - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
     - PE_CONSUMER_ENABLED=true
     hostname: datahub-gms

@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+import sys
 import textwrap
 from importlib.metadata import metadata, requires
 from typing import Any, Dict, List, Optional
@@ -519,8 +520,9 @@ def generate(
             # output = subprocess.check_output(
             #    ["/bin/bash", "-c", f"pip install -e '.[{key}]'"]
             # )
-
-            source_registry._ensure_not_lazy(plugin_name)
+            class_or_exception = source_registry._ensure_not_lazy(plugin_name)
+            if isinstance(class_or_exception, Exception):
+                raise class_or_exception
             logger.debug(f"Processing {plugin_name}")
             source_type = source_registry.get(plugin_name)
             logger.debug(f"Source class is {source_type}")
@@ -528,10 +530,10 @@ def generate(
             extra_deps = (
                 get_additional_deps_for_extra(extra_plugin) if extra_plugin else []
             )
-
         except Exception as e:
-            print(f"Failed to process {plugin_name} due to {e}")
-            metrics["plugins"]["failed"] = metrics["plugins"]["failed"] + 1
+            print(f"Failed to process {plugin_name} due to exception")
+            print(repr(e))
+            metrics["plugins"]["failed"] = metrics["plugins"].get("failed", 0) + 1
 
         if source_type and hasattr(source_type, "get_config_class"):
             try:
@@ -718,7 +720,7 @@ def generate(
                         "Note that a `.` is used to denote nested fields in the YAML recipe.\n\n"
                     )
                     f.write(
-                        "\n<details>\n<summary>View All Configuration Options</summary>\n\n"
+                        "\n<details open>\n<summary>View All Configuration Options</summary>\n\n"
                     )
                     for doc in plugin_docs["config"]:
                         f.write(doc)
@@ -745,6 +747,8 @@ def generate(
     print("############################################")
     print(json.dumps(metrics, indent=2))
     print("############################################")
+    if metrics["plugins"].get("failed", 0) > 0:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

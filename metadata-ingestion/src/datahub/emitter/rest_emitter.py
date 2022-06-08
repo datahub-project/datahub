@@ -4,7 +4,7 @@ import json
 import logging
 import shlex
 from json.decoder import JSONDecodeError
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
 from requests.adapters import HTTPAdapter, Retry
@@ -73,9 +73,12 @@ class DataHubRestEmitter:
         retry_max_times: Optional[int] = None,
         extra_headers: Optional[Dict[str, str]] = None,
         ca_certificate_path: Optional[str] = None,
+        server_telemetry_id: Optional[str] = None,
     ):
         self._gms_server = gms_server
         self._token = token
+        self.server_config: Dict[str, Any] = {}
+        self.server_telemetry_id: str = ""
 
         self._session = requests.Session()
 
@@ -141,6 +144,7 @@ class DataHubRestEmitter:
         if response.status_code == 200:
             config: dict = response.json()
             if config.get("noCode") == "true":
+                self.server_config = config
                 return config
 
             else:

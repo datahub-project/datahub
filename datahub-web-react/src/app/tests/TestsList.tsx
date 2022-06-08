@@ -18,7 +18,7 @@ import { StyledTable } from '../entity/shared/components/styled/StyledTable';
 import { SearchBar } from '../search/SearchBar';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { TestResultsSummary } from './TestResultsSummary';
-import { CopyUrn } from '../shared/CopyUrn';
+import CopyUrn from '../shared/CopyUrn';
 
 const DeleteButtonContainer = styled.div`
     display: flex;

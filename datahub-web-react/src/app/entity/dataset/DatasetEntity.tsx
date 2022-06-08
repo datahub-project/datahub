@@ -27,6 +27,7 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 import { ValidationsTab } from '../shared/tabs/Dataset/Validations/ValidationsTab';
 import { OperationsTab } from './profile/OperationsTab';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 // import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
 
 const SUBTYPES = {
@@ -85,7 +86,7 @@ export class DatasetEntity implements Entity<Dataset> {
             useEntityQuery={useGetDatasetQuery}
             useUpdateQuery={useUpdateDatasetMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            showDeprecateOption
+            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
             tabs={[
                 {
                     name: 'Schema',

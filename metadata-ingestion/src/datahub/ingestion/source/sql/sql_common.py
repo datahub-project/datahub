@@ -718,6 +718,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 if not sql_config.schema_pattern.allowed(schema):
                     self.report.report_dropped(f"{schema}.*")
                     continue
+                self.add_information_for_schema(inspector, schema)
 
                 yield from self.gen_schema_containers(schema, db_name)
 
@@ -870,6 +871,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     )
         except Exception as e:
             self.report.report_failure(f"{schema}", f"Tables error: {e}")
+
+    def add_information_for_schema(self, inspector: Inspector, schema: str) -> None:
+        pass
 
     def get_extra_tags(
         self, inspector: Inspector, schema: str, table: str

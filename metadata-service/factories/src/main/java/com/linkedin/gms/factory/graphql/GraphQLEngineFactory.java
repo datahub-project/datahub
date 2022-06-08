@@ -136,6 +136,7 @@ public class GraphQLEngineFactory {
           _visualConfiguration,
           _configProvider.getTelemetry(),
           _configProvider.getMetadataTests(),
+          _configProvider.getDatahub(),
           _siblingGraphService
           ).builder().build();
     }
@@ -159,6 +160,7 @@ public class GraphQLEngineFactory {
         _visualConfiguration,
         _configProvider.getTelemetry(),
         _configProvider.getMetadataTests(),
+        _configProvider.getDatahub(),
         _siblingGraphService
     ).builder().build();
   }
