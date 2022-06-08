@@ -41,7 +41,7 @@ framework_common = {
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.2",
+    "avro-gen3==0.7.4",
     "avro>=1.10.2,<1.11",
     "python-dateutil>=2.8.0",
     "stackprinter",
@@ -114,16 +114,11 @@ looker_common = {
 
 bigquery_common = {
     # Google cloud logging library
-    "google-cloud-logging",
+    "google-cloud-logging<3.1.2",
     "google-cloud-bigquery",
     "more-itertools>=8.12.0",
     # we do not use protobuf directly but newer version caused bigquery connector to fail
     "protobuf<=3.20.1",
-    # we do not depend directly on these google libraries
-    # but need to limit versions to reduce time taken for resolution
-    "google-cloud-core>=2.3.0",
-    "google-cloud-bigquery-storage>=2.13.1",
-    "google-resumable-media>=2.3.3",
 }
 
 snowflake_common = {

@@ -992,14 +992,16 @@ class BigQueryUsageSource(Source):
                 if not self._is_table_allowed(event.resource):
                     self.report.num_filtered_read_events += 1
                     continue
+
+                if event.readReason:
+                    self.report.read_reasons_stat[event.readReason] = (
+                        self.report.read_reasons_stat.get(event.readReason, 0) + 1
+                    )
                 self.report.num_read_events += 1
 
             missing_query_entry = QueryEvent.get_missing_key_entry(entry)
             if event is None and missing_query_entry is None:
                 event = QueryEvent.from_entry(entry)
-                if not self._is_table_allowed(event.destinationTable):
-                    self.report.num_filtered_query_events += 1
-                    continue
                 self.report.num_query_events += 1
                 wu = self._create_operation_aspect_work_unit(event)
                 if wu:
@@ -1009,9 +1011,6 @@ class BigQueryUsageSource(Source):
 
             if event is None and missing_query_entry_v2 is None:
                 event = QueryEvent.from_entry_v2(entry)
-                if not self._is_table_allowed(event.destinationTable):
-                    self.report.num_filtered_query_events += 1
-                    continue
                 self.report.num_query_events += 1
                 wu = self._create_operation_aspect_work_unit(event)
                 if wu:
