@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import time
 from dataclasses import dataclass
 from datetime import timezone
@@ -55,6 +56,8 @@ from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeCla
 from datahub.utilities.sql_parser import DefaultSQLParser
 
 logger = logging.getLogger(__name__)
+if os.getenv("DATAHUB_DEBUG", False):
+    logger.setLevel(logging.DEBUG)
 
 GE_PLATFORM_NAME = "great-expectations"
 

@@ -6,6 +6,7 @@ import os
 import re
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
+from json import JSONDecodeError
 from typing import (
     Any,
     Dict,
@@ -378,9 +379,16 @@ class LookerDashboardSource(Source):
         # - looker table calculations: https://docs.looker.com/exploring-data/using-table-calculations
         # - looker custom measures: https://docs.looker.com/de/exploring-data/adding-fields/custom-measure
         # - looker custom dimensions: https://docs.looker.com/exploring-data/adding-fields/custom-measure#creating_a_custom_dimension_using_a_looker_expression
-        dynamic_fields = json.loads(
-            query.dynamic_fields if query.dynamic_fields is not None else "[]"
-        )
+        try:
+            dynamic_fields = json.loads(
+                query.dynamic_fields if query.dynamic_fields is not None else "[]"
+            )
+        except JSONDecodeError as e:
+            logger.warning(
+                f"Json load failed on loading dynamic field with error: {e}. The field value was: {query.dynamic_fields}"
+            )
+            dynamic_fields = "[]"
+
         custom_field_to_underlying_field = {}
         for field in dynamic_fields:
             # Table calculations can only reference fields used in the fields section, so this will always be a subset of of the query.fields

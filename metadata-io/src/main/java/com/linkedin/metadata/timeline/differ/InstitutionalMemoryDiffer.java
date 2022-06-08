@@ -8,7 +8,7 @@ import com.linkedin.common.InstitutionalMemoryMetadata;
 import com.linkedin.common.InstitutionalMemoryMetadataArray;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
@@ -19,7 +19,7 @@ import java.util.Comparator;
 import java.util.List;
 import javax.annotation.Nonnull;
 
-import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME;
 
 
 public class InstitutionalMemoryDiffer implements AspectDiffer<InstitutionalMemory> {
@@ -133,9 +133,9 @@ public class InstitutionalMemoryDiffer implements AspectDiffer<InstitutionalMemo
     return changeEvents;
   }
 
-  private static InstitutionalMemory getInstitutionalMemoryFromAspect(EbeanAspectV2 ebeanAspectV2) {
-    if (ebeanAspectV2 != null && ebeanAspectV2.getMetadata() != null) {
-      return RecordUtils.toRecordTemplate(InstitutionalMemory.class, ebeanAspectV2.getMetadata());
+  private static InstitutionalMemory getInstitutionalMemoryFromAspect(EntityAspect entityAspect) {
+    if (entityAspect != null && entityAspect.getMetadata() != null) {
+      return RecordUtils.toRecordTemplate(InstitutionalMemory.class, entityAspect.getMetadata());
     }
     return null;
   }
@@ -150,7 +150,7 @@ public class InstitutionalMemoryDiffer implements AspectDiffer<InstitutionalMemo
   }
 
   @Override
-  public ChangeTransaction getSemanticDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue,
+  public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
       ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
     if (!previousValue.getAspect().equals(INSTITUTIONAL_MEMORY_ASPECT_NAME) || !currentValue.getAspect()
         .equals(INSTITUTIONAL_MEMORY_ASPECT_NAME)) {

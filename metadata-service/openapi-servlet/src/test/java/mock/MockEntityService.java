@@ -19,6 +19,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.AspectType;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
@@ -47,13 +48,15 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import static entities.EntitiesControllerTest.*;
 
 
 public class MockEntityService extends EntityService {
-  public MockEntityService(@Nonnull EventProducer producer, @Nonnull EntityRegistry entityRegistry) {
-    super(producer, entityRegistry);
+  public MockEntityService(@Nonnull AspectDao aspectDao, @Nonnull EventProducer producer, @Nonnull EntityRegistry entityRegistry) {
+    super(aspectDao, producer, entityRegistry);
   }
 
   @Override
@@ -161,6 +164,13 @@ public class MockEntityService extends EntityService {
       @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest, @Nonnull AuditStamp auditStamp,
       @Nonnull SystemMetadata providedSystemMetadata) {
     return Collections.emptyList();
+  }
+
+  @Nullable
+  @Override
+  public RecordTemplate ingestAspectIfNotPresent(@NotNull Urn urn, @NotNull String aspectName,
+      @NotNull RecordTemplate newValue, @NotNull AuditStamp auditStamp, SystemMetadata systemMetadata) {
+    return null;
   }
 
   @Override

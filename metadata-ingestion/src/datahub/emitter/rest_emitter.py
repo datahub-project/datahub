@@ -4,7 +4,7 @@ import json
 import logging
 import shlex
 from json.decoder import JSONDecodeError
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
 from requests.adapters import HTTPAdapter, Retry
@@ -30,7 +30,7 @@ def _make_curl_command(
         *itertools.chain(
             *[
                 ("-X", method),
-                *[("-H", f"{k}: {v}") for (k, v) in session.headers.items()],
+                *[("-H", f"{k!s}: {v!s}") for (k, v) in session.headers.items()],
                 ("--data", payload),
             ]
         ),
@@ -73,9 +73,13 @@ class DataHubRestEmitter:
         retry_max_times: Optional[int] = None,
         extra_headers: Optional[Dict[str, str]] = None,
         ca_certificate_path: Optional[str] = None,
+        server_telemetry_id: Optional[str] = None,
+        disable_ssl_verification: bool = False,
     ):
         self._gms_server = gms_server
         self._token = token
+        self.server_config: Dict[str, Any] = {}
+        self.server_telemetry_id: str = ""
 
         self._session = requests.Session()
 
@@ -93,6 +97,9 @@ class DataHubRestEmitter:
 
         if ca_certificate_path:
             self._session.verify = ca_certificate_path
+
+        if disable_ssl_verification:
+            self._session.verify = False
 
         if connect_timeout_sec:
             self._connect_timeout_sec = connect_timeout_sec
@@ -141,6 +148,7 @@ class DataHubRestEmitter:
         if response.status_code == 200:
             config: dict = response.json()
             if config.get("noCode") == "true":
+                self.server_config = config
                 return config
 
             else:

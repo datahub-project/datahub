@@ -67,13 +67,14 @@ We use a plugin architecture so that you can install only the dependencies you a
 | [athena](./generated/ingestion/sources/athena.md)                               | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
 | [bigquery](./generated/ingestion/sources/bigquery.md)                           | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
 | [bigquery-usage](./generated/ingestion/sources/bigquery.md#module-bigquery-usage)                     | `pip install 'acryl-datahub[bigquery-usage]'`              | BigQuery usage statistics source    |
-| [datahub-lineage-file](./generated/ingestion/sources/file-based-lineage.md)           | _no additional dependencies_                               | Lineage File source                 |
+| [datahub-lineage-file](./generated/ingestion/sources/file-based-lineage.md)           | _no additional dependencies_                               | Lineage File source           |
 | [datahub-business-glossary](./generated/ingestion/sources/business-glossary.md) | _no additional dependencies_                               | Business Glossary File source       |
 | [dbt](./generated/ingestion/sources/dbt.md)                                     | _no additional dependencies_                               | dbt source                          |
 | [druid](./generated/ingestion/sources/druid.md)                                 | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
-| [feast-legacy](./generated/ingestion/sources/feast.md#module-feast-legacy)                   | `pip install 'acryl-datahub[feast-legacy]'`                | Feast source (legacy)               |
+| [feast-legacy](./generated/ingestion/sources/feast.md#module-feast-legacy)                   | `pip install 'acryl-datahub[feast-legacy]'`                | Feast source (legacy)  |
 | [feast](./generated/ingestion/sources/feast.md)                                 | `pip install 'acryl-datahub[feast]'`                       | Feast source (0.18.0)               |
 | [glue](./generated/ingestion/sources/glue.md)                                   | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
+| [hana](./generated/ingestion/sources/hana.md)                                   | `pip install 'acryl-datahub[hana]'`                        | SAP HANA source                     |
 | [hive](./generated/ingestion/sources/hive.md)                                   | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
 | [kafka](./generated/ingestion/sources/kafka.md)                                 | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
 | [kafka-connect](./generated/ingestion/sources/kafka-connect.md)                 | `pip install 'acryl-datahub[kafka-connect]'`               | Kafka connect source                |

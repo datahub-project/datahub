@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a DataHub Access Token
+ */
+@Aspect = {
+  "name": "dataHubAccessTokenKey"
+}
+record DataHubAccessTokenKey {
+  /**
+   * Access token's SHA-256 hashed JWT signature
+   */
+  id: string
+}

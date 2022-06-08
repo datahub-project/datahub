@@ -19,5 +19,25 @@ record GlossaryNodeInfo {
   /**
    * Parent node of the glossary term
    */
+  @Relationship = {
+    "name": "IsPartOf",
+    "entityTypes": [ "glossaryNode" ],
+  }
+  @Searchable = {
+    "fieldName": "parentNode",
+    "fieldType": "URN",
+    "hasValuesFieldName": "hasParentNode"
+  }
   parentNode: optional GlossaryNodeUrn
+
+    /**
+     * Display name of the node
+     */
+    @Searchable = {
+      "fieldName": "displayName",
+      "fieldType": "TEXT_PARTIAL",
+      "enableAutocomplete": true,
+      "boostScore": 10.0
+    }
+    name: optional string
 }
