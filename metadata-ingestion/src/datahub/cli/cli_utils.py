@@ -297,10 +297,7 @@ def post_delete_references_endpoint(
     path: str,
     cached_session_host: Optional[Tuple[Session, str]] = None,
 ) -> Tuple[int, List[Dict]]:
-    if not cached_session_host:
-        session, gms_host = get_session_and_host()
-    else:
-        session, gms_host = cached_session_host
+    session, gms_host = cached_session_host or get_session_and_host()
     url = gms_host + path
 
     payload = json.dumps(payload_obj)
@@ -316,10 +313,7 @@ def post_delete_endpoint(
     path: str,
     cached_session_host: Optional[Tuple[Session, str]] = None,
 ) -> typing.Tuple[str, int]:
-    if not cached_session_host:
-        session, gms_host = get_session_and_host()
-    else:
-        session, gms_host = cached_session_host
+    session, gms_host = cached_session_host or get_session_and_host()
     url = gms_host + path
 
     return post_delete_endpoint_with_session_and_url(session, url, payload_obj)
@@ -369,9 +363,7 @@ def get_urns_by_filter(
                 "condition": "EQUAL",
             }
         )
-    if platform is not None and (
-        entity_type_lower == "chart" or entity_type_lower == "dashboard"
-    ):
+    if platform is not None and entity_type_lower in {"chart", "dashboard"}:
         filter_criteria.append(
             {
                 "field": "tool",
@@ -479,10 +471,7 @@ def batch_get_ids(
     session, gms_host = get_session_and_host()
     endpoint: str = "/entitiesV2"
     url = gms_host + endpoint
-    ids_to_get = []
-    for id in ids:
-        ids_to_get.append(Urn.url_encode(id))
-
+    ids_to_get = [Urn.url_encode(id) for id in ids]
     response = session.get(
         f"{url}?ids=List({','.join(ids_to_get)})",
     )
@@ -539,11 +528,7 @@ def get_entity(
     aspect: Optional[List] = None,
     cached_session_host: Optional[Tuple[Session, str]] = None,
 ) -> Dict:
-    if not cached_session_host:
-        session, gms_host = get_session_and_host()
-    else:
-        session, gms_host = cached_session_host
-
+    session, gms_host = cached_session_host or get_session_and_host()
     if urn.startswith("urn%3A"):
         # we assume the urn is already encoded
         encoded_urn: str = urn
@@ -570,11 +555,7 @@ def post_entity(
     aspect_value: Dict,
     cached_session_host: Optional[Tuple[Session, str]] = None,
 ) -> Dict:
-    if not cached_session_host:
-        session, gms_host = get_session_and_host()
-    else:
-        session, gms_host = cached_session_host
-
+    session, gms_host = cached_session_host or get_session_and_host()
     endpoint: str = "/aspects/?action=ingestProposal"
 
     proposal = {
@@ -671,10 +652,7 @@ def get_latest_timeseries_aspect_values(
     timeseries_aspect_name: str,
     cached_session_host: Optional[Tuple[Session, str]],
 ) -> Dict:
-    if not cached_session_host:
-        session, gms_host = get_session_and_host()
-    else:
-        session, gms_host = cached_session_host
+    session, gms_host = cached_session_host or get_session_and_host()
     query_body = {
         "urn": entity_urn,
         "entity": guess_entity_type(entity_urn),
@@ -725,14 +703,8 @@ def get_aspects_for_entity(
                 aspect_value["aspect"]["value"] = json.loads(
                     aspect_value["aspect"]["value"]
                 )
-                aspect_list.update(
-                    # Follow the convention used for non-timeseries aspects.
-                    {
-                        aspect_cls.RECORD_SCHEMA.fullname.replace(
-                            "pegasus2avro.", ""
-                        ): aspect_value
-                    }
-                )
+                aspect_list[aspect_cls.RECORD_SCHEMA.fullname.replace("pegasus2avro.", "")] = aspect_value
+
 
     aspect_map: Dict[str, Union[dict, DictWrapper]] = {}
     for a in aspect_list.values():
@@ -756,4 +728,4 @@ def get_aspects_for_entity(
     if aspects:
         return {k: v for (k, v) in aspect_map.items() if k in aspects}
     else:
-        return {k: v for (k, v) in aspect_map.items()}
+        return dict(aspect_map)
