@@ -30,7 +30,7 @@ def _is_valid_hostname(hostname: str) -> bool:
     """
     if len(hostname) > 253:
         return False
-    # Hostnames ending on a dot are valid, if present strip exactly one
+    # Hostname's ending on a dot are valid, if present strip exactly one
     if hostname[-1] == ".":
         hostname = hostname[:-1]
     allowed = re.compile(r"(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
@@ -82,7 +82,7 @@ class PulsarSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
     )
     exclude_individual_partitions: bool = Field(
         default=True,
-        description="Extract each individual partitioned topic. e.g. when turned off a topic with 100 partitions will result in 100 Datesets.",
+        description="Extract each individual partitioned topic. e.g. when turned off a topic with 100 partitions will result in 100 Datasets.",
     )
 
     tenants: List[str] = Field(
