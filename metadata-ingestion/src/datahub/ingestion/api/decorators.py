@@ -34,11 +34,8 @@ def platform_name(
 
     def wrapper(cls: Type) -> Type:
         setattr(cls, "get_platform_name", lambda: platform_name)
-        setattr(
-            cls,
-            "get_platform_id",
-            lambda: id if id else platform_name.lower().replace(" ", "-"),
-        )
+        setattr(cls, "get_platform_id", lambda: id or platform_name.lower().replace(" ", "-"))
+
         return cls
 
     if id and " " in id:
