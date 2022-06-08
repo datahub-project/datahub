@@ -6,7 +6,6 @@ import com.datahub.authorization.AuthorizedActors;
 import com.datahub.authorization.Authorizer;
 import com.datahub.authorization.AuthorizerContext;
 import com.datahub.authorization.ResourceSpec;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import java.util.ArrayList;
@@ -23,6 +22,7 @@ import org.apache.ranger.plugin.policyengine.RangerAccessResult;
 
 @Slf4j
 public class RangerAuthorizer implements Authorizer {
+
   private AuthorizerConfig authorizerConfig;
   private DataHubRangerClient dataHubRangerClient;
 
@@ -31,7 +31,11 @@ public class RangerAuthorizer implements Authorizer {
 
   @Override
   public void init(@Nonnull Map<String, Object> authorizerConfigMap, @Nonnull final AuthorizerContext ctx) {
-    this.authorizerConfig = (new ObjectMapper()).convertValue(authorizerConfigMap, AuthorizerConfig.class);
+    this.authorizerConfig = AuthorizerConfig.builder()
+        .username((String) authorizerConfigMap.get(AuthorizerConfig.CONFIG_USERNAME))
+        .password((String) authorizerConfigMap.get(AuthorizerConfig.CONFIG_PASSWORD))
+        .build();
+
     this.dataHubRangerClient = this.newDataHubRangerClient();
     this.dataHubRangerClient.init();
   }
@@ -72,7 +76,7 @@ public class RangerAuthorizer implements Authorizer {
     }
 
     String message = String.format("Access to resource \"%s\" for privilege \"%s\" is \"%s\" for user \"%s\"",
-        resourceSpec.getResource(), request.getPrivilege(), result.toString(), userIdentifier);
+        resourceSpec.getResource(), request.getPrivilege(), result, userIdentifier);
     log.debug(message);
     return new AuthorizationResult(request, result, message);
   }

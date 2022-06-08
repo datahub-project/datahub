@@ -105,6 +105,7 @@ public class AuthorizerChainFactory {
           final Authorizer authorizerInstance = clazz.newInstance();
           authorizerInstance.init(configs, ctx);
           customAuthorizers.add(authorizerInstance);
+          log.info(String.format("Authorizer %s is initialized", type));
         } catch (Exception e) {
           throw new RuntimeException(
               String.format("Failed to instantiate custom Authorizer with class name %s", clazz.getCanonicalName()), e);

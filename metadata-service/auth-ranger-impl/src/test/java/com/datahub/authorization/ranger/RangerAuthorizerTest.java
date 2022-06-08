@@ -56,6 +56,10 @@ public class RangerAuthorizerTest {
 
   @BeforeMethod
   public void setupTest() throws Exception {
+    authorizerConfigMap = new HashMap<>();
+    authorizerConfigMap.put(AuthorizerConfig.CONFIG_USERNAME, "foo");
+    authorizerConfigMap.put(AuthorizerConfig.CONFIG_PASSWORD, "bar");
+
     // Mock Apache Ranger library classes
     rangerBasePlugin = mock(RangerBasePlugin.class);
     rangerRestClientWrapper = mock(RangerRestClientWrapper.class);
@@ -63,7 +67,12 @@ public class RangerAuthorizerTest {
     // Spy our class method to inject Mock objects of Apache Ranger library classes
     rangerAuthorizer = spy(RangerAuthorizer.class);
 
-    _dataHubRangerClient = spy(new DataHubRangerClient(new AuthorizerConfig("foo", "bar")));
+    AuthorizerConfig authorizerConfig = AuthorizerConfig.builder()
+        .username((String) authorizerConfigMap.get(AuthorizerConfig.CONFIG_USERNAME))
+        .password((String) authorizerConfigMap.get(AuthorizerConfig.CONFIG_PASSWORD))
+        .build();
+
+    _dataHubRangerClient = spy(new DataHubRangerClient(authorizerConfig));
 
     rangerAccessResource = new RangerAccessResourceImpl();
     rangerAccessResource.setValue("platform", "platform");
