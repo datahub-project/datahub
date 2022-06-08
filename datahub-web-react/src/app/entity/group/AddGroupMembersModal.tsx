@@ -33,6 +33,14 @@ const SelectInput = styled(Select)`
     }
 `;
 
+const StyleTag = styled(Tag)`
+    padding: 0px 7px 0px 0px;
+    margin-right: 3px;
+    display: flex;
+    justify-content: start;
+    align-items: center;
+`;
+
 export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: Props) => {
     const entityRegistry = useEntityRegistry();
     const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
@@ -87,20 +95,9 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
             event.stopPropagation();
         };
         return (
-            <Tag
-                onMouseDown={onPreventMouseDown}
-                closable={closable}
-                onClose={onClose}
-                style={{
-                    padding: '0px 7px 0px 0px',
-                    marginRight: 3,
-                    display: 'flex',
-                    justifyContent: 'start',
-                    alignItems: 'center',
-                }}
-            >
+            <StyleTag onMouseDown={onPreventMouseDown} closable={closable} onClose={onClose}>
                 {label}
-            </Tag>
+            </StyleTag>
         );
     };
 
