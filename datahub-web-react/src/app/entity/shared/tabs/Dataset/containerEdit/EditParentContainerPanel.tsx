@@ -17,7 +17,7 @@ export const EditParentContainerPanel = () => {
     const dataset = useBaseEntity<GetDatasetQuery>();
     const datasetUrn = useBaseEntity<GetDatasetQuery>()?.dataset?.urn;
     const platform = dataset?.dataset?.platform?.urn || '';
-    const containerValue = dataset?.dataset?.container?.properties?.name || '';
+    const containerValue = dataset?.dataset?.container?.properties?.name || 'none';
 
     const [modifiedState, setModifiedState] = useState(true);
 
@@ -33,8 +33,6 @@ export const EditParentContainerPanel = () => {
 
     const updateForm = () => {
         setModifiedState(false);
-        const hasErrors = formState.getFieldsError().some(({ errors }) => errors.length);
-        setModifiedState(!hasErrors);
     };
     const resetForm = () => {
         setModifiedState(true);
@@ -42,7 +40,7 @@ export const EditParentContainerPanel = () => {
     };
 
     const onFinish = async (values) => {
-        const proposedContainer = values.parentContainerSelect[0];
+        const proposedContainer = values.parentContainer;
         // container is always 1 only, hence list to singular value
         const submission = {
             dataset_name: datasetUrn,
@@ -67,7 +65,7 @@ export const EditParentContainerPanel = () => {
                 onFinish={onFinish}
                 onValuesChange={updateForm}
                 initialValues={{
-                    parentContainerSelect: containerValue,
+                    parentContainer: containerValue,
                 }}
             >
                 <Button type="primary" htmlType="submit" disabled={modifiedState}>
@@ -77,7 +75,7 @@ export const EditParentContainerPanel = () => {
                 <Button htmlType="button" onClick={resetForm}>
                     Reset
                 </Button>
-                <SetParentContainer platformType={platform} />
+                <SetParentContainer platformType={platform} compulsory />
             </Form>
         </>
     );
