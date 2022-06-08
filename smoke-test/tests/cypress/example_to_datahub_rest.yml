@@ -2,7 +2,7 @@
 source:
   type: "file"
   config:
-    filename: "./data.json"
+    filename: "./acryl-main-data.json"
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:

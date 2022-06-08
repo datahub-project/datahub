@@ -230,12 +230,14 @@ describe('schemaProposals', () => {
       cy.wait(3000);
 
       cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
-      cy.get('[data-testid="schema-field-field_foo-tags"]').contains('TagToPropose');
 
+      cy.wait(3000);
+
+      cy.get('[data-testid="schema-field-field_foo-tags"]').contains('TagToPropose');
       cy.get('[data-testid="proposed-tag-TagToPropose"]').should('not.exist');
 
       // Data cleanup
-      cy.contains('TagToPropose').within(() => cy.get('span[aria-label=close]').click());
+      cy.contains('TagToPropose').within(() => cy.get('span[aria-label=close]').click({force: true}));
       cy.contains('Yes').click();
     });
 
@@ -278,10 +280,11 @@ describe('schemaProposals', () => {
 
       // Verifying the applied glossary term is present
       cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
+      cy.wait(3000);
       cy.get('[data-testid="schema-field-field_foo-terms"]').contains('TermToPropose');
 
       // Data cleanup
-      cy.contains('TermToPropose').within(() => cy.get('span[aria-label=close]').click());
+      cy.contains('TermToPropose').within(() => cy.get('span[aria-label=close]').click({force: true}));
       cy.contains('Yes').click();
     });
   })
