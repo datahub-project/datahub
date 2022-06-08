@@ -130,18 +130,17 @@ class LookerConnectionDefinition(ConfigModel):
             ".*": _get_generic_definition,
         }
 
-        if looker_connection.dialect_name is not None:
-            for extractor_pattern, extracting_function in extractors.items():
-                if re.match(extractor_pattern, looker_connection.dialect_name):
-                    (platform, db, schema) = extracting_function(looker_connection)
-                    return cls(platform=platform, default_db=db, default_schema=schema)
-            raise ConfigurationError(
-                f"Could not find an appropriate platform for looker_connection: {looker_connection.name} with dialect: {looker_connection.dialect_name}"
-            )
-        else:
+        if looker_connection.dialect_name is None:
             raise ConfigurationError(
                 f"Unable to fetch a fully filled out connection for {looker_connection.name}. Please check your API permissions."
             )
+        for extractor_pattern, extracting_function in extractors.items():
+            if re.match(extractor_pattern, looker_connection.dialect_name):
+                (platform, db, schema) = extracting_function(looker_connection)
+                return cls(platform=platform, default_db=db, default_schema=schema)
+        raise ConfigurationError(
+            f"Could not find an appropriate platform for looker_connection: {looker_connection.name} with dialect: {looker_connection.dialect_name}"
+        )
 
 
 class LookMLSourceConfig(LookerCommonConfig):
@@ -591,7 +590,7 @@ class LookerView:
             if sql_table_name is not None
             else None
         )
-        derived_table = looker_view.get("derived_table", None)
+        derived_table = looker_view.get("derived_table")
 
         dimensions = cls._get_fields(
             looker_view.get("dimensions", []), ViewFieldType.DIMENSION
@@ -605,7 +604,7 @@ class LookerView:
         fields: List[ViewField] = dimensions + dimension_groups + measures
 
         # also store the view logic and materialization
-        view_logic = looker_viewfile.raw_file_content[0:max_file_snippet_length]
+        view_logic = looker_viewfile.raw_file_content[:max_file_snippet_length]
 
         # Parse SQL from derived tables to extract dependencies
         if derived_table is not None:
@@ -630,9 +629,7 @@ class LookerView:
                 if k in ["datagroup_trigger", "sql_trigger_value", "persist_for"]:
                     materialized = True
             if "materialized_view" in derived_table:
-                materialized = (
-                    True if derived_table["materialized_view"] == "yes" else False
-                )
+                materialized = derived_table["materialized_view"] == "yes"
 
             view_details = ViewProperties(
                 materialized=materialized, viewLogic=view_logic, viewLanguage=view_lang
@@ -654,14 +651,7 @@ class LookerView:
 
         # If not a derived table, then this view essentially wraps an existing
         # object in the database.
-        if sql_table_name is not None:
-            # If sql_table_name is set, there is a single dependency in the view, on the sql_table_name.
-            sql_table_names = [sql_table_name]
-        else:
-            # Otherwise, default to the view name as per the docs:
-            # https://docs.looker.com/reference/view-params/sql_table_name-for-view
-            sql_table_names = [view_name]
-
+        sql_table_names = [view_name] if sql_table_name is None else [sql_table_name]
         output_looker_view = LookerView(
             id=LookerViewId(
                 project_name=project_name, model_name=model_name, view_name=view_name
@@ -705,7 +695,7 @@ class LookerView:
             # Add those in if we detect that it is missing
             if not re.search(r"SELECT\s", sql_query, flags=re.I):
                 # add a SELECT clause at the beginning
-                sql_query = "SELECT " + sql_query
+                sql_query = f"SELECT {sql_query}"
             if not re.search(r"FROM\s", sql_query, flags=re.I):
                 # add a FROM clause at the end
                 sql_query = f"{sql_query} FROM {sql_table_name if sql_table_name is not None else view_name}"
@@ -714,7 +704,7 @@ class LookerView:
                 sql_info = cls._get_sql_info(sql_query, sql_parser_path)
                 sql_table_names = sql_info.table_names
                 column_names = sql_info.column_names
-                if fields == []:
+                if not fields:
                     # it seems like the view is defined purely as sql, let's try using the column names to populate the schema
                     fields = [
                         # set types to unknown for now as our sql parser doesn't give us column types yet
@@ -722,10 +712,7 @@ class LookerView:
                         for c in column_names
                     ]
             except Exception as e:
-                reporter.report_warning(
-                    f"looker-view-{view_name}",
-                    f"Failed to parse sql query, lineage will not be accurate. Exception: {e}",
-                )
+                reporter.report_warning(f"looker-view-{view_name}", f"Failed to parse sql query, lineage will not be accurate. Exception: {e}")
 
         return fields, sql_table_names
 
@@ -843,10 +830,7 @@ class LookMLSource(Source):
         return looker_model
 
     def _platform_names_have_2_parts(self, platform: str) -> bool:
-        if platform in ["hive", "mysql", "athena"]:
-            return True
-        else:
-            return False
+        return platform in {"hive", "mysql", "athena"}
 
     def _generate_fully_qualified_name(
         self, sql_table_name: str, connection_def: LookerConnectionDefinition
@@ -998,7 +982,6 @@ class LookMLSource(Source):
     def _build_dataset_mcps(
         self, looker_view: LookerView
     ) -> List[MetadataChangeProposalWrapper]:
-        events = []
         subTypeEvent = MetadataChangeProposalWrapper(
             entityType="dataset",
             changeType=ChangeTypeClass.UPSERT,
@@ -1006,7 +989,7 @@ class LookMLSource(Source):
             aspectName="subTypes",
             aspect=SubTypesClass(typeNames=["view"]),
         )
-        events.append(subTypeEvent)
+        events = [subTypeEvent]
         if looker_view.view_details is not None:
             viewEvent = MetadataChangeProposalWrapper(
                 entityType="dataset",
@@ -1047,9 +1030,7 @@ class LookMLSource(Source):
             dataset_snapshot.aspects.append(schema_metadata)
         dataset_snapshot.aspects.append(self._get_custom_properties(looker_view))
 
-        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-
-        return mce
+        return MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
 
     def get_project_name(self, model_name: str) -> str:
         if self.source_config.project_name is not None:
@@ -1091,7 +1072,7 @@ class LookMLSource(Source):
 
         for file_path in model_files:
             self.reporter.report_models_scanned()
-            model_name = file_path.stem[0:-model_suffix_len]
+            model_name = file_path.stem[:-model_suffix_len]
 
             if not self.source_config.model_pattern.allowed(model_name):
                 self.reporter.report_models_dropped(model_name)
