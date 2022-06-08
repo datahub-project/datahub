@@ -1,5 +1,5 @@
 source:
-  type: "feast-repository"
+  type: "feast"
   config:
     path: "/path/to/repository/"
     environment: "PROD"
