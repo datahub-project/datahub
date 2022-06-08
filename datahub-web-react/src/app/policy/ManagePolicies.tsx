@@ -254,6 +254,7 @@ export const ManagePolicies = () => {
             content: `Are you sure you want to remove policy?`,
             onOk() {
                 deletePolicy({ variables: { urn: policy?.urn as string } }); // There must be a focus policy urn.
+                message.success('Successfully removed policy.');
                 setTimeout(function () {
                     policiesRefetch();
                 }, 3000);
@@ -273,9 +274,10 @@ export const ManagePolicies = () => {
     };
 
     const onToggleActiveDuplicate = (policy: Policy) => {
+        const newState = policy?.state === PolicyState.Active ? PolicyState.Inactive : PolicyState.Active;
         const newPolicy = {
             ...policy,
-            state: policy?.state === PolicyState.Active ? PolicyState.Inactive : PolicyState.Active,
+            state: newState,
         };
         updatePolicy({
             variables: {
@@ -283,6 +285,7 @@ export const ManagePolicies = () => {
                 input: toPolicyInput(newPolicy),
             },
         });
+        message.success(`Successfully ${newState === PolicyState.Active ? 'activated' : 'deactivated'} policy.`);
         setTimeout(function () {
             policiesRefetch();
         }, 3000);
@@ -351,6 +354,7 @@ export const ManagePolicies = () => {
                         />
                         {record?.allUsers ? <ActorTag>All Users</ActorTag> : null}
                         {record?.allGroups ? <ActorTag>All Groups</ActorTag> : null}
+                        {record?.resourceOwners ? <ActorTag>All Owners</ActorTag> : null}
                     </>
                 );
             },
@@ -407,6 +411,7 @@ export const ManagePolicies = () => {
     const tableData = policies?.map((policy) => ({
         allGroups: policy?.actors?.allGroups,
         allUsers: policy?.actors?.allUsers,
+        resourceOwners: policy?.actors?.resourceOwners,
         description: policy?.description,
         editable: policy?.editable,
         name: policy?.name,
