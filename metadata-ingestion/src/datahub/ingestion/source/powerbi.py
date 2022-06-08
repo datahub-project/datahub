@@ -131,7 +131,7 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     authority = "https://login.microsoftonline.com/"
 
     def get_authority_url(self):
-        return "{}{}".format(self.authority, self.tenant_id)
+        return f"{self.authority}{self.tenant_id}"
 
 
 class PowerBiDashboardSourceConfig(PowerBiAPIConfig):
@@ -216,7 +216,7 @@ class PowerBiAPI:
         tables: List[Any]
 
         def get_urn_part(self):
-            return "datasets.{}".format(self.id)
+            return f"datasets.{self.id}"
 
         def __members(self):
             return (self.id,)
@@ -239,7 +239,7 @@ class PowerBiAPI:
         dataset: Any
 
         def get_urn_part(self):
-            return "reports.{}".format(self.id)
+            return f"reports.{self.id}"
 
     @dataclass
     class Tile:
@@ -257,7 +257,7 @@ class PowerBiAPI:
         createdFrom: CreatedFrom
 
         def get_urn_part(self):
-            return "charts.{}".format(self.id)
+            return f"charts.{self.id}"
 
     @dataclass
     class User:
@@ -269,7 +269,7 @@ class PowerBiAPI:
         principalType: str
 
         def get_urn_part(self):
-            return "users.{}".format(self.id)
+            return f"users.{self.id}"
 
         def __members(self):
             return (self.id,)
@@ -296,7 +296,7 @@ class PowerBiAPI:
         users: List[Any]
 
         def get_urn_part(self):
-            return "dashboards.{}".format(self.id)
+            return f"dashboards.{self.id}"
 
         def __members(self):
             return (self.id,)
@@ -322,9 +322,9 @@ class PowerBiAPI:
         )
 
         # Test connection by generating a access token
-        LOGGER.info("Trying to connect to {}".format(self.__config.get_authority_url()))
+        LOGGER.info(f"Trying to connect to {self.__config.get_authority_url()}")
         self.get_access_token()
-        LOGGER.info("Able to connect to {}".format(self.__config.get_authority_url()))
+        LOGGER.info(f"Able to connect to {self.__config.get_authority_url()}")
 
     def __get_users(self, workspace_id: str, entity: str, id: str) -> List[User]:
         """
@@ -338,7 +338,7 @@ class PowerBiAPI:
             ENTITY_ID=id,
         )
         # Hit PowerBi
-        LOGGER.info("Request to URL={}".format(user_list_endpoint))
+        LOGGER.info(f"Request to URL={user_list_endpoint}")
         response = requests.get(
             url=user_list_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
@@ -346,14 +346,11 @@ class PowerBiAPI:
 
         # Check if we got response from PowerBi
         if response.status_code != 200:
-            LOGGER.warning(
-                "Failed to fetch user list from power-bi for, http_status={}, message={}".format(
-                    response.status_code, response.text
-                )
-            )
-            LOGGER.info("{}={}".format(Constant.WorkspaceId, workspace_id))
-            LOGGER.info("{}={}".format(Constant.ENTITY, entity))
-            LOGGER.info("{}={}".format(Constant.ID, id))
+            LOGGER.warning(f"Failed to fetch user list from power-bi for, http_status={response.status_code}, message={response.text}")
+
+            LOGGER.info(f"{Constant.WorkspaceId}={workspace_id}")
+            LOGGER.info(f"{Constant.ENTITY}={entity}")
+            LOGGER.info(f"{Constant.ID}={id}")
             raise ConnectionError("Failed to fetch the user list from the power-bi")
 
         users_dict: List[Any] = response.json()[Constant.VALUE]
@@ -379,8 +376,8 @@ class PowerBiAPI:
         """
         if workspace_id is None or report_id is None:
             LOGGER.info("Input values are None")
-            LOGGER.info("{}={}".format(Constant.WorkspaceId, workspace_id))
-            LOGGER.info("{}={}".format(Constant.ReportId, report_id))
+            LOGGER.info(f"{Constant.WorkspaceId}={workspace_id}")
+            LOGGER.info(f"{Constant.ReportId}={report_id}")
             return None
 
         report_get_endpoint: str = PowerBiAPI.API_ENDPOINTS[Constant.REPORT_GET]
@@ -391,7 +388,7 @@ class PowerBiAPI:
             REPORT_ID=report_id,
         )
         # Hit PowerBi
-        LOGGER.info("Request to report URL={}".format(report_get_endpoint))
+        LOGGER.info(f"Request to report URL={report_get_endpoint}")
         response = requests.get(
             url=report_get_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
@@ -401,8 +398,8 @@ class PowerBiAPI:
         if response.status_code != 200:
             message: str = "Failed to fetch report from power-bi for"
             LOGGER.warning(message)
-            LOGGER.warning("{}={}".format(Constant.WorkspaceId, workspace_id))
-            LOGGER.warning("{}={}".format(Constant.ReportId, report_id))
+            LOGGER.warning(f"{Constant.WorkspaceId}={workspace_id}")
+            LOGGER.warning(f"{Constant.ReportId}={report_id}")
             raise ConnectionError(message)
 
         response_dict = response.json()
@@ -440,7 +437,7 @@ class PowerBiAPI:
 
         self.__access_token = "Bearer {}".format(auth_response.get("access_token"))
 
-        LOGGER.debug("{}={}".format(Constant.PBIAccessToken, self.__access_token))
+        LOGGER.debug(f"{Constant.PBIAccessToken}={self.__access_token}")
 
         return self.__access_token
 
@@ -464,7 +461,7 @@ class PowerBiAPI:
             POWERBI_BASE_URL=self.__config.base_url, WORKSPACE_ID=workspace.id
         )
         # Hit PowerBi
-        LOGGER.info("Request to URL={}".format(dashboard_list_endpoint))
+        LOGGER.info(f"Request to URL={dashboard_list_endpoint}")
         response = requests.get(
             url=dashboard_list_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
@@ -473,7 +470,7 @@ class PowerBiAPI:
         # Check if we got response from PowerBi
         if response.status_code != 200:
             LOGGER.warning("Failed to fetch dashboard list from power-bi for")
-            LOGGER.warning("{}={}".format(Constant.WorkspaceId, workspace.id))
+            LOGGER.warning(f"{Constant.WorkspaceId}={workspace.id}")
             raise ConnectionError(
                 "Failed to fetch the dashboard list from the power-bi"
             )
@@ -505,8 +502,8 @@ class PowerBiAPI:
         """
         if workspace_id is None or dataset_id is None:
             LOGGER.info("Input values are None")
-            LOGGER.info("{}={}".format(Constant.WorkspaceId, workspace_id))
-            LOGGER.info("{}={}".format(Constant.DatasetId, dataset_id))
+            LOGGER.info(f"{Constant.WorkspaceId}={workspace_id}")
+            LOGGER.info(f"{Constant.DatasetId}={dataset_id}")
             return None
 
         dataset_get_endpoint: str = PowerBiAPI.API_ENDPOINTS[Constant.DATASET_GET]
@@ -517,7 +514,7 @@ class PowerBiAPI:
             DATASET_ID=dataset_id,
         )
         # Hit PowerBi
-        LOGGER.info("Request to dataset URL={}".format(dataset_get_endpoint))
+        LOGGER.info(f"Request to dataset URL={dataset_get_endpoint}")
         response = requests.get(
             url=dataset_get_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
@@ -527,8 +524,8 @@ class PowerBiAPI:
         if response.status_code != 200:
             message: str = "Failed to fetch dataset from power-bi for"
             LOGGER.warning(message)
-            LOGGER.warning("{}={}".format(Constant.WorkspaceId, workspace_id))
-            LOGGER.warning("{}={}".format(Constant.DatasetId, dataset_id))
+            LOGGER.warning(f"{Constant.WorkspaceId}={workspace_id}")
+            LOGGER.warning(f"{Constant.DatasetId}={dataset_id}")
             raise ConnectionError(message)
 
         response_dict = response.json()
