@@ -11,6 +11,27 @@
     },
     "supports" : [ ],
     "actions" : [ {
+      "name" : "describe",
+      "parameters" : [ {
+        "name" : "runId",
+        "type" : "string"
+      }, {
+        "name" : "start",
+        "type" : "int"
+      }, {
+        "name" : "count",
+        "type" : "int"
+      }, {
+        "name" : "includeSoft",
+        "type" : "boolean",
+        "optional" : true
+      }, {
+        "name" : "includeAspect",
+        "type" : "boolean",
+        "optional" : true
+      } ],
+      "returns" : "{ \"type\" : \"array\", \"items\" : \"com.linkedin.metadata.run.AspectRowSummary\" }"
+    }, {
       "name" : "list",
       "doc" : "Retrieves the value for an entity that is made up of latest versions of specified aspects.",
       "parameters" : [ {

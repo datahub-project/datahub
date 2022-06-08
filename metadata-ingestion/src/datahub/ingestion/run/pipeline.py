@@ -2,7 +2,6 @@ import datetime
 import itertools
 import logging
 import uuid
-from math import log10
 from typing import Any, Dict, Iterable, List, Optional
 
 import click
@@ -27,7 +26,7 @@ from datahub.ingestion.reporting.reporting_provider_registry import (
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
-from datahub.telemetry import telemetry
+from datahub.telemetry import stats, telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -318,10 +317,18 @@ class Pipeline:
             {
                 "source_type": self.config.source.type,
                 "sink_type": self.config.sink.type,
-                "records_written": 10
-                ** int(log10(self.sink.get_report().records_written + 1)),
+                "records_written": stats.discretize(
+                    self.sink.get_report().records_written
+                ),
             },
+            self.ctx.graph,
         )
+
+    def _count_all_vals(self, d: Dict[str, List]) -> int:
+        result = 0
+        for val in d.values():
+            result += len(val)
+        return result
 
     def pretty_print_summary(self, warnings_as_failure: bool = False) -> int:
         click.echo()
@@ -330,12 +337,29 @@ class Pipeline:
         click.secho(f"Sink ({self.config.sink.type}) report:", bold=True)
         click.echo(self.sink.get_report().as_string())
         click.echo()
+        workunits_produced = self.source.get_report().workunits_produced
         if self.source.get_report().failures or self.sink.get_report().failures:
-            click.secho("Pipeline finished with failures", fg="bright_red", bold=True)
+            num_failures_source = self._count_all_vals(
+                self.source.get_report().failures
+            )
+            click.secho(
+                f"Pipeline finished with {num_failures_source} failures in source producing {workunits_produced} workunits",
+                fg="bright_red",
+                bold=True,
+            )
             return 1
         elif self.source.get_report().warnings or self.sink.get_report().warnings:
-            click.secho("Pipeline finished with warnings", fg="yellow", bold=True)
+            num_warn_source = self._count_all_vals(self.source.get_report().warnings)
+            click.secho(
+                f"Pipeline finished with {num_warn_source} warnings in source producing {workunits_produced} workunits",
+                fg="yellow",
+                bold=True,
+            )
             return 1 if warnings_as_failure else 0
         else:
-            click.secho("Pipeline finished successfully", fg="green", bold=True)
+            click.secho(
+                f"Pipeline finished successfully producing {workunits_produced} workunits",
+                fg="green",
+                bold=True,
+            )
             return 0

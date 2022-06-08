@@ -2,7 +2,6 @@ import logging
 import os
 from datetime import datetime
 from enum import Enum
-from math import log10
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import parse
@@ -689,8 +688,9 @@ class DataLakeSource(Source):
                 )
 
                 time_percentiles = {
-                    f"table_time_taken_p{percentile}": 10
-                    ** int(log10(percentile_values[percentile] + 1))
+                    f"table_time_taken_p{percentile}": stats.discretize(
+                        percentile_values[percentile]
+                    )
                     for percentile in percentiles
                 }
 
@@ -698,8 +698,8 @@ class DataLakeSource(Source):
                 "data_lake_profiling_summary",
                 # bucket by taking floor of log of time taken
                 {
-                    "total_time_taken": 10 ** int(log10(total_time_taken + 1)),
-                    "count": 10 ** int(log10(len(self.profiling_times_taken) + 1)),
+                    "total_time_taken": stats.discretize(total_time_taken),
+                    "count": stats.discretize(len(self.profiling_times_taken)),
                     "platform": self.source_config.platform,
                     **time_percentiles,
                 },

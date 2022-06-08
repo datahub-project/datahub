@@ -27,6 +27,7 @@ public class Constants {
   public static final String DATA_JOB_ENTITY_NAME = "dataJob";
   public static final String DATA_PLATFORM_ENTITY_NAME = "dataPlatform";
   public static final String GLOSSARY_TERM_ENTITY_NAME = "glossaryTerm";
+  public static final String GLOSSARY_NODE_ENTITY_NAME = "glossaryNode";
   public static final String ML_FEATURE_ENTITY_NAME = "mlFeature";
   public static final String ML_FEATURE_TABLE_ENTITY_NAME = "mlFeatureTable";
   public static final String ML_MODEL_ENTITY_NAME = "mlModel";
@@ -42,7 +43,8 @@ public class Constants {
   public static final String EXECUTION_REQUEST_ENTITY_NAME = "dataHubExecutionRequest";
   public static final String NOTEBOOK_ENTITY_NAME = "notebook";
   public static final String DATA_PLATFORM_INSTANCE_ENTITY_NAME = "dataPlatformInstance";
-
+  public static final String ACCESS_TOKEN_ENTITY_NAME = "dataHubAccessToken";
+  public static final String DATA_HUB_UPGRADE_ENTITY_NAME = "dataHubUpgrade";
 
   /**
    * Aspects
@@ -57,6 +59,7 @@ public class Constants {
   public static final String STATUS_ASPECT_NAME = "status";
   public static final String SUB_TYPES_ASPECT_NAME = "subTypes";
   public static final String DEPRECATION_ASPECT_NAME = "deprecation";
+  public static final String OPERATION_ASPECT_NAME = "operation";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
@@ -118,7 +121,6 @@ public class Constants {
   // DataPlatformInstance
   public static final String DATA_PLATFORM_INSTANCE_KEY_ASPECT_NAME = "dataPlatformInstanceKey";
 
-
   // ML Feature
   public static final String ML_FEATURE_KEY_ASPECT_NAME = "mlFeatureKey";
   public static final String ML_FEATURE_PROPERTIES_ASPECT_NAME = "mlFeatureProperties";
@@ -172,6 +174,10 @@ public class Constants {
   public static final String GLOSSARY_TERM_INFO_ASPECT_NAME = "glossaryTermInfo";
   public static final String GLOSSARY_RELATED_TERM_ASPECT_NAME = "glossaryRelatedTerms";
 
+ // Glossary node
+  public static final String GLOSSARY_NODE_KEY_ASPECT_NAME = "glossaryNodeKey";
+  public static final String GLOSSARY_NODE_INFO_ASPECT_NAME = "glossaryNodeInfo";
+
   // Domain
   public static final String DOMAIN_KEY_ASPECT_NAME = "domainKey";
   public static final String DOMAIN_PROPERTIES_ASPECT_NAME = "domainProperties";
@@ -182,6 +188,12 @@ public class Constants {
   public static final String ASSERTION_INFO_ASPECT_NAME = "assertionInfo";
   public static final String ASSERTION_RUN_EVENT_ASPECT_NAME = "assertionRunEvent";
   public static final String ASSERTION_RUN_EVENT_STATUS_COMPLETE = "COMPLETE";
+
+  // Tests
+  public static final String TEST_ENTITY_NAME = "test";
+  public static final String TEST_KEY_ASPECT_NAME = "testKey";
+  public static final String TEST_INFO_ASPECT_NAME = "testInfo";
+  public static final String TEST_RESULTS_ASPECT_NAME = "testResults";
 
   // DataHub Ingestion Source
   public static final String INGESTION_SOURCE_KEY_ASPECT_NAME = "dataHubIngestionSourceKey";
@@ -195,7 +207,16 @@ public class Constants {
   public static final String EXECUTION_REQUEST_SIGNAL_ASPECT_NAME = "dataHubExecutionRequestSignal";
   public static final String EXECUTION_REQUEST_RESULT_ASPECT_NAME = "dataHubExecutionRequestResult";
 
-  // acryl-main only
+  // DataHub Access Token
+  public static final String ACCESS_TOKEN_KEY_ASPECT_NAME = "dataHubAccessTokenKey";
+  public static final String ACCESS_TOKEN_INFO_NAME = "dataHubAccessTokenInfo";
+
+  // DataHub Upgrade
+  public static final String DATA_HUB_UPGRADE_KEY_ASPECT_NAME = "dataHubUpgradeKey";
+  public static final String DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME = "dataHubUpgradeRequest";
+  public static final String DATA_HUB_UPGRADE_RESULT_ASPECT_NAME = "dataHubUpgradeResult";
+
+
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";
 
   /**

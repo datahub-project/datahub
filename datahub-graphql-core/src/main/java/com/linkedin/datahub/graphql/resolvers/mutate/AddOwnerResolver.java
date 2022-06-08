@@ -47,7 +47,7 @@ public class AddOwnerResolver implements DataFetcher<CompletableFuture<Boolean>>
       );
       try {
 
-        log.debug("Adding Link. input: {}", input.toString());
+        log.debug("Adding Owner. input: {}", input.toString());
 
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
         OwnerUtils.addOwner(
