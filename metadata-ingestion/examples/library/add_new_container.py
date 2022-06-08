@@ -13,7 +13,7 @@ gms_endpoint = "http://localhost:8080"
 token = "xxx-your-token-here-xxx"
 graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint, token=token))
 
-# Code below creates a new container, "man-123-bin" with its associated 
+# Code below creates a new container, "man-123-bin" with its associated
 # properties AND link it to the parent container new_urn.
 
 new_urn = "urn:li:container:csv_container2"
