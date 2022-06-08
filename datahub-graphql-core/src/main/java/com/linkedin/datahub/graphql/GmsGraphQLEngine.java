@@ -85,11 +85,8 @@ import com.linkedin.datahub.graphql.resolvers.domain.DomainEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.ListDomainsResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.SetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.UnsetDomainResolver;
-<<<<<<< HEAD
 import com.linkedin.datahub.graphql.resolvers.entity.EntityExistsResolver;
-=======
 import com.linkedin.datahub.graphql.resolvers.glossary.AddRelatedTermsResolver;
->>>>>>> e86fb43bdd (feat(terms) Add ability to Add and Remove Related Terms to Glossary Terms)
 import com.linkedin.datahub.graphql.resolvers.glossary.CreateGlossaryNodeResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.CreateGlossaryTermResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.DeleteGlossaryEntityResolver;
