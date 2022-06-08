@@ -137,7 +137,7 @@ signing {
     sign publishing.publications.mavenJava
 }
 
-
+// Required to submit jar file to staging repo of maven central
 nexusStaging {
     serverUrl = "https://s01.oss.sonatype.org/service/local/" //required only for projects registered in Sonatype after 2021-02-24
     username = System.getenv("NEXUS_USERNAME")
