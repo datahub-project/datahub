@@ -29,7 +29,7 @@ function NodeParentSelect(props: Props) {
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const entityRegistry = useEntityRegistry();
-    const { entityData, urn: entityDataUrn } = useEntityData();
+    const { entityData, urn: entityDataUrn, entityType } = useEntityData();
 
     const [nodeSearch, { data: nodeData }] = useGetSearchResultsLazyQuery();
     let nodeSearchResults = nodeData?.search?.searchResults || [];
@@ -82,6 +82,7 @@ function NodeParentSelect(props: Props) {
     }
 
     const isShowingGlossaryBrowser = !searchQuery && isFocusedOnInput;
+    const shouldHideSelf = isMoving && entityType === EntityType.GlossaryNode;
 
     return (
         <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
@@ -103,7 +104,12 @@ function NodeParentSelect(props: Props) {
                 ))}
             </Select>
             <BrowserWrapper isHidden={!isShowingGlossaryBrowser}>
-                <GlossaryBrowser isSelecting hideTerms selectNode={selectNodeFromBrowser} />
+                <GlossaryBrowser
+                    isSelecting
+                    hideTerms
+                    selectNode={selectNodeFromBrowser}
+                    nodeUrnToHide={shouldHideSelf ? entityData?.urn : undefined}
+                />
             </BrowserWrapper>
         </ClickOutside>
     );
