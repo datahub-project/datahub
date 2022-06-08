@@ -172,7 +172,7 @@ class OperationProcessor:
 
     def sanitize_owner_ids(self, owner_id: str) -> str:
         if owner_id.__contains__("@"):
-            owner_id = owner_id[0 : owner_id.index("@")]
+            owner_id = owner_id[:owner_id.index("@")]
         return owner_id
 
     def is_match(self, match_clause: Any, raw_props_value: Any) -> bool:
@@ -181,9 +181,8 @@ class OperationProcessor:
         if type(raw_props_value) not in Constants.OPERAND_DATATYPE_SUPPORTED or type(
             raw_props_value
         ) != type(match_clause):
-            is_matching = False
+            return False
         elif type(raw_props_value) == str:
-            is_matching = True if re.match(match_clause, raw_props_value) else False
+            return bool(re.match(match_clause, raw_props_value))
         else:
-            is_matching = match_clause == raw_props_value
-        return is_matching
+            return match_clause == raw_props_value
