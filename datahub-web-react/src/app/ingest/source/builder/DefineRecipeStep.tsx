@@ -1,4 +1,4 @@
-import { Alert, Button, message, Typography } from 'antd';
+import { Alert, Button, message, Space, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { StepProps } from './types';
@@ -53,7 +53,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
     const sourceDisplayName = sourceConfigs.displayName;
     const sourceDocumentationUrl = sourceConfigs.docsUrl; // Maybe undefined (in case of "custom")
 
-    // LookML banner specific code
+    // TODO: Delete LookML banner specific code
     const isSourceLooker: boolean = sourceConfigs.type === 'looker';
     const [showLookerBanner, setShowLookerBanner] = useState(isSourceLooker && !isEditing);
 
@@ -93,12 +93,11 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
                     <Alert
                         type="warning"
                         banner
-                        closable
                         message={
                             <>
                                 <big>
                                     <i>
-                                        <b>You must close this banner to proceed!</b>
+                                        <b>You must acknowledge this message to proceed!</b>
                                     </i>
                                 </big>
                                 <br />
@@ -113,6 +112,12 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
                                 <br />
                                 LookML ingestion <b>cannot</b> currently be performed via UI-based ingestion. This is a
                                 known problem the DataHub team is working to solve!
+                                <br />
+                                <Space direction="horizontal" style={{ width: '100%', justifyContent: 'center' }}>
+                                    <Button type="ghost" size="small" onClick={() => setShowLookerBanner(false)}>
+                                        I have set up LookML ingestion!
+                                    </Button>
+                                </Space>
                             </>
                         }
                         afterClose={() => setShowLookerBanner(false)}
