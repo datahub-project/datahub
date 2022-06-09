@@ -162,7 +162,12 @@ type Query {
     """
     Get whether or not not an entity exists
     """
-    entityExisst(urn: String!): Boolean
+    entityExists(urn: String!): Boolean
+
+    """
+    Gets the current invite token. If the optional regenerate param is set to true, generate a new invite token.
+    """
+    getNativeUserInviteToken: InviteToken
 }
 
 """
@@ -365,7 +370,7 @@ type Mutation {
       Input required to report an operation
       """
       input: ReportOperationInput!): String
-    
+
     """
     Create a new GlossaryTerm. Returns the urn of the newly created GlossaryTerm. If a term with the provided ID already exists, it will be overwritten.
     """
@@ -400,6 +405,16 @@ type Mutation {
     Remove multiple related Terms for a Glossary Term
     """
     removeRelatedTerms(input: RelatedTermsInput!): Boolean
+
+    """
+    Generates an invite token that can be shared with prospective users to create their accounts.
+    """
+    createNativeUserInviteToken: InviteToken
+
+    """
+    Generates a token that can be shared with existing native users to reset their credentials.
+    """
+    createNativeUserResetToken(input: CreateNativeUserResetTokenInput!): ResetToken
 }
 
 """
@@ -2671,6 +2686,11 @@ type CorpUser implements Entity {
     Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Whether or not this user is a native DataHub user
+    """
+    isNativeUser: Boolean
 
     """
     Deprecated, use properties field instead
@@ -8191,4 +8211,34 @@ input StringMapEntryInput {
   The value fo the map entry
   """
   value: String
+}
+
+"""
+Token that allows users to sign up as a native user
+"""
+type InviteToken {
+    """
+    The invite token
+    """
+    inviteToken: String!
+}
+
+"""
+Input required to generate a password reset token for a native user.
+"""
+input CreateNativeUserResetTokenInput {
+    """
+    The urn of the user to reset the password of
+    """
+    userUrn: String!
+}
+
+"""
+Token that allows native users to reset their credentials
+"""
+type ResetToken {
+    """
+    The reset token
+    """
+    resetToken: String!
 }

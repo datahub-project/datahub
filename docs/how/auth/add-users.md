@@ -1,14 +1,49 @@
 # Adding Users to DataHub
 
-Users can log into DataHub in 2 ways:
+Users can log into DataHub in 3 ways:
 
-1. Static credentials (Simplest)
-2. Single Sign-On via [OpenID Connect](https://www.google.com/search?q=openid+connect&oq=openid+connect&aqs=chrome.0.0i131i433i512j0i512l4j69i60l2j69i61.1468j0j7&sourceid=chrome&ie=UTF-8) (For Production Use)
+1. Invite users via the UI
+2. Static credentials
+3. Single Sign-On via [OpenID Connect](https://www.google.com/search?q=openid+connect&oq=openid+connect&aqs=chrome.0.0i131i433i512j0i512l4j69i60l2j69i61.1468j0j7&sourceid=chrome&ie=UTF-8) (For Production Use)
 
-which can be both enabled simultaneously. Option 1 is useful for running proof-of-concept exercises, or just getting DataHub up & running quickly. Option 2 is highly recommended for deploying DataHub in production.
+which can be enabled simultaneously. Options 1 and 2 are useful for running proof-of-concept exercises, or just getting DataHub up & running quickly. Option 3 is highly recommended for deploying DataHub in production.
 
+# Method 1: Inviting users via the DataHub UI
 
-# Method 1: Configuring static credentials
+## Send prospective users an invite link
+
+With the right permissions (`MANAGE_USER_CREDENTIALS`), you can invite new users to your deployed DataHub instance from the UI. It's as simple as sending a link!
+
+First navigate, to the Users and Groups tab (under Access) on the Settings page. You'll then see an `Invite Users` button. Note that this will only be clickable
+if you have the correct permissions.
+
+![](../../imgs/invite-users-button.png)
+
+If you click on this button, you'll see a pop-up where you can copy an invite link to send to users, or generate a fresh one.
+
+![](../../imgs/invite-users-popup.png)
+
+When a new user visits the link, they will be directed to a sign up screen. Note that if a new link has since been regenerated, the new user won't be able to sign up!
+
+![](../../imgs/user-sign-up-screen.png)
+
+## Reset password for native users
+
+If a user forgets their password, an admin user with the `MANAGE_USER_CREDENTIALS` privilege can go to the Users and Groups tab and click on the respective user's
+`Reset user password` button.
+
+![](../../imgs/reset-user-password-button.png)
+
+Similar to the invite link, you can generate a new reset link and send a link to that user which they can use to reset their credentials.
+
+![](../../imgs/reset-user-password-popup.png)
+
+When that user visits the link, they will be direct to a screen where they can reset their credentials. If the link is older than 24 hours or another link has since
+been generated, they won't be able to reset their credentials!
+
+![](../../imgs/reset-credentials-screen.png)
+
+# Method 2: Configuring static credentials
 
 ## Create a user.props file
 
@@ -134,8 +169,7 @@ and modify the `datahub-frontend-react` block to contain the extra volume mount.
 datahub docker quickstart —quickstart-compose-file <your-modified-compose>.yml
 ```
 
-
-# Method 2: Configuring SSO via OpenID Connect
+# Method 3: Configuring SSO via OpenID Connect
 
 Setting up SSO via OpenID Connect means that users will be able to login to DataHub via a central Identity Provider such as
 
