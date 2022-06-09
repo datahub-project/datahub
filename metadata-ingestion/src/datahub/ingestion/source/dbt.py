@@ -461,10 +461,10 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
     return custom_properties
 
 
-def match_target_platform_instance(target_platform_instance: str,
+def match_target_platform_instance(target_platform_instance: Optional[str],
                                    dbt_platform_instance: Optional[str],
-                                   platform_value: str,
-                                   schema: str,
+                                   platform_value: Optional[str],
+                                   schema: Optional[str],
                                    schema_mappings: Optional[Mapping[str, str]]) -> str:
     if platform_value == DBT_PLATFORM:
         return dbt_platform_instance
