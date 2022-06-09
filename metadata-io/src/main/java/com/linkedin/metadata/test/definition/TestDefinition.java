@@ -1,4 +1,4 @@
-package com.linkedin.metadata.test.config;
+package com.linkedin.metadata.test.definition;
 
 import com.linkedin.common.urn.Urn;
 import lombok.Data;
@@ -24,5 +24,5 @@ public class TestDefinition {
   /**
    * Main test rule that returns true or false given an entity
    */
-  private final TestRule rule;
+  private final TestPredicate rule;
 }

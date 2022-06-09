@@ -9,7 +9,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.TestKey;
 import com.linkedin.metadata.test.TestEngine;
-import com.linkedin.metadata.test.config.ValidationResult;
+import com.linkedin.metadata.test.definition.ValidationResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.test.TestInfo;

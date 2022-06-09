@@ -1,7 +1,6 @@
 package com.linkedin.metadata.test.eval.operation;
 
 import com.linkedin.metadata.test.query.TestQueryResponse;
-import java.util.Map;
 
 
 public class ExistsEvaluator implements BaseOperationEvaluator {
@@ -11,11 +10,11 @@ public class ExistsEvaluator implements BaseOperationEvaluator {
   }
 
   @Override
-  public void validate(Map<String, Object> params) throws IllegalArgumentException {
+  public void validate(OperationParams params) throws IllegalArgumentException {
   }
 
   @Override
-  public boolean evaluate(TestQueryResponse queryResponse, Map<String, Object> params) {
+  public boolean evaluate(TestQueryResponse queryResponse, OperationParams params) {
     return !queryResponse.getValues().isEmpty();
   }
 }

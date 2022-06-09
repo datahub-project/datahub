@@ -1,6 +1,6 @@
-package com.linkedin.metadata.test.config;
+package com.linkedin.metadata.test.definition;
 
-public interface TestRule {
+public interface TestPredicate {
   /**
    * Any test rule can be negated. Function to indicate whether the rule should be negated or not
    */

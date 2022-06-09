@@ -11,13 +11,13 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.TestKey;
-import com.linkedin.metadata.test.config.CompositeTestRule;
-import com.linkedin.metadata.test.config.TestDefinition;
-import com.linkedin.metadata.test.config.TestDefinitionProvider;
-import com.linkedin.metadata.test.config.TestRule;
-import com.linkedin.metadata.test.config.UnitTestRule;
-import com.linkedin.metadata.test.config.ValidationResult;
-import com.linkedin.metadata.test.eval.TestRuleEvaluator;
+import com.linkedin.metadata.test.definition.CompositeTestPredicate;
+import com.linkedin.metadata.test.definition.TestDefinition;
+import com.linkedin.metadata.test.definition.TestDefinitionProvider;
+import com.linkedin.metadata.test.definition.TestPredicate;
+import com.linkedin.metadata.test.definition.LeafTestPredicate;
+import com.linkedin.metadata.test.definition.ValidationResult;
+import com.linkedin.metadata.test.eval.TestPredicateEvaluator;
 import com.linkedin.metadata.test.exception.TestDefinitionParsingException;
 import com.linkedin.metadata.test.query.QueryEngine;
 import com.linkedin.metadata.test.query.TestQuery;
@@ -59,7 +59,7 @@ import lombok.extern.slf4j.Slf4j;
 public class TestEngine {
   private final EntityService _entityService;
   private final QueryEngine _queryEngine;
-  private final TestRuleEvaluator _testRuleEvaluator;
+  private final TestPredicateEvaluator _testPredicateEvaluator;
   private final TestDefinitionProvider _testDefinitionProvider;
 
   // Maps test urn to deserialized test definition
@@ -78,11 +78,11 @@ public class TestEngine {
       EntityKeyUtils.convertEntityKeyToUrn(new TestKey().setId("dummy"), Constants.TEST_ENTITY_NAME);
 
   public TestEngine(EntityService entityService, TestFetcher testFetcher, TestDefinitionProvider testDefinitionProvider,
-      QueryEngine queryEngine, TestRuleEvaluator testRuleEvaluator, final int delayIntervalSeconds,
+      QueryEngine queryEngine, TestPredicateEvaluator testPredicateEvaluator, final int delayIntervalSeconds,
       final int refreshIntervalSeconds) {
     _entityService = entityService;
     _queryEngine = queryEngine;
-    _testRuleEvaluator = testRuleEvaluator;
+    _testPredicateEvaluator = testPredicateEvaluator;
     _testDefinitionProvider = testDefinitionProvider;
     _testRefreshRunnable =
         new TestRefreshRunnable(testFetcher, testDefinitionProvider, _testCache, _testPerEntityTypeCache);
@@ -237,7 +237,7 @@ public class TestEngine {
         .collect(Collectors.toList())).getOrDefault(urn, Collections.emptyMap());
     // Based on the query evaluation result, find the list of tests that are eligible for the given urn
     return tests.stream()
-        .filter(test -> isEligible(urn, targetingRulesQueryResponses, test))
+        .filter(test -> evaluateTargetingRules(urn, targetingRulesQueryResponses, test))
         .collect(Collectors.toList());
   }
 
@@ -255,7 +255,7 @@ public class TestEngine {
         Collections.emptyMap());
     // Evaluate whether each test passes using the query evaluation result above (no service calls. pure compuatation)
     for (TestDefinition eligibleTest : eligibleTests) {
-      if (_testRuleEvaluator.evaluate(mainRulesQueryResponses, eligibleTest.getRule())) {
+      if (_testPredicateEvaluator.evaluate(mainRulesQueryResponses, eligibleTest.getRule())) {
         result.getPassing().add(new TestResult().setTest(eligibleTest.getTestUrn()).setType(TestResultType.SUCCESS));
       } else {
         result.getFailing().add(new TestResult().setTest(eligibleTest.getTestUrn()).setType(TestResultType.FAILURE));
@@ -279,7 +279,7 @@ public class TestEngine {
     for (Urn urn : urns) {
       Map<TestQuery, TestQueryResponse> queryResponseForUrn =
           targetingRulesQueryResponses.getOrDefault(urn, Collections.emptyMap());
-      tests.stream().filter(test -> isEligible(urn, queryResponseForUrn, test)).forEach(test -> {
+      tests.stream().filter(test -> evaluateTargetingRules(urn, queryResponseForUrn, test)).forEach(test -> {
         if (!eligibleTestsPerEntity.containsKey(test)) {
           eligibleTestsPerEntity.put(test, new ArrayList<>());
         }
@@ -307,7 +307,7 @@ public class TestEngine {
           batchQuery(urnsToTest, ImmutableList.of(testDefinition.getRule()));
       // For each entity, evaluate whether it passes the test using the query evaluation results
       for (Urn urn : urnsToTest) {
-        if (_testRuleEvaluator.evaluate(mainRulesQueryResponses.getOrDefault(urn, Collections.emptyMap()),
+        if (_testPredicateEvaluator.evaluate(mainRulesQueryResponses.getOrDefault(urn, Collections.emptyMap()),
             testDefinition.getRule())) {
           finalTestResults.get(urn)
               .getPassing()
@@ -322,21 +322,32 @@ public class TestEngine {
     return finalTestResults;
   }
 
-  private boolean isEligible(Urn urn, Map<TestQuery, TestQueryResponse> targetingRulesQueryResponses,
+  /**
+   * Evaluate whether the entity passes the targeting rules in the test.
+   * Note, we batch evaluate queries before calling this function, and the results are inputted as arguments
+   * This function purely uses the query evaluation results and checks whether it passes the targeting rules or not
+   *
+   * @param urn Entity urn in question
+   * @param targetingRulesQueryResponses Batch query evaluation results.
+   *                                     Contains the result of all queries in the targeting rules
+   * @param test Test that we are trying to evaluate
+   * @return Whether or not the entity passes the targeting rules of the test
+   */
+  private boolean evaluateTargetingRules(Urn urn, Map<TestQuery, TestQueryResponse> targetingRulesQueryResponses,
       TestDefinition test) {
     if (!test.getTarget().getEntityTypes().contains(urn.getEntityType())) {
       return false;
     }
-    Optional<TestRule> targetingRule = test.getTarget().getTargetingRules();
+    Optional<TestPredicate> targetingRule = test.getTarget().getTargetingRules();
     // Apply to all entities of given type
     if (!targetingRule.isPresent()) {
       return true;
     }
-    return _testRuleEvaluator.evaluate(targetingRulesQueryResponses, targetingRule.get());
+    return _testPredicateEvaluator.evaluate(targetingRulesQueryResponses, targetingRule.get());
   }
 
   @WithSpan
-  private Map<Urn, Map<TestQuery, TestQueryResponse>> batchQuery(List<Urn> urns, List<TestRule> rules) {
+  private Map<Urn, Map<TestQuery, TestQueryResponse>> batchQuery(List<Urn> urns, List<TestPredicate> rules) {
     if (rules.isEmpty()) {
       return Collections.emptyMap();
     }
@@ -344,20 +355,20 @@ public class TestEngine {
         getQueries(rules).stream().map(TestQuery::new).collect(Collectors.toSet()));
   }
 
-  private List<String> getQueries(List<TestRule> rules) {
+  private List<String> getQueries(List<TestPredicate> rules) {
     return rules.stream().flatMap(rule -> getQueries(rule).stream()).collect(Collectors.toList());
   }
 
-  private List<String> getQueries(TestRule rule) {
-    if (rule instanceof CompositeTestRule) {
-      CompositeTestRule compositeTestRule = (CompositeTestRule) rule;
+  private List<String> getQueries(TestPredicate rule) {
+    if (rule instanceof CompositeTestPredicate) {
+      CompositeTestPredicate compositeTestRule = (CompositeTestPredicate) rule;
       if (!compositeTestRule.getOr().isEmpty()) {
         return getQueries(compositeTestRule.getOr());
       }
       return getQueries(compositeTestRule.getAnd());
     }
-    if (rule instanceof UnitTestRule) {
-      return Collections.singletonList(((UnitTestRule) rule).getQuery());
+    if (rule instanceof LeafTestPredicate) {
+      return Collections.singletonList(((LeafTestPredicate) rule).getQuery());
     }
     throw new IllegalArgumentException(String.format("Unsupported test rule type %s", rule.getClass().getSimpleName()));
   }

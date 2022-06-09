@@ -3,7 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.test;
 import com.linkedin.datahub.graphql.generated.TestDefinitionInput;
 import com.linkedin.datahub.graphql.generated.TestValidationResult;
 import com.linkedin.metadata.test.TestEngine;
-import com.linkedin.metadata.test.config.ValidationResult;
+import com.linkedin.metadata.test.definition.ValidationResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;

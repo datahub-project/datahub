@@ -52,7 +52,7 @@ public class TestFetcher {
       return new TestFetchResult(Collections.emptyList(), 0);
     }
 
-    // Fetch DataHubPolicyInfo aspects for each urn
+    // Fetch TestInfo aspects for each urn
     final Map<Urn, EntityResponse> testEntities =
         _entityService.getEntitiesV2(POLICY_ENTITY_NAME, new HashSet<>(testUrns),
             ImmutableSet.of(TEST_INFO_ASPECT_NAME));

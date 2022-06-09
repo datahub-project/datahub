@@ -1,4 +1,4 @@
-package com.linkedin.metadata.test.config;
+package com.linkedin.metadata.test.definition;
 
 import java.util.List;
 import java.util.Optional;
@@ -14,5 +14,5 @@ public class TestTargetingRule {
   /**
    * Rules to further specify the entities being targeted by this test
    */
-  Optional<TestRule> targetingRules;
+  Optional<TestPredicate> targetingRules;
 }

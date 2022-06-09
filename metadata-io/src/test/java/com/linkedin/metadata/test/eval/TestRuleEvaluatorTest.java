@@ -1,8 +1,8 @@
 package com.linkedin.metadata.test.eval;
 
-import com.linkedin.metadata.test.config.CompositeTestRule;
-import com.linkedin.metadata.test.config.TestRule;
-import com.linkedin.metadata.test.config.UnitTestRule;
+import com.linkedin.metadata.test.definition.CompositeTestPredicate;
+import com.linkedin.metadata.test.definition.TestPredicate;
+import com.linkedin.metadata.test.definition.LeafTestPredicate;
 import com.linkedin.metadata.test.query.TestQuery;
 import com.linkedin.metadata.test.query.TestQueryResponse;
 import java.util.Collections;
@@ -16,21 +16,23 @@ import static org.testng.Assert.assertTrue;
 
 
 public class TestRuleEvaluatorTest {
-  TestRuleEvaluator _evaluator = new TestRuleEvaluator(UnitTestRuleEvaluator.getInstance());
+  TestPredicateEvaluator _evaluator = new TestPredicateEvaluator(LeafTestPredicateEvaluator.getInstance());
 
   @Test
   public void testEvaluator() {
-    TestRule equalsRule1 =
-        new UnitTestRule("query1", "equals", ImmutableMap.of("values", ImmutableList.of("value1", "value2")));
-    TestRule equalsRule2 = new UnitTestRule("query2", "equals", ImmutableMap.of("value", "value3"));
-    TestRule existsRule = new UnitTestRule("query3", "exists", ImmutableMap.of());
+    TestPredicate equalsRule1 =
+        new LeafTestPredicate("query1", "equals", ImmutableMap.of("values", ImmutableList.of("value1", "value2")));
+    TestPredicate equalsRule2 = new LeafTestPredicate("query2", "equals", ImmutableMap.of("value", "value3"));
+    TestPredicate existsRule = new LeafTestPredicate("query3", "exists", ImmutableMap.of());
 
-    TestRule orRule =
-        new CompositeTestRule(CompositeTestRule.CompositionOperation.OR, ImmutableList.of(equalsRule1, equalsRule2));
-    TestRule andRule =
-        new CompositeTestRule(CompositeTestRule.CompositionOperation.AND, ImmutableList.of(equalsRule1, equalsRule2));
-    TestRule complexRule = new CompositeTestRule(CompositeTestRule.CompositionOperation.OR,
-        ImmutableList.of(equalsRule1, new CompositeTestRule(CompositeTestRule.CompositionOperation.AND,
+    TestPredicate orRule =
+        new CompositeTestPredicate(
+            CompositeTestPredicate.CompositionOperation.OR, ImmutableList.of(equalsRule1, equalsRule2));
+    TestPredicate andRule =
+        new CompositeTestPredicate(
+            CompositeTestPredicate.CompositionOperation.AND, ImmutableList.of(equalsRule1, equalsRule2));
+    TestPredicate complexRule = new CompositeTestPredicate(CompositeTestPredicate.CompositionOperation.OR,
+        ImmutableList.of(equalsRule1, new CompositeTestPredicate(CompositeTestPredicate.CompositionOperation.AND,
             ImmutableList.of(equalsRule2, existsRule))));
 
     Map<TestQuery, TestQueryResponse> queryResponses = Collections.emptyMap();

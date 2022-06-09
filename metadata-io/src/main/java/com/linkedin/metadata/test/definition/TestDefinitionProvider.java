@@ -1,4 +1,4 @@
-package com.linkedin.metadata.test.config;
+package com.linkedin.metadata.test.definition;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.test.eval.UnitTestRuleEvaluator;
+import com.linkedin.metadata.test.eval.LeafTestPredicateEvaluator;
 import com.linkedin.metadata.test.exception.TestDefinitionParsingException;
 import java.util.Collections;
 import java.util.List;
@@ -17,8 +17,8 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import lombok.RequiredArgsConstructor;
 
-import static com.linkedin.metadata.test.config.CompositeTestRule.CompositionOperation.AND;
-import static com.linkedin.metadata.test.config.CompositeTestRule.CompositionOperation.OR;
+import static com.linkedin.metadata.test.definition.CompositeTestPredicate.CompositionOperation.AND;
+import static com.linkedin.metadata.test.definition.CompositeTestPredicate.CompositionOperation.OR;
 
 
 /**
@@ -28,7 +28,7 @@ import static com.linkedin.metadata.test.config.CompositeTestRule.CompositionOpe
 public class TestDefinitionProvider {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  private final UnitTestRuleEvaluator unitTestRuleEvaluator;
+  private final LeafTestPredicateEvaluator leafTestPredicateEvaluator;
 
   public TestDefinition deserialize(Urn testUrn, String jsonTestDefinition) throws TestDefinitionParsingException {
     JsonNode parsedTestDefinition;
@@ -62,7 +62,7 @@ public class TestDefinitionProvider {
     List<String> targetTypes =
         StreamSupport.stream(targetTypesJson.spliterator(), false).map(JsonNode::asText).collect(Collectors.toList());
 
-    Optional<TestRule> targetingRules;
+    Optional<TestPredicate> targetingRules;
     if (parsedTargetingRule.has("match")) {
       targetingRules = Optional.of(deserializeRule(parsedTargetingRule.get("match")));
     } else {
@@ -71,7 +71,7 @@ public class TestDefinitionProvider {
     return new TestTargetingRule(targetTypes, targetingRules);
   }
 
-  private TestRule deserializeRule(JsonNode jsonRule) {
+  private TestPredicate deserializeRule(JsonNode jsonRule) {
     if (jsonRule.isArray()) {
       ArrayNode ruleArray = (ArrayNode) jsonRule;
       return deserializeCompositeRules(ruleArray, AND, false);
@@ -95,14 +95,14 @@ public class TestDefinitionProvider {
     throw new TestDefinitionParsingException(String.format("Failed to deserialize rule %s", jsonRule.toString()));
   }
 
-  private TestRule deserializeCompositeRules(ArrayNode rules, CompositeTestRule.CompositionOperation operation,
+  private TestPredicate deserializeCompositeRules(ArrayNode rules, CompositeTestPredicate.CompositionOperation operation,
       boolean negated) {
-    return new CompositeTestRule(operation,
+    return new CompositeTestPredicate(operation,
         StreamSupport.stream(rules.spliterator(), false).map(this::deserializeRule).collect(Collectors.toList()),
         negated);
   }
 
-  private UnitTestRule deserializeUnitTestRule(ObjectNode testRule, boolean negated) {
+  private LeafTestPredicate deserializeUnitTestRule(ObjectNode testRule, boolean negated) {
     if (!testRule.has("query") || !testRule.get("query").isTextual()) {
       throw new TestDefinitionParsingException(
           String.format("Failed to deserialize rule %s: query is a required field and must be a string",
@@ -115,7 +115,7 @@ public class TestDefinitionProvider {
               testRule.toString()));
     }
     String operation = testRule.get("operation").asText();
-    if (!unitTestRuleEvaluator.isOperationValid(operation)) {
+    if (!leafTestPredicateEvaluator.isOperationValid(operation)) {
       throw new TestDefinitionParsingException(
           String.format("Failed to deserialize rule %s: Unsupported operation %s", testRule.toString(), operation));
     }
@@ -132,9 +132,9 @@ public class TestDefinitionProvider {
       params = Collections.emptyMap();
     }
 
-    UnitTestRule unitTestRule = new UnitTestRule(query, operation, params, negated);
+    LeafTestPredicate unitTestRule = new LeafTestPredicate(query, operation, params, negated);
     try {
-      unitTestRuleEvaluator.validate(unitTestRule);
+      leafTestPredicateEvaluator.validate(unitTestRule);
     } catch (TestDefinitionParsingException e) {
       throw new TestDefinitionParsingException(
           String.format("Failed to deserialize rule %s: failed to validate params for the operation",

@@ -1,4 +1,4 @@
-package com.linkedin.metadata.test.config;
+package com.linkedin.metadata.test.definition;
 
 import java.util.Collections;
 import java.util.List;
