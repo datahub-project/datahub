@@ -26,8 +26,17 @@ public class QueryEngine {
     queryEvaluators.forEach(evaluator -> evaluator.setQueryEngine(this));
   }
 
+  // Batch evaluate a single query for the given entity urns
+  public Map<Urn, TestQueryResponse> batchEvaluateQuery(Set<Urn> urns, TestQuery query) {
+    return batchEvaluateQueries(urns, Collections.singleton(query)).entrySet()
+        .stream()
+        .filter(entry -> entry.getValue().containsKey(query))
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().get(query)));
+  }
+
   @WithSpan
-  public Map<Urn, Map<TestQuery, TestQueryResponse>> batchEvaluate(Set<Urn> urns, Set<TestQuery> queries) {
+  // Batch evaluate multiple queries for the given entity urns
+  public Map<Urn, Map<TestQuery, TestQueryResponse>> batchEvaluateQueries(Set<Urn> urns, Set<TestQuery> queries) {
     queries.forEach(this::validateQuery);
     // First group urns by entity type - different entity types are eligible for different types of queries
     Map<String, Set<Urn>> urnsPerEntityType =

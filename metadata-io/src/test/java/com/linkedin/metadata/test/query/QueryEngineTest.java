@@ -57,30 +57,30 @@ public class QueryEngineTest {
     Mockito.when(_entityService.getEntitiesV2(eq(Constants.DATASET_ENTITY_NAME), eq(ImmutableSet.of(DATASET_URN)),
         eq(ImmutableSet.of(Constants.DATASET_PROPERTIES_ASPECT_NAME))))
         .thenReturn(ImmutableMap.of(DATASET_URN, emptyEntityResponse()));
-    assertEquals(_queryEngine.batchEvaluate(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+    assertEquals(_queryEngine.batchEvaluateQueries(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         Collections.emptyMap());
     Mockito.when(_entityService.getEntitiesV2(eq(Constants.DATASET_ENTITY_NAME), eq(ImmutableSet.of(DATASET_URN)),
         eq(ImmutableSet.of(Constants.DATASET_PROPERTIES_ASPECT_NAME))))
         .thenReturn(ImmutableMap.of(DATASET_URN, createPropertiesWithDescription()));
-    assertEquals(_queryEngine.batchEvaluate(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+    assertEquals(_queryEngine.batchEvaluateQueries(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         ImmutableMap.of(DATASET_URN,
             ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("test description")))));
     Mockito.when(_entityService.getEntitiesV2(eq(Constants.DATASET_ENTITY_NAME), eq(ImmutableSet.of(DATASET_URN)),
         eq(ImmutableSet.of(Constants.DATASET_PROPERTIES_ASPECT_NAME))))
         .thenReturn(ImmutableMap.of(DATASET_URN, createPropertiesWithoutDescription()));
-    assertEquals(_queryEngine.batchEvaluate(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+    assertEquals(_queryEngine.batchEvaluateQueries(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         Collections.emptyMap());
 
     testQuery = new TestQuery("glossaryTerms.terms.urn.glossaryTermInfo.parentNode");
     Mockito.when(_entityService.getEntitiesV2(eq(Constants.DATASET_ENTITY_NAME), eq(ImmutableSet.of(DATASET_URN)),
         eq(ImmutableSet.of(Constants.GLOSSARY_TERMS_ASPECT_NAME))))
         .thenReturn(ImmutableMap.of(DATASET_URN, emptyEntityResponse()));
-    assertEquals(_queryEngine.batchEvaluate(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+    assertEquals(_queryEngine.batchEvaluateQueries(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         Collections.emptyMap());
     Mockito.when(_entityService.getEntitiesV2(eq(Constants.DATASET_ENTITY_NAME), eq(ImmutableSet.of(DATASET_URN)),
         eq(ImmutableSet.of(Constants.GLOSSARY_TERMS_ASPECT_NAME))))
         .thenReturn(ImmutableMap.of(DATASET_URN, createGlossaryTerms(Collections.emptyList())));
-    assertEquals(_queryEngine.batchEvaluate(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+    assertEquals(_queryEngine.batchEvaluateQueries(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         Collections.emptyMap());
 
     Mockito.when(_entityService.getEntitiesV2(eq(Constants.GLOSSARY_TERM_ENTITY_NAME),
@@ -101,26 +101,26 @@ public class QueryEngineTest {
     Mockito.when(_entityService.getEntitiesV2(eq(Constants.DATASET_ENTITY_NAME), eq(ImmutableSet.of(DATASET_URN)),
         eq(ImmutableSet.of(Constants.GLOSSARY_TERMS_ASPECT_NAME))))
         .thenReturn(ImmutableMap.of(DATASET_URN, createGlossaryTerms(ImmutableList.of(GLOSSARY_TERM_WITH_PARENT))));
-    assertEquals(_queryEngine.batchEvaluate(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+    assertEquals(_queryEngine.batchEvaluateQueries(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         ImmutableMap.of(DATASET_URN,
             ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of(PARENT_NODE.toString())))));
     Mockito.when(_entityService.getEntitiesV2(eq(Constants.DATASET_ENTITY_NAME), eq(ImmutableSet.of(DATASET_URN)),
         eq(ImmutableSet.of(Constants.GLOSSARY_TERMS_ASPECT_NAME))))
         .thenReturn(ImmutableMap.of(DATASET_URN, createGlossaryTerms(ImmutableList.of(GLOSSARY_TERM_WITHOUT_PARENT))));
-    assertEquals(_queryEngine.batchEvaluate(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+    assertEquals(_queryEngine.batchEvaluateQueries(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         Collections.emptyMap());
     Mockito.when(_entityService.getEntitiesV2(eq(Constants.DATASET_ENTITY_NAME), eq(ImmutableSet.of(DATASET_URN)),
         eq(ImmutableSet.of(Constants.GLOSSARY_TERMS_ASPECT_NAME))))
         .thenReturn(ImmutableMap.of(DATASET_URN,
             createGlossaryTerms(ImmutableList.of(GLOSSARY_TERM_WITH_PARENT, GLOSSARY_TERM_WITHOUT_PARENT))));
-    assertEquals(_queryEngine.batchEvaluate(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+    assertEquals(_queryEngine.batchEvaluateQueries(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         ImmutableMap.of(DATASET_URN,
             ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of(PARENT_NODE.toString())))));
     Mockito.when(_entityService.getEntitiesV2(eq(Constants.DATASET_ENTITY_NAME), eq(ImmutableSet.of(DATASET_URN)),
         eq(ImmutableSet.of(Constants.GLOSSARY_TERMS_ASPECT_NAME))))
         .thenReturn(ImmutableMap.of(DATASET_URN,
             createGlossaryTerms(ImmutableList.of(GLOSSARY_TERM_WITH_PARENT, GLOSSARY_TERM_WITH_PARENT))));
-    assertEquals(_queryEngine.batchEvaluate(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+    assertEquals(_queryEngine.batchEvaluateQueries(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         ImmutableMap.of(DATASET_URN, ImmutableMap.of(testQuery,
             new TestQueryResponse(ImmutableList.of(PARENT_NODE.toString(), PARENT_NODE.toString())))));
   }

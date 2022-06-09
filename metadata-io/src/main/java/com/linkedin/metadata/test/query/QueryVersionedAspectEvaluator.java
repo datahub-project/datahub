@@ -80,7 +80,7 @@ public class QueryVersionedAspectEvaluator implements BaseQueryEvaluator {
           String.format("Query %s is invalid for entity type %s: Unknown aspect %s", query, entityType, aspect));
     }
 
-    // Check whether the query matches the schema
+    // Check whether the query matches the schema by traversing through the query parts
     RecordDataSchema schema = aspectSpec.getPegasusSchema();
     for (int i = 1; i < query.getQueryParts().size(); i++) {
       String queryPart = query.getQueryParts().get(i);
@@ -106,6 +106,7 @@ public class QueryVersionedAspectEvaluator implements BaseQueryEvaluator {
           return ValidationResult.validResult();
         }
       } else if (fieldSchema.getType() == DataSchema.Type.RECORD) {
+        // The field is a record. Move on to the next field
         schema = (RecordDataSchema) fieldSchema;
       } else if (fieldSchema.getType() == DataSchema.Type.TYPEREF) {
         // The field is potentially an urn. check if it is urn
@@ -141,6 +142,8 @@ public class QueryVersionedAspectEvaluator implements BaseQueryEvaluator {
       aspectsToQuery.add(aspect);
     }
 
+    // Batch get all aspects based on the first term in the query.
+    // i.e. if query is datasetProperties.description, batchGet datasetProperties aspect for the input urns
     Map<Urn, EntityResponse> batchGetResponse;
     try {
       batchGetResponse = entityService.getEntitiesV2(entityType, urns, aspectsToQuery);
@@ -150,10 +153,13 @@ public class QueryVersionedAspectEvaluator implements BaseQueryEvaluator {
           String.format("Error while fetching versioned aspects %s for urns %s", aspectsToQuery, urns));
     }
 
+    // Deserialize the BatchGet response into the aspect records and group them based on the aspect name
     Map<String, List<AspectWithUrn>> aspectValuesPerAspect = batchGetResponse.values()
         .stream()
         .flatMap(entityResponse -> deserializeResponse(entityResponse, entitySpec).stream())
         .collect(Collectors.groupingBy(Pair::getKey, Collectors.mapping(Pair::getValue, Collectors.toList())));
+
+    // Evaluate each query based on the batch get response
     Map<Urn, Map<TestQuery, TestQueryResponse>> finalResult = new HashMap<>();
     for (TestQuery query : queries) {
       Map<Urn, TestQueryResponse> queryResult =
@@ -169,7 +175,68 @@ public class QueryVersionedAspectEvaluator implements BaseQueryEvaluator {
     return finalResult;
   }
 
+  // Traverse the records in current values to fetch the field with fieldName
+  private List<ValueWithUrn> traverseRecords(List<ValueWithUrn> currentValues, String fieldName) {
+    // If the traversed object is a record template, fetch the field corresponding to the current query part
+    List<ValueWithUrn> flatMappedResult = new ArrayList<>();
+    PathSpec pathSpec = new PathSpec(fieldName);
+    for (ValueWithUrn currentValue : currentValues) {
+      // First fetch field value with the field name
+      Optional<Object> fieldValue = RecordUtils.getFieldValue(currentValue.getValue(), pathSpec);
+      if (!fieldValue.isPresent()) {
+        continue;
+      }
+      // If field value is an array, flatten the results until we find an object that is not an array
+      // i.e. for query "glossaryTerms.terms.urn", glossaryTerms.terms returns an array of GlossaryTermAssociation objects.
+      // The final query part "urn" needs to be applied on each GlossaryTermAssociation object,
+      // so we need to flatten the association object array
+      if (fieldValue.get() instanceof AbstractArrayTemplate) {
+        AbstractArrayTemplate<Object> arrayFieldValues = (AbstractArrayTemplate<Object>) fieldValue.get();
+        arrayFieldValues.forEach(value -> flatMappedResult.add(new ValueWithUrn(currentValue.getUrn(), value)));
+      } else {
+        flatMappedResult.add(new ValueWithUrn(currentValue.getUrn(), fieldValue.get()));
+      }
+    }
+    return flatMappedResult;
+  }
+
+  // Evaluate partial query for the traversed urns (currentValues must contain urns)
+  // i.e. recursively evaluate query for each traversed urn and map it back to the source entity
+  // For example, if query is "container.container.glossaryTerms", result of "container.container" is the container urn,
+  // in which case, we need to query for "glossaryTerms" for the container urn
+  private Map<Urn, TestQueryResponse> evaluateQueryForUrns(List<ValueWithUrn> currentValues, TestQuery partialQuery) {
+    // Keep mapping between the traversed urn (container urn in the above example) and the original entity urn
+    // we are traversing from, so that we can map the result back to the source urn
+    Map<Urn, List<Urn>> valueUrnToSourceUrn = currentValues.stream()
+        .collect(Collectors.groupingBy(valueWithUrn -> (Urn) valueWithUrn.getValue(),
+            Collectors.mapping(ValueWithUrn::getUrn, Collectors.toList())));
+    // Recursively call query engine with the partial query (to fetch glossaryTerms of the container in the above example)
+    Map<Urn, TestQueryResponse> evaluatedPartialQuery =
+        queryEngine.batchEvaluateQuery(valueUrnToSourceUrn.keySet(), partialQuery);
+    Map<Urn, TestQueryResponse> finalResult = new HashMap<>();
+    // Map evaluated response back to the source entities based on the mapping above
+    for (Urn valueUrn : evaluatedPartialQuery.keySet()) {
+      if (!evaluatedPartialQuery.containsKey(valueUrn)) {
+        continue;
+      }
+      TestQueryResponse partialQueryResponse = evaluatedPartialQuery.get(valueUrn);
+      if (partialQueryResponse.getValues().isEmpty()) {
+        continue;
+      }
+      List<Urn> sourceUrns = valueUrnToSourceUrn.get(valueUrn);
+      for (Urn sourceUrn : sourceUrns) {
+        if (!finalResult.containsKey(sourceUrn)) {
+          finalResult.put(sourceUrn, new TestQueryResponse(new ArrayList<>()));
+        }
+        finalResult.get(sourceUrn).getValues().addAll(partialQueryResponse.getValues());
+      }
+    }
+    return finalResult;
+  }
+
+  // Evaluate the query given the aspect records
   private Map<Urn, TestQueryResponse> evaluateQuery(List<AspectWithUrn> aspects, TestQuery query) {
+    // Starting from the original aspects, traverse down based on the query parts
     List<ValueWithUrn> currentValues = aspects.stream()
         .map(aspect -> new ValueWithUrn(aspect.getUrn(), aspect.getAspect()))
         .collect(Collectors.toList());
@@ -180,49 +247,15 @@ public class QueryVersionedAspectEvaluator implements BaseQueryEvaluator {
       if (currentValues.isEmpty()) {
         return Collections.emptyMap();
       }
-      // If the traversed object is a record template, fetch the field corresponding to the current query part
-      if (currentValues.get(0).getValue() instanceof RecordTemplate) {
-        List<ValueWithUrn> flatMappedResult = new ArrayList<>();
-        for (ValueWithUrn currentValue : currentValues) {
-          Optional<Object> fieldValue = RecordUtils.getFieldValue(currentValue.getValue(), pathSpec);
-          if (!fieldValue.isPresent()) {
-            continue;
-          }
-          if (fieldValue.get() instanceof AbstractArrayTemplate) {
-            AbstractArrayTemplate<Object> arrayFieldValues = (AbstractArrayTemplate<Object>) fieldValue.get();
-            arrayFieldValues.forEach(value -> flatMappedResult.add(new ValueWithUrn(currentValue.getUrn(), value)));
-          } else {
-            flatMappedResult.add(new ValueWithUrn(currentValue.getUrn(), fieldValue.get()));
-          }
-        }
-        currentValues = flatMappedResult;
-        // If the traversed object is an urn, recursively evaluate the rest of the query using the query engine
-      } else if (currentValues.get(0).getValue() instanceof Urn) {
-        TestQuery partialQuery = new TestQuery(query.getQueryParts().subList(i, query.getQueryParts().size()));
-        Map<Urn, List<Urn>> valueUrnToSourceUrn = currentValues.stream()
-            .collect(Collectors.groupingBy(valueWithUrn -> (Urn) valueWithUrn.getValue(),
-                Collectors.mapping(ValueWithUrn::getUrn, Collectors.toList())));
-        Map<Urn, Map<TestQuery, TestQueryResponse>> evaluatedPartialQuery =
-            queryEngine.batchEvaluate(valueUrnToSourceUrn.keySet(), Collections.singleton(partialQuery));
-        Map<Urn, TestQueryResponse> finalResult = new HashMap<>();
-        for (Urn valueUrn : evaluatedPartialQuery.keySet()) {
-          if (!evaluatedPartialQuery.get(valueUrn).containsKey(partialQuery)) {
-            continue;
-          }
-          TestQueryResponse partialQueryResponse = evaluatedPartialQuery.get(valueUrn).get(partialQuery);
-          if (partialQueryResponse.getValues().isEmpty()) {
-            continue;
-          }
 
-          List<Urn> sourceUrns = valueUrnToSourceUrn.get(valueUrn);
-          for (Urn sourceUrn : sourceUrns) {
-            if (!finalResult.containsKey(sourceUrn)) {
-              finalResult.put(sourceUrn, new TestQueryResponse(new ArrayList<>()));
-            }
-            finalResult.get(sourceUrn).getValues().addAll(partialQueryResponse.getValues());
-          }
-        }
-        return finalResult;
+      if (currentValues.get(0).getValue() instanceof RecordTemplate) {
+        // If the traversed object is a record template, fetch the field corresponding to the current query part
+        currentValues = traverseRecords(currentValues, queryPart);
+      } else if (currentValues.get(0).getValue() instanceof Urn) {
+        // If the traversed object is an urn, recursively evaluate the rest of the query using the query engine
+        // First, build partial query with the rest of the query parts.
+        TestQuery partialQuery = new TestQuery(query.getQueryParts().subList(i, query.getQueryParts().size()));
+        return evaluateQueryForUrns(currentValues, partialQuery);
       } else {
         log.error("Invalid metadata test query: cannot fetch field {} of objects {}", queryPart, currentValues);
         throw new UnsupportedOperationException(

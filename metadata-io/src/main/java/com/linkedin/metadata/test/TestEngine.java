@@ -179,7 +179,7 @@ public class TestEngine {
    */
   public Map<Urn, TestResults> batchEvaluateTestsForEntities(List<Urn> urns, boolean shouldPush) {
     Map<String, List<Urn>> urnsPerEntityType = urns.stream().collect(Collectors.groupingBy(Urn::getEntityType));
-    Map<Urn, TestResults> finalTestResults = null;
+    Map<Urn, TestResults> finalTestResults = new HashMap<>();
     for (String entityType : urnsPerEntityType.keySet()) {
       List<TestDefinition> testsEligibleForEntityType =
           _testPerEntityTypeCache.getOrDefault(entityType, Collections.emptyList());
@@ -187,14 +187,7 @@ public class TestEngine {
         continue;
       }
       Map<Urn, TestResults> resultsForEntityType = batchEvaluateTests(urns, testsEligibleForEntityType);
-      if (finalTestResults == null) {
-        finalTestResults = resultsForEntityType;
-      } else {
-        finalTestResults.putAll(resultsForEntityType);
-      }
-    }
-    if (finalTestResults == null) {
-      return Collections.emptyMap();
+      finalTestResults.putAll(resultsForEntityType);
     }
 
     if (shouldPush) {
@@ -347,7 +340,7 @@ public class TestEngine {
     if (rules.isEmpty()) {
       return Collections.emptyMap();
     }
-    return _queryEngine.batchEvaluate(new HashSet<>(urns),
+    return _queryEngine.batchEvaluateQueries(new HashSet<>(urns),
         getQueries(rules).stream().map(TestQuery::new).collect(Collectors.toSet()));
   }
 
