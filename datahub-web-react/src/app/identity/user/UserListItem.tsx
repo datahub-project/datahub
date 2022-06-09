@@ -1,16 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, List, message, Modal, Tag, Tooltip, Typography } from 'antd';
+import { Button, Dropdown, List, Menu, message, Modal, Tag, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
-import { DeleteOutlined } from '@ant-design/icons';
+import { DeleteOutlined, MoreOutlined, UnlockOutlined } from '@ant-design/icons';
 import { CorpUser, CorpUserStatus, EntityType } from '../../../types.generated';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { useRemoveUserMutation } from '../../../graphql/user.generated';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../entity/shared/constants';
+import ViewResetTokenModal from './ViewResetTokenModal';
 
 type Props = {
     user: CorpUser;
+    canManageUserCredentials: boolean;
     onDelete?: () => void;
 };
 
@@ -34,9 +36,12 @@ const ButtonGroup = styled.div`
     align-items: center;
 `;
 
-export default function UserListItem({ user, onDelete }: Props) {
+export default function UserListItem({ user, canManageUserCredentials, onDelete }: Props) {
     const entityRegistry = useEntityRegistry();
+    const [isViewingResetToken, setIsViewingResetToken] = useState(false);
     const displayName = entityRegistry.getDisplayName(EntityType.CorpUser, user);
+    const isNativeUser: boolean = user.isNativeUser as boolean;
+    const shouldShowPasswordReset: boolean = canManageUserCredentials && isNativeUser;
 
     const [removeUserMutation] = useRemoveUserMutation();
 
@@ -118,10 +123,28 @@ export default function UserListItem({ user, onDelete }: Props) {
                 </Link>
             </UserItemContainer>
             <ButtonGroup>
+                <Dropdown
+                    trigger={['click']}
+                    overlay={
+                        <Menu>
+                            <Menu.Item disabled={!shouldShowPasswordReset} onClick={() => setIsViewingResetToken(true)}>
+                                <UnlockOutlined /> &nbsp; Reset user password
+                            </Menu.Item>
+                        </Menu>
+                    }
+                >
+                    <MoreOutlined />
+                </Dropdown>
                 <Button onClick={() => handleRemoveUser(user.urn)} type="text" shape="circle" danger>
                     <DeleteOutlined />
                 </Button>
             </ButtonGroup>
+            <ViewResetTokenModal
+                visible={isViewingResetToken}
+                userUrn={user.urn}
+                username={user.username}
+                onClose={() => setIsViewingResetToken(false)}
+            />
         </List.Item>
     );
 }

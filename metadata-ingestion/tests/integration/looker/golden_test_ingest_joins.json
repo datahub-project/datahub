@@ -113,6 +113,15 @@
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.underlying_view,PROD)",
                                 "type": "VIEW"
+                            },
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown",
+                                    "impersonator": null
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_joined_view_original_name,PROD)",
+                                "type": "VIEW"
                             }
                         ],
                         "fineGrainedLineages": null

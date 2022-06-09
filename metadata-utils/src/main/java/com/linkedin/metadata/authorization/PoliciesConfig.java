@@ -75,6 +75,10 @@ public class PoliciesConfig {
       "Manage Glossaries",
       "Create, edit, and remove Glossary Entities");
 
+  public static final Privilege MANAGE_USER_CREDENTIALS_PRIVILEGE =
+      Privilege.of("MANAGE_USER_CREDENTIALS", "Manage User Credentials",
+          "Manage credentials for native DataHub users, including inviting new users and resetting passwords");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES = ImmutableList.of(
       MANAGE_POLICIES_PRIVILEGE,
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
@@ -85,7 +89,8 @@ public class PoliciesConfig {
       GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
       MANAGE_ACCESS_TOKENS,
       MANAGE_TESTS_PRIVILEGE,
-      MANAGE_GLOSSARIES_PRIVILEGE
+      MANAGE_GLOSSARIES_PRIVILEGE,
+      MANAGE_USER_CREDENTIALS_PRIVILEGE
   );
 
   // Resource Privileges //
