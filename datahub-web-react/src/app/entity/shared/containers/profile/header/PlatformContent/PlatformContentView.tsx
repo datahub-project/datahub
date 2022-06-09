@@ -87,6 +87,8 @@ export function getParentContainerNames(containers?: Maybe<Container>[] | null) 
 interface Props {
     platformName?: string;
     platformLogoUrl?: Maybe<string>;
+    platformNames?: Maybe<string>[];
+    platformLogoUrls?: Maybe<string>[];
     entityLogoComponent?: JSX.Element;
     instanceId?: string;
     typeIcon?: JSX.Element;
@@ -100,6 +102,8 @@ function PlatformContentView(props: Props) {
     const {
         platformName,
         platformLogoUrl,
+        platformNames,
+        platformLogoUrls,
         entityLogoComponent,
         instanceId,
         typeIcon,
@@ -116,15 +120,23 @@ function PlatformContentView(props: Props) {
         <PlatformContentWrapper>
             {typeIcon && <LogoIcon>{typeIcon}</LogoIcon>}
             <PlatformText>{entityType}</PlatformText>
-            <PlatformDivider />
+            {(!!platformName || !!instanceId || !!parentContainers?.length) && <PlatformDivider />}
             {platformName && (
                 <LogoIcon>
-                    {(!!platformLogoUrl && <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />) ||
-                        entityLogoComponent}
+                    {!platformLogoUrl && !platformLogoUrls && entityLogoComponent}
+                    {!!platformLogoUrl && !platformLogoUrls && (
+                        <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />
+                    )}
+                    {!!platformLogoUrls && (
+                        <>
+                            <PreviewImage preview={false} src={platformLogoUrls[0] || ''} alt={platformName} />
+                            <PreviewImage preview={false} src={platformLogoUrls[1] || ''} alt={platformName} />
+                        </>
+                    )}
                 </LogoIcon>
             )}
             <PlatformText>
-                {platformName}
+                {platformNames ? platformNames.join(' & ') : platformName}
                 {(directParentContainer || instanceId) && <StyledRightOutlined data-testid="right-arrow" />}
             </PlatformText>
             {instanceId && (

@@ -1,21 +1,23 @@
-import { CopyOutlined } from '@ant-design/icons';
-import { Tooltip, Button } from 'antd';
+import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
+import { Button, Tooltip } from 'antd';
 import React from 'react';
 
-type Props = {
+interface CopyUrnProps {
     urn: string;
-};
+    isActive?: boolean;
+    onClick?: () => void;
+}
 
-export const CopyUrn = ({ urn }: Props) => {
+export default function CopyUrn({ urn, isActive, onClick }: CopyUrnProps) {
     return (
         <Tooltip title="Copy URN. An URN uniquely identifies an entity on DataHub.">
             <Button
-                style={{ marginRight: 16 }}
-                icon={<CopyOutlined />}
+                icon={isActive ? <CheckOutlined /> : <CopyOutlined />}
                 onClick={() => {
                     navigator.clipboard.writeText(urn);
+                    onClick?.();
                 }}
             />
         </Tooltip>
     );
-};
+}

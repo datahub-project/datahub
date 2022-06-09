@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureTable;
@@ -47,6 +48,11 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new GlossaryTerm();
       ((GlossaryTerm) partialEntity).setUrn(input.toString());
       ((GlossaryTerm) partialEntity).setType(EntityType.GLOSSARY_TERM);
+    }
+    if (input.getEntityType().equals("glossaryNode")) {
+      partialEntity = new GlossaryNode();
+      ((GlossaryNode) partialEntity).setUrn(input.toString());
+      ((GlossaryNode) partialEntity).setType(EntityType.GLOSSARY_NODE);
     }
     if (input.getEntityType().equals("chart")) {
       partialEntity = new Chart();

@@ -63,6 +63,25 @@ SCHEMA_WITH_OPTIONAL_FIELD_VIA_PRIMITIVE_TYPE = """
 }
 """
 
+SCHEMA_WITH_OPTIONAL_FIELD_VIA_FIXED_TYPE: str = json.dumps(
+    {
+        "type": "record",
+        "name": "__struct_",
+        "fields": [
+            {
+                "name": "value",
+                "type": {
+                    "type": "fixed",
+                    "name": "__fixed_d9d2d051916045d9975d6c573aaabb89",
+                    "size": 4,
+                    "native_data_type": "fixed[4]",
+                    "_nullable": True,
+                },
+            },
+        ],
+    }
+)
+
 
 def log_field_paths(fields: List[SchemaField]) -> None:
     logger.debug('FieldPaths=\n"' + '",\n"'.join(f.fieldPath for f in fields) + '"')
@@ -93,11 +112,13 @@ def assert_field_paths_match(
         SCHEMA_WITH_OPTIONAL_FIELD_VIA_UNION_TYPE,
         SCHEMA_WITH_OPTIONAL_FIELD_VIA_UNION_TYPE_NULL_ISNT_FIRST_IN_UNION,
         SCHEMA_WITH_OPTIONAL_FIELD_VIA_PRIMITIVE_TYPE,
+        SCHEMA_WITH_OPTIONAL_FIELD_VIA_FIXED_TYPE,
     ],
     ids=[
         "optional_field_via_union_type",
         "optional_field_via_union_null_not_first",
         "optional_field_via_primitive",
+        "optional_field_via_fixed",
     ],
 )
 def test_avro_schema_to_mce_fields_events_with_nullable_fields(schema):

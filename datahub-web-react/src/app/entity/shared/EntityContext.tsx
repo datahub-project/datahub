@@ -44,3 +44,11 @@ export const useLineageData = () => {
     const { lineage } = useContext(EntityContext);
     return lineage;
 };
+
+export const useMutationUrn = () => {
+    const { urn, entityData } = useContext(EntityContext);
+    if (!entityData?.siblings || entityData?.siblings?.isPrimary) {
+        return urn;
+    }
+    return entityData?.siblings?.siblings?.[0]?.urn || urn;
+};

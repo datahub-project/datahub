@@ -61,6 +61,11 @@ _Note: All these commands below support the soft-delete option (`-s/--soft`) as 
 datahub delete --env DEV --entity_type dataset
 ```
 
+### Delete all containers for a particular platform
+```
+datahub delete --entity_type container --platform s3
+```
+
 ### Delete all Pipelines and Tasks in the DEV environment
 ```
 datahub delete --env DEV --entity_type "datajob"

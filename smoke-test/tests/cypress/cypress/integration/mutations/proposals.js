@@ -11,7 +11,7 @@ describe('proposals', () => {
 
     cy.get('[data-testid="proposed-tag-TagToPropose"]').should('not.exist');
 
-    cy.contains('Add Tag').click({ force: true });
+    cy.contains('Add Tags').click({ force: true });
     cy.wait(1000);
 
     cy.focused().type('TagToPropose');
@@ -37,15 +37,15 @@ describe('proposals', () => {
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
 
     cy.get('[data-testid="proposed-term-TermToPropose"]').should('not.exist');
-    cy.contains('Add Term').click({force: true});
+    cy.contains('Add Terms').click({force: true});
     cy.wait(1000);
 
     cy.focused().type('TermToPropose');
     cy.wait(3000);
 
-    cy.contains('CypressNode.TermToPropose').click({force: true});
+    cy.contains('TermToPropose').click({force: true});
 
-    cy.get('.ant-select-item-option-content').within(() => cy.contains('CypressNode.TermToPropose').click({force: true}));
+    cy.get('.ant-select-item-option-content').within(() => cy.contains('TermToPropose').click({force: true}));
     cy.get('[data-testid="create-proposal-btn"]').click({force: true});
     cy.wait(5000);
     cy.reload();
@@ -63,7 +63,7 @@ describe('proposals', () => {
 
     // Proposing the tag
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
-    cy.contains('Add Tag').click({force: true});
+    cy.contains('Add Tags').click({force: true});
 
     cy.focused().type('TagToPropose');
     cy.wait(3000);
@@ -97,15 +97,15 @@ describe('proposals', () => {
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
 
     cy.get('[data-testid="proposed-term-TermToPropose"]').should('not.exist');
-    cy.contains('Add Term').click({force: true});
+    cy.contains('Add Terms').click({force: true});
     cy.wait(1000);
 
     cy.focused().type('TermToPropose');
     cy.wait(3000);
 
-    cy.contains('CypressNode.TermToPropose').click({force: true});
+    cy.contains('TermToPropose').click({force: true});
 
-    cy.get('.ant-select-item-option-content').within(() => cy.contains('CypressNode.TermToPropose').click({force: true}));
+    cy.get('.ant-select-item-option-content').within(() => cy.contains('TermToPropose').click({force: true}));
     cy.get('[data-testid="create-proposal-btn"]').click({force: true});
     cy.wait(5000);
     cy.reload();
@@ -119,7 +119,7 @@ describe('proposals', () => {
     cy.wait(1000);
 
     // Deleting the term (data cleanup)
-    cy.get('a[href="/glossary/urn:li:glossaryTerm:CypressNode.TermToPropose"]').within(() => cy.get('span[aria-label=close]').click({force: true}));
+    cy.contains('TermToPropose').within(() => cy.get('span[aria-label=close]').click());
     cy.contains('Yes').click({force: true});
     cy.wait(1000);
   });
@@ -132,7 +132,7 @@ describe('proposals', () => {
 
     cy.get('[data-testid="proposed-tag-TagToPropose"]').should('not.exist');
 
-    cy.contains('Add Tag').click({ force: true });
+    cy.contains('Add Tags').click({ force: true });
 
     cy.focused().type('TagToPropose');
     cy.wait(3000);
@@ -150,7 +150,6 @@ describe('proposals', () => {
     cy.get('input[data-testid=search-input]').typeSearchDisableCache('TagToPropose');
     cy.contains('DatasetToProposeOn');
     cy.contains('TagToPropose');
-    cy.contains('Proposed Tag');
 
     cy.wait(1000);
 
@@ -176,14 +175,14 @@ describe('proposals', () => {
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
 
     cy.get('[data-testid="proposed-term-TermToPropose"]').should('not.exist');
-    cy.contains('Add Term').click({force: true});
+    cy.contains('Add Terms').click({force: true});
 
     cy.focused().type('TermToPropose');
     cy.wait(3000);
 
-    cy.contains('CypressNode.TermToPropose').click({force: true});
+    cy.contains('TermToPropose').click({force: true});
 
-    cy.get('.ant-select-item-option-content').within(() => cy.contains('CypressNode.TermToPropose').click({ force: true }));
+    cy.get('.ant-select-item-option-content').within(() => cy.contains('TermToPropose').click({ force: true }));
     cy.get('[data-testid="create-proposal-btn"]').click({force: true});
     cy.wait(5000);
     cy.reload();
@@ -195,7 +194,6 @@ describe('proposals', () => {
     cy.get('input[data-testid=search-input]').typeSearchDisableCache('TermToPropose');
     cy.contains('DatasetToProposeOn');
     cy.contains('TermToPropose');
-    cy.contains('Proposed Glossary Term');
 
     cy.wait(1000);
 
@@ -219,7 +217,7 @@ describe('proposals', () => {
 
     // Proposing the tag
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
-    cy.contains('Add Tag').click({force: true});
+    cy.contains('Add Tags').click({force: true});
 
     cy.focused().type('TagToPropose');
     cy.wait(3000);
@@ -264,14 +262,14 @@ describe('proposals', () => {
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)');
 
     cy.get('[data-testid="proposed-term-TermToPropose"]').should('not.exist');
-    cy.contains('Add Term').click({force: true});
+    cy.contains('Add Terms').click({force: true});
 
     cy.focused().type('TermToPropose');
     cy.wait(3000);
 
-    cy.contains('CypressNode.TermToPropose').click({force: true});
+    cy.contains('TermToPropose').click({force: true});
 
-    cy.get('.ant-select-item-option-content').within(() => cy.contains('CypressNode.TermToPropose').click({ force: true }));
+    cy.get('.ant-select-item-option-content').within(() => cy.contains('TermToPropose').click({ force: true }));
     cy.get('[data-testid="create-proposal-btn"]').click({force: true});
     cy.wait(5000);
     cy.reload();
@@ -299,7 +297,7 @@ describe('proposals', () => {
     cy.get('[data-testid="proposed-term-TermToPropose"]').should('not.exist');
     cy.wait(1000);
 
-    cy.get('a[href="/glossary/urn:li:glossaryTerm:CypressNode.TermToPropose"]').within(() => cy.get('span[aria-label=close]').click({force: true}));
+    cy.contains('TermToPropose').within(() => cy.get('span[aria-label=close]').click());
     cy.contains('Yes').click({force: true});
     cy.wait(1000);
   });

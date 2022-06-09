@@ -79,6 +79,11 @@ public class PoliciesConfig {
       "Manage Tests",
       "Create and remove Asset Tests.");
 
+  public static final Privilege MANAGE_GLOSSARIES_PRIVILEGE = Privilege.of(
+      "MANAGE_GLOSSARIES",
+      "Manage Glossaries",
+      "Create, edit, and remove Glossary Entities");
+
   public static final Privilege MANAGE_GLOBAL_SETTINGS = Privilege.of(
       "MANAGE_GLOBAL_SETTINGS",
       "Manage Platform Settings",
@@ -96,6 +101,7 @@ public class PoliciesConfig {
       GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
       MANAGE_ACCESS_TOKENS,
       MANAGE_TESTS_PRIVILEGE,
+      MANAGE_GLOSSARIES_PRIVILEGE,
       MANAGE_GLOBAL_SETTINGS
   );
 
