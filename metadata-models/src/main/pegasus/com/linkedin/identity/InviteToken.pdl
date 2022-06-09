@@ -1,0 +1,16 @@
+namespace com.linkedin.identity
+
+import com.linkedin.common.Urn
+
+/**
+ * Aspect used to store the token needed to invite native DataHub users
+ */
+@Aspect = {
+  "name": "inviteToken"
+}
+record InviteToken {
+  /**
+   * The encrypted invite token.
+   */
+  token: string
+}

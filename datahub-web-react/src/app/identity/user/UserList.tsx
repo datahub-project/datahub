@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Empty, List, message, Pagination } from 'antd';
+import { Button, Empty, List, message, Pagination } from 'antd';
 import styled from 'styled-components';
 import * as QueryString from 'query-string';
+import { UsergroupAddOutlined } from '@ant-design/icons';
 import { useLocation } from 'react-router';
 import UserListItem from './UserListItem';
 import { Message } from '../../shared/Message';
@@ -10,6 +11,8 @@ import { CorpUser } from '../../../types.generated';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import ViewInviteTokenModal from './ViewInviteTokenModal';
+import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 
 const UserContainer = styled.div``;
 
@@ -36,7 +39,11 @@ export const UserList = () => {
     useEffect(() => setQuery(paramsQuery), [paramsQuery]);
 
     const [page, setPage] = useState(1);
+    const [isViewingInviteToken, setIsViewingInviteToken] = useState(false);
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
+
+    const authenticatedUser = useGetAuthenticatedUser();
+    const canManageUserCredentials = authenticatedUser?.platformPrivileges.manageUserCredentials || false;
 
     const pageSize = DEFAULT_PAGE_SIZE;
     const start = (page - 1) * pageSize;
@@ -76,7 +83,13 @@ export const UserList = () => {
             <UserContainer>
                 <TabToolbar>
                     <div>
-                        <></>
+                        <Button
+                            disabled={!canManageUserCredentials}
+                            type="text"
+                            onClick={() => setIsViewingInviteToken(true)}
+                        >
+                            <UsergroupAddOutlined /> Invite Users
+                        </Button>
                     </div>
                     <SearchBar
                         initialQuery={query || ''}
@@ -102,7 +115,11 @@ export const UserList = () => {
                     }}
                     dataSource={filteredUsers}
                     renderItem={(item: any) => (
-                        <UserListItem onDelete={() => handleDelete(item.urn as string)} user={item as CorpUser} />
+                        <UserListItem
+                            onDelete={() => handleDelete(item.urn as string)}
+                            user={item as CorpUser}
+                            canManageUserCredentials={canManageUserCredentials}
+                        />
                     )}
                 />
                 <UserPaginationContainer>
@@ -116,6 +133,7 @@ export const UserList = () => {
                         showSizeChanger={false}
                     />
                 </UserPaginationContainer>
+                <ViewInviteTokenModal visible={isViewingInviteToken} onClose={() => setIsViewingInviteToken(false)} />
             </UserContainer>
         </>
     );

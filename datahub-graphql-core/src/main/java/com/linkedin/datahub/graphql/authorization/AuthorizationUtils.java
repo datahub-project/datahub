@@ -33,6 +33,10 @@ public class AuthorizationUtils {
     return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE);
   }
 
+  public static boolean canManageUserCredentials(@Nonnull QueryContext context) {
+    return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE);
+  }
+
   public static boolean isAuthorized(
       @Nonnull QueryContext context,
       @Nonnull Optional<ResourceSpec> resourceSpec,
