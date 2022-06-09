@@ -40,10 +40,6 @@ public class TestEngineFactory {
   private EntitySearchService entitySearchService;
 
   @Autowired
-  @Qualifier("testDefinitionProvider")
-  private TestDefinitionProvider testDefinitionProvider;
-
-  @Autowired
   @Qualifier("queryEngine")
   private QueryEngine queryEngine;
 
@@ -56,7 +52,8 @@ public class TestEngineFactory {
   @Bean(name = "testEngine")
   @Nonnull
   protected TestEngine getInstance() {
-    return new TestEngine(entityService, new TestFetcher(entityService, entitySearchService), testDefinitionProvider, queryEngine,
+    return new TestEngine(entityService, new TestFetcher(entityService, entitySearchService),
+        new TestDefinitionProvider(UnitTestRuleEvaluator.getInstance()), queryEngine,
         new TestRuleEvaluator(UnitTestRuleEvaluator.getInstance()), 10, testCacheRefreshIntervalSeconds);
   }
 }

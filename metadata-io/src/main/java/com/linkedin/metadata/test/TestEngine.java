@@ -233,11 +233,8 @@ public class TestEngine {
     return tests;
   }
 
-  @WithSpan
-  private TestResults evaluateTests(Urn urn, List<TestDefinition> tests) {
-    if (tests.isEmpty()) {
-      return EMPTY_RESULTS;
-    }
+  // Get eligible tests for the given entity based on the targeting rules
+  private List<TestDefinition> getEligibleTests(Urn urn, List<TestDefinition> tests) {
     // First batch evaluate all queries in the targeting rules
     // Always make sure we batch queries together as much as possible to reduce calls
     Map<TestQuery, TestQueryResponse> targetingRulesQueryResponses = batchQuery(ImmutableList.of(urn), tests.stream()
@@ -246,8 +243,17 @@ public class TestEngine {
         .map(Optional::get)
         .collect(Collectors.toList())).getOrDefault(urn, Collections.emptyMap());
     // Based on the query evaluation result, find the list of tests that are eligible for the given urn
-    List<TestDefinition> eligibleTests =
-        tests.stream().filter(test -> isEligible(urn, targetingRulesQueryResponses, test)).collect(Collectors.toList());
+    return tests.stream()
+        .filter(test -> isEligible(urn, targetingRulesQueryResponses, test))
+        .collect(Collectors.toList());
+  }
+
+  @WithSpan
+  private TestResults evaluateTests(Urn urn, List<TestDefinition> tests) {
+    if (tests.isEmpty()) {
+      return EMPTY_RESULTS;
+    }
+    List<TestDefinition> eligibleTests = getEligibleTests(urn, tests);
     TestResults result = new TestResults().setPassing(new TestResultArray()).setFailing(new TestResultArray());
 
     // Batch evaluate all queries in the main rules
@@ -265,7 +271,7 @@ public class TestEngine {
     return result;
   }
 
-  // For each test, find the list of eligible entities among the input urns
+  // For each test, find the list of eligible entities among the input urns based on the targeting rules
   private Map<TestDefinition, List<Urn>> getEligibleEntitiesPerTest(List<Urn> urns, List<TestDefinition> tests) {
     // First batch evaluate all queries in the targeting rules
     // Always make sure we batch queries together as much as possible to reduce calls

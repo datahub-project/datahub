@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.test.eval.UnitTestRuleEvaluator;
 import com.linkedin.metadata.test.exception.TestDefinitionParsingException;
 import java.util.Collections;
