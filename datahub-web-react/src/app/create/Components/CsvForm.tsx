@@ -1,32 +1,29 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { CSVReader } from 'react-papaparse';
-import { Form, Input, Space, Select, Button, message, Divider, InputNumber } from 'antd';
-import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { Form, Input, Space, Select, Button, message, Divider, InputNumber, Popconfirm } from 'antd';
+import { MinusCircleOutlined, PlusOutlined, AlertOutlined } from '@ant-design/icons';
 // import { gql, useQuery } from '@apollo/client';
 import { CommonFields } from './CommonFields';
 // import adhocConfig from '../../../conf/Adhoc';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import { GetMyToken } from '../../entity/dataset/whoAmI';
 import { WhereAmI } from '../../home/whereAmI';
+import { DataPlatformSelect } from '../../entity/shared/tabs/Dataset/platformSelect/DataPlatformSelect';
+import { printErrorMsg, printSuccessMsg } from '../../entity/shared/tabs/Dataset/ApiCallUtils';
 
 export const CsvForm = () => {
     const urlBase = WhereAmI();
     const publishUrl = `${urlBase}custom/make_dataset`;
+    const [visible, setVisible] = useState(false);
+    const [confirmLoading, setConfirmLoading] = useState(false);
     console.log(`the publish url is ${publishUrl}`);
     const user = useGetAuthenticatedUser();
     const userUrn = user?.corpUser?.urn || '';
     const userToken = GetMyToken(userUrn);
-    // console.log(`user is ${userUrn} and token is ${userToken}, received at ${Date().toLocaleString()}`);
-    const [fileType, setFileType] = useState({ dataset_type: 'application/octet-stream' });
+    // const [fileType, setFileType] = useState({ dataset_type: 'application/octet-stream' });
     const [hasHeader, setHasHeader] = useState('no');
 
-    const printSuccessMsg = (status) => {
-        message.success(`Status:${status} - Request submitted successfully`, 3).then();
-    };
-    const printErrorMsg = (error) => {
-        message.error(error, 3).then();
-    };
     const [form] = Form.useForm();
     const { Option } = Select;
     const layout = {
@@ -37,18 +34,39 @@ export const CsvForm = () => {
             span: 14,
         },
     };
-    const onFinish = (values) => {
-        // console.log('Received values of form:', values);
-        const finalValue = { ...values, ...fileType, dataset_owner: user?.corpUser?.username, user_token: userToken };
-        // console.log('Received finalValue:', finalValue);
-        // POST request using axios with error handling
-        console.log(`publish is now ${publishUrl}`);
+    // const onFinish = (values) => {
+    //     // console.log('Received values of form:', values);
+    //     const finalValue = { ...values, ...fileType, dataset_owner: user?.corpUser?.username, user_token: userToken };
+    //     // console.log('Received finalValue:', finalValue);
+    //     // POST request using axios with error handling
+    //     console.log(`publish is now ${publishUrl}`);
+    //     axios
+    //         .post(publishUrl, finalValue)
+    //         .then((response) => printSuccessMsg(response.status))
+    //         .catch((error) => {
+    //             printErrorMsg(error.toString());
+    //         });
+    // };
+    function showPopconfirm() {
+        setVisible(true);
+    }
+    const popupHandleOk = () => {
+        setConfirmLoading(true);
+        const values = form.getFieldsValue();
+        const finalValue = { ...values, dataset_owner: user?.corpUser?.username, user_token: userToken };
         axios
             .post(publishUrl, finalValue)
             .then((response) => printSuccessMsg(response.status))
             .catch((error) => {
                 printErrorMsg(error.toString());
             });
+        setTimeout(() => {
+            setVisible(false);
+            setConfirmLoading(false);
+        }, 3000);
+    };
+    const popuphandleCancel = () => {
+        setVisible(false);
     };
     const onReset = () => {
         form.resetFields();
@@ -62,7 +80,7 @@ export const CsvForm = () => {
         let headerLine = form.getFieldValue('headerLine');
         console.log('form values', form.getFieldValue('headerLine'));
         // set state for file type
-        setFileType({ dataset_type: fileInfo.type });
+        // setFileType({ dataset_type: fileInfo.type });
         // get the first row as headers
         if (data.length > 0 && headerLine <= data.length) {
             // map to array of objects
@@ -79,19 +97,26 @@ export const CsvForm = () => {
         form.resetFields();
         setHasHeader('no');
     };
+    const validateForm = () => {
+        form.validateFields().then(() => {
+            showPopconfirm();
+        });
+    };
+    const popupMsg = `Confirm Dataset Name is correct: ${form.getFieldValue('dataset_name')}? 
+    This will permanently affect the dataset URL`;
     return (
         <>
             <Form
                 {...layout}
                 form={form}
                 initialValues={{
+                    platformSelect: 'urn:li:dataPlatform:hive',
                     fields: [{ field_description: '', field_type: 'string' }],
                     hasHeader: 'no',
                     headerLine: 1,
                     browsepathList: ['/csv/'],
                 }}
                 name="dynamic_form_item"
-                onFinish={onFinish}
             >
                 <CSVReader onFileLoad={handleOnFileLoad} addRemoveButton onRemoveFile={handleOnRemoveFile}>
                     <span>Click here to parse your file header (CSV or delimited text file only)</span>
@@ -99,6 +124,7 @@ export const CsvForm = () => {
                 <Divider dashed orientation="left">
                     Dataset Info
                 </Divider>
+                <DataPlatformSelect />
                 <CommonFields />
                 <Form.Item
                     name="hasHeader"
@@ -186,9 +212,18 @@ export const CsvForm = () => {
                         )}
                     </Form.List>
                     <Space>
-                        <Button type="primary" htmlType="submit">
-                            Submit
-                        </Button>
+                        <Popconfirm
+                            title={popupMsg}
+                            visible={visible}
+                            onConfirm={popupHandleOk}
+                            okButtonProps={{ loading: confirmLoading }}
+                            onCancel={popuphandleCancel}
+                            icon={<AlertOutlined style={{ color: 'red' }} />}
+                        >
+                            <Button htmlType="button" onClick={validateForm}>
+                                Submit
+                            </Button>
+                        </Popconfirm>
                         <Button htmlType="button" onClick={onReset}>
                             Reset
                         </Button>

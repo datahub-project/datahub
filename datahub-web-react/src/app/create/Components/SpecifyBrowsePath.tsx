@@ -63,9 +63,10 @@ export const SpecifyBrowsePath = () => {
                             <Form.Item {...buttonItemLayout}>
                                 <Button
                                     type="dashed"
-                                    style={{ width: '100%' }}
+                                    style={{ width: '80%' }}
                                     onClick={() => add()}
                                     icon={<PlusOutlined />}
+                                    disabled={fields.length >= 3}
                                 >
                                     Add more browsing paths
                                 </Button>

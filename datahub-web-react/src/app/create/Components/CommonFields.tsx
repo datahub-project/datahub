@@ -1,8 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Form, Input } from 'antd';
+import styled from 'styled-components';
+import MDEditor, { commands } from '@uiw/react-md-editor';
 import { SpecifyBrowsePath } from './SpecifyBrowsePath';
 
 export const CommonFields = () => {
+    const DocumentationContainer = styled.div`
+        border: 1px solid white;
+    `;
+    const tempString = `About Dataset:  \nUpdate Frequency:  \nFor Data Access, Contact:  \n`;
+    // I don't want the fullscreen option, hence need to specify the commands.
+    const previewIcons = [commands.codeLive, commands.codeEdit, commands.codePreview];
+    const [descriptionValue, setDescriptionValue] = useState(tempString);
+    const updateValue = (values) => {
+        setDescriptionValue(values);
+    };
     return (
         <>
             <Form.Item
@@ -27,7 +39,15 @@ export const CommonFields = () => {
                     },
                 ]}
             >
-                <Input />
+                <DocumentationContainer>
+                    <MDEditor
+                        value={descriptionValue}
+                        onChange={updateValue}
+                        preview="live"
+                        extraCommands={previewIcons}
+                        enableScroll={false}
+                    />
+                </DocumentationContainer>
             </Form.Item>
             <Form.Item
                 name="dataset_origin"
