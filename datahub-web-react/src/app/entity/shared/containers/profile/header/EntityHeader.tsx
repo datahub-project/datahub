@@ -64,6 +64,18 @@ const DeprecatedText = styled.div`
     margin-left: 5px;
 `;
 
+const DeprecatedTitle = styled(Typography.Text)`
+    display: block;
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 5px;
+`;
+
+const DeprecatedSubTitle = styled(Typography.Text)`
+    display: block;
+    margin-bottom: 5px;
+`;
+
 const LastEvaluatedAtLabel = styled.div`
     padding: 0;
     margin: 0;
@@ -157,7 +169,12 @@ export const EntityHeader = ({ refreshBrowser, headerDropdownItems, isNameEditab
                                 hasDetails ? (
                                     <>
                                         {entityData?.deprecation?.note !== '' && (
-                                            <Typography.Text>{entityData?.deprecation?.note}</Typography.Text>
+                                            <DeprecatedTitle>Note</DeprecatedTitle>
+                                        )}
+                                        {entityData?.deprecation?.note !== '' && (
+                                            <DeprecatedSubTitle type="secondary">
+                                                {entityData?.deprecation?.note}
+                                            </DeprecatedSubTitle>
                                         )}
                                         {isDividerNeeded && <Divider />}
                                         {entityData?.deprecation?.decommissionTime !== null && (
