@@ -926,7 +926,11 @@ class BigQueryUsageSource(Source):
     def _create_operation_aspect_work_unit(
         self, event: QueryEvent
     ) -> Optional[MetadataWorkUnit]:
-        if event.statementType in OPERATION_STATEMENT_TYPES and event.destinationTable:
+        if (
+            event.statementType in OPERATION_STATEMENT_TYPES
+            and event.destinationTable
+            and self._is_table_allowed(event.destinationTable)
+        ):
             destination_table: BigQueryTableRef
             try:
                 destination_table = event.destinationTable.remove_extras()
