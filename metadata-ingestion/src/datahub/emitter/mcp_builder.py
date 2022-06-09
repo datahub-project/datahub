@@ -234,7 +234,8 @@ def gen_containers(
 
 def add_dataset_to_container(
     # FIXME: Union requires two or more type arguments
-    container_key: KeyType, dataset_urn: str
+    container_key: KeyType,
+    dataset_urn: str,
 ) -> Iterable[Union[MetadataWorkUnit]]:
     container_urn = make_container_urn(
         guid=container_key.guid(),

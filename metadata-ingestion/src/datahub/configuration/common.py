@@ -136,7 +136,10 @@ class AllowDenyPattern(ConfigModel):
             if re.match(deny_pattern, string, self.regex_flags):
                 return False
 
-        return any(re.match(allow_pattern, string, self.regex_flags) for allow_pattern in self.allow)
+        return any(
+            re.match(allow_pattern, string, self.regex_flags)
+            for allow_pattern in self.allow
+        )
 
     def is_fully_specified_allow_list(self) -> bool:
         """
@@ -145,7 +148,9 @@ class AllowDenyPattern(ConfigModel):
         pattern into a 'search for the ones that are allowed' pattern, which can be
         much more efficient in some cases.
         """
-        return all(self.alphabet_pattern.match(allow_pattern) for allow_pattern in self.allow)
+        return all(
+            self.alphabet_pattern.match(allow_pattern) for allow_pattern in self.allow
+        )
 
     def get_allowed_list(self) -> List[str]:
         """Return the list of allowed strings as a list, after taking into account deny patterns, if possible"""
@@ -168,7 +173,9 @@ class KeyValuePattern(ConfigModel):
         return KeyValuePattern()
 
     def value(self, string: str) -> List[str]:
-        return next((self.rules[key] for key in self.rules.keys() if re.match(key, string)), [])
+        return next(
+            (self.rules[key] for key in self.rules.keys() if re.match(key, string)), []
+        )
 
     def matched(self, string: str) -> bool:
         return any(re.match(key, string) for key in self.rules.keys())

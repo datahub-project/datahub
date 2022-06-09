@@ -23,7 +23,11 @@ def pretty_field_path(field_path: str) -> str:
         return field_path
         # breakpoint()
         # parse schema field
-    tokens = [t for t in field_path.split(".") if not t.startswith("[") and not t.endswith("]")]
+    tokens = [
+        t
+        for t in field_path.split(".")
+        if not t.startswith("[") and not t.endswith("]")
+    ]
 
     return ".".join(tokens)
 
@@ -33,10 +37,10 @@ def pretty_id(id: Optional[str]) -> str:
         return ""
     # breakpoint()
     assert id is not None
-    if id.startswith("urn:li:datasetField:") or id.startswith(
-            "urn:li:schemaField:"
+    if id.startswith("urn:li:datasetField:") or id.startswith("urn:li:schemaField:"):
+        if schema_field_key := schema_field_urn_to_key(
+            id.replace("urn:li:datasetField", "urn:li:schemaField")
         ):
-        if schema_field_key := schema_field_urn_to_key(id.replace("urn:li:datasetField", "urn:li:schemaField")):
             assert schema_field_key is not None
             field_path = schema_field_key.fieldPath
 
@@ -182,7 +186,11 @@ def timeline(
             change_instant = str(
                 datetime.fromtimestamp(change_txn["timestamp"] // 1000)
             )
-            change_color = "green" if change_txn.get("semVerChange") in ["MINOR", "PATCH"] else "red"
+            change_color = (
+                "green"
+                if change_txn.get("semVerChange") in ["MINOR", "PATCH"]
+                else "red"
+            )
 
             print(
                 f"{colored(change_instant,'cyan')} - {colored(change_txn['semVer'],change_color)}"

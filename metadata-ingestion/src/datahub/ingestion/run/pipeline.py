@@ -264,7 +264,9 @@ class Pipeline:
             if self.source.get_report().failures or self.sink.get_report().failures
             else False
         )
-        has_warnings: bool = bool(self.source.get_report().warnings or self.sink.get_report().warnings)
+        has_warnings: bool = bool(
+            self.source.get_report().warnings or self.sink.get_report().warnings
+        )
 
         for name, committable in self.ctx.get_committables():
             commit_policy: CommitPolicy = committable.commit_policy

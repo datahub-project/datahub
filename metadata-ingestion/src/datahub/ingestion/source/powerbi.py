@@ -346,7 +346,9 @@ class PowerBiAPI:
 
         # Check if we got response from PowerBi
         if response.status_code != 200:
-            LOGGER.warning(f"Failed to fetch user list from power-bi for, http_status={response.status_code}, message={response.text}")
+            LOGGER.warning(
+                f"Failed to fetch user list from power-bi for, http_status={response.status_code}, message={response.text}"
+            )
 
             LOGGER.info(f"{Constant.WorkspaceId}={workspace_id}")
             LOGGER.info(f"{Constant.ENTITY}={entity}")
@@ -572,7 +574,9 @@ class PowerBiAPI:
         res = response.json()
         value = res["value"]
         if len(value) == 0:
-            LOGGER.info(f"datasource is not found for dataset {dataset.name}({dataset.id})")
+            LOGGER.info(
+                f"datasource is not found for dataset {dataset.name}({dataset.id})"
+            )
 
             return None
         # Consider only zero index datasource
@@ -639,8 +643,9 @@ class PowerBiAPI:
             else:
                 report_fields["createdFrom"] = PowerBiAPI.Tile.CreatedFrom.VISUALIZATION
 
-            LOGGER.info(f'Tile {tile_instance.get("title")}({tile_instance.get("id")}) is created from {report_fields["createdFrom"]}')
-
+            LOGGER.info(
+                f'Tile {tile_instance.get("title")}({tile_instance.get("id")}) is created from {report_fields["createdFrom"]}'
+            )
 
             return report_fields
 
@@ -712,7 +717,6 @@ class PowerBiAPI:
             if res.status_code not in (200, 202):
                 message = f"API({scan_create_endpoint}) return error code {res.status_code} for workspace id({workspace_id})"
 
-
                 LOGGER.warning(message)
 
                 raise ConnectionError(message)
@@ -727,7 +731,9 @@ class PowerBiAPI:
             """
             minimum_sleep = 3
             if timeout < minimum_sleep:
-                LOGGER.info(f"Setting timeout to minimum_sleep time {minimum_sleep} seconds")
+                LOGGER.info(
+                    f"Setting timeout to minimum_sleep time {minimum_sleep} seconds"
+                )
                 timeout = minimum_sleep
 
             max_trial = timeout // minimum_sleep
@@ -748,7 +754,6 @@ class PowerBiAPI:
                 )
                 if res.status_code != 200:
                     message = f"API({scan_get_endpoint}) return error code {res.status_code} for scan id({scan_id})"
-
 
                     LOGGER.warning(message)
 
@@ -785,7 +790,6 @@ class PowerBiAPI:
             if res.status_code != 200:
                 message = f"API({scan_result_get_endpoint}) return error code {res.status_code} for scan id({scan_id})"
 
-
                 LOGGER.warning(message)
 
                 raise ConnectionError(message)
@@ -800,7 +804,9 @@ class PowerBiAPI:
             dataset_map: dict = {}
 
             if datasets is None or len(datasets) == 0:
-                LOGGER.warning(f'Workspace {scan_result["name"]}({scan_result["id"]}) does not have datasets')
+                LOGGER.warning(
+                    f'Workspace {scan_result["name"]}({scan_result["id"]}) does not have datasets'
+                )
 
                 LOGGER.info("Returning empty datasets")
                 return dataset_map
@@ -820,12 +826,15 @@ class PowerBiAPI:
                     dataset_instance.datasource
                     and dataset_instance.datasource.metadata.is_relational is True
                 ):
-                    LOGGER.info(f"Processing tables attribute for dataset {dataset_instance.name}({dataset_instance.id})")
-
+                    LOGGER.info(
+                        f"Processing tables attribute for dataset {dataset_instance.name}({dataset_instance.id})"
+                    )
 
                     for table in dataset_dict["tables"]:
                         if "Value.NativeQuery(" in table["source"][0]["expression"]:
-                            LOGGER.warning(f'Table {table["name"]} is created from Custom SQL. Ignoring in processing')
+                            LOGGER.warning(
+                                f'Table {table["name"]} is created from Custom SQL. Ignoring in processing'
+                            )
 
                             continue
 
@@ -946,16 +955,23 @@ class Mapper:
             dataset.datasource is None
             or dataset.datasource.metadata.is_relational is False
         ):
-            LOGGER.warning(f"Dataset {dataset.name}({dataset.id}) is not created from relational datasource")
+            LOGGER.warning(
+                f"Dataset {dataset.name}({dataset.id}) is not created from relational datasource"
+            )
 
             return dataset_mcps
 
-        LOGGER.info(f"Converting dataset={dataset.name}(id={dataset.id}) to datahub dataset")
-
+        LOGGER.info(
+            f"Converting dataset={dataset.name}(id={dataset.id}) to datahub dataset"
+        )
 
         for table in dataset.tables:
             # Create an URN for dataset
-            ds_urn = builder.make_dataset_urn(platform=self.__config.dataset_type_mapping[dataset.datasource.type], name=f"{dataset.datasource.database}.{table.schema_name}.{table.name}", env=self.__config.env)
+            ds_urn = builder.make_dataset_urn(
+                platform=self.__config.dataset_type_mapping[dataset.datasource.type],
+                name=f"{dataset.datasource.database}.{table.schema_name}.{table.name}",
+                env=self.__config.env,
+            )
 
             LOGGER.info(f"{Constant.Dataset_URN}={ds_urn}")
             # Create datasetProperties mcp
@@ -1165,8 +1181,9 @@ class Mapper:
         Map PowerBi user to datahub user
         """
 
-        LOGGER.info(f"Converting user {user.displayName}(id={user.id}) to datahub's user")
-
+        LOGGER.info(
+            f"Converting user {user.displayName}(id={user.id}) to datahub's user"
+        )
 
         # Create an URN for user
         user_urn = builder.make_user_urn(user.get_urn_part())
@@ -1248,8 +1265,9 @@ class Mapper:
     ) -> Set[EquableMetadataWorkUnit]:
         mcps = []
 
-        LOGGER.info(f"Converting dashboard={dashboard.displayName} to datahub dashboard")
-
+        LOGGER.info(
+            f"Converting dashboard={dashboard.displayName} to datahub dashboard"
+        )
 
         # Convert user to CorpUser
         user_mcps = self.to_datahub_users(dashboard.users)

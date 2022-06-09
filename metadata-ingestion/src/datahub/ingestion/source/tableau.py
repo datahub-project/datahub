@@ -401,8 +401,11 @@ class TableauSource(Source):
                 table_name = table.get("name") or table["id"]
                 table_path = f"{project.replace('/', REPLACE_SLASH_CHAR)}/{datasource['name']}/{table_name}"
 
-            self.upstream_tables[table_urn] = table.get("columns", []), table_path, table.get("isEmbedded") or False
-
+            self.upstream_tables[table_urn] = (
+                table.get("columns", []),
+                table_path,
+                table.get("isEmbedded") or False,
+            )
 
         return upstream_tables
 
@@ -626,7 +629,18 @@ class TableauSource(Source):
             )
             fields.append(schema_field)
 
-        return SchemaMetadata(schemaName="test", platform=f"urn:li:dataPlatform:{self.platform}", version=0, fields=fields, hash="", platformSchema=OtherSchema(rawSchema=""),) if fields else None
+        return (
+            SchemaMetadata(
+                schemaName="test",
+                platform=f"urn:li:dataPlatform:{self.platform}",
+                version=0,
+                fields=fields,
+                hash="",
+                platformSchema=OtherSchema(rawSchema=""),
+            )
+            if fields
+            else None
+        )
 
     def get_metadata_change_event(
         self, snap_shot: Union["DatasetSnapshot", "DashboardSnapshot", "ChartSnapshot"]

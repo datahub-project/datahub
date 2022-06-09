@@ -315,7 +315,9 @@ def _delete_one_urn(
         deletion_result.num_records = rows_affected
     else:
         logger.info(f"[Dry-run] Would hard-delete {urn}")
-        deletion_result.num_records = UNKNOWN_NUM_RECORDS  # since we don't know how many rows will be affected
+        deletion_result.num_records = (
+            UNKNOWN_NUM_RECORDS  # since we don't know how many rows will be affected
+        )
 
     deletion_result.end()
     return deletion_result

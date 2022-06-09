@@ -90,7 +90,9 @@ def check_local_docker_containers(preflight_only: bool = False) -> List[str]:
         else:
             existing_containers = {container.name for container in containers}
             missing_containers = set(REQUIRED_CONTAINERS) - existing_containers
-            issues.extend(f"{missing} container is not present" for missing in missing_containers)
+            issues.extend(
+                f"{missing} container is not present" for missing in missing_containers
+            )
 
         # Check that the containers are running and healthy.
         for container in containers:

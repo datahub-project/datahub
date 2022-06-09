@@ -712,7 +712,10 @@ class LookerView:
                         for c in column_names
                     ]
             except Exception as e:
-                reporter.report_warning(f"looker-view-{view_name}", f"Failed to parse sql query, lineage will not be accurate. Exception: {e}")
+                reporter.report_warning(
+                    f"looker-view-{view_name}",
+                    f"Failed to parse sql query, lineage will not be accurate. Exception: {e}",
+                )
 
         return fields, sql_table_names
 

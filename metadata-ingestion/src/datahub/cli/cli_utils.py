@@ -703,8 +703,9 @@ def get_aspects_for_entity(
                 aspect_value["aspect"]["value"] = json.loads(
                     aspect_value["aspect"]["value"]
                 )
-                aspect_list[aspect_cls.RECORD_SCHEMA.fullname.replace("pegasus2avro.", "")] = aspect_value
-
+                aspect_list[
+                    aspect_cls.RECORD_SCHEMA.fullname.replace("pegasus2avro.", "")
+                ] = aspect_value
 
     aspect_map: Dict[str, Union[dict, DictWrapper]] = {}
     for a in aspect_list.values():

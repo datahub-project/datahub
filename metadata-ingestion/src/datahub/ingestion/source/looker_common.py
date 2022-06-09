@@ -624,8 +624,9 @@ class LookerExplore:
             )
         except SDKError as e:
             logger.warn(f"Failed to extract explore {explore_name} from model {model}.")
-            logger.debug(f"Failed to extract explore {explore_name} from model {model} with {e}")
-
+            logger.debug(
+                f"Failed to extract explore {explore_name} from model {model} with {e}"
+            )
 
         except AssertionError:
             reporter.report_warning(

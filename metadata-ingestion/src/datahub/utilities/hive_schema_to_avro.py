@@ -52,10 +52,12 @@ class HiveColumnToAvroConverter:
                 raise ValueError("'>' should be the last char, but got: %s" % s)
             parts = HiveColumnToAvroConverter._ignore_brackets_split(s[4:-1], ",")
             if len(parts) != 2:
-                raise ValueError((
-                    "The map type string format is: 'map<key_type,value_type>', "
-                    + f"but got: {s}"
-                    ))
+                raise ValueError(
+                    (
+                        "The map type string format is: 'map<key_type,value_type>', "
+                        + f"but got: {s}"
+                    )
+                )
 
             kt = HiveColumnToAvroConverter._parse_datatype_string(parts[0])
             vt = HiveColumnToAvroConverter._parse_datatype_string(parts[1])
@@ -103,7 +105,12 @@ class HiveColumnToAvroConverter:
         for part in parts:
             name_and_type = HiveColumnToAvroConverter._ignore_brackets_split(part, ":")
             if len(name_and_type) != 2:
-                raise ValueError(("The struct field string format is: 'field_name:field_type', " + f"but got: {part}"))
+                raise ValueError(
+                    (
+                        "The struct field string format is: 'field_name:field_type', "
+                        + f"but got: {part}"
+                    )
+                )
 
             field_name = name_and_type[0].strip()
             if field_name.startswith("`"):
@@ -120,7 +127,12 @@ class HiveColumnToAvroConverter:
 
         else:
             struct_name = f'__struct_{str(uuid.uuid4()).replace("-", "")}'
-        return {"type": "record", "name": struct_name, "fields": fields, "native_data_type": f"struct<{s}>"}
+        return {
+            "type": "record",
+            "name": struct_name,
+            "fields": fields,
+            "native_data_type": f"struct<{s}>",
+        }
 
     @staticmethod
     def _parse_basic_datatype_string(s: str) -> Dict[str, object]:

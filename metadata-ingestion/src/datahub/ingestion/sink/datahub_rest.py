@@ -113,7 +113,9 @@ class DatahubRestSink(Sink):
                     # trim exception stacktraces when reporting warnings
                     if "stackTrace" in e.info:
                         with contextlib.suppress(Exception):
-                            e.info["stackTrace"] = "\n".join(e.info["stackTrace"].split("\n")[:2])
+                            e.info["stackTrace"] = "\n".join(
+                                e.info["stackTrace"].split("\n")[:2]
+                            )
                     record = record_envelope.record
                     if isinstance(record, MetadataChangeProposalWrapper):
                         # include information about the entity that failed

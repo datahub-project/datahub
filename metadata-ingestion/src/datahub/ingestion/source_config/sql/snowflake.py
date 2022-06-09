@@ -213,10 +213,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                     f"but should be set when using {v} authentication"
                 )
             if values.get("oauth_config").use_certificate is True:
-                if (
-                    values.get("oauth_config").base64_encoded_oauth_private_key
-                    is None
-                ):
+                if values.get("oauth_config").base64_encoded_oauth_private_key is None:
                     raise ValueError(
                         "'base64_encoded_oauth_private_key' was none "
                         "but should be set when using certificate for oauth_config"

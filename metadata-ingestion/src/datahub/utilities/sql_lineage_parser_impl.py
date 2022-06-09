@@ -134,7 +134,9 @@ class SqlLineageSQLParserImpl:
 
         # Reverting back all the previously renamed words which confuses the parser
         result = {"date" if c == self._DATE_SWAP_TOKEN else c for c in result}
-        result = {"timestamp" if c == self._TIMESTAMP_SWAP_TOKEN else c for c in list(result)}
+        result = {
+            "timestamp" if c == self._TIMESTAMP_SWAP_TOKEN else c for c in list(result)
+        }
 
         # swap back renamed date column
         return list(result)

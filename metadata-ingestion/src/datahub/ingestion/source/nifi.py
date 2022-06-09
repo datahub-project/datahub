@@ -337,7 +337,10 @@ class NifiSource(Source):
 
         if self.config.site_url_to_site_name is None:
             self.config.site_url_to_site_name = {}
-        if urljoin(self.config.site_url, "/nifi/") not in self.config.site_url_to_site_name:
+        if (
+            urljoin(self.config.site_url, "/nifi/")
+            not in self.config.site_url_to_site_name
+        ):
             self.config.site_url_to_site_name[
                 urljoin(self.config.site_url, "/nifi/")
             ] = self.config.site_name

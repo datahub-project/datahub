@@ -204,19 +204,29 @@ class BigqueryQualifiedNameParser(QualifiedNameParser):
 
 def get_full_qualified_name(platform: str, database_name: str, table_name: str) -> str:
     if platform == "athena":
-        return AthenaQualifiedNameParser().get_full_qualified_name(database_name, table_name)
+        return AthenaQualifiedNameParser().get_full_qualified_name(
+            database_name, table_name
+        )
 
     elif platform == "bigquery":
-        return BigqueryQualifiedNameParser().get_full_qualified_name(database_name, table_name)
+        return BigqueryQualifiedNameParser().get_full_qualified_name(
+            database_name, table_name
+        )
 
     elif platform == "mssql":
-        return MssqlQualifiedNameParser().get_full_qualified_name(database_name, table_name)
+        return MssqlQualifiedNameParser().get_full_qualified_name(
+            database_name, table_name
+        )
 
     elif platform == "mysql":
-        return MysqlQualifiedNameParser().get_full_qualified_name(database_name, table_name)
+        return MysqlQualifiedNameParser().get_full_qualified_name(
+            database_name, table_name
+        )
 
     elif platform == "postgres":
-        return PostgresQualifiedNameParser().get_full_qualified_name(database_name, table_name)
+        return PostgresQualifiedNameParser().get_full_qualified_name(
+            database_name, table_name
+        )
 
     else:
         return f"{database_name}.{table_name}"
@@ -589,7 +599,9 @@ class RedashSource(Source):
                     # the API is id based not slug based
                     # Tested the same with a Redash instance
                     dashboard_id = dashboard_response["id"]
-                    dashboard_data = self.client._get(f"api/dashboards/{dashboard_id}").json()
+                    dashboard_data = self.client._get(
+                        f"api/dashboards/{dashboard_id}"
+                    ).json()
                 except Exception:
                     # This does not work in our testing but keeping for now because
                     # people in community are using Redash connector successfully

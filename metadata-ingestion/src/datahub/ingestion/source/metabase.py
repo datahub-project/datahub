@@ -449,7 +449,9 @@ class MetabaseSource(Source):
             if source_table_id is not None:
                 schema_name, table_name = self.get_source_table_from_id(source_table_id)
                 if table_name:
-                    source_paths.add(f"{f'{schema_name}.' if schema_name else ''}{table_name}")
+                    source_paths.add(
+                        f"{f'{schema_name}.' if schema_name else ''}{table_name}"
+                    )
         else:
             try:
                 raw_query = (

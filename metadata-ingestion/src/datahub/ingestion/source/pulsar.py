@@ -119,7 +119,9 @@ class PulsarSource(StatefulIngestionSourceBase):
 
         if self._is_oauth_authentication_configured():
             # Get OpenId configuration from issuer, e.g. token_endpoint
-            oid_config_url = f"{self.config.issuer_url}/.well-known/openid-configuration"
+            oid_config_url = (
+                f"{self.config.issuer_url}/.well-known/openid-configuration"
+            )
             oid_config_response = requests.get(
                 oid_config_url, verify=False, allow_redirects=False
             )
@@ -127,8 +129,9 @@ class PulsarSource(StatefulIngestionSourceBase):
             if oid_config_response:
                 self.config.oid_config.update(oid_config_response.json())
             else:
-                logger.error(f"Unexpected response while getting discovery document using {oid_config_url} : {oid_config_response}")
-
+                logger.error(
+                    f"Unexpected response while getting discovery document using {oid_config_url} : {oid_config_response}"
+                )
 
             if "token_endpoint" not in self.config.oid_config:
                 raise Exception(
@@ -319,8 +322,11 @@ class PulsarSource(StatefulIngestionSourceBase):
         ]
 
         # Report the Pulsar broker version we are communicating with
-        self.report.report_pulsar_version(self.session.get(f"{self.base_url}/brokers/version", timeout=self.config.timeout).text)
-
+        self.report.report_pulsar_version(
+            self.session.get(
+                f"{self.base_url}/brokers/version", timeout=self.config.timeout
+            ).text
+        )
 
         # If no tenants are provided, request all tenants from cluster using /admin/v2/tenants endpoint.
         # Requesting cluster tenant information requires superuser privileges
@@ -337,8 +343,10 @@ class PulsarSource(StatefulIngestionSourceBase):
             if self.config.tenant_patterns.allowed(tenant):
                 # Get namespaces belonging to a tenant, /admin/v2/%s/namespaces
                 # A tenant admin role has sufficient privileges to perform this action
-                namespaces = self._get_pulsar_metadata(f"{self.base_url}/namespaces/{tenant}") or []
-
+                namespaces = (
+                    self._get_pulsar_metadata(f"{self.base_url}/namespaces/{tenant}")
+                    or []
+                )
 
                 for namespace in namespaces:
                     self.report.namespaces_scanned += 1
@@ -408,8 +416,10 @@ class PulsarSource(StatefulIngestionSourceBase):
 
         pulsar_schema: Optional[PulsarSchema] = None
 
-        schema_url = self.base_url + f"/schemas/{pulsar_topic.tenant}/{pulsar_topic.namespace}/{pulsar_topic.topic}/schema"
-
+        schema_url = (
+            self.base_url
+            + f"/schemas/{pulsar_topic.tenant}/{pulsar_topic.namespace}/{pulsar_topic.topic}/schema"
+        )
 
         schema_payload = self._get_pulsar_metadata(schema_url)
 

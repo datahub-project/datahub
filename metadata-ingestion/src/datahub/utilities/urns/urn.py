@@ -151,4 +151,12 @@ class Urn:
         return hash((self._domain, self._entity_type) + tuple(self._entity_id))
 
     def __eq__(self, other: object) -> bool:
-        return (self._entity_id == other._entity_id and self._domain == other._domain and self._entity_type == other._entity_type) if isinstance(other, Urn) else False
+        return (
+            (
+                self._entity_id == other._entity_id
+                and self._domain == other._domain
+                and self._entity_type == other._entity_type
+            )
+            if isinstance(other, Urn)
+            else False
+        )

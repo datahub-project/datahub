@@ -625,7 +625,10 @@ class DataHubValidationAction(ValidationAction):
                 query = data_asset.batches[
                     batch_identifier
                 ].batch_request.runtime_parameters["query"]
-                partitionSpec = PartitionSpecClass(type=PartitionTypeClass.QUERY, partition=f"Query_{builder.datahub_guid(query)}")
+                partitionSpec = PartitionSpecClass(
+                    type=PartitionTypeClass.QUERY,
+                    partition=f"Query_{builder.datahub_guid(query)}",
+                )
 
                 batchSpec = BatchSpec(
                     nativeBatchId=batch_identifier,

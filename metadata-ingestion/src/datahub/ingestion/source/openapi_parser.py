@@ -53,7 +53,9 @@ def request_call(
     headers = {"accept": "application/json"}
 
     if username is not None and password is not None:
-        return requests.get(url, headers=headers, auth=HTTPBasicAuth(username, password))
+        return requests.get(
+            url, headers=headers, auth=HTTPBasicAuth(username, password)
+        )
 
     elif token is not None:
         headers["Authorization"] = f"Bearer {token}"
@@ -105,7 +107,7 @@ def check_sw_version(sw_dict: dict) -> None:
         )
 
 
-def get_endpoints(sw_dict: dict) -> dict:    # noqa: C901
+def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
     """
     Get all the URLs accepting the "GET" method, together with their description and the tags
     """

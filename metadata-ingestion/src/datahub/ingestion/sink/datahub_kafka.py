@@ -77,7 +77,9 @@ class DatahubKafkaSink(Sink):
                     self.report, record_envelope, write_callback
                 ).kafka_callback,
             )
-        elif isinstance(record, (MetadataChangeProposalWrapper, MetadataChangeProposalClass)):
+        elif isinstance(
+            record, (MetadataChangeProposalWrapper, MetadataChangeProposalClass)
+        ):
             self.emitter.emit_mcp_async(
                 record,
                 callback=_KafkaCallback(

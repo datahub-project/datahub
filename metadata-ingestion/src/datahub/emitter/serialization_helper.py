@@ -17,8 +17,9 @@ def _json_transform(obj: Any, from_pattern: str, to_pattern: str) -> Any:
             return {field: _json_transform(obj[field], from_pattern, to_pattern)}
 
         new_obj: Any = {
-            key: _json_transform(value, from_pattern, to_pattern) \
-                for key, value in obj.items() if value is not None
+            key: _json_transform(value, from_pattern, to_pattern)
+            for key, value in obj.items()
+            if value is not None
         }
 
         return new_obj
