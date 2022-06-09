@@ -437,7 +437,7 @@ def get_urn_from_dbtNode(
     data_platform_instance: Optional[str],
 ) -> str:
     db_fqn = get_db_fqn(database, schema, name)
-    if data_platform_instance is not None and target_platform == DBT_PLATFORM:
+    if data_platform_instance is not None:
         db_fqn = f"{data_platform_instance}.{db_fqn}"
     return mce_builder.make_dataset_urn(target_platform, db_fqn, env)
 
@@ -1297,7 +1297,7 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.target_platform_instance_mapping,
             self.config.env,
             self.config.disable_dbt_node_creation,
-            None,
+            self.config.platform_instance,
         )
 
         # if a node is of type source in dbt, its upstream lineage should have the corresponding table/view
@@ -1339,7 +1339,7 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.target_platform_instance_mapping,
             self.config.env,
             self.config.disable_dbt_node_creation,
-            None,
+            self.config.platform_instance,
         )
         if upstream_urns:
             return get_upstream_lineage(upstream_urns)
