@@ -2,7 +2,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, cast
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, cast, Mapping
 from urllib.parse import urlparse
 
 import dateutil.parser
@@ -125,6 +125,9 @@ class DBTConfig(StatefulIngestionConfigBase):
     )
     target_platform_instance: Optional[str] = Field(
         description="The platform instance which each target node will be assigned by default"
+    )
+    target_platform_instance_mapping: Optional[Mapping[str, str]] = Field(
+        description="Set mappings for schemas to target platform instance, takes precedence over target_platform_instance"
     )
     load_schemas: bool = Field(
         default=True,
@@ -461,9 +464,12 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
 def match_target_platform_instance(target_platform_instance: str,
                                    dbt_platform_instance: Optional[str],
                                    platform_value: str,
-                                   schema: str) -> str:
+                                   schema: str,
+                                   schema_mappings: Optional[Mapping[str, str]]) -> str:
     if platform_value == DBT_PLATFORM:
         return dbt_platform_instance
+    if schema_mappings and schema in schema_mappings:
+        return schema_mappings[schema]
     return target_platform_instance
 
 
@@ -473,6 +479,7 @@ def get_upstreams(
     use_identifiers: bool,
     target_platform: str,
     target_platform_instance: str,
+    target_platform_instance_mapping: Optional[Mapping[str, str]],
     environment: str,
     disable_dbt_node_creation: bool,
     platform_instance: Optional[str],
@@ -523,7 +530,8 @@ def get_upstreams(
                 environment,
                 match_target_platform_instance(target_platform_instance=target_platform_instance,
                                                dbt_platform_instance=platform_instance, platform_value=platform_value,
-                                               schema=all_nodes[upstream]["schema"])
+                                               schema=all_nodes[upstream]["schema"],
+                                               schema_mappings=target_platform_instance_mapping)
             )
         )
     return upstream_urns
@@ -937,7 +945,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 mce_platform,
                 self.config.env,
                 match_target_platform_instance(self.config.target_platform_instance, self.config.platform_instance,
-                                               mce_platform, node.schema)
+                                               mce_platform, node.schema, self.config.target_platform_instance_mapping)
             )
             self.save_checkpoint(node_datahub_urn)
 
@@ -1276,6 +1284,7 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.use_identifiers,
             self.config.target_platform,
             self.config.target_platform_instance,
+            self.config.target_platform_instance_mapping,
             self.config.env,
             self.config.disable_dbt_node_creation,
             None
@@ -1292,7 +1301,8 @@ class DBTSource(StatefulIngestionSourceBase):
                     self.config.target_platform,
                     self.config.env,
                     match_target_platform_instance(self.config.target_platform_instance, None,
-                                                   self.config.target_platform, node.schema)
+                                                   self.config.target_platform, node.schema,
+                                                   self.config.target_platform_instance_mapping)
                 )
             )
         if upstream_urns:
@@ -1312,6 +1322,7 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.use_identifiers,
             self.config.target_platform,
             self.config.target_platform_instance,
+            self.config.target_platform_instance_mapping,
             self.config.env,
             self.config.disable_dbt_node_creation,
             None,
