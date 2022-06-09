@@ -34,15 +34,17 @@ export const EditDisplayName = () => {
 
     const updateForm = () => {
         if (existingProperties?.name !== undefined) {
-            if (formState.getFieldValue('displayName') !== '') {
-                setModifiedState(true);
-            } else {
+            if (formState.getFieldValue('displayName') === existingProperties?.name) {
                 setModifiedState(false);
+            } else {
+                setModifiedState(true);
             }
-        } else if (formState.getFieldValue('displayName') !== existingProperties?.name) {
-            setModifiedState(true);
-        } else {
+        }
+        // undefined
+        else if (formState.getFieldValue('displayName') === '') {
             setModifiedState(false);
+        } else {
+            setModifiedState(true);
         }
     };
     const submitForm = async (values) => {
