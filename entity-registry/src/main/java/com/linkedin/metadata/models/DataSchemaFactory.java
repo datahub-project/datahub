@@ -13,6 +13,7 @@ import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -22,6 +23,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.reflections.Reflections;
+import org.reflections.util.ConfigurationBuilder;
 
 
 /**
@@ -49,7 +51,7 @@ public class DataSchemaFactory {
     this(new String[]{classPath});
   }
   public DataSchemaFactory(String[] classPaths) {
-    this(classPaths, null);
+    this(classPaths, null, Collections.emptyList());
   }
 
   /**
@@ -88,13 +90,13 @@ public class DataSchemaFactory {
     URL[] urlsArray = new URL[urls.size()];
     urls.toArray(urlsArray);
     URLClassLoader classLoader = new URLClassLoader(urlsArray, Thread.currentThread().getContextClassLoader());
-    return new DataSchemaFactory(DEFAULT_TOP_LEVEL_NAMESPACES, classLoader);
+    return new DataSchemaFactory(DEFAULT_TOP_LEVEL_NAMESPACES, classLoader, urls);
   }
 
   /**
    * Construct a DataSchemaFactory with a custom class loader and a list of class namespaces to look for entities and aspects.
    */
-  public DataSchemaFactory(String[] classNamespaces, ClassLoader customClassLoader) {
+  public DataSchemaFactory(String[] classNamespaces, ClassLoader customClassLoader, List<URL> jarUrls) {
     entitySchemas = new HashMap<>();
     aspectSchemas = new HashMap<>();
     eventSchemas = new HashMap<>();
@@ -109,7 +111,11 @@ public class DataSchemaFactory {
     Set<Class<? extends RecordTemplate>> classes = new HashSet<>();
     for (String namespace : classNamespaces) {
       log.debug("Reflections scanning {} namespace", namespace);
-      Reflections reflections = new Reflections(namespace, customClassLoader);
+      Reflections reflections = new Reflections(new ConfigurationBuilder()
+          .addUrls(jarUrls)
+          .forPackages(namespace)
+          .addClassLoaders(customClassLoader));
+      //Reflections reflections = new Reflections(namespace, customClassLoader);
       classes.addAll(reflections.getSubTypesOf(RecordTemplate.class));
     }
     log.debug("Found a total of {} RecordTemplate classes", classes.size());
@@ -117,7 +123,8 @@ public class DataSchemaFactory {
     if (standardClassLoader != null) {
       Set<Class<? extends RecordTemplate>> stdClasses = new HashSet<>();
       for (String namespace : classNamespaces) {
-        Reflections reflections = new Reflections(namespace, standardClassLoader);
+        Reflections reflections = new Reflections(new ConfigurationBuilder().forPackages(namespace).addClassLoaders(standardClassLoader));
+        //Reflections reflections = new Reflections(namespace, standardClassLoader);
         stdClasses.addAll(reflections.getSubTypesOf(RecordTemplate.class));
       }
       log.debug("Standard ClassLoader found a total of {} RecordTemplate classes", stdClasses.size());
@@ -147,6 +154,8 @@ public class DataSchemaFactory {
       }
     }
   }
+
+
 
   private Optional<String> getName(DataSchema dataSchema, String annotationName) {
     return Optional.ofNullable(dataSchema.getProperties().get(annotationName))

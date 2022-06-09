@@ -47,8 +47,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.reflections.Reflections;
-import org.reflections.scanners.ResourcesScanner;
-import org.reflections.scanners.SubTypesScanner;
+import org.reflections.scanners.Scanners;
 import org.reflections.util.ClasspathHelper;
 import org.reflections.util.ConfigurationBuilder;
 import org.reflections.util.FilterBuilder;
@@ -67,6 +66,8 @@ public class MappingUtil {
   private MappingUtil() {
 
   }
+
+  private static final String MISSING_ASPECT_ERROR_MESSAGE = "Unable to find aspect class: ";
 
   private static final Map<String, Class<? extends OneOfEnvelopedAspectValue>> ENVELOPED_ASPECT_TYPE_MAP =
       new HashMap<>();
@@ -105,9 +106,9 @@ public class MappingUtil {
 
     // Build a map from fully qualified Pegasus generated class name to class
     Reflections reflections = new Reflections(new ConfigurationBuilder()
-        .setScanners(new SubTypesScanner(false), new ResourcesScanner())
-        .setUrls(ClasspathHelper.forClassLoader(classLoadersList.toArray(new ClassLoader[0])))
-        .filterInputsBy(new FilterBuilder().include(FilterBuilder.prefix(PEGASUS_PACKAGE))));
+        .forPackages(PEGASUS_PACKAGE)
+        .addScanners(Scanners.SubTypes)
+        .filterInputsBy(new FilterBuilder().includePackage(PEGASUS_PACKAGE)));
     Set<Class<? extends RecordTemplate>> pegasusComponents = reflections.getSubTypesOf(RecordTemplate.class);
     pegasusComponents.forEach(aClass -> PEGASUS_TYPE_MAP.put(aClass.getSimpleName(), aClass));
   }
@@ -141,6 +142,9 @@ public class MappingUtil {
 
   public static OneOfEnvelopedAspectValue mapAspectValue(String aspectName, Aspect aspect, ObjectMapper objectMapper) {
     Class<? extends OneOfEnvelopedAspectValue> aspectClass = ENVELOPED_ASPECT_TYPE_MAP.get(aspectName);
+    if (aspectClass == null) {
+      throw new RuntimeException(MISSING_ASPECT_ERROR_MESSAGE + aspectName);
+    }
     DataMap wrapper = aspect.data();
     wrapper.put(DISCRIMINATOR, aspectClass.getSimpleName());
     String dataMapAsJson;
@@ -225,6 +229,9 @@ public class MappingUtil {
         // Global Tags & Glossary Terms get used as both a union type and a non-union type, in the DataMap this means
         // that it does not want the explicit class name if it is being used explicitly as a non-union type field on an aspect
         if (!GLOBAL_TAGS.equals(classTypeName) && !GLOSSARY_TERMS.equals(classTypeName)) {
+          if (!PEGASUS_TYPE_MAP.containsKey(classTypeName)) {
+            throw new RuntimeException("Invalid Pegasus class name encountered during parse: " + classTypeName);
+          }
           String pegasusClassName = PEGASUS_TYPE_MAP.get(classTypeName).getName();
           replacement.append("\"").append(pegasusClassName).append("\" : {");
 
@@ -338,6 +345,9 @@ public class MappingUtil {
       keyAspect = new io.datahubproject.openapi.generated.GenericAspect()
           .contentType(MediaType.APPLICATION_JSON_VALUE)
           .value(aspectRequest.getEntityKeyAspect());
+    }
+    if (!ASPECT_NAME_MAP.containsKey(aspectRequest.getAspect().getClass())) {
+      throw new RuntimeException(MISSING_ASPECT_ERROR_MESSAGE + aspectRequest.getAspect().getClass());
     }
     metadataChangeProposal.aspect(genericAspect)
         .changeType(io.datahubproject.openapi.generated.ChangeType.UPSERT)

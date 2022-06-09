@@ -1,16 +1,20 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM adoptopenjdk/openjdk8:alpine-jre as base
+FROM alpine:3.14 AS base
 ENV DOCKERIZE_VERSION v0.6.1
-RUN apk --no-cache add curl tar \
+RUN apk --no-cache add curl tar openjdk11-jre \
     && curl -L https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
 
 # Workaround alpine issue with /lib64 not being in the ld library path
 # https://gitlab.alpinelinux.org/alpine/aports/-/issues/10140
 ENV LD_LIBRARY_PATH=/lib64
 
-FROM openjdk:8 as prod-build
+FROM alpine:3.14 as prod-build
+# Upgrade Alpine and base packages
+RUN apk --no-cache --update-cache --available upgrade \
+    && apk --no-cache add openjdk11 perl
+
 COPY . datahub-src
 RUN cd datahub-src && ./gradlew :datahub-upgrade:build
 RUN cd datahub-src && cp datahub-upgrade/build/libs/datahub-upgrade.jar ../datahub-upgrade.jar

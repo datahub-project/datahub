@@ -81,7 +81,7 @@ task validateModels(type: JavaExec) {
   }
 }
 
-compileJava.dependsOn validateModels
+//compileJava.dependsOn validateModels
 check.dependsOn integrationTest
 integrationTest.enabled = false
 

@@ -1,9 +1,8 @@
+import os
 import pytest
 import subprocess
-import os
-
-from tests.utils import ingest_file_via_rest
 from tests.utils import delete_urns_from_file
+from tests.utils import ingest_file_via_rest
 
 
 @pytest.fixture(scope="module", autouse=True)
