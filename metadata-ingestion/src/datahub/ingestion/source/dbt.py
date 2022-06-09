@@ -213,11 +213,11 @@ class DBTConfig(StatefulIngestionConfigBase):
         cls, aws_connection: Optional[AwsConnectionConfig], values: Dict, **kwargs: Any
     ) -> Optional[AwsConnectionConfig]:
         # first check if there are fields that contain s3 uris
-        uri_containing_fields = []
-        for f in ["manifest_path", "catalog_path", "sources_path"]:
-            if values.get(f, ""):
-                if values.get(f, "").startswith("s3://"):
-                    uri_containing_fields.append(f)
+        uri_containing_fields = [
+            f
+            for f in ["manifest_path", "catalog_path", "sources_path"]
+            if (values.get(f) or "").startswith("s3://")
+        ]
 
         if uri_containing_fields and not aws_connection:
             raise ValueError(
