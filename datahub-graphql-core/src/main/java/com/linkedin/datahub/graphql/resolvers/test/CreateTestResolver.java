@@ -58,9 +58,10 @@ public class CreateTestResolver implements DataFetcher<CompletableFuture<String>
         final TestInfo info = mapCreateTestInput(input);
 
         // Validate test info
-        ValidationResult validationResult = _testEngine.validate(info.getDefinition().getJson());
+        ValidationResult validationResult = _testEngine.validateJson(info.getDefinition().getJson());
         if (!validationResult.isValid()) {
-          throw new RuntimeException(String.join("\n", validationResult.getMessages()));
+          throw new RuntimeException(
+              "Failed to validate test definition: \n" + String.join("\n", validationResult.getMessages()));
         }
 
         proposal.setEntityType(Constants.TEST_ENTITY_NAME);

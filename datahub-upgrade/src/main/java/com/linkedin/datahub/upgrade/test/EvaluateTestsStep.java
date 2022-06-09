@@ -17,8 +17,10 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 
+@Slf4j
 @RequiredArgsConstructor
 public class EvaluateTestsStep implements UpgradeStep {
 
@@ -55,10 +57,16 @@ public class EvaluateTestsStep implements UpgradeStep {
           context.report().addLine(String.format("Processing batch %d of %s entities", batch, entityType));
           List<Urn> entitiesInBatch =
               scrollResult.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
-          Map<Urn, TestResults> result = _testEngine.batchEvaluate(entitiesInBatch, true);
-          context.report()
-              .addLine(String.format("Pushed %d test results for batch %d of %s entities", result.size(), batch,
-                  entityType));
+          Map<Urn, TestResults> result;
+          try {
+            result = _testEngine.batchEvaluateTestsForEntities(entitiesInBatch, true);
+            context.report()
+                .addLine(String.format("Pushed %d test results for batch %d of %s entities", result.size(), batch,
+                    entityType));
+          } catch (Exception e) {
+            context.report().addLine(String.format("Error while processing batch %d of %s entities", batch, entityType));
+            log.error("Error while processing batch {} of {} entities", batch, entityType, e);
+          }
           batch++;
           context.report().addLine(String.format("Fetching batch %d of %s entities", batch, entityType));
           scrollResult =

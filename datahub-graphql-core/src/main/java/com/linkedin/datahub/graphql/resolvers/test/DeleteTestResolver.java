@@ -10,7 +10,7 @@ import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 
-import static com.linkedin.datahub.graphql.resolvers.test.TestUtils.canManageTests;
+import static com.linkedin.datahub.graphql.resolvers.test.TestUtils.*;
 
 
 /**
@@ -18,27 +18,27 @@ import static com.linkedin.datahub.graphql.resolvers.test.TestUtils.canManageTes
  * privilege.
  */
 @RequiredArgsConstructor
-public class DeleteTestResolver implements DataFetcher<CompletableFuture<String>> {
+public class DeleteTestResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityClient _entityClient;
   private final TestEngine _testEngine;
 
   @Override
-  public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<Boolean> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
-    if (canManageTests(context)) {
-      final String testUrn = environment.getArgument("urn");
-      final Urn urn = Urn.createFromString(testUrn);
-      return CompletableFuture.supplyAsync(() -> {
+    final String testUrn = environment.getArgument("urn");
+    final Urn urn = Urn.createFromString(testUrn);
+    return CompletableFuture.supplyAsync(() -> {
+      if (canManageTests(context)) {
         try {
           _entityClient.deleteEntity(urn, context.getAuthentication());
+          _testEngine.invalidateCache();
+          return true;
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to perform delete against Test with urn %s", testUrn), e);
         }
-        _testEngine.invalidateCache();
-        return testUrn;
-      });
-    }
-    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
+      throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+    });
   }
 }

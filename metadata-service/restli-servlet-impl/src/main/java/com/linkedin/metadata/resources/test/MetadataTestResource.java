@@ -58,9 +58,9 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
         testUrns == null ? null : Arrays.stream(testUrns).map(UrnUtils::getUrn).collect(Collectors.toList());
     return RestliUtil.toTask(() -> {
       if (tests == null) {
-        return _testEngine.evaluate(urn, shouldPush != null && shouldPush);
+        return _testEngine.evaluateTestsForEntity(urn, shouldPush != null && shouldPush);
       } else {
-        return _testEngine.evaluate(urn, tests, shouldPush != null && shouldPush);
+        return _testEngine.evaluateTests(urn, tests, shouldPush != null && shouldPush);
       }
     }, MetricRegistry.name(this.getClass(), "evaluate"));
   }
@@ -79,10 +79,10 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
     return RestliUtil.toTask(() -> {
       BatchedTestResults results = new BatchedTestResults().setResults(new TestResultsMap());
       if (tests == null) {
-        _testEngine.batchEvaluate(urns, shouldPush != null && shouldPush)
+        _testEngine.batchEvaluateTestsForEntities(urns, shouldPush != null && shouldPush)
             .forEach((urn, result) -> results.getResults().put(urn.toString(), result));
       } else {
-        _testEngine.batchEvaluate(urns, tests, shouldPush != null && shouldPush)
+        _testEngine.batchEvaluateTests(urns, tests, shouldPush != null && shouldPush)
             .forEach((urn, result) -> results.getResults().put(urn.toString(), result));
       }
       return results;

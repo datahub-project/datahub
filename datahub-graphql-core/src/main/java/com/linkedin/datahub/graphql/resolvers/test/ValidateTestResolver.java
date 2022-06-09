@@ -13,7 +13,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
 
 /**
- * GraphQL Resolver used for fetching the list of tests for an entity
+ * GraphQL Resolver used for validating JSON test definition
  */
 @Slf4j
 public class ValidateTestResolver implements DataFetcher<CompletableFuture<TestValidationResult>> {
@@ -30,7 +30,7 @@ public class ValidateTestResolver implements DataFetcher<CompletableFuture<TestV
       final TestDefinitionInput testDefinitionInput =
           bindArgument(environment.getArgument("input"), TestDefinitionInput.class);
 
-      ValidationResult validationResult = _testEngine.validate(testDefinitionInput.getJson());
+      ValidationResult validationResult = _testEngine.validateJson(testDefinitionInput.getJson());
       TestValidationResult graphQLResult = new TestValidationResult();
       graphQLResult.setIsValid(validationResult.isValid());
       graphQLResult.setMessages(validationResult.getMessages());

@@ -247,7 +247,7 @@ extend type Mutation {
   deleteTest(urn: String!): Boolean
 
   """
-  Run tests for the given urn
+  Run tests for the given entity urn
   """
   runTests(urn: String!): TestValidationResult
 }

@@ -15,13 +15,9 @@ import org.springframework.context.annotation.Import;
 @Configuration
 @Import({EntityRegistryFactory.class})
 public class TestDefinitionProviderFactory {
-  @Autowired
-  @Qualifier("entityRegistry")
-  private EntityRegistry entityRegistry;
-
   @Bean(name = "testDefinitionProvider")
   @Nonnull
   protected TestDefinitionProvider getInstance() {
-    return new TestDefinitionProvider(entityRegistry, UnitTestRuleEvaluator.getInstance());
+    return new TestDefinitionProvider(UnitTestRuleEvaluator.getInstance());
   }
 }

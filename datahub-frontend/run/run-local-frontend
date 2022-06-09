@@ -1,3 +1,5 @@
+#!/bin/bash
+
 CURRENT_DIR=$(pwd)
 BUILD_DIR=../build/stage/playBinary
 CONF_DIR=$BUILD_DIR/conf

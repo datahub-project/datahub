@@ -48,7 +48,7 @@ public class UpdateTestResolver implements DataFetcher<CompletableFuture<String>
         final TestInfo info = mapUpdateTestInput(input);
 
         // Validate test info
-        ValidationResult validationResult = _testEngine.validate(info.getDefinition().getJson());
+        ValidationResult validationResult = _testEngine.validateJson(info.getDefinition().getJson());
         if (!validationResult.isValid()) {
           throw new RuntimeException(String.join("\n", validationResult.getMessages()));
         }

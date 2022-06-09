@@ -18,6 +18,7 @@ import com.linkedin.metadata.test.config.TestRule;
 import com.linkedin.metadata.test.config.UnitTestRule;
 import com.linkedin.metadata.test.config.ValidationResult;
 import com.linkedin.metadata.test.eval.TestRuleEvaluator;
+import com.linkedin.metadata.test.exception.TestDefinitionParsingException;
 import com.linkedin.metadata.test.query.QueryEngine;
 import com.linkedin.metadata.test.query.TestQuery;
 import com.linkedin.metadata.test.query.TestQueryResponse;
@@ -103,22 +104,26 @@ public class TestEngine {
   }
 
   @Nonnull
-  public ValidationResult validate(String definitionJson) {
+  public ValidationResult validateJson(String definitionJson) {
     // Try to deserialize json definition
     TestDefinition testDefinition;
     try {
       testDefinition = _testDefinitionProvider.deserialize(DUMMY_TEST_URN, definitionJson);
-    } catch (Exception e) {
+    } catch (TestDefinitionParsingException e) {
       return new ValidationResult(false, Collections.singletonList(e.getMessage()));
     }
+    return validateTestDefinition(testDefinition);
+  }
 
-    // Validate all queries in the test definition
+  // Validate all queries in the test definition
+  private ValidationResult validateTestDefinition(TestDefinition testDefinition) {
     List<String> entityTypes = testDefinition.getTarget().getEntityTypes();
     List<String> queries = new ArrayList<>();
     if (testDefinition.getTarget().getTargetingRules().isPresent()) {
       queries.addAll(getQueries(testDefinition.getTarget().getTargetingRules().get()));
     }
     queries.addAll(getQueries(testDefinition.getRule()));
+    // Make sure every query in the test definition is valid. If any are invalid, merge the error messages
     List<ValidationResult> invalidResults = queries.stream()
         .map(query -> _queryEngine.validateQuery(new TestQuery(query), entityTypes))
         .filter(result -> !result.isValid())
@@ -137,7 +142,7 @@ public class TestEngine {
    * @param shouldPush Whether or not to push the test results into DataHub
    * @return Test results
    */
-  public TestResults evaluate(Urn urn, boolean shouldPush) {
+  public TestResults evaluateTestsForEntity(Urn urn, boolean shouldPush) {
     List<TestDefinition> testsEligibleForEntityType =
         _testPerEntityTypeCache.getOrDefault(urn.getEntityType(), Collections.emptyList());
     TestResults results = evaluateTests(urn, testsEligibleForEntityType);
@@ -156,7 +161,7 @@ public class TestEngine {
    * @param shouldPush Whether or not to push the test results into DataHub
    * @return Test results
    */
-  public TestResults evaluate(Urn urn, List<Urn> testUrns, boolean shouldPush) {
+  public TestResults evaluateTests(Urn urn, List<Urn> testUrns, boolean shouldPush) {
     TestResults results = evaluateTests(urn, fetchDefinitions(testUrns));
 
     if (shouldPush) {
@@ -172,7 +177,7 @@ public class TestEngine {
    * @param shouldPush Whether or not to push the test results into DataHub
    * @return Test results per entity urn
    */
-  public Map<Urn, TestResults> batchEvaluate(List<Urn> urns, boolean shouldPush) {
+  public Map<Urn, TestResults> batchEvaluateTestsForEntities(List<Urn> urns, boolean shouldPush) {
     Map<String, List<Urn>> urnsPerEntityType = urns.stream().collect(Collectors.groupingBy(Urn::getEntityType));
     Map<Urn, TestResults> finalTestResults = null;
     for (String entityType : urnsPerEntityType.keySet()) {
@@ -207,7 +212,7 @@ public class TestEngine {
    * @param shouldPush Whether or not to push the test results into DataHub
    * @return Test results per entity urn
    */
-  public Map<Urn, TestResults> batchEvaluate(List<Urn> urns, List<Urn> testUrns, boolean shouldPush) {
+  public Map<Urn, TestResults> batchEvaluateTests(List<Urn> urns, List<Urn> testUrns, boolean shouldPush) {
     Map<Urn, TestResults> resultsPerUrn = batchEvaluateTests(urns, fetchDefinitions(testUrns));
 
     if (shouldPush) {
@@ -233,18 +238,23 @@ public class TestEngine {
     if (tests.isEmpty()) {
       return EMPTY_RESULTS;
     }
-
+    // First batch evaluate all queries in the targeting rules
+    // Always make sure we batch queries together as much as possible to reduce calls
     Map<TestQuery, TestQueryResponse> targetingRulesQueryResponses = batchQuery(ImmutableList.of(urn), tests.stream()
         .map(test -> test.getTarget().getTargetingRules())
         .filter(Optional::isPresent)
         .map(Optional::get)
         .collect(Collectors.toList())).getOrDefault(urn, Collections.emptyMap());
+    // Based on the query evaluation result, find the list of tests that are eligible for the given urn
     List<TestDefinition> eligibleTests =
         tests.stream().filter(test -> isEligible(urn, targetingRulesQueryResponses, test)).collect(Collectors.toList());
     TestResults result = new TestResults().setPassing(new TestResultArray()).setFailing(new TestResultArray());
+
+    // Batch evaluate all queries in the main rules
     Map<TestQuery, TestQueryResponse> mainRulesQueryResponses = batchQuery(ImmutableList.of(urn),
         eligibleTests.stream().map(TestDefinition::getRule).collect(Collectors.toList())).getOrDefault(urn,
         Collections.emptyMap());
+    // Evaluate whether each test passes using the query evaluation result above (no service calls. pure compuatation)
     for (TestDefinition eligibleTest : eligibleTests) {
       if (_testRuleEvaluator.evaluate(mainRulesQueryResponses, eligibleTest.getRule())) {
         result.getPassing().add(new TestResult().setTest(eligibleTest.getTestUrn()).setType(TestResultType.SUCCESS));
@@ -255,18 +265,18 @@ public class TestEngine {
     return result;
   }
 
-  @WithSpan
-  private Map<Urn, TestResults> batchEvaluateTests(List<Urn> urns, List<TestDefinition> tests) {
-    if (tests.isEmpty()) {
-      return urns.stream().collect(Collectors.toMap(Function.identity(), urn -> EMPTY_RESULTS));
-    }
-
+  // For each test, find the list of eligible entities among the input urns
+  private Map<TestDefinition, List<Urn>> getEligibleEntitiesPerTest(List<Urn> urns, List<TestDefinition> tests) {
+    // First batch evaluate all queries in the targeting rules
+    // Always make sure we batch queries together as much as possible to reduce calls
     Map<Urn, Map<TestQuery, TestQueryResponse>> targetingRulesQueryResponses = batchQuery(urns, tests.stream()
         .map(test -> test.getTarget().getTargetingRules())
         .filter(Optional::isPresent)
         .map(Optional::get)
         .collect(Collectors.toList()));
     Map<TestDefinition, List<Urn>> eligibleTestsPerEntity = new HashMap<>();
+    // Using the query evaluation result, find the set of eligible tests per entity.
+    // Reverse map to get the list of entities eligible for each test
     for (Urn urn : urns) {
       Map<TestQuery, TestQueryResponse> queryResponseForUrn =
           targetingRulesQueryResponses.getOrDefault(urn, Collections.emptyMap());
@@ -277,13 +287,26 @@ public class TestEngine {
         eligibleTestsPerEntity.get(test).add(urn);
       });
     }
+    return eligibleTestsPerEntity;
+  }
+
+  @WithSpan
+  private Map<Urn, TestResults> batchEvaluateTests(List<Urn> urns, List<TestDefinition> tests) {
+    if (tests.isEmpty()) {
+      return urns.stream().collect(Collectors.toMap(Function.identity(), urn -> EMPTY_RESULTS));
+    }
+    Map<TestDefinition, List<Urn>> eligibleTestsPerEntity = getEligibleEntitiesPerTest(urns, tests);
     Map<Urn, TestResults> finalTestResults = urns.stream()
         .collect(Collectors.toMap(Function.identity(),
             urn -> new TestResults().setPassing(new TestResultArray()).setFailing(new TestResultArray())));
+    // For each test with eligible entities
     for (TestDefinition testDefinition : eligibleTestsPerEntity.keySet()) {
       List<Urn> urnsToTest = eligibleTestsPerEntity.get(testDefinition);
+
+      // Batch evaluate all queries in the main rules for all eligible entities
       Map<Urn, Map<TestQuery, TestQueryResponse>> mainRulesQueryResponses =
           batchQuery(urnsToTest, ImmutableList.of(testDefinition.getRule()));
+      // For each entity, evaluate whether it passes the test using the query evaluation results
       for (Urn urn : urnsToTest) {
         if (_testRuleEvaluator.evaluate(mainRulesQueryResponses.getOrDefault(urn, Collections.emptyMap()),
             testDefinition.getRule())) {
@@ -451,7 +474,7 @@ public class TestEngine {
       try {
         testDefinition =
             _testDefinitionProvider.deserialize(test.getUrn(), test.getTestInfo().getDefinition().getJson());
-      } catch (Exception e) {
+      } catch (TestDefinitionParsingException e) {
         log.error("Issue while deserializing test definition {}", test.getTestInfo().getDefinition().getJson(), e);
         return;
       }

@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.generated.TestDefinitionInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
@@ -37,7 +38,8 @@ public class UpdateTestResolverTest {
   public void testGetSuccess() throws Exception {
     // Update resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    UpdateTestResolver resolver = new UpdateTestResolver(mockClient);
+    TestEngine mockEngine = Mockito.mock(TestEngine.class);
+    UpdateTestResolver resolver = new UpdateTestResolver(mockClient, mockEngine);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -71,7 +73,8 @@ public class UpdateTestResolverTest {
   public void testGetUnauthorized() throws Exception {
     // Update resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    UpdateTestResolver resolver = new UpdateTestResolver(mockClient);
+    TestEngine mockEngine = Mockito.mock(TestEngine.class);
+    UpdateTestResolver resolver = new UpdateTestResolver(mockClient, mockEngine);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -90,10 +93,11 @@ public class UpdateTestResolverTest {
   public void testGetEntityClientException() throws Exception {
     // Update resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
+    TestEngine mockEngine = Mockito.mock(TestEngine.class);
     Mockito.doThrow(RemoteInvocationException.class).when(mockClient).ingestProposal(
         Mockito.any(),
         Mockito.any(Authentication.class));
-    UpdateTestResolver resolver = new UpdateTestResolver(mockClient);
+    UpdateTestResolver resolver = new UpdateTestResolver(mockClient, mockEngine);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);

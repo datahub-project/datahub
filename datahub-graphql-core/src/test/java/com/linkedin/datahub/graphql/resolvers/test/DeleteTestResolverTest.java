@@ -4,6 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.test.TestEngine;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -20,7 +21,8 @@ public class DeleteTestResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    DeleteTestResolver resolver = new DeleteTestResolver(mockClient);
+    TestEngine mockEngine = Mockito.mock(TestEngine.class);
+    DeleteTestResolver resolver = new DeleteTestResolver(mockClient, mockEngine);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -40,7 +42,8 @@ public class DeleteTestResolverTest {
   public void testGetUnauthorized() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    DeleteTestResolver resolver = new DeleteTestResolver(mockClient);
+    TestEngine mockEngine = Mockito.mock(TestEngine.class);
+    DeleteTestResolver resolver = new DeleteTestResolver(mockClient, mockEngine);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);

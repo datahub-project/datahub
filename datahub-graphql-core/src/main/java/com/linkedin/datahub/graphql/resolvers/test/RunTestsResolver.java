@@ -25,7 +25,7 @@ public class RunTestsResolver implements DataFetcher<CompletableFuture<Boolean>>
 
       final String urnStr = environment.getArgument("urn");
       final Urn urn = UrnUtils.getUrn(urnStr);
-      TestResults testResults = _testEngine.evaluate(urn, true);
+      TestResults testResults = _testEngine.evaluateTestsForEntity(urn, true);
 
       return testResults.getFailing().isEmpty();
     });
