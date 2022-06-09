@@ -250,11 +250,6 @@ class SalesforceSource(Source):
                 )
             )
 
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
-        config = SalesforceConfig.parse_obj(config_dict)
-        return cls(config, ctx)
-
     def get_workunits(self) -> Iterable[WorkUnit]:
 
         sObjects = self.get_salesforce_objects()
