@@ -543,7 +543,14 @@ class LookerExplore:
                     views.add(explore.name)
 
             if explore.joins is not None and explore.joins != []:
-                potential_views = [e.name for e in explore.joins if e.name is not None]
+                join_to_orig_name_map = {}
+                potential_views = []
+                for e in explore.joins:
+                    if e.from_ is not None:
+                        potential_views.append(e.from_)
+                        join_to_orig_name_map[e.name] = e.from_
+                    elif e.name is not None:
+                        potential_views.append(e.name)
                 for e_join in [
                     e for e in explore.joins if e.dependent_fields is not None
                 ]:
@@ -551,6 +558,9 @@ class LookerExplore:
                     for field_name in e_join.dependent_fields:
                         try:
                             view_name = LookerUtil._extract_view_from_field(field_name)
+                            orig_name = join_to_orig_name_map.get(e_join.name)
+                            if orig_name is not None:
+                                view_name = orig_name
                             potential_views.append(view_name)
                         except AssertionError:
                             reporter.report_warning(
