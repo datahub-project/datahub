@@ -2,7 +2,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, cast, Mapping
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Type, cast
 from urllib.parse import urlparse
 
 import dateutil.parser

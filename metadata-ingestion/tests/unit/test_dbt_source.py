@@ -4,10 +4,10 @@ from unittest import mock
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dbt import (
+    DBT_PLATFORM,
     DBTConfig,
     DBTSource,
     match_target_platform_instance,
-    DBT_PLATFORM,
 )
 from datahub.metadata.schema_classes import (
     OwnerClass,
