@@ -468,10 +468,10 @@ def match_target_platform_instance(
     platform_value: Optional[str],
     schema: Optional[str],
     schema_mappings: Optional[Mapping[str, str]],
-) -> str:
+) -> Optional[str]:
     if platform_value == DBT_PLATFORM:
         return dbt_platform_instance
-    if schema_mappings and schema in schema_mappings:
+    if schema_mappings and schema in schema_mappings and schema is not None:
         return schema_mappings[schema]
     return target_platform_instance
 
@@ -481,7 +481,7 @@ def get_upstreams(
     all_nodes: Dict[str, Dict[str, Any]],
     use_identifiers: bool,
     target_platform: str,
-    target_platform_instance: str,
+    target_platform_instance: Optional[str],
     target_platform_instance_mapping: Optional[Mapping[str, str]],
     environment: str,
     disable_dbt_node_creation: bool,
