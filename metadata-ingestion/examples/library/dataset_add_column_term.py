@@ -28,11 +28,9 @@ def get_simple_field_path_from_v2_field_path(field_path: str) -> str:
         return field_path
         # this is a v2 field path
     tokens = [
-        t
-        for t in field_path.split(".")
-        if not (t.startswith("[") or t.endswith("]"))
+        t for t in field_path.split(".") if not (t.startswith("[") or t.endswith("]"))
     ]
-    
+
     return ".".join(tokens)
 
 

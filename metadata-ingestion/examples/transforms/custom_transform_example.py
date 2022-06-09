@@ -61,7 +61,9 @@ class AddCustomOwnership(BaseTransformer, SingleAspectTransformer):
         assert aspect is None or isinstance(aspect, OwnershipClass)
 
         if owners_to_add:
-            ownership = aspect or OwnershipClass(owners=[],)
+            ownership = aspect or OwnershipClass(
+                owners=[],
+            )
 
             ownership.owners.extend(owners_to_add)
 

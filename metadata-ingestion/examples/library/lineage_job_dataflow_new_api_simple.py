@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from datahub.api.entities.datajob import DataFlow, DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import (
@@ -8,7 +8,6 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
 )
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 
-from datetime import timezone
 emitter = DatahubRestEmitter("http://localhost:8080")
 
 jobFlow = DataFlow(cluster="prod", orchestrator="airflow", id="flow_api_simple")
@@ -37,7 +36,9 @@ dataJob4.emit(emitter)
 jobFlowRun = DataProcessInstance.from_dataflow(
     dataflow=jobFlow, id=f"{jobFlow.id}-{uuid.uuid4()}"
 )
-jobFlowRun.emit_process_start(emitter, int(datetime.now(timezone.utc).timestamp() * 1000))
+jobFlowRun.emit_process_start(
+    emitter, int(datetime.now(timezone.utc).timestamp() * 1000)
+)
 
 
 jobRun = DataProcessInstance.from_datajob(
@@ -45,7 +46,11 @@ jobRun = DataProcessInstance.from_datajob(
 )
 jobRun.emit_process_start(emitter, int(datetime.now(timezone.utc).timestamp() * 1000))
 
-jobRun.emit_process_end(emitter, int(datetime.now(timezone.utc).timestamp() * 1000), result=InstanceRunResult.SUCCESS)
+jobRun.emit_process_end(
+    emitter,
+    int(datetime.now(timezone.utc).timestamp() * 1000),
+    result=InstanceRunResult.SUCCESS,
+)
 
 
 job2Run = DataProcessInstance.from_datajob(
@@ -53,7 +58,11 @@ job2Run = DataProcessInstance.from_datajob(
 )
 job2Run.emit_process_start(emitter, int(datetime.now(timezone.utc).timestamp() * 1000))
 
-job2Run.emit_process_end(emitter, int(datetime.now(timezone.utc).timestamp() * 1000), result=InstanceRunResult.SUCCESS)
+job2Run.emit_process_end(
+    emitter,
+    int(datetime.now(timezone.utc).timestamp() * 1000),
+    result=InstanceRunResult.SUCCESS,
+)
 
 
 job3Run = DataProcessInstance.from_datajob(
@@ -61,7 +70,11 @@ job3Run = DataProcessInstance.from_datajob(
 )
 job3Run.emit_process_start(emitter, int(datetime.now(timezone.utc).timestamp() * 1000))
 
-job3Run.emit_process_end(emitter, int(datetime.now(timezone.utc).timestamp() * 1000), result=InstanceRunResult.SUCCESS)
+job3Run.emit_process_end(
+    emitter,
+    int(datetime.now(timezone.utc).timestamp() * 1000),
+    result=InstanceRunResult.SUCCESS,
+)
 
 
 job4Run = DataProcessInstance.from_datajob(
@@ -69,7 +82,15 @@ job4Run = DataProcessInstance.from_datajob(
 )
 job4Run.emit_process_start(emitter, int(datetime.now(timezone.utc).timestamp() * 1000))
 
-job4Run.emit_process_end(emitter, int(datetime.now(timezone.utc).timestamp() * 1000), result=InstanceRunResult.SUCCESS)
+job4Run.emit_process_end(
+    emitter,
+    int(datetime.now(timezone.utc).timestamp() * 1000),
+    result=InstanceRunResult.SUCCESS,
+)
 
 
-jobFlowRun.emit_process_end(emitter, int(datetime.now(timezone.utc).timestamp() * 1000), result=InstanceRunResult.SUCCESS)
+jobFlowRun.emit_process_end(
+    emitter,
+    int(datetime.now(timezone.utc).timestamp() * 1000),
+    result=InstanceRunResult.SUCCESS,
+)
