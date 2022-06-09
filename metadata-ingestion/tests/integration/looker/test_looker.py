@@ -222,6 +222,10 @@ def setup_mock_explore_with_joins(mocked_client):
                 relationship="one_to_one",
                 sql_on="1=1",
             ),
+            LookmlModelExploreJoins(
+                name="my_joined_view_join_name",
+                from_="my_joined_view_original_name",
+            ),
         ],
     )
 
@@ -249,7 +253,11 @@ def setup_mock_explore_unaliased_with_joins(mocked_client):
                 view_label="My Labeled View",
                 relationship="one_to_one",
                 sql_on="1=1",
-            )
+            ),
+            LookmlModelExploreJoins(
+                name="my_joined_view_join_name",
+                from_="my_joined_view_original_name",
+            ),
         ],
     )
 

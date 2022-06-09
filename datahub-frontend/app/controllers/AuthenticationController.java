@@ -23,12 +23,12 @@ import play.mvc.Http;
 import play.mvc.Result;
 import auth.AuthUtils;
 import auth.JAASConfigs;
+import auth.NativeAuthenticationConfigs;
 import auth.sso.SsoManager;
 import security.AuthenticationManager;
 
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
-import javax.naming.NamingException;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
@@ -45,6 +45,7 @@ public class AuthenticationController extends Controller {
     private final Logger _logger = LoggerFactory.getLogger(AuthenticationController.class.getName());
     private final Config _configs;
     private final JAASConfigs _jaasConfigs;
+    private final NativeAuthenticationConfigs _nativeAuthenticationConfigs;
 
     @Inject
     private org.pac4j.core.config.Config _ssoConfig;
@@ -62,6 +63,7 @@ public class AuthenticationController extends Controller {
     public AuthenticationController(@Nonnull Config configs) {
         _configs = configs;
         _jaasConfigs = new JAASConfigs(configs);
+        _nativeAuthenticationConfigs = new NativeAuthenticationConfigs(configs);
     }
 
     /**
@@ -87,9 +89,10 @@ public class AuthenticationController extends Controller {
             return redirectToIdentityProvider();
         }
 
-        // 2. If JAAS auth is enabled, fallback to it
-        if (_jaasConfigs.isJAASEnabled()) {
-            return redirect(LOGIN_ROUTE + String.format("?%s=%s", AUTH_REDIRECT_URI_PARAM,  encodeRedirectUri(redirectPath)));
+        // 2. If either JAAS auth or Native auth is enabled, fallback to it
+        if (_jaasConfigs.isJAASEnabled() || _nativeAuthenticationConfigs.isNativeAuthenticationEnabled()) {
+            return redirect(
+                LOGIN_ROUTE + String.format("?%s=%s", AUTH_REDIRECT_URI_PARAM, encodeRedirectUri(redirectPath)));
         }
 
         // 3. If no auth enabled, fallback to using default user account & redirect.
@@ -109,9 +112,15 @@ public class AuthenticationController extends Controller {
      */
     @Nonnull
     public Result logIn() {
-        if (!_jaasConfigs.isJAASEnabled()) {
+        boolean jaasEnabled = _jaasConfigs.isJAASEnabled();
+        _logger.debug(String.format("Jaas authentication enabled: %b", jaasEnabled));
+        boolean nativeAuthenticationEnabled = _nativeAuthenticationConfigs.isNativeAuthenticationEnabled();
+        _logger.debug(String.format("Native authentication enabled: %b", nativeAuthenticationEnabled));
+        boolean noAuthEnabled = !jaasEnabled && !nativeAuthenticationEnabled;
+        if (noAuthEnabled) {
+            String message = "Neither JAAS nor native authentication is enabled on the server.";
             final ObjectNode error = Json.newObject();
-            error.put("message", "JAAS authentication is not enabled on the server.");
+            error.put("message", message);
             return badRequest(error);
         }
 
@@ -120,28 +129,137 @@ public class AuthenticationController extends Controller {
         final String password = json.findPath(PASSWORD).textValue();
 
         if (StringUtils.isBlank(username)) {
-            JsonNode invalidCredsJson = Json.newObject()
-                .put("message", "User name must not be empty.");
+            JsonNode invalidCredsJson = Json.newObject().put("message", "User name must not be empty.");
             return badRequest(invalidCredsJson);
         }
 
         ctx().session().clear();
 
-        try {
-            AuthenticationManager.authenticateUser(username, password);
-        } catch (NamingException e) {
-            _logger.error("Authentication error", e);
-            JsonNode invalidCredsJson = Json.newObject()
-                .put("message", "Invalid Credentials");
+        JsonNode invalidCredsJson = Json.newObject().put("message", "Invalid Credentials");
+        boolean loginSucceeded = tryLogin(username, password);
+
+        if (!loginSucceeded) {
             return badRequest(invalidCredsJson);
         }
-
 
         final Urn actorUrn = new CorpuserUrn(username);
         final String accessToken = _authClient.generateSessionTokenForUser(actorUrn.getId());
         ctx().session().put(ACTOR, actorUrn.toString());
         ctx().session().put(ACCESS_TOKEN, accessToken);
         return ok().withCookies(Http.Cookie.builder(ACTOR, actorUrn.toString())
+            .withHttpOnly(false)
+            .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
+            .build());
+    }
+
+    /**
+     * Sign up a native user based on a name, email, title, and password. The invite token must match the global invite
+     * token stored for the DataHub instance.
+     *
+     */
+    @Nonnull
+    public Result signUp() {
+        boolean nativeAuthenticationEnabled = _nativeAuthenticationConfigs.isNativeAuthenticationEnabled();
+        _logger.debug(String.format("Native authentication enabled: %b", nativeAuthenticationEnabled));
+        if (!nativeAuthenticationEnabled) {
+            String message = "Native authentication is not enabled on the server.";
+            final ObjectNode error = Json.newObject();
+            error.put("message", message);
+            return badRequest(error);
+        }
+
+        final JsonNode json = request().body().asJson();
+        final String fullName = json.findPath(FULL_NAME).textValue();
+        final String email = json.findPath(EMAIL).textValue();
+        final String title = json.findPath(TITLE).textValue();
+        final String password = json.findPath(PASSWORD).textValue();
+        final String inviteToken = json.findPath(INVITE_TOKEN).textValue();
+
+        if (StringUtils.isBlank(fullName)) {
+            JsonNode invalidCredsJson = Json.newObject().put("message", "Full name must not be empty.");
+            return badRequest(invalidCredsJson);
+        }
+
+        if (StringUtils.isBlank(email)) {
+            JsonNode invalidCredsJson = Json.newObject().put("message", "Email must not be empty.");
+            return badRequest(invalidCredsJson);
+        }
+
+        if (StringUtils.isBlank(password)) {
+            JsonNode invalidCredsJson = Json.newObject().put("message", "Password must not be empty.");
+            return badRequest(invalidCredsJson);
+        }
+
+        if (StringUtils.isBlank(title)) {
+            JsonNode invalidCredsJson = Json.newObject().put("message", "Title must not be empty.");
+            return badRequest(invalidCredsJson);
+        }
+
+        if (StringUtils.isBlank(inviteToken)) {
+            JsonNode invalidCredsJson = Json.newObject().put("message", "Invite token must not be empty.");
+            return badRequest(invalidCredsJson);
+        }
+
+        ctx().session().clear();
+
+        final Urn userUrn = new CorpuserUrn(email);
+        final String userUrnString = userUrn.toString();
+        boolean isNativeUserCreated = _authClient.signUp(userUrnString, fullName, email, title, password, inviteToken);
+        final String accessToken = _authClient.generateSessionTokenForUser(userUrn.getId());
+        ctx().session().put(ACTOR, userUrnString);
+        ctx().session().put(ACCESS_TOKEN, accessToken);
+        return ok().withCookies(Http.Cookie.builder(ACTOR, userUrnString)
+            .withHttpOnly(false)
+            .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
+            .build());
+    }
+
+    /**
+     * Create a native user based on a name, email, and password.
+     *
+     */
+    @Nonnull
+    public Result resetNativeUserCredentials() {
+        boolean nativeAuthenticationEnabled = _nativeAuthenticationConfigs.isNativeAuthenticationEnabled();
+        _logger.debug(String.format("Native authentication enabled: %b", nativeAuthenticationEnabled));
+        if (!nativeAuthenticationEnabled) {
+            String message = "Native authentication is not enabled on the server.";
+            final ObjectNode error = Json.newObject();
+            error.put("message", message);
+            return badRequest(error);
+        }
+
+        final JsonNode json = request().body().asJson();
+        final String email = json.findPath(EMAIL).textValue();
+        final String password = json.findPath(PASSWORD).textValue();
+        final String resetToken = json.findPath(RESET_TOKEN).textValue();
+
+        if (StringUtils.isBlank(email)) {
+            JsonNode invalidCredsJson = Json.newObject().put("message", "Email must not be empty.");
+            return badRequest(invalidCredsJson);
+        }
+
+        if (StringUtils.isBlank(password)) {
+            JsonNode invalidCredsJson = Json.newObject().put("message", "Password must not be empty.");
+            return badRequest(invalidCredsJson);
+        }
+
+        if (StringUtils.isBlank(resetToken)) {
+            JsonNode invalidCredsJson = Json.newObject().put("message", "Reset token must not be empty.");
+            return badRequest(invalidCredsJson);
+        }
+
+        ctx().session().clear();
+
+        final Urn userUrn = new CorpuserUrn(email);
+        final String userUrnString = userUrn.toString();
+        boolean areNativeUserCredentialsReset =
+            _authClient.resetNativeUserCredentials(userUrnString, password, resetToken);
+        _logger.debug(String.format("Are native user credentials reset: %b", areNativeUserCredentialsReset));
+        final String accessToken = _authClient.generateSessionTokenForUser(userUrn.getId());
+        ctx().session().put(ACTOR, userUrnString);
+        ctx().session().put(ACCESS_TOKEN, accessToken);
+        return ok().withCookies(Http.Cookie.builder(ACTOR, userUrnString)
             .withHttpOnly(false)
             .withMaxAge(Duration.of(30, ChronoUnit.DAYS))
             .build());
@@ -167,5 +285,31 @@ public class AuthenticationController extends Controller {
         } catch (UnsupportedEncodingException e) {
             throw new RuntimeException(String.format("Failed to encode redirect URI %s", redirectUri), e);
         }
+    }
+
+    private boolean tryLogin(String username, String password) {
+        JsonNode invalidCredsJson = Json.newObject().put("message", "Invalid Credentials");
+        boolean loginSucceeded = false;
+
+        // First try jaas login, if enabled
+        if (_jaasConfigs.isJAASEnabled()) {
+            try {
+                _logger.debug("Attempting jaas authentication");
+                AuthenticationManager.authenticateJaasUser(username, password);
+                loginSucceeded = true;
+                _logger.debug("Jaas authentication successful");
+            } catch (Exception e) {
+                _logger.debug("Jaas authentication error", e);
+            }
+        }
+
+        // If jaas login fails or is disabled, try native auth login
+        if (_nativeAuthenticationConfigs.isNativeAuthenticationEnabled() && !loginSucceeded) {
+            final Urn userUrn = new CorpuserUrn(username);
+            final String userUrnString = userUrn.toString();
+            loginSucceeded = loginSucceeded || _authClient.verifyNativeUserCredentials(userUrnString, password);
+        }
+
+        return loginSucceeded;
     }
 }
