@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.identity.CorpUserCredentials;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.CorpUserStatus;
@@ -45,8 +46,9 @@ public class CorpUserMapper implements ModelMapper<EntityResponse, CorpUser> {
             corpUser.setEditableProperties(CorpUserEditableInfoMapper.map(new CorpUserEditableInfo(dataMap))));
         mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, (corpUser, dataMap) ->
             corpUser.setGlobalTags(GlobalTagsMapper.map(new GlobalTags(dataMap))));
-        mappingHelper.mapToResult(CORP_USER_STATUS_ASPECT_NAME, (corpUser, dataMap) ->
-            corpUser.setStatus(CorpUserStatusMapper.map(new CorpUserStatus(dataMap))));
+        mappingHelper.mapToResult(CORP_USER_STATUS_ASPECT_NAME,
+            (corpUser, dataMap) -> corpUser.setStatus(CorpUserStatusMapper.map(new CorpUserStatus(dataMap))));
+        mappingHelper.mapToResult(CORP_USER_CREDENTIALS_ASPECT_NAME, this::mapIsNativeUser);
         return mappingHelper.getResult();
     }
 
@@ -59,5 +61,12 @@ public class CorpUserMapper implements ModelMapper<EntityResponse, CorpUser> {
         CorpUserInfo corpUserInfo = new CorpUserInfo(dataMap);
         corpUser.setProperties(CorpUserPropertiesMapper.map(corpUserInfo));
         corpUser.setInfo(CorpUserInfoMapper.map(corpUserInfo));
+    }
+
+    private void mapIsNativeUser(@Nonnull CorpUser corpUser, @Nonnull DataMap dataMap) {
+        CorpUserCredentials corpUserCredentials = new CorpUserCredentials(dataMap);
+        boolean isNativeUser =
+            corpUserCredentials != null && corpUserCredentials.hasSalt() && corpUserCredentials.hasHashedPassword();
+        corpUser.setIsNativeUser(isNativeUser);
     }
 }

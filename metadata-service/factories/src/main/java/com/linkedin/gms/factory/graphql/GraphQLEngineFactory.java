@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.graphql;
 
 import com.datahub.authentication.token.StatefulTokenService;
+import com.datahub.authentication.user.NativeUserService;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
@@ -97,6 +98,10 @@ public class GraphQLEngineFactory {
   @Qualifier("timelineService")
   private TimelineService _timelineService;
 
+  @Autowired
+  @Qualifier("nativeUserService")
+  private NativeUserService _nativeUserService;
+
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
@@ -115,6 +120,7 @@ public class GraphQLEngineFactory {
           _timeseriesAspectService,
           _entityRegistry,
           _secretService,
+          _nativeUserService,
           _configProvider.getIngestion(),
           _configProvider.getAuthentication(),
           _configProvider.getAuthorization(),
@@ -138,6 +144,7 @@ public class GraphQLEngineFactory {
         _timeseriesAspectService,
         _entityRegistry,
         _secretService,
+        _nativeUserService,
         _configProvider.getIngestion(),
         _configProvider.getAuthentication(),
         _configProvider.getAuthorization(),
