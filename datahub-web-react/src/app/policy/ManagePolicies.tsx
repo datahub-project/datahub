@@ -248,15 +248,23 @@ export const ManagePolicies = () => {
         setFocusPolicyUrn(undefined);
     };
 
+    const onEditPolicy = (policy: Policy) => {
+        setShowPolicyBuilderModal(true);
+        setFocusPolicyUrn(policy?.urn);
+        setFocusPolicy({ ...policy });
+    };
+
+    // On Delete Policy handler
     const onRemovePolicy = (policy: Policy) => {
         Modal.confirm({
             title: `Delete ${policy?.name}`,
             content: `Are you sure you want to remove policy?`,
             onOk() {
                 deletePolicy({ variables: { urn: policy?.urn as string } }); // There must be a focus policy urn.
+                message.success('Successfully removed policy.');
                 setTimeout(function () {
                     policiesRefetch();
-                }, 2000);
+                }, 3000);
                 onCancelViewPolicy();
             },
             onCancel() {},
@@ -266,16 +274,12 @@ export const ManagePolicies = () => {
         });
     };
 
-    const onEditPolicy = (policy: Policy) => {
-        setShowPolicyBuilderModal(true);
-        setFocusPolicyUrn(policy?.urn);
-        setFocusPolicy({ ...policy });
-    };
-
+    // On Activate and deactivate Policy handler
     const onToggleActiveDuplicate = (policy: Policy) => {
+        const newState = policy?.state === PolicyState.Active ? PolicyState.Inactive : PolicyState.Active;
         const newPolicy = {
             ...policy,
-            state: policy?.state === PolicyState.Active ? PolicyState.Inactive : PolicyState.Active,
+            state: newState,
         };
         updatePolicy({
             variables: {
@@ -283,9 +287,14 @@ export const ManagePolicies = () => {
                 input: toPolicyInput(newPolicy),
             },
         });
+        message.success(`Successfully ${newState === PolicyState.Active ? 'activated' : 'deactivated'} policy.`);
+        setTimeout(function () {
+            policiesRefetch();
+        }, 3000);
         setShowViewPolicyModal(false);
     };
 
+    // On Add/Update Policy handler
     const onSavePolicy = (savePolicy: Omit<Policy, 'urn'>) => {
         if (focusPolicyUrn) {
             // If there's an URN associated with the focused policy, then we are editing an existing policy.
@@ -297,7 +306,7 @@ export const ManagePolicies = () => {
         message.success('Successfully saved policy.');
         setTimeout(function () {
             policiesRefetch();
-        }, 2000);
+        }, 3000);
         onClosePolicyBuilder();
     };
 
@@ -348,6 +357,7 @@ export const ManagePolicies = () => {
                         />
                         {record?.allUsers ? <ActorTag>All Users</ActorTag> : null}
                         {record?.allGroups ? <ActorTag>All Groups</ActorTag> : null}
+                        {record?.resourceOwners ? <ActorTag>All Owners</ActorTag> : null}
                     </>
                 );
             },
@@ -404,6 +414,7 @@ export const ManagePolicies = () => {
     const tableData = policies?.map((policy) => ({
         allGroups: policy?.actors?.allGroups,
         allUsers: policy?.actors?.allUsers,
+        resourceOwners: policy?.actors?.resourceOwners,
         description: policy?.description,
         editable: policy?.editable,
         name: policy?.name,
@@ -461,7 +472,7 @@ export const ManagePolicies = () => {
                     dataSource={tableData}
                     rowKey="urn"
                     locale={{
-                        emptyText: <Empty description="No Ingestion Sources!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                        emptyText: <Empty description="No Policies!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
                     pagination={false}
                 />

@@ -12,7 +12,8 @@ source:
     ca_file: ./ssl_files/server_certfile.pem
     provenance_days: 30
     process_group_pattern: 
-      deny: "^WIP"
+      deny:
+        - "^WIP"
     site_url_to_site_name:
       https://localhost:9080/nifi/ : site2
       https://localhost:9081/nifi/ : site2

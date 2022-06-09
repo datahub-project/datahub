@@ -228,7 +228,7 @@ export default function GroupMembers({ urn, pageSize, onChangeMembers }: Props) 
                 urn={urn}
                 visible={isEditingMembers}
                 onSubmit={onAddMembers}
-                onClose={() => setIsEditingMembers(false)}
+                onCloseModal={() => setIsEditingMembers(false)}
             />
         </>
     );

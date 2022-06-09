@@ -1,6 +1,6 @@
 # see https://datahubproject.io/docs/generated/ingestion/sources/feast for complete documentation
 source:
-  type: feast
+  type: feast-legacy
   config:
     core_url: localhost:6565 # default
     env: "PROD" # Optional, default is "PROD"

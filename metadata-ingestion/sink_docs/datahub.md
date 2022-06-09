@@ -114,7 +114,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 The options in the producer config and schema registry config are passed to the Kafka SerializingProducer and SchemaRegistryClient respectively.
 
-For a full example with a number of security options, see this [example recipe](../examples/recipes/secured_kafka.yml).
+For a full example with a number of security options, see this [example recipe](../examples/recipes/secured_kafka.dhub.yaml).
 
 ## Questions
 
