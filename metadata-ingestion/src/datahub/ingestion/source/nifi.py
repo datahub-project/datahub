@@ -620,7 +620,7 @@ class NifiSource(Source):
         if about_response.ok:
             nifi_version = about_response.json().get("about", {}).get("version")
         else:
-            logger.warn("Failed to fetch version for nifi")
+            logger.warning("Failed to fetch version for nifi")
         cluster_response = self.session.get(
             url=urljoin(self.config.site_url, CLUSTER_ENDPOINT)
         )
@@ -630,7 +630,7 @@ class NifiSource(Source):
                 cluster_response.json().get("clusterSummary", {}).get("clustered")
             )
         else:
-            logger.warn("Failed to fetch cluster summary for flow")
+            logger.warning("Failed to fetch cluster summary for flow")
         pg_response = self.session.get(
             url=urljoin(self.config.site_url, PG_ENDPOINT) + "root"
         )
@@ -715,7 +715,7 @@ class NifiSource(Source):
 
             attempts = 5  # wait for at most 5 attempts 5*1= 5 seconds
             while (not provenance.get("finished", False)) and attempts > 0:
-                logger.warn(
+                logger.warning(
                     f"Provenance query not completed, attempts left : {attempts}"
                 )
                 # wait until the uri returns percentcomplete 100
@@ -757,7 +757,7 @@ class NifiSource(Source):
                 f"provenance events could not be fetched for processor \
                     {processor.id} of type {processor.name}",
             )
-            logger.warn(provenance_response.text)
+            logger.warning(provenance_response.text)
         return
 
     def report_warning(self, key: str, reason: str) -> None:

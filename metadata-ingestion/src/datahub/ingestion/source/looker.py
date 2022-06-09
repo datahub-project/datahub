@@ -283,8 +283,8 @@ class LookerUserRegistry:
             self.user_map[id] = looker_user
             return looker_user
         except SDKError as e:
-            logger.warn(f"Could not find user with id {id}")
-            logger.warn(f"Failure was {e}")
+            logger.warning(f"Could not find user with id {id}")
+            logger.warning(f"Failure was {e}")
             return None
 
 

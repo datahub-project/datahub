@@ -182,7 +182,7 @@ def delete(
     else:
         # log warn include_removed + hard is the only way to work
         if include_removed and soft:
-            logger.warn(
+            logger.warning(
                 "A filtered delete including soft deleted entities is redundant, because it is a soft delete by default. Please use --include-removed in conjunction with --hard"
             )
         # Filter based delete

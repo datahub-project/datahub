@@ -623,7 +623,7 @@ class LookerExplore:
                 source_file=explore.source_file,
             )
         except SDKError as e:
-            logger.warn(f"Failed to extract explore {explore_name} from model {model}.")
+            logger.warning(f"Failed to extract explore {explore_name} from model {model}.")
             logger.debug(
                 f"Failed to extract explore {explore_name} from model {model} with {e}"
             )
