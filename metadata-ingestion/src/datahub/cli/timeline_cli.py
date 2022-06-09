@@ -38,9 +38,10 @@ def pretty_id(id: Optional[str]) -> str:
     # breakpoint()
     assert id is not None
     if id.startswith("urn:li:datasetField:") or id.startswith("urn:li:schemaField:"):
-        if schema_field_key := schema_field_urn_to_key(
+        schema_field_key = schema_field_urn_to_key(
             id.replace("urn:li:datasetField", "urn:li:schemaField")
-        ):
+        )
+        if schema_field_key:
             assert schema_field_key is not None
             field_path = schema_field_key.fieldPath
 
@@ -49,7 +50,8 @@ def pretty_id(id: Optional[str]) -> str:
         return f"{colored('field','cyan')}:{colored(pretty_field_path(id),'white')}"
 
     if id.startswith("urn:li:dataset"):
-        if dataset_key := dataset_urn_to_key(id):
+        dataset_key = dataset_urn_to_key(id)
+        if dataset_key:
             return f"{colored('dataset','cyan')}:{colored(dataset_key.platform,'white')}:{colored(dataset_key.name,'white')}"
     # failed to prettify, return original
     return id
