@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Dict, Iterable, Optional
 
@@ -42,7 +42,6 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
 )
 from datahub.utilities import config_clean
-from datetime import timezone
 
 
 class MetabaseConfig(DatasetLineageProviderConfigBase):

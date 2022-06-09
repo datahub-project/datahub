@@ -20,6 +20,7 @@ from feast import (
     ValueType,
 )
 from feast.data_source import DataSource, RequestDataSource
+
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import DEFAULT_ENV
