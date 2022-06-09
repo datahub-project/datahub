@@ -67,8 +67,8 @@ const DeprecatedText = styled.div`
 const DeprecatedTitle = styled(Typography.Text)`
     display: block;
     font-size: 14px;
-    font-weight: bold;
     margin-bottom: 5px;
+    font-weight: bold;
 `;
 
 const DeprecatedSubTitle = styled(Typography.Text)`
@@ -143,9 +143,7 @@ export const EntityHeader = ({ refreshBrowser, headerDropdownItems, isNameEditab
         (entityData?.deprecation?.decommissionTime &&
             `Scheduled to be decommissioned on ${moment
                 .unix(entityData?.deprecation?.decommissionTime)
-                .format('DD/MMM/YYYY')} at ${moment
-                .unix(entityData?.deprecation?.decommissionTime)
-                .format('HH:mm:ss')} (${localeTimezone})`) ||
+                .format('DD/MMM/YYYY')} (${localeTimezone})`) ||
         undefined;
     const decommissionTimeGMT =
         entityData?.deprecation?.decommissionTime &&
@@ -171,12 +169,10 @@ export const EntityHeader = ({ refreshBrowser, headerDropdownItems, isNameEditab
                                         {entityData?.deprecation?.note !== '' && (
                                             <DeprecatedTitle>Note</DeprecatedTitle>
                                         )}
-                                        {entityData?.deprecation?.note !== '' && (
-                                            <DeprecatedSubTitle type="secondary">
-                                                {entityData?.deprecation?.note}
-                                            </DeprecatedSubTitle>
-                                        )}
                                         {isDividerNeeded && <Divider />}
+                                        {entityData?.deprecation?.note !== '' && (
+                                            <DeprecatedSubTitle>{entityData?.deprecation?.note}</DeprecatedSubTitle>
+                                        )}
                                         {entityData?.deprecation?.decommissionTime !== null && (
                                             <Typography.Text type="secondary">
                                                 <Tooltip placement="right" title={decommissionTimeGMT}>
