@@ -16,12 +16,14 @@
                             "created": {
                                 "time": 0,
                                 "actor": "urn:li:corpuser:unknown",
-                                "impersonator": null
+                                "impersonator": null,
+                                "message": null
                             },
                             "lastModified": {
                                 "time": 0,
                                 "actor": "urn:li:corpuser:unknown",
-                                "impersonator": null
+                                "impersonator": null,
+                                "message": null
                             },
                             "deleted": null
                         },
@@ -72,7 +74,7 @@
                             "looker.explore.file": "test_source_file.lkml"
                         },
                         "externalUrl": "https://looker.company.com/explore/data/my_view",
-                        "name": "my_view",
+                        "name": "My Explore View",
                         "qualifiedName": null,
                         "description": "lorem ipsum",
                         "uri": null,
@@ -86,7 +88,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.underlying_view,PROD)",
                                 "type": "VIEW"
@@ -103,12 +106,14 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -125,6 +130,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -141,6 +148,7 @@
                                 },
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -198,7 +206,8 @@
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         }
                     }
                 },
@@ -239,7 +248,8 @@
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         }
                     }
                 },
@@ -280,7 +290,8 @@
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         }
                     }
                 },

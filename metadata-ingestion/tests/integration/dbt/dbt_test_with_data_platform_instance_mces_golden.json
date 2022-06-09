@@ -67,7 +67,8 @@
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         }
                     }
                 },
@@ -88,12 +89,14 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -117,7 +120,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)",
                                 "type": "TRANSFORMED"
@@ -126,7 +130,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.address,PROD)",
                                 "type": "TRANSFORMED"
@@ -135,7 +140,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)",
                                 "type": "TRANSFORMED"
@@ -226,12 +232,14 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -248,6 +256,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -266,6 +276,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -284,6 +296,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -302,6 +316,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -328,7 +344,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
                                 "type": "TRANSFORMED"
@@ -337,9 +354,10 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.dbt_postgres.customer_details,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,dbt-instance-1.pagila.dbt_postgres.customer_details,PROD)",
                                 "type": "TRANSFORMED"
                             }
                         ],
@@ -423,12 +441,14 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -445,6 +465,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -463,6 +485,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -481,6 +505,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -499,6 +525,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -517,6 +545,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -535,6 +565,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -561,7 +593,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_01,PROD)",
                                 "type": "TRANSFORMED"
@@ -570,7 +603,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)",
                                 "type": "TRANSFORMED"
@@ -579,7 +613,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)",
                                 "type": "TRANSFORMED"
@@ -588,7 +623,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_03,PROD)",
                                 "type": "TRANSFORMED"
@@ -597,7 +633,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_04,PROD)",
                                 "type": "TRANSFORMED"
@@ -606,7 +643,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_05,PROD)",
                                 "type": "TRANSFORMED"
@@ -615,7 +653,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_06,PROD)",
                                 "type": "TRANSFORMED"
@@ -701,12 +740,14 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -723,6 +764,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -741,6 +784,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -759,6 +804,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -785,7 +832,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
                                 "type": "TRANSFORMED"
@@ -877,7 +925,8 @@
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         }
                     }
                 },
@@ -889,12 +938,14 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 1581759273000,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -911,6 +962,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -929,6 +982,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "dbt comment: Actors column \u2013 from postgres\n\ndbt model description: description for first_name from dbt",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -953,6 +1008,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "description for last_name from dbt",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -971,6 +1028,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "description for last_update from dbt",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -997,7 +1056,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)",
                                 "type": "TRANSFORMED"
@@ -1075,12 +1135,14 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 1581759930000,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -1097,6 +1159,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1115,6 +1179,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1133,6 +1199,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1151,6 +1219,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1169,6 +1239,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1187,6 +1259,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -1205,6 +1279,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1223,6 +1299,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1249,7 +1327,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.address,PROD)",
                                 "type": "TRANSFORMED"
@@ -1327,12 +1406,14 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 1581759987000,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -1349,6 +1430,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1367,6 +1450,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -1385,6 +1470,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1411,7 +1498,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.category,PROD)",
                                 "type": "TRANSFORMED"
@@ -1489,12 +1577,14 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 1581759925000,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -1511,6 +1601,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1529,6 +1621,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1547,6 +1641,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1565,6 +1661,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -1591,7 +1689,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)",
                                 "type": "TRANSFORMED"
@@ -1676,7 +1775,8 @@
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         }
                     }
                 },
@@ -1688,12 +1788,14 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 1581759840000,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -1710,6 +1812,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1728,6 +1832,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1746,6 +1852,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -1772,7 +1880,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.country,PROD)",
                                 "type": "TRANSFORMED"
@@ -1850,12 +1959,14 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 1581760640000,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -1872,6 +1983,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1890,6 +2003,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -1908,6 +2023,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1926,6 +2043,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
@@ -1944,6 +2063,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1962,6 +2083,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1980,6 +2103,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1998,6 +2123,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -2016,6 +2143,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -2034,6 +2163,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2060,7 +2191,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)",
                                 "type": "TRANSFORMED"
@@ -2138,12 +2270,14 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 1580505371996,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -2160,6 +2294,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2178,6 +2314,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2196,6 +2334,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -2214,6 +2354,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2232,6 +2374,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2250,6 +2394,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2276,7 +2422,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_01,PROD)",
                                 "type": "TRANSFORMED"
@@ -2362,7 +2509,8 @@
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         }
                     }
                 },
@@ -2374,12 +2522,14 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 1582319845996,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -2396,6 +2546,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2414,6 +2566,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2432,6 +2586,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -2450,6 +2606,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2468,6 +2626,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2486,6 +2646,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2512,7 +2674,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)",
                                 "type": "TRANSFORMED"
@@ -2590,12 +2753,14 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 1584998318996,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -2612,6 +2777,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2630,6 +2797,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2648,6 +2817,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -2666,6 +2837,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2684,6 +2857,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2702,6 +2877,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2728,7 +2905,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_03,PROD)",
                                 "type": "TRANSFORMED"
@@ -2806,12 +2984,14 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 1588287228996,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -2828,6 +3008,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2846,6 +3028,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2864,6 +3048,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -2882,6 +3068,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2900,6 +3088,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2918,6 +3108,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -2944,7 +3136,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_04,PROD)",
                                 "type": "TRANSFORMED"
@@ -3022,12 +3215,14 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": 1589460269996,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -3044,6 +3239,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3062,6 +3259,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3080,6 +3279,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -3098,6 +3299,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3116,6 +3319,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3134,6 +3339,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3160,7 +3367,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_05,PROD)",
                                 "type": "TRANSFORMED"
@@ -3238,12 +3446,14 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "lastModified": {
                             "time": -62135596800000,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null
+                            "impersonator": null,
+                            "message": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -3260,6 +3470,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3278,6 +3490,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3296,6 +3510,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -3314,6 +3530,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3332,6 +3550,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3350,6 +3570,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": null,
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -3376,7 +3598,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_06,PROD)",
                                 "type": "TRANSFORMED"
@@ -3410,7 +3633,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,dbt-instance-1.pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)",
                                 "type": "TRANSFORMED"
@@ -3444,7 +3668,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,dbt-instance-1.pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
                                 "type": "TRANSFORMED"
@@ -3478,7 +3703,8 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null
+                                    "impersonator": null,
+                                    "message": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,dbt-instance-1.pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
                                 "type": "TRANSFORMED"

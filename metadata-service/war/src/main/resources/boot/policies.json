@@ -20,7 +20,8 @@
         "MANAGE_ACCESS_TOKENS",
         "MANAGE_DOMAINS",
         "MANAGE_TESTS",
-        "MANAGE_GLOSSARIES"
+        "MANAGE_GLOSSARIES",
+        "MANAGE_USER_CREDENTIALS"
       ],
       "displayName":"Root User - All Platform Privileges",
       "description":"Grants full platform privileges to root datahub super user.",
