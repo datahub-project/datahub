@@ -216,8 +216,9 @@ class DBTConfig(StatefulIngestionConfigBase):
         uri_containing_fields = [
             f
             for f in ["manifest_path", "catalog_path", "sources_path"]
-            if values.get(f, "").startswith("s3://")
+            if (values.get(f) or "").startswith("s3://")
         ]
+
         if uri_containing_fields and not aws_connection:
             raise ValueError(
                 f"Please provide aws_connection configuration, since s3 uris have been provided in fields {uri_containing_fields}"
@@ -431,7 +432,7 @@ def get_urn_from_dbtNode(
     data_platform_instance: Optional[str],
 ) -> str:
     db_fqn = get_db_fqn(database, schema, name)
-    if data_platform_instance is not None:
+    if data_platform_instance is not None and target_platform == DBT_PLATFORM:
         db_fqn = f"{data_platform_instance}.{db_fqn}"
     return mce_builder.make_dataset_urn(target_platform, db_fqn, env)
 
@@ -508,7 +509,7 @@ def get_upstreams(
                 name,
                 platform_value,
                 environment,
-                platform_instance if platform_value == DBT_PLATFORM else None,
+                platform_instance,
             )
         )
     return upstream_urns
@@ -921,7 +922,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 node.name,
                 mce_platform,
                 self.config.env,
-                self.config.platform_instance if mce_platform == DBT_PLATFORM else None,
+                self.config.platform_instance,
             )
             self.save_checkpoint(node_datahub_urn)
 
@@ -1261,7 +1262,7 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.target_platform,
             self.config.env,
             self.config.disable_dbt_node_creation,
-            None,
+            self.config.platform_instance,
         )
 
         # if a node is of type source in dbt, its upstream lineage should have the corresponding table/view
@@ -1274,7 +1275,7 @@ class DBTSource(StatefulIngestionSourceBase):
                     node.name,
                     self.config.target_platform,
                     self.config.env,
-                    None,
+                    self.config.platform_instance,
                 )
             )
         if upstream_urns:

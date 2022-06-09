@@ -88,6 +88,7 @@ entities:
       - groupMembership
       - globalTags
       - status
+      - corpUserCredentials
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -232,4 +233,9 @@ entities:
     aspects:
       - dataHubUpgradeRequest
       - dataHubUpgradeResult
+  - name: inviteToken
+    category: core
+    keyAspect: inviteTokenKey
+    aspects:
+      - inviteToken
 events:
