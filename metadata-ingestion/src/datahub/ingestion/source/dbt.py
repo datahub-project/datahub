@@ -461,11 +461,13 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
     return custom_properties
 
 
-def match_target_platform_instance(target_platform_instance: Optional[str],
-                                   dbt_platform_instance: Optional[str],
-                                   platform_value: Optional[str],
-                                   schema: Optional[str],
-                                   schema_mappings: Optional[Mapping[str, str]]) -> str:
+def match_target_platform_instance(
+    target_platform_instance: Optional[str],
+    dbt_platform_instance: Optional[str],
+    platform_value: Optional[str],
+    schema: Optional[str],
+    schema_mappings: Optional[Mapping[str, str]],
+) -> str:
     if platform_value == DBT_PLATFORM:
         return dbt_platform_instance
     if schema_mappings and schema in schema_mappings:
@@ -528,10 +530,13 @@ def get_upstreams(
                 name,
                 platform_value,
                 environment,
-                match_target_platform_instance(target_platform_instance=target_platform_instance,
-                                               dbt_platform_instance=platform_instance, platform_value=platform_value,
-                                               schema=all_nodes[upstream]["schema"],
-                                               schema_mappings=target_platform_instance_mapping)
+                match_target_platform_instance(
+                    target_platform_instance=target_platform_instance,
+                    dbt_platform_instance=platform_instance,
+                    platform_value=platform_value,
+                    schema=all_nodes[upstream]["schema"],
+                    schema_mappings=target_platform_instance_mapping,
+                ),
             )
         )
     return upstream_urns
@@ -944,8 +949,13 @@ class DBTSource(StatefulIngestionSourceBase):
                 node.name,
                 mce_platform,
                 self.config.env,
-                match_target_platform_instance(self.config.target_platform_instance, self.config.platform_instance,
-                                               mce_platform, node.schema, self.config.target_platform_instance_mapping)
+                match_target_platform_instance(
+                    self.config.target_platform_instance,
+                    self.config.platform_instance,
+                    mce_platform,
+                    node.schema,
+                    self.config.target_platform_instance_mapping,
+                ),
             )
             self.save_checkpoint(node_datahub_urn)
 
@@ -1287,7 +1297,7 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.target_platform_instance_mapping,
             self.config.env,
             self.config.disable_dbt_node_creation,
-            None
+            None,
         )
 
         # if a node is of type source in dbt, its upstream lineage should have the corresponding table/view
@@ -1300,9 +1310,13 @@ class DBTSource(StatefulIngestionSourceBase):
                     node.name,
                     self.config.target_platform,
                     self.config.env,
-                    match_target_platform_instance(self.config.target_platform_instance, None,
-                                                   self.config.target_platform, node.schema,
-                                                   self.config.target_platform_instance_mapping)
+                    match_target_platform_instance(
+                        self.config.target_platform_instance,
+                        None,
+                        self.config.target_platform,
+                        node.schema,
+                        self.config.target_platform_instance_mapping,
+                    ),
                 )
             )
         if upstream_urns:
