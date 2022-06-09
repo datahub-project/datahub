@@ -37,6 +37,7 @@ public class OidcConfigs extends SsoConfigs {
     public static final String OIDC_USE_NONCE = "auth.oidc.useNonce";
     public static final String OIDC_CUSTOM_PARAM_RESOURCE = "auth.oidc.customParam.resource";
     public static final String OIDC_READ_TIMEOUT = "auth.oidc.readTimeout";
+    public static final String OIDC_PARSE_JWT_ACCESS_TOKEN_ENABLED = "auth.oidc.parseJwtAccessTokenEnabled";
 
     /**
      * Default values
@@ -69,6 +70,7 @@ public class OidcConfigs extends SsoConfigs {
     private Optional<Boolean> useNonce;
     private Optional<String> customParamResource;
     private String readTimeout;
+    private Optional<Boolean> parseJwtAccessTokenEnabled;
 
     public OidcConfigs(final com.typesafe.config.Config configs) {
         super(configs);
@@ -94,5 +96,6 @@ public class OidcConfigs extends SsoConfigs {
         useNonce = getOptional(configs, OIDC_USE_NONCE).map(Boolean::parseBoolean);
         customParamResource = getOptional(configs, OIDC_CUSTOM_PARAM_RESOURCE);
         readTimeout = getOptional(configs, OIDC_READ_TIMEOUT, DEFAULT_OIDC_READ_TIMEOUT);
+        parseJwtAccessTokenEnabled = getOptional(configs, OIDC_PARSE_JWT_ACCESS_TOKEN_ENABLED).map(Boolean::parseBoolean);
     }
 }

@@ -6,14 +6,20 @@ import org.pac4j.oidc.config.OidcConfiguration;
 import org.pac4j.oidc.credentials.extractor.OidcExtractor;
 import org.pac4j.oidc.logout.OidcLogoutActionBuilder;
 import org.pac4j.oidc.profile.OidcProfile;
+import org.pac4j.oidc.profile.OidcProfileDefinition;
 import org.pac4j.oidc.profile.creator.OidcProfileCreator;
 import org.pac4j.oidc.redirect.OidcRedirectActionBuilder;
+
+import auth.sso.oidc.OidcAuthorizationGenerator;
 
 
 public class CustomOidcClient extends OidcClient<OidcProfile, OidcConfiguration> {
 
-  public CustomOidcClient(final OidcConfiguration configuration) {
+  private final boolean parseJwtAccessTokenEnabled;
+
+  public CustomOidcClient(final OidcConfiguration configuration, final boolean parseJwtAccessTokenEnabled) {
     setConfiguration(configuration);
+    this.parseJwtAccessTokenEnabled = parseJwtAccessTokenEnabled;
   }
 
   @Override
@@ -25,5 +31,8 @@ public class CustomOidcClient extends OidcClient<OidcProfile, OidcConfiguration>
     defaultAuthenticator(new CustomOidcAuthenticator(getConfiguration(), this));
     defaultProfileCreator(new OidcProfileCreator<>(getConfiguration()));
     defaultLogoutActionBuilder(new OidcLogoutActionBuilder<>(getConfiguration()));
+    if (parseJwtAccessTokenEnabled) {
+      addAuthorizationGenerator(new OidcAuthorizationGenerator(new OidcProfileDefinition()));
+    }
   }
 }
