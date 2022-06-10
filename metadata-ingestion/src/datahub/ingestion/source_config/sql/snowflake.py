@@ -2,16 +2,24 @@ import logging
 from typing import Dict, Optional
 
 import pydantic
+import snowflake.connector
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from snowflake.connector.network import (
     DEFAULT_AUTHENTICATOR,
     EXTERNAL_BROWSER_AUTHENTICATOR,
     KEY_PAIR_AUTHENTICATOR,
+    OAUTH_AUTHENTICATOR,
 )
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    ConfigurationError,
+    OauthConfiguration,
+)
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.ingestion.source.sql.oauth_generator import OauthTokenGenerator
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
     make_sqlalchemy_uri,
@@ -30,31 +38,54 @@ VALID_AUTH_TYPES: Dict[str, str] = {
     "DEFAULT_AUTHENTICATOR": DEFAULT_AUTHENTICATOR,
     "EXTERNAL_BROWSER_AUTHENTICATOR": EXTERNAL_BROWSER_AUTHENTICATOR,
     "KEY_PAIR_AUTHENTICATOR": KEY_PAIR_AUTHENTICATOR,
+    "OAUTH_AUTHENTICATOR": OAUTH_AUTHENTICATOR,
 }
 
 
 class SnowflakeProvisionRoleConfig(ConfigModel):
-    enabled: bool = False
+    enabled: bool = pydantic.Field(
+        default=False,
+        description="Whether provisioning of Snowflake role (used for ingestion) is enabled or not.",
+    )
 
     # Can be used by account admin to test what sql statements will be run
-    dry_run: bool = False
+    dry_run: bool = pydantic.Field(
+        default=False,
+        description="If provision_role is enabled, whether to dry run the sql commands for system admins to see what sql grant commands would be run without actually running the grant commands.",
+    )
 
     # Setting this to True is helpful in case you want a clean role without any extra privileges
     # Not set to True by default because multiple parallel
     #   snowflake ingestions can be dependent on single role
-    drop_role_if_exists: bool = False
+    drop_role_if_exists: bool = pydantic.Field(
+        default=False,
+        description="Useful during testing to ensure you have a clean slate role. Not recommended for production use cases.",
+    )
 
     # When Account admin is testing they might not want to actually do the ingestion
     # Set this to False in case the account admin would want to
     #   create role
     #   grant role to user in main config
     #   run ingestion as the user in main config
-    run_ingestion: bool = False
+    run_ingestion: bool = pydantic.Field(
+        default=False,
+        description="If system admins wish to skip actual ingestion of metadata during testing of the provisioning of role.",
+    )
 
-    admin_role: Optional[str] = "accountadmin"
+    admin_role: Optional[str] = pydantic.Field(
+        default="accountadmin",
+        description="The Snowflake role of admin user used for provisioning of the role specified by role config. System admins can audit the open source code and decide to use a different role.",
+    )
 
-    admin_username: str
-    admin_password: pydantic.SecretStr = pydantic.Field(default=None, exclude=True)
+    admin_username: str = pydantic.Field(
+        description="The username to be used for provisioning of role."
+    )
+
+    admin_password: pydantic.SecretStr = pydantic.Field(
+        default=None,
+        exclude=True,
+        description="The password to be used for provisioning of role.",
+    )
 
     @pydantic.validator("admin_username", always=True)
     def username_not_empty(cls, v, values, **kwargs):
@@ -68,29 +99,82 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
     # Note: this config model is also used by the snowflake-usage source.
 
     scheme: str = "snowflake"
-    username: Optional[str] = None
-    password: Optional[pydantic.SecretStr] = pydantic.Field(default=None, exclude=True)
-    private_key_path: Optional[str]
-    private_key_password: Optional[pydantic.SecretStr] = pydantic.Field(
-        default=None, exclude=True
+    username: Optional[str] = pydantic.Field(
+        default=None, description="Snowflake username."
     )
-    authentication_type: str = "DEFAULT_AUTHENTICATOR"
-    host_port: str
-    warehouse: Optional[str]
-    role: Optional[str]
-    include_table_lineage: Optional[bool] = True
-    include_view_lineage: Optional[bool] = True
-    connect_args: Optional[Dict] = pydantic.Field(default=None, exclude=True)
+    password: Optional[pydantic.SecretStr] = pydantic.Field(
+        default=None, exclude=True, description="Snowflake password."
+    )
+    private_key_path: Optional[str] = pydantic.Field(
+        default=None,
+        description="The path to the private key if using key pair authentication. See: https://docs.snowflake.com/en/user-guide/key-pair-auth.html",
+    )
+    private_key_password: Optional[pydantic.SecretStr] = pydantic.Field(
+        default=None,
+        exclude=True,
+        description="Password for your private key if using key pair authentication.",
+    )
+    oauth_config: Optional[OauthConfiguration] = pydantic.Field(
+        default=None,
+        description="oauth configuration - https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-with-oauth",
+    )
+    authentication_type: str = pydantic.Field(
+        default="DEFAULT_AUTHENTICATOR",
+        description='The type of authenticator to use when connecting to Snowflake. Supports "DEFAULT_AUTHENTICATOR", "EXTERNAL_BROWSER_AUTHENTICATOR" and "KEY_PAIR_AUTHENTICATOR".',
+    )
+    host_port: Optional[str] = pydantic.Field(
+        description="DEPRECATED: Snowflake account. e.g. abc48144"
+    )  # Deprecated
+    account_id: Optional[str] = pydantic.Field(
+        description="Snowflake account. e.g. abc48144"
+    )  # Once host_port is removed this will be made mandatory
+    warehouse: Optional[str] = pydantic.Field(description="Snowflake warehouse.")
+    role: Optional[str] = pydantic.Field(description="Snowflake role.")
+    include_table_lineage: bool = pydantic.Field(
+        default=True,
+        description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role.",
+    )
+    include_view_lineage: bool = pydantic.Field(
+        default=True,
+        description="If enabled, populates the snowflake view->table and table->view lineages (no view->view lineage yet). Requires appropriate grants given to the role, and include_table_lineage to be True.",
+    )
+    connect_args: Optional[Dict] = pydantic.Field(
+        default=None,
+        description="Connect args to pass to Snowflake SqlAlchemy driver",
+        exclude=True,
+    )
+    check_role_grants: bool = pydantic.Field(
+        default=False,
+        description="If set to True then checks role grants at the beginning of the ingestion run. To be used for debugging purposes. If you think everything is working fine then set it to False. In some cases this can take long depending on how many roles you might have.",
+    )
 
-    @pydantic.validator("host_port", always=True)
-    def host_port_is_valid(cls, v, values, **kwargs):
-        v = remove_protocol(v)
-        v = remove_trailing_slashes(v)
-        v = remove_suffix(v, ".snowflakecomputing.com")
-        return v
+    def get_account(self) -> str:
+        assert self.account_id
+        return self.account_id
+
+    @pydantic.root_validator
+    def one_of_host_port_or_account_id_is_required(cls, values):
+        host_port = values.get("host_port")
+        if host_port is not None:
+            logger.warning(
+                "snowflake's `host_port` option has been deprecated; use account_id instead"
+            )
+            host_port = remove_protocol(host_port)
+            host_port = remove_trailing_slashes(host_port)
+            host_port = remove_suffix(host_port, ".snowflakecomputing.com")
+            values["host_port"] = host_port
+        account_id = values.get("account_id")
+        if account_id is None:
+            if host_port is None:
+                raise ConfigurationError(
+                    "One of account_id (recommended) or host_port (deprecated) is required"
+                )
+            else:
+                values["account_id"] = host_port
+        return values
 
     @pydantic.validator("authentication_type", always=True)
-    def authenticator_type_is_valid(cls, v, values, **kwargs):
+    def authenticator_type_is_valid(cls, v, values, field):
         if v not in VALID_AUTH_TYPES.keys():
             raise ValueError(
                 f"unsupported authenticator type '{v}' was provided,"
@@ -104,6 +188,51 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                         f"'private_key_path' was none "
                         f"but should be set when using {v} authentication"
                     )
+            elif v == "OAUTH_AUTHENTICATOR":
+                if values.get("oauth_config") is None:
+                    raise ValueError(
+                        f"'oauth_config' is none but should be set when using {v} authentication"
+                    )
+                if values.get("oauth_config").provider is None:
+                    raise ValueError(
+                        f"'oauth_config.provider' is none "
+                        f"but should be set when using {v} authentication"
+                    )
+                if values.get("oauth_config").client_id is None:
+                    raise ValueError(
+                        f"'oauth_config.client_id' is none "
+                        f"but should be set when using {v} authentication"
+                    )
+                if values.get("oauth_config").scopes is None:
+                    raise ValueError(
+                        f"'oauth_config.scopes' was none "
+                        f"but should be set when using {v} authentication"
+                    )
+                if values.get("oauth_config").authority_url is None:
+                    raise ValueError(
+                        f"'oauth_config.authority_url' was none "
+                        f"but should be set when using {v} authentication"
+                    )
+                if values.get("oauth_config").use_certificate is True:
+                    if (
+                        values.get("oauth_config").base64_encoded_oauth_private_key
+                        is None
+                    ):
+                        raise ValueError(
+                            "'base64_encoded_oauth_private_key' was none "
+                            "but should be set when using certificate for oauth_config"
+                        )
+                    if values.get("oauth").base64_encoded_oauth_public_key is None:
+                        raise ValueError(
+                            "'base64_encoded_oauth_public_key' was none"
+                            "but should be set when using use_certificate true for oauth_config"
+                        )
+                else:
+                    if values.get("oauth_config").client_secret is None:
+                        raise ValueError(
+                            "'oauth_config.client_secret' was none "
+                            "but should be set when using use_certificate false for oauth_config"
+                        )
             logger.info(f"using authenticator type '{v}'")
         return v
 
@@ -114,6 +243,35 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                 "include_table_lineage must be True for include_view_lineage to be set."
             )
         return v
+
+    def get_oauth_connection(self):
+        assert (
+            self.oauth_config
+        ), "oauth_config should be provided if using oauth based authentication"
+        generator = OauthTokenGenerator(
+            self.oauth_config.client_id,
+            self.oauth_config.authority_url,
+            self.oauth_config.provider,
+        )
+        if self.oauth_config.use_certificate is True:
+            response = generator.get_token_with_certificate(
+                private_key_content=str(self.oauth_config.encoded_oauth_public_key),
+                public_key_content=str(self.oauth_config.encoded_oauth_private_key),
+                scopes=self.oauth_config.scopes,
+            )
+        else:
+            response = generator.get_token_with_secret(
+                secret=str(self.oauth_config.client_secret),
+                scopes=self.oauth_config.scopes,
+            )
+        token = response["access_token"]
+        return snowflake.connector.connect(
+            user=self.username,
+            account=self.account_id,
+            authenticator="oauth",
+            token=token,
+            warehouse=self.warehouse,
+        )
 
     def get_sql_alchemy_url(
         self,
@@ -132,7 +290,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
             self.scheme,
             username,
             password.get_secret_value() if password else None,
-            self.host_port,
+            self.account_id,
             f'"{database}"' if database is not None else database,
             uri_opts={
                 # Drop the options if value is None.
@@ -176,19 +334,9 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
         deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
     )
 
-    database: Optional[str]  # deprecated
-
     provision_role: Optional[SnowflakeProvisionRoleConfig] = None
     ignore_start_time_lineage: bool = False
-    report_upstream_lineage: bool = False
-
-    @pydantic.validator("database")
-    def note_database_opt_deprecation(cls, v, values, **kwargs):
-        logger.warning(
-            "snowflake's `database` option has been deprecated; use database_pattern instead"
-        )
-        values["database_pattern"].allow = f"^{v}$"
-        return None
+    upstream_lineage_in_report: bool = False
 
     def get_sql_alchemy_url(
         self,
@@ -201,5 +349,8 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
             database=database, username=username, password=password, role=role
         )
 
-    def get_sql_alchemy_connect_args(self) -> dict:
-        return super().get_sql_alchemy_connect_args()
+    def get_options(self) -> dict:
+        options_connect_args: Dict = super().get_sql_alchemy_connect_args()
+        options_connect_args.update(self.options.get("connect_args", {}))
+        self.options["connect_args"] = options_connect_args
+        return self.options

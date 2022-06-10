@@ -1,0 +1,15 @@
+---
+# see https://datahubproject.io/docs/generated/ingestion/sources/dbt for complete documentation
+source:
+  type: "dbt"
+  config:
+    manifest_path: "./tests/integration/dbt/dbt_manifest.json"
+    catalog_path: "./tests/integration/dbt/dbt_catalog.json"
+    sources_path: "./tests/integration/dbt/dbt_sources.json"
+    target_platform: "dbt"
+    load_schemas: True # or False
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

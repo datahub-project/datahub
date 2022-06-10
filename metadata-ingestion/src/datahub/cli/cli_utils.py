@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import os.path
 import sys
 import typing
@@ -66,6 +67,8 @@ ENV_SKIP_CONFIG = "DATAHUB_SKIP_CONFIG"
 ENV_METADATA_HOST = "DATAHUB_GMS_HOST"
 ENV_METADATA_TOKEN = "DATAHUB_GMS_TOKEN"
 
+config_override: Dict = {}
+
 
 class GmsConfig(BaseModel):
     server: str
@@ -74,6 +77,13 @@ class GmsConfig(BaseModel):
 
 class DatahubConfig(BaseModel):
     gms: GmsConfig
+
+
+def set_env_variables_override_config(host: str, token: Optional[str]) -> None:
+    """Should be used to override the config when using rest emitter"""
+    config_override[ENV_METADATA_HOST] = host
+    if token is not None:
+        config_override[ENV_METADATA_TOKEN] = token
 
 
 def write_datahub_config(host: str, token: Optional[str]) -> None:
@@ -137,22 +147,12 @@ def guess_entity_type(urn: str) -> str:
     return urn.split(":")[2]
 
 
-def get_token():
-    _, gms_token_env = get_details_from_env()
-    if should_skip_config():
-        gms_token = gms_token_env
-    else:
-        ensure_datahub_config()
-        _, gms_token_conf = get_details_from_config()
-        gms_token = first_non_null([gms_token_env, gms_token_conf])
-    return gms_token
-
-
-def get_session_and_host():
-    session = requests.Session()
-
+def get_host_and_token():
     gms_host_env, gms_token_env = get_details_from_env()
-    if should_skip_config():
+    if len(config_override.keys()) > 0:
+        gms_host = config_override.get(ENV_METADATA_HOST)
+        gms_token = config_override.get(ENV_METADATA_TOKEN)
+    elif should_skip_config():
         gms_host = gms_host_env
         gms_token = gms_token_env
     else:
@@ -160,6 +160,17 @@ def get_session_and_host():
         gms_host_conf, gms_token_conf = get_details_from_config()
         gms_host = first_non_null([gms_host_env, gms_host_conf])
         gms_token = first_non_null([gms_token_env, gms_token_conf])
+    return gms_host, gms_token
+
+
+def get_token():
+    return get_host_and_token()[1]
+
+
+def get_session_and_host():
+    session = requests.Session()
+
+    gms_host, gms_token = get_host_and_token()
 
     if gms_host is None or gms_host.strip() == "":
         log.error(
@@ -231,6 +242,21 @@ def parse_run_restli_response(response: requests.Response) -> dict:
     return summary
 
 
+def format_aspect_summaries(summaries: list) -> typing.List[typing.List[str]]:
+    local_timezone = datetime.now().astimezone().tzinfo
+    return [
+        [
+            row.get("urn"),
+            row.get("aspectName"),
+            datetime.fromtimestamp(row.get("timestamp") / 1000).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+            + f" ({local_timezone})",
+        ]
+        for row in summaries
+    ]
+
+
 def post_rollback_endpoint(
     payload_obj: dict,
     path: str,
@@ -255,19 +281,7 @@ def post_rollback_endpoint(
     if len(rows) == 0:
         click.secho(f"No entities found. Payload used: {payload}", fg="yellow")
 
-    local_timezone = datetime.now().astimezone().tzinfo
-    structured_rolled_back_results = [
-        [
-            row.get("urn"),
-            row.get("aspectName"),
-            datetime.fromtimestamp(row.get("timestamp") / 1000).strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
-            + f" ({local_timezone})",
-        ]
-        for row in rolled_back_aspects
-    ]
-
+    structured_rolled_back_results = format_aspect_summaries(rolled_back_aspects)
     return (
         structured_rolled_back_results,
         entities_affected,
@@ -276,6 +290,25 @@ def post_rollback_endpoint(
         unsafe_entity_count,
         unsafe_entities,
     )
+
+
+def post_delete_references_endpoint(
+    payload_obj: dict,
+    path: str,
+    cached_session_host: Optional[Tuple[Session, str]] = None,
+) -> Tuple[int, List[Dict]]:
+    if not cached_session_host:
+        session, gms_host = get_session_and_host()
+    else:
+        session, gms_host = cached_session_host
+    url = gms_host + path
+
+    payload = json.dumps(payload_obj)
+    response = session.post(url, payload)
+    summary = parse_run_restli_response(response)
+    reference_count = summary.get("total", 0)
+    related_aspects = summary.get("relatedAspects", [])
+    return reference_count, related_aspects
 
 
 def post_delete_endpoint(
@@ -319,9 +352,9 @@ def get_urns_by_filter(
     endpoint: str = "/entities?action=search"
     url = gms_host + endpoint
     filter_criteria = []
-    if env:
-        filter_criteria.append({"field": "origin", "value": env, "condition": "EQUAL"})
     entity_type_lower = entity_type.lower()
+    if env and entity_type_lower != "container":
+        filter_criteria.append({"field": "origin", "value": env, "condition": "EQUAL"})
     if (
         platform is not None
         and entity_type_lower == "dataset"
@@ -522,10 +555,11 @@ def get_entity(
         )
     endpoint: str = f"/entitiesV2/{encoded_urn}"
 
-    if aspect:
+    if aspect and len(aspect):
         endpoint = endpoint + "?aspects=List(" + ",".join(aspect) + ")"
 
     response = session.get(gms_host + endpoint)
+    response.raise_for_status()
     return response.json()
 
 
@@ -659,7 +693,7 @@ def get_latest_timeseries_aspect_values(
 
 def get_aspects_for_entity(
     entity_urn: str,
-    aspects: List[str],
+    aspects: List[str] = [],
     typed: bool = False,
     cached_session_host: Optional[Tuple[Session, str]] = None,
 ) -> Dict[str, Union[dict, DictWrapper]]:

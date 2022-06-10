@@ -1,0 +1,13 @@
+source:
+  type: vertica
+  config:
+    # Coordinates
+    host_port: localhost:5433
+    database: DATABASE_NAME
+
+    # Credentials
+    username: "${VERTICA_USER}"
+    password: "${VERTICA_PASSWORD}"
+
+sink:
+  # sink configs

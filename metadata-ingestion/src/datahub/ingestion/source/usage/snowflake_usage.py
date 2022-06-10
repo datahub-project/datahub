@@ -1,6 +1,7 @@
 import collections
 import json
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Union, cast
 
@@ -14,6 +15,12 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -120,6 +127,9 @@ class SnowflakeJoinedAccessEvent(PermissiveModel):
     role_name: str
 
 
+@platform_name("Snowflake")
+@support_status(SupportStatus.CERTIFIED)
+@config_class(SnowflakeUsageConfig)
 class SnowflakeUsageSource(StatefulIngestionSourceBase):
     def __init__(self, config: SnowflakeUsageConfig, ctx: PipelineContext):
         super(SnowflakeUsageSource, self).__init__(config, ctx)
@@ -146,7 +156,7 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         return JobId("snowflake_usage_ingestion")
 
     def get_platform_instance_id(self) -> str:
-        return self.config.host_port
+        return self.config.get_account()
 
     def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
         """
@@ -283,8 +293,7 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(
             url,
-            connect_args=self.config.get_sql_alchemy_connect_args(),
-            **self.config.options,
+            **self.config.get_options(),
         )
         return engine
 
@@ -342,7 +351,11 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
             return True
         dataset_params = dataset_name.split(".")
         if len(dataset_params) != 3:
-            self.warn(logger, "invalid-dataset-pattern", f"Found {dataset_params}")
+            self.warn(
+                logger,
+                "invalid-dataset-pattern",
+                f"Found {dataset_params} of type {dataset_type}",
+            )
             return False
         if not self.config.database_pattern.allowed(
             dataset_params[0]
@@ -448,6 +461,7 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
             query_type = event.query_type
             user_email = event.email
             operation_type = OPERATION_STATEMENT_TYPES[query_type]
+            reported_time: int = int(time.time() * 1000)
             last_updated_timestamp: int = int(start_time.timestamp() * 1000)
             user_urn = builder.make_user_urn(user_email.split("@")[0])
             for obj in event.base_objects_accessed:
@@ -459,7 +473,7 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
                     self.config.env,
                 )
                 operation_aspect = OperationClass(
-                    timestampMillis=last_updated_timestamp,
+                    timestampMillis=reported_time,
                     lastUpdatedTimestamp=last_updated_timestamp,
                     actor=user_urn,
                     operationType=operation_type,
@@ -528,6 +542,7 @@ class SnowflakeUsageSource(StatefulIngestionSourceBase):
             ),
             self.config.top_n_queries,
             self.config.format_sql_queries,
+            self.config.include_top_n_queries,
         )
 
     def get_report(self):

@@ -4,31 +4,9 @@ import { GetMeDocument } from './graphql/me.generated';
 import { GetContainerDocument } from './graphql/container.generated';
 import { GetSearchResultsDocument, GetSearchResultsQuery } from './graphql/search.generated';
 
-const user3 = {
+const user2 = {
     username: 'sdas',
-    urn: 'urn:li:corpuser:1',
-    type: EntityType.CorpUser,
-    info: {
-        email: 'sdas@domain.com',
-        active: true,
-        displayName: 'sdas',
-        title: 'Software Engineer',
-        firstName: 'Shirshanka',
-        lastName: 'Das',
-        fullName: 'Shirshanka Das',
-    },
-    editableProperties: {
-        displayName: 'ShirshankaDas',
-        title: 'https://crunchconf.com/img/2019/speakers/1559291783-ShirshankaDas.png',
-        pictureLink: 'https://crunchconf.com/img/2019/speakers/1559291783-ShirshankaDas.png',
-        teams: 'https://crunchconf.com/img/2019/speakers/1559291783-ShirshankaDas.png',
-        skills: 'https://crunchconf.com/img/2019/speakers/1559291783-ShirshankaDas.png',
-    },
-};
-
-const user1 = {
-    username: 'sdas',
-    urn: 'urn:li:corpuser:1',
+    urn: 'urn:li:corpuser:2',
     type: 'CORP_USER',
     info: {
         __typename: 'CorpUserInfo',
@@ -111,6 +89,7 @@ export const dataset3 = {
         },
         type: EntityType.DataPlatform,
     },
+    dataPlatformInstance: null,
     platformNativeType: 'STREAM',
     name: 'Yet Another Dataset',
     origin: 'PROD',
@@ -121,6 +100,10 @@ export const dataset3 = {
         origin: 'PROD',
         customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
         externalUrl: 'https://data.hub',
+    },
+    parentContainers: {
+        count: 0,
+        containers: [],
     },
     editableProperties: null,
     created: {
@@ -135,7 +118,7 @@ export const dataset3 = {
             {
                 owner: {
                     __typename: 'CorpUser',
-                    ...user1,
+                    ...user2,
                 },
                 type: 'TECHNICAL_OWNER',
                 source: null,
@@ -298,6 +281,7 @@ export const dataset3 = {
     status: null,
     readRuns: null,
     writeRuns: null,
+    testResults: null,
 } as Dataset;
 
 /*
@@ -344,15 +328,11 @@ export const editMocks = [
                 __typename: 'Query',
                 me: {
                     __typename: 'AuthenticatedUser',
-                    corpUser: { ...user3 },
+                    corpUser: { ...user2 },
                     platformPrivileges: {
                         viewAnalytics: true,
                         managePolicies: true,
                         manageIdentities: true,
-                        generatePersonalAccessTokens: true,
-                        manageIngestion: true,
-                        manageSecrets: true,
-                        manageDomains: true,
                     },
                 },
             },

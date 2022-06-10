@@ -19,7 +19,7 @@ installed to be able to build because UI tests have a dependency on `Google Chro
 ```
 However, if you only want to build `DataHub Frontend` specifically:
 ```
-./gradlew :datahub-frontend:build
+./gradlew :datahub-frontend:dist
 ```
 
 ## Dependencies

@@ -36,7 +36,7 @@ public class OidcConfigs extends SsoConfigs {
     public static final String OIDC_RESPONSE_MODE = "auth.oidc.responseMode";
     public static final String OIDC_USE_NONCE = "auth.oidc.useNonce";
     public static final String OIDC_CUSTOM_PARAM_RESOURCE = "auth.oidc.customParam.resource";
-
+    public static final String OIDC_READ_TIMEOUT = "auth.oidc.readTimeout";
     public static final String OIDC_RESOURCE_CLIENT_ROLE = "auth.oidc.resource.clientRole";
 
     /**
@@ -51,6 +51,7 @@ public class OidcConfigs extends SsoConfigs {
     private static final String DEFAULT_OIDC_PRE_PROVISIONING_REQUIRED = "false";
     private static final String DEFAULT_OIDC_EXTRACT_GROUPS_ENABLED = "false"; // False since extraction of groups can overwrite existing group membership.
     private static final String DEFAULT_OIDC_GROUPS_CLAIM = "groups";
+    private static final String DEFAULT_OIDC_READ_TIMEOUT = "5000";
 
     private String clientId;
     private String clientSecret;
@@ -68,6 +69,7 @@ public class OidcConfigs extends SsoConfigs {
     private Optional<String> responseMode;
     private Optional<Boolean> useNonce;
     private Optional<String> customParamResource;
+    private String readTimeout;
 
     private Optional<String> resourceClientRole;
 
@@ -95,6 +97,6 @@ public class OidcConfigs extends SsoConfigs {
         useNonce = getOptional(configs, OIDC_USE_NONCE).map(Boolean::parseBoolean);
         customParamResource = getOptional(configs, OIDC_CUSTOM_PARAM_RESOURCE);
         resourceClientRole = getOptional(configs, OIDC_RESOURCE_CLIENT_ROLE);
-
+        readTimeout = getOptional(configs, OIDC_READ_TIMEOUT, DEFAULT_OIDC_READ_TIMEOUT);
     }
 }

@@ -7,3 +7,5 @@ services:
     image: eugenetea/schema-registry-arm64:latest
   zookeeper:
     image: kymeric/cp-zookeeper:latest
+  neo4j:
+    image: neo4j/neo4j-arm64-experimental:4.0.6-arm64

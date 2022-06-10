@@ -1,7 +1,26 @@
 import * as React from 'react';
+import styled from 'styled-components';
 import { useEffect, useState } from 'react';
 import { FacetMetadata } from '../../types.generated';
 import { SearchFilter } from './SearchFilter';
+
+const TOP_FILTERS = ['entity', 'tags', 'glossaryTerms', 'domains', 'owners'];
+
+export const SearchFilterWrapper = styled.div`
+    max-height: 100%;
+    overflow: auto;
+
+    &::-webkit-scrollbar {
+        height: 12px;
+        width: 1px;
+        background: #f2f2f2;
+    }
+    &::-webkit-scrollbar-thumb {
+        background: #cccccc;
+        -webkit-border-radius: 1ex;
+        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
+    }
+`;
 
 interface Props {
     facets: Array<FacetMetadata>;
@@ -45,16 +64,23 @@ export const SearchFilters = ({ facets, selectedFilters, onFilterSelect, loading
         onFilterSelect(newFilters);
     };
 
+    const sortedFacets = cachedProps.facets.sort((facetA, facetB) => {
+        if (TOP_FILTERS.indexOf(facetA.field) === -1) return 1;
+        if (TOP_FILTERS.indexOf(facetB.field) === -1) return -1;
+        return TOP_FILTERS.indexOf(facetA.field) - TOP_FILTERS.indexOf(facetB.field);
+    });
+
     return (
-        <>
-            {cachedProps.facets.map((facet) => (
+        <SearchFilterWrapper>
+            {sortedFacets.map((facet) => (
                 <SearchFilter
                     key={`${facet.displayName}-${facet.field}`}
                     facet={facet}
                     selectedFilters={cachedProps.selectedFilters}
                     onFilterSelect={onFilterSelectAndSetCache}
+                    defaultDisplayFilters={TOP_FILTERS.includes(facet.field)}
                 />
             ))}
-        </>
+        </SearchFilterWrapper>
     );
 };
