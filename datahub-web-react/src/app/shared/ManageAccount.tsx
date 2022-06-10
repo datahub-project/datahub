@@ -27,9 +27,13 @@ const MenuItem = styled(Menu.Item)`
 `;
 
 const DownArrow = styled(CaretDownOutlined)`
-    vertical-align: -3px;
-    font-size: 12px;
+    vertical-align: -1px;
+    font-size: 10px;
     color: ${ANTD_GRAY[7]};
+`;
+
+const StyledLink = styled(Link)`
+    white-space: nowrap;
 `;
 
 interface Props {
@@ -85,10 +89,10 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
 
     return (
         <Dropdown overlay={menu}>
-            <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${_urn}`}>
-                <CustomAvatar photoUrl={_pictureLink} style={{ marginRight: 5 }} name={name} />
+            <StyledLink to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${_urn}`}>
+                <CustomAvatar photoUrl={_pictureLink} style={{ marginRight: 4 }} name={name} />
                 <DownArrow />
-            </Link>
+            </StyledLink>
         </Dropdown>
     );
 };

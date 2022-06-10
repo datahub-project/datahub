@@ -19,7 +19,7 @@ def test_all():
     ingest_file_via_rest("tests/timeline/timeline_test_datav3.json")
 
     res_data = timeline_cli.get_timeline(dataset_urn, ["TAG", "DOCUMENTATION", "TECHNICAL_SCHEMA", "GLOSSARY_TERM",
-                                                       "OWNERSHIP"], None, None, False)
+                                                       "OWNER"], None, None, False)
 
     delete_cli.delete_one_urn_cmd(dataset_urn, False, False, "dataset", None, None)
     assert res_data
@@ -149,7 +149,7 @@ def test_ownership():
     put(dataset_urn, "ownership", "test_resources/timeline/newownershipv2.json")
     put(dataset_urn, "ownership", "test_resources/timeline/newownershipv3.json")
 
-    res_data = timeline_cli.get_timeline(dataset_urn, ["OWNERSHIP"], None, None, False)
+    res_data = timeline_cli.get_timeline(dataset_urn, ["OWNER"], None, None, False)
 
     delete_cli.delete_one_urn_cmd(dataset_urn, False, False, "dataset", None, None)
     assert res_data

@@ -41,6 +41,7 @@ public class EbeanRetentionService extends RetentionService {
 
   private final Clock _clock = Clock.systemUTC();
 
+  @Override
   public EntityService getEntityService() {
     return _entityService;
   }
@@ -91,8 +92,11 @@ public class EbeanRetentionService extends RetentionService {
     return result.get(0).getKey().getVersion();
   }
 
-  private Optional<Expression> getVersionBasedRetentionQuery(@Nonnull Urn urn, @Nonnull String aspectName,
-      @Nonnull final VersionBasedRetention retention, final Optional<Long> maxVersionFromUpdate) {
+  private Optional<Expression> getVersionBasedRetentionQuery(
+      @Nonnull Urn urn,
+      @Nonnull String aspectName,
+      @Nonnull final VersionBasedRetention retention,
+      @Nonnull final Optional<Long> maxVersionFromUpdate) {
     long largestVersion = maxVersionFromUpdate.orElseGet(() -> getMaxVersion(urn.toString(), aspectName));
 
     if (largestVersion < retention.getMaxVersions()) {

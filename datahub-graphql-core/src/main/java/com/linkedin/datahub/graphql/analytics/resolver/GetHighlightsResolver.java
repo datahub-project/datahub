@@ -87,6 +87,8 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
     }
     int numEntitiesWithOwners = getNumEntitiesFiltered(index, ImmutableMap.of("hasOwners", ImmutableList.of("true")));
     int numEntitiesWithTags = getNumEntitiesFiltered(index, ImmutableMap.of("hasTags", ImmutableList.of("true")));
+    int numEntitiesWithGlossaryTerms =
+        getNumEntitiesFiltered(index, ImmutableMap.of("hasGlossaryTerms", ImmutableList.of("true")));
     int numEntitiesWithDescription =
         getNumEntitiesFiltered(index, ImmutableMap.of("hasDescription", ImmutableList.of("true")));
 
@@ -94,18 +96,20 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
     if (numEntities > 0) {
       double percentWithOwners = 100.0 * numEntitiesWithOwners / numEntities;
       double percentWithTags = 100.0 * numEntitiesWithTags / numEntities;
+      double percentWithGlossaryTerms = 100.0 * numEntitiesWithGlossaryTerms / numEntities;
       double percentWithDescription = 100.0 * numEntitiesWithDescription / numEntities;
       if (entityType == EntityType.DOMAIN) {
         // Don't show percent with domain when asking for stats regarding domains
-        bodyText = String.format("%.2f%% have owners, %.2f%% have tags, %.2f%% have description!", percentWithOwners,
-            percentWithTags, percentWithDescription);
+        bodyText =
+            String.format("%.2f%% have owners, %.2f%% have tags, %.2f%% have glossary terms, %.2f%% have description!",
+                percentWithOwners, percentWithTags, percentWithGlossaryTerms, percentWithDescription);
       } else {
         int numEntitiesWithDomains =
             getNumEntitiesFiltered(index, ImmutableMap.of("hasDomain", ImmutableList.of("true")));
         double percentWithDomains = 100.0 * numEntitiesWithDomains / numEntities;
-        bodyText =
-            String.format("%.2f%% have owners, %.2f%% have tags, %.2f%% have description, %.2f%% have domain assigned!",
-                percentWithOwners, percentWithTags, percentWithDescription, percentWithDomains);
+        bodyText = String.format(
+            "%.2f%% have owners, %.2f%% have tags, %.2f%% have glossary terms, %.2f%% have description, %.2f%% have domain assigned!",
+            percentWithOwners, percentWithTags, percentWithGlossaryTerms, percentWithDescription, percentWithDomains);
       }
     }
     return Optional.of(Highlight.builder().setTitle(title).setValue(numEntities).setBody(bodyText).build());

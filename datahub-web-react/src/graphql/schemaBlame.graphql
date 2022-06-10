@@ -1,0 +1,33 @@
+query getSchemaBlame($input: GetSchemaBlameInput!) {
+    getSchemaBlame(input: $input) {
+        version {
+            semanticVersion
+            semanticVersionTimestamp
+            versionStamp
+        }
+        schemaFieldBlameList {
+            fieldPath
+            schemaFieldChange {
+                timestampMillis
+                lastSemanticVersion
+                lastSchemaFieldChange
+                versionStamp
+            }
+        }
+    }
+}
+
+query getSchemaBlameVersions($input: GetSchemaBlameInput!) {
+    getSchemaBlame(input: $input) {
+        latestVersion {
+            semanticVersion
+            semanticVersionTimestamp
+            versionStamp
+        }
+        semanticVersionList {
+            semanticVersion
+            semanticVersionTimestamp
+            versionStamp
+        }
+    }
+}

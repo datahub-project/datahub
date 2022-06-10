@@ -1,19 +1,29 @@
 import collections
 import dataclasses
 import logging
+import time
 from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Set
 
-from pydantic import Field
+from pydantic.fields import Field
 from pydantic.main import BaseModel
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.result import ResultProxy, RowProxy
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.redshift import RedshiftConfig
@@ -133,10 +143,15 @@ class RedshiftAccessEvent(BaseModel):
     endtime: datetime
 
 
-class RedshiftUsageConfig(RedshiftConfig, BaseUsageConfig):
-    env: str = builder.DEFAULT_ENV
-    email_domain: str
-    options: Dict = {}
+class RedshiftUsageConfig(RedshiftConfig, BaseUsageConfig, EnvBasedSourceConfigBase):
+    email_domain: str = Field(
+        description="Email domain of your organisation so users can be displayed on UI appropriately."
+    )
+    options: Dict = Field(
+        default={},
+        description="Any options specified here will be passed to SQLAlchemy's create_engine as kwargs."
+        "See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine for details.",
+    )
 
     def get_sql_alchemy_url(self):
         return super().get_sql_alchemy_url()
@@ -152,7 +167,45 @@ class RedshiftUsageSourceReport(SourceReport):
         self.filtered.add(key)
 
 
+@platform_name("Redshift")
+@config_class(RedshiftUsageConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 class RedshiftUsageSource(Source):
+    """
+    This plugin extracts usage statistics for datasets in Amazon Redshift.
+
+    Note: Usage information is computed by querying the following system tables -
+    1. stl_scan
+    2. svv_table_info
+    3. stl_query
+    4. svl_user_info
+
+    To grant access this plugin for all system tables, please alter your datahub Redshift user the following way:
+    ```sql
+    ALTER USER datahub_user WITH SYSLOG ACCESS UNRESTRICTED;
+    ```
+    This plugin has the below functionalities -
+    1. For a specific dataset this plugin ingests the following statistics -
+       1. top n queries.
+       2. top users.
+       3. usage of each column in the dataset.
+    2. Aggregation of these statistics into buckets, by day or hour granularity.
+
+    :::note
+
+    This source only does usage statistics. To get the tables, views, and schemas in your Redshift warehouse, ingest using the `redshift` source described above.
+
+    :::
+
+    :::note
+
+    Redshift system tables have some latency in getting data from queries. In addition, these tables only maintain logs for 2-5 days. You can find more information from the official documentation [here](https://aws.amazon.com/premiumsupport/knowledge-center/logs-redshift-database-cluster/).
+
+    :::
+
+    """
+
     def __init__(self, config: RedshiftUsageConfig, ctx: PipelineContext):
         super().__init__(ctx)
         self.config: RedshiftUsageConfig = config
@@ -271,10 +324,11 @@ class RedshiftUsageSource(Source):
             assert event.operation_type in ["insert", "delete"]
 
             resource: str = f"{event.database}.{event.schema_}.{event.table}"
+            reported_time: int = int(time.time() * 1000)
             last_updated_timestamp: int = int(event.endtime.timestamp() * 1000)
             user_email: str = event.username
             operation_aspect = OperationClass(
-                timestampMillis=last_updated_timestamp,
+                timestampMillis=reported_time,
                 lastUpdatedTimestamp=last_updated_timestamp,
                 actor=builder.make_user_urn(user_email.split("@")[0]),
                 operationType=(
@@ -344,6 +398,7 @@ class RedshiftUsageSource(Source):
             ),
             self.config.top_n_queries,
             self.config.format_sql_queries,
+            self.config.include_top_n_queries,
         )
 
     def get_report(self) -> RedshiftUsageSourceReport:

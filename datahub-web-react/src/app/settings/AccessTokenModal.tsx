@@ -1,6 +1,7 @@
-import { Modal, Typography } from 'antd';
 import React from 'react';
+import { Alert, Button, Modal, Typography } from 'antd';
 import styled from 'styled-components';
+import { InfoCircleOutlined } from '@ant-design/icons';
 
 const ModalSection = styled.div`
     display: flex;
@@ -23,6 +24,16 @@ const ModalSectionParagraph = styled(Typography.Paragraph)`
     }
 `;
 
+const StyledAlert = styled(Alert)`
+    padding-top: 12px;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+`;
+
+const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
+    margin-right: 8px;
+`;
+
 type Props = {
     visible: boolean;
     onClose: () => void;
@@ -40,20 +51,35 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
     return (
         <Modal
             width={700}
-            footer={null}
             title={
                 <Typography.Text>
-                    Generate a new <b>Personal Access Token</b>
+                    <b> New Personal Access Token</b>
                 </Typography.Text>
             }
             visible={visible}
             onCancel={onClose}
+            footer={
+                <>
+                    <Button id="createTokenButton" onClick={onClose}>
+                        Close
+                    </Button>
+                </>
+            }
         >
             <ModalSection>
+                <StyledAlert
+                    type="info"
+                    message={
+                        <span>
+                            <StyledInfoCircleOutlined />
+                            Make sure to copy your personal access token now. You won’t be able to see it again.
+                        </span>
+                    }
+                />
+            </ModalSection>
+            <ModalSection>
                 <ModalSectionHeader strong>Token</ModalSectionHeader>
-                <ModalSectionParagraph>
-                    This token will expire in <b>{expiresInText}.</b>
-                </ModalSectionParagraph>
+                <ModalSectionParagraph>{expiresInText}</ModalSectionParagraph>
                 <Typography.Paragraph copyable={{ text: accessToken }}>
                     <pre>{accessToken}</pre>
                 </Typography.Paragraph>

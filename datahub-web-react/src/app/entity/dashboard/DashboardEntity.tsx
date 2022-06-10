@@ -19,6 +19,7 @@ import { DashboardPreview } from './preview/DashboardPreview';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -72,6 +73,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             useEntityQuery={useGetDashboardQuery}
             useUpdateQuery={useUpdateDashboardMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
+            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
             tabs={[
                 {
                     name: 'Documentation',
@@ -161,6 +163,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 urn={data.urn}
                 platform={data.tool}
                 name={data.properties?.name}
+                platformInstanceId={data.dataPlatformInstance?.instanceId}
                 description={data.editableProperties?.description || data.properties?.description}
                 access={data.properties?.access}
                 tags={data.globalTags || undefined}
@@ -170,6 +173,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 logoUrl={data?.platform?.properties?.logoUrl || ''}
                 domain={data.domain}
                 container={data.container}
+                parentContainers={data.parentContainers}
             />
         );
     };

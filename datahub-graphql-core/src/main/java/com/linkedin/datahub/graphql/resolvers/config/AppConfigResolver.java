@@ -1,9 +1,11 @@
 package com.linkedin.datahub.graphql.resolvers.config;
 
+import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AnalyticsConfig;
 import com.linkedin.datahub.graphql.generated.AppConfig;
+import com.linkedin.datahub.graphql.generated.AuthConfig;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.IdentityManagementConfig;
 import com.linkedin.datahub.graphql.generated.LineageConfig;
@@ -11,8 +13,14 @@ import com.linkedin.datahub.graphql.generated.ManagedIngestionConfig;
 import com.linkedin.datahub.graphql.generated.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.Privilege;
 import com.linkedin.datahub.graphql.generated.ResourcePrivileges;
-import com.linkedin.datahub.graphql.generated.VisualConfiguration;
+import com.linkedin.datahub.graphql.generated.TelemetryConfig;
+import com.linkedin.datahub.graphql.generated.TestsConfig;
+import com.linkedin.datahub.graphql.generated.VisualConfig;
+import com.linkedin.metadata.config.DatahubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
+import com.linkedin.metadata.config.TestsConfiguration;
+import com.linkedin.metadata.telemetry.TelemetryConfiguration;
+import com.linkedin.metadata.config.VisualConfiguration;
 import com.linkedin.metadata.version.GitVersion;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -28,23 +36,35 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final GitVersion _gitVersion;
   private final boolean _isAnalyticsEnabled;
   private final IngestionConfiguration _ingestionConfiguration;
+  private final AuthenticationConfiguration _authenticationConfiguration;
   private final AuthorizationConfiguration _authorizationConfiguration;
   private final boolean _supportsImpactAnalysis;
   private final VisualConfiguration _visualConfiguration;
+  private final TelemetryConfiguration _telemetryConfiguration;
+  private final TestsConfiguration _testsConfiguration;
+  private final DatahubConfiguration _datahubConfiguration;
 
   public AppConfigResolver(
       final GitVersion gitVersion,
       final boolean isAnalyticsEnabled,
       final IngestionConfiguration ingestionConfiguration,
+      final AuthenticationConfiguration authenticationConfiguration,
       final AuthorizationConfiguration authorizationConfiguration,
       final boolean supportsImpactAnalysis,
-      final VisualConfiguration visualConfiguration) {
+      final VisualConfiguration visualConfiguration,
+      final TelemetryConfiguration telemetryConfiguration,
+      final TestsConfiguration testsConfiguration,
+      final DatahubConfiguration datahubConfiguration) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
     _ingestionConfiguration = ingestionConfiguration;
+    _authenticationConfiguration = authenticationConfiguration;
     _authorizationConfiguration = authorizationConfiguration;
     _supportsImpactAnalysis = supportsImpactAnalysis;
     _visualConfiguration = visualConfiguration;
+    _telemetryConfiguration = telemetryConfiguration;
+    _testsConfiguration = testsConfiguration;
+    _datahubConfiguration = datahubConfiguration;
   }
 
   @Override
@@ -62,6 +82,9 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
     final AnalyticsConfig analyticsConfig = new AnalyticsConfig();
     analyticsConfig.setEnabled(_isAnalyticsEnabled);
+
+    final AuthConfig authConfig = new AuthConfig();
+    authConfig.setTokenAuthEnabled(_authenticationConfiguration.isEnabled());
 
     final PoliciesConfig policiesConfig = new PoliciesConfig();
     policiesConfig.setEnabled(_authorizationConfiguration.getDefaultAuthorizer().isEnabled());
@@ -82,12 +105,26 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
     final ManagedIngestionConfig ingestionConfig = new ManagedIngestionConfig();
     ingestionConfig.setEnabled(_ingestionConfiguration.isEnabled());
+
     appConfig.setAnalyticsConfig(analyticsConfig);
     appConfig.setPoliciesConfig(policiesConfig);
     appConfig.setIdentityManagementConfig(identityManagementConfig);
     appConfig.setManagedIngestionConfig(ingestionConfig);
+    appConfig.setAuthConfig(authConfig);
 
-    appConfig.setVisualConfig(_visualConfiguration);
+    final VisualConfig visualConfig = new VisualConfig();
+    if (_visualConfiguration != null && _visualConfiguration.getAssets() != null) {
+      visualConfig.setLogoUrl(_visualConfiguration.getAssets().getLogoUrl());
+    }
+    appConfig.setVisualConfig(visualConfig);
+
+    final TelemetryConfig telemetryConfig = new TelemetryConfig();
+    telemetryConfig.setEnableThirdPartyLogging(_telemetryConfiguration.isEnableThirdPartyLogging());
+    appConfig.setTelemetryConfig(telemetryConfig);
+
+    final TestsConfig testsConfig = new TestsConfig();
+    testsConfig.setEnabled(_testsConfiguration.isEnabled());
+    appConfig.setTestsConfig(testsConfig);
 
     return CompletableFuture.completedFuture(appConfig);
   }

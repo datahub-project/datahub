@@ -52,7 +52,6 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import lombok.extern.slf4j.Slf4j;
-import org.pac4j.core.authorization.generator.AuthorizationGenerator;
 import org.pac4j.core.config.Config;
 import org.pac4j.core.engine.DefaultCallbackLogic;
 import org.pac4j.core.http.adapter.HttpActionAdapter;
@@ -146,19 +145,22 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
 
         // determine if we want to extract client roles through customParamResource
         // using client-id and client_role "access"
-        if (oidcConfigs.getResourceClientRole().isPresent()){
+        if (oidcConfigs.getResourceClientRole().isPresent()) {
           Optional<List<String>> roleLists = extractClientRoles(oidcConfigs, profile);
           // check if it is populated
-          if(roleLists.isPresent()){
+          if (roleLists.isPresent()) {
             // check for access role
-            if(!roleLists.get().contains(oidcConfigs.getResourceClientRole().get()))
-              return internalServerError(String.format("Failed to pass authorization-with-keycloak step. " +
-                      "Please ensure that you have the required role to access this app: %s:%s",
-                      oidcConfigs.getClientId(),oidcConfigs.getResourceClientRole().get()));
+            if (!roleLists.get().contains(oidcConfigs.getResourceClientRole().get())) {
+
+              return internalServerError(String.format("Failed to pass authorization-with-keycloak step. "
+                              + "Please ensure that you have the required role to access this app: %s:%s",
+                      oidcConfigs.getClientId(), oidcConfigs.getResourceClientRole().get()));
+            }
           } else {
-            return internalServerError(String.format("Failed to pass authorization-with-keycloak step. " +
-                            "Please ensure that you have the required role to access this app: %s:%s",
-                    oidcConfigs.getClientId(),oidcConfigs.getResourceClientRole().get()));
+
+            return internalServerError(String.format("Failed to pass authorization-with-keycloak step. "
+                            + "Please ensure that you have the required role to access this app: %s:%s",
+                    oidcConfigs.getClientId(), oidcConfigs.getResourceClientRole().get()));
           }
         }
 

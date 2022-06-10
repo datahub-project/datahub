@@ -34,6 +34,8 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
         return updateDomainDescription(targetUrn, input, environment.getContext());
       case Constants.GLOSSARY_TERM_ENTITY_NAME:
         return updateGlossaryTermDescription(targetUrn, input, environment.getContext());
+      case Constants.GLOSSARY_NODE_ENTITY_NAME:
+        return updateGlossaryNodeDescription(targetUrn, input, environment.getContext());
       case Constants.TAG_ENTITY_NAME:
         return updateTagDescription(targetUrn, input, environment.getContext());
       case Constants.CORP_GROUP_ENTITY_NAME:
@@ -169,6 +171,30 @@ public class UpdateDescriptionResolver implements DataFetcher<CompletableFuture<
       try {
         Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
         DescriptionUtils.updateGlossaryTermDescription(
+            input.getDescription(),
+            targetUrn,
+            actor,
+            _entityService);
+        return true;
+      } catch (Exception e) {
+        log.error("Failed to perform update against input {}, {}", input.toString(), e.getMessage());
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
+      }
+    });
+  }
+
+  private CompletableFuture<Boolean> updateGlossaryNodeDescription(Urn targetUrn, DescriptionUpdateInput input, QueryContext context) {
+    return CompletableFuture.supplyAsync(() -> {
+
+      if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
+      DescriptionUtils.validateLabelInput(targetUrn, _entityService);
+
+      try {
+        Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+        DescriptionUtils.updateGlossaryNodeDescription(
             input.getDescription(),
             targetUrn,
             actor,

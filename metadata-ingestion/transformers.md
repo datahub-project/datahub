@@ -41,6 +41,24 @@ transformers:
           ".*example2.*": ["urn:li:tag:NeedsDocumentation"]
 ```
 
+### Adding tags by schema field pattern
+
+We can also append a series of tags to specific schema fields. To do so, we can use the `pattern_add_dataset_schema_tags` module. This will match the regex pattern to each schema field path and assign the respective tags urns given in the array.
+
+Note that the tags from the first matching pattern will be applied, not all matching patterns.
+
+The config would look like this:
+
+```yaml
+transformers:
+  - type: "pattern_add_dataset_schema_tags"
+    config:
+      tag_pattern:
+        rules:
+          ".*email.*": ["urn:li:tag:Email"]
+          ".*name.*": ["urn:li:tag:Name"]
+```
+
 ### Add your own custom Transformer
 
 If you'd like to add more complex logic for assigning tags, you can use the more generic add_dataset_tags transformer, which calls a user-provided function to determine the tags for each dataset.
@@ -92,7 +110,7 @@ Finally, you can install and use your custom transformer as [shown here](#instal
 
 ### Adding a set of glossary terms
 
-We can use a similar convention to associate [Glossary Terms](https://datahubproject.io/docs/metadata-ingestion/source_docs/business_glossary) to datasets. We can use the `simple_add_dataset_terms` module that’s included in the ingestion framework.
+We can use a similar convention to associate [Glossary Terms](../docs/generated/ingestion/sources/business-glossary.md) to datasets. We can use the `simple_add_dataset_terms` module that’s included in the ingestion framework.
 
 The config, which we’d append to our ingestion recipe YAML, would look like this:
 
@@ -117,6 +135,21 @@ transformers:
         rules:
           ".*example1.*": ["urn:li:glossaryTerm:Email", "urn:li:glossaryTerm:Address"]
           ".*example2.*": ["urn:li:glossaryTerm:PostalCode"]
+```
+
+### Adding glossary terms by schema field pattern
+
+Similar to the above example with tags applied to schema fields, we can add glossary terms to schema fields based on a regex filter.
+Again, note that only terms from the first matching pattern will be applied.
+
+```yaml
+transformers:
+  - type: "pattern_add_dataset_schema_terms"
+    config:
+      term_pattern:
+        rules:
+          ".*email.*": ["urn:li:glossaryTerm:Email"]
+          ".*name.*": ["urn:li:glossaryTerm:Name"]
 ```
 
 ### Change owners
@@ -350,6 +383,7 @@ class AddCustomOwnership(BaseTransformer, SingleAspectTransformer):
     config: AddCustomOwnershipConfig
 
     def __init__(self, config: AddCustomOwnershipConfig, ctx: PipelineContext):
+        super().__init__()
         self.ctx = ctx
         self.config = config
 

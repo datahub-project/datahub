@@ -4,7 +4,7 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
-import com.linkedin.metadata.entity.AspectStorageValidationUtil;
+import com.linkedin.metadata.entity.ebean.AspectStorageValidationUtil;
 import io.ebean.EbeanServer;
 import java.util.function.Function;
 

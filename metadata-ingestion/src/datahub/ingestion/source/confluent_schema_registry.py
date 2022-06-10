@@ -1,12 +1,17 @@
 import json
 import logging
 from hashlib import md5
-from typing import List, Optional, Tuple
+from typing import List, Optional, Set, Tuple
 
 import confluent_kafka
-from confluent_kafka.schema_registry.schema_registry_client import Schema
+from confluent_kafka.schema_registry.schema_registry_client import (
+    RegisteredSchema,
+    Schema,
+    SchemaReference,
+)
 
-from datahub.ingestion.extractor import schema_util
+from datahub.ingestion.extractor import protobuf_util, schema_util
+from datahub.ingestion.extractor.protobuf_util import ProtobufSchema
 from datahub.ingestion.source.kafka import KafkaSourceConfig, KafkaSourceReport
 from datahub.ingestion.source.kafka_schema_registry_base import KafkaSchemaRegistryBase
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -128,6 +133,29 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             )
         return schema_str
 
+    def get_schemas_from_confluent_ref_protobuf(
+        self, schema: Schema, schema_seen: Optional[Set[str]] = None
+    ) -> List[ProtobufSchema]:
+        all_schemas: List[ProtobufSchema] = []
+
+        if schema_seen is None:
+            schema_seen = set()
+
+        for schema_ref in schema.references:  # type: SchemaReference
+            ref_subject: str = schema_ref["subject"]
+            if ref_subject in schema_seen:
+                continue
+            reference_schema: RegisteredSchema = (
+                self.schema_registry_client.get_latest_version(ref_subject)
+            )
+            schema_seen.add(ref_subject)
+            all_schemas.append(
+                ProtobufSchema(
+                    name=schema_ref["name"], content=reference_schema.schema.schema_str
+                )
+            )
+        return all_schemas
+
     def _get_schema_and_fields(
         self, topic: str, is_key_schema: bool
     ) -> Tuple[Optional[Schema], List[SchemaField]]:
@@ -184,7 +212,22 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             fields = schema_util.avro_schema_to_mce_fields(
                 cleaned_str, is_key_schema=is_key_schema
             )
-        else:
+        elif schema.schema_type == "PROTOBUF":
+            imported_schemas: List[
+                ProtobufSchema
+            ] = self.get_schemas_from_confluent_ref_protobuf(schema)
+            base_name: str = topic.replace(".", "_")
+            fields = protobuf_util.protobuf_schema_to_mce_fields(
+                ProtobufSchema(
+                    f"{base_name}-key.proto"
+                    if is_key_schema
+                    else f"{base_name}-value.proto",
+                    schema.schema_str,
+                ),
+                imported_schemas,
+                is_key_schema=is_key_schema,
+            )
+        elif not self.source_config.ignore_warnings_on_schema_type:
             self.report.report_warning(
                 topic,
                 f"Parsing kafka schema type {schema.schema_type} is currently not implemented",
