@@ -76,14 +76,16 @@ export const TestResultsList = ({ title, results }: Props) => {
                                     </Typography.Text>
                                 </div>
                             </div>
-                            <Tooltip title="Copy URN. An URN uniquely identifies an entity on DataHub.">
-                                <Button
-                                    icon={<CopyOutlined />}
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(record.urn);
-                                    }}
-                                />
-                            </Tooltip>
+                            {navigator.clipboard && (
+                                <Tooltip title="Copy URN. An URN uniquely identifies an entity on DataHub.">
+                                    <Button
+                                        icon={<CopyOutlined />}
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(record.urn);
+                                        }}
+                                    />
+                                </Tooltip>
+                            )}
                         </div>
                     </ResultContainer>
                 );

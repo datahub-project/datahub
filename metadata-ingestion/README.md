@@ -42,6 +42,17 @@ The default sink that most of the ingestion systems and guides assume is the `da
 
 A recipe is the main configuration file that puts it all together. It tells our ingestion scripts where to pull data from (source) and where to put it (sink).
 
+:::tip
+Name your recipe with **.dhub.yaml** extension like *myrecipe.dhub.yaml* to use vscode or intellij as a recipe editor with autocomplete
+and syntax validation.
+
+Make sure yaml plugin is installed for your editor:
+- For vscode install [Redhat's yaml plugin](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml)
+- For intellij install [official yaml plugin](https://plugins.jetbrains.com/plugin/13126-yaml
+)
+
+:::
+
 Since `acryl-datahub` version `>=0.8.33.2`, the default sink is assumed to be a DataHub REST endpoint:
 - Hosted at "http://localhost:8080" or the environment variable `${DATAHUB_GMS_HOST}` if present
 - With an empty auth token or the environment variable `${DATAHUB_GMS_TOKEN}` if present. 
@@ -63,12 +74,12 @@ source:
 
 Running this recipe is as simple as:
 ```shell
-datahub ingest -c recipe.yaml
+datahub ingest -c recipe.dhub.yaml
 ```
 
 or if you want to override the default endpoints, you can provide the environment variables as part of the command like below:
 ```shell
-DATAHUB_GMS_HOST="https://my-datahub-server:8080" DATAHUB_GMS_TOKEN="my-datahub-token" datahub ingest -c recipe.yaml
+DATAHUB_GMS_HOST="https://my-datahub-server:8080" DATAHUB_GMS_TOKEN="my-datahub-token" datahub ingest -c recipe.dhub.yaml
 ```
 
 A number of recipes are included in the [examples/recipes](./examples/recipes) directory. For full info and context on each source and sink, see the pages described in the [table of plugins](../docs/cli.md#installing-plugins).
@@ -85,7 +96,7 @@ https://docs.docker.com/compose/compose-file/compose-file-v2/#variable-substitut
 
 ```shell
 pip install 'acryl-datahub[datahub-rest]'  # install the required plugin
-datahub ingest -c ./examples/recipes/mssql_to_datahub.yml
+datahub ingest -c ./examples/recipes/mssql_to_datahub.dhub.yml
 ```
 
 The `--dry-run` option of the `ingest` command performs all of the ingestion steps, except writing to the sink. This is useful to validate that the
@@ -93,9 +104,9 @@ ingestion recipe is producing the desired metadata events before ingesting them 
 
 ```shell
 # Dry run
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml --dry-run
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml --dry-run
 # Short-form
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml -n
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml -n
 ```
 
 The `--preview` option of the `ingest` command performs all of the ingestion steps, but limits the processing to only the first 10 workunits produced by the source.
@@ -103,23 +114,23 @@ This option helps with quick end-to-end smoke testing of the ingestion recipe.
 
 ```shell
 # Preview
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml --preview
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml --preview
 # Preview with dry-run
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml -n --preview
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml -n --preview
 ```
 
 By default `--preview` creates 10 workunits. But if you wish to try producing more workunits you can use another option `--preview-workunits`
 
 ```shell
 # Preview 20 workunits without sending anything to sink
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml -n --preview --preview-workunits=20
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml -n --preview --preview-workunits=20
 ```
 
 Sometimes, while running the ingestion pipeline, unexpected exceptions may occur. This can cause `stackprinter` to print all variables the logs. This may lead to credentials being written to logfiles. To prevent this behavior, in case of unexpected errors, a `--suppress-error-logs` option can be added to ingest cli command. By default, this option is set to false. However, if enabled, prevents printing all variables to logs, mitigating the risk of writing credentials to logs. The `--suppress-error-logs` option is applied when the ingestion pipeline is actually running.
 
 ```shell
 # Running ingestion with --suppress-error-logs option
-datahub ingest -c ./examples/recipes/example_to_datahub_rest.yml --suppress-error-logs
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yml --suppress-error-logs
 ```
 
 ## Transformations

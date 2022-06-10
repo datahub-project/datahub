@@ -36,10 +36,6 @@ const SearchResultContent = styled.div`
     align-items: center;
 `;
 
-const SearchResultDisplayName = styled.div`
-    margin-right: 8px;
-`;
-
 /**
  * Component used to construct the "actors" portion of a DataHub
  * access Policy by populating an ActorFilter object.
@@ -160,14 +156,12 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
             <SearchResultContainer>
                 <SearchResultContent>
                     <CustomAvatar
-                        size={18}
+                        size={24}
                         name={displayName}
                         photoUrl={avatarUrl}
                         isGroup={result.entity.type === EntityType.CorpGroup}
                     />
-                    <SearchResultDisplayName>
-                        <div>{displayName}</div>
-                    </SearchResultDisplayName>
+                    <div>{displayName}</div>
                 </SearchResultContent>
             </SearchResultContainer>
         );
@@ -186,7 +180,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
 
     const tagRender = (props) => {
         // eslint-disable-next-line react/prop-types
-        const { label, closable, onClose } = props;
+        const { label, closable, onClose, value } = props;
         const onPreventMouseDown = (event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -197,7 +191,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                 closable={closable}
                 onClose={onClose}
                 style={{
-                    padding: '0px 7px 0px 0px',
+                    padding: value === 'All' ? '0px 7px 0px 7px' : '0px 7px 0px 0px',
                     marginRight: 3,
                     display: 'flex',
                     justifyContent: 'start',

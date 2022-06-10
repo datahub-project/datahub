@@ -6,6 +6,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.AuthenticationRequest;
 import com.datahub.authentication.AuthenticatorContext;
+import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.token.TokenType;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
@@ -20,8 +21,7 @@ import org.testng.annotations.Test;
 import java.util.Collections;
 import java.util.Map;
 
-import static com.datahub.authentication.AuthenticationConstants.AUTHORIZATION_HEADER_NAME;
-import static com.datahub.authentication.AuthenticationConstants.ENTITY_SERVICE;
+import static com.datahub.authentication.AuthenticationConstants.*;
 import static com.datahub.authentication.authenticator.DataHubTokenAuthenticator.SALT_CONFIG_NAME;
 import static com.datahub.authentication.authenticator.DataHubTokenAuthenticator.SIGNING_ALG_CONFIG_NAME;
 import static com.datahub.authentication.authenticator.DataHubTokenAuthenticator.SIGNING_KEY_CONFIG_NAME;
@@ -40,12 +40,13 @@ public class DataHubTokenAuthenticatorTest {
     private static final String TEST_SALT = "WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI93=";
 
     final EntityService mockService = Mockito.mock(EntityService.class);
+    final StatefulTokenService statefulTokenService = new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALT);
 
     @Test
     public void testInit() {
         final DataHubTokenAuthenticator authenticator = new DataHubTokenAuthenticator();
         AuthenticatorContext authenticatorContext =
-            new AuthenticatorContext(ImmutableMap.of(ENTITY_SERVICE, mockService));
+            new AuthenticatorContext(ImmutableMap.of(ENTITY_SERVICE, mockService, TOKEN_SERVICE, statefulTokenService));
         assertThrows(() -> authenticator.init(null, authenticatorContext));
         assertThrows(() -> authenticator.init(Collections.emptyMap(), authenticatorContext));
         assertThrows(() -> authenticator.init(ImmutableMap.of(SIGNING_KEY_CONFIG_NAME, TEST_SIGNING_KEY,
@@ -64,7 +65,7 @@ public class DataHubTokenAuthenticatorTest {
 
         authenticator.init(ImmutableMap.of(SIGNING_KEY_CONFIG_NAME, TEST_SIGNING_KEY, SALT_CONFIG_NAME,
                         TEST_SALT, SIGNING_ALG_CONFIG_NAME, "HS256"),
-            new AuthenticatorContext(ImmutableMap.of(ENTITY_SERVICE, mockService)));
+            new AuthenticatorContext(ImmutableMap.of(ENTITY_SERVICE, mockService, TOKEN_SERVICE, statefulTokenService)));
 
         final AuthenticationRequest context = new AuthenticationRequest(Collections.emptyMap());
         assertThrows(AuthenticationException.class, () -> authenticator.authenticate(context));
@@ -73,10 +74,9 @@ public class DataHubTokenAuthenticatorTest {
     @Test
     public void testAuthenticateFailureMissingBearerCredentials() {
         final DataHubTokenAuthenticator authenticator = new DataHubTokenAuthenticator();
-
         authenticator.init(ImmutableMap.of(SIGNING_KEY_CONFIG_NAME, TEST_SIGNING_KEY, SALT_CONFIG_NAME,
                         TEST_SALT, SIGNING_ALG_CONFIG_NAME, "HS256"),
-            new AuthenticatorContext(ImmutableMap.of(ENTITY_SERVICE, mockService)));
+            new AuthenticatorContext(ImmutableMap.of(ENTITY_SERVICE, mockService, TOKEN_SERVICE, statefulTokenService)));
 
         final AuthenticationRequest context = new AuthenticationRequest(
                 ImmutableMap.of(AUTHORIZATION_HEADER_NAME, "Basic username:password")
@@ -90,7 +90,7 @@ public class DataHubTokenAuthenticatorTest {
 
         authenticator.init(ImmutableMap.of(SIGNING_KEY_CONFIG_NAME, TEST_SIGNING_KEY, SALT_CONFIG_NAME,
                         TEST_SALT, SIGNING_ALG_CONFIG_NAME, "HS256"),
-            new AuthenticatorContext(ImmutableMap.of(ENTITY_SERVICE, mockService)));
+            new AuthenticatorContext(ImmutableMap.of(ENTITY_SERVICE, mockService, TOKEN_SERVICE, statefulTokenService)));
 
         final AuthenticationRequest context = new AuthenticationRequest(
                 ImmutableMap.of(AUTHORIZATION_HEADER_NAME, "Bearer someRandomToken")
@@ -111,7 +111,7 @@ public class DataHubTokenAuthenticatorTest {
         final DataHubTokenAuthenticator authenticator = new DataHubTokenAuthenticator();
         authenticator.init(ImmutableMap.of(SIGNING_KEY_CONFIG_NAME, TEST_SIGNING_KEY, SALT_CONFIG_NAME,
                         TEST_SALT, SIGNING_ALG_CONFIG_NAME, "HS256"),
-            new AuthenticatorContext(ImmutableMap.of(ENTITY_SERVICE, mockService)));
+            new AuthenticatorContext(ImmutableMap.of(ENTITY_SERVICE, mockService, TOKEN_SERVICE, statefulTokenService)));
 
         final Actor datahub = new Actor(ActorType.USER, "datahub");
         final String validToken = authenticator._statefulTokenService.generateAccessToken(
