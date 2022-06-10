@@ -368,13 +368,15 @@ export default function AddTagsTermsModal({
                     <Button onClick={onCloseModal} type="text">
                         Cancel
                     </Button>
-                    <Button
-                        onClick={() => onOkProposal()}
-                        disabled={urns.length === 0 || urns.length > 1 || disableAdd}
-                        data-testid="create-proposal-btn"
-                    >
-                        Propose
-                    </Button>
+                    {entityType === EntityType.Dataset && (
+                        <Button
+                            onClick={() => onOkProposal()}
+                            disabled={urns.length === 0 || urns.length > 1 || disableAdd}
+                            data-testid="create-proposal-btn"
+                        >
+                            Propose
+                        </Button>
+                    )}
                     <Button
                         id="addTagButton"
                         data-testid="add-tag-term-from-modal-btn"
