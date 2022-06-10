@@ -106,7 +106,7 @@ platformAnalytics:
 
 visualConfig:
   assets:
-    logoUrl: ${REACT_APP_LOGO_URL:/assets/platforms/datahublogo.png}
+    logoUrl: ${REACT_APP_LOGO_URL:/assets/logos/acryl-dark-mark.svg}
 
 # Storage Layer
 

@@ -16,7 +16,7 @@ export default function CopyUrn({ urn, isActive, onClick }: CopyUrnProps) {
                     icon={isActive ? <CheckOutlined /> : <CopyOutlined />}
                     onClick={() => {
                         navigator.clipboard.writeText(urn);
-                        onClick();
+                        onClick?.();
                     }}
                 />
             </Tooltip>
