@@ -1,0 +1,26 @@
+namespace com.linkedin.common
+
+/**
+ * Siblings information of an entity.
+ */
+@Aspect = {
+  "name": "siblings"
+}
+record Siblings {
+
+  /**
+   * List of sibling entities
+   */
+  @Relationship = {
+    "/*": {
+      "name": "SiblingOf",
+      "entityTypes": [ "dataset" ]
+    }
+  }
+  siblings: array[Urn]
+
+  /**
+   * If this is the leader entity of the set of siblings
+   */
+   primary: boolean
+}
