@@ -27,7 +27,7 @@ import { SidebarViewDefinitionSection } from '../shared/containers/profile/sideb
 import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { checkOwnership } from './whoAmI';
+import { CheckOwnership } from './whoAmI';
 import { EditSampleTab } from '../shared/tabs/Dataset/Schema/EditSampleTab';
 import { ValidationsTab } from '../shared/tabs/Dataset/Validations/ValidationsTab';
 import { OperationsTab } from './profile/OperationsTab';
@@ -185,7 +185,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: EditSchemaTab,
                     display: {
                         visible: (_, _dataset: GetDatasetQuery) => {
-                            return checkOwnership(_dataset);
+                            return CheckOwnership(_dataset);
                         },
                         enabled: (_, _dataset: GetDatasetQuery) => {
                             return true;
@@ -197,7 +197,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: EditPropertiesTab,
                     display: {
                         visible: (_, _dataset: GetDatasetQuery) => {
-                            return checkOwnership(_dataset);
+                            return CheckOwnership(_dataset);
                         },
                         enabled: (_, _dataset: GetDatasetQuery) => {
                             return true;
@@ -209,7 +209,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: EditSampleTab,
                     display: {
                         visible: (_, _dataset: GetDatasetQuery) => {
-                            return checkOwnership(_dataset);
+                            return CheckOwnership(_dataset);
                         },
                         enabled: (_, _dataset: GetDatasetQuery) => {
                             return true;
@@ -221,7 +221,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: AdminTab,
                     display: {
                         visible: (_, _dataset: GetDatasetQuery) => {
-                            return checkOwnership(_dataset);
+                            return CheckOwnership(_dataset);
                         },
                         enabled: (_, _dataset: GetDatasetQuery) => {
                             return true;
