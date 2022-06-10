@@ -3,7 +3,7 @@ describe('home', () => {
       cy.login();
       cy.visit('/');
       cy.wait(5000);
-      cy.get('img[src="/assets/platforms/datahublogo.png"]').should('exist');
+      cy.get('img[src="/assets/logos/acryl-dark-mark.svg"]').should('exist');
       cy.get('[data-testid="entity-type-browse-card-DATASET"]').should('exist');
       cy.get('[data-testid="entity-type-browse-card-DASHBOARD"]').should('exist');
       cy.get('[data-testid="entity-type-browse-card-CHART"]').should('exist');
