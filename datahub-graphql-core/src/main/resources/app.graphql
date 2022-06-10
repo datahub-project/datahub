@@ -81,6 +81,11 @@ type PlatformPrivileges {
   Whether the user should be able to manage Glossaries
   """
   manageGlossaries: Boolean!
+
+  """
+  Whether the user is able to manage user credentials
+  """
+  manageUserCredentials: Boolean!
 }
 
 """
