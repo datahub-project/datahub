@@ -1313,7 +1313,7 @@ class DBTSource(StatefulIngestionSourceBase):
                     self.config.env,
                     get_entity_platform_instance(
                         self.config.target_platform_instance,
-                        None,
+                        self.config.platform_instance,
                         self.config.target_platform,
                         node.schema,
                         self.config.target_platform_instance_mapping,
