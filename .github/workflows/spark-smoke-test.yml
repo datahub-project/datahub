@@ -12,6 +12,7 @@ on:
   pull_request:
     branches:
       - master
+      - jdk11
     paths:
       - "metadata_models/**"
       - "metadata-integration/java/datahub-client/**"
