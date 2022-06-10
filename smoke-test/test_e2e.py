@@ -1791,7 +1791,7 @@ def test_native_user_endpoints(frontend_session):
     headers = {
         "Content-Type": "application/json",
     }
-    root_login_data = '{"username":"datahub", "password":"datahub"}'
+    root_login_data = '{"username":"admin", "password":"mypass"}'
     frontend_session.post(f"{FRONTEND_ENDPOINT}/logIn", headers=headers, data=root_login_data)
 
     # Test creating the password reset token
@@ -1840,7 +1840,7 @@ def test_native_user_endpoints(frontend_session):
 
     # Test that only a native user can reset their password
     jaas_user_reset_credentials_json = {
-        "email": "datahub",
+        "email": "admin",
         "password": "password",
         "resetToken": reset_token
     }
