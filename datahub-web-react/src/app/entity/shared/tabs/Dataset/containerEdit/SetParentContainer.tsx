@@ -10,10 +10,10 @@ interface Props {
     compulsory: boolean;
 }
 
-const formItemLayout = {
-    labelCol: { span: 6 },
-    wrapperCol: { span: 14 },
-};
+// const formItemLayout = {
+//     labelCol: { span: 6 },
+//     wrapperCol: { span: 14 },
+// };
 
 export const SetParentContainer = (props: Props) => {
     // need this to render the display name of the container
@@ -42,7 +42,7 @@ export const SetParentContainer = (props: Props) => {
     return (
         <>
             <Form.Item
-                {...formItemLayout}
+                // {...formItemLayout}
                 name="parentContainer"
                 label="Specify a Container for the Dataset (Optional)"
                 rules={[
@@ -53,7 +53,7 @@ export const SetParentContainer = (props: Props) => {
                 ]}
             >
                 <Select
-                    style={{ width: 300 }}
+                    style={{ width: '30%' }}
                     autoFocus
                     filterOption
                     value={selectedContainers}

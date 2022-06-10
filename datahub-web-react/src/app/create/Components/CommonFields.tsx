@@ -1,20 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Form, Input } from 'antd';
-import styled from 'styled-components';
-import MDEditor, { commands } from '@uiw/react-md-editor';
 import { SpecifyBrowsePath } from './SpecifyBrowsePath';
+import { MarkDownEditable } from './MarkDownEditable';
+import { DatasetFrequencyInput } from './DatasetFrequencyInput';
 
 export const CommonFields = () => {
-    const DocumentationContainer = styled.div`
-        border: 1px solid white;
-    `;
-    const tempString = `About Dataset:  \nUpdate Frequency:  \nFor Data Access, Contact:  \n`;
-    // I don't want the fullscreen option, hence need to specify the commands.
-    const previewIcons = [commands.codeLive, commands.codeEdit, commands.codePreview];
-    const [descriptionValue, setDescriptionValue] = useState(tempString);
-    const updateValue = (values) => {
-        setDescriptionValue(values);
-    };
     return (
         <>
             <Form.Item
@@ -27,28 +17,10 @@ export const CommonFields = () => {
                     },
                 ]}
             >
-                <Input />
+                <Input style={{ width: '30%' }} />
             </Form.Item>
-            <Form.Item
-                name="dataset_description"
-                label="Dataset Description"
-                rules={[
-                    {
-                        required: false,
-                        message: 'Missing dataset description',
-                    },
-                ]}
-            >
-                <DocumentationContainer>
-                    <MDEditor
-                        value={descriptionValue}
-                        onChange={updateValue}
-                        preview="live"
-                        extraCommands={previewIcons}
-                        enableScroll={false}
-                    />
-                </DocumentationContainer>
-            </Form.Item>
+            <MarkDownEditable />
+            <DatasetFrequencyInput />
             <Form.Item
                 name="dataset_origin"
                 label="Dataset Origin"
@@ -59,7 +31,7 @@ export const CommonFields = () => {
                     },
                 ]}
             >
-                <Input />
+                <Input placeholder="" style={{ width: '80%' }} />
             </Form.Item>
             <Form.Item
                 name="dataset_location"
@@ -71,7 +43,7 @@ export const CommonFields = () => {
                     },
                 ]}
             >
-                <Input />
+                <Input placeholder="sample file location" style={{ width: '500px' }} />
             </Form.Item>
             <SpecifyBrowsePath />
         </>

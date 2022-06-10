@@ -22,11 +22,6 @@ const SearchResultDisplayName = styled.div`
     margin-left: 5px;
 `;
 
-const formItemLayout = {
-    labelCol: { span: 6 },
-    wrapperCol: { span: 14 },
-};
-
 const platformSelection = [
     'urn:li:dataPlatform:file',
     'urn:li:dataPlatform:mongodb',
@@ -72,7 +67,6 @@ export const DataPlatformSelect = () => {
     return (
         <>
             <Form.Item
-                {...formItemLayout}
                 name="platformSelect"
                 label="Specify a Data Source Type"
                 rules={[
@@ -83,7 +77,7 @@ export const DataPlatformSelect = () => {
                 ]}
             >
                 <Select
-                    style={{ width: 300 }}
+                    style={{ width: '30%' }}
                     autoFocus
                     filterOption
                     showSearch

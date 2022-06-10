@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { CSVReader } from 'react-papaparse';
-import { Form, Input, Space, Select, Button, message, Divider, InputNumber, Popconfirm } from 'antd';
+import { Form, Input, Space, Select, Button, message, Divider, Popconfirm } from 'antd';
 import { MinusCircleOutlined, PlusOutlined, AlertOutlined } from '@ant-design/icons';
 // import { gql, useQuery } from '@apollo/client';
 import { CommonFields } from './CommonFields';
@@ -22,31 +22,18 @@ export const CsvForm = () => {
     const userUrn = user?.corpUser?.urn || '';
     const userToken = GetMyToken(userUrn);
     // const [fileType, setFileType] = useState({ dataset_type: 'application/octet-stream' });
-    const [hasHeader, setHasHeader] = useState('no');
 
     const [form] = Form.useForm();
     const { Option } = Select;
     const layout = {
         labelCol: {
-            span: 6,
+            span: 4,
         },
         wrapperCol: {
-            span: 14,
+            span: 18,
         },
     };
-    // const onFinish = (values) => {
-    //     // console.log('Received values of form:', values);
-    //     const finalValue = { ...values, ...fileType, dataset_owner: user?.corpUser?.username, user_token: userToken };
-    //     // console.log('Received finalValue:', finalValue);
-    //     // POST request using axios with error handling
-    //     console.log(`publish is now ${publishUrl}`);
-    //     axios
-    //         .post(publishUrl, finalValue)
-    //         .then((response) => printSuccessMsg(response.status))
-    //         .catch((error) => {
-    //             printErrorMsg(error.toString());
-    //         });
-    // };
+
     function showPopconfirm() {
         setVisible(true);
     }
@@ -71,9 +58,6 @@ export const CsvForm = () => {
     const onReset = () => {
         form.resetFields();
     };
-    const onHeaderChange = (value) => {
-        setHasHeader(value);
-    };
     const handleOnFileLoad = (data, fileInfo) => {
         console.log('data:', data);
         console.log('fileInfo:', fileInfo);
@@ -88,14 +72,12 @@ export const CsvForm = () => {
                 return { field_name: item, field_description: '' };
             });
             form.setFieldsValue({ fields: res, hasHeader: 'yes' });
-            setHasHeader('yes');
         } else {
             message.error('Empty file or invalid header line', 3).then();
         }
     };
     const handleOnRemoveFile = () => {
         form.resetFields();
-        setHasHeader('no');
     };
     const validateForm = () => {
         form.validateFields().then(() => {
@@ -119,38 +101,22 @@ export const CsvForm = () => {
                 name="dynamic_form_item"
             >
                 <CSVReader onFileLoad={handleOnFileLoad} addRemoveButton onRemoveFile={handleOnRemoveFile}>
-                    <span>Click here to parse your file header (CSV or delimited text file only)</span>
+                    <span>
+                        Click here to pre-generate dictionary from your data file header (CSV or delimited text file
+                        only)
+                    </span>
                 </CSVReader>
                 <Divider dashed orientation="left">
                     Dataset Info
                 </Divider>
                 <DataPlatformSelect />
                 <CommonFields />
-                <Form.Item
-                    name="hasHeader"
-                    label="File Header"
-                    rules={[
-                        {
-                            required: true,
-                        },
-                    ]}
-                >
-                    <Select placeholder="Does the file contains header" onChange={onHeaderChange} data-testid="select">
-                        <Option value="yes">Yes</Option>
-                        <Option value="no">No</Option>
-                    </Select>
-                </Form.Item>
-                {hasHeader === 'yes' && (
-                    <Form.Item label="Header Line" name="headerLine">
-                        <InputNumber min={1} max={10} />
-                    </Form.Item>
-                )}
                 <Form.Item label="Dataset Fields" name="fields">
-                    <Form.List {...layout} name="fields">
+                    <Form.List name="fields">
                         {(fields, { add, remove }) => (
                             <>
                                 {fields.map(({ key, name, fieldKey, ...restField }) => (
-                                    <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                                    <Space key={key} style={{ display: 'flex', marginBottom: 0 }}>
                                         <Form.Item
                                             {...restField}
                                             name={[name, 'field_name']}
@@ -188,7 +154,7 @@ export const CsvForm = () => {
                                                 },
                                             ]}
                                         >
-                                            <Input style={{ width: 200 }} placeholder="Field Description" />
+                                            <Input placeholder="Field Description" />
                                         </Form.Item>
                                         {fields.length > 1 ? (
                                             <MinusCircleOutlined

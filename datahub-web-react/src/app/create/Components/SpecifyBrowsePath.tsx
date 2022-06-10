@@ -12,7 +12,7 @@ export const SpecifyBrowsePath = () => {
     };
     return (
         <>
-            <Form.Item label="Specify Browse Location">
+            <Form.Item label="Specify Browse Location" style={{ marginBottom: 0 }}>
                 <Form.List
                     name="browsepathList"
                     rules={[
@@ -48,7 +48,7 @@ export const SpecifyBrowsePath = () => {
                                         ]}
                                         noStyle
                                     >
-                                        <Input placeholder="browsing path" style={{ width: '80%' }} />
+                                        <Input placeholder="browsing path" style={{ width: '500px' }} />
                                     </Form.Item>
                                     {fields.length > 1 ? (
                                         <Button aria-label="removepath">
@@ -63,7 +63,7 @@ export const SpecifyBrowsePath = () => {
                             <Form.Item {...buttonItemLayout}>
                                 <Button
                                     type="dashed"
-                                    style={{ width: '80%' }}
+                                    style={{ width: '500px' }}
                                     onClick={() => add()}
                                     icon={<PlusOutlined />}
                                     disabled={fields.length >= 3}

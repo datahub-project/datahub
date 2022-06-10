@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { Card, Layout, Typography } from 'antd';
+import React from 'react';
+import { Layout, Typography } from 'antd';
 import styled from 'styled-components';
 import { Content } from 'antd/lib/layout/layout';
 import { SearchablePage } from '../search/SearchablePage';
-import { JsonForm } from './Components/JsonForm';
+// import { JsonForm } from './Components/JsonForm';
 import { CsvForm } from './Components/CsvForm';
 
 const Title = styled(Typography.Text)`
@@ -14,27 +14,6 @@ const Title = styled(Typography.Text)`
 `;
 
 export const AdHocPage = () => {
-    const [state, setState] = useState({
-        key: 'csvForm',
-        titleKey: 'csvForm',
-    });
-    const onTabChange = (key) => {
-        setState((prevState) => ({ key: prevState.key, titleKey: key }));
-    };
-    const contentList = {
-        jsonForm: <JsonForm />,
-        csvForm: <CsvForm />,
-    };
-    const tabList = [
-        {
-            key: 'csvForm',
-            tab: 'Csv',
-        },
-        {
-            key: 'jsonForm',
-            tab: 'Json',
-        },
-    ];
     return (
         <>
             <SearchablePage>
@@ -47,17 +26,7 @@ export const AdHocPage = () => {
                                     your own dataset
                                 </Title>
                                 <br />
-                                <br />
-                                <Card
-                                    style={{ width: '100%' }}
-                                    tabList={tabList}
-                                    activeTabKey={state.titleKey}
-                                    onTabChange={(key) => {
-                                        onTabChange(key);
-                                    }}
-                                >
-                                    {contentList[state.titleKey]}
-                                </Card>
+                                <CsvForm />
                             </Content>
                         </Layout>
                     </Content>
