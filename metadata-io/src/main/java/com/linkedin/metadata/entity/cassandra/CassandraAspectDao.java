@@ -28,10 +28,6 @@ import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
-import lombok.extern.slf4j.Slf4j;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.util.HashMap;
@@ -41,13 +37,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
-import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.deleteFrom;
-import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.insertInto;
-import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.literal;
-import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.selectFrom;
-import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.update;
-import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
+import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.*;
+import static com.linkedin.metadata.Constants.*;
 
 @Slf4j
 public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
@@ -96,6 +91,17 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     validateConnection();
     SimpleStatement ss = selectFrom(CassandraAspect.TABLE_NAME)
         .distinct()
+        .column(CassandraAspect.URN_COLUMN)
+        .countAll()
+        .build();
+
+    return _cqlSession.execute(ss).one().getLong(0);
+  }
+
+  @Override
+  public long countAspects() {
+    validateConnection();
+    SimpleStatement ss = selectFrom(CassandraAspect.TABLE_NAME)
         .column(CassandraAspect.URN_COLUMN)
         .countAll()
         .build();
@@ -464,6 +470,36 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
         .getElements()
         .stream().map(row -> row.getString(CassandraAspect.URN_COLUMN))
         .collect(Collectors.toList());
+  }
+
+  @Override
+  @Nonnull
+  public Iterable<EntityAspectIdentifier> listAllPrimaryKeys(final int start, final int pageSize) {
+    validateConnection();
+    SimpleStatement ss = selectFrom(CassandraAspect.TABLE_NAME)
+        .column(CassandraAspect.URN_COLUMN)
+        .column(CassandraAspect.ASPECT_COLUMN)
+        .column(CassandraAspect.VERSION_COLUMN)
+        .orderBy(CassandraAspect.URN_COLUMN, ClusteringOrder.ASC)
+        .build();
+
+    ResultSet rs = _cqlSession.execute(ss);
+
+    int pageNumber = start / pageSize + 1;
+    OffsetPager offsetPager = new OffsetPager(pageSize);
+    Page<Row> page = offsetPager.getPage(rs, pageNumber);
+
+    return page
+        .getElements()
+        .stream().map(CassandraAspectDao::rowToCassandraAspect)
+        .map(EntityAspectIdentifier::fromCassandra)
+        .collect(Collectors.toList());
+  }
+
+  private static CassandraAspect rowToCassandraAspect(Row row) {
+    return new CassandraAspect(row.getString(CassandraAspect.URN_COLUMN), row.getString(CassandraAspect.ASPECT_COLUMN),
+        row.getLong(CassandraAspect.VERSION_COLUMN),
+        null, null, null, null, null);
   }
 
   @Override
