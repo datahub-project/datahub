@@ -72,7 +72,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `filter`                         |          | `"(objectClass=*)"` | LDAP extractor filter.                                                                     |
 | `drop_missing_first_last_name`   |          | `True`              | If set to true, any users without first and last names will be dropped.                    |
 | `page_size`                      |          | `20`                | Size of each page to fetch when extracting metadata.                                       |
-| `attrs_mapping.urn`              |          | `sAMAccountName`    | Alternate attrs key representing same information as sAMAccountName in the organization.   |
+| `attrs_mapping.urn`              |          | `sAMAccountName`    | An attribute to use in constructing the DataHub User urn. This should be something that uniquely identifies the user and is stable over time.   |
 | `attrs_mapping.manager`          |          | `manager`           | Alternate attrs key representing same information as manager in the organization.          |
 | `attrs_mapping.firstName`        |          | `givenName`         | Alternate attrs key representing same information as givenName in the organization.        |
 | `attrs_mapping.lastName`         |          | `sn`                | Alternate attrs key representing same information as sn in the organization.               |
