@@ -168,6 +168,114 @@ query getDataset($urn: String!) {
                 type
             }
         }
+        siblings {
+            isPrimary
+            siblings {
+                urn
+                type
+                ...siblingFields
+            }
+        }
+    }
+}
+
+fragment siblingFields on Dataset {
+    ...nonRecursiveDatasetFields
+    schemaMetadata(version: 0) {
+        ...schemaMetadataFields
+    }
+    editableSchemaMetadata {
+        editableSchemaFieldInfo {
+            fieldPath
+            description
+            globalTags {
+                ...globalTagsFields
+            }
+            glossaryTerms {
+                ...glossaryTerms
+            }
+        }
+    }
+    deprecation {
+        actor
+        deprecated
+        note
+        decommissionTime
+    }
+    globalTags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    subTypes {
+        typeNames
+    }
+    domain {
+        ...entityDomain
+    }
+    upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+        ...fullLineageResults
+    }
+    downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+        ...fullLineageResults
+    }
+    usageStats(resource: $urn, range: MONTH) {
+        buckets {
+            bucket
+            duration
+            resource
+            metrics {
+                uniqueUserCount
+                totalSqlQueries
+                topSqlQueries
+            }
+        }
+        aggregations {
+            uniqueUserCount
+            totalSqlQueries
+            users {
+                user {
+                    urn
+                    username
+                }
+                count
+                userEmail
+            }
+            fields {
+                fieldName
+                count
+            }
+        }
+    }
+    datasetProfiles(limit: 1) {
+        rowCount
+        columnCount
+        timestampMillis
+        fieldProfiles {
+            fieldPath
+            uniqueCount
+            uniqueProportion
+            nullCount
+            nullProportion
+            min
+            max
+            mean
+            median
+            stdev
+            sampleValues
+        }
+    }
+    parentContainers {
+        ...parentContainersFields
+    }
+    ...viewProperties
+    assertions(start: 0, count: 1) {
+        total
+    }
+    operations(limit: 1) {
+        timestampMillis
+        lastUpdatedTimestamp
     }
 }
 
