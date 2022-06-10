@@ -18,6 +18,7 @@ import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;

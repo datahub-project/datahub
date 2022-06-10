@@ -11,6 +11,7 @@ import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.kafka.hook.UpdateIndicesHook;
 import com.linkedin.metadata.kafka.hook.event.EntityChangeEventGeneratorHook;
 import com.linkedin.metadata.kafka.hook.ingestion.IngestionSchedulerHook;
+import com.linkedin.metadata.kafka.hook.siblings.SiblingAssociationHook;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.Topics;
