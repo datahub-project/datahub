@@ -13,17 +13,16 @@ def get_provider_info():
             {
                 "hook-class-name": "datahub_provider.hooks.datahub.DatahubRestHook",
                 "connection-type": "datahub_rest",
-            }, 
+            },
             {
                 "hook-class-name": "datahub_provider.hooks.datahub.DatahubKafkaHook",
                 "connection-type": "datahub_kafka",
-            }, 
+            },
         ],
         "hook-class-names": [
             "datahub_provider.hooks.datahub.DatahubRestHook",
             "datahub_provider.hooks.datahub.DatahubKafkaHook",
         ],
-
         "package-name": datahub.__package_name__,
         "versions": [datahub.__version__],
     }
