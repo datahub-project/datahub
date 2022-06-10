@@ -19,6 +19,7 @@ import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nonnull;
 
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils.*;
 import static com.linkedin.metadata.Constants.*;
@@ -64,6 +65,9 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
         platformPrivileges.setManageTokens(canManageTokens(context));
         platformPrivileges.setManageTests(canManageTests(context));
         platformPrivileges.setManageGlossaries(canManageGlossaries(context));
+        platformPrivileges.setManageUserCredentials(canManageUserCredentials(context));
+
+        // Settings not in OSS (yet)
         platformPrivileges.setManageGlobalSettings(canManageGlobalSettings(context)); // SaaS-Only.
 
         // Construct and return authenticated user object.
@@ -145,6 +149,14 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
    */
   private boolean canManageGlobalSettings(final QueryContext context) {
     return isAuthorized(context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_GLOBAL_SETTINGS);
+  }
+
+  /**
+   * Returns true if the authenticated user has privileges to manage user credentials
+   */
+  private boolean canManageUserCredentials(@Nonnull QueryContext context) {
+    return isAuthorized(context.getAuthorizer(), context.getActorUrn(),
+        PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE);
   }
 
   /**

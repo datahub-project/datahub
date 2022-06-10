@@ -12,6 +12,7 @@ from termcolor import colored
 import datahub.cli.cli_utils
 from datahub.emitter.mce_builder import dataset_urn_to_key, schema_field_urn_to_key
 from datahub.telemetry import telemetry
+from datahub.upgrade import upgrade
 from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
@@ -132,6 +133,7 @@ def get_timeline(
 )
 @click.option("--raw", type=bool, is_flag=True, help="Show the raw diff")
 @click.pass_context
+@upgrade.check_upgrade
 @telemetry.with_telemetry
 def timeline(
     ctx: Any,

@@ -3,6 +3,7 @@ package auth.sso.oidc;
 import auth.sso.SsoProvider;
 import auth.sso.oidc.custom.CustomOidcClient;
 import com.google.common.collect.ImmutableMap;
+import lombok.extern.slf4j.Slf4j;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.http.callback.PathParameterCallbackUrlResolver;
 import org.pac4j.oidc.config.OidcConfiguration;
@@ -19,6 +20,7 @@ import org.pac4j.oidc.profile.OidcProfile;
  * It is responsible for initializing this client from a configuration object ({@link OidcConfigs}. Note that
  * this class is not related to the logic performed when an IdP performs a callback to DataHub.
  */
+@Slf4j
 public class OidcProvider implements SsoProvider<OidcConfigs> {
 
   private static final String OIDC_CLIENT_NAME = "oidc";
@@ -53,6 +55,11 @@ public class OidcProvider implements SsoProvider<OidcConfigs> {
     oidcConfiguration.setDiscoveryURI(_oidcConfigs.getDiscoveryUri());
     oidcConfiguration.setClientAuthenticationMethodAsString(_oidcConfigs.getClientAuthenticationMethod());
     oidcConfiguration.setScope(_oidcConfigs.getScope());
+    try {
+      oidcConfiguration.setReadTimeout(Integer.parseInt(_oidcConfigs.getReadTimeout()));
+    } catch (NumberFormatException e) {
+      log.warn("Invalid read timeout configuration, defaulting to 5000ms");
+    }
     _oidcConfigs.getResponseType().ifPresent(oidcConfiguration::setResponseType);
     _oidcConfigs.getResponseMode().ifPresent(oidcConfiguration::setResponseMode);
     _oidcConfigs.getUseNonce().ifPresent(oidcConfiguration::setUseNonce);

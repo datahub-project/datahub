@@ -101,6 +101,6 @@ public class ListAccessTokensResolver implements DataFetcher<CompletableFuture<L
    */
   private boolean isListingSelfTokens(final List<FacetFilterInput> filters, final QueryContext context) {
     return AuthorizationUtils.canGeneratePersonalAccessToken(context) && filters.stream()
-        .anyMatch(filter -> filter.getField().equals("actorUrn") && filter.getValue().equals(context.getActorUrn()));
+        .anyMatch(filter -> filter.getField().equals("ownerUrn") && filter.getValue().equals(context.getActorUrn()));
   }
 }

@@ -4,7 +4,7 @@ import com.sun.security.auth.callback.TextCallbackHandler;
 import java.util.HashMap;
 import javax.security.auth.Subject;
 import javax.security.auth.login.LoginException;
-import org.junit.Test;
+import org.testng.annotations.Test;
 
 import static org.junit.Assert.*;
 

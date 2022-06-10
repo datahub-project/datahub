@@ -195,7 +195,6 @@ export default function AddTagsTermsModal({
         setUrns(newUrns);
         setInputValue('');
         setIsFocusedOnInput(true);
-        console.log('urn', urn);
         setSelectedTerms(selectedTerms.filter((term) => term.urn !== urn));
     };
 

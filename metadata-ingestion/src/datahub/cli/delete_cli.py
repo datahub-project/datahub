@@ -19,6 +19,7 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
 )
 from datahub.telemetry import telemetry
+from datahub.upgrade import upgrade
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +95,7 @@ def delete_for_registry(
 @click.option("--registry-id", required=False, type=str)
 @click.option("-n", "--dry-run", required=False, is_flag=True)
 @click.option("--include-removed", required=False, is_flag=True)
+@upgrade.check_upgrade
 @telemetry.with_telemetry
 def delete(
     urn: str,

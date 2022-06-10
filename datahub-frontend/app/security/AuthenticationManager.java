@@ -23,7 +23,7 @@ public class AuthenticationManager {
 
   }
 
-  public static void authenticateUser(@Nonnull String userName, @Nonnull String password) throws NamingException {
+  public static void authenticateJaasUser(@Nonnull String userName, @Nonnull String password) throws NamingException {
     Preconditions.checkArgument(!StringUtils.isAnyEmpty(userName), "Username cannot be empty");
     try {
       JAASLoginService jaasLoginService = new JAASLoginService("WHZ-Authentication");

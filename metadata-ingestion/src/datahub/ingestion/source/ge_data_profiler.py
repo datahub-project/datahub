@@ -305,8 +305,17 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     def _get_column_cardinality(
         self, column_spec: _SingleColumnSpec, column: str
     ) -> None:
-        nonnull_count = self.dataset.get_column_nonnull_count(column)
-        column_spec.nonnull_count = nonnull_count
+        try:
+            nonnull_count = self.dataset.get_column_nonnull_count(column)
+            column_spec.nonnull_count = nonnull_count
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get column cardinality for column {column}. {e}"
+            )
+            self.report.report_warning(
+                "Profiling - Unable to get column cardinality",
+                f"{self.dataset_name}.{column}",
+            )
 
         unique_count = None
         pct_unique = None
@@ -352,21 +361,43 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     def _get_dataset_column_median(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_median_value:
+        if not self.config.include_field_median_value:
+            return
+        try:
             column_profile.median = str(self.dataset.get_column_median(column))
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get column median for column {column}. {e}"
+            )
+            self.report.report_warning(
+                "Profiling - Unable to get column medians",
+                f"{self.dataset_name}.{column}",
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_stdev(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_stddev_value:
+        if not self.config.include_field_stddev_value:
+            return
+        try:
             column_profile.stdev = str(self.dataset.get_column_stdev(column))
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get column stddev for column {column}. {e}"
+            )
+            self.report.report_warning(
+                "Profiling - Unable to get column stddev",
+                f"{self.dataset_name}.{column}",
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_quantiles(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_quantiles:
+        if not self.config.include_field_quantiles:
+            return
+        try:
             # FIXME: Eventually we'd like to switch to using the quantile method directly.
             # However, that method seems to be throwing an error in some cases whereas
             # this does not.
@@ -391,6 +422,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                         res["observed_value"]["values"],
                     )
                 ]
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get column quantiles for column {column}. {e}"
+            )
+            self.report.report_warning(
+                "Profiling - Unable to get column quantiles",
+                f"{self.dataset_name}.{column}",
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_distinct_value_frequencies(
@@ -406,7 +445,9 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     def _get_dataset_column_histogram(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_histogram:
+        if not self.config.include_field_histogram:
+            return
+        try:
             self.dataset.set_config_value("interactive_evaluation", True)
 
             res = self.dataset.expect_column_kl_divergence_to_be_less_than(
@@ -425,6 +466,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                         partition["tail_weights"][1],
                     ],
                 )
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get column histogram for column {column}. {e}"
+            )
+            self.report.report_warning(
+                "Profiling - Unable to get column histogram",
+                f"{self.dataset_name}.{column}",
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_sample_values(

@@ -37,29 +37,24 @@ export default function useSchemaTitleRenderer(
 
     return (fieldPath: string, record: ExtendedSchemaFields): JSX.Element => {
         const fieldPathWithoutAnnotations = translateFieldPath(fieldPath);
+        const parentPathWithoutAnnotations = translateFieldPath(record.parent?.fieldPath || '');
+        let pathToDisplay = fieldPathWithoutAnnotations;
 
-        const isOverflow = fieldPathWithoutAnnotations.length > MAX_FIELD_PATH_LENGTH;
+        // if the parent path is a prefix of the field path, remove it for display purposes
+        if (parentPathWithoutAnnotations && fieldPathWithoutAnnotations.indexOf(parentPathWithoutAnnotations) === 0) {
+            // parent length + 1 because of the trailing `.` of the parent
+            pathToDisplay = fieldPathWithoutAnnotations.slice(parentPathWithoutAnnotations.length + 1);
+        }
 
-        let [firstPath, lastPath] = fieldPathWithoutAnnotations.split(/\.(?=[^.]+$)/);
-
-        if (isOverflow) {
-            if (lastPath.length >= MAX_FIELD_PATH_LENGTH) {
-                lastPath = `..${lastPath.substring(lastPath.length - MAX_FIELD_PATH_LENGTH)}`;
-                firstPath = '';
-            } else {
-                firstPath = firstPath.substring(fieldPath.length - MAX_FIELD_PATH_LENGTH);
-                if (firstPath.includes('.')) {
-                    firstPath = `..${firstPath.substring(firstPath.indexOf('.'))}`;
-                } else {
-                    firstPath = '..';
-                }
-            }
+        // if the field path is too long, truncate it
+        if (pathToDisplay.length > MAX_FIELD_PATH_LENGTH) {
+            pathToDisplay = `..${pathToDisplay.substring(pathToDisplay.length - MAX_FIELD_PATH_LENGTH)}`;
         }
 
         return (
             <>
                 <FieldPathContainer>
-                    <FieldPathText>{lastPath || firstPath}</FieldPathText>
+                    <FieldPathText>{pathToDisplay}</FieldPathText>
                     <TypeLabel type={record.type} nativeDataType={record.nativeDataType} />
                     {(schemaMetadata?.primaryKeys?.includes(fieldPath) || record.isPartOfKey) && <PrimaryKeyLabel />}
                     {schemaMetadata?.foreignKeys
