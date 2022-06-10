@@ -462,7 +462,7 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
     return custom_properties
 
 
-def match_target_platform_instance(
+def get_entity_platform_instance(
     target_platform_instance: Optional[str],
     dbt_platform_instance: Optional[str],
     platform_value: Optional[str],
@@ -531,7 +531,7 @@ def get_upstreams(
                 name,
                 platform_value,
                 environment,
-                match_target_platform_instance(
+                get_entity_platform_instance(
                     target_platform_instance=target_platform_instance,
                     dbt_platform_instance=platform_instance,
                     platform_value=platform_value,
@@ -950,7 +950,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 node.name,
                 mce_platform,
                 self.config.env,
-                match_target_platform_instance(
+                get_entity_platform_instance(
                     self.config.target_platform_instance,
                     self.config.platform_instance,
                     mce_platform,
@@ -1311,7 +1311,7 @@ class DBTSource(StatefulIngestionSourceBase):
                     node.name,
                     self.config.target_platform,
                     self.config.env,
-                    match_target_platform_instance(
+                    get_entity_platform_instance(
                         self.config.target_platform_instance,
                         None,
                         self.config.target_platform,
