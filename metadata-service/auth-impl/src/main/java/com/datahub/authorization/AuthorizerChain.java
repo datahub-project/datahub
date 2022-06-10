@@ -30,7 +30,7 @@ public class AuthorizerChain implements Authorizer {
   }
 
   @Override
-  public void init(@Nonnull Map<String, Object> authorizerConfig) {
+  public void init(@Nonnull Map<String, Object> authorizerConfig, @Nonnull AuthorizerContext ctx) {
     // pass.
   }
 

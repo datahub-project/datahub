@@ -3,6 +3,7 @@ namespace com.linkedin.schema
 import com.linkedin.dataset.SchemaFieldPath
 import com.linkedin.common.GlobalTags
 import com.linkedin.common.GlossaryTerms
+import com.linkedin.common.AuditStamp
 
 /**
  * SchemaField to describe metadata related to dataset schema.
@@ -38,6 +39,16 @@ record SchemaField {
     "boostScore": 0.1
   }
   description: optional string
+
+  /**
+   * An AuditStamp corresponding to the creation of this schema field.
+   */
+  created: optional AuditStamp
+
+  /**
+   * An AuditStamp corresponding to the last modification of this schema field.
+   */
+  lastModified: optional AuditStamp
 
   /**
    * Platform independent field type of the field.

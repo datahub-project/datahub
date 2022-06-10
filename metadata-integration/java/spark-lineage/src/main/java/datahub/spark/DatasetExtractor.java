@@ -1,13 +1,9 @@
 package datahub.spark;
 
-import datahub.spark.model.LineageUtils;
-import datahub.spark.model.dataset.CatalogTableDataset;
-import datahub.spark.model.dataset.HdfsPathDataset;
-import datahub.spark.model.dataset.JdbcDataset;
-import datahub.spark.model.dataset.SparkDataset;
-import lombok.extern.slf4j.Slf4j;
-
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,7 +17,10 @@ import org.apache.spark.SparkContext;
 import org.apache.spark.sql.catalyst.catalog.HiveTableRelation;
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan;
 import org.apache.spark.sql.execution.FileSourceScanExec;
+import org.apache.spark.sql.execution.RowDataSourceScanExec;
 import org.apache.spark.sql.execution.SparkPlan;
+import org.apache.spark.sql.execution.columnar.InMemoryRelation;
+import org.apache.spark.sql.execution.columnar.InMemoryTableScanExec;
 import org.apache.spark.sql.execution.command.CreateDataSourceTableAsSelectCommand;
 import org.apache.spark.sql.execution.datasources.HadoopFsRelation;
 import org.apache.spark.sql.execution.datasources.InsertIntoHadoopFsRelationCommand;
@@ -29,57 +28,102 @@ import org.apache.spark.sql.execution.datasources.LogicalRelation;
 import org.apache.spark.sql.execution.datasources.SaveIntoDataSourceCommand;
 import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions;
 import org.apache.spark.sql.execution.datasources.jdbc.JDBCRelation;
-import org.apache.spark.sql.execution.datasources.v2.DataSourceV2Relation;
-import org.apache.spark.sql.execution.datasources.v2.DataSourceV2ScanExec;
-import org.apache.spark.sql.execution.datasources.v2.WriteToDataSourceV2;
 import org.apache.spark.sql.hive.execution.CreateHiveTableAsSelectCommand;
+import org.apache.spark.sql.hive.execution.HiveTableScanExec;
 import org.apache.spark.sql.hive.execution.InsertIntoHiveTable;
 import org.apache.spark.sql.sources.BaseRelation;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.FabricType;
+import com.typesafe.config.Config;
 
+import datahub.spark.model.LineageUtils;
+import datahub.spark.model.dataset.CatalogTableDataset;
+import datahub.spark.model.dataset.HdfsPathDataset;
+import datahub.spark.model.dataset.JdbcDataset;
+import datahub.spark.model.dataset.SparkDataset;
+import lombok.extern.slf4j.Slf4j;
 import scala.Option;
 import scala.collection.JavaConversions;
-
-import com.typesafe.config.Config;
+import scala.runtime.AbstractFunction1;
 
 @Slf4j
 public class DatasetExtractor {
-  
+
   private static final Map<Class<? extends LogicalPlan>, PlanToDataset> PLAN_TO_DATASET = new HashMap<>();
   private static final Map<Class<? extends SparkPlan>, SparkPlanToDataset> SPARKPLAN_TO_DATASET = new HashMap<>();
   private static final Map<Class<? extends BaseRelation>, RelationToDataset> REL_TO_DATASET = new HashMap<>();
   private static final Set<Class<? extends LogicalPlan>> OUTPUT_CMD = ImmutableSet.of(
       InsertIntoHadoopFsRelationCommand.class, SaveIntoDataSourceCommand.class,
-      CreateDataSourceTableAsSelectCommand.class, CreateHiveTableAsSelectCommand.class, InsertIntoHiveTable.class,
-          WriteToDataSourceV2.class);
+      CreateDataSourceTableAsSelectCommand.class, CreateHiveTableAsSelectCommand.class, InsertIntoHiveTable.class);
   private static final String DATASET_ENV_KEY = "metadata.dataset.env";
   private static final String DATASET_PLATFORM_INSTANCE_KEY = "metadata.dataset.platformInstance";
   // TODO InsertIntoHiveDirCommand, InsertIntoDataSourceDirCommand
 
- private DatasetExtractor() {
-   
- }
-  private static interface PlanToDataset {
-    Optional<? extends SparkDataset> fromPlanNode(LogicalPlan plan, SparkContext ctx, Config datahubConfig);
+  private DatasetExtractor() {
+
   }
 
-  private static interface SparkPlanToDataset {
-    Optional<? extends SparkDataset> fromSparkPlanNode(SparkPlan plan, SparkContext ctx, Config datahubConfig);
+  private static interface PlanToDataset {
+    Optional<? extends Collection<SparkDataset>> fromPlanNode(LogicalPlan plan, SparkContext ctx, Config datahubConfig);
   }
 
   private static interface RelationToDataset {
-    Optional<? extends SparkDataset> fromRelation(BaseRelation rel, SparkContext ctx, Config datahubConfig);
+    Optional<? extends Collection<SparkDataset>> fromRelation(BaseRelation rel, SparkContext ctx, Config datahubConfig);
+  }
+
+  private static interface SparkPlanToDataset {
+    Optional<? extends Collection<SparkDataset>> fromSparkPlanNode(SparkPlan plan, SparkContext ctx,
+        Config datahubConfig);
   }
 
   static {
+
+    SPARKPLAN_TO_DATASET.put(FileSourceScanExec.class, (p, ctx, datahubConfig) -> {
+
+      BaseRelation baseRel = ((FileSourceScanExec) p).relation();
+      if (!REL_TO_DATASET.containsKey(baseRel.getClass())) {
+        return Optional.empty();
+      }
+      return REL_TO_DATASET.get(baseRel.getClass()).fromRelation(baseRel, ctx, datahubConfig);
+
+    });
+
+    SPARKPLAN_TO_DATASET.put(HiveTableScanExec.class, (p, ctx, datahubConfig) -> {
+
+      HiveTableRelation baseRel = ((HiveTableScanExec) p).relation();
+      if (!PLAN_TO_DATASET.containsKey(baseRel.getClass())) {
+        return Optional.empty();
+      }
+      return PLAN_TO_DATASET.get(baseRel.getClass()).fromPlanNode(baseRel, ctx, datahubConfig);
+
+    });
+
+    SPARKPLAN_TO_DATASET.put(RowDataSourceScanExec.class, (p, ctx, datahubConfig) -> {
+      BaseRelation baseRel = ((RowDataSourceScanExec) p).relation();
+      if (!REL_TO_DATASET.containsKey(baseRel.getClass())) {
+        return Optional.empty();
+      }
+      return REL_TO_DATASET.get(baseRel.getClass()).fromRelation(baseRel, ctx, datahubConfig);
+    });
+
+    SPARKPLAN_TO_DATASET.put(InMemoryTableScanExec.class, (p, ctx, datahubConfig) -> {
+      InMemoryRelation baseRel = ((InMemoryTableScanExec) p).relation();
+      if (!PLAN_TO_DATASET.containsKey(baseRel.getClass())) {
+        return Optional.empty();
+      }
+      return PLAN_TO_DATASET.get(baseRel.getClass()).fromPlanNode(baseRel, ctx, datahubConfig);
+
+    });
+    
     PLAN_TO_DATASET.put(InsertIntoHadoopFsRelationCommand.class, (p, ctx, datahubConfig) -> {
       InsertIntoHadoopFsRelationCommand cmd = (InsertIntoHadoopFsRelationCommand) p;
       if (cmd.catalogTable().isDefined()) {
-        return Optional.of(new CatalogTableDataset(cmd.catalogTable().get(), getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
+        return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.catalogTable().get(),
+            getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
       }
-      return Optional.of(new HdfsPathDataset(cmd.outputPath(), getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
+      return Optional.of(Collections.singletonList(new HdfsPathDataset(cmd.outputPath(),
+          getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
     });
 
     PLAN_TO_DATASET.put(LogicalRelation.class, (p, ctx, datahubConfig) -> {
@@ -101,65 +145,31 @@ public class DatasetExtractor {
       }
 
       String tbl = options.get("dbtable");
-      return Optional.of(new JdbcDataset(url, tbl, getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
+      return Optional.of(Collections.singletonList(
+          new JdbcDataset(url, tbl, getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
     });
 
     PLAN_TO_DATASET.put(CreateDataSourceTableAsSelectCommand.class, (p, ctx, datahubConfig) -> {
       CreateDataSourceTableAsSelectCommand cmd = (CreateDataSourceTableAsSelectCommand) p;
       // TODO what of cmd.mode()
-      return Optional.of(new CatalogTableDataset(cmd.table(), getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
+      return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.table(),
+          getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
     });
     PLAN_TO_DATASET.put(CreateHiveTableAsSelectCommand.class, (p, ctx, datahubConfig) -> {
       CreateHiveTableAsSelectCommand cmd = (CreateHiveTableAsSelectCommand) p;
-      return Optional.of(new CatalogTableDataset(cmd.tableDesc(), getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
+      return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.tableDesc(),
+          getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
     });
     PLAN_TO_DATASET.put(InsertIntoHiveTable.class, (p, ctx, datahubConfig) -> {
       InsertIntoHiveTable cmd = (InsertIntoHiveTable) p;
-      return Optional.of(new CatalogTableDataset(cmd.table(), getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
+      return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.table(),
+          getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
     });
 
     PLAN_TO_DATASET.put(HiveTableRelation.class, (p, ctx, datahubConfig) -> {
       HiveTableRelation cmd = (HiveTableRelation) p;
-      return Optional.of(new CatalogTableDataset(cmd.tableMeta(), getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
-    });
-
-    PLAN_TO_DATASET.put(WriteToDataSourceV2.class, (p, ctx, datahubConfig) -> {
-      WriteToDataSourceV2 cmd = (WriteToDataSourceV2) p;
-      if (!cmd.writer().toString().contains("IcebergWrite")) {
-        return Optional.empty();
-      } else {
-        String[] names = cmd.writer().toString().split(",")[0].split("\\.");
-        String tableName = names[names.length - 1];
-        return Optional.of(new CatalogTableDataset("iceberg", tableName, getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
-      }
-    });
-
-    PLAN_TO_DATASET.put(DataSourceV2Relation.class, (p, ctx, datahubConfig) -> {
-      DataSourceV2Relation cmd = (DataSourceV2Relation) p;
-      if (!cmd.source().toString().contains("IcebergSource") && !cmd.source().toString().contains("iceberg")) {
-        return Optional.empty();
-      } else {
-        String[] names = cmd.options().get("path").get().split("\\.");
-        String tableName = names[names.length - 1];
-        return Optional.of(new CatalogTableDataset("iceberg", tableName, getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
-      }
-    });
-
-    SPARKPLAN_TO_DATASET.put(DataSourceV2ScanExec.class, (sp, ctx, datahubConfig) -> {
-      DataSourceV2ScanExec cmd = (DataSourceV2ScanExec) sp;
-      if (!sp.toString().contains("iceberg")) {
-        return Optional.empty();
-      } else {
-        String[] names = cmd.options().get("path").get().split("\\.");
-        String tableName = names[names.length - 1];
-        return Optional.of(new CatalogTableDataset("iceberg", tableName, getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
-      }
-    });
-
-    SPARKPLAN_TO_DATASET.put(FileSourceScanExec.class, (sp, ctx, datahubConfig) -> {
-      FileSourceScanExec cmd = (FileSourceScanExec) sp;
-      String tableName = cmd.tableIdentifier().get().table();
-      return Optional.of(new CatalogTableDataset("hive", tableName, getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
+      return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.tableMeta(),
+          getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
     });
 
     REL_TO_DATASET.put(HadoopFsRelation.class, (r, ctx, datahubConfig) -> {
@@ -167,7 +177,8 @@ public class DatasetExtractor {
           .map(p -> getDirectoryPath(p, ctx.hadoopConfiguration())).distinct().collect(Collectors.toList());
 
       // TODO mapping to URN TBD
-      return Optional.of(new HdfsPathDataset(res.get(0), getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
+      return Optional.of(Collections.singletonList(new HdfsPathDataset(res.get(0),
+          getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
     });
     REL_TO_DATASET.put(JDBCRelation.class, (r, ctx, datahubConfig) -> {
       JDBCRelation rel = (JDBCRelation) r;
@@ -176,29 +187,45 @@ public class DatasetExtractor {
         return Optional.empty();
       }
 
-      return Optional.of(new JdbcDataset(rel.jdbcOptions().url(), tbl.get(), getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig)));
+      return Optional.of(Collections.singletonList(new JdbcDataset(rel.jdbcOptions().url(), tbl.get(),
+          getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
+    });
+
+    PLAN_TO_DATASET.put(InMemoryRelation.class, (plan, ctx, datahubConfig) -> {
+      SparkPlan cachedPlan = ((InMemoryRelation) plan).cachedPlan();
+      ArrayList<SparkDataset> datasets = new ArrayList<>();
+      cachedPlan.collectLeaves().toList().foreach(new AbstractFunction1<SparkPlan, Void>() {
+
+        @Override
+        public Void apply(SparkPlan leafPlan) {
+
+          if (SPARKPLAN_TO_DATASET.containsKey(leafPlan.getClass())) {
+            Optional<? extends Collection<SparkDataset>> dataset = SPARKPLAN_TO_DATASET.get(leafPlan.getClass())
+                .fromSparkPlanNode(leafPlan, ctx, datahubConfig);
+            dataset.ifPresent(x -> datasets.addAll(x));
+          } else {
+            log.error(leafPlan.getClass() + " is not yet supported. Please contact datahub team for further support.");
+          }
+          return null;
+        }
+      });
+      return datasets.isEmpty() ? Optional.empty() : Optional.of(datasets);
     });
   }
 
-  static Optional<? extends SparkDataset> asDataset(LogicalPlan logicalPlan, SparkContext ctx, boolean outputNode) {
+  static Optional<? extends Collection<SparkDataset>> asDataset(LogicalPlan logicalPlan, SparkContext ctx,
+      boolean outputNode) {
+
     if (!outputNode && OUTPUT_CMD.contains(logicalPlan.getClass())) {
       return Optional.empty();
     }
 
     if (!PLAN_TO_DATASET.containsKey(logicalPlan.getClass())) {
+      log.error(logicalPlan.getClass() + " is not supported yet. Please contact datahub team for further support. ");
       return Optional.empty();
     }
     Config datahubconfig = LineageUtils.parseSparkConfig();
     return PLAN_TO_DATASET.get(logicalPlan.getClass()).fromPlanNode(logicalPlan, ctx, datahubconfig);
-  }
-
-  static Optional<? extends SparkDataset> asDataset(SparkPlan sparkPlan, SparkContext ctx, boolean outputNode) {
-
-    if (!SPARKPLAN_TO_DATASET.containsKey(sparkPlan.getClass())) {
-      return Optional.empty();
-    }
-    Config datahubconfig = LineageUtils.parseSparkConfig();
-    return SPARKPLAN_TO_DATASET.get(sparkPlan.getClass()).fromSparkPlanNode(sparkPlan, ctx, datahubconfig);
   }
 
   private static Path getDirectoryPath(Path p, Configuration hadoopConf) {

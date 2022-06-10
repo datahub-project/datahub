@@ -2,8 +2,6 @@ package com.datahub.authorization;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.annotations.VisibleForTesting;
-import com.linkedin.common.Owner;
-import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.client.EntityClient;
@@ -13,17 +11,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.linkedin.metadata.Constants.CORP_GROUP_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 
 
 /**
@@ -43,12 +38,11 @@ public class DataHubAuthorizer implements Authorizer {
      */
     DEFAULT,
     /**
-     * Allow all means that the AuthorizationManager will allow all actions. This is used as an override to disable the
+     * Allow all means that the DataHubAuthorizer will allow all actions. This is used as an override to disable the
      * policies feature.
      */
     ALLOW_ALL
   }
-
 
   // Credentials used to make / authorize requests as the internal system actor.
   private final Authentication _systemAuthentication;
@@ -59,9 +53,8 @@ public class DataHubAuthorizer implements Authorizer {
 
   private final ScheduledExecutorService _refreshExecutorService = Executors.newScheduledThreadPool(1);
   private final PolicyRefreshRunnable _policyRefreshRunnable;
-
-  private final ResourceSpecResolver _resourceSpecResolver;
   private final PolicyEngine _policyEngine;
+  private ResourceSpecResolver _resourceSpecResolver;
   private AuthorizationMode _mode;
 
   public static final String ALL = "ALL";
@@ -72,20 +65,20 @@ public class DataHubAuthorizer implements Authorizer {
       final int delayIntervalSeconds,
       final int refreshIntervalSeconds,
       final AuthorizationMode mode) {
-    _systemAuthentication = systemAuthentication;
+    _systemAuthentication = Objects.requireNonNull(systemAuthentication);
+    _mode = Objects.requireNonNull(mode);
+    _policyEngine = new PolicyEngine(systemAuthentication, Objects.requireNonNull(entityClient));
     _policyRefreshRunnable = new PolicyRefreshRunnable(systemAuthentication, new PolicyFetcher(entityClient), _policyCache);
     _refreshExecutorService.scheduleAtFixedRate(_policyRefreshRunnable, delayIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
-    _mode = mode;
-    _resourceSpecResolver = new ResourceSpecResolver(systemAuthentication, entityClient);
-    _policyEngine = new PolicyEngine(systemAuthentication, entityClient);
   }
 
   @Override
-  public void init(@Nonnull Map<String, Object> authorizerConfig) {
+  public void init(@Nonnull Map<String, Object> authorizerConfig, @Nonnull AuthorizerContext ctx) {
     // Pass. No static config.
+    _resourceSpecResolver = Objects.requireNonNull(ctx.getResourceSpecResolver());
   }
 
-  public AuthorizationResult authorize(final AuthorizationRequest request) {
+  public AuthorizationResult authorize(@Nonnull final AuthorizationRequest request) {
 
     // 0. Short circuit: If the action is being performed by the system (root), always allow it.
     if (isSystemRequest(request, this._systemAuthentication)) {
@@ -264,21 +257,5 @@ public class DataHubAuthorizer implements Authorizer {
       existingPolicies.add(policy);
       cache.put(ALL, existingPolicies);
     }
-  }
-
-  private List<Urn> userOwners(final Ownership ownership) {
-    return ownership.getOwners()
-        .stream()
-        .filter(owner -> CORP_USER_ENTITY_NAME.equals(owner.getOwner().getEntityType()))
-        .map(Owner::getOwner)
-        .collect(Collectors.toList());
-  }
-
-  private List<Urn> groupOwners(final Ownership ownership) {
-    return ownership.getOwners()
-        .stream()
-        .filter(owner -> CORP_GROUP_ENTITY_NAME.equals(owner.getOwner().getEntityType()))
-        .map(Owner::getOwner)
-        .collect(Collectors.toList());
   }
 }

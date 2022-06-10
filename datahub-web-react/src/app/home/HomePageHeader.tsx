@@ -38,7 +38,7 @@ const styles = {
     navBar: { padding: '24px' },
     searchContainer: { width: '100%', marginTop: '40px' },
     logoImage: { width: 140 },
-    searchBox: { width: '40vw', minWidth: 400, margin: '40px 0px', marginBottom: '12px' },
+    searchBox: { width: '47vw', minWidth: 400, margin: '40px 0px', marginBottom: '12px', maxWidth: '650px' },
     subtitle: { marginTop: '28px', color: '#FFFFFF', fontSize: 12 },
 };
 
@@ -58,8 +58,9 @@ const NavGroup = styled.div`
 `;
 
 const SuggestionsContainer = styled.div`
-    padding: 0px 30px;
-    max-width: 540px;
+    margin: 0px 30px;
+    max-width: 650px;
+    width: 47vw;
     display: flex;
     flex-direction: column;
     justify-content: left;

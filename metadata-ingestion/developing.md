@@ -141,3 +141,17 @@ pytest -vv
 # Run all tests under tests/unit
 ../gradlew :metadata-ingestion:testSingle -PtestFile=tests/unit
 ```
+
+### Updating golden test files
+
+If you made some changes that require generating new "golden" data files for use in testing a specific ingestion source, you can run the following to re-generate them:
+
+```shell
+pytest tests/integration/<source>/<source>.py --update-golden-files
+```
+
+For example,
+
+```shell
+pytest tests/integration/dbt/test_dbt.py --update-golden-files
+```

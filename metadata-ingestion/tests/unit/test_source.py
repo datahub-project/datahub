@@ -8,7 +8,7 @@ from datahub.metadata.schema_classes import ChangeTypeClass, StatusClass
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 
-class TestSource(Source):
+class FakeSource(Source):
     def get_workunits(self) -> Iterable[WorkUnit]:
         return [
             workunit.MetadataWorkUnit(
@@ -33,8 +33,8 @@ class TestSource(Source):
         self.source_report = SourceReport()
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "TestSource":
-        return TestSource(ctx)
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "FakeSource":
+        return FakeSource(ctx)
 
     def get_report(self) -> SourceReport:
         return self.source_report

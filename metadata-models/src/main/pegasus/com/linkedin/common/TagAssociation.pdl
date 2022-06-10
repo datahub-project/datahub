@@ -20,4 +20,9 @@ record TagAssociation {
     "filterNameOverride": "Tag"
   }
   tag: TagUrn
+
+  /**
+   * Additional context about the association
+   */
+  context: optional string
 }

@@ -17,7 +17,11 @@
         "MANAGE_USERS_AND_GROUPS",
         "VIEW_ANALYTICS",
         "GENERATE_PERSONAL_ACCESS_TOKENS",
-        "MANAGE_DOMAINS"
+        "MANAGE_ACCESS_TOKENS",
+        "MANAGE_DOMAINS",
+        "MANAGE_TESTS",
+        "MANAGE_GLOSSARIES",
+        "MANAGE_USER_CREDENTIALS"
       ],
       "displayName":"Root User - All Platform Privileges",
       "description":"Grants full platform privileges to root datahub super user.",
@@ -78,7 +82,9 @@
         "MANAGE_USERS_AND_GROUPS",
         "VIEW_ANALYTICS",
         "GENERATE_PERSONAL_ACCESS_TOKENS",
-        "MANAGE_DOMAINS"
+        "MANAGE_DOMAINS",
+        "MANAGE_TESTS",
+        "MANAGE_GLOSSARIES"
       ],
       "displayName":"All Users - All Platform Privileges",
       "description":"Grants full platform privileges to ALL users of DataHub. Change this policy to alter that behavior.",

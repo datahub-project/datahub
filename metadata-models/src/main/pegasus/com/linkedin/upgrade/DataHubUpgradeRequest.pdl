@@ -1,0 +1,20 @@
+namespace com.linkedin.upgrade
+
+/**
+ * Information collected when kicking off a DataHubUpgrade
+ */
+@Aspect = {
+   "name": "dataHubUpgradeRequest"
+}
+record DataHubUpgradeRequest {
+
+    /**
+     * Timestamp when we started this DataHubUpgrade
+     */
+    timestampMs: long
+
+    /**
+     * Version of this upgrade
+     */
+    version: string
+}

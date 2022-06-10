@@ -15,6 +15,7 @@ import cachetools
 from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from more_itertools import partition
+from ratelimiter import RateLimiter
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.time_window_config import get_time_bucket
@@ -202,7 +203,7 @@ def bigquery_audit_metadata_query_template(
         """
             + """
         WHERE
-            _TABLE_SUFFIX BETWEEN "{start_date}" AND "{end_date}" AND
+            _TABLE_SUFFIX BETWEEN "{start_date}" AND "{end_date}"
         """
         )
     else:
@@ -817,7 +818,11 @@ class BigQueryUsageSource(Source):
             logger.info(
                 f"Finished loading log entries from BigQueryAuditMetadata in {dataset}"
             )
-            yield from query_job
+            if self.config.rate_limit:
+                with RateLimiter(max_calls=self.config.requests_per_min, period=60):
+                    yield from query_job
+            else:
+                yield from query_job
 
     def _get_entry_timestamp(
         self, entry: Union[AuditLogEntry, BigQueryAuditMetadata]
@@ -884,11 +889,16 @@ class BigQueryUsageSource(Source):
         ] = list()
         for client in clients:
             try:
-                list_entries: Iterable[
-                    Union[AuditLogEntry, BigQueryAuditMetadata]
-                ] = client.list_entries(
-                    filter_=filter, page_size=self.config.log_page_size
-                )
+                list_entries: Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]
+                if self.config.rate_limit:
+                    with RateLimiter(max_calls=self.config.requests_per_min, period=60):
+                        list_entries = client.list_entries(
+                            filter_=filter, page_size=self.config.log_page_size
+                        )
+                else:
+                    list_entries = client.list_entries(
+                        filter_=filter, page_size=self.config.log_page_size
+                    )
                 list_entry_generators_across_clients.append(list_entries)
             except Exception as e:
                 logger.warning(
@@ -916,7 +926,11 @@ class BigQueryUsageSource(Source):
     def _create_operation_aspect_work_unit(
         self, event: QueryEvent
     ) -> Optional[MetadataWorkUnit]:
-        if event.statementType in OPERATION_STATEMENT_TYPES and event.destinationTable:
+        if (
+            event.statementType in OPERATION_STATEMENT_TYPES
+            and event.destinationTable
+            and self._is_table_allowed(event.destinationTable)
+        ):
             destination_table: BigQueryTableRef
             try:
                 destination_table = event.destinationTable.remove_extras()
@@ -982,14 +996,16 @@ class BigQueryUsageSource(Source):
                 if not self._is_table_allowed(event.resource):
                     self.report.num_filtered_read_events += 1
                     continue
+
+                if event.readReason:
+                    self.report.read_reasons_stat[event.readReason] = (
+                        self.report.read_reasons_stat.get(event.readReason, 0) + 1
+                    )
                 self.report.num_read_events += 1
 
             missing_query_entry = QueryEvent.get_missing_key_entry(entry)
             if event is None and missing_query_entry is None:
                 event = QueryEvent.from_entry(entry)
-                if not self._is_table_allowed(event.destinationTable):
-                    self.report.num_filtered_query_events += 1
-                    continue
                 self.report.num_query_events += 1
                 wu = self._create_operation_aspect_work_unit(event)
                 if wu:
@@ -999,9 +1015,6 @@ class BigQueryUsageSource(Source):
 
             if event is None and missing_query_entry_v2 is None:
                 event = QueryEvent.from_entry_v2(entry)
-                if not self._is_table_allowed(event.destinationTable):
-                    self.report.num_filtered_query_events += 1
-                    continue
                 self.report.num_query_events += 1
                 wu = self._create_operation_aspect_work_unit(event)
                 if wu:

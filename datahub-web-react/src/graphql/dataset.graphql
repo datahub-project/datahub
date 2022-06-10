@@ -154,6 +154,20 @@ query getDataset($urn: String!) {
             start
             total
         }
+        testResults {
+            passing {
+                test {
+                    ...testFields
+                }
+                type
+            }
+            failing {
+                test {
+                    ...testFields
+                }
+                type
+            }
+        }
     }
 }
 

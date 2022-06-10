@@ -83,15 +83,16 @@ public class DailyReport {
             ImmutableMap.of(), ImmutableMap.of(), Optional.of("browserId"));
 
     // floor to nearest power of 10
-    dailyActiveUsers = (int) Math.pow(10, (int) Math.log10(dailyActiveUsers + 1));
-    weeklyActiveUsers = (int) Math.pow(10, (int) Math.log10(weeklyActiveUsers + 1));
-    monthlyActiveUsers = (int) Math.pow(10, (int) Math.log10(monthlyActiveUsers + 1));
+    dailyActiveUsers = dailyActiveUsers <= 0 ? 0 : (int) Math.pow(2, (int) (Math.log(dailyActiveUsers) / Math.log(2)));
+    weeklyActiveUsers = weeklyActiveUsers <= 0 ? 0 : (int) Math.pow(2, (int) (Math.log(weeklyActiveUsers) / Math.log(2)));
+    monthlyActiveUsers = monthlyActiveUsers <= 0 ? 0 : (int) Math.pow(2, (int) (Math.log(monthlyActiveUsers) / Math.log(2)));
 
     // set user-level properties
     JSONObject report = new JSONObject();
     report.put("dau", dailyActiveUsers);
     report.put("wau", weeklyActiveUsers);
     report.put("mau", monthlyActiveUsers);
+    report.put("server_type", _configurationProvider.getDatahub().getServerType());
 
     ping("service-daily", report);
   }
