@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - master
+      - jdk11
   push:
     branches:
       - master
