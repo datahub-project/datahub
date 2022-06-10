@@ -9,6 +9,7 @@ on:
   pull_request:
     branches:
       - master
+      - jdk11
     paths-ignore:
       - 'docs/**'
       - '**.md'
