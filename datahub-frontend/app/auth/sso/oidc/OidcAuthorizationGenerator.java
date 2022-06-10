@@ -20,23 +20,28 @@ public class OidcAuthorizationGenerator implements AuthorizationGenerator {
     
     private final ProfileDefinition profileDef;
 
-    public OidcAuthorizationGenerator(final ProfileDefinition profileDef) {
+    private final OidcConfigs oidcConfigs;
+
+    public OidcAuthorizationGenerator(final ProfileDefinition profileDef, final OidcConfigs oidcConfigs) {
         this.profileDef = profileDef;
+        this.oidcConfigs = oidcConfigs;
     }
 
     @Override
     public CommonProfile generate(WebContext context, CommonProfile profile) {
-        try {
-            final JWT jwt = JWTParser.parse(((OidcProfile) profile).getAccessToken().getValue());
-
-            for (final Entry<String, Object> entry : jwt.getJWTClaimsSet().getClaims().entrySet()) {
-                final String claimName = entry.getKey();
-                if (profile.getAttribute(claimName) == null) {
-                    profileDef.convertAndAdd(profile, AttributeLocation.PROFILE_ATTRIBUTE, claimName, entry.getValue());
+        if (oidcConfigs.getExtractJwtAccessTokenClaims().orElse(false)) {
+            try {
+                final JWT jwt = JWTParser.parse(((OidcProfile) profile).getAccessToken().getValue());
+    
+                for (final Entry<String, Object> entry : jwt.getJWTClaimsSet().getClaims().entrySet()) {
+                    final String claimName = entry.getKey();
+                    if (profile.getAttribute(claimName) == null) {
+                        profileDef.convertAndAdd(profile, AttributeLocation.PROFILE_ATTRIBUTE, claimName, entry.getValue());
+                    }
                 }
+            } catch (Exception e) {
+                logger.warn("Cannot parse access token claims", e);
             }
-        } catch (Exception e) {
-            logger.warn("Cannot parse access token claims", e);
         }
         
         return profile;

@@ -66,10 +66,11 @@ public class OidcProvider implements SsoProvider<OidcConfigs> {
     _oidcConfigs.getCustomParamResource()
         .ifPresent(value -> oidcConfiguration.setCustomParams(ImmutableMap.of("resource", value)));
 
-    final CustomOidcClient oidcClient = new CustomOidcClient(oidcConfiguration, _oidcConfigs.getParseJwtAccessTokenEnabled().orElse(false));
+    final CustomOidcClient oidcClient = new CustomOidcClient(oidcConfiguration);
     oidcClient.setName(OIDC_CLIENT_NAME);
     oidcClient.setCallbackUrl(_oidcConfigs.getAuthBaseUrl() + _oidcConfigs.getAuthBaseCallbackPath());
     oidcClient.setCallbackUrlResolver(new PathParameterCallbackUrlResolver());
+    oidcClient.addAuthorizationGenerator(new OidcAuthorizationGenerator(new OidcProfileDefinition(), _oidcConfigs));
     return oidcClient;
   }
 }
