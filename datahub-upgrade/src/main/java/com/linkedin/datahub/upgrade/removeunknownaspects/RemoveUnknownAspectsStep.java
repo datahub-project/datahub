@@ -1,10 +1,9 @@
-package com.linkedin.datahub.upgrade.common.steps;
+package com.linkedin.datahub.upgrade.removeunknownaspects;
 
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
-import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
 import com.linkedin.gms.factory.telemetry.TelemetryUtils;
 import com.linkedin.metadata.entity.EntityService;
 import java.util.HashMap;
@@ -28,15 +27,11 @@ public class RemoveUnknownAspectsStep implements UpgradeStep {
 
   @Override
   public boolean skip(UpgradeContext context) {
-    if (context.parsedArgs().containsKey(NoCodeUpgrade.REMOVE_UNKNOWN_ARG_NAME)) {
-      return false;
-    }
-    return true;
+    return false;
   }
 
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
-    _entityService.deleteAspect(TelemetryUtils.CLIENT_ID_URN, INVALID_CLIENT_ID_ASPECT, new HashMap<>(), true);
     return upgradeContext -> {
       _entityService.deleteAspect(TelemetryUtils.CLIENT_ID_URN, INVALID_CLIENT_ID_ASPECT,
           new HashMap<>(), true);
