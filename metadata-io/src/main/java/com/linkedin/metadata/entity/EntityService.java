@@ -1432,7 +1432,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       } catch (URISyntaxException e) {
         throw new RuntimeException(String.format("Failed to emit the update for urn %s", urn));
       } catch (IllegalStateException e) {
-        log.warn("Unable to find aspect, rollback result will not be sent. Error: {}",e.getMessage());
+        log.warn("Unable to find aspect, rollback result will not be sent. Error: {}", e.getMessage());
         return null;
       }
     }, DEFAULT_MAX_TRANSACTION_RETRY);

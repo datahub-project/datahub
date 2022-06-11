@@ -11,7 +11,6 @@ import com.linkedin.metadata.boot.steps.IngestDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRootUserStep;
-import com.linkedin.metadata.boot.steps.RemoveUnknownAspectsStep;
 import com.linkedin.metadata.boot.steps.RestoreGlossaryIndices;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
@@ -67,8 +66,7 @@ public class BootstrapManagerFactory {
     final IngestDataPlatformInstancesStep ingestDataPlatformInstancesStep =
         new IngestDataPlatformInstancesStep(_entityService, _migrationsDao);
     final RestoreGlossaryIndices restoreGlossaryIndicesStep = new RestoreGlossaryIndices(_entityService, _entitySearchService, _entityRegistry);
-    final RemoveUnknownAspectsStep removeUnknownAspectsStep = new RemoveUnknownAspectsStep(_entityRegistry, _entityService, _migrationsDao);
     return new BootstrapManager(ImmutableList.of(ingestRootUserStep, ingestPoliciesStep, ingestDataPlatformsStep,
-        ingestDataPlatformInstancesStep, _ingestRetentionPoliciesStep, restoreGlossaryIndicesStep, removeUnknownAspectsStep));
+        ingestDataPlatformInstancesStep, _ingestRetentionPoliciesStep, restoreGlossaryIndicesStep));
   }
 }

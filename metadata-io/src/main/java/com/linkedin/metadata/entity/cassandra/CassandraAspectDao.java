@@ -99,17 +99,6 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public long countAspects() {
-    validateConnection();
-    SimpleStatement ss = selectFrom(CassandraAspect.TABLE_NAME)
-        .column(CassandraAspect.URN_COLUMN)
-        .countAll()
-        .build();
-
-    return _cqlSession.execute(ss).one().getLong(0);
-  }
-
-  @Override
   public boolean checkIfAspectExists(@Nonnull String aspectName) {
     validateConnection();
     SimpleStatement ss = selectFrom(CassandraAspect.TABLE_NAME)
@@ -470,36 +459,6 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
         .getElements()
         .stream().map(row -> row.getString(CassandraAspect.URN_COLUMN))
         .collect(Collectors.toList());
-  }
-
-  @Override
-  @Nonnull
-  public Iterable<EntityAspectIdentifier> listAllPrimaryKeys(final int start, final int pageSize) {
-    validateConnection();
-    SimpleStatement ss = selectFrom(CassandraAspect.TABLE_NAME)
-        .column(CassandraAspect.URN_COLUMN)
-        .column(CassandraAspect.ASPECT_COLUMN)
-        .column(CassandraAspect.VERSION_COLUMN)
-        .orderBy(CassandraAspect.URN_COLUMN, ClusteringOrder.ASC)
-        .build();
-
-    ResultSet rs = _cqlSession.execute(ss);
-
-    int pageNumber = start / pageSize + 1;
-    OffsetPager offsetPager = new OffsetPager(pageSize);
-    Page<Row> page = offsetPager.getPage(rs, pageNumber);
-
-    return page
-        .getElements()
-        .stream().map(CassandraAspectDao::rowToCassandraAspect)
-        .map(EntityAspectIdentifier::fromCassandra)
-        .collect(Collectors.toList());
-  }
-
-  private static CassandraAspect rowToCassandraAspect(Row row) {
-    return new CassandraAspect(row.getString(CassandraAspect.URN_COLUMN), row.getString(CassandraAspect.ASPECT_COLUMN),
-        row.getLong(CassandraAspect.VERSION_COLUMN),
-        null, null, null, null, null);
   }
 
   @Override

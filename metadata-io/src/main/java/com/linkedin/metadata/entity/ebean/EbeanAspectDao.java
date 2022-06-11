@@ -208,14 +208,6 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public long countAspects() {
-    validateConnection();
-    return _server.find(EbeanAspectV2.class)
-        .select(EbeanAspectV2.URN_COLUMN)
-        .findCount();
-  }
-
-  @Override
   public boolean checkIfAspectExists(@Nonnull String aspectName) {
     validateConnection();
     return _server.find(EbeanAspectV2.class)
@@ -412,22 +404,6 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         .setMaxRows(pageSize)
         .findPagedList();
     return ebeanAspects.getList().stream().map(EbeanAspectV2::getUrn).collect(Collectors.toList());
-  }
-
-  @Override
-  @Nonnull
-  public Iterable<EntityAspectIdentifier> listAllPrimaryKeys(final int start, final int pageSize) {
-    validateConnection();
-    PagedList<EbeanAspectV2> ebeanAspects = _server.find(EbeanAspectV2.class)
-        .select(EbeanAspectV2.URN_COLUMN)
-        .select(EbeanAspectV2.ASPECT_COLUMN)
-        .select(EbeanAspectV2.VERSION_COLUMN)
-        .orderBy()
-        .asc(EbeanAspectV2.URN_COLUMN)
-        .setFirstRow(start)
-        .setMaxRows(pageSize)
-        .findPagedList();
-    return ebeanAspects.getList().stream().map(EntityAspectIdentifier::fromEbean).collect(Collectors.toList());
   }
 
   @Override

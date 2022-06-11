@@ -21,6 +21,7 @@ public class NoCodeUpgrade implements Upgrade {
   public static final String BATCH_DELAY_MS_ARG_NAME = "batchDelayMs";
   public static final String FORCE_UPGRADE_ARG_NAME = "force-upgrade";
   public static final String CLEAN_ARG_NAME = "clean";
+  public static final String REMOVE_UNKNOWN_ARG_NAME = "remove-unknown-aspects";
 
   private final List<UpgradeStep> _steps;
   private final List<UpgradeCleanupStep> _cleanupSteps;
