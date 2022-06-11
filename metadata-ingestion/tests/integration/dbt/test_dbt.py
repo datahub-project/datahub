@@ -265,18 +265,6 @@ def test_dbt_ingest(pytestconfig, tmp_path, mock_time, **kwargs):
                 "target_platform_instance": "ps-instance-1",
             },
         ),
-        DbtTestConfig(
-            "dbt-test-with-target-platform-instance-mapping",
-            test_resources_dir,
-            test_resources_dir,
-            tmp_path,
-            "dbt_test_with_target_platform_instance_mapping_mces.json",
-            "dbt_test_with_target_platform_instance_mapping_mces_golden.json",
-            source_config_modifiers={
-                "load_schemas": True,
-                "target_platform_instance_mapping": {"dbt_postgres": "ps-instance-1"},
-            },
-        ),
     ]
 
     for config in config_variants:

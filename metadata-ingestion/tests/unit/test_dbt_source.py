@@ -3,12 +3,7 @@ from unittest import mock
 
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.dbt import (
-    DBT_PLATFORM,
-    DBTConfig,
-    DBTSource,
-    get_entity_platform_instance,
-)
+from datahub.ingestion.source.dbt import DBTConfig, DBTSource
 from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipSourceClass,
@@ -173,68 +168,3 @@ def test_dbt_source_patching_terms():
     assert len(transformed_terms) == 3
     for transformed_term in transformed_terms:
         assert transformed_term.urn in expected_terms
-
-
-def test_dbt_target_platform_matching_none():
-    assert (
-        get_entity_platform_instance(
-            target_platform_instance=None,
-            dbt_platform_instance=None,
-            platform_value=None,
-            schema=None,
-            schema_mappings=None,
-        )
-        is None
-    )
-
-
-def test_dbt_target_platform_default_matching():
-    assert (
-        get_entity_platform_instance(
-            target_platform_instance="instance1",
-            dbt_platform_instance="instance2",
-            platform_value=None,
-            schema=None,
-            schema_mappings=None,
-        )
-        == "instance1"
-    )
-
-
-def test_dbt_target_platform_default_matching_dbt_platform():
-    assert (
-        get_entity_platform_instance(
-            target_platform_instance="instance1",
-            dbt_platform_instance="instance2",
-            platform_value=DBT_PLATFORM,
-            schema=None,
-            schema_mappings=None,
-        )
-        == "instance2"
-    )
-
-
-def test_dbt_target_platform_schema_matching():
-    assert (
-        get_entity_platform_instance(
-            target_platform_instance="instance1",
-            dbt_platform_instance="instance2",
-            platform_value=None,
-            schema="dbt1",
-            schema_mappings={"dbt1": "instanceA", "dbt2": "instanceB"},
-        )
-        == "instanceA"
-    )
-
-
-def test_dbt_target_platform_schema_matching_no_match():
-    assert (
-        get_entity_platform_instance(
-            target_platform_instance="instance1",
-            dbt_platform_instance="instance2",
-            platform_value=None,
-            schema="dbt3",
-            schema_mappings={"dbt1": "instanceA", "dbt2": "instanceB"},
-        )
-        == "instance1"
-    )

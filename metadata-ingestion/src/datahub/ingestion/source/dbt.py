@@ -2,7 +2,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Type, cast
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, cast
 from urllib.parse import urlparse
 
 import dateutil.parser
@@ -124,10 +124,8 @@ class DBTConfig(StatefulIngestionConfigBase):
         description="The platform that dbt is loading onto. (e.g. bigquery / redshift / postgres etc.)"
     )
     target_platform_instance: Optional[str] = Field(
-        description="The platform instance which each target node will be assigned by default"
-    )
-    target_platform_instance_mapping: Optional[Mapping[str, str]] = Field(
-        description="Set mappings for schemas to target platform instance, takes precedence over target_platform_instance"
+        default=None,
+        description="The platform instance for the platform that dbt is operating on. Use this if you have multiple instances of the same platform (e.g. redshift) and need to distinguish between them.",
     )
     load_schemas: bool = Field(
         default=True,
@@ -438,9 +436,12 @@ def get_urn_from_dbtNode(
     data_platform_instance: Optional[str],
 ) -> str:
     db_fqn = get_db_fqn(database, schema, name)
-    if data_platform_instance is not None:
-        db_fqn = f"{data_platform_instance}.{db_fqn}"
-    return mce_builder.make_dataset_urn(target_platform, db_fqn, env)
+    return mce_builder.make_dataset_urn_with_platform_instance(
+        platform=target_platform,
+        name=db_fqn,
+        platform_instance=data_platform_instance,
+        env=env,
+    )
 
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
@@ -462,27 +463,12 @@ def get_custom_properties(node: DBTNode) -> Dict[str, str]:
     return custom_properties
 
 
-def get_entity_platform_instance(
-    target_platform_instance: Optional[str],
-    dbt_platform_instance: Optional[str],
-    platform_value: Optional[str],
-    schema: Optional[str],
-    schema_mappings: Optional[Mapping[str, str]],
-) -> Optional[str]:
-    if platform_value == DBT_PLATFORM:
-        return dbt_platform_instance
-    if schema_mappings and schema in schema_mappings and schema is not None:
-        return schema_mappings[schema]
-    return target_platform_instance
-
-
 def get_upstreams(
     upstreams: List[str],
     all_nodes: Dict[str, Dict[str, Any]],
     use_identifiers: bool,
     target_platform: str,
     target_platform_instance: Optional[str],
-    target_platform_instance_mapping: Optional[Mapping[str, str]],
     environment: str,
     disable_dbt_node_creation: bool,
     platform_instance: Optional[str],
@@ -511,9 +497,12 @@ def get_upstreams(
         # create lineages for platform nodes otherwise, for dbt node, we connect it to another dbt node or a platform
         # node.
         platform_value = DBT_PLATFORM
+        platform_instance_value = platform_instance
 
         if disable_dbt_node_creation:
+            # we generate all urns in the target platform universe
             platform_value = target_platform
+            platform_instance_value = target_platform_instance
         else:
             materialized = upstream_manifest_node.get("config", {}).get("materialized")
             resource_type = upstream_manifest_node["resource_type"]
@@ -522,7 +511,9 @@ def get_upstreams(
                 materialized in {"view", "table", "incremental"}
                 or resource_type == "source"
             ):
+                # upstream urns point to the target platform
                 platform_value = target_platform
+                platform_instance_value = target_platform_instance
 
         upstream_urns.append(
             get_urn_from_dbtNode(
@@ -531,13 +522,7 @@ def get_upstreams(
                 name,
                 platform_value,
                 environment,
-                get_entity_platform_instance(
-                    target_platform_instance=target_platform_instance,
-                    dbt_platform_instance=platform_instance,
-                    platform_value=platform_value,
-                    schema=all_nodes[upstream]["schema"],
-                    schema_mappings=target_platform_instance_mapping,
-                ),
+                platform_instance_value,
             )
         )
     return upstream_urns
@@ -879,6 +864,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 additional_custom_props_filtered,
                 manifest_nodes_raw,
                 DBT_PLATFORM,
+                self.config.platform_instance,
             )
 
         yield from self.create_platform_mces(
@@ -886,6 +872,7 @@ class DBTSource(StatefulIngestionSourceBase):
             additional_custom_props_filtered,
             manifest_nodes_raw,
             self.config.target_platform,
+            self.config.target_platform_instance,
         )
 
         if self.is_stateful_ingestion_configured():
@@ -918,6 +905,7 @@ class DBTSource(StatefulIngestionSourceBase):
         additional_custom_props_filtered: Dict[str, str],
         manifest_nodes_raw: Dict[str, Dict[str, Any]],
         mce_platform: str,
+        mce_platform_instance: Optional[str],
     ) -> Iterable[MetadataWorkUnit]:
         """
         This function creates mce based out of dbt nodes. Since dbt ingestion creates "dbt" nodes
@@ -950,13 +938,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 node.name,
                 mce_platform,
                 self.config.env,
-                get_entity_platform_instance(
-                    self.config.target_platform_instance,
-                    self.config.platform_instance,
-                    mce_platform,
-                    node.schema,
-                    self.config.target_platform_instance_mapping,
-                ),
+                mce_platform_instance,
             )
             self.save_checkpoint(node_datahub_urn)
 
@@ -1295,7 +1277,6 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.use_identifiers,
             self.config.target_platform,
             self.config.target_platform_instance,
-            self.config.target_platform_instance_mapping,
             self.config.env,
             self.config.disable_dbt_node_creation,
             self.config.platform_instance,
@@ -1311,13 +1292,7 @@ class DBTSource(StatefulIngestionSourceBase):
                     node.name,
                     self.config.target_platform,
                     self.config.env,
-                    get_entity_platform_instance(
-                        self.config.target_platform_instance,
-                        self.config.platform_instance,
-                        self.config.target_platform,
-                        node.schema,
-                        self.config.target_platform_instance_mapping,
-                    ),
+                    self.config.target_platform_instance,
                 )
             )
         if upstream_urns:
@@ -1337,7 +1312,6 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.use_identifiers,
             self.config.target_platform,
             self.config.target_platform_instance,
-            self.config.target_platform_instance_mapping,
             self.config.env,
             self.config.disable_dbt_node_creation,
             self.config.platform_instance,
