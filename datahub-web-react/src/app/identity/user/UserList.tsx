@@ -133,7 +133,12 @@ export const UserList = () => {
                         showSizeChanger={false}
                     />
                 </UserPaginationContainer>
-                <ViewInviteTokenModal visible={isViewingInviteToken} onClose={() => setIsViewingInviteToken(false)} />
+                {canManageUserCredentials && (
+                    <ViewInviteTokenModal
+                        visible={isViewingInviteToken}
+                        onClose={() => setIsViewingInviteToken(false)}
+                    />
+                )}
             </UserContainer>
         </>
     );
