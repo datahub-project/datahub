@@ -2,8 +2,8 @@
 
 In order to ingest metadata from Salesforce, you will need:
 
-  - Salesforce username, password, [security token](https://developer.Salesforce.com/docs/atlas.en-us.api.meta/api/sforce_api_concepts_security.htm) OR 
-  - Salesforce instance url and access token/session id (suitable for one-shot ingestion only, as access token typically expires after 2 hours of inactivity)
+- Salesforce username, password, [security token](https://developer.Salesforce.com/docs/atlas.en-us.api.meta/api/sforce_api_concepts_security.htm) OR 
+- Salesforce instance url and access token/session id (suitable for one-shot ingestion only, as access token typically expires after 2 hours of inactivity)
 
 ## Integration Details
 This plugin extracts Salesforce Standard and Custom Objects and their details (fields, record count, etc) from a Salesforce instance.
@@ -26,5 +26,5 @@ This ingestion source maps the following Source System Concepts to DataHub Conce
 
 ### Caveats
 - This connector has only been tested with Salesforce Developer Edition.
-- This connector only supports table level profiling (Row and Column counts) as of now. Row counts are approximate as returned by Salesforce RecordCount REST API.
+- This connector only supports table level profiling (Row and Column counts) as of now. Row counts are approximate as returned by [Salesforce RecordCount REST API.
 - This integration does not support ingesting Salesforce [External Objects](https://developer.Salesforce.com/docs/atlas.en-us.object_reference.meta/object_reference/sforce_api_objects_external_objects.htm)
