@@ -15,8 +15,7 @@ test_resources_dir = None
 def _read_response(file_name: str) -> dict:
     response_json_path = f"{test_resources_dir}/mock_files/{file_name}"
     with open(response_json_path) as file:
-        data = json.loads(file.read())
-        return data
+        return json.loads(file.read())
 
 
 def side_effect_call_salesforce(type, url):
