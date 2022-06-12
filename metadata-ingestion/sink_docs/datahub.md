@@ -56,16 +56,17 @@ If you are using [UI based ingestion](../../docs/ui-ingestion.md) then where GMS
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field    | Required | Default | Description                  |
-| -------- | -------- | ------- | ---------------------------- |
-| `server` | ✅       |         | URL of DataHub GMS endpoint. |
-| `timeout_sec` |     | 30      | Per-HTTP request timeout.    |
-| `retry_max_times` | | 1 | Maximum times to retry if HTTP request fails. The delay between retries is increased exponentially |
-| `retry_status_codes`|    | [429, 502, 503, 504] | Retry HTTP request also on these status codes |
-| `token` |     |       | Bearer token used for authentication.    |
-| `extra_headers` |     |       | Extra headers which will be added to the request.    |
-| `max_threads`   |          | `1` |  Experimental: Max parallelism for REST API calls     |
-| `ca_certificate_path` | | | Path to CA certificate for HTTPS communications |
+| Field                      | Required | Default              | Description                                                                                        |
+|----------------------------|----------|----------------------|----------------------------------------------------------------------------------------------------|
+| `server`                   | ✅        |                      | URL of DataHub GMS endpoint.                                                                       |
+| `timeout_sec`              |          | 30                   | Per-HTTP request timeout.                                                                          |
+| `retry_max_times`          |          | 1                    | Maximum times to retry if HTTP request fails. The delay between retries is increased exponentially |
+| `retry_status_codes`       |          | [429, 502, 503, 504] | Retry HTTP request also on these status codes                                                      |
+| `token`                    |          |                      | Bearer token used for authentication.                                                              |
+| `extra_headers`            |          |                      | Extra headers which will be added to the request.                                                  |
+| `max_threads`              |          | `1`                  | Experimental: Max parallelism for REST API calls                                                   |
+| `ca_certificate_path`      |          |                      | Path to CA certificate for HTTPS communications                                                    |
+| `disable_ssl_verification` |          | false                | Disable ssl certificate validation                                                                 |
 
 ## DataHub Kafka
 
@@ -108,10 +109,12 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `connection.producer_config.<option>`        |          |         | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.SerializingProducer                  |
 | `connection.schema_registry_url`             | ✅       |         | URL of schema registry being used.                                                                                                                       |
 | `connection.schema_registry_config.<option>` |          |         | Passed to https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#confluent_kafka.schema_registry.SchemaRegistryClient |
+| `topic_routes.MetadataChangeEvent`           |          | MetadataChangeEvent     | Overridden Kafka topic name for the MetadataChangeEvent |
+| `topic_routes.MetadataChangeProposal`        |          | MetadataChangeProposal  | Overridden Kafka topic name for the MetadataChangeProposal |
 
 The options in the producer config and schema registry config are passed to the Kafka SerializingProducer and SchemaRegistryClient respectively.
 
-For a full example with a number of security options, see this [example recipe](../examples/recipes/secured_kafka.yml).
+For a full example with a number of security options, see this [example recipe](../examples/recipes/secured_kafka.dhub.yaml).
 
 ## Questions
 

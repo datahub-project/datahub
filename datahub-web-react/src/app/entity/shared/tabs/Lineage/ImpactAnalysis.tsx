@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
+import styled from 'styled-components';
 
 import { useSearchAcrossLineageQuery } from '../../../../../graphql/search.generated';
 import { EntityType, FacetFilterInput, LineageDirection } from '../../../../../types.generated';
@@ -10,6 +11,10 @@ import { SearchCfg } from '../../../../../conf';
 import analytics, { EventType } from '../../../../analytics';
 import { EmbeddedListSearch } from '../../components/styled/search/EmbeddedListSearch';
 import generateUseSearchResultsViaRelationshipHook from './generateUseSearchResultsViaRelationshipHook';
+
+const ImpactAnalysisWrapper = styled.div`
+    flex: 1;
+`;
 
 type Props = {
     urn: string;
@@ -54,13 +59,13 @@ export const ImpactAnalysis = ({ urn }: Props) => {
     }, [query, data, loading]);
 
     return (
-        <div>
+        <ImpactAnalysisWrapper>
             <EmbeddedListSearch
                 useGetSearchResults={generateUseSearchResultsViaRelationshipHook({
                     urn,
                     direction: LineageDirection.Downstream,
                 })}
             />
-        </div>
+        </ImpactAnalysisWrapper>
     );
 };

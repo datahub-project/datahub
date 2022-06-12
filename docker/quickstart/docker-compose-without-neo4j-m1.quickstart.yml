@@ -33,7 +33,7 @@ services:
       - DATAHUB_SYSTEM_CLIENT_SECRET=JohnSnowKnowsNothing
       - KAFKA_PROPERTIES_SECURITY_PROTOCOL=PLAINTEXT
     hostname: actions
-    image: acryldata/acryl-datahub-actions:${ACTIONS_VERSION:-head}
+    image: acryldata/datahub-actions:${ACTIONS_VERSION:-head}
     restart: on-failure:5
   datahub-frontend-react:
     container_name: datahub-frontend-react
@@ -78,6 +78,8 @@ services:
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
     - MAE_CONSUMER_ENABLED=true
     - MCE_CONSUMER_ENABLED=true
+    - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
+    - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
     - PE_CONSUMER_ENABLED=true
     hostname: datahub-gms
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
@@ -151,7 +153,7 @@ services:
     - MYSQL_PASSWORD=datahub
     - DATAHUB_DB_NAME=datahub
     hostname: mysql-setup
-    image: acryldata/datahub-mysql-setup:head
+    image: acryldata/datahub-mysql-setup:${DATAHUB_VERSION:-head}
   schema-registry:
     container_name: schema-registry
     depends_on:

@@ -1,14 +1,10 @@
 package datahub.spark;
 
-import datahub.spark.model.LineageUtils;
-import datahub.spark.model.DatasetLineage;
-import datahub.spark.model.LineageConsumer;
-import datahub.spark.model.LineageEvent;
-import datahub.spark.model.SQLQueryExecStartEvent;
-import datahub.spark.model.dataset.CatalogTableDataset;
-import datahub.spark.model.dataset.HdfsPathDataset;
-import datahub.spark.model.dataset.JdbcDataset;
-import datahub.spark.model.dataset.SparkDataset;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.mockserver.integration.ClientAndServer.startClientAndServer;
+import static org.mockserver.model.HttpRequest.request;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -21,20 +17,24 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Collectors;
+
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SaveMode;
 import org.apache.spark.sql.SparkSession;
+import org.apache.spark.storage.StorageLevel;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
+import org.junit.FixMethodOrder;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestRule;
 import org.junit.rules.TestWatcher;
 import org.junit.runner.Description;
+import org.junit.runners.MethodSorters;
 import org.mockserver.integration.ClientAndServer;
 import org.mockserver.matchers.Times;
 import org.mockserver.model.HttpResponse;
@@ -45,16 +45,25 @@ import org.testcontainers.containers.PostgreSQLContainer;
 
 import com.linkedin.common.FabricType;
 
-import static org.junit.Assert.*;
-import static org.mockserver.integration.ClientAndServer.*;
-import static org.mockserver.model.HttpRequest.*;
+import datahub.spark.model.DatasetLineage;
+import datahub.spark.model.LineageConsumer;
+import datahub.spark.model.LineageEvent;
+import datahub.spark.model.LineageUtils;
+import datahub.spark.model.SQLQueryExecStartEvent;
+import datahub.spark.model.dataset.CatalogTableDataset;
+import datahub.spark.model.dataset.HdfsPathDataset;
+import datahub.spark.model.dataset.JdbcDataset;
+import datahub.spark.model.dataset.SparkDataset;
 
-
+//!!!! IMP  !!!!!!!!
+//Add the test number before naming the test. This will ensure that tests run in specified order. 
+//This is necessary to have fixed query execution numbers. Otherwise tests will fail.
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class TestSparkJobsLineage {
   private static final boolean MOCK_GMS = Boolean.valueOf("true");
-      // if false, MCPs get written to real GMS server (see GMS_PORT)
+  // if false, MCPs get written to real GMS server (see GMS_PORT)
   private static final boolean VERIFY_EXPECTED = MOCK_GMS && Boolean.valueOf("true");
-      // if false, "expected" JSONs are overwritten.
+  // if false, "expected" JSONs are overwritten.
 
   private static final String APP_NAME = "sparkTestApp";
 
@@ -71,14 +80,14 @@ public class TestSparkJobsLineage {
   private static final int GMS_PORT = MOCK_GMS ? MOCK_PORT : 8080;
 
   private static final String EXPECTED_JSON_ROOT = "src/test/resources/expected/";
-  
+
   private static final FabricType DATASET_ENV = FabricType.DEV;
   private static final String PIPELINE_PLATFORM_INSTANCE = "test_machine";
   private static final String DATASET_PLATFORM_INSTANCE = "test_dev_dataset";
-  
+
   @ClassRule
-  public static PostgreSQLContainer<?> db =
-      new PostgreSQLContainer<>("postgres:9.6.12").withDatabaseName("sparktestdb");
+  public static PostgreSQLContainer<?> db = new PostgreSQLContainer<>("postgres:9.6.12")
+      .withDatabaseName("sparktestdb");
   private static SparkSession spark;
   private static Properties jdbcConnnProperties;
   private static DatasetLineageAccumulator acc;
@@ -104,9 +113,10 @@ public class TestSparkJobsLineage {
   public static void resetBaseExpectations() {
     mockServer.when(request().withMethod("GET").withPath("/config").withHeader("Content-type", "application/json"),
         Times.unlimited()).respond(org.mockserver.model.HttpResponse.response().withBody("{\"noCode\": true }"));
-    mockServer.when(
-        request().withMethod("POST").withPath("/aspects").withQueryStringParameter("action", "ingestProposal"),
-        Times.unlimited()).respond(HttpResponse.response().withStatusCode(200));
+    mockServer
+        .when(request().withMethod("POST").withPath("/aspects").withQueryStringParameter("action", "ingestProposal"),
+            Times.unlimited())
+        .respond(HttpResponse.response().withStatusCode(200));
   }
 
   public static void init() {
@@ -120,10 +130,9 @@ public class TestSparkJobsLineage {
       List<String> expected = Files.readAllLines(Paths.get(EXPECTED_JSON_ROOT, expectationFileName));
       for (String content : expected) {
         String swappedContent = addLocalPath(content);
-        mockServer.verify(request().withMethod("POST")
-            .withPath("/aspects")
-            .withQueryStringParameter("action", "ingestProposal")
-            .withBody(new JsonBody(swappedContent)), VerificationTimes.atLeast(1));
+        mockServer.verify(request().withMethod("POST").withPath("/aspects")
+            .withQueryStringParameter("action", "ingestProposal").withBody(new JsonBody(swappedContent)),
+            VerificationTimes.atLeast(1));
       }
     } catch (IOException ioe) {
       throw new RuntimeException("failed to read expectations", ioe);
@@ -146,18 +155,14 @@ public class TestSparkJobsLineage {
     LineageUtils.registerConsumer("accumulator", acc);
     init();
 
-    spark = SparkSession.builder()
-        .appName(APP_NAME)
-        .config("spark.master", MASTER)
+    spark = SparkSession.builder().appName(APP_NAME).config("spark.master", MASTER)
         .config("spark.extraListeners", "datahub.spark.DatahubSparkListener")
         .config("spark.datahub.lineage.consumerTypes", "accumulator")
         .config("spark.datahub.rest.server", "http://localhost:" + mockServer.getPort())
         .config("spark.datahub.metadata.pipeline.platformInstance", PIPELINE_PLATFORM_INSTANCE)
         .config("spark.datahub.metadata.dataset.platformInstance", DATASET_PLATFORM_INSTANCE)
         .config("spark.datahub.metadata.dataset.env", DATASET_ENV.name())
-        .config("spark.sql.warehouse.dir", new File(WAREHOUSE_LOC).getAbsolutePath())
-        .enableHiveSupport()
-        .getOrCreate();
+        .config("spark.sql.warehouse.dir", new File(WAREHOUSE_LOC).getAbsolutePath()).enableHiveSupport().getOrCreate();
 
     spark.sql("drop database if exists " + TEST_DB + " cascade");
     spark.sql("create database " + TEST_DB);
@@ -172,8 +177,8 @@ public class TestSparkJobsLineage {
   }
 
   private static void clear() {
-    mockServer.clear(
-        request().withMethod("POST").withPath("/aspects").withQueryStringParameter("action", "ingestProposal"));
+    mockServer
+        .clear(request().withMethod("POST").withPath("/aspects").withQueryStringParameter("action", "ingestProposal"));
   }
 
   @AfterClass
@@ -240,15 +245,15 @@ public class TestSparkJobsLineage {
   }
 
   @Test
-  public void testHdfsInOut() throws Exception {
+  public void test1HdfsInOut() throws Exception {
 
     Dataset<Row> df1 = spark.read().option("header", "true").csv(DATA_DIR + "/in1.csv");
     Dataset<Row> df2 = spark.read().option("header", "true").csv(DATA_DIR + "/in2.csv");
     df1.createOrReplaceTempView("v1");
     df2.createOrReplaceTempView("v2");
 
-    Dataset<Row> df =
-        spark.sql("select v1.c1 as a, v1.c2 as b, v2.c1 as c, v2.c2 as d from v1 join v2 on v1.id = v2.id");
+    Dataset<Row> df = spark
+        .sql("select v1.c1 as a, v1.c2 as b, v2.c1 as c, v2.c2 as d from v1 join v2 on v1.id = v2.id");
 
     // InsertIntoHadoopFsRelationCommand
     df.write().mode(SaveMode.Overwrite).csv(DATA_DIR + "/out.csv");
@@ -260,17 +265,12 @@ public class TestSparkJobsLineage {
   }
 
   @Test
-  public void testHdfsInJdbcOut() throws Exception {
-    Dataset<Row> df1 = spark.read()
-        .option("header", "true")
-        .csv(DATA_DIR + "/in1.csv")
-        .withColumnRenamed("c1", "a")
+  public void test5HdfsInJdbcOut() throws Exception {
+
+    Dataset<Row> df1 = spark.read().option("header", "true").csv(DATA_DIR + "/in1.csv").withColumnRenamed("c1", "a")
         .withColumnRenamed("c2", "b");
 
-    Dataset<Row> df2 = spark.read()
-        .option("header", "true")
-        .csv(DATA_DIR + "/in2.csv")
-        .withColumnRenamed("c1", "c")
+    Dataset<Row> df2 = spark.read().option("header", "true").csv(DATA_DIR + "/in2.csv").withColumnRenamed("c1", "c")
         .withColumnRenamed("c2", "d");
 
     Dataset<Row> df = df1.join(df2, "id").drop("id");
@@ -280,22 +280,20 @@ public class TestSparkJobsLineage {
     df.write().mode(SaveMode.Overwrite).jdbc(db.getJdbcUrl(), "foo1", jdbcConnnProperties);
     Thread.sleep(5000);
     check(dsl(pgDs("foo1"), hdfsDs("in1.csv"), hdfsDs("in2.csv")), acc.getLineages().get(0));
-    {
+    if (VERIFY_EXPECTED) {
       verify(1 * N);
     }
   }
 
   @Test
-  public void testHdfsJdbcInJdbcOut() throws Exception {
+  public void test3HdfsJdbcInJdbcOut() throws Exception {
+
     Connection c = db.createConnection("");
     c.createStatement().execute("create table foo2 (a varchar(5), b int);");
     c.createStatement().execute("insert into foo2 values('a', 4);");
     c.close();
 
-    Dataset<Row> df1 = spark.read()
-        .option("header", "true")
-        .csv(DATA_DIR + "/in1.csv")
-        .withColumnRenamed("c1", "a")
+    Dataset<Row> df1 = spark.read().option("header", "true").csv(DATA_DIR + "/in1.csv").withColumnRenamed("c1", "a")
         .withColumnRenamed("c2", "b2");
 
     Dataset<Row> df2 = spark.read().jdbc(db.getJdbcUrl(), "foo2", jdbcConnnProperties);
@@ -313,17 +311,12 @@ public class TestSparkJobsLineage {
   }
 
   @Test
-  public void testHdfsInHiveOut() throws Exception {
-    Dataset<Row> df1 = spark.read()
-        .option("header", "true")
-        .csv(DATA_DIR + "/in1.csv")
-        .withColumnRenamed("c1", "a")
+  public void test2HdfsInHiveOut() throws Exception {
+
+    Dataset<Row> df1 = spark.read().option("header", "true").csv(DATA_DIR + "/in1.csv").withColumnRenamed("c1", "a")
         .withColumnRenamed("c2", "b");
 
-    Dataset<Row> df2 = spark.read()
-        .option("header", "true")
-        .csv(DATA_DIR + "/in2.csv")
-        .withColumnRenamed("c1", "c")
+    Dataset<Row> df2 = spark.read().option("header", "true").csv(DATA_DIR + "/in2.csv").withColumnRenamed("c1", "c")
         .withColumnRenamed("c2", "d");
 
     Dataset<Row> df = df1.join(df2, "id").drop("id");
@@ -343,17 +336,12 @@ public class TestSparkJobsLineage {
   }
 
   @Test
-  public void testHiveInHiveOut() throws Exception {
-    Dataset<Row> df1 = spark.read()
-        .option("header", "true")
-        .csv(DATA_DIR + "/in1.csv")
-        .withColumnRenamed("c1", "a")
+  public void test4HiveInHiveOut() throws Exception {
+
+    Dataset<Row> df1 = spark.read().option("header", "true").csv(DATA_DIR + "/in1.csv").withColumnRenamed("c1", "a")
         .withColumnRenamed("c2", "b");
 
-    Dataset<Row> df2 = spark.read()
-        .option("header", "true")
-        .csv(DATA_DIR + "/in2.csv")
-        .withColumnRenamed("c1", "c")
+    Dataset<Row> df2 = spark.read().option("header", "true").csv(DATA_DIR + "/in2.csv").withColumnRenamed("c1", "c")
         .withColumnRenamed("c2", "d");
 
     df1.createOrReplaceTempView("v1");
@@ -386,24 +374,19 @@ public class TestSparkJobsLineage {
   }
 
   @Test
-  public void testHdfsJdbcInJdbcOutTwoLevel() throws Exception {
+  public void test6HdfsJdbcInJdbcOutTwoLevel() throws Exception {
+
     Connection c = db.createConnection("");
     c.createStatement().execute("create table foo6 (a varchar(5), b int);");
     c.createStatement().execute("insert into foo6 values('a', 4);");
     c.close();
 
-    Dataset<Row> df1 = spark.read()
-        .option("header", "true")
-        .csv(DATA_DIR + "/in1.csv")
-        .withColumnRenamed("c1", "a")
+    Dataset<Row> df1 = spark.read().option("header", "true").csv(DATA_DIR + "/in1.csv").withColumnRenamed("c1", "a")
         .withColumnRenamed("c2", "b2");
 
     Dataset<Row> df2 = spark.read().jdbc(db.getJdbcUrl(), "foo6", jdbcConnnProperties);
 
-    Dataset<Row> df3 = spark.read()
-        .option("header", "true")
-        .csv(DATA_DIR + "/in2.csv")
-        .withColumnRenamed("c1", "a")
+    Dataset<Row> df3 = spark.read().option("header", "true").csv(DATA_DIR + "/in2.csv").withColumnRenamed("c1", "a")
         .withColumnRenamed("c2", "b3");
 
     Dataset<Row> df = df1.join(df2, "a").drop("id").join(df3, "a");
@@ -418,7 +401,73 @@ public class TestSparkJobsLineage {
     }
   }
 
+  @Test
+  public void test7HdfsInPersistHdfsOut() throws Exception {
+
+    Dataset<Row> df1 = spark.read().option("header", "true").csv(DATA_DIR + "/in3.csv");
+
+    Dataset<Row> df2 = spark.read().option("header", "true").csv(DATA_DIR + "/in4.csv").withColumnRenamed("c2", "d")
+        .withColumnRenamed("c1", "c").withColumnRenamed("id", "id2");
+    Dataset<Row> df = df1.join(df2, df1.col("id").equalTo(df2.col("id2")), "inner")
+        .filter(df1.col("id").equalTo("id_filter")).persist(StorageLevel.MEMORY_ONLY());
+
+    df.show();
+    // InsertIntoHadoopFsRelationCommand
+    df.write().mode(SaveMode.Overwrite).csv(DATA_DIR + "/out_persist.csv");
+    Thread.sleep(5000);
+    check(dsl(hdfsDs("out_persist.csv"), hdfsDs("in3.csv"), hdfsDs("in4.csv")), acc.getLineages().get(0));
+    if (VERIFY_EXPECTED) {
+      verify(1 * N);
+    }
+  }
+
+  @Test
+  public void test8PersistHdfsJdbcInJdbcOut() throws Exception {
+
+    Connection c = db.createConnection("");
+    c.createStatement().execute("create table foo8 (a varchar(5), b int);");
+    c.createStatement().execute("insert into foo8 values('a', 4);");
+    c.close();
+
+    Dataset<Row> df1 = spark.read().option("header", "true").csv(DATA_DIR + "/in1.csv").withColumnRenamed("c1", "a")
+        .withColumnRenamed("c2", "b2");
+
+    Dataset<Row> df2 = spark.read().jdbc(db.getJdbcUrl(), "foo8", jdbcConnnProperties).persist(StorageLevel.MEMORY_ONLY());
+
+    Dataset<Row> df = df1.join(df2, "a");
+
+    // SaveIntoDataSourceCommand
+    // JDBCRelation input
+    df.write().mode(SaveMode.Overwrite).jdbc(db.getJdbcUrl(), "foo9", jdbcConnnProperties);
+    Thread.sleep(5000);
+    check(dsl(pgDs("foo9"), hdfsDs("in1.csv"), pgDs("foo8")), acc.getLineages().get(0));
+    if (VERIFY_EXPECTED) {
+      verify(1 * N);
+    }
+  }
+  
+  // This test cannot be executed individually. It depends upon previous tests to create tables in the database.
+  @Test
+  public void test9PersistJdbcInHdfsOut() throws Exception {
+
+    Connection c = db.createConnection("");
+    
+    Dataset<Row> df1 = spark.read().jdbc(db.getJdbcUrl(), "foo9", jdbcConnnProperties);
+    df1 = df1.withColumnRenamed("b", "b1");
+    Dataset<Row> df2 = spark.read().jdbc(db.getJdbcUrl(), "foo8", jdbcConnnProperties).persist(StorageLevel.DISK_ONLY_2());
+
+    Dataset<Row> df = df1.join(df2, "a");
+    
+    df.write().mode(SaveMode.Overwrite).csv(DATA_DIR + "/out_persist.csv");
+    Thread.sleep(5000);
+    check(dsl(hdfsDs("out_persist.csv"), pgDs("foo2"), pgDs("foo3")), acc.getLineages().get(0));
+    if (VERIFY_EXPECTED) {
+      verify(1 * N);
+    }
+  }
+  
   private static class DatasetLineageAccumulator implements LineageConsumer {
+
     boolean closed = false;
 
     private final List<DatasetLineage> lineages = new ArrayList<>();

@@ -12,8 +12,8 @@ type Props = {
     columnCount?: number;
     queryCount?: number;
     users?: Array<Maybe<UserUsageCounts>>;
-    lastUpdated?: string;
-    lastUpdatedUTC?: string;
+    lastUpdatedTime?: string;
+    lastReportedTime?: string;
 };
 
 const StatSection = styled.div`
@@ -29,9 +29,17 @@ const StatContainer = styled.div<{ justifyContent }>`
     padding: 12px 2px;
 `;
 
-export default function TableStats({ rowCount, columnCount, queryCount, users, lastUpdated, lastUpdatedUTC }: Props) {
+export default function TableStats({
+    rowCount,
+    columnCount,
+    queryCount,
+    users,
+    lastUpdatedTime,
+    lastReportedTime,
+}: Props) {
     // If there are less than 4 items, simply stack the stat views.
     const justifyContent = !queryCount && !users ? 'default' : 'space-between';
+    const lastReportedTimeString = lastReportedTime || 'unknown';
     return (
         <StatSection>
             <Typography.Title level={5}>Table Stats</Typography.Title>
@@ -62,15 +70,15 @@ export default function TableStats({ rowCount, columnCount, queryCount, users, l
                 {users && (
                     <InfoItem title="Top Users">
                         <div style={{ paddingTop: 8 }}>
-                            <UsageFacepile users={users} />
+                            <UsageFacepile users={users} maxNumberDisplayed={10} />
                         </div>
                     </InfoItem>
                 )}
-                {lastUpdated && (
+                {lastUpdatedTime && (
                     <InfoItem title="Last Updated" width="220px">
-                        <Tooltip title={lastUpdatedUTC}>
+                        <Tooltip title={`Last reported at ${lastReportedTimeString}`}>
                             <Typography.Text strong style={{ fontSize: 16 }}>
-                                {lastUpdated}
+                                {lastUpdatedTime}
                             </Typography.Text>
                         </Tooltip>
                     </InfoItem>

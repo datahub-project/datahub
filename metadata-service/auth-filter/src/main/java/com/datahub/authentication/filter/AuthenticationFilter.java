@@ -1,24 +1,26 @@
 package com.datahub.authentication.filter;
 
 import com.datahub.authentication.Authentication;
-
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authentication.AuthenticationException;
+import com.datahub.authentication.AuthenticationRequest;
 import com.datahub.authentication.Authenticator;
 import com.datahub.authentication.AuthenticatorConfiguration;
-import com.datahub.authentication.authenticator.AuthenticatorChain;
 import com.datahub.authentication.AuthenticatorContext;
+import com.datahub.authentication.authenticator.AuthenticatorChain;
 import com.datahub.authentication.authenticator.DataHubSystemAuthenticator;
 import com.datahub.authentication.authenticator.NoOpAuthenticator;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.entity.EntityService;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
+import javax.inject.Named;
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.FilterConfig;
@@ -43,6 +45,10 @@ public class AuthenticationFilter implements Filter {
   @Inject
   private ConfigurationProvider configurationProvider;
 
+  @Inject
+  @Named("entityService")
+  private EntityService _entityService;
+
   private AuthenticatorChain authenticatorChain;
 
   @Override
@@ -57,7 +63,7 @@ public class AuthenticationFilter implements Filter {
       ServletResponse response,
       FilterChain chain)
       throws IOException, ServletException {
-    AuthenticatorContext context = buildAuthContext((HttpServletRequest) request);
+    AuthenticationRequest context = buildAuthContext((HttpServletRequest) request);
     Authentication authentication = null;
     try {
       authentication = this.authenticatorChain.authenticate(context);
@@ -101,6 +107,11 @@ public class AuthenticationFilter implements Filter {
     authenticatorChain = new AuthenticatorChain();
 
     boolean isAuthEnabled = this.configurationProvider.getAuthentication().isEnabled();
+
+    // Create authentication context object to pass to authenticator instances. They can use it as needed.
+    final AuthenticatorContext authenticatorContext = new AuthenticatorContext(ImmutableMap.of(ENTITY_SERVICE,
+        this._entityService));
+
     if (isAuthEnabled) {
       log.info("Auth is enabled. Building authenticator chain...");
 
@@ -109,11 +120,12 @@ public class AuthenticationFilter implements Filter {
       systemAuthenticator.init(ImmutableMap.of(
           SYSTEM_CLIENT_ID_CONFIG, this.configurationProvider.getAuthentication().getSystemClientId(),
           SYSTEM_CLIENT_SECRET_CONFIG, this.configurationProvider.getAuthentication().getSystemClientSecret()
-      ));
+      ), authenticatorContext);
       authenticatorChain.register(systemAuthenticator); // Always register authenticator for internal system.
 
       // Then create a list of authenticators based on provided configs.
       final List<AuthenticatorConfiguration> authenticatorConfigurations = this.configurationProvider.getAuthentication().getAuthenticators();
+
       for (AuthenticatorConfiguration config : authenticatorConfigurations) {
         final String type = config.getType();
         final Map<String, Object> configs = config.getConfigs();
@@ -142,7 +154,7 @@ public class AuthenticationFilter implements Filter {
           final Authenticator authenticator = clazz.newInstance();
           // Successfully created authenticator. Now init and register it.
           log.debug(String.format("Initializing Authenticator with name %s", type));
-          authenticator.init(configs);
+            authenticator.init(configs, authenticatorContext);
           log.info(String.format("Registering Authenticator with name %s", type));
           authenticatorChain.register(authenticator);
         } catch (Exception e) {
@@ -155,13 +167,13 @@ public class AuthenticationFilter implements Filter {
       final NoOpAuthenticator noOpAuthenticator = new NoOpAuthenticator();
       noOpAuthenticator.init(ImmutableMap.of(
           SYSTEM_CLIENT_ID_CONFIG,
-          this.configurationProvider.getAuthentication().getSystemClientId()));
+          this.configurationProvider.getAuthentication().getSystemClientId()), authenticatorContext);
       authenticatorChain.register(noOpAuthenticator);
     }
   }
 
-  private AuthenticatorContext buildAuthContext(HttpServletRequest request) {
-    return new AuthenticatorContext(Collections.list(request.getHeaderNames())
+  private AuthenticationRequest buildAuthContext(HttpServletRequest request) {
+    return new AuthenticationRequest(Collections.list(request.getHeaderNames())
         .stream()
         .collect(Collectors.toMap(headerName -> headerName, request::getHeader)));
   }

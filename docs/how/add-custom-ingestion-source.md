@@ -15,6 +15,10 @@ the [metadata-ingestion source guide](../../metadata-ingestion/adding-source.md)
 
 ### How to use this source?
 
+:::note
+[UI Based Ingestion](../ui-ingestion.md) currently does not support custom ingestion sources.
+:::
+
 To be able to use this source you just need to do a few things.
 
 1. Build a python package out of your project including the custom source class.

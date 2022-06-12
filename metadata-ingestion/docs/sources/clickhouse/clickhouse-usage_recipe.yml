@@ -1,0 +1,14 @@
+source:
+  type: clickhouse-usage
+  config:
+    # Coordinates
+    host_port: db_host:port
+    platform_instance: dev_cluster
+    email_domain: acryl.io
+
+    # Credentials
+    username: username
+    password: "password"
+
+sink:
+# sink configs

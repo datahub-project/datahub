@@ -15,12 +15,21 @@ from xmlrpc.client import Boolean
 import msal
 import requests
 from orderedset import OrderedSet
+from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -99,17 +108,22 @@ class Constant:
 
 class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     # Organsation Identifier
-    tenant_id: str
+    tenant_id: str = Field(description="Power BI tenant identifier.")
     # PowerBi workspace identifier
-    workspace_id: str
+    workspace_id: str = Field(description="Power BI workspace identifier.")
     # Dataset type mapping
-    dataset_type_mapping: Dict[str, str]
+    dataset_type_mapping: Dict[str, str] = Field(
+        description="Mapping of Power BI datasource type to Datahub dataset."
+    )
     # Azure app client identifier
-    client_id: str
+    client_id: str = Field(description="Azure AD App client identifier.")
     # Azure app client secret
-    client_secret: str
+    client_secret: str = Field(description="Azure AD App client secret.")
     # timeout for meta-data scanning
-    scan_timeout: int = 60
+    scan_timeout: int = Field(
+        default=60,
+        description="time in seconds to wait for Power BI metadata scan result.",
+    )
 
     scope: str = "https://analysis.windows.net/powerbi/api/.default"
     base_url: str = "https://api.powerbi.com/v1.0/myorg/groups"
@@ -1320,9 +1334,26 @@ class PowerBiDashboardSourceReport(SourceReport):
         self.filtered_charts.append(view)
 
 
+@platform_name("PowerBI")
+@config_class(PowerBiDashboardSourceConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.OWNERSHIP, "Enabled by default")
 class PowerBiDashboardSource(Source):
     """
-    Datahub PowerBi plugin main class. This class extends Source to become PowerBi data ingestion source for Datahub
+        This plugin extracts the following:
+
+    - Power BI dashboards, tiles, datasets
+    - Names, descriptions and URLs of dashboard and tile
+    - Owners of dashboards
+
+    ## Configuration Notes
+
+    See the
+    1.  [Microsoft AD App Creation doc](https://docs.microsoft.com/en-us/power-bi/developer/embedded/embed-service-principal) for the steps to create a app client ID and secret.
+    2.  Login to Power BI as Admin and from `Tenant settings` allow below permissions.
+        - Allow service principles to use Power BI APIs
+        - Allow service principals to use read-only Power BI admin APIs
+        - Enhance admin APIs responses with detailed metadata
     """
 
     source_config: PowerBiDashboardSourceConfig

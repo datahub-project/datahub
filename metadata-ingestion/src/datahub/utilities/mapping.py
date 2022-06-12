@@ -19,6 +19,7 @@ class Constants:
     USER_OWNER = "user"
     GROUP_OWNER = "group"
     OPERAND_DATATYPE_SUPPORTED = [int, bool, str, float]
+    TAG_PARTITION_KEY = "PARTITION_KEY"
 
 
 class OperationProcessor:
@@ -131,11 +132,18 @@ class OperationProcessor:
         operation_config: Dict,
         raw_props: Dict,
     ) -> Optional[str]:
+        match_regexp = r"{{\s*\$match\s*}}"
+
         if (
             operation_type == Constants.ADD_TAG_OPERATION
             and operation_config[Constants.TAG]
         ):
             tag = operation_config[Constants.TAG]
+            if isinstance(raw_props[operation_key], str):
+                tag = re.sub(
+                    match_regexp, raw_props[operation_key], tag, 0, re.MULTILINE
+                )
+
             if self.tag_prefix:
                 tag = self.tag_prefix + tag
             return tag
@@ -155,6 +163,10 @@ class OperationProcessor:
             and operation_config[Constants.TERM]
         ):
             term = operation_config[Constants.TERM]
+            if isinstance(raw_props[operation_key], str):
+                term = re.sub(
+                    match_regexp, raw_props[operation_key], term, 0, re.MULTILINE
+                )
             return mce_builder.make_term_urn(term)
         return None
 

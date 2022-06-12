@@ -15,12 +15,12 @@ public interface Authorizer {
    * @param authorizerConfig config provided to the authenticator derived from the Metadata Service YAML config. This
    *                         config comes from the "authorization.authorizers.config" configuration.
    */
-  void init(@Nonnull final Map<String, Object> authorizerConfig);
+  void init(@Nonnull final Map<String, Object> authorizerConfig, @Nonnull final AuthorizerContext ctx);
 
   /**
    * Authorizes an action based on the actor, the resource, & required privileges.
    */
-  AuthorizationResult authorize(AuthorizationRequest request);
+  AuthorizationResult authorize(@Nonnull final AuthorizationRequest request);
 
   /**
    * Retrieves the current list of actors authorized to for a particular privilege against

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Collapse } from 'antd';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { checkOwnership } from '../../../../dataset/whoAmI';
+import { CheckOwnership } from '../../../../dataset/whoAmI';
 import { useBaseEntity } from '../../../EntityContext';
 import { EditBrowsePathTable } from '../BrowsePath/EditBrowsePathTable';
 import { EditParentContainerPanel } from '../containerEdit/EditParentContainerPanel';
@@ -16,7 +16,7 @@ const panelStyles = {
 export const AdminTab = () => {
     const dataset = useBaseEntity<GetDatasetQuery>();
     const { Panel } = Collapse;
-    if (checkOwnership(dataset)) {
+    if (CheckOwnership(dataset)) {
         return (
             <>
                 <Collapse accordion style={panelStyles}>
