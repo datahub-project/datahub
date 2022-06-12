@@ -487,6 +487,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:salesforce",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "salesforce",
+      "displayName": "Salesforce",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/logo-salesforce.svg"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:unknown",
     "aspect": {
       "datasetNameDelimiter": ".",
