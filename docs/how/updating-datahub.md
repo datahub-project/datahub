@@ -12,6 +12,20 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other notable Changes
 
+## `v0.8.38`
+
+### Breaking Changes
+
+### Potential Downtime
+
+### Deprecations
+
+### Other notable Changes
+- Create & Revoke Access Tokens via the UI
+- Create and Manage new users via the UI 
+- Improvements to Business Glossary UI
+- FIX - Do not require reindexing to migrate to using the UI business glossary 
+
 ## `v0.8.36`
 
 ### Breaking Changes

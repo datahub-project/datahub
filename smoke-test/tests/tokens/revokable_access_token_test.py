@@ -131,7 +131,7 @@ def test_non_admin_can_create_list_revoke_tokens():
     user_tokenId = res_data["data"]["createAccessToken"]["metadata"]["id"]
 
     # User should be able to list his own token
-    res_data = listAccessTokens(user_session, [{"field": "actorUrn","value": "urn:li:corpuser:user"}])
+    res_data = listAccessTokens(user_session, [{"field": "ownerUrn","value": "urn:li:corpuser:user"}])
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] is not None
@@ -148,7 +148,7 @@ def test_non_admin_can_create_list_revoke_tokens():
     assert res_data["data"]["revokeAccessToken"] == True
 
     # Using a normal account, check that all its tokens where removed.
-    res_data = listAccessTokens(user_session, [{"field": "actorUrn","value": "urn:li:corpuser:user"}])
+    res_data = listAccessTokens(user_session, [{"field": "ownerUrn","value": "urn:li:corpuser:user"}])
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] is not None
