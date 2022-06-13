@@ -23,7 +23,7 @@ const SummaryMessage = styled.div`
 
 const SummaryTitle = styled(Typography.Title)`
     && {
-        padding-bottom: 00px;
+        padding-bottom: 0px;
         margin-bottom: 0px;
     }
 `;
