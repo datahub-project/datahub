@@ -283,6 +283,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
   }
 
   private void trySendOwnershipChangeNotifications(final MetadataChangeLog logEvent, final List<ChangeEvent> changeEvents) {
+
     List<Urn> addedUrns = changeEvents.stream()
         .filter(changeEvent -> ChangeCategory.OWNER.equals(changeEvent.getCategory()))
         .filter(changeEvent -> ChangeOperation.ADD.equals(changeEvent.getOperation()))
@@ -309,6 +310,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
         .collect(Collectors.toList());
 
     if (removedUrns.size() > 0) {
+
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_OWNER_CHANGE,
           logEvent.getCreated().getActor(),
@@ -532,7 +534,6 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
 
     if (modifierUrns != null) {
       for (int i = 0; i < modifierUrns.size() && i < 3; i++) {
-        log.info(String.format("Found modifiers %s", modifierUrns));
         final Urn modifierUrn = modifierUrns.get(i);
         final String modifierName = _entityNameProvider.getName(modifierUrn);
         templateParams.put(String.format("modifier%sName", i), modifierName);
@@ -544,8 +545,6 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       templateParams.put("subResourceType", subResourceType);
       templateParams.put("subResource", subResource);
     }
-
-    log.info(String.format("Parameters: %s", templateParams));
 
     final NotificationRequest notificationRequest = buildNotificationRequest(
         NotificationTemplateType.BROADCAST_ENTITY_CHANGE.name(),

@@ -45,12 +45,12 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
 
 
     return CompletableFuture.supplyAsync(() -> {
-      if (SettingsUtils.canManageGlobalSettings(context)) {
+      if (SettingsMapper.canManageGlobalSettings(context)) {
 
         final UpdateGlobalSettingsInput input = bindArgument(environment.getArgument("input"), UpdateGlobalSettingsInput.class);
 
         // First, fetch the existing global settings.
-        GlobalSettingsInfo globalSettings = SettingsUtils.getGlobalSettings(_entityClient, context.getAuthentication());
+        GlobalSettingsInfo globalSettings = SettingsMapper.getGlobalSettings(_entityClient, context.getAuthentication());
 
         // Next, patch the global settings.
         updateSettings(globalSettings, input);

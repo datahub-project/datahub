@@ -352,6 +352,11 @@ type SlackIntegrationSettings {
   enabled: Boolean!
 
   """
+  A bot token used for sending notifications
+  """
+  botToken: String
+
+  """
   A default slack channel to route to.
   """
   defaultChannelName: String

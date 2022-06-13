@@ -114,7 +114,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
   protected List<NotificationRecipient> buildGlobalSlackRecipients(NotificationScenarioType type, NotificationSetting setting) {
     // If notifications are disabled for this notification type, skip.
     if (!isSlackEnabled() || (hasParam(setting.getParams(), "slack.enabled")
-        && Boolean.FALSE.equals(Boolean.valueOf(setting.getParams().get("isSlackEnabled"))))) {
+        && Boolean.FALSE.equals(Boolean.valueOf(setting.getParams().get("slack.enabled"))))) {
       // Skip notification type.
       return Collections.emptyList();
     }

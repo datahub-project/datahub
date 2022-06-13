@@ -624,7 +624,7 @@ public class GmsGraphQLEngine {
     private void configureGlobalSettingsResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Query", typeWiring -> typeWiring
             .dataFetcher("globalSettings",
-                new GlobalSettingsResolver(entityClient))
+                new GlobalSettingsResolver(entityClient, secretService))
         );
         builder.type("Mutation", typeWiring -> typeWiring
             .dataFetcher("updateGlobalSettings",

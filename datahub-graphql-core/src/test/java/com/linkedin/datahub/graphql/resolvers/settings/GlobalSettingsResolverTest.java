@@ -15,6 +15,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.settings.NotificationSettingMap;
 import com.linkedin.settings.NotificationSettingValue;
@@ -35,6 +36,7 @@ public class GlobalSettingsResolverTest {
   public void testGetSuccess() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SecretService mockSecretService = Mockito.mock(SecretService.class);
 
     GlobalSettingsInfo returnedInfo = getGlobalSettingsInfo();
 
@@ -54,7 +56,7 @@ public class GlobalSettingsResolverTest {
                         .setActor(Urn.createFromString("urn:li:corpuser:test"))
                 )))));
 
-    GlobalSettingsResolver resolver = new GlobalSettingsResolver(mockClient);
+    GlobalSettingsResolver resolver = new GlobalSettingsResolver(mockClient, mockSecretService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -89,7 +91,8 @@ public class GlobalSettingsResolverTest {
   public void testGetUnauthorized() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    GlobalSettingsResolver resolver = new GlobalSettingsResolver(mockClient);
+    SecretService mockSecretService = Mockito.mock(SecretService.class);
+    GlobalSettingsResolver resolver = new GlobalSettingsResolver(mockClient, mockSecretService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -107,7 +110,9 @@ public class GlobalSettingsResolverTest {
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
         .batchGetV2(Mockito.any(), Mockito.anySet(), Mockito.anySet(), Mockito.any(Authentication.class));
-    GlobalSettingsResolver resolver = new GlobalSettingsResolver(mockClient);
+    SecretService mockSecretService = Mockito.mock(SecretService.class);
+
+    GlobalSettingsResolver resolver = new GlobalSettingsResolver(mockClient, mockSecretService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
