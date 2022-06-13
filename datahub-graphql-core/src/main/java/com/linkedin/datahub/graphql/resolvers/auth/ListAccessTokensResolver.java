@@ -62,7 +62,7 @@ public class ListAccessTokensResolver implements DataFetcher<CompletableFuture<L
               new SortCriterion().setField(EXPIRES_AT_FIELD_NAME).setOrder(SortOrder.DESCENDING);
 
           final SearchResult searchResult = _entityClient.search(Constants.ACCESS_TOKEN_ENTITY_NAME, "",
-              QueryUtils.newFilter(buildFacetFilters(filters, FACET_FIELDS)), sortCriterion, start, count,
+              buildFilter(filters), sortCriterion, start, count,
               getAuthentication(environment));
 
           final List<AccessTokenMetadata> tokens = searchResult.getEntities().stream().map(entity -> {
