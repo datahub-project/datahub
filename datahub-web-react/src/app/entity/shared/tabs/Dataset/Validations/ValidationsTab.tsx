@@ -83,7 +83,7 @@ export const ValidationsTab = () => {
                         onClick={() => setView(ViewType.ASSERTIONS)}
                     >
                         <FileProtectOutlined />
-                        Assertions ({maybeTotalAssertions})
+                        Assertions ({effectiveTotalAssertions})
                     </Button>
                     <Button type="text" disabled={totalTests === 0} onClick={() => setView(ViewType.TESTS)}>
                         <FileDoneOutlined />
