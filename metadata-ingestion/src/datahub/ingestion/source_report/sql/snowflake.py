@@ -36,3 +36,6 @@ class SnowflakeReport(BaseSnowflakeReport, SQLSourceReport):
     role: str = ""
     check_role_grants: Optional[bool] = None
     role_grants: List[str] = field(default_factory=list)
+
+    profile_if_updated_since: Optional[datetime] = None
+    profile_candidates: Dict[str, List[str]] = field(default_factory=dict)

@@ -84,6 +84,11 @@ class GEProfilingConfig(ConfigModel):
         description="A positive integer that specifies the maximum number of columns to profile for any table. `None` implies all columns. The cost of profiling goes up significantly as the number of columns to profile goes up.",
     )
 
+    profile_if_updated_since_days: Optional[pydantic.PositiveFloat] = Field(
+        default=1,
+        description="Profile table only if it has been updated since these many number of days. `None` implies profile all tables. Only Snowflake supports this.",
+    )
+
     # The default of (5 * cpu_count) is adopted from the default max_workers
     # parameter of ThreadPoolExecutor. Given that profiling is often an I/O-bound
     # task, it may make sense to increase this default value in the future.
