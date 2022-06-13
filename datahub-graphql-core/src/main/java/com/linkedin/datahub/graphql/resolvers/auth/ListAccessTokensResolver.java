@@ -14,7 +14,6 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.search.utils.QueryUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 
