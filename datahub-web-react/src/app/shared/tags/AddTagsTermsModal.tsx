@@ -62,7 +62,7 @@ export default function AddTagsTermsModal({
     const [disableAdd, setDisableAdd] = useState(false);
     const [urns, setUrns] = useState<string[]>([]);
     const [selectedTerms, setSelectedTerms] = useState<any[]>([]);
-    const [selectedTags, setSelectedTags] = useState<any[]>([]);
+    const [selectedTagsFromBrowse, setSelectedTagsFromBrowse] = useState<any[]>([]);
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
 
     const [addTagsMutation] = useAddTagsMutation();
@@ -135,7 +135,7 @@ export default function AddTagsTermsModal({
         const selectedItem =
             type === EntityType.GlossaryTerm
                 ? selectedTerms.find((term) => term.urn === value).component
-                : selectedTags.find((term) => term.urn === value).component;
+                : selectedTagsFromBrowse.find((term) => term.urn === value).component;
 
         return (
             <CustomTag
@@ -186,8 +186,8 @@ export default function AddTagsTermsModal({
         setUrns(newUrns);
         const selectedSearchOption = tagSearchOptions.find((option) => option.props.value === urn);
         setSelectedTerms([...selectedTerms, { urn, component: <TermLabel name={selectedSearchOption?.props.name} /> }]);
-        setSelectedTags([
-            ...selectedTags,
+        setSelectedTagsFromBrowse([
+            ...selectedTagsFromBrowse,
             { urn, component: <TagLabel name={selectedSearchOption?.props.name} colorHash={urn} /> },
         ]);
     };
@@ -199,7 +199,7 @@ export default function AddTagsTermsModal({
         setInputValue('');
         setIsFocusedOnInput(true);
         setSelectedTerms(selectedTerms.filter((term) => term.urn !== urn));
-        setSelectedTags(selectedTags.filter((term) => term.urn !== urn));
+        setSelectedTagsFromBrowse(selectedTagsFromBrowse.filter((term) => term.urn !== urn));
     };
 
     // Function to handle the modal action's
@@ -285,12 +285,12 @@ export default function AddTagsTermsModal({
         setSelectedTerms([...selectedTerms, { urn, component: <TermLabel name={displayName} /> }]);
     }
 
-    function selectTag(urn: string, displayName: string, result: SearchResult) {
+    function selectTagFromBrowse(urn: string, displayName: string, result: SearchResult) {
         setIsFocusedOnInput(false);
         const newUrns = [...(urns || []), urn];
         setUrns(newUrns);
-        setSelectedTags([
-            ...selectedTags,
+        setSelectedTagsFromBrowse([
+            ...selectedTagsFromBrowse,
             {
                 urn,
                 component: (
@@ -371,7 +371,7 @@ export default function AddTagsTermsModal({
                     <GlossaryBrowser isSelecting selectTerm={selectTermFromBrowser} />
                 </BrowserWrapper>
                 <BrowserWrapper isHidden={!isShowingTagBrowser}>
-                    <TagBrowser selectTag={selectTag} />
+                    <TagBrowser selectTag={selectTagFromBrowse} />
                 </BrowserWrapper>
             </ClickOutside>
         </Modal>
