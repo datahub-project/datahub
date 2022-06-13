@@ -10,24 +10,11 @@ import {
     SearchResult,
 } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { CustomAvatar } from '../../../../../../shared/avatar';
 import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
 import { OWNERSHIP_DISPLAY_TYPES } from './ownershipUtils';
 import { useAddOwnersMutation } from '../../../../../../../graphql/mutations.generated';
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
-
-const SearchResultContainer = styled.div`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 2px;
-`;
-
-const SearchResultContent = styled.div`
-    display: flex;
-    justify-content: center;
-    align-items: center;
-`;
+import { OwnerLabel } from '../../../../../../shared/OwnerLabel';
 
 const SelectInput = styled(Select)`
     > .ant-select-selector {
@@ -157,19 +144,7 @@ export const AddOwnersModal = ({
                 ? (result.entity as CorpUser).editableProperties?.pictureLink || undefined
                 : undefined;
         const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
-        return (
-            <SearchResultContainer>
-                <SearchResultContent>
-                    <CustomAvatar
-                        size={24}
-                        name={displayName}
-                        photoUrl={avatarUrl}
-                        isGroup={result.entity.type === EntityType.CorpGroup}
-                    />
-                    <div>{displayName}</div>
-                </SearchResultContent>
-            </SearchResultContainer>
-        );
+        return <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={result.entity.type} />;
     };
 
     const onModalClose = () => {

@@ -36,10 +36,10 @@ export const NameWrapper = styled.span<{ showSelectStyles?: boolean }>`
 `;
 
 interface Props {
-    selectTag?: (urn: string, displayName: string, result: SearchResult) => void;
+    selectBrowseTag?: (urn: string, displayName: string, result: SearchResult) => void;
 }
 
-export default function TagBrowser({ selectTag }: Props) {
+export default function TagBrowser({ selectBrowseTag }: Props) {
     const entityRegistry = useEntityRegistry();
     const { data } = useGetSearchResultsForMultipleQuery({
         variables: {
@@ -53,9 +53,9 @@ export default function TagBrowser({ selectTag }: Props) {
     });
     const tagsResult = data?.searchAcrossEntities?.searchResults;
 
-    const handleSelectTag = (urn: string, displayName: string, tag: SearchResult) => {
-        if (selectTag) {
-            selectTag(urn, displayName, tag);
+    const handleSelectBrowseTag = (urn: string, displayName: string, tag: SearchResult) => {
+        if (selectBrowseTag) {
+            selectBrowseTag(urn, displayName, tag);
         }
     };
 
@@ -66,9 +66,9 @@ export default function TagBrowser({ selectTag }: Props) {
                 return (
                     <TagWrapper>
                         <NameWrapper
-                            showSelectStyles={!!selectTag}
+                            showSelectStyles={!!selectBrowseTag}
                             onClick={() => {
-                                handleSelectTag(tag.entity.urn, displayName, tag);
+                                handleSelectBrowseTag(tag.entity.urn, displayName, tag);
                             }}
                         >
                             <TagLabel

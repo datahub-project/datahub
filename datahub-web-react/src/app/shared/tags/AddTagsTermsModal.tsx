@@ -368,7 +368,7 @@ export default function AddTagsTermsModal({
                     <GlossaryBrowser isSelecting selectTerm={selectTermFromBrowser} />
                 </BrowserWrapper>
                 <BrowserWrapper isHidden={!isShowingTagBrowser}>
-                    <TagBrowser selectTag={selectTagFromBrowse} />
+                    <TagBrowser selectBrowseTag={selectTagFromBrowse} />
                 </BrowserWrapper>
             </ClickOutside>
         </Modal>
