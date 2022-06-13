@@ -1024,7 +1024,6 @@ class BigQueryUsageSource(Source):
                 self.report.operation_types_stat.get(event.query_event.statementType, 0)
                 + 1
             )
-
             destination_table: BigQueryTableRef
             if not event.read_event and event.query_event.destinationTable:
                 destination_table = event.query_event.destinationTable.remove_extras()

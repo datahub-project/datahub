@@ -56,7 +56,7 @@ public class StatefulTokenService extends StatelessTokenService {
     this._entityService = entityService;
     this._revokedTokenCache = CacheBuilder.newBuilder()
         .maximumSize(10000)
-        .expireAfterWrite(6, TimeUnit.HOURS)
+        .expireAfterWrite(5, TimeUnit.MINUTES)
         .build(new CacheLoader<String, Boolean>() {
           @Override
           public Boolean load(final String key) {
