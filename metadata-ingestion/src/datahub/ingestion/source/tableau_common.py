@@ -412,6 +412,9 @@ def make_table_urn(
         platform = "teradata"
     elif connection_type in ("sqlserver"):
         platform = "mssql"
+    elif connection_type in ("athena"):
+        platform = "athena"
+        upstream_db = ""
     else:
         platform = connection_type
 

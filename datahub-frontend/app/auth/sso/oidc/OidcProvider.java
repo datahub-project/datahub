@@ -9,6 +9,7 @@ import org.pac4j.core.http.callback.PathParameterCallbackUrlResolver;
 import org.pac4j.oidc.config.OidcConfiguration;
 import org.pac4j.oidc.credentials.OidcCredentials;
 import org.pac4j.oidc.profile.OidcProfile;
+import org.pac4j.oidc.profile.OidcProfileDefinition;
 
 
 /**
@@ -70,6 +71,7 @@ public class OidcProvider implements SsoProvider<OidcConfigs> {
     oidcClient.setName(OIDC_CLIENT_NAME);
     oidcClient.setCallbackUrl(_oidcConfigs.getAuthBaseUrl() + _oidcConfigs.getAuthBaseCallbackPath());
     oidcClient.setCallbackUrlResolver(new PathParameterCallbackUrlResolver());
+    oidcClient.addAuthorizationGenerator(new OidcAuthorizationGenerator(new OidcProfileDefinition(), _oidcConfigs));
     return oidcClient;
   }
 }

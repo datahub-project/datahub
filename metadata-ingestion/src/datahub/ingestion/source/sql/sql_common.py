@@ -1185,6 +1185,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         except NotImplementedError:
             description: Optional[str] = None
             properties: Dict[str, str] = {}
+        except ProgrammingError as pe:
+            # Snowflake needs schema names quoted when fetching table comments.
+            logger.debug(
+                f"Encountered ProgrammingError. Retrying with quoted schema name for schema {schema} and view {view}",
+                pe,
+            )
+            description = None
+            properties = {}
+            view_info: dict = inspector.get_table_comment(view, f'"{schema}"')  # type: ignore
         else:
             description = view_info["text"]
 
@@ -1308,13 +1317,27 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     ) -> Optional[bool]:
         return None
 
+    # Override if needed
+    def generate_profile_candidates(
+        self, inspector: Inspector, threshold_time: datetime.datetime
+    ) -> Optional[List[str]]:
+        raise NotImplementedError()
+
     # Override if you want to do additional checks
     def is_dataset_eligible_for_profiling(
-        self, dataset_name: str, sql_config: SQLAlchemyConfig
+        self,
+        dataset_name: str,
+        sql_config: SQLAlchemyConfig,
+        inspector: Inspector,
+        profile_candidates: Optional[List[str]],
     ) -> bool:
-        return sql_config.table_pattern.allowed(
-            dataset_name
-        ) and sql_config.profile_pattern.allowed(dataset_name)
+        return (
+            sql_config.table_pattern.allowed(dataset_name)
+            and sql_config.profile_pattern.allowed(dataset_name)
+        ) and (
+            profile_candidates is None
+            or (profile_candidates is not None and dataset_name in profile_candidates)
+        )
 
     def loop_profiler_requests(
         self,
@@ -1325,6 +1348,19 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
 
         tables_seen: Set[str] = set()
+        profile_candidates = None  # Default value if profile candidates not available.
+        if sql_config.profiling.profile_if_updated_since_days is not None:
+            try:
+                threshold_time: datetime.datetime = datetime.datetime.now(
+                    datetime.timezone.utc
+                ) - datetime.timedelta(
+                    sql_config.profiling.profile_if_updated_since_days  # type:ignore
+                )
+                profile_candidates = self.generate_profile_candidates(
+                    inspector, threshold_time
+                )
+            except NotImplementedError:
+                logger.debug("Source does not support generating profile candidates.")
 
         for table in inspector.get_table_names(schema):
             schema, table = self.standardize_schema_table_names(
@@ -1333,7 +1369,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             dataset_name = self.get_identifier(
                 schema=schema, entity=table, inspector=inspector
             )
-            if not self.is_dataset_eligible_for_profiling(dataset_name, sql_config):
+            if not self.is_dataset_eligible_for_profiling(
+                dataset_name, sql_config, inspector, profile_candidates
+            ):
                 if self.config.profiling.report_dropped_profiles:
                     self.report.report_dropped(f"profile of {dataset_name}")
                 continue
