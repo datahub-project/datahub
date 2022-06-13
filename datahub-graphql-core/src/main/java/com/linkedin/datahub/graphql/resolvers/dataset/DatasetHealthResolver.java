@@ -124,7 +124,7 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<Heal
 
       final GenericTable assertionRunResults = getAssertionRunsTable(datasetUrn);
 
-      if (!assertionRunResults.hasRows()) {
+      if (!assertionRunResults.hasRows() || assertionRunResults.getRows().size() == 0) {
         // No assertion run results found. Return empty health!
         return null;
       }
