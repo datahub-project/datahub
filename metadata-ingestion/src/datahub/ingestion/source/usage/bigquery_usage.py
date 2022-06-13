@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast
 
 import cachetools
+from dateutil import parser
 from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from more_itertools import partition
@@ -164,7 +165,10 @@ OPERATION_STATEMENT_TYPES = {
     "CREATE_TABLE_AS_SELECT": OperationTypeClass.CREATE,
     "CREATE_SCHEMA": OperationTypeClass.CREATE,
     "DROP_TABLE": OperationTypeClass.DROP,
+    "SELECT": OperationTypeClass.CUSTOM,
 }
+
+READ_STATEMENT_TYPES: List[str] = "SELECT"
 
 
 def bigquery_audit_metadata_query_template(
@@ -308,11 +312,8 @@ def _table_ref_to_urn(ref: BigQueryTableRef, env: str) -> str:
     )
 
 
-def _job_name_ref(project: str, jobId: str) -> Optional[str]:
-    if project and jobId:
-        return f"projects/{project}/jobs/{jobId}"
-    else:
-        return None
+def _job_name_ref(project: str, jobId: str) -> str:
+    return f"projects/{project}/jobs/{jobId}"
 
 
 @dataclass
@@ -334,7 +335,7 @@ class ReadEvent:
 
     # We really should use composition here since the query isn't actually
     # part of the read event, but this solution is just simpler.
-    query: Optional[str] = None  # populated via join
+    # query: Optional["QueryEvent"] = None  # populated via join
 
     @classmethod
     def get_missing_key_entry(cls, entry: AuditLogEntry) -> Optional[str]:
@@ -432,14 +433,21 @@ class QueryEvent:
     """
 
     timestamp: datetime
+    job_name: str
     actor_email: str
     query: str
+
     statementType: Optional[str] = None
     destinationTable: Optional[BigQueryTableRef] = None
     referencedTables: List[BigQueryTableRef] = field(default_factory=list)
     referencedViews: List[BigQueryTableRef] = field(default_factory=list)
-    jobName: Optional[str] = None
     payload: Optional[Dict] = None
+    stats: Optional[Dict] = None
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    billed_bytes: Optional[int] = None
+    default_dataset: Optional[str] = None
+    numAffectedRows: Optional[int] = None
 
     @staticmethod
     def get_missing_key_entry(entry: AuditLogEntry) -> Optional[str]:
@@ -455,6 +463,7 @@ class QueryEvent:
 
     @classmethod
     def from_entry(cls, entry: AuditLogEntry) -> "QueryEvent":
+        logger.info(f"QueryEvent:{entry}")
         job: Dict = entry.payload["serviceData"]["jobCompletedEvent"]["job"]
         job_query_conf: Dict = job["jobConfiguration"]["query"]
         # basic query_event
@@ -462,10 +471,22 @@ class QueryEvent:
             timestamp=entry.timestamp,
             actor_email=entry.payload["authenticationInfo"]["principalEmail"],
             query=job_query_conf["query"],
-        )
-        # jobName
-        query_event.jobName = _job_name_ref(
-            job.get("jobName", {}).get("projectId"), job.get("jobName", {}).get("jobId")
+            job_name=_job_name_ref(
+                job["jobName"]["projectId"], job["jobName"]["jobId"]
+            ),
+            default_dataset=job_query_conf["defaultDataset"]
+            if job_query_conf["defaultDataset"]
+            else None,
+            start_time=parser.parse(job["jobStatistics"]["startTime"])
+            if job["jobStatistics"]["startTime"]
+            else None,
+            end_time=parser.parse(job["jobStatistics"]["endTime"])
+            if job["jobStatistics"]["endTime"]
+            else None,
+            numAffectedRows=int(job["jobStatistics"]["queryOutputRowCount"])
+            if "queryOutputRowCount" in job["jobStatistics"]
+            and job["jobStatistics"]["queryOutputRowCount"]
+            else None,
         )
         # destinationTable
         raw_dest_table = job_query_conf.get("destinationTable")
@@ -477,6 +498,9 @@ class QueryEvent:
         query_event.statementType = job_query_conf.get("statementType")
         # referencedTables
         job_stats: Dict = job["jobStatistics"]
+        if "totalBilledBytes" in job_stats and job_stats["totalBilledBytes"]:
+            query_event.billed_bytes = job_stats["totalBilledBytes"]
+
         raw_ref_tables = job_stats.get("referencedTables")
         if raw_ref_tables:
             query_event.referencedTables = [
@@ -490,8 +514,7 @@ class QueryEvent:
             ]
         # payload
         query_event.payload = entry.payload if DEBUG_INCLUDE_FULL_PAYLOADS else None
-
-        if not query_event.jobName:
+        if not query_event.job_name:
             logger.debug(
                 "jobName from query events is absent. "
                 "Auditlog entry - {logEntry}".format(logEntry=entry)
@@ -521,14 +544,29 @@ class QueryEvent:
         metadata: Dict = json.loads(row["metadata"])
         job: Dict = metadata["jobChange"]["job"]
         query_config: Dict = job["jobConfig"]["queryConfig"]
+        query_stats: Dict = job["jobStats"]["queryStats"]
+
         # basic query_event
         query_event = QueryEvent(
             timestamp=row["timestamp"],
             actor_email=payload["authenticationInfo"]["principalEmail"],
             query=query_config["query"],
+            job_name=job["jobName"],
+            default_dataset=query_config["defaultDataset"]
+            if "defaultDataset" in query_config and query_config["defaultDataset"]
+            else None,
+            start_time=parser.parse(job["jobStats"]["startTime"])
+            if job["jobStats"]["startTime"]
+            else None,
+            end_time=parser.parse(job["jobStats"]["endTime"])
+            if job["jobStats"]["endTime"]
+            else None,
+            numAffectedRows=int(query_stats["outputRowCount"])
+            if "outputRowCount" in query_stats and query_stats["outputRowCount"]
+            else None,
         )
         # jobName
-        query_event.jobName = job.get("jobName")
+        query_event.job_name = job["jobName"]
         # destinationTable
         raw_dest_table = query_config.get("destinationTable")
         if raw_dest_table:
@@ -536,7 +574,6 @@ class QueryEvent:
                 raw_dest_table
             )
         # referencedTables
-        query_stats: Dict = job["jobStats"]["queryStats"]
         raw_ref_tables = query_stats.get("referencedTables")
         if raw_ref_tables:
             query_event.referencedTables = [
@@ -553,11 +590,14 @@ class QueryEvent:
         # payload
         query_event.payload = payload if DEBUG_INCLUDE_FULL_PAYLOADS else None
 
-        if not query_event.jobName:
+        if not query_event.job_name:
             logger.debug(
                 "jobName from query events is absent. "
                 "BigQueryAuditMetadata entry - {logEntry}".format(logEntry=row)
             )
+
+        if "totalBilledBytes" in query_stats and query_stats["totalBilledBytes"]:
+            query_event.billed_bytes = int(query_stats["totalBilledBytes"])
 
         return query_event
 
@@ -567,13 +607,28 @@ class QueryEvent:
         metadata: Dict = payload["metadata"]
         job: Dict = metadata["jobChange"]["job"]
         query_config: Dict = job["jobConfig"]["queryConfig"]
+        query_stats: Dict = job["jobStats"]["queryStats"]
+
         # basic query_event
         query_event = QueryEvent(
+            job_name=job["jobName"],
             timestamp=row.timestamp,
             actor_email=payload["authenticationInfo"]["principalEmail"],
             query=query_config["query"],
+            default_dataset=query_config["defaultDataset"]
+            if "defaultDataset" in query_config and query_config["defaultDataset"]
+            else None,
+            start_time=parser.parse(job["jobStats"]["startTime"])
+            if job["jobStats"]["startTime"]
+            else None,
+            end_time=parser.parse(job["jobStats"]["endTime"])
+            if job["jobStats"]["endTime"]
+            else None,
+            numAffectedRows=int(query_stats["outputRowCount"])
+            if "outputRowCount" in query_stats and query_stats["outputRowCount"]
+            else None,
         )
-        query_event.jobName = job.get("jobName")
+        query_event.job_name = job["jobName"]
         # destinationTable
         raw_dest_table = query_config.get("destinationTable")
         if raw_dest_table:
@@ -583,7 +638,6 @@ class QueryEvent:
         # statementType
         query_event.statementType = query_config.get("statementType")
         # referencedTables
-        query_stats: Dict = job["jobStats"]["queryStats"]
         raw_ref_tables = query_stats.get("referencedTables")
         if raw_ref_tables:
             query_event.referencedTables = [
@@ -598,13 +652,22 @@ class QueryEvent:
         # payload
         query_event.payload = payload if DEBUG_INCLUDE_FULL_PAYLOADS else None
 
-        if not query_event.jobName:
+        if not query_event.job_name:
             logger.debug(
                 "jobName from query events is absent. "
                 "BigQueryAuditMetadata entry - {logEntry}".format(logEntry=row)
             )
 
+        if "totalBilledBytes" in query_stats and query_stats["totalBilledBytes"]:
+            query_event.billed_bytes = int(query_stats["totalBilledBytes"])
+
         return query_event
+
+
+@dataclass()
+class AuditEvent:
+    read_event: Optional[ReadEvent] = None
+    query_event: Optional[QueryEvent] = None
 
 
 # We can't use close as it is not called if the ingestion is not successful
@@ -696,18 +759,41 @@ class BigQueryUsageSource(Source):
         parsed_events: Iterable[Union[ReadEvent, QueryEvent]] = cast(
             Iterable[Union[ReadEvent, QueryEvent]], parsed_events_uncasted
         )
-        last_updated_work_units: Iterable[MetadataWorkUnit] = cast(
-            Iterable[MetadataWorkUnit], last_updated_work_units_uncasted
-        )
-        if self.config.include_operational_stats:
-            self.report.num_operational_stats_workunits_emitted = 0
-            for wu in last_updated_work_units:
-                self.report.report_workunit(wu)
-                yield wu
-                self.report.num_operational_stats_workunits_emitted += 1
 
         hydrated_read_events = self._join_events_by_job_id(parsed_events)
-        aggregated_info = self._aggregate_enriched_read_events(hydrated_read_events)
+        # storing it all in one big object.
+        aggregated_info: Dict[
+            datetime, Dict[BigQueryTableRef, AggregatedDataset]
+        ] = collections.defaultdict(dict)
+
+        # TODO: handle partitioned tables
+
+        # TODO: perhaps we need to continuously prune this, rather than
+        num_aggregated: int = 0
+        self.report.num_operational_stats_workunits_emitted = 0
+        for event in hydrated_read_events:
+            logger.debug(f"Event: {event}")
+            if self.config.include_operational_stats:
+                operational_wu = self._create_operation_aspect_work_unit(event)
+                if operational_wu:
+                    self.report.report_workunit(operational_wu)
+                    yield operational_wu
+                    self.report.num_operational_stats_workunits_emitted += 1
+            if event.query_event and event.read_event:
+                aggregated_info = self._aggregate_enriched_read_events(
+                    aggregated_info, event
+                )
+                num_aggregated += 1
+        logger.info(f"Total number of events aggregated = {num_aggregated}.")
+        bucket_level_stats: str = "\n\t" + "\n\t".join(
+            [
+                f'bucket:{db.strftime("%m-%d-%Y:%H:%M:%S")}, size={len(ads)}'
+                for db, ads in aggregated_info.items()
+            ]
+        )
+        logger.debug(
+            f"Number of buckets created = {len(aggregated_info)}. Per-bucket details:{bucket_level_stats}"
+        )
 
         self.report.num_usage_workunits_emitted = 0
         for time_bucket in aggregated_info.values():
@@ -855,13 +941,9 @@ class BigQueryUsageSource(Source):
             if use_allow_filter
             else ""
         )
-        deny_regex = (
-            audit_templates["BQ_FILTER_REGEX_DENY_TEMPLATE"].format(
-                deny_pattern=self.config.get_deny_pattern_string(),
-                logical_operator="AND" if use_allow_filter else "",
-            )
-            if use_deny_filter
-            else ("" if use_allow_filter else "FALSE")
+        deny_regex = audit_templates["BQ_FILTER_REGEX_DENY_TEMPLATE"].format(
+            deny_pattern=f"__TABLES_SUMMARY__|INFORMATION_SCHEMA{'|'.join(self.config.get_deny_pattern_string())}",
+            logical_operator="AND" if use_allow_filter else "",
         )
 
         logger.debug(
@@ -924,23 +1006,48 @@ class BigQueryUsageSource(Source):
         logger.info(f"Finished loading {i} log entries from GCP Logging")
 
     def _create_operation_aspect_work_unit(
-        self, event: QueryEvent
+        self, event: AuditEvent
     ) -> Optional[MetadataWorkUnit]:
-        if event.statementType in OPERATION_STATEMENT_TYPES and event.destinationTable:
+        assert event.query_event
+        if (
+            event.query_event.query
+            and event.query_event.statementType in OPERATION_STATEMENT_TYPES
+            and event.query_event.destinationTable
+            and self._is_table_allowed(event.query_event.destinationTable)
+        ):
+            if not self.config.include_read_operational_stats and (
+                event.query_event.statementType == "SELECT" or event.read_event
+            ):
+                return None
+
+            self.report.operation_types_stat[event.query_event.statementType] = (
+                self.report.operation_types_stat.get(event.query_event.statementType, 0)
+                + 1
+            )
+
             destination_table: BigQueryTableRef
+            if not event.read_event and event.query_event.destinationTable:
+                destination_table = event.query_event.destinationTable.remove_extras()
+            elif event.read_event:
+                destination_table = event.read_event.resource.remove_extras()
+            else:
+                raise Exception(f"Unable to find destination table in event {event}")
+
             try:
-                destination_table = event.destinationTable.remove_extras()
+                destination_table = destination_table.remove_extras()
             except Exception as e:
                 self.report.report_warning(
-                    str(event.destinationTable),
+                    str(destination_table),
                     f"Failed to clean up destination table, {e}",
                 )
                 return None
             reported_time: int = int(time.time() * 1000)
-            last_updated_timestamp: int = int(event.timestamp.timestamp() * 1000)
+            last_updated_timestamp: int = int(
+                event.query_event.timestamp.timestamp() * 1000
+            )
             affected_datasets = []
-            if event.referencedTables:
-                for table in event.referencedTables:
+            if event.query_event.referencedTables:
+                for table in event.query_event.referencedTables:
                     try:
                         affected_datasets.append(
                             _table_ref_to_urn(
@@ -953,13 +1060,61 @@ class BigQueryUsageSource(Source):
                             str(table),
                             f"Failed to clean up table, {e}",
                         )
+
+            customProperties: Dict[str, str] = {}
+
+            # This only needs for backward compatibility reason. To make sure we generate the same operational metadata than before
+            if self.config.include_read_operational_stats:
+                if event.query_event.end_time and event.query_event.start_time:
+                    customProperties["millisecondsTaken"] = str(
+                        int(event.query_event.end_time.timestamp() * 1000)
+                        - int(event.query_event.start_time.timestamp() * 1000)
+                    )
+
+                if event.query_event.job_name:
+                    customProperties["sessionId"] = event.query_event.job_name
+                if event.query_event.query:
+                    customProperties["text"] = event.query_event.query
+
+                if event.read_event and event.read_event.fieldsRead:
+                    customProperties["fieldsRead"] = ",".join(
+                        event.read_event.fieldsRead
+                    )
+
+                if event.query_event.billed_bytes:
+                    customProperties["bytesProcessed"] = str(
+                        event.query_event.billed_bytes
+                    )
+
+                if event.query_event.default_dataset:
+                    customProperties[
+                        "defaultDatabase"
+                    ] = event.query_event.default_dataset
+
+            # For select into statements queries are SELECT queries from referenced tables perspective
+            statement_type: str = (
+                event.query_event.statementType if not event.read_event else "SELECT"
+            )
+
             operation_aspect = OperationClass(
                 timestampMillis=reported_time,
                 lastUpdatedTimestamp=last_updated_timestamp,
-                actor=builder.make_user_urn(event.actor_email.split("@")[0]),
-                operationType=OPERATION_STATEMENT_TYPES[event.statementType],
+                actor=builder.make_user_urn(
+                    event.query_event.actor_email.split("@")[0]
+                ),
+                operationType=OPERATION_STATEMENT_TYPES[statement_type],
+                customOperationType="SELECT"
+                if OPERATION_STATEMENT_TYPES[statement_type]
+                == OperationTypeClass.CUSTOM
+                else None,
                 affectedDatasets=affected_datasets,
             )
+
+            if customProperties:
+                operation_aspect.customProperties = customProperties
+
+            if event.query_event.numAffectedRows:
+                operation_aspect.numAffectedRows = event.query_event.numAffectedRows
             mcp = MetadataChangeProposalWrapper(
                 entityType="dataset",
                 aspectName="operation",
@@ -971,7 +1126,7 @@ class BigQueryUsageSource(Source):
                 aspect=operation_aspect,
             )
             return MetadataWorkUnit(
-                id=f"{event.timestamp.isoformat()}-operation-aspect-{destination_table}",
+                id=f"{event.query_event.timestamp.isoformat()}-operation-aspect-{destination_table}",
                 mcp=mcp,
             )
         return None
@@ -1003,18 +1158,12 @@ class BigQueryUsageSource(Source):
             if event is None and missing_query_entry is None:
                 event = QueryEvent.from_entry(entry)
                 self.report.num_query_events += 1
-                wu = self._create_operation_aspect_work_unit(event)
-                if wu:
-                    yield wu
 
             missing_query_entry_v2 = QueryEvent.get_missing_key_entry_v2(entry)
 
             if event is None and missing_query_entry_v2 is None:
                 event = QueryEvent.from_entry_v2(entry)
                 self.report.num_query_events += 1
-                wu = self._create_operation_aspect_work_unit(event)
-                if wu:
-                    yield wu
 
             if event is None:
                 self.error(
@@ -1042,9 +1191,9 @@ class BigQueryUsageSource(Source):
             )
             if missing_query_event_exported_audit is None:
                 event = QueryEvent.from_exported_bigquery_audit_metadata(audit_metadata)
-                wu = self._create_operation_aspect_work_unit(event)
-                if wu:
-                    yield wu
+            #                wu = self._create_operation_aspect_work_unit(event)
+            #                if wu:
+            #                    yield wu
 
             missing_read_event_exported_audit = (
                 ReadEvent.get_missing_key_exported_bigquery_audit_metadata(
@@ -1071,7 +1220,7 @@ class BigQueryUsageSource(Source):
 
     def _join_events_by_job_id(
         self, events: Iterable[Union[ReadEvent, QueryEvent]]
-    ) -> Iterable[ReadEvent]:
+    ) -> Iterable[AuditEvent]:
         # If caching eviction is enabled, we only store the most recently used query events,
         # which are used when resolving job information within the read events.
         query_jobs: MutableMapping[str, QueryEvent]
@@ -1082,13 +1231,16 @@ class BigQueryUsageSource(Source):
 
         def event_processor(
             events: Iterable[Union[ReadEvent, QueryEvent]]
-        ) -> Iterable[ReadEvent]:
+        ) -> Iterable[AuditEvent]:
             for event in events:
                 if isinstance(event, QueryEvent):
-                    if event.jobName:
-                        query_jobs[event.jobName] = event
+                    if event.job_name:
+                        query_jobs[event.job_name] = event
+                        if event.statementType not in READ_STATEMENT_TYPES:
+                            yield AuditEvent(query_event=event)
+                        # If destination table exists we yield the query event as it is insert operation
                 else:
-                    yield event
+                    yield AuditEvent(read_event=event)
 
         # TRICKY: To account for the possibility that the query event arrives after
         # the read event in the audit logs, we wait for at least `query_log_delay`
@@ -1102,77 +1254,73 @@ class BigQueryUsageSource(Source):
 
         num_joined: int = 0
         for event in delayed_read_events:
+            if event.query_event:
+                yield event
+
             if (
-                event.timestamp < self.config.start_time
-                or event.timestamp >= self.config.end_time
-                or not self._is_table_allowed(event.resource)
+                event.read_event is None
+                or event.read_event.timestamp < self.config.start_time
+                or event.read_event.timestamp >= self.config.end_time
+                or not self._is_table_allowed(event.read_event.resource)
             ):
                 continue
 
-            if event.jobName:
-                if event.jobName in query_jobs:
+            if event.read_event.jobName:
+                if event.read_event.jobName in query_jobs:
                     # Join the query log event into the table read log event.
                     num_joined += 1
-                    event.query = query_jobs[event.jobName].query
-
+                    event.query_event = query_jobs[event.read_event.jobName]
+                    yield event
                     # TODO also join into the query itself for column references
                 else:
                     self.report.report_warning(
-                        str(event.resource),
-                        f"Failed to match table read event {event.jobName} with job; try increasing `query_log_delay` or `max_query_duration`",
+                        str(event.read_event.resource),
+                        f"Failed to match table read event {event.read_event.jobName} with job; try increasing `query_log_delay` or `max_query_duration`",
                     )
-            yield event
-
+                    yield event
         logger.info(f"Number of read events joined with query events: {num_joined}")
 
     def _aggregate_enriched_read_events(
-        self, events: Iterable[ReadEvent]
+        self,
+        datasets: Dict[datetime, Dict[BigQueryTableRef, AggregatedDataset]],
+        event: AuditEvent,
     ) -> Dict[datetime, Dict[BigQueryTableRef, AggregatedDataset]]:
-        # TODO: handle partitioned tables
+        if not event.read_event:
+            return datasets
 
-        # TODO: perhaps we need to continuously prune this, rather than
-        # storing it all in one big object.
-        datasets: Dict[
-            datetime, Dict[BigQueryTableRef, AggregatedDataset]
-        ] = collections.defaultdict(dict)
-
-        num_aggregated: int = 0
-        for event in events:
-            floored_ts = get_time_bucket(event.timestamp, self.config.bucket_duration)
-            resource: Optional[BigQueryTableRef] = None
-            try:
-                resource = event.resource.remove_extras()
-            except Exception as e:
-                self.report.report_warning(
-                    str(event.resource), f"Failed to clean up resource, {e}"
-                )
-                logger.warning(f"Failed to process event {str(event.resource)}", e)
-                continue
-
-            if resource.is_temporary_table(self.config.temp_table_dataset_prefix):
-                logger.debug(f"Dropping temporary table {resource}")
-                self.report.report_dropped(str(resource))
-                continue
-
-            agg_bucket = datasets[floored_ts].setdefault(
-                resource,
-                AggregatedDataset(
-                    bucket_start_time=floored_ts,
-                    resource=resource,
-                    user_email_pattern=self.config.user_email_pattern,
-                ),
-            )
-            agg_bucket.add_read_entry(event.actor_email, event.query, event.fieldsRead)
-            num_aggregated += 1
-        logger.info(f"Total number of events aggregated = {num_aggregated}.")
-        bucket_level_stats: str = "\n\t" + "\n\t".join(
-            [
-                f'bucket:{db.strftime("%m-%d-%Y:%H:%M:%S")}, size={len(ads)}'
-                for db, ads in datasets.items()
-            ]
+        floored_ts = get_time_bucket(
+            event.read_event.timestamp, self.config.bucket_duration
         )
-        logger.debug(
-            f"Number of buckets created = {len(datasets)}. Per-bucket details:{bucket_level_stats}"
+        resource: Optional[BigQueryTableRef] = None
+        try:
+            resource = event.read_event.resource.remove_extras()
+        except Exception as e:
+            self.report.report_warning(
+                str(event.read_event.resource), f"Failed to clean up resource, {e}"
+            )
+            logger.warning(
+                f"Failed to process event {str(event.read_event.resource)}", e
+            )
+            return datasets
+
+        if resource.is_temporary_table(self.config.temp_table_dataset_prefix):
+            logger.debug(f"Dropping temporary table {resource}")
+            self.report.report_dropped(str(resource))
+            return datasets
+
+        agg_bucket = datasets[floored_ts].setdefault(
+            resource,
+            AggregatedDataset(
+                bucket_start_time=floored_ts,
+                resource=resource,
+                user_email_pattern=self.config.user_email_pattern,
+            ),
+        )
+        assert event.query_event
+        agg_bucket.add_read_entry(
+            event.read_event.actor_email,
+            event.query_event.query,
+            event.read_event.fieldsRead,
         )
 
         return datasets
