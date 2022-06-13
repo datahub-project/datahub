@@ -28,6 +28,17 @@ const TagSelect = styled(Select)`
     width: 480px;
 `;
 
+const StyleTag = styled(CustomTag)`
+    margin-right: 3px;
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    white-space: nowrap;
+    opacity: 1;
+    color: #434343;
+    line-height: 16px;
+`;
+
 export const BrowserWrapper = styled.div<{ isHidden: boolean }>`
     background-color: white;
     border-radius: 5px;
@@ -138,23 +149,9 @@ export default function AddTagsTermsModal({
                 : selectedTagsFromBrowse.find((term) => term.urn === value).component;
 
         return (
-            <CustomTag
-                onMouseDown={onPreventMouseDown}
-                closable={closable}
-                onClose={onClose}
-                style={{
-                    marginRight: 3,
-                    display: 'flex',
-                    justifyContent: 'start',
-                    alignItems: 'center',
-                    whiteSpace: 'nowrap',
-                    opacity: 1,
-                    color: '#434343',
-                    lineHeight: '16px',
-                }}
-            >
+            <StyleTag onMouseDown={onPreventMouseDown} closable={closable} onClose={onClose}>
                 {selectedItem}
-            </CustomTag>
+            </StyleTag>
         );
     };
 

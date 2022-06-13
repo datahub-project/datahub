@@ -35,6 +35,14 @@ const SelectInput = styled(Select)`
     }
 `;
 
+const StyleTag = styled(Tag)`
+    padding: 0px 7px 0px 0px;
+    margin-right: 3px;
+    display: flex;
+    justify-content: start;
+    align-items: center;
+`;
+
 type Props = {
     urn: string;
     type: EntityType;
@@ -65,6 +73,7 @@ export const AddOwnersModal = ({
     const ownershipTypes = OWNERSHIP_DISPLAY_TYPES;
     const [selectedOwners, setSelectedOwners] = useState<SelectedOwner[]>([]);
     const [selectedOwnerType, setSelectedOwnerType] = useState<OwnershipType>(defaultOwnerType || OwnershipType.None);
+    // const [selectedOwnersFromBrowse, setSelectedOwnersFromBrowse] = useState<any[]>([]);
 
     // User and group dropdown search results!
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
@@ -218,20 +227,9 @@ export const AddOwnersModal = ({
             event.stopPropagation();
         };
         return (
-            <Tag
-                onMouseDown={onPreventMouseDown}
-                closable={closable}
-                onClose={onClose}
-                style={{
-                    padding: '0px 7px 0px 0px',
-                    marginRight: 3,
-                    display: 'flex',
-                    justifyContent: 'start',
-                    alignItems: 'center',
-                }}
-            >
+            <StyleTag onMouseDown={onPreventMouseDown} closable={closable} onClose={onClose}>
                 {label}
-            </Tag>
+            </StyleTag>
         );
     };
 
