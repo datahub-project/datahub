@@ -3,11 +3,10 @@
 source:
   type: "file"
   config:
-    filename: "./examples/mce_files/assertion_test.json"
+    filename: "./examples/mce_files/bootstrap_mce.json"
 
 # see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
   type: "datahub-rest"
   config:
     server: "http://localhost:8080"
-    token: eyJhbGciOiJIUzI1NiJ9.eyJhY3RvclR5cGUiOiJVU0VSIiwiYWN0b3JJZCI6ImRhdGFodWIiLCJ0eXBlIjoiUEVSU09OQUwiLCJ2ZXJzaW9uIjoiMiIsImV4cCI6MTY1Nzc0NTAyOCwianRpIjoiNDNmMDEwNGUtNjg1Ni00MmNmLWJmOWItNzhjNGZhMzYzMTUxIiwic3ViIjoiZGF0YWh1YiIsImlzcyI6ImRhdGFodWItbWV0YWRhdGEtc2VydmljZSJ9.RCHm5Z1TtAbHKvUfzWpCcC4ZGEM7EvMg8LKLSZBxoqI
