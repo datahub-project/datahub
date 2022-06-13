@@ -4,7 +4,6 @@ import { CSVReader } from 'react-papaparse';
 import { Col, Form, Input, Space, Select, Button, message, Divider, Popconfirm, Row } from 'antd';
 import { MinusCircleOutlined, PlusOutlined, AlertOutlined } from '@ant-design/icons';
 // import { gql, useQuery } from '@apollo/client';
-import styled from 'styled-components';
 import { CommonFields } from './CommonFields';
 // import adhocConfig from '../../../conf/Adhoc';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
@@ -12,10 +11,7 @@ import { GetMyToken } from '../../entity/dataset/whoAmI';
 import { WhereAmI } from '../../home/whereAmI';
 import { DataPlatformSelect } from '../../entity/shared/tabs/Dataset/platformSelect/DataPlatformSelect';
 import { printErrorMsg, printSuccessMsg } from '../../entity/shared/tabs/Dataset/ApiCallUtils';
-
-const TagSelect = styled(Select)`
-    width: 480px;
-`;
+import { TagTermSelect } from './TagTermSelect';
 
 export const CsvForm = () => {
     const urlBase = WhereAmI();
@@ -179,7 +175,7 @@ export const CsvForm = () => {
                                                     },
                                                 ]}
                                             >
-                                                <TagSelect />
+                                                <TagTermSelect />
                                             </Form.Item>
                                         </Col>
                                         <Col span={4}>
@@ -197,12 +193,16 @@ export const CsvForm = () => {
                                                 <Input placeholder="term" />
                                             </Form.Item>
                                         </Col>
-                                        {fields.length > 1 ? (
-                                            <MinusCircleOutlined
-                                                data-testid="delete-icon"
-                                                onClick={() => remove(name)}
-                                            />
-                                        ) : null}
+                                        <Col span={1}>
+                                            {fields.length > 1 ? (
+                                                <Button>
+                                                    <MinusCircleOutlined
+                                                        data-testid="delete-icon"
+                                                        onClick={() => remove(name)}
+                                                    />
+                                                </Button>
+                                            ) : null}
+                                        </Col>
                                     </Row>
                                 ))}
                                 <Row>

@@ -37,7 +37,7 @@ export const CommonFields = () => {
             >
                 <Row>
                     <Col span={12} offset={0}>
-                        <Input placeholder="" />
+                        <Input placeholder="where the dataset came from, derived, etc" />
                     </Col>
                 </Row>
             </Form.Item>
@@ -57,7 +57,11 @@ export const CommonFields = () => {
                     </Col>
                 </Row>
             </Form.Item>
-            <SpecifyBrowsePath />
+            <Row>
+                <Col span={12} offset={3}>
+                    <SpecifyBrowsePath />
+                </Col>
+            </Row>
         </>
     );
 };

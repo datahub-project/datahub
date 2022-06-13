@@ -3,13 +3,6 @@ import { Button, Col, Form, Input, Row } from 'antd';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 
 export const SpecifyBrowsePath = () => {
-    // const formItemLayout = {
-    //     labelCol: { span: 6 },
-    //     wrapperCol: { span: 14 },
-    // };
-    // const buttonItemLayout = {
-    //     wrapperCol: { span: 14, offset: 0 },
-    // };
     return (
         <>
             <Form.Item label="Specify Browse Location" style={{ marginBottom: 0 }}>
@@ -34,47 +27,53 @@ export const SpecifyBrowsePath = () => {
                     {(fields, { add, remove }, { errors }) => (
                         <>
                             {fields.map((field) => (
-                                <Row>
-                                    <Col span={8}>
-                                        <Form.Item required key={field.key} name="browsepaths">
-                                            <Form.Item
-                                                {...field}
-                                                validateTrigger={['onChange', 'onBlur']}
-                                                rules={[
-                                                    {
-                                                        required: true,
-                                                        pattern: new RegExp(/^\/([0-9a-zA-Z-_ ]+\/){1,6}$/),
-                                                        message:
-                                                            'The path must start and end with a / char, Legal Characters: [a-zA-Z0-9_- ] and the dataset cannot be more than 6 folders deep',
-                                                    },
-                                                ]}
-                                                noStyle
-                                            >
-                                                <Input placeholder="browsing path" />
-                                            </Form.Item>
-                                            {fields.length > 1 ? (
-                                                <Button aria-label="removepath">
-                                                    <MinusCircleOutlined
-                                                        className="dynamic-delete-button"
-                                                        onClick={() => remove(field.name)}
-                                                    />
-                                                </Button>
-                                            ) : null}
-                                        </Form.Item>
-                                    </Col>
-                                </Row>
+                                <Form.Item required key={field.key} name="browsepaths">
+                                    <Form.Item
+                                        {...field}
+                                        validateTrigger={['onChange', 'onBlur']}
+                                        rules={[
+                                            {
+                                                required: true,
+                                                pattern: new RegExp(/^\/([0-9a-zA-Z-_ ]+\/){1,6}$/),
+                                                message:
+                                                    'The path must start and end with a / char, Legal Characters: [a-zA-Z0-9_- ] and the dataset cannot be more than 6 folders deep',
+                                            },
+                                        ]}
+                                        noStyle
+                                    >
+                                        <Row>
+                                            <Col span={16}>
+                                                <Input placeholder="browsing path" style={{ width: '100%' }} />
+                                            </Col>
+                                            <Col span={1}>
+                                                {fields.length > 1 ? (
+                                                    <Button aria-label="removepath">
+                                                        <MinusCircleOutlined
+                                                            className="dynamic-delete-button"
+                                                            onClick={() => remove(field.name)}
+                                                        />
+                                                    </Button>
+                                                ) : null}
+                                            </Col>
+                                        </Row>
+                                    </Form.Item>
+                                </Form.Item>
                             ))}
                             <Form.Item>
-                                <Button
-                                    style={{ width: '500px' }}
-                                    type="dashed"
-                                    onClick={() => add()}
-                                    icon={<PlusOutlined />}
-                                    disabled={fields.length >= 3}
-                                >
-                                    Add more browsing paths
-                                </Button>
-                                <Form.ErrorList errors={errors} />
+                                <Row>
+                                    <Col span={16}>
+                                        <Button
+                                            type="dashed"
+                                            style={{ width: '100%' }}
+                                            onClick={() => add()}
+                                            icon={<PlusOutlined />}
+                                            disabled={fields.length >= 3}
+                                        >
+                                            Add more browsing paths
+                                        </Button>
+                                        <Form.ErrorList errors={errors} />
+                                    </Col>
+                                </Row>
                             </Form.Item>
                         </>
                     )}
