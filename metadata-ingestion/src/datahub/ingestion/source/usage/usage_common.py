@@ -150,7 +150,8 @@ class BaseUsageConfig(BaseTimeWindowConfig):
     )
 
     include_read_operational_stats: bool = Field(
-        default=False, description="Whether to report read operational stats. Experimental."
+        default=False,
+        description="Whether to report read operational stats. Experimental.",
     )
 
     format_sql_queries: bool = Field(
