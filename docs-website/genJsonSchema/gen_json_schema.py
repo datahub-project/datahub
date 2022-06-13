@@ -107,6 +107,7 @@ def get_base() -> Any:
                             "bootstrap": {
                                 "type": "string",
                                 "description": "Kafka bootstrap URL.",
+                                "default": "localhost:9092"
                             },
                             "producer_config": {
                                 "type": "object",
@@ -115,6 +116,7 @@ def get_base() -> Any:
                             "schema_registry_url": {
                                 "type": "string",
                                 "description": "URL of schema registry being used.",
+                                "default": "http://localhost:8081"
                             },
                             "schema_registry_config": {
                                 "type": "object",
@@ -174,7 +176,7 @@ def get_base() -> Any:
                 ],
             },
         },
-        "required": ["source", "sink"],
+        "required": ["source"],
     }
 
 

@@ -42,7 +42,7 @@ authorization:
 
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
-  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.35}'
+  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.38}'
 
 telemetry:
   enabledCli: ${CLI_TELEMETRY_ENABLED:true}
@@ -89,7 +89,7 @@ platformAnalytics:
 
 visualConfig:
   assets:
-    logoUrl: ${REACT_APP_LOGO_URL:#{null}}
+    logoUrl: ${REACT_APP_LOGO_URL:/assets/platforms/datahublogo.png}
 
 # Storage Layer
 

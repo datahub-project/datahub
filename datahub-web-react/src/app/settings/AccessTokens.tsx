@@ -98,6 +98,7 @@ export const AccessTokens = () => {
         data: tokensData,
         refetch: tokensRefetch,
     } = useListAccessTokensQuery({
+        skip: !canGeneratePersonalAccessTokens,
         variables: {
             input: {
                 start,

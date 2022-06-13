@@ -20,13 +20,23 @@ interface Props {
     hideTerms?: boolean;
     openToEntity?: boolean;
     refreshBrowser?: boolean;
+    nodeUrnToHide?: string;
     selectTerm?: (urn: string, displayName: string) => void;
     selectNode?: (urn: string, displayName: string) => void;
 }
 
 function GlossaryBrowser(props: Props) {
-    const { rootNodes, rootTerms, isSelecting, hideTerms, refreshBrowser, openToEntity, selectTerm, selectNode } =
-        props;
+    const {
+        rootNodes,
+        rootTerms,
+        isSelecting,
+        hideTerms,
+        refreshBrowser,
+        openToEntity,
+        nodeUrnToHide,
+        selectTerm,
+        selectNode,
+    } = props;
 
     const { data: nodesData, refetch: refetchNodes } = useGetRootGlossaryNodesQuery({ skip: !!rootNodes });
     const { data: termsData, refetch: refetchTerms } = useGetRootGlossaryTermsQuery({ skip: !!rootTerms });
@@ -51,6 +61,7 @@ function GlossaryBrowser(props: Props) {
                     hideTerms={hideTerms}
                     openToEntity={openToEntity}
                     refreshBrowser={refreshBrowser}
+                    nodeUrnToHide={nodeUrnToHide}
                     selectTerm={selectTerm}
                     selectNode={selectNode}
                 />

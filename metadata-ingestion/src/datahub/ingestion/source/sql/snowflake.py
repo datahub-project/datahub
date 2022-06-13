@@ -1,6 +1,7 @@
 import json
 import logging
 from collections import defaultdict
+from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import pydantic
@@ -177,8 +178,12 @@ class SnowflakeSource(SQLAlchemySource):
             else:
                 self.report.report_dropped(db)
 
-    def get_identifier(self, *, schema: str, entity: str, **kwargs: Any) -> str:
-        regular = super().get_identifier(schema=schema, entity=entity, **kwargs)
+    def get_identifier(
+        self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
+    ) -> str:
+        regular = super().get_identifier(
+            schema=schema, entity=entity, inspector=inspector, **kwargs
+        )
         return f"{self.current_database.lower()}.{regular}"
 
     def _populate_view_upstream_lineage(self, engine: sqlalchemy.engine.Engine) -> None:
@@ -747,6 +752,37 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
         ):
             return False
         return True
+
+    def generate_profile_candidates(
+        self, inspector: Inspector, threshold_time: datetime
+    ) -> List[str]:
+        self.report.profile_if_updated_since = threshold_time
+        _profile_candidates = []
+
+        db_rows = inspector.engine.execute(
+            text(
+                """
+select table_catalog, table_schema, table_name
+from information_schema.tables
+where last_altered >= to_timestamp_ltz({timestamp}, 3) and table_type= 'BASE TABLE'
+            """.format(
+                    timestamp=round(threshold_time.timestamp() * 1000)
+                )
+            )
+        )
+
+        db_name = self.current_database
+        for db_row in db_rows:
+            _profile_candidates.append(
+                self.get_identifier(
+                    schema=db_row.table_schema,
+                    entity=db_row.table_name,
+                    inspector=inspector,
+                ).lower()
+            )
+        logger.debug(f"Generating profiling candidates for db {db_name}")
+        self.report.profile_candidates[db_name] = _profile_candidates
+        return _profile_candidates
 
     # Stateful Ingestion specific overrides
     # NOTE: There is no special state associated with this source yet than what is provided by sql_common.

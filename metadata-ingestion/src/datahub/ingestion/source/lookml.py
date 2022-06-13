@@ -984,7 +984,8 @@ class LookMLSource(Source):
             "looker.file.path": file_path,
         }
         dataset_props = DatasetPropertiesClass(
-            name=looker_view.id.view_name, customProperties=custom_properties
+            name=looker_view.id.view_name,
+            customProperties=custom_properties,
         )
 
         if self.source_config.github_info is not None:
