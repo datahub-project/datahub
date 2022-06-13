@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 // import { Select } from 'antd';
 import Select from 'antd/lib/select';
 import styled from 'styled-components';
-import { Form } from 'antd';
+import { Col, Form, Row } from 'antd';
 import { SetParentContainer } from '../containerEdit/SetParentContainer';
 
 const SearchResultContainer = styled.div`
@@ -76,23 +76,26 @@ export const DataPlatformSelect = () => {
                     },
                 ]}
             >
-                <Select
-                    style={{ width: '30%' }}
-                    autoFocus
-                    filterOption
-                    showSearch
-                    value={selectedPlatform}
-                    showArrow
-                    placeholder="Search for a parent container.."
-                    onSelect={(platform: string) => onSelectMember(platform)}
-                    allowClear
-                    onClear={removeOption}
-                    onDeselect={removeOption}
-                >
-                    {platformSelection?.map((platform) => (
-                        <Select.Option value={platform}>{renderSearchResult(platform)}</Select.Option>
-                    ))}
-                </Select>
+                <Row>
+                    <Col span={8} offset={0}>
+                        <Select
+                            autoFocus
+                            filterOption
+                            showSearch
+                            value={selectedPlatform}
+                            showArrow
+                            placeholder="Search for a parent container.."
+                            onSelect={(platform: string) => onSelectMember(platform)}
+                            allowClear
+                            onClear={removeOption}
+                            onDeselect={removeOption}
+                        >
+                            {platformSelection?.map((platform) => (
+                                <Select.Option value={platform}>{renderSearchResult(platform)}</Select.Option>
+                            ))}
+                        </Select>
+                    </Col>
+                </Row>
             </Form.Item>
             <SetParentContainer platformType={selectedPlatform} compulsory={false} />
         </>

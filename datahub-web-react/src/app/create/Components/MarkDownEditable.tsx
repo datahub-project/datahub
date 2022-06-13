@@ -1,5 +1,5 @@
 import React from 'react';
-import { Form } from 'antd';
+import { Col, Form, Row } from 'antd';
 import MDEditor, { commands } from '@uiw/react-md-editor';
 import { TemplateDescriptionString } from '../../../conf/Adhoc';
 
@@ -18,17 +18,21 @@ export const MarkDownEditable = () => {
                     },
                 ]}
             >
-                <MDEditor
-                    // placeholder={TemplateDescriptionString}
-                    // value={TemplateDescriptionString}
-                    textareaProps={{
-                        placeholder: TemplateDescriptionString,
-                    }}
-                    preview="live"
-                    extraCommands={previewIcons}
-                    enableScroll={false}
-                    style={{ width: '80%', border: '1px solid white' }}
-                />
+                <Row>
+                    <Col span={20} offset={0}>
+                        <MDEditor
+                            // placeholder={TemplateDescriptionString}
+                            // value={TemplateDescriptionString}
+                            textareaProps={{
+                                placeholder: TemplateDescriptionString,
+                            }}
+                            preview="live"
+                            extraCommands={previewIcons}
+                            enableScroll={false}
+                            style={{ border: '1px solid white' }}
+                        />
+                    </Col>
+                </Row>
             </Form.Item>
         </>
     );

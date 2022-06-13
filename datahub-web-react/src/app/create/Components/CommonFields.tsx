@@ -1,5 +1,5 @@
 import React from 'react';
-import { Form, Input } from 'antd';
+import { Col, Form, Input, Row } from 'antd';
 import { SpecifyBrowsePath } from './SpecifyBrowsePath';
 import { MarkDownEditable } from './MarkDownEditable';
 import { DatasetFrequencyInput } from './DatasetFrequencyInput';
@@ -17,7 +17,11 @@ export const CommonFields = () => {
                     },
                 ]}
             >
-                <Input style={{ width: '30%' }} />
+                <Row>
+                    <Col span={8} offset={0}>
+                        <Input />
+                    </Col>
+                </Row>
             </Form.Item>
             <MarkDownEditable />
             <DatasetFrequencyInput />
@@ -31,7 +35,11 @@ export const CommonFields = () => {
                     },
                 ]}
             >
-                <Input placeholder="" style={{ width: '80%' }} />
+                <Row>
+                    <Col span={12} offset={0}>
+                        <Input placeholder="" />
+                    </Col>
+                </Row>
             </Form.Item>
             <Form.Item
                 name="dataset_location"
@@ -43,7 +51,11 @@ export const CommonFields = () => {
                     },
                 ]}
             >
-                <Input placeholder="sample file location" style={{ width: '500px' }} />
+                <Row>
+                    <Col span={12} offset={0}>
+                        <Input placeholder="sample file location" />
+                    </Col>
+                </Row>
             </Form.Item>
             <SpecifyBrowsePath />
         </>
