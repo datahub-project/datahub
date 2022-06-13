@@ -86,7 +86,7 @@ class GEProfilingConfig(ConfigModel):
 
     profile_if_updated_since_days: Optional[pydantic.PositiveFloat] = Field(
         default=1,
-        description="Profile table only if it has been updated since these many number of days . `None` implies profile all tables. Only Snowflake supports this.",
+        description="Profile table only if it has been updated since these many number of days. `None` implies profile all tables. Only Snowflake supports this.",
     )
 
     # The default of (5 * cpu_count) is adopted from the default max_workers

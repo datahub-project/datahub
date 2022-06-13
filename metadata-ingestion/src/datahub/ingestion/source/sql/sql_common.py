@@ -1361,7 +1361,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 )
             except NotImplementedError:
                 logger.debug("Source does not support generating profile candidates.")
-                pass
 
         for table in inspector.get_table_names(schema):
             schema, table = self.standardize_schema_table_names(

@@ -69,7 +69,6 @@ class SnowflakeSource(SQLAlchemySource):
         super().__init__(config, ctx, "snowflake")
         self._lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
         self._external_lineage_map: Optional[Dict[str, Set[str]]] = None
-
         self.report: SnowflakeReport = SnowflakeReport()
         self.config: SnowflakeConfig = config
         self.provision_role_in_progress: bool = False
@@ -757,23 +756,22 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
     def generate_profile_candidates(
         self, inspector: Inspector, threshold_time: datetime
     ) -> List[str]:
-
+        self.report.profile_if_updated_since = threshold_time
         _profile_candidates = []
 
         db_rows = inspector.engine.execute(
             text(
                 """
-SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME
-FROM INFORMATION_SCHEMA.TABLES
-WHERE LAST_ALTERED >= '{date}' AND TABLE_TYPE= 'BASE TABLE'
+select table_catalog, table_schema, table_name
+from information_schema.tables
+where last_altered >= to_timestamp_ltz({timestamp}, 3) and table_type= 'BASE TABLE'
             """.format(
-                    date=datetime.strftime(threshold_time, "%Y-%m-%d %H:%M:%S.%f %z")
+                    timestamp=round(threshold_time.timestamp() * 1000)
                 )
             )
         )
 
         db_name = self.current_database
-
         for db_row in db_rows:
             _profile_candidates.append(
                 self.get_identifier(
@@ -782,8 +780,8 @@ WHERE LAST_ALTERED >= '{date}' AND TABLE_TYPE= 'BASE TABLE'
                     inspector=inspector,
                 ).lower()
             )
-
         logger.debug(f"Generating profiling candidates for db {db_name}")
+        self.report.profile_candidates[db_name] = _profile_candidates
         return _profile_candidates
 
     # Stateful Ingestion specific overrides
