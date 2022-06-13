@@ -54,7 +54,8 @@ export const ValidationsTab = () => {
     const [view, setView] = useState(ViewType.ASSERTIONS);
 
     const assertions = (data && data.dataset?.assertions?.assertions?.map((assertion) => assertion as Assertion)) || [];
-    const totalAssertions = data?.dataset?.assertions?.total || undefined;
+    const maybeTotalAssertions = data?.dataset?.assertions?.total || undefined;
+    const effectiveTotalAssertions = maybeTotalAssertions || 0;
     const filteredAssertions = assertions.filter((assertion) => !removedUrns.includes(assertion.urn));
 
     const passingTests = (entityData as any)?.testResults?.passing || [];
@@ -62,12 +63,12 @@ export const ValidationsTab = () => {
     const totalTests = maybeFailingTests.length + passingTests.length;
 
     useEffect(() => {
-        if (totalTests > 0 && totalAssertions === 0) {
+        if (totalTests > 0 && maybeTotalAssertions === 0) {
             setView(ViewType.TESTS);
         } else {
             setView(ViewType.ASSERTIONS);
         }
-    }, [totalTests, totalAssertions]);
+    }, [totalTests, maybeTotalAssertions]);
 
     // Pre-sort the list of assertions based on which has been most recently executed.
     assertions.sort(sortAssertions);
@@ -76,9 +77,13 @@ export const ValidationsTab = () => {
         <>
             <TabToolbar>
                 <div>
-                    <Button type="text" disabled={totalAssertions === 0} onClick={() => setView(ViewType.ASSERTIONS)}>
+                    <Button
+                        type="text"
+                        disabled={effectiveTotalAssertions === 0}
+                        onClick={() => setView(ViewType.ASSERTIONS)}
+                    >
                         <FileProtectOutlined />
-                        Assertions ({totalAssertions})
+                        Assertions ({effectiveTotalAssertions})
                     </Button>
                     <Button type="text" disabled={totalTests === 0} onClick={() => setView(ViewType.TESTS)}>
                         <FileDoneOutlined />
