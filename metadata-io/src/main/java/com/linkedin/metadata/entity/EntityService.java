@@ -1347,7 +1347,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       try {
         isKeyAspect = getKeyAspectName(Urn.createFromString(urn)).equals(aspectName);
       } catch (URISyntaxException e) {
-        log.error(e.getMessage());
+        log.error("Error occurred while parsing urn: {}", urn, e);
       }
 
       // 4. Fetch all preceding aspects, that match
