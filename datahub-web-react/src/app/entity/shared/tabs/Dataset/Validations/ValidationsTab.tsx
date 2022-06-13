@@ -47,23 +47,27 @@ enum ViewType {
 export const ValidationsTab = () => {
     const { urn, entityData } = useEntityData();
     const { data, refetch } = useGetDatasetAssertionsQuery({ variables: { urn } });
+    const [removedUrns, setRemovedUrns] = useState<string[]>([]);
     /**
      * Determines which view should be visible: assertions or tests.
      */
     const [view, setView] = useState(ViewType.ASSERTIONS);
 
     const assertions = (data && data.dataset?.assertions?.assertions?.map((assertion) => assertion as Assertion)) || [];
-    const totalAssertions = data?.dataset?.assertions?.total || 0;
+    const totalAssertions = data?.dataset?.assertions?.total || undefined;
+    const filteredAssertions = assertions.filter((assertion) => !removedUrns.includes(assertion.urn));
 
     const passingTests = (entityData as any)?.testResults?.passing || [];
     const maybeFailingTests = (entityData as any)?.testResults?.failing || [];
     const totalTests = maybeFailingTests.length + passingTests.length;
 
     useEffect(() => {
-        if (totalAssertions === 0) {
+        if (totalTests > 0 && totalAssertions === 0) {
             setView(ViewType.TESTS);
+        } else {
+            setView(ViewType.ASSERTIONS);
         }
-    }, [totalAssertions]);
+    }, [totalTests, totalAssertions]);
 
     // Pre-sort the list of assertions based on which has been most recently executed.
     assertions.sort(sortAssertions);
@@ -84,8 +88,17 @@ export const ValidationsTab = () => {
             </TabToolbar>
             {(view === ViewType.ASSERTIONS && (
                 <>
-                    <DatasetAssertionsSummary summary={getAssertionsStatusSummary(assertions)} />
-                    {entityData && <DatasetAssertionsList assertions={assertions} onDelete={() => refetch()} />}
+                    <DatasetAssertionsSummary summary={getAssertionsStatusSummary(filteredAssertions)} />
+                    {entityData && (
+                        <DatasetAssertionsList
+                            assertions={filteredAssertions}
+                            onDelete={(assertionUrn) => {
+                                // Hack to deal with eventual consistency.
+                                setRemovedUrns([...removedUrns, assertionUrn]);
+                                setTimeout(() => refetch(), 3000);
+                            }}
+                        />
+                    )}
                 </>
             )) || <TestResults passing={passingTests} failing={maybeFailingTests} />}
         </>
