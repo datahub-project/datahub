@@ -2,8 +2,9 @@ import React from 'react';
 import styled from 'styled-components';
 import { useGetSearchResultsForMultipleQuery } from '../../../graphql/search.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { EntityType, SearchResult } from '../../../types.generated';
+import { EntityType, SearchResult, Tag } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import TagLabel from '../TagLabel';
 
 const TagWrapper = styled.div`
     color: #262626;
@@ -70,7 +71,11 @@ export default function TagBrowser({ selectTag }: Props) {
                                 handleSelectTag(tag.entity.urn, displayName, tag);
                             }}
                         >
-                            {displayName}
+                            <TagLabel
+                                name={displayName}
+                                colorHash={(tag.entity as Tag).urn}
+                                color={(tag.entity as Tag).properties?.colorHex}
+                            />
                         </NameWrapper>
                     </TagWrapper>
                 );
