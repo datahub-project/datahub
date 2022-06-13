@@ -7,7 +7,7 @@ import os
 import time
 from datetime import datetime as dt
 from sys import stdout
-from typing import Dict, List, Optional, TypeVar, Union
+from typing import Container, Dict, List, Optional, TypeVar, Union
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (ArrayTypeClass, AuditStampClass,
@@ -36,6 +36,7 @@ from datahub.metadata.schema_classes import (ArrayTypeClass, AuditStampClass,
                                              SystemMetadataClass,
                                              TimeTypeClass, UnionTypeClass,
                                              UnknownTypeClass, UpstreamClass,
+                                             ContainerClass,
                                              UpstreamLineageClass)
 
 from .models import FieldParamEdited
@@ -80,6 +81,45 @@ def make_user_urn(username: str) -> str:
 def make_tag_urn(tag: str) -> str:
     return f"urn:li:tag:{tag}"
 
+def make_lineage_mce(
+    upstream_urns: List[str],
+    downstream_urn: str,
+    actor: str,
+    lineage_type: str = Union[
+        DatasetLineageTypeClass.TRANSFORMED,
+        DatasetLineageTypeClass.COPY,
+        DatasetLineageTypeClass.VIEW,
+    ],
+) -> MetadataChangeEventClass:
+    """
+    Specifies Upstream Datasets relative to this dataset.
+    Downstream is always referring to current dataset
+    urns should be created using make_dataset_urn
+    lineage have to be one of the 3
+    """
+    sys_time = get_sys_time()
+    actor = actor
+    mce = MetadataChangeEventClass(
+        proposedSnapshot=DatasetSnapshotClass(
+            urn=downstream_urn,
+            aspects=[
+                UpstreamLineageClass(
+                    upstreams=[
+                        UpstreamClass(
+                            auditStamp=AuditStampClass(
+                                time=sys_time,
+                                actor=actor,
+                            ),
+                            dataset=upstream_urn,
+                            type=lineage_type,
+                        )
+                        for upstream_urn in upstream_urns
+                    ]
+                )
+            ],
+        )
+    )
+    return mce
 
 def make_institutionalmemory_mce(
     dataset_urn: str, input_url: List[str], input_description: List[str], actor: str
@@ -105,6 +145,9 @@ def make_institutionalmemory_mce(
 
     return mce
 
+def make_container_aspect(container):
+    aspect = ContainerClass(container=container)
+    return aspect
 
 def make_browsepath_mce(
     path: List[str],
@@ -115,7 +158,6 @@ def make_browsepath_mce(
     """
     mce = BrowsePathsClass(paths=path)
     return mce
-
 
 def derive_platform_name(input: str) -> str:
     """
@@ -138,6 +180,7 @@ def make_dataset_description_mce(
     Tags and externalUrl doesnt seem to have any impact on UI.
     """
     return DatasetPropertiesClass(
+        name = dataset_name,
         description=description,
         externalUrl=externalUrl,
         customProperties=customProperties,

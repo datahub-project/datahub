@@ -1,6 +1,8 @@
 import { GetDatasetDocument } from './graphql/dataset.generated';
-import { Dataset, EntityType, PlatformType, SchemaFieldDataType } from './types.generated';
+import { Container, Dataset, EntityType, PlatformType, SchemaFieldDataType } from './types.generated';
 import { GetMeDocument } from './graphql/me.generated';
+import { GetContainerDocument } from './graphql/container.generated';
+import { GetSearchResultsDocument, GetSearchResultsQuery } from './graphql/search.generated';
 
 const user2 = {
     username: 'sdas',
@@ -34,6 +36,43 @@ const user2 = {
         email: 'sdas@domain.com',
     },
 };
+
+const customContainer = {
+    __typename: 'Container',
+    urn: 'urn:li:container:customContainer',
+    type: EntityType.Container,
+    platform: {
+        urn: 'urn:li:dataPlatform:kafka',
+        name: 'Kafka',
+        info: {
+            displayName: 'Kafka',
+            type: PlatformType.MessageBroker,
+            datasetNameDelimiter: '.',
+            logoUrl: '',
+        },
+        displayName: 'kafka',
+        properties: null,
+        type: EntityType.DataPlatform,
+        __typename: 'DataPlatform',
+    },
+    properties: {
+        __typename: 'ContainerProperties',
+        name: 'newContainer',
+        description: null,
+        customProperties: null,
+    },
+    subTypes: {
+        __typename: 'SubTypes',
+        typeNames: ['any'],
+    },
+    deprecation: {
+        __typename: 'Deprecation',
+        deprecated: false,
+        decommissionTime: 0,
+        note: '',
+        actor: 'urn:li:corpuser:blah',
+    },
+} as Container;
 
 export const dataset3 = {
     __typename: 'Dataset',
@@ -232,7 +271,9 @@ export const dataset3 = {
         },
     ],
     domain: null,
-    container: null,
+    container: {
+        ...customContainer,
+    },
     lineage: null,
     relationships: null,
     health: null,
@@ -264,6 +305,21 @@ export const editMocks = [
     },
     {
         request: {
+            query: GetContainerDocument,
+            variables: {
+                urn: 'urn:li:container:customContainer',
+            },
+        },
+        result: {
+            data: {
+                container: {
+                    ...customContainer,
+                },
+            },
+        },
+    },
+    {
+        request: {
             query: GetMeDocument,
             variables: {},
         },
@@ -280,6 +336,47 @@ export const editMocks = [
                     },
                 },
             },
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsDocument,
+            variables: {
+                input: {
+                    types: 'Container',
+                    query: '*',
+                    start: 0,
+                    count: 10,
+                    filters: [
+                        {
+                            field: 'platform',
+                            value: 'urn:li:dataPlatform:kafka',
+                        },
+                    ],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                search: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Container',
+                                ...customContainer,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [],
+                },
+            } as GetSearchResultsQuery,
         },
     },
 ];

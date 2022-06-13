@@ -1,6 +1,6 @@
 // import { Empty } from 'antd';
 import React, { useState } from 'react';
-import { Button, Divider, Form, Input, message, Table, Typography } from 'antd';
+import { Button, Divider, Form, Input, Table, Typography } from 'antd';
 import PropTypes from 'prop-types';
 import axios from 'axios';
 // import adhocConfig from '../../../../../../conf/Adhoc';
@@ -9,6 +9,7 @@ import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
 import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
 import { WhereAmI } from '../../../../../home/whereAmI';
+import { printErrorMsg, printSuccessMsg } from '../ApiCallUtils';
 // import { useBaseEntity } from '../../../EntityContext';
 // import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 // editable version
@@ -16,9 +17,8 @@ import { WhereAmI } from '../../../../../home/whereAmI';
 export const EditPropertiesTableEditable = () => {
     const urlBase = WhereAmI();
     const publishUrl = `${urlBase}custom/update_properties`;
-    console.log(`Submit url: ${publishUrl}`);
+    // console.log(`Submit url: ${publishUrl}`);
     const queryFields = useBaseEntity<GetDatasetQuery>()?.dataset?.properties?.customProperties;
-    const datasetDescription = useBaseEntity<GetDatasetQuery>()?.dataset?.properties?.description || '';
 
     const urn = useBaseEntity<GetDatasetQuery>()?.dataset?.urn;
     // const currUser = useGetAuthenticatedUser()?.corpUser?.urn || '-';
@@ -184,26 +184,22 @@ export const EditPropertiesTableEditable = () => {
             }),
         };
     });
-    const printSuccessMsg = (status) => {
-        message.success(`Status:${status} - Request submitted successfully`, 3).then();
-    };
-    const printErrorMsg = (error) => {
-        message.error(error, 3).then();
-    };
 
     const submitData = () => {
         const dataClone = data.map((x) => x);
         const dataSubmission = {
             dataset_name: urn,
             requestor: currUser,
-            description: datasetDescription,
             properties: dataClone,
             user_token: userToken,
         };
         console.log(dataSubmission);
         axios
             .post(publishUrl, dataSubmission)
-            .then((response) => printSuccessMsg(response.status))
+            .then((response) => {
+                printSuccessMsg(response.status);
+                window.location.reload();
+            })
             .catch((error) => {
                 printErrorMsg(error.toString());
             });

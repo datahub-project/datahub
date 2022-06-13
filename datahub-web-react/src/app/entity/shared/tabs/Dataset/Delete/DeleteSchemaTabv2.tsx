@@ -1,6 +1,6 @@
 // import { Empty } from 'antd';
 import React from 'react';
-import { Button, message, Popconfirm, Result } from 'antd';
+import { Button, Popconfirm, Result } from 'antd';
 import axios from 'axios';
 // import { gql, useQuery } from '@apollo/client';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
@@ -8,6 +8,7 @@ import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { useBaseEntity } from '../../../EntityContext';
 import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
 import { WhereAmI } from '../../../../../home/whereAmI';
+import { printErrorMsg, printSuccessMsg } from '../ApiCallUtils';
 // import adhocConfig from '../../../../../../conf/Adhoc';
 
 // function CheckStatus(queryresult, currDataset) {
@@ -15,10 +16,6 @@ import { WhereAmI } from '../../../../../home/whereAmI';
 //     const currStatus = data === undefined ? false : data;
 //     return currStatus;
 // }
-function timeout(delay: number) {
-    return new Promise((res) => setTimeout(res, delay));
-}
-
 function CheckStatus(entity) {
     const rawStatus = entity?.dataset?.status?.removed;
     const currStatus = rawStatus === undefined ? false : rawStatus;
@@ -28,7 +25,7 @@ function CheckStatus(entity) {
 export const DeleteSchemaTabv2 = () => {
     const urlBase = WhereAmI();
     const publishUrl = `${urlBase}custom/update_dataset_status`;
-    console.log(`Submit url: ${publishUrl}`);
+    // console.log(`Submit url: ${publishUrl}`);
     const [visible, setVisible] = React.useState(false);
     const [confirmLoading, setConfirmLoading] = React.useState(false);
     const baseEntity = useBaseEntity<GetDatasetQuery>();
@@ -50,12 +47,6 @@ export const DeleteSchemaTabv2 = () => {
     const currUserUrn = FindMyUrn();
     const userToken = GetMyToken(currUserUrn);
     // console.log(`user is ${currUser} and token is ${userToken}, received at ${Date().toLocaleString()}`);
-    const printSuccessMsg = (status) => {
-        message.success(`Status:${status} - Request submitted successfully`, 3).then();
-    };
-    const printErrorMsg = (errorMsg) => {
-        message.error(errorMsg, 3).then();
-    };
 
     const deleteDataset = async () => {
         axios
@@ -65,12 +56,13 @@ export const DeleteSchemaTabv2 = () => {
                 desired_state: !CheckStatus(baseEntity),
                 user_token: userToken,
             })
-            .then((response) => printSuccessMsg(response.status))
+            .then((response) => {
+                printSuccessMsg(response.status);
+                window.location.reload();
+            })
             .catch((exception) => {
                 printErrorMsg(exception.toString());
             });
-        await timeout(3000);
-        window.location.reload();
     };
 
     const showPopconfirm = () => {

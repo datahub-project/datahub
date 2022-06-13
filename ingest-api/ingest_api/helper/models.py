@@ -80,10 +80,20 @@ class prop_params(BaseModel):
     dataset_name: str
     requestor: str
     user_token: str
-    description: Optional[str]=""
     properties: List[Dict]
 
 
+class container_param(BaseModel):
+    dataset_name: str
+    requestor: str
+    user_token: str
+    container: str    
+
+class name_param(BaseModel):
+    dataset_name: str
+    requestor: str
+    user_token: str
+    displayName: str 
 # class echo_param(BaseModel):
 #     user_input: Any
 

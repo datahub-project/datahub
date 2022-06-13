@@ -1,7 +1,7 @@
 // import { Empty } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { gql, useQuery } from '@apollo/client';
-import { Button, Form, message } from 'antd';
+import { Button, Form } from 'antd';
 import axios from 'axios';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { useBaseEntity } from '../../../EntityContext';
@@ -9,6 +9,7 @@ import { SpecifyBrowsePath } from '../../../../../create/Components/SpecifyBrows
 // import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser';
 import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
 import { WhereAmI } from '../../../../../home/whereAmI';
+import { printErrorMsg, printSuccessMsg } from '../ApiCallUtils';
 // import adhocConfig from '../../../../../../conf/Adhoc';
 
 function computeFinal(input) {
@@ -24,16 +25,13 @@ function computeFinal(input) {
     });
     return formatted || [''];
 }
-function timeout(delay: number) {
-    return new Promise((res) => setTimeout(res, delay));
-}
 
 export const EditBrowsePathTable = () => {
     const urlBase = WhereAmI();
     const publishUrl = `${urlBase}custom/update_browsepath`;
     console.log(`the final url is ${publishUrl}`);
     const [originalData, setOriginalData] = useState();
-    const [disabledSave, setDisabledSave] = useState(true);
+    const [modifiedState, setModifiedState] = useState(false);
     const layout = {
         labelCol: {
             span: 6,
@@ -44,8 +42,6 @@ export const EditBrowsePathTable = () => {
     };
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const currUrn = baseEntity && baseEntity.dataset && baseEntity.dataset?.urn;
-    // const currDataset = useBaseEntity<GetDatasetOwnersGqlQuery>()?.dataset?.urn;
-    // const currUser = useGetAuthenticatedUser()?.corpUser?.username || '-';
     const currUser = FindWhoAmI();
     const currUserUrn = FindMyUrn();
     const userToken = GetMyToken(currUserUrn);
@@ -65,12 +61,6 @@ export const EditBrowsePathTable = () => {
         }
     `;
     const { data } = useQuery(queryresult, { skip: currUrn === undefined });
-    const printSuccessMsg = (status) => {
-        message.success(`Status:${status} - Request submitted successfully`, 3).then();
-    };
-    const printErrorMsg = (error) => {
-        message.error(error, 3).then();
-    };
     const onFinish = async (values) => {
         axios
             .post(publishUrl, {
@@ -79,22 +69,25 @@ export const EditBrowsePathTable = () => {
                 browsePaths: values.browsepathList,
                 user_token: userToken,
             })
-            .then((response) => printSuccessMsg(response.status))
+            .then((response) => {
+                printSuccessMsg(response.status);
+                setModifiedState(false);
+                window.location.reload();
+            })
             .catch((error) => {
                 printErrorMsg(error.toString());
             });
-        await timeout(3000);
-        window.location.reload();
     };
     const onReset = () => {
         form.resetFields();
+        setModifiedState(false);
         form.setFieldsValue({
             browsepathList: originalData,
         });
     };
     const handleFormChange = () => {
         const hasErrors = form.getFieldsError().some(({ errors }) => errors.length);
-        setDisabledSave(hasErrors);
+        setModifiedState(!hasErrors);
     };
     useEffect(() => {
         const formatted = computeFinal(data);
@@ -106,7 +99,7 @@ export const EditBrowsePathTable = () => {
     }, [form, data]);
     return (
         <Form name="dynamic_item" {...layout} form={form} onFinish={onFinish} onFieldsChange={handleFormChange}>
-            <Button type="primary" htmlType="submit" disabled={disabledSave}>
+            <Button type="primary" htmlType="submit" disabled={!modifiedState}>
                 Submit
             </Button>
             &nbsp;

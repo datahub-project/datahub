@@ -1,12 +1,13 @@
 // import { Empty } from 'antd';
 import React, { useState } from 'react';
-import { Button, Divider, Form, Input, message, Select, Table, Typography } from 'antd';
+import { Button, Divider, Form, Input, Select, Table, Typography } from 'antd';
 import PropTypes from 'prop-types';
 import axios from 'axios';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
 import { WhereAmI } from '../../../../../home/whereAmI';
+import { printErrorMsg, printSuccessMsg } from '../ApiCallUtils';
 
 const { Option } = Select;
 
@@ -207,12 +208,6 @@ export const EditSchemaTableEditable = () => {
             }),
         };
     });
-    const printSuccessMsg = (status) => {
-        message.success(`Status:${status} - Request submitted successfully`, 3).then();
-    };
-    const printErrorMsg = (error) => {
-        message.error(error, 3).then();
-    };
 
     const submitData = () => {
         const dataClone = data.map((x) => x);
@@ -224,7 +219,10 @@ export const EditSchemaTableEditable = () => {
         };
         axios
             .post(publishUrl, dataSubmission)
-            .then((response) => printSuccessMsg(response.status))
+            .then((response) => {
+                printSuccessMsg(response.status);
+                window.location.reload();
+            })
             .catch((error) => {
                 printErrorMsg(error.toString());
             });

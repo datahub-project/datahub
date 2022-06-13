@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Button, Form, message, Select } from 'antd';
+import { Button, Form, Select } from 'antd';
 import { gql, useLazyQuery, useQuery } from '@apollo/client';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 import { FindMyUrn, FindWhoAmI, GetMyToken } from '../../../../dataset/whoAmI';
 import { WhereAmI } from '../../../../../home/whereAmI';
+import { printErrorMsg, printSuccessMsg } from '../ApiCallUtils';
 // import adhocConfig from '../../../../../../conf/Adhoc';
 
 function GetProfileTimestamps(datasetUrn) {
@@ -31,15 +32,12 @@ const formItemLayout = {
     labelCol: { span: 6 },
     wrapperCol: { span: 14 },
 };
-function timeout(delay: number) {
-    return new Promise((res) => setTimeout(res, delay));
-}
 
 export const EditSampleForm = () => {
     const urlBase = WhereAmI();
     const makeUrl = `${urlBase}custom/update_samples`;
     const delUrl = `${urlBase}custom/delete_samples`;
-    console.log(`makeSample url: ${makeUrl}, delSample url: ${delUrl}`);
+    // console.log(`makeSample url: ${makeUrl}, delSample url: ${delUrl}`);
     const queryTimeStamps = gql`
         query getProfiles($urn: String!, $timestamp: Long!) {
             dataset(urn: $urn) {
@@ -118,12 +116,6 @@ export const EditSampleForm = () => {
         setHasSelectedDate(false);
         sethasModifiedForm(false);
     };
-    const printSuccessMsg = (status) => {
-        message.success(`Status:${status} - Request submitted successfully`, 3).then();
-    };
-    const printErrorMsg = (error) => {
-        message.error(error, 3).then();
-    };
     const handleValuesChange = (value, key: string) => {
         const copyFormData: any = { ...formData };
         copyFormData[key] = value;
@@ -140,12 +132,13 @@ export const EditSampleForm = () => {
         // console.log(`data to be submitted is ${JSON.stringify(deleteSubmission)}`);
         axios
             .post(delUrl, deleteSubmission)
-            .then((response) => printSuccessMsg(response.status))
+            .then((response) => {
+                printSuccessMsg(response.status);
+                window.location.reload();
+            })
             .catch((error) => {
                 printErrorMsg(error.toString());
             });
-        await timeout(3000);
-        window.location.reload();
     };
     const submitData = async () => {
         const formTimestamp = toggle ? Date.now() : Number(selectedValue);
@@ -158,12 +151,13 @@ export const EditSampleForm = () => {
         };
         axios
             .post(makeUrl, createSubmission)
-            .then((response) => printSuccessMsg(response.status))
+            .then((response) => {
+                printSuccessMsg(response.status);
+                window.location.reload();
+            })
             .catch((error) => {
                 printErrorMsg(error.toString());
             });
-        await timeout(3000);
-        window.location.reload();
     };
     const updateSelect = (value) => {
         setSelectedValue(value);

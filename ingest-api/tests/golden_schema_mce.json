@@ -76,6 +76,8 @@
                             "dataset_location": "location of dataset"
                         },
                         "externalUrl": null,
+                        "name": "my_test_dataset",
+                        "qualifiedName": null,
                         "description": "hello this is description of dataset",
                         "uri": null,
                         "tags": []

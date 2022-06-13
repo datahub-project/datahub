@@ -9,7 +9,7 @@ import time
 from logging.handlers import TimedRotatingFileHandler
 import requests
 import uvicorn
-
+from datahub.ingestion.graph.client import DataHubGraph, DatahubClientConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import \
@@ -364,44 +364,57 @@ async def update_prop(item: prop_params):
     token = item.user_token
     user = item.requestor
     if authenticate_action(token=token, user=user, dataset=datasetName):
-        dataset_snapshot = DatasetSnapshot(
-            urn=datasetName,
-            aspects=[],
+        graph = build_datahub_graph(token)
+        existing_prop = graph.get_aspect_v2(
+            entity_urn=datasetName,
+            aspect="datasetProperties",
+            aspect_type=DatasetPropertiesClass,
         )
-        description = item.description if item.description else ''
+        if not existing_prop:
+            existing_prop=DatasetPropertiesClass()
+
         properties = item.properties
         all_properties = {}
         for prop in properties:
             if "propertyKey" and "propertyValue" in prop:
                 all_properties[prop.get("propertyKey")] = prop.get("propertyValue")
-        property_aspect = make_dataset_description_mce(
-            dataset_name=datasetName,
-            description=description,
-            customProperties=all_properties,
+        new_prop = DatasetPropertiesClass(
+            customProperties = all_properties,
+            name = existing_prop.name if existing_prop.name else None,
+            description = existing_prop.description if existing_prop.description else None,
+            tags = existing_prop.tags if existing_prop.tags else None,
         )
-        dataset_snapshot.aspects.append(property_aspect)
-        metadata_record = MetadataChangeEvent(
-            proposedSnapshot=dataset_snapshot,
+        mcp = MetadataChangeProposalWrapper(
+            aspect = new_prop,
+            entityType="dataset",
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn=datasetName,
+            aspectName="datasetProperties",
             systemMetadata=SystemMetadataClass(
                 runId=f"{datasetName}_prop_{str(int(time.time()))}"
             ),
         )
-        response = emit_mce_respond(
-            metadata_record=metadata_record,
+        response = emit_mcp_respond(
+            metadata_record=mcp,
             owner=item.requestor,
             event="UI Update Properties",
-            token=token,
+            token=item.user_token,
         )
-        
+        rootLogger.error(response)
         return JSONResponse(
-            content={"message": response.get("message", "")}, status_code=response["status_code"]
-        ) 
+            content={"message": response["message"]}, status_code=response["status_code"]
+        )
     else:
         rootLogger.error(
-            f"authentication failed for request(update_props) from {user}"
+            f"authentication failed for request\
+            (update_properties) from {user}"
         )
         return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
 
+
+def build_datahub_graph(token: str) -> DataHubGraph:
+    graph = DataHubGraph(DatahubClientConfig(server=rest_endpoint, token=token))
+    return graph
 
 def emit_mce_respond(
     metadata_record: MetadataChangeEvent, owner: str, event: str, token: str
@@ -515,7 +528,7 @@ async def create_item(item: create_dataset_params) -> None:
         )
         dataset_snapshot.aspects.append(
             make_dataset_description_mce(
-                dataset_name=datasetName,
+                dataset_name=item.dataset_name,
                 description=dataset_description,
                 customProperties=properties,
             )
@@ -595,3 +608,98 @@ async def delete_item(item: dataset_status_params) -> None:
             (update_schema) from {user}"
         )
         return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
+
+@app.post("/custom/update_containers")
+async def update_container(item: container_param) -> None:
+    """
+    This endpoint is to support update/create container aspect. 
+    """
+    rootLogger.info("update_container_request_received from {}".format(item.requestor))
+    rootLogger.debug("update_container_request_received {}".format(item))
+    datasetName = item.dataset_name
+    token = item.user_token
+    user = item.requestor
+    container = item.container
+    if authenticate_action(token=token, user=user, dataset=datasetName):
+        mcp = MetadataChangeProposalWrapper(
+            aspect = make_container_aspect(container),
+            entityType="dataset",
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn=datasetName,
+            aspectName="container",
+            systemMetadata=SystemMetadataClass(
+                runId=f"{datasetName}_container_{str(int(time.time()))}"
+            ),
+        )
+        response = emit_mcp_respond(
+            metadata_record=mcp,
+            owner=item.requestor,
+            event=f"Update container:{item.container}",
+            token=item.user_token,
+        )
+        rootLogger.error(response)
+        return JSONResponse(
+            content={"message": response["message"]}, status_code=response["status_code"]
+        )
+    else:
+        rootLogger.error(
+            f"authentication failed for request\
+            (update_container) from {user}"
+        )
+        return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
+
+@app.post("/custom/update_dataset_name")
+async def update_container(item: name_param) -> None:
+    """
+    This endpoint is to support update of dataset name. 
+    """
+    rootLogger.info("update_displayName_request_received from {}".format(item.requestor))
+    rootLogger.debug("update_displayName_request_received {}".format(item))
+    datasetName = item.dataset_name
+    token = item.user_token
+    user = item.requestor
+    displayName = item.displayName
+    if authenticate_action(token=token, user=user, dataset=datasetName):
+        graph = build_datahub_graph(token)
+        existing_prop = graph.get_aspect_v2(
+            entity_urn=datasetName,
+            aspect="datasetProperties",
+            aspect_type=DatasetPropertiesClass,
+        )
+        if not existing_prop:
+            existing_prop=DatasetPropertiesClass()
+        new_prop = DatasetPropertiesClass(
+            customProperties = existing_prop.customProperties if existing_prop.customProperties else None,
+            name = displayName,
+            description = existing_prop.description if existing_prop.description else None,
+            tags = existing_prop.tags if existing_prop.tags else None,
+        )
+        mcp = MetadataChangeProposalWrapper(
+            aspect = new_prop,
+            entityType="dataset",
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn=datasetName,
+            aspectName="datasetProperties",
+            systemMetadata=SystemMetadataClass(
+                runId=f"{datasetName}_rename_{str(int(time.time()))}"
+            ),
+        )
+        response = emit_mcp_respond(
+            metadata_record=mcp,
+            owner=item.requestor,
+            event=f"Update dataset name:{item.displayName}",
+            token=item.user_token,
+        )
+        rootLogger.error(response)
+        return JSONResponse(
+            content={"message": response["message"]}, status_code=response["status_code"]
+        )
+    else:
+        rootLogger.error(
+            f"authentication failed for request\
+            (update_name) from {user}"
+        )
+        return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8001)

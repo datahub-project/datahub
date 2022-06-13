@@ -86,7 +86,7 @@ def test_make_csv_dataset(
         lineage_type=DatasetLineageTypeClass.TRANSFORMED,
     )
     description_mce = make_dataset_description_mce(
-        dataset_name=dataset_urn,
+        dataset_name=inputs["dataset_name"],
         description=inputs["dataset_description"],
         customProperties={
             "dataset_origin": inputs["dataset_origin"],
@@ -121,6 +121,7 @@ def test_make_csv_dataset(
     assert generated_dict == golden_mce
     os.remove(output_path)
 
+# take note that the output from the test above writes to the same file as the test_delete generated file.
 
 @freeze_time(FROZEN_TIME)
 def test_delete(
@@ -185,4 +186,3 @@ def test_create_profile(
 def test_type_string():
     assert determine_type("text/csv") == "csv"
     assert determine_type({"dataset_type": "application/octet-stream"}) == "csv"
-    assert determine_type("garbage") != "csv"
