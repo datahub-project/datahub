@@ -360,21 +360,21 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
 
     # Run ingestion.
     click.echo("Starting ingestion...")
-    recipe = {
-      "source": {
-        "type": "file",
-          "config": {
-            "filename": path,
-          },
+    recipe: dict = {
+        "source": {
+            "type": "file",
+            "config": {
+                "filename": path,
+            },
         },
         "sink": {
-          "type": "datahub-rest",
-          "config": {"server": "http://localhost:8080"},
+            "type": "datahub-rest",
+            "config": {"server": "http://localhost:8080"},
         },
-      }
+    }
 
     if token is not None:
-      recipe["sink"]["config"]["token"] = token
+        recipe["sink"]["config"]["token"] = token
 
     pipeline = Pipeline.create(recipe)
     pipeline.run()

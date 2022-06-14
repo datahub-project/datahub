@@ -48,7 +48,7 @@ To deploy a new instance of DataHub, perform the following steps.
 
 :::note
 
-If you've enabled [Metadata Service Authentication](/docs/introducing-metadata-service-authentication/), you'll need to provide a Personal Access Token
+If you've enabled [Metadata Service Authentication](./introducing-metadata-service-authentication.md), you'll need to provide a Personal Access Token
 using the `--token <token>` parameter in the command.
 
 :::
