@@ -41,7 +41,9 @@ dependencies {
 
   implementation(externalDependency.pac4j) {
     exclude group: "net.minidev", module: "json-smart"
+    exclude group: "com.nimbusds", module: "nimbus-jose-jwt"
   }
+  implementation "com.nimbusds:nimbus-jose-jwt:7.9"
   implementation externalDependency.jsonSmart
   implementation externalDependency.playPac4j
   implementation externalDependency.shiroCore
