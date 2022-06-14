@@ -2,7 +2,6 @@ package com.linkedin.metadata.boot;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -20,10 +19,10 @@ public class BootstrapManager {
     _bootSteps = bootSteps;
   }
 
-  public void start(final BootstrapStep.ExecutionTime time) {
-    log.info(String.format("Starting %s Bootstrap Process...", time));
+  public void start() {
+    log.info("Starting Bootstrap Process...");
 
-    List<BootstrapStep> stepsToExecute = getStepsToExecute(time);
+    List<BootstrapStep> stepsToExecute = _bootSteps;
 
     for (int i = 0; i < stepsToExecute.size(); i++) {
       final BootstrapStep step = stepsToExecute.get(i);
@@ -46,9 +45,5 @@ public class BootstrapManager {
         });
       }
     }
-  }
-
-  private List<BootstrapStep> getStepsToExecute(final BootstrapStep.ExecutionTime time) {
-    return _bootSteps.stream().filter(step -> time.equals(step.getExecutionTime())).collect(Collectors.toList());
   }
 }

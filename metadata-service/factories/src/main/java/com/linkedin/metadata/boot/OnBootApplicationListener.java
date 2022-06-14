@@ -26,7 +26,7 @@ public class OnBootApplicationListener implements ApplicationListener<ContextRef
   @Override
   public void onApplicationEvent(@Nonnull ContextRefreshedEvent event) {
     if (ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId())) {
-      _bootstrapManager.start(BootstrapStep.ExecutionTime.ON_BOOT);
+      _bootstrapManager.start();
     }
   }
 }
