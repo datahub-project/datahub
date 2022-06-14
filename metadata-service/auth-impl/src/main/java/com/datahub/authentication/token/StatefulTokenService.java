@@ -179,6 +179,14 @@ public class StatefulTokenService extends StatelessTokenService {
     throw new TokenException("Access token no longer exists");
   }
 
+  public boolean isTokenRevoked(@Nonnull String hashToken) {
+    try {
+      return _revokedTokenCache.get(hashToken);
+    } catch (ExecutionException e) {
+      return false;
+    }
+  }
+
   /**
    * Hashes the input after salting it.
    */

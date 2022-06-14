@@ -1,14 +1,14 @@
 package com.linkedin.datahub.graphql.resolvers.auth;
 
-import com.google.common.collect.ImmutableSet;
+import com.datahub.authentication.token.StatefulTokenService;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.generated.AccessTokenMetadata;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenInput;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenResult;
-import com.linkedin.datahub.graphql.generated.AccessTokenMetadata;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -16,13 +16,10 @@ import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
@@ -35,13 +32,13 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 public class ListAccessTokensResolver implements DataFetcher<CompletableFuture<ListAccessTokenResult>> {
 
   private static final String EXPIRES_AT_FIELD_NAME = "expiresAt";
-  private static final Set<String> FACET_FIELDS =
-      ImmutableSet.of("ownerUrn", "actorUrn", "name", "createdAt", "expiredAt", "description");
 
   private final EntityClient _entityClient;
+  private final StatefulTokenService _statefulTokenService;
 
-  public ListAccessTokensResolver(final EntityClient entityClient) {
+  public ListAccessTokensResolver(final EntityClient entityClient, final StatefulTokenService statefulTokenService) {
     this._entityClient = entityClient;
+    _statefulTokenService = statefulTokenService;
   }
 
   @Override
@@ -60,16 +57,20 @@ public class ListAccessTokensResolver implements DataFetcher<CompletableFuture<L
           final SortCriterion sortCriterion =
               new SortCriterion().setField(EXPIRES_AT_FIELD_NAME).setOrder(SortOrder.DESCENDING);
 
-          final SearchResult searchResult = _entityClient.search(Constants.ACCESS_TOKEN_ENTITY_NAME, "",
-              buildFilter(filters), sortCriterion, start, count,
-              getAuthentication(environment));
+          final SearchResult searchResult =
+              _entityClient.search(Constants.ACCESS_TOKEN_ENTITY_NAME, "", buildFilter(filters), sortCriterion, start,
+                  count, getAuthentication(environment));
 
-          final List<AccessTokenMetadata> tokens = searchResult.getEntities().stream().map(entity -> {
-            final AccessTokenMetadata metadata = new AccessTokenMetadata();
-            metadata.setUrn(entity.getEntity().toString());
-            metadata.setType(EntityType.ACCESS_TOKEN);
-            return metadata;
-          }).collect(Collectors.toList());
+          final List<AccessTokenMetadata> tokens = searchResult.getEntities()
+              .stream()
+              .filter(entity -> !_statefulTokenService.isTokenRevoked(entity.getEntity().getId()))
+              .map(entity -> {
+                final AccessTokenMetadata metadata = new AccessTokenMetadata();
+                metadata.setUrn(entity.getEntity().toString());
+                metadata.setType(EntityType.ACCESS_TOKEN);
+                return metadata;
+              })
+              .collect(Collectors.toList());
 
           final ListAccessTokenResult result = new ListAccessTokenResult();
           result.setTokens(tokens);
