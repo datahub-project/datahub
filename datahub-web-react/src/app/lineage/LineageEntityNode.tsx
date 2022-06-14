@@ -115,7 +115,7 @@ export default function LineageEntityNode({
     let platformDisplayText = capitalizeFirstLetter(node.data.platform);
     if (node.data.siblingPlatforms) {
         platformDisplayText = node.data.siblingPlatforms
-            .map((platform) => capitalizeFirstLetter(platform.properties?.displayName || platform.name))
+            .map((platform) => platform.properties?.displayName || platform.name)
             .join(' & ');
     }
 

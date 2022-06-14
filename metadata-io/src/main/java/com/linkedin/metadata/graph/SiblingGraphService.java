@@ -1,16 +1,24 @@
 package com.linkedin.metadata.graph;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Siblings;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import static com.linkedin.metadata.Constants.*;
 
 
 @Slf4j
@@ -36,7 +44,7 @@ public class SiblingGraphService {
 
     EntityLineageResult entityLineage = _graphService.getLineage(entityUrn, direction, offset, count, maxHops);
 
-    Siblings siblingAspectOfEntity = (Siblings) _entityService.getLatestAspect(entityUrn, Constants.SIBLINGS_ASPECT_NAME);
+    Siblings siblingAspectOfEntity = (Siblings) _entityService.getLatestAspect(entityUrn, SIBLINGS_ASPECT_NAME);
 
     // if you have siblings, we want to fetch their lineage too and merge it in
     if (siblingAspectOfEntity != null && siblingAspectOfEntity.hasSiblings()) {
@@ -44,37 +52,68 @@ public class SiblingGraphService {
       Set<Urn> allSiblingsInGroup = siblingUrns.stream().collect(Collectors.toSet());
       allSiblingsInGroup.add(entityUrn);
 
-      entityLineage = filterLineageResultFromSiblings(entityUrn, allSiblingsInGroup, entityLineage);
+      entityLineage =
+          filterLineageResultFromSiblings(entityUrn, allSiblingsInGroup, entityLineage, ImmutableList.of());
 
       // Update offset and count to fetch the correct number of incoming edges below
       offset = Math.max(0, offset - entityLineage.getTotal());
       count = Math.max(0, count - entityLineage.getRelationships().size());
 
       for (Urn siblingUrn : siblingUrns) {
-        EntityLineageResult siblingLineage = filterLineageResultFromSiblings(
-            siblingUrn,
-            allSiblingsInGroup,
-            _graphService.getLineage(siblingUrn, direction, offset, count, maxHops)
-        );
-
-        entityLineage.getRelationships().addAll(siblingLineage.getRelationships());
-        entityLineage.setTotal(entityLineage.getTotal() + siblingLineage.getTotal());
+        EntityLineageResult nextEntityLineage = filterLineageResultFromSiblings(siblingUrn, allSiblingsInGroup,
+            _graphService.getLineage(siblingUrn, direction, offset, count, maxHops), entityLineage.getRelationships());
 
         // Update offset and count to fetch the correct number of incoming edges below
-        offset = Math.max(0, offset - siblingLineage.getTotal());
-        count = Math.max(0, count - siblingLineage.getRelationships().size());
+        offset = Math.max(0, offset - nextEntityLineage.getTotal());
+        count = Math.max(0, count - nextEntityLineage.getCount() - entityLineage.getCount());
+        entityLineage = nextEntityLineage;
       };
     }
 
     return entityLineage;
   }
 
-  private EntityLineageResult filterLineageResultFromSiblings(Urn urn, Set<Urn> allSiblingsInGroup, EntityLineageResult entityLineageResult) {
+  private EntityLineageResult filterLineageResultFromSiblings(
+      Urn urn,
+      Set<Urn> allSiblingsInGroup,
+      EntityLineageResult entityLineageResult,
+      List<LineageRelationship> existingResults
+  ) {
     List<LineageRelationship> filteredRelationships = entityLineageResult.getRelationships()
         .stream()
         .filter(lineageRelationship -> !allSiblingsInGroup.contains(lineageRelationship.getEntity())
             || lineageRelationship.getEntity().equals(urn))
         .collect(Collectors.toList());
+
+    List<LineageRelationship> combinedResults = Stream.concat(filteredRelationships.stream(), existingResults.stream())
+        .collect(Collectors.toList());
+
+    Set<Urn> combinedResultUrns = combinedResults.stream().map(result -> result.getEntity()).collect(Collectors.toSet());
+
+    Map<Urn, List<RecordTemplate>> siblingAspects =
+        _entityService.getLatestAspects(combinedResultUrns, ImmutableSet.of(SIBLINGS_ASPECT_NAME));
+
+    filteredRelationships = combinedResults.stream().filter(result -> {
+      Optional<RecordTemplate> optionalSiblingsAspect = siblingAspects.get(result.getEntity()).stream().filter(
+          aspect -> aspect instanceof Siblings
+      ).findAny();
+
+      if (!optionalSiblingsAspect.isPresent()) return true;
+
+      Siblings siblingsAspect = (Siblings) optionalSiblingsAspect.get();
+
+      if (siblingsAspect.isPrimary()) return true;
+
+      // if you are not primary and your sibling exists in the result set, filter yourself out
+      if (siblingsAspect.getSiblings().stream().anyMatch(
+          sibling -> combinedResultUrns.contains(sibling)
+      )) {
+        return false;
+      }
+
+      return true;
+    }).collect(Collectors.toList());
+
     entityLineageResult.setRelationships(new LineageRelationshipArray(filteredRelationships));
     entityLineageResult.setTotal(filteredRelationships.size());
     return entityLineageResult;
