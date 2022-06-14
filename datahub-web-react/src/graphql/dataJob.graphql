@@ -52,15 +52,3 @@ query getDataJobRuns($urn: String!, $start: Int!, $count: Int!) {
         }
     }
 }
-
-query getDataJobLineage($urn: String!) {
-    dataJob(urn: $urn) {
-        urn
-        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
-            ...fullLineageResults
-        }
-        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
-            ...fullLineageResults
-        }
-    }
-}

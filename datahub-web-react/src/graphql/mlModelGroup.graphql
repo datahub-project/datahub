@@ -29,16 +29,3 @@ query getMLModelGroup($urn: String!) {
         }
     }
 }
-
-query getMLModelGroupLineage($urn: String!) {
-    mlModelGroup(urn: $urn) {
-        urn
-        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
-            ...fullLineageResults
-        }
-        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
-            ...fullLineageResults
-        }
-    }
-}
-

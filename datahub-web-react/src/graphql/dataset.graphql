@@ -171,18 +171,6 @@ query getDataset($urn: String!) {
     }
 }
 
-query getDatasetLineage($urn: String!) {
-    dataset(urn: $urn) {
-        urn
-        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
-            ...fullLineageResults
-        }
-        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
-            ...fullLineageResults
-        }
-    }
-}
-
 mutation updateDataset($urn: String!, $input: DatasetUpdateInput!) {
     updateDataset(urn: $urn, input: $input) {
         urn

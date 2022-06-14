@@ -15,7 +15,7 @@ import useGetEntityQuery from './utils/useGetEntityQuery';
 import { EntityType } from '../../types.generated';
 import { capitalizeFirstLetter } from '../shared/textUtil';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import useGetEntityLineageQuery from './utils/useGetEntityLineageQuery';
+import { useGetEntityLineageQuery } from '../../graphql/lineage.generated';
 
 const DEFAULT_DISTANCE_FROM_TOP = 106;
 
@@ -57,12 +57,16 @@ export default function LineageExplorer({ urn, type }: Props) {
 
     const entityRegistry = useEntityRegistry();
 
-    const { loading: lineageLoading, error: lineageError, data: lineageData } = useGetEntityLineageQuery(urn, type);
+    const {
+        loading: lineageLoading,
+        error: lineageError,
+        data: lineageData,
+    } = useGetEntityLineageQuery({ variables: { urn } });
     const { loading, error, data } = useGetEntityQuery(urn, type);
     const combinedData: EntityAndType | null | undefined = useMemo(
         () =>
             data && lineageData
-                ? ({ type: data.type, entity: { ...data.entity, ...lineageData } } as EntityAndType)
+                ? ({ type: data.type, entity: { ...data.entity, ...lineageData.entity } } as EntityAndType)
                 : undefined,
         [data, lineageData],
     );
