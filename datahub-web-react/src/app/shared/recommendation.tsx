@@ -14,3 +14,17 @@ export function GetTagRecommendation() {
     });
     return data?.searchAcrossEntities?.searchResults;
 }
+
+export function GetOwnerRecommendation() {
+    const { data } = useGetSearchResultsForMultipleQuery({
+        variables: {
+            input: {
+                types: [EntityType.CorpGroup, EntityType.CorpUser],
+                query: '*',
+                start: 0,
+                count: 5,
+            },
+        },
+    });
+    return data?.searchAcrossEntities?.searchResults;
+}
