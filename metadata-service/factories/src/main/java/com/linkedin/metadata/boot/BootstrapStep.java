@@ -26,10 +26,25 @@ public interface BootstrapStep {
     return ExecutionMode.BLOCKING;
   }
 
+  /**
+   * Return the execution time of the step
+   */
+  @Nonnull
+  default ExecutionTime getExecutionTime() {
+    return ExecutionTime.ON_BOOT;
+  }
+
   enum ExecutionMode {
     // Block service from starting up while running the step
     BLOCKING,
     // Start the step asynchronously without waiting for it to end
-    ASYNC;
+    ASYNC,
+  }
+
+  enum ExecutionTime {
+    // A step which runs when the application first boots.
+    ON_BOOT,
+    // A step which runs when the application is ready.
+    ON_READY,
   }
 }

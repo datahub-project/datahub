@@ -57,6 +57,12 @@ public class RestoreGlossaryIndices implements BootstrapStep {
     return ExecutionMode.BLOCKING;
   }
 
+  @Nonnull
+  @Override
+  public ExecutionTime getExecutionTime() {
+    return ExecutionTime.ON_READY;
+  }
+
   @Override
   public void execute() throws Exception {
     log.info("Attempting to run RestoreGlossaryIndices upgrade..");
