@@ -13,7 +13,7 @@ import TagLabel from '../TagLabel';
 import GlossaryBrowser from '../../glossary/GlossaryBrowser/GlossaryBrowser';
 import ClickOutside from '../ClickOutside';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import TagBrowser from './TagBrowser';
+import { GetTagRecommendation } from '../recommendation';
 
 type AddTagsModalProps = {
     visible: boolean;
@@ -73,7 +73,6 @@ export default function AddTagsTermsModal({
     const [disableAdd, setDisableAdd] = useState(false);
     const [urns, setUrns] = useState<string[]>([]);
     const [selectedTerms, setSelectedTerms] = useState<any[]>([]);
-    const [selectedTagsFromBrowse, setSelectedTagsFromBrowse] = useState<any[]>([]);
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
 
     const [addTagsMutation] = useAddTagsMutation();
@@ -119,9 +118,18 @@ export default function AddTagsTermsModal({
         );
     };
 
-    const tagSearchOptions = tagSearchResults.map((result) => {
+    // TO DO: Why It is not working in useEffect
+    const recommendedTagData = GetTagRecommendation();
+
+    let tagSearchOptions: any[] | undefined = tagSearchResults.map((result) => {
         return renderSearchResult(result);
     });
+
+    if (!inputValue && type === EntityType.Tag && isFocusedOnInput) {
+        tagSearchOptions = recommendedTagData?.map((tag) => {
+            return renderSearchResult(tag);
+        });
+    }
 
     const inputExistsInTagSearch = tagSearchResults.some((result: SearchResult) => {
         const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
@@ -129,7 +137,7 @@ export default function AddTagsTermsModal({
     });
 
     if (!inputExistsInTagSearch && inputValue.length > 0 && type === EntityType.Tag && urns.length === 0) {
-        tagSearchOptions.push(
+        tagSearchOptions?.push(
             <Select.Option value={CREATE_TAG_VALUE} key={CREATE_TAG_VALUE}>
                 <Typography.Link> Create {inputValue}</Typography.Link>
             </Select.Option>,
@@ -138,15 +146,13 @@ export default function AddTagsTermsModal({
 
     const tagRender = (props) => {
         // eslint-disable-next-line react/prop-types
-        const { closable, onClose, value } = props;
+        const { label, closable, onClose, value } = props;
         const onPreventMouseDown = (event) => {
             event.preventDefault();
             event.stopPropagation();
         };
         const selectedItem =
-            type === EntityType.GlossaryTerm
-                ? selectedTerms.find((term) => term.urn === value).component
-                : selectedTagsFromBrowse.find((term) => term.urn === value).component;
+            type === EntityType.GlossaryTerm ? selectedTerms.find((term) => term.urn === value).component : label;
 
         return (
             <StyleTag onMouseDown={onPreventMouseDown} closable={closable} onClose={onClose}>
@@ -181,12 +187,8 @@ export default function AddTagsTermsModal({
         }
         const newUrns = [...(urns || []), urn];
         setUrns(newUrns);
-        const selectedSearchOption = tagSearchOptions.find((option) => option.props.value === urn);
+        const selectedSearchOption = tagSearchOptions?.find((option) => option.props.value === urn);
         setSelectedTerms([...selectedTerms, { urn, component: <TermLabel name={selectedSearchOption?.props.name} /> }]);
-        setSelectedTagsFromBrowse([
-            ...selectedTagsFromBrowse,
-            { urn, component: <TagLabel name={selectedSearchOption?.props.name} colorHash={urn} /> },
-        ]);
     };
 
     // When a Tag or term search result is deselected, remove the urn from the Owners
@@ -196,7 +198,6 @@ export default function AddTagsTermsModal({
         setInputValue('');
         setIsFocusedOnInput(true);
         setSelectedTerms(selectedTerms.filter((term) => term.urn !== urn));
-        setSelectedTagsFromBrowse(selectedTagsFromBrowse.filter((term) => term.urn !== urn));
     };
 
     // Function to handle the modal action's
@@ -282,25 +283,6 @@ export default function AddTagsTermsModal({
         setSelectedTerms([...selectedTerms, { urn, component: <TermLabel name={displayName} /> }]);
     }
 
-    function selectTagFromBrowse(urn: string, displayName: string, result: SearchResult) {
-        setIsFocusedOnInput(false);
-        const newUrns = [...(urns || []), urn];
-        setUrns(newUrns);
-        setSelectedTagsFromBrowse([
-            ...selectedTagsFromBrowse,
-            {
-                urn,
-                component: (
-                    <TagLabel
-                        name={displayName}
-                        colorHash={(result.entity as Tag).urn}
-                        color={(result.entity as Tag).properties?.colorHex}
-                    />
-                ),
-            },
-        ]);
-    }
-
     function clearInput() {
         setInputValue('');
         setTimeout(() => setIsFocusedOnInput(true), 0); // call after click outside
@@ -311,8 +293,6 @@ export default function AddTagsTermsModal({
     }
 
     const isShowingGlossaryBrowser = !inputValue && type === EntityType.GlossaryTerm && isFocusedOnInput;
-    const isShowingTagBrowser =
-        !inputValue && tagSearchResults.length === 0 && type === EntityType.Tag && isFocusedOnInput;
 
     return (
         <Modal
@@ -340,6 +320,7 @@ export default function AddTagsTermsModal({
             <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
                 <TagSelect
                     autoFocus
+                    defaultOpen
                     mode="multiple"
                     filterOption={false}
                     placeholder={`Search for ${entityRegistry.getEntityName(type)?.toLowerCase()}...`}
@@ -358,17 +339,12 @@ export default function AddTagsTermsModal({
                     onClear={clearInput}
                     onFocus={() => setIsFocusedOnInput(true)}
                     onBlur={handleBlur}
-                    dropdownStyle={
-                        isShowingGlossaryBrowser || isShowingTagBrowser || !inputValue ? { display: 'none' } : {}
-                    }
+                    dropdownStyle={isShowingGlossaryBrowser ? { display: 'none' } : {}}
                 >
                     {tagSearchOptions}
                 </TagSelect>
                 <BrowserWrapper isHidden={!isShowingGlossaryBrowser}>
                     <GlossaryBrowser isSelecting selectTerm={selectTermFromBrowser} />
-                </BrowserWrapper>
-                <BrowserWrapper isHidden={!isShowingTagBrowser}>
-                    <TagBrowser selectBrowseTag={selectTagFromBrowse} />
                 </BrowserWrapper>
             </ClickOutside>
         </Modal>
