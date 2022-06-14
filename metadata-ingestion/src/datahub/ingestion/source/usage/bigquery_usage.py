@@ -168,7 +168,7 @@ OPERATION_STATEMENT_TYPES = {
     "SELECT": OperationTypeClass.CUSTOM,
 }
 
-READ_STATEMENT_TYPES: List[str] = "SELECT"
+READ_STATEMENT_TYPES: List[str] = ["SELECT"]
 
 
 def bigquery_audit_metadata_query_template(
@@ -1103,7 +1103,10 @@ class BigQueryUsageSource(Source):
 
         return None
 
-    def _create_operational_custom_properties(self, event) -> Dict[str, str]:
+    def _create_operational_custom_properties(
+        self, event: AuditEvent
+    ) -> Dict[str, str]:
+        assert event.query_event
         custom_properties: Dict[str, str] = {}
         # This only needs for backward compatibility reason. To make sure we generate the same operational metadata than before
         if self.config.include_read_operational_stats:
