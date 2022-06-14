@@ -54,6 +54,11 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
 
   private void mapGlossaryNodeKey(@Nonnull GlossaryNode glossaryNode, @Nonnull DataMap dataMap) {
     GlossaryNodeKey glossaryNodeKey = new GlossaryNodeKey(dataMap);
+
+    if (glossaryNode.getProperties() == null) {
+      glossaryNode.setProperties(new GlossaryNodeProperties());
+    }
+
     if (glossaryNode.getProperties().getName() == null) {
       glossaryNode.getProperties().setName(glossaryNodeKey.getName());
     }
