@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 // import { Select } from 'antd';
 import Select from 'antd/lib/select';
 import styled from 'styled-components';
-import { Col, Form, Row } from 'antd';
+import { Col, Form, Popover, Row } from 'antd';
 import { SetParentContainer } from '../containerEdit/SetParentContainer';
 
 const SearchResultContainer = styled.div`
@@ -55,7 +55,8 @@ export const DataPlatformSelect = () => {
             </SearchResultContainer>
         );
     };
-
+    const aboutPlatform =
+        'If dataset is not from an existing database, use FILE. For databases not in list, refer to admin';
     const onSelectMember = (urn: string) => {
         setSelectedPlatform(urn);
     };
@@ -78,22 +79,24 @@ export const DataPlatformSelect = () => {
             >
                 <Row>
                     <Col span={8} offset={0}>
-                        <Select
-                            autoFocus
-                            filterOption
-                            showSearch
-                            value={selectedPlatform}
-                            showArrow
-                            placeholder="Search for a parent container.."
-                            onSelect={(platform: string) => onSelectMember(platform)}
-                            allowClear
-                            onClear={removeOption}
-                            onDeselect={removeOption}
-                        >
-                            {platformSelection?.map((platform) => (
-                                <Select.Option value={platform}>{renderSearchResult(platform)}</Select.Option>
-                            ))}
-                        </Select>
+                        <Popover trigger="hover" content={aboutPlatform}>
+                            <Select
+                                autoFocus
+                                filterOption
+                                showSearch
+                                value={selectedPlatform}
+                                showArrow
+                                placeholder="Search for a parent container.."
+                                onSelect={(platform: string) => onSelectMember(platform)}
+                                allowClear
+                                onClear={removeOption}
+                                onDeselect={removeOption}
+                            >
+                                {platformSelection?.map((platform) => (
+                                    <Select.Option value={platform}>{renderSearchResult(platform)}</Select.Option>
+                                ))}
+                            </Select>
+                        </Popover>
                     </Col>
                 </Row>
             </Form.Item>

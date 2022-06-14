@@ -1,8 +1,10 @@
 import React from 'react';
-import { Button, Col, Form, Input, Row } from 'antd';
+import { Button, Col, Form, Input, Popover, Row } from 'antd';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 
 export const SpecifyBrowsePath = () => {
+    const aboutBrowsePath =
+        'BrowsePath affects where the dataset is located when user browses datasets. BrowsePath must start and end with a /';
     return (
         <>
             <Form.Item label="Specify Browse Location" style={{ marginBottom: 0 }}>
@@ -43,7 +45,9 @@ export const SpecifyBrowsePath = () => {
                                     >
                                         <Row>
                                             <Col span={16}>
-                                                <Input placeholder="browsing path" style={{ width: '100%' }} />
+                                                <Popover trigger="hover" content={aboutBrowsePath}>
+                                                    <Input placeholder="browsing path" style={{ width: '100%' }} />
+                                                </Popover>
                                             </Col>
                                             <Col span={1}>
                                                 {fields.length > 1 ? (

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Select from 'antd/lib/select';
-import { Col, Form, Row } from 'antd';
+import { Col, Form, Popover, Row } from 'antd';
 import { EntityType, SearchResult } from '../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { useGetSearchResultsQuery } from '../../../../../../graphql/search.generated';
@@ -33,7 +33,8 @@ export const SetParentContainer = (props: Props) => {
         const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
         return displayName;
     };
-
+    const aboutContainer =
+        'Container represents a physical collection of dataset. To create a new container, refer to admin';
     return (
         <>
             <Form.Item
@@ -49,19 +50,23 @@ export const SetParentContainer = (props: Props) => {
             >
                 <Row>
                     <Col span={8} offset={0}>
-                        <Select
-                            autoFocus
-                            filterOption
-                            value={selectedContainers}
-                            showArrow
-                            placeholder="Search for a parent container.."
-                            allowClear
-                            onSelect={(container: any) => setSelectedContainers(container)}
-                        >
-                            {containerCandidates?.search?.searchResults.map((result) => (
-                                <Select.Option value={result?.entity?.urn}>{renderSearchResult(result)}</Select.Option>
-                            ))}
-                        </Select>
+                        <Popover trigger="hover" content={aboutContainer}>
+                            <Select
+                                autoFocus
+                                filterOption
+                                value={selectedContainers}
+                                showArrow
+                                placeholder="Search for a parent container.."
+                                allowClear
+                                onSelect={(container: any) => setSelectedContainers(container)}
+                            >
+                                {containerCandidates?.search?.searchResults.map((result) => (
+                                    <Select.Option value={result?.entity?.urn}>
+                                        {renderSearchResult(result)}
+                                    </Select.Option>
+                                ))}
+                            </Select>
+                        </Popover>
                     </Col>
                 </Row>
             </Form.Item>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { CSVReader } from 'react-papaparse';
-import { Col, Form, Input, Space, Select, Button, message, Divider, Popconfirm, Row } from 'antd';
+import { Col, Form, Input, Space, Select, Button, message, Divider, Popconfirm, Row, Popover } from 'antd';
 import { MinusCircleOutlined, PlusOutlined, AlertOutlined } from '@ant-design/icons';
 // import { gql, useQuery } from '@apollo/client';
 import { CommonFields } from './CommonFields';
@@ -11,7 +11,7 @@ import { GetMyToken } from '../../entity/dataset/whoAmI';
 import { WhereAmI } from '../../home/whereAmI';
 import { DataPlatformSelect } from '../../entity/shared/tabs/Dataset/platformSelect/DataPlatformSelect';
 import { printErrorMsg, printSuccessMsg } from '../../entity/shared/tabs/Dataset/ApiCallUtils';
-import { TagTermSelect } from './TagTermSelect';
+// import { TagTermSelect } from './TagTermSelect';
 
 export const CsvForm = () => {
     const urlBase = WhereAmI();
@@ -22,6 +22,7 @@ export const CsvForm = () => {
     const user = useGetAuthenticatedUser();
     const userUrn = user?.corpUser?.urn || '';
     const userToken = GetMyToken(userUrn);
+    const aboutType = 'Specify the datatype for field. If unsure, set "unknown"';
     // const [fileType, setFileType] = useState({ dataset_type: 'application/octet-stream' });
 
     const [form] = Form.useForm();
@@ -87,6 +88,7 @@ export const CsvForm = () => {
     };
     const popupMsg = `Confirm Dataset Name is correct: ${form.getFieldValue('dataset_name')}? 
     This will permanently affect the dataset URL`;
+    const { TextArea } = Input;
     return (
         <>
             <Form
@@ -94,10 +96,8 @@ export const CsvForm = () => {
                 form={form}
                 initialValues={{
                     platformSelect: 'urn:li:dataPlatform:hive',
-                    fields: [{ field_description: '', field_type: 'string' }],
-                    hasHeader: 'no',
-                    headerLine: 1,
-                    browsepathList: ['/csv/'],
+                    fields: [{ field_description: 'dsf', field_type: 'string' }],
+                    browsepathList: ['/file/'],
                 }}
                 name="dynamic_form_item"
             >
@@ -135,20 +135,26 @@ export const CsvForm = () => {
                                                 fieldKey={[fieldKey, 'field_type']}
                                                 rules={[{ required: true, message: 'Missing field type' }]}
                                             >
-                                                <Select showSearch placeholder="Select field type">
-                                                    <Option value="num">Number</Option>
-                                                    <Option value="double">Double</Option>
-                                                    <Option value="string">String</Option>
-                                                    <Option value="bool">Boolean</Option>
-                                                    <Option value="date-time">Datetime</Option>
-                                                    <Option value="date">Date</Option>
-                                                    <Option value="time">Time</Option>
-                                                    <Option value="bytes">Bytes</Option>
-                                                    <Option value="unknown">Unknown</Option>
-                                                </Select>
+                                                <Popover trigger="hover" content={aboutType}>
+                                                    <Select
+                                                        showSearch
+                                                        placeholder="Select field type"
+                                                        defaultValue="string"
+                                                    >
+                                                        <Option value="num">Number</Option>
+                                                        <Option value="double">Double</Option>
+                                                        <Option value="string">String</Option>
+                                                        <Option value="bool">Boolean</Option>
+                                                        <Option value="date-time">Datetime</Option>
+                                                        <Option value="date">Date</Option>
+                                                        <Option value="time">Time</Option>
+                                                        <Option value="bytes">Bytes</Option>
+                                                        <Option value="unknown">Unknown</Option>
+                                                    </Select>
+                                                </Popover>
                                             </Form.Item>
                                         </Col>
-                                        <Col span={6}>
+                                        <Col span={14}>
                                             <Form.Item
                                                 {...restField}
                                                 name={[name, 'field_description']}
@@ -160,37 +166,11 @@ export const CsvForm = () => {
                                                     },
                                                 ]}
                                             >
-                                                <Input placeholder="Field Description" />
-                                            </Form.Item>
-                                        </Col>
-                                        <Col span={4}>
-                                            <Form.Item
-                                                {...restField}
-                                                name={[name, 'field_tag']}
-                                                fieldKey={[fieldKey, 'field_tag']}
-                                                rules={[
-                                                    {
-                                                        required: false,
-                                                        message: 'Missing tag',
-                                                    },
-                                                ]}
-                                            >
-                                                <TagTermSelect />
-                                            </Form.Item>
-                                        </Col>
-                                        <Col span={4}>
-                                            <Form.Item
-                                                {...restField}
-                                                name={[name, 'field_term']}
-                                                fieldKey={[fieldKey, 'field_term']}
-                                                rules={[
-                                                    {
-                                                        required: false,
-                                                        message: 'Missing glossary term',
-                                                    },
-                                                ]}
-                                            >
-                                                <Input placeholder="term" />
+                                                <TextArea
+                                                    rows={4}
+                                                    placeholder="Field Description"
+                                                    autoSize={{ minRows: 1, maxRows: 3 }}
+                                                />
                                             </Form.Item>
                                         </Col>
                                         <Col span={1}>
