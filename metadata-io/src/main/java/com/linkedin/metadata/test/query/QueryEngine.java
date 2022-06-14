@@ -6,6 +6,7 @@ import com.linkedin.metadata.test.definition.TestQuery;
 import com.linkedin.metadata.test.definition.ValidationResult;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -37,7 +38,8 @@ public class QueryEngine {
 
   @WithSpan
   // Batch evaluate multiple queries for the given entity urns
-  public Map<Urn, Map<TestQuery, TestQueryResponse>> batchEvaluateQueries(Set<Urn> urns, Set<TestQuery> queries) {
+  public Map<Urn, Map<TestQuery, TestQueryResponse>> batchEvaluateQueries(Collection<Urn> urns,
+      Collection<TestQuery> queries) {
     queries.forEach(this::validateQuery);
     // First group urns by entity type - different entity types are eligible for different types of queries
     Map<String, Set<Urn>> urnsPerEntityType =

@@ -4,7 +4,7 @@ import com.linkedin.metadata.test.definition.TestPredicate;
 import com.linkedin.metadata.test.definition.TestQuery;
 import com.linkedin.metadata.test.definition.operation.OperationParam;
 import com.linkedin.metadata.test.definition.operation.OperationParams;
-import com.linkedin.metadata.test.definition.operation.PredicateListParam;
+import com.linkedin.metadata.test.definition.operation.PredicateParam;
 import com.linkedin.metadata.test.exception.OperationParamsInvalidException;
 import com.linkedin.metadata.test.query.TestQueryResponse;
 import java.util.Collections;
@@ -21,7 +21,7 @@ public abstract class CompositeOperationEvaluator extends BaseOperationEvaluator
 
   @Override
   public void validate(OperationParams params) throws OperationParamsInvalidException {
-    if (params.hasKeyOfType(PREDICATES, OperationParam.Type.PREDICATE_LIST)) {
+    if (params.hasKeyOfType(PREDICATES, OperationParam.Type.PREDICATE)) {
       return;
     }
     throw new OperationParamsInvalidException(
@@ -43,7 +43,7 @@ public abstract class CompositeOperationEvaluator extends BaseOperationEvaluator
           String.format("Test predicate evaluator is not set before evaluating %s operation", getOperation()));
     }
 
-    Optional<PredicateListParam> param = testPredicate.getParams().getParamOfType(PREDICATES, PredicateListParam.class);
+    Optional<PredicateParam> param = testPredicate.getParams().getParamOfType(PREDICATES, PredicateParam.class);
     if (!param.isPresent()) {
       throw new OperationParamsInvalidException(
           String.format("%s operation requires param predicates containing the list of predicates to compose",
@@ -61,8 +61,8 @@ public abstract class CompositeOperationEvaluator extends BaseOperationEvaluator
     }
 
     return testPredicate.getParams()
-        .getParamOfType(PREDICATES, PredicateListParam.class)
-        .map(PredicateListParam::getPredicates)
+        .getParamOfType(PREDICATES, PredicateParam.class)
+        .map(PredicateParam::getPredicates)
         .orElse(Collections.emptyList())
         .stream()
         .flatMap(childPredicate -> getTestPredicateEvaluator().getRequiredQueries(childPredicate).stream())

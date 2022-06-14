@@ -3,8 +3,7 @@ package com.linkedin.metadata.test.eval;
 import com.linkedin.metadata.test.definition.TestPredicate;
 import com.linkedin.metadata.test.definition.TestQuery;
 import com.linkedin.metadata.test.definition.operation.ParamKeyConstants;
-import com.linkedin.metadata.test.definition.operation.PredicateListParam;
-import com.linkedin.metadata.test.definition.operation.StringListParam;
+import com.linkedin.metadata.test.definition.operation.PredicateParam;
 import com.linkedin.metadata.test.definition.operation.StringParam;
 import com.linkedin.metadata.test.query.TestQueryResponse;
 import java.util.Collections;
@@ -23,15 +22,15 @@ public class TestPredicateEvaluatorTest {
 
   private TestPredicate createCompositePredicate(String operation, List<TestPredicate> childPredicates) {
     return new TestPredicate(operation,
-        ImmutableMap.of(ParamKeyConstants.PREDICATES, new PredicateListParam(childPredicates)));
+        ImmutableMap.of(ParamKeyConstants.PREDICATES, new PredicateParam(childPredicates)));
   }
 
   @Test
   public void testEvaluator() {
     TestPredicate equalsRule1 = new TestPredicate("query1", "equals",
-        ImmutableMap.of("values", new StringListParam(ImmutableList.of("value1", "value2"))));
+        ImmutableMap.of("values", new StringParam(ImmutableList.of("value1", "value2"))));
     TestPredicate equalsRule2 =
-        new TestPredicate("query2", "equals", ImmutableMap.of("value", new StringParam("value3")));
+        new TestPredicate("query2", "equals", ImmutableMap.of("value", new StringParam(Collections.singletonList("value3"))));
     TestPredicate existsRule = new TestPredicate("query3", "exists", ImmutableMap.of());
 
     TestPredicate orRule = createCompositePredicate("or", ImmutableList.of(equalsRule1, equalsRule2));

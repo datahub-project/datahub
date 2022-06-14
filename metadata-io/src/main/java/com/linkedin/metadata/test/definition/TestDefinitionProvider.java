@@ -9,12 +9,12 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.test.definition.operation.OperationParam;
 import com.linkedin.metadata.test.definition.operation.ParamKeyConstants;
-import com.linkedin.metadata.test.definition.operation.PredicateListParam;
-import com.linkedin.metadata.test.definition.operation.StringListParam;
+import com.linkedin.metadata.test.definition.operation.PredicateParam;
 import com.linkedin.metadata.test.definition.operation.StringParam;
 import com.linkedin.metadata.test.eval.TestPredicateEvaluator;
 import com.linkedin.metadata.test.exception.OperationParamsInvalidException;
 import com.linkedin.metadata.test.exception.TestDefinitionParsingException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -103,16 +103,16 @@ public class TestDefinitionProvider {
         .map(this::deserializeRule)
         .collect(Collectors.toList());
     return new TestPredicate(operation,
-        ImmutableMap.of(ParamKeyConstants.PREDICATES, new PredicateListParam(deserializedChildPredicates)), negated);
+        ImmutableMap.of(ParamKeyConstants.PREDICATES, new PredicateParam(deserializedChildPredicates)), negated);
   }
 
   private OperationParam createParam(JsonNode paramJson) {
     if (paramJson.isArray()) {
       ArrayNode paramArray = (ArrayNode) paramJson;
-      return new StringListParam(
+      return new StringParam(
           StreamSupport.stream(paramArray.spliterator(), false).map(JsonNode::asText).collect(Collectors.toList()));
     }
-    return new StringParam(paramJson.asText());
+    return new StringParam(Collections.singletonList(paramJson.asText()));
   }
 
   private TestPredicate deserializeBasePredicate(ObjectNode testRule, boolean negated) {

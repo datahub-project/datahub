@@ -16,7 +16,7 @@ public class OperationParams {
 
   // Utility function to get param with input key of input paramClass. Returns empty if there is none
   public <T> Optional<T> getParamOfType(String key, Class<T> paramClass) {
-    if (params.containsKey(key) && !paramClass.isAssignableFrom(params.get(key).getClass())) {
+    if (!params.containsKey(key) || !paramClass.isAssignableFrom(params.get(key).getClass())) {
       return Optional.empty();
     }
     return Optional.of(paramClass.cast(params.get(key)));

@@ -1,7 +1,8 @@
 package com.linkedin.metadata.test.definition.operation;
 
 public class ParamKeyConstants {
-  private ParamKeyConstants() {}
+  private ParamKeyConstants() {
+  }
 
   public static final String VALUE = "value";
   public static final String VALUES = "values";

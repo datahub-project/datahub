@@ -3,9 +3,11 @@ package com.linkedin.metadata.test.eval;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.test.definition.TestPredicate;
 import com.linkedin.metadata.test.definition.TestQuery;
+import com.linkedin.metadata.test.eval.operation.AndEvaluator;
 import com.linkedin.metadata.test.eval.operation.BaseOperationEvaluator;
 import com.linkedin.metadata.test.eval.operation.EqualsEvaluator;
 import com.linkedin.metadata.test.eval.operation.ExistsEvaluator;
+import com.linkedin.metadata.test.eval.operation.OrEvaluator;
 import com.linkedin.metadata.test.query.TestQueryResponse;
 import java.util.List;
 import java.util.Map;
@@ -20,7 +22,7 @@ public class TestPredicateEvaluator {
   private static final TestPredicateEvaluator INSTANCE = new TestPredicateEvaluator();
 
   public TestPredicateEvaluator() {
-    this(ImmutableList.of(new EqualsEvaluator(), new ExistsEvaluator()));
+    this(ImmutableList.of(new EqualsEvaluator(), new ExistsEvaluator(), new OrEvaluator(), new AndEvaluator()));
   }
 
   public TestPredicateEvaluator(List<BaseOperationEvaluator> operationEvaluators) {
