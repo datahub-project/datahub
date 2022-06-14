@@ -86,10 +86,14 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
       final GlobalIntegrationSettings existingSettings,
       final UpdateGlobalIntegrationSettingsInput update) {
     if (update.getSlackSettings() != null) {
+      SlackIntegrationSettings existingSlackSettings = existingSettings.hasSlackSettings()
+          ? existingSettings.getSlackSettings()
+          : new SlackIntegrationSettings();
       updateSlackIntegrationSettings(
-        existingSettings.hasSlackSettings() ? existingSettings.getSlackSettings() : new SlackIntegrationSettings(),
-        update.getSlackSettings()
+          existingSlackSettings,
+          update.getSlackSettings()
       );
+      existingSettings.setSlackSettings(existingSlackSettings);
     }
   }
 
