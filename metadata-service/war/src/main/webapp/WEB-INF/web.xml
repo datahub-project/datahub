@@ -23,7 +23,7 @@
     <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
   </listener>
   <listener>
-    <listener-class>com.linkedin.metadata.boot.BootstrapManagerApplicationListener</listener-class>
+    <listener-class>com.linkedin.metadata.boot.OnBootApplicationListener</listener-class>
   </listener>
 
   <!-- servlet definitions -->
