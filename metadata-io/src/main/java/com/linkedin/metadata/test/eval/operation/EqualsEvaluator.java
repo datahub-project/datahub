@@ -1,15 +1,27 @@
 package com.linkedin.metadata.test.eval.operation;
 
+import com.linkedin.metadata.test.definition.TestPredicate;
+import com.linkedin.metadata.test.definition.TestQuery;
+import com.linkedin.metadata.test.definition.operation.OperationParam;
+import com.linkedin.metadata.test.definition.operation.OperationParams;
+import com.linkedin.metadata.test.definition.operation.StringListParam;
+import com.linkedin.metadata.test.definition.operation.StringParam;
+import com.linkedin.metadata.test.exception.OperationParamsInvalidException;
 import com.linkedin.metadata.test.query.TestQueryResponse;
 import java.util.Collections;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
+
+import static com.linkedin.metadata.test.definition.operation.ParamKeyConstants.VALUE;
+import static com.linkedin.metadata.test.definition.operation.ParamKeyConstants.VALUES;
 
 
-public class EqualsEvaluator implements BaseOperationEvaluator {
-  private static final String VALUES = "values";
-  private static final String VALUE = "value";
+/**
+ * Equals operation evaluator. Checks whether the query response is equal to any of the input values
+ */
+public class EqualsEvaluator extends BaseOperationEvaluator {
 
   @Override
   public String getOperation() {
@@ -17,30 +29,40 @@ public class EqualsEvaluator implements BaseOperationEvaluator {
   }
 
   @Override
-  public void validate(OperationParams params) throws IllegalArgumentException {
-    if (params.getParams().containsKey(VALUES) && params.getParams().get(VALUES) instanceof List) {
+  public void validate(OperationParams params) throws OperationParamsInvalidException {
+    if (params.hasKeyOfType(VALUES, OperationParam.Type.STRING_LIST) || params.hasKeyOfType(VALUE,
+        OperationParam.Type.STRING)) {
       return;
     }
-    if (params.getParams().containsKey(VALUE)) {
-      return;
-    }
-    throw new IllegalArgumentException(
+    throw new OperationParamsInvalidException(
         "Invalid params for the EQUALS operation: Need to have either values or value fields set");
   }
 
   @Override
-  public boolean evaluate(TestQueryResponse queryResponse, OperationParams params) {
+  public boolean evaluate(Map<TestQuery, TestQueryResponse> batchedQueryResponse, TestPredicate testPredicate)
+      throws OperationParamsInvalidException {
     Set<String> compareAgainst;
-    if (params.getParams().containsKey(VALUES) && params.getParams().get(VALUES) instanceof List) {
-      compareAgainst =
-          ((List<Object>) params.getParams().get(VALUES)).stream().map(Object::toString).collect(Collectors.toSet());
-    } else if (params.getParams().containsKey(VALUE)) {
-      compareAgainst = Collections.singleton(params.getParams().get(VALUE).toString());
+    Optional<StringListParam> valuesParam = testPredicate.getParams().getParamOfType(VALUES, StringListParam.class);
+    Optional<StringParam> valueParam = testPredicate.getParams().getParamOfType(VALUE, StringParam.class);
+    if (valuesParam.isPresent()) {
+      compareAgainst = new HashSet<>(valuesParam.get().getValues());
+    } else if (valueParam.isPresent()) {
+      compareAgainst = Collections.singleton(valueParam.get().getValue());
     } else {
-      throw new IllegalArgumentException(
+      throw new OperationParamsInvalidException(
           "Invalid params for the EQUALS operation: Need to have either values or value fields set");
     }
 
-    return queryResponse.getValues().stream().anyMatch(compareAgainst::contains);
+    // If query response is empty, return false
+    if (!batchedQueryResponse.containsKey(testPredicate.getQuery())) {
+      return false;
+    }
+
+    return batchedQueryResponse.get(testPredicate.getQuery()).getValues().stream().anyMatch(compareAgainst::contains);
+  }
+
+  @Override
+  public Set<TestQuery> getRequiredQueries(TestPredicate testPredicate) {
+    return Collections.singleton(testPredicate.getQuery());
   }
 }

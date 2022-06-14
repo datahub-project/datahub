@@ -1,4 +1,4 @@
-package com.linkedin.metadata.test.query;
+package com.linkedin.metadata.test.definition;
 
 import java.util.Arrays;
 import java.util.List;

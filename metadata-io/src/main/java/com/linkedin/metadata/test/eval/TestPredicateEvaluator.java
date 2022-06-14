@@ -1,63 +1,58 @@
 package com.linkedin.metadata.test.eval;
 
-import com.linkedin.metadata.test.definition.CompositeTestPredicate;
-import com.linkedin.metadata.test.definition.LeafTestPredicate;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.test.definition.TestPredicate;
-import com.linkedin.metadata.test.query.TestQuery;
+import com.linkedin.metadata.test.definition.TestQuery;
+import com.linkedin.metadata.test.eval.operation.BaseOperationEvaluator;
+import com.linkedin.metadata.test.eval.operation.EqualsEvaluator;
+import com.linkedin.metadata.test.eval.operation.ExistsEvaluator;
 import com.linkedin.metadata.test.query.TestQueryResponse;
+import java.util.List;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 
-/**
- * Class that evaluates test predicates given the query evaluation results
- */
-@Slf4j
-@RequiredArgsConstructor
 public class TestPredicateEvaluator {
-  private final LeafTestPredicateEvaluator _leafTestPredicateEvaluator;
 
-  private boolean evaluateCompositePredicate(Map<TestQuery, TestQueryResponse> batchQueryResponse,
-      CompositeTestPredicate compositeTestPredicate) {
-    if (!compositeTestPredicate.getOr().isEmpty()) {
-      return compositeTestPredicate.getOr().stream().anyMatch(rule -> evaluate(batchQueryResponse, rule));
-    }
-    if (!compositeTestPredicate.getAnd().isEmpty()) {
-      return compositeTestPredicate.getAnd().stream().allMatch(rule -> evaluate(batchQueryResponse, rule));
-    }
-    // Both or and and clauses are empty -> always true
-    return true;
+  private final Map<String, BaseOperationEvaluator> operationEvaluators;
+  private static final TestPredicateEvaluator INSTANCE = new TestPredicateEvaluator();
+
+  public TestPredicateEvaluator() {
+    this(ImmutableList.of(new EqualsEvaluator(), new ExistsEvaluator()));
   }
 
-  private boolean evaluateLeafPredicate(Map<TestQuery, TestQueryResponse> batchQueryResponse,
-      LeafTestPredicate leafTestPredicate) {
-    TestQuery query = new TestQuery(leafTestPredicate.getQuery());
-    return _leafTestPredicateEvaluator.evaluate(batchQueryResponse.getOrDefault(query, TestQueryResponse.empty()),
-        leafTestPredicate);
+  public TestPredicateEvaluator(List<BaseOperationEvaluator> operationEvaluators) {
+    this.operationEvaluators = operationEvaluators.stream()
+        .collect(Collectors.toMap(BaseOperationEvaluator::getOperation, Function.identity()));
+    operationEvaluators.forEach(evaluator -> evaluator.setTestPredicateEvaluator(this));
   }
 
-  /**
-   * Evaluate the test predicate given the batched query evaluation results
-   *
-   * @param batchQueryResponse Batched query evaluation results
-   * @param testPredicate Test predicate being evaluated
-   * @return Whether or not the predicate passes given the query evaluation results
-   */
-  public boolean evaluate(Map<TestQuery, TestQueryResponse> batchQueryResponse, TestPredicate testPredicate) {
-    boolean result;
-    if (testPredicate instanceof CompositeTestPredicate) {
-      result = evaluateCompositePredicate(batchQueryResponse, (CompositeTestPredicate) testPredicate);
-    } else if (testPredicate instanceof LeafTestPredicate) {
-      result = evaluateLeafPredicate(batchQueryResponse, (LeafTestPredicate) testPredicate);
-    } else {
-      throw new IllegalArgumentException(
-          String.format("Unsupported test rule type %s", testPredicate.getClass().getSimpleName()));
-    }
+  public static TestPredicateEvaluator getInstance() {
+    return INSTANCE;
+  }
 
-    if (testPredicate.isNegated()) {
-      return !result;
+  private BaseOperationEvaluator getOperationEvaluator(String operation) {
+    if (!operationEvaluators.containsKey(operation)) {
+      throw new IllegalArgumentException(String.format("Unsupported test operation %s", operation));
     }
-    return result;
+    return operationEvaluators.get(operation);
+  }
+
+  public void validate(TestPredicate testPredicate) throws IllegalArgumentException {
+    getOperationEvaluator(testPredicate.getOperation()).validate(testPredicate.getParams());
+  }
+
+  public boolean evaluate(Map<TestQuery, TestQueryResponse> batchedQueryResponse, TestPredicate testPredicate) {
+    return getOperationEvaluator(testPredicate.getOperation()).evaluate(batchedQueryResponse, testPredicate);
+  }
+
+  public Set<TestQuery> getRequiredQueries(TestPredicate testPredicate) {
+    return getOperationEvaluator(testPredicate.getOperation()).getRequiredQueries(testPredicate);
+  }
+
+  public boolean isOperationValid(String operation) {
+    return operationEvaluators.containsKey(operation);
   }
 }

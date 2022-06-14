@@ -1,13 +1,26 @@
 package com.linkedin.metadata.test.eval.operation;
 
+import com.linkedin.metadata.test.definition.TestPredicate;
+import com.linkedin.metadata.test.definition.TestQuery;
+import com.linkedin.metadata.test.definition.operation.OperationParams;
+import com.linkedin.metadata.test.eval.TestPredicateEvaluator;
+import com.linkedin.metadata.test.exception.OperationParamsInvalidException;
 import com.linkedin.metadata.test.query.TestQueryResponse;
+import java.util.Map;
+import java.util.Set;
+import lombok.Getter;
+import lombok.Setter;
 
 
-public interface BaseOperationEvaluator {
+public abstract class BaseOperationEvaluator {
+  @Getter
+  @Setter
+  private TestPredicateEvaluator testPredicateEvaluator;
+
   /**
    * Operation being evaluated
    */
-  String getOperation();
+  public abstract String getOperation();
 
   /**
    * Validate params for the given operation
@@ -15,10 +28,16 @@ public interface BaseOperationEvaluator {
    * @param params Parameters for evaluating operation
    * @throws IllegalArgumentException if parameters are not sufficient to evaluate the operation
    */
-  void validate(OperationParams params) throws IllegalArgumentException;
+  public abstract void validate(OperationParams params) throws OperationParamsInvalidException;
 
   /**
-   * Evaluate whether the operation passes given the query response and parameters
+   * Evaluate whether the operation passes given the batched query response and predicate
    */
-  boolean evaluate(TestQueryResponse queryResponse, OperationParams params);
+  public abstract boolean evaluate(Map<TestQuery, TestQueryResponse> batchedQueryResponse, TestPredicate predicate)
+      throws OperationParamsInvalidException;
+
+  /**
+   * Set of queries to evaluate to evaluate input predicate
+   */
+  public abstract Set<TestQuery> getRequiredQueries(TestPredicate testPredicate);
 }

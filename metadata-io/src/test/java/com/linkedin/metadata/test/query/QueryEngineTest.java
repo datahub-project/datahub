@@ -19,6 +19,7 @@ import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
+import com.linkedin.metadata.test.definition.TestQuery;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;

@@ -1,24 +1,27 @@
 package com.linkedin.metadata.test.definition;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.test.eval.LeafTestPredicateEvaluator;
+import com.linkedin.metadata.test.definition.operation.OperationParam;
+import com.linkedin.metadata.test.definition.operation.ParamKeyConstants;
+import com.linkedin.metadata.test.definition.operation.PredicateListParam;
+import com.linkedin.metadata.test.definition.operation.StringListParam;
+import com.linkedin.metadata.test.definition.operation.StringParam;
+import com.linkedin.metadata.test.eval.TestPredicateEvaluator;
+import com.linkedin.metadata.test.exception.OperationParamsInvalidException;
 import com.linkedin.metadata.test.exception.TestDefinitionParsingException;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import lombok.RequiredArgsConstructor;
-
-import static com.linkedin.metadata.test.definition.CompositeTestPredicate.CompositionOperation.AND;
-import static com.linkedin.metadata.test.definition.CompositeTestPredicate.CompositionOperation.OR;
 
 
 /**
@@ -28,7 +31,7 @@ import static com.linkedin.metadata.test.definition.CompositeTestPredicate.Compo
 public class TestDefinitionProvider {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  private final LeafTestPredicateEvaluator leafTestPredicateEvaluator;
+  private final TestPredicateEvaluator testPredicateEvaluator;
 
   public TestDefinition deserialize(Urn testUrn, String jsonTestDefinition) throws TestDefinitionParsingException {
     JsonNode parsedTestDefinition;
@@ -74,7 +77,7 @@ public class TestDefinitionProvider {
   private TestPredicate deserializeRule(JsonNode jsonRule) {
     if (jsonRule.isArray()) {
       ArrayNode ruleArray = (ArrayNode) jsonRule;
-      return deserializeCompositeRules(ruleArray, AND, false);
+      return deserializeCompositePredicate(ruleArray, "and", false);
     }
     if (jsonRule.isObject()) {
       ObjectNode ruleObject = (ObjectNode) jsonRule;
@@ -84,25 +87,35 @@ public class TestDefinitionProvider {
       }
       if (ruleObject.has("or") && ruleObject.get("or").isArray()) {
         ArrayNode ruleArray = (ArrayNode) jsonRule.get("or");
-        return deserializeCompositeRules(ruleArray, OR, negated);
+        return deserializeCompositePredicate(ruleArray, "or", negated);
       }
       if (ruleObject.has("and") && ruleObject.get("and").isArray()) {
         ArrayNode ruleArray = (ArrayNode) jsonRule.get("and");
-        return deserializeCompositeRules(ruleArray, AND, negated);
+        return deserializeCompositePredicate(ruleArray, "and", negated);
       }
-      return deserializeUnitTestRule(ruleObject, negated);
+      return deserializeBasePredicate(ruleObject, negated);
     }
     throw new TestDefinitionParsingException(String.format("Failed to deserialize rule %s", jsonRule.toString()));
   }
 
-  private TestPredicate deserializeCompositeRules(ArrayNode rules, CompositeTestPredicate.CompositionOperation operation,
-      boolean negated) {
-    return new CompositeTestPredicate(operation,
-        StreamSupport.stream(rules.spliterator(), false).map(this::deserializeRule).collect(Collectors.toList()),
-        negated);
+  private TestPredicate deserializeCompositePredicate(ArrayNode childPredicates, String operation, boolean negated) {
+    List<TestPredicate> deserializedChildPredicates = StreamSupport.stream(childPredicates.spliterator(), false)
+        .map(this::deserializeRule)
+        .collect(Collectors.toList());
+    return new TestPredicate(operation,
+        ImmutableMap.of(ParamKeyConstants.PREDICATES, new PredicateListParam(deserializedChildPredicates)), negated);
   }
 
-  private LeafTestPredicate deserializeUnitTestRule(ObjectNode testRule, boolean negated) {
+  private OperationParam createParam(JsonNode paramJson) {
+    if (paramJson.isArray()) {
+      ArrayNode paramArray = (ArrayNode) paramJson;
+      return new StringListParam(
+          StreamSupport.stream(paramArray.spliterator(), false).map(JsonNode::asText).collect(Collectors.toList()));
+    }
+    return new StringParam(paramJson.asText());
+  }
+
+  private TestPredicate deserializeBasePredicate(ObjectNode testRule, boolean negated) {
     if (!testRule.has("query") || !testRule.get("query").isTextual()) {
       throw new TestDefinitionParsingException(
           String.format("Failed to deserialize rule %s: query is a required field and must be a string",
@@ -115,31 +128,29 @@ public class TestDefinitionProvider {
               testRule.toString()));
     }
     String operation = testRule.get("operation").asText();
-    if (!leafTestPredicateEvaluator.isOperationValid(operation)) {
+    if (!testPredicateEvaluator.isOperationValid(operation)) {
       throw new TestDefinitionParsingException(
           String.format("Failed to deserialize rule %s: Unsupported operation %s", testRule.toString(), operation));
     }
 
-    Map<String, Object> params;
+    final Map<String, OperationParam> params = new HashMap<>();
     if (testRule.has("params")) {
       if (!testRule.get("params").isObject()) {
         throw new TestDefinitionParsingException(
             String.format("Failed to deserialize rule %s: params must be a map", testRule.toString()));
       }
-      params = OBJECT_MAPPER.convertValue(testRule.get("params"), new TypeReference<Map<String, Object>>() {
-      });
-    } else {
-      params = Collections.emptyMap();
+      ObjectNode operationParams = (ObjectNode) testRule.get("params");
+      operationParams.fields().forEachRemaining(entry -> params.put(entry.getKey(), createParam(entry.getValue())));
     }
 
-    LeafTestPredicate unitTestRule = new LeafTestPredicate(query, operation, params, negated);
+    TestPredicate testPredicate = new TestPredicate(query, operation, params, negated);
     try {
-      leafTestPredicateEvaluator.validate(unitTestRule);
-    } catch (TestDefinitionParsingException e) {
+      testPredicateEvaluator.validate(testPredicate);
+    } catch (OperationParamsInvalidException e) {
       throw new TestDefinitionParsingException(
           String.format("Failed to deserialize rule %s: failed to validate params for the operation",
               testRule.toString()), e);
     }
-    return unitTestRule;
+    return testPredicate;
   }
 }

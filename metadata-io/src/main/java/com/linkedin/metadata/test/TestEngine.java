@@ -11,16 +11,14 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.TestKey;
-import com.linkedin.metadata.test.definition.CompositeTestPredicate;
 import com.linkedin.metadata.test.definition.TestDefinition;
 import com.linkedin.metadata.test.definition.TestDefinitionProvider;
 import com.linkedin.metadata.test.definition.TestPredicate;
-import com.linkedin.metadata.test.definition.LeafTestPredicate;
 import com.linkedin.metadata.test.definition.ValidationResult;
 import com.linkedin.metadata.test.eval.TestPredicateEvaluator;
 import com.linkedin.metadata.test.exception.TestDefinitionParsingException;
 import com.linkedin.metadata.test.query.QueryEngine;
-import com.linkedin.metadata.test.query.TestQuery;
+import com.linkedin.metadata.test.definition.TestQuery;
 import com.linkedin.metadata.test.query.TestQueryResponse;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -241,6 +239,20 @@ public class TestEngine {
         .collect(Collectors.toList());
   }
 
+  /**
+   * Evaluate a list of test predicates w.r.t the input entity urn
+   * 1. Get the full set of test queries required to evaluate the predicates
+   * 2. Batch evaluate the set of test queries
+   * 3. Use the evaluated query responses to evaluate the test predicates
+   *
+   * @param urn Entity urn in question
+   * @param testPredicates List of test predicates to evaluate
+   * @return List of whether each predicate in the list passed
+   */
+  private List<Boolean> evaluateTestPredicates(Urn urn, List<TestPredicate> testPredicates) {
+
+  }
+
   @WithSpan
   private TestResults evaluateTests(Urn urn, List<TestDefinition> tests) {
     if (tests.isEmpty()) {
@@ -253,7 +265,7 @@ public class TestEngine {
     Map<TestQuery, TestQueryResponse> mainRulesQueryResponses = batchQuery(ImmutableList.of(urn),
         eligibleTests.stream().map(TestDefinition::getRule).collect(Collectors.toList())).getOrDefault(urn,
         Collections.emptyMap());
-    // Evaluate whether each test passes using the query evaluation result above (no service calls. pure compuatation)
+    // Evaluate whether each test passes using the query evaluation result above (no service calls. pure computation)
     for (TestDefinition eligibleTest : eligibleTests) {
       if (_testPredicateEvaluator.evaluate(mainRulesQueryResponses, eligibleTest.getRule())) {
         result.getPassing().add(new TestResult().setTest(eligibleTest.getTestUrn()).setType(TestResultType.SUCCESS));

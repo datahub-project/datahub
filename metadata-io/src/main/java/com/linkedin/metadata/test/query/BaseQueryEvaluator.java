@@ -1,6 +1,7 @@
 package com.linkedin.metadata.test.query;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.test.definition.TestQuery;
 import com.linkedin.metadata.test.definition.ValidationResult;
 import java.util.Map;
 import java.util.Set;

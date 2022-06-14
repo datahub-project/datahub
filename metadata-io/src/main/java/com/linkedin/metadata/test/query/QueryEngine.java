@@ -2,6 +2,7 @@ package com.linkedin.metadata.test.query;
 
 import com.google.common.collect.Streams;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.test.definition.TestQuery;
 import com.linkedin.metadata.test.definition.ValidationResult;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.util.ArrayList;
