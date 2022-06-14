@@ -429,11 +429,14 @@ class SalesforceSource(Source):
             propertyLabels[k]: str(v)
             for k, v in sObject.items()
             if k in propertyLabels and v is not None
-        } | {
-            propertyLabels[k]: str(v)
-            for k, v in customObject.items()
-            if k in propertyLabels and v is not None
         }
+        sObjectProperties.update(
+            {
+                propertyLabels[k]: str(v)
+                for k, v in customObject.items()
+                if k in propertyLabels and v is not None
+            }
+        )
 
         datasetProperties = DatasetPropertiesClass(
             name=sObject["Label"],
@@ -463,7 +466,9 @@ class SalesforceSource(Source):
     ) -> Iterable[WorkUnit]:
         # Here approximate record counts as returned by recordCount API are used as rowCount
         # In future, count() SOQL query may be used instead, if required, might be more expensive
-        sObject_records_count_url = f"{self.base_url}limits/recordCount?sObjects={sObjectName}"
+        sObject_records_count_url = (
+            f"{self.base_url}limits/recordCount?sObjects={sObjectName}"
+        )
 
         sObject_record_count_response = self.sf._call_salesforce(
             "GET", sObject_records_count_url
@@ -570,7 +575,9 @@ class SalesforceSource(Source):
 
         if field["FieldDefinition"]["ComplianceGroup"] is not None:
             # CCPA, COPPA, GDPR, HIPAA, PCI, PersonalInfo, PII
-            fieldTags.extend(iter(field["FieldDefinition"]["ComplianceGroup"].split(";")))
+            fieldTags.extend(
+                iter(field["FieldDefinition"]["ComplianceGroup"].split(";"))
+            )
         return fieldTags
 
     def get_audit_stamp(self, date: str, username: str) -> AuditStampClass:
@@ -624,7 +631,8 @@ class SalesforceSource(Source):
             )
         )
         customFields: Dict[str, Dict] = {
-            record["DeveloperName"]: record for record in sObject_custom_fields_response["records"]
+            record["DeveloperName"]: record
+            for record in sObject_custom_fields_response["records"]
         }
 
         fields: List[SchemaFieldClass] = []
@@ -666,7 +674,7 @@ class SalesforceSource(Source):
             platformSchema=OtherSchemaClass(rawSchema=""),
             fields=fields,
             primaryKeys=primaryKeys,
-            foreignKeys=foreignKeys or None
+            foreignKeys=foreignKeys or None,
         )
 
         # Created Date and Actor are available for Custom Object only
