@@ -62,9 +62,7 @@ public class DataHubTokenAuthenticator implements Authenticator {
           "Unable to initialize DataHubTokenAuthenticator, entity service reference is not of type: "
               + "EntityService.class, found: " + entityService.getClass());
     }
-    this._statefulTokenService =
-        new StatefulTokenService(signingKey, signingAlgorithm, DEFAULT_ISSUER, (EntityService) entityService,
-            salt);
+    this._statefulTokenService = (StatefulTokenService) Objects.requireNonNull(context.data().get(TOKEN_SERVICE));
   }
 
   @Override

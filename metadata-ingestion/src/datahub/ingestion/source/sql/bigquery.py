@@ -646,6 +646,20 @@ class BigQuerySource(SQLAlchemySource):
                 self.report.num_skipped_lineage_entries_other += 1
         return lineage_map
 
+    def is_table_partitioned(
+        self, database: Optional[str], schema: str, table: str
+    ) -> bool:
+        project_id: str
+        if database:
+            project_id = database
+        else:
+            url = self.config.get_sql_alchemy_url()
+            engine = create_engine(url, **self.config.options)
+            with engine.connect() as con:
+                inspector = inspect(con)
+                project_id = self.get_db_name(inspector)
+        return f"{project_id}.{schema}.{table}" in self.partition_info
+
     def get_latest_partition(
         self, schema: str, table: str
     ) -> Optional[BigQueryPartitionColumn]:
@@ -653,8 +667,13 @@ class BigQuerySource(SQLAlchemySource):
         engine = create_engine(url, **self.config.options)
         with engine.connect() as con:
             inspector = inspect(con)
+            project_id = self.get_db_name(inspector)
+            if not self.is_table_partitioned(
+                database=project_id, schema=schema, table=table
+            ):
+                return None
             sql = BQ_GET_LATEST_PARTITION_TEMPLATE.format(
-                project_id=self.get_db_name(inspector), schema=schema, table=table
+                project_id=project_id, schema=schema, table=table
             )
             result = con.execute(sql)
             # Bigquery only supports one partition column
@@ -791,13 +810,19 @@ WHERE
         return None, None
 
     def is_dataset_eligible_for_profiling(
-        self, dataset_name: str, sql_config: SQLAlchemyConfig
+        self,
+        dataset_name: str,
+        sql_config: SQLAlchemyConfig,
+        inspector: Inspector,
+        profile_candidates: Optional[List[str]],
     ) -> bool:
         """
         Method overrides default profiling filter which checks profiling eligibility based on allow-deny pattern.
         This one also don't profile those sharded tables which are not the latest.
         """
-        if not super().is_dataset_eligible_for_profiling(dataset_name, sql_config):
+        if not super().is_dataset_eligible_for_profiling(
+            dataset_name, sql_config, inspector, profile_candidates
+        ):
             return False
 
         (project_id, schema, table) = dataset_name.split(".")

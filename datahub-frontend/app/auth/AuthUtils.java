@@ -47,6 +47,11 @@ public class AuthUtils {
     public static final String PASSWORD = "password";
     public static final String ACTOR = "actor";
     public static final String ACCESS_TOKEN = "token";
+    public static final String FULL_NAME = "fullName";
+    public static final String EMAIL = "email";
+    public static final String TITLE = "title";
+    public static final String INVITE_TOKEN = "inviteToken";
+    public static final String RESET_TOKEN = "resetToken";
 
     /**
      * Determines whether the inbound request should be forward to downstream Metadata Service. Today, this simply

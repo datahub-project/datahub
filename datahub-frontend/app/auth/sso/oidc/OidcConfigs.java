@@ -37,6 +37,7 @@ public class OidcConfigs extends SsoConfigs {
     public static final String OIDC_USE_NONCE = "auth.oidc.useNonce";
     public static final String OIDC_CUSTOM_PARAM_RESOURCE = "auth.oidc.customParam.resource";
     public static final String OIDC_READ_TIMEOUT = "auth.oidc.readTimeout";
+    public static final String OIDC_EXTRACT_JWT_ACCESS_TOKEN_CLAIMS = "auth.oidc.extractJwtAccessTokenClaims";
 
     /**
      * Default values
@@ -69,6 +70,7 @@ public class OidcConfigs extends SsoConfigs {
     private Optional<Boolean> useNonce;
     private Optional<String> customParamResource;
     private String readTimeout;
+    private Optional<Boolean> extractJwtAccessTokenClaims;
 
     public OidcConfigs(final com.typesafe.config.Config configs) {
         super(configs);
@@ -94,5 +96,6 @@ public class OidcConfigs extends SsoConfigs {
         useNonce = getOptional(configs, OIDC_USE_NONCE).map(Boolean::parseBoolean);
         customParamResource = getOptional(configs, OIDC_CUSTOM_PARAM_RESOURCE);
         readTimeout = getOptional(configs, OIDC_READ_TIMEOUT, DEFAULT_OIDC_READ_TIMEOUT);
+        extractJwtAccessTokenClaims = getOptional(configs, OIDC_EXTRACT_JWT_ACCESS_TOKEN_CLAIMS).map(Boolean::parseBoolean);
     }
 }
