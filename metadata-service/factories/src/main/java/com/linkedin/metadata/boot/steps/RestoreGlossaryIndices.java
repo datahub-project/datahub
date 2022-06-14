@@ -41,6 +41,7 @@ public class RestoreGlossaryIndices implements BootstrapStep {
   private static final Urn GLOSSARY_UPGRADE_URN =
       EntityKeyUtils.convertEntityKeyToUrn(new DataHubUpgradeKey().setId(UPGRADE_ID), Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
   private static final Integer BATCH_SIZE = 1000;
+  private static final Integer SLEEP_SECONDS = 30;
 
   private final EntityService _entityService;
   private final EntitySearchService _entitySearchService;
@@ -60,6 +61,11 @@ public class RestoreGlossaryIndices implements BootstrapStep {
   @Override
   public void execute() throws Exception {
     log.info("Attempting to run RestoreGlossaryIndices upgrade..");
+    log.info(String.format("Waiting %s seconds..", SLEEP_SECONDS));
+
+    // Sleep to ensure deployment process finishes.
+    Thread.sleep(SLEEP_SECONDS * 1000);
+
     try {
       if (_entityService.exists(GLOSSARY_UPGRADE_URN)) {
         log.info("Glossary Upgrade has run before. Skipping");

@@ -104,7 +104,7 @@ function CreateGlossaryEntityModal(props: Props) {
                                 message: `Enter a ${entityRegistry.getEntityName(entityType)} name.`,
                             },
                             { whitespace: true },
-                            { min: 1, max: 50 },
+                            { min: 1, max: 100 },
                         ]}
                         hasFeedback
                     >
