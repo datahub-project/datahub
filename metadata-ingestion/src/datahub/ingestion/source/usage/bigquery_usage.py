@@ -1060,36 +1060,6 @@ class BigQueryUsageSource(Source):
                             f"Failed to clean up table, {e}",
                         )
 
-            customProperties: Dict[str, str] = {}
-
-            # This only needs for backward compatibility reason. To make sure we generate the same operational metadata than before
-            if self.config.include_read_operational_stats:
-                if event.query_event.end_time and event.query_event.start_time:
-                    customProperties["millisecondsTaken"] = str(
-                        int(event.query_event.end_time.timestamp() * 1000)
-                        - int(event.query_event.start_time.timestamp() * 1000)
-                    )
-
-                if event.query_event.job_name:
-                    customProperties["sessionId"] = event.query_event.job_name
-                if event.query_event.query:
-                    customProperties["text"] = event.query_event.query
-
-                if event.read_event and event.read_event.fieldsRead:
-                    customProperties["fieldsRead"] = ",".join(
-                        event.read_event.fieldsRead
-                    )
-
-                if event.query_event.billed_bytes:
-                    customProperties["bytesProcessed"] = str(
-                        event.query_event.billed_bytes
-                    )
-
-                if event.query_event.default_dataset:
-                    customProperties[
-                        "defaultDatabase"
-                    ] = event.query_event.default_dataset
-
             # For select into statements queries are SELECT queries from referenced tables perspective
             statement_type: str = (
                 event.query_event.statementType if not event.read_event else "SELECT"
@@ -1109,11 +1079,13 @@ class BigQueryUsageSource(Source):
                 affectedDatasets=affected_datasets,
             )
 
-            if customProperties:
-                operation_aspect.customProperties = customProperties
+            operation_aspect.customProperties = (
+                self._create_operational_custom_properties(event)
+            )
 
             if event.query_event.numAffectedRows:
                 operation_aspect.numAffectedRows = event.query_event.numAffectedRows
+
             mcp = MetadataChangeProposalWrapper(
                 entityType="dataset",
                 aspectName="operation",
@@ -1128,7 +1100,36 @@ class BigQueryUsageSource(Source):
                 id=f"{event.query_event.timestamp.isoformat()}-operation-aspect-{destination_table}",
                 mcp=mcp,
             )
+
         return None
+
+    def _create_operational_custom_properties(self, event) -> Dict[str, str]:
+        custom_properties: Dict[str, str] = {}
+        # This only needs for backward compatibility reason. To make sure we generate the same operational metadata than before
+        if self.config.include_read_operational_stats:
+            if event.query_event.end_time and event.query_event.start_time:
+                custom_properties["millisecondsTaken"] = str(
+                    int(event.query_event.end_time.timestamp() * 1000)
+                    - int(event.query_event.start_time.timestamp() * 1000)
+                )
+
+            if event.query_event.job_name:
+                custom_properties["sessionId"] = event.query_event.job_name
+            if event.query_event.query:
+                custom_properties["text"] = event.query_event.query
+
+            if event.read_event and event.read_event.fieldsRead:
+                custom_properties["fieldsRead"] = ",".join(event.read_event.fieldsRead)
+
+            if event.query_event.billed_bytes:
+                custom_properties["bytesProcessed"] = str(
+                    event.query_event.billed_bytes
+                )
+
+            if event.query_event.default_dataset:
+                custom_properties["defaultDatabase"] = event.query_event.default_dataset
+
+        return custom_properties
 
     def _parse_bigquery_log_entries(
         self, entries: Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]
