@@ -52,6 +52,7 @@ dependencies {
   implementation externalDependency.playServer
   implementation externalDependency.playAkkaHttpServer
   implementation externalDependency.kafkaClients
+  implementation externalDependency.awsMskIamAuth
 
   testImplementation externalDependency.mockito
   testImplementation externalDependency.playTest
