@@ -68,7 +68,7 @@ class SalesforceAuthType(Enum):
 class SalesforceProfilingConfig(ConfigModel):
     enabled: bool = Field(
         default=False,
-        description="Whether profiling should be done. supports only table-level profiling",
+        description="Whether profiling should be done. Supports only table-level profiling at this stage",
     )
 
     # TODO - support field level profiling
@@ -81,9 +81,9 @@ class SalesforceConfig(DatasetSourceConfigBase):
 
     # Username, Password Auth
     username: Optional[str] = Field(description="Salesforce username")
-    password: Optional[str] = Field(description="Password for salesforce username")
+    password: Optional[str] = Field(description="Password for Salesforce user")
     security_token: Optional[str] = Field(
-        description="Security token for salesforce username"
+        description="Security token for Salesforce username"
     )
     # client_id, client_secret not required
 
@@ -91,7 +91,7 @@ class SalesforceConfig(DatasetSourceConfigBase):
     instance_url: Optional[str] = Field(
         description="Salesforce instance url. e.g. https://MyDomainName.my.salesforce.com"
     )
-    access_token: Optional[str] = Field(description="Access token for instance_url")
+    access_token: Optional[str] = Field(description="Access token for instance url")
 
     ingest_tags: Optional[bool] = Field(
         default=False,
@@ -100,18 +100,18 @@ class SalesforceConfig(DatasetSourceConfigBase):
 
     object_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for salesforce objects to filter in ingestion.",
+        description="Regex patterns for Salesforce objects to filter in ingestion.",
     )
     domain: Dict[str, AllowDenyPattern] = Field(
         default=dict(),
-        description=' regex patterns for tables/schemas to descide domain_key domain key (domain_key can be any string like "sales".) There can be multiple domain key specified.',
+        description='Regex patterns for tables/schemas to describe domain_key domain key (domain_key can be any string like "sales".) There can be multiple domain keys specified.',
     )
 
     profiling: SalesforceProfilingConfig = SalesforceProfilingConfig()
 
     profile_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for profiles to filter in ingestion, allowed by the `object_pattern`.",
+        description="Regex patterns for profiles to filter in ingestion, allowed by the `object_pattern`.",
     )
 
     @validator("instance_url")
@@ -229,7 +229,7 @@ class SalesforceSource(Source):
 
         except Exception as e:
             logger.error(e)
-            raise ConfigurationError("Salesforce login failed")
+            raise ConfigurationError("Salesforce login failed") from e
         else:
             # List all REST API versions and use latest one
             versions_url = "https://{instance}/services/data/".format(
@@ -313,7 +313,7 @@ class SalesforceSource(Source):
         )
         custom_objects_response = self.sf._call_salesforce("GET", query_url).json()
         if len(custom_objects_response["records"]) > 0:
-            logger.debug("Salesforce CustomObject Query returned with details")
+            logger.debug("Salesforce CustomObject query returned with details")
             customObject = custom_objects_response["records"][0]
         return customObject
 
@@ -332,7 +332,7 @@ class SalesforceSource(Source):
         )
         entities_response = self.sf._call_salesforce("GET", query_url).json()
         logger.debug(
-            "Salesforce EntityDefinition Query returned {count} sObjects".format(
+            "Salesforce EntityDefinition query returned {count} sObjects".format(
                 count=len(entities_response["records"])
             )
         )
@@ -428,16 +428,13 @@ class SalesforceSource(Source):
         sObjectProperties = {
             propertyLabels[k]: str(v)
             for k, v in sObject.items()
-            if k in propertyLabels.keys() and v is not None
+            if k in propertyLabels and v is not None
+        } | {
+            propertyLabels[k]: str(v)
+            for k, v in customObject.items()
+            if k in propertyLabels and v is not None
         }
 
-        sObjectProperties.update(
-            {
-                propertyLabels[k]: str(v)
-                for k, v in customObject.items()
-                if k in propertyLabels.keys() and v is not None
-            }
-        )
         datasetProperties = DatasetPropertiesClass(
             name=sObject["Label"],
             description=customObject.get("Description"),
@@ -465,16 +462,15 @@ class SalesforceSource(Source):
         self, sObjectName: str, datasetUrn: str
     ) -> Iterable[WorkUnit]:
         # Here approximate record counts as returned by recordCount API are used as rowCount
-        # In future, count() soql query may be used instead, if required, might be more expensive
-        sObject_records_count_url = (
-            self.base_url + "limits/recordCount?sObjects=" + sObjectName
-        )
+        # In future, count() SOQL query may be used instead, if required, might be more expensive
+        sObject_records_count_url = f"{self.base_url}limits/recordCount?sObjects={sObjectName}"
+
         sObject_record_count_response = self.sf._call_salesforce(
             "GET", sObject_records_count_url
         ).json()
 
         logger.debug(
-            "Received Salesforce {sObject} Record count response".format(
+            "Received Salesforce {sObject} record count response".format(
                 sObject=sObjectName
             )
         )
@@ -521,7 +517,7 @@ class SalesforceSource(Source):
         if TypeClass is None:
             self.report.report_warning(
                 sObjectName,
-                f"unable to map type {fieldType} to metadata schema",
+                f"Unable to map type {fieldType} to metadata schema",
             )
             TypeClass = NullTypeClass
 
@@ -574,9 +570,7 @@ class SalesforceSource(Source):
 
         if field["FieldDefinition"]["ComplianceGroup"] is not None:
             # CCPA, COPPA, GDPR, HIPAA, PCI, PersonalInfo, PII
-            for group in field["FieldDefinition"]["ComplianceGroup"].split(";"):
-                fieldTags.append(group)
-
+            fieldTags.extend(iter(field["FieldDefinition"]["ComplianceGroup"].split(";")))
         return fieldTags
 
     def get_audit_stamp(self, date: str, username: str) -> AuditStampClass:
@@ -629,9 +623,9 @@ class SalesforceSource(Source):
                 sObject=sObjectName
             )
         )
-        customFields: Dict[str, Dict] = {}
-        for record in sObject_custom_fields_response["records"]:
-            customFields[record["DeveloperName"]] = record
+        customFields: Dict[str, Dict] = {
+            record["DeveloperName"]: record for record in sObject_custom_fields_response["records"]
+        }
 
         fields: List[SchemaFieldClass] = []
         primaryKeys: List[str] = []
@@ -644,7 +638,7 @@ class SalesforceSource(Source):
             fieldName = field["QualifiedApiName"]
             fieldType = field["DataType"]
 
-            # Skip Compund fields. All Leaf fields are ingested instead.
+            # Skip compound fields. All Leaf fields are ingested instead.
             if fieldType in ("address", "location"):
                 continue
 
@@ -672,8 +666,9 @@ class SalesforceSource(Source):
             platformSchema=OtherSchemaClass(rawSchema=""),
             fields=fields,
             primaryKeys=primaryKeys,
-            foreignKeys=foreignKeys if foreignKeys else None,
+            foreignKeys=foreignKeys or None
         )
+
         # Created Date and Actor are available for Custom Object only
         if customObject.get("CreatedDate") and customObject.get("CreatedBy"):
             schemaMetadata.created = self.get_audit_stamp(
@@ -727,6 +722,8 @@ class SalesforceSource(Source):
         return self.report
 
 
-def get_tags(params: List[str] = []) -> GlobalTagsClass:
+def get_tags(params: List[str] = None) -> GlobalTagsClass:
+    if params is None:
+        params = []
     tags = [TagAssociationClass(tag=builder.make_tag_urn(tag)) for tag in params if tag]
     return GlobalTagsClass(tags=tags)
