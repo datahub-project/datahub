@@ -722,7 +722,9 @@ class S3Source(Source):
                     [current_tag.tag for current_tag in current_tags.tags]
                 )
         else:
-            logger.warning("Could not connect to DatahubApi. No current tags to maintain")
+            logger.warning(
+                "Could not connect to DatahubApi. No current tags to maintain"
+            )
         # Remove duplicate tags
         tags_to_add = list(set(tags_to_add))
         new_tags = GlobalTagsClass(

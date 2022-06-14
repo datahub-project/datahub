@@ -152,9 +152,7 @@ class LDAPSource(Source):
                 )
                 _rtype, rdata, _rmsgid, serverctrls = self.ldap_client.result3(msgid)
             except ldap.LDAPError as e:
-                self.report.report_failure(
-                    "ldap-control", f"LDAP search failed: {e}"
-                )
+                self.report.report_failure("ldap-control", f"LDAP search failed: {e}")
                 break
 
             for dn, attrs in rdata:
@@ -210,9 +208,7 @@ class LDAPSource(Source):
                 _m_dn, m_attrs = self.ldap_client.result3(manager_msgid)[1][0]
                 manager_ldap = guess_person_ldap(m_attrs)
             except ldap.LDAPError as e:
-                self.report.report_warning(
-                    dn, f"manager LDAP search failed: {e}"
-                )
+                self.report.report_warning(dn, f"manager LDAP search failed: {e}")
         mce = self.build_corp_user_mce(dn, attrs, manager_ldap)
         if mce:
             wu = MetadataWorkUnit(dn, mce)
