@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Button, Form, message, Modal, Select, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 
@@ -15,13 +15,20 @@ import { OWNERSHIP_DISPLAY_TYPES } from './ownershipUtils';
 import { useAddOwnersMutation } from '../../../../../../../graphql/mutations.generated';
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { GetOwnerRecommendation } from '../../../../../../shared/recommendation';
-import ClickOutside from '../../../../../../shared/ClickOutside';
 import { OwnerLabel } from '../../../../../../shared/OwnerLabel';
 
 const SelectInput = styled(Select)`
     > .ant-select-selector {
         height: 36px;
     }
+`;
+
+const StyleTag = styled(Tag)`
+    padding: 0px 7px 0px 0px;
+    margin-right: 3px;
+    display: flex;
+    justify-content: start;
+    align-items: center;
 `;
 
 type Props = {
@@ -55,7 +62,6 @@ export const AddOwnersModal = ({
     const ownershipTypes = OWNERSHIP_DISPLAY_TYPES;
     const [selectedOwners, setSelectedOwners] = useState<SelectedOwner[]>([]);
     const [selectedOwnerType, setSelectedOwnerType] = useState<OwnershipType>(defaultOwnerType || OwnershipType.None);
-    const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
 
     // User and group dropdown search results!
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
@@ -66,6 +72,14 @@ export const AddOwnersModal = ({
 
     // Add owners Form
     const [form] = Form.useForm();
+
+    const inputEl = useRef(null);
+
+    useEffect(() => {
+        if (inputEl && inputEl.current) {
+            (inputEl.current as any).focus();
+        }
+    });
 
     const recommendedOwnersData = GetOwnerRecommendation();
 
@@ -113,13 +127,9 @@ export const AddOwnersModal = ({
 
     const ownerResult = !inputValue || inputValue.length === 0 ? recommendedOwnersData : combinedSearchResults;
 
-    console.log('isFocusedOnInput::', isFocusedOnInput);
     const ownerSearchOptions = ownerResult?.map((result) => {
         return renderSearchResult(result);
     });
-
-    console.log('ownerSearchOptions::', ownerSearchOptions);
-    console.log('recommendedOwnersData::', recommendedOwnersData);
 
     const onModalClose = () => {
         setInputValue('');
@@ -134,6 +144,9 @@ export const AddOwnersModal = ({
      * value: {ownerUrn: string, ownerEntityType: EntityType}
      */
     const onSelectOwner = (selectedValue: { key: string; label: React.ReactNode; value: string }) => {
+        if (inputEl && inputEl.current) {
+            (inputEl.current as any).blur();
+        }
         const filteredActors = ownerResult
             ?.filter((result) => result.entity.urn === selectedValue.value)
             .map((result) => result.entity);
@@ -158,7 +171,6 @@ export const AddOwnersModal = ({
     // When a owner search result is deselected, remove the Owner
     const onDeselectOwner = (selectedValue: { key: string; label: React.ReactNode; value: string }) => {
         setInputValue('');
-        setIsFocusedOnInput(true);
         const newValues = selectedOwners.filter((owner) => owner.label !== selectedValue.value);
         setSelectedOwners(newValues);
     };
@@ -176,20 +188,9 @@ export const AddOwnersModal = ({
             event.stopPropagation();
         };
         return (
-            <Tag
-                onMouseDown={onPreventMouseDown}
-                closable={closable}
-                onClose={onClose}
-                style={{
-                    padding: '0px 7px 0px 0px',
-                    marginRight: 3,
-                    display: 'flex',
-                    justifyContent: 'start',
-                    alignItems: 'center',
-                }}
-            >
+            <StyleTag onMouseDown={onPreventMouseDown} closable={closable} onClose={onClose}>
                 {label}
-            </Tag>
+            </StyleTag>
         );
     };
 
@@ -235,7 +236,6 @@ export const AddOwnersModal = ({
 
     function clearInput() {
         setInputValue('');
-        setTimeout(() => setIsFocusedOnInput(true), 0); // call after click outside
     }
 
     function handleBlur() {
@@ -260,38 +260,36 @@ export const AddOwnersModal = ({
             }
         >
             <Form layout="vertical" form={form} colon={false}>
-                <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
-                    <Form.Item key="owners" name="owners" label={<Typography.Text strong>Owner</Typography.Text>}>
-                        <Typography.Paragraph>Find a user or group</Typography.Paragraph>
-                        <Form.Item name="owner">
-                            <SelectInput
-                                labelInValue
-                                autoFocus
-                                defaultOpen
-                                mode="multiple"
-                                placeholder="Search for users or groups..."
-                                showSearch
-                                filterOption={false}
-                                defaultActiveFirstOption={false}
-                                onSelect={(asset: any) => onSelectOwner(asset)}
-                                onDeselect={(asset: any) => onDeselectOwner(asset)}
-                                onSearch={(value: string) => {
-                                    // eslint-disable-next-line react/prop-types
-                                    handleActorSearch(value.trim());
-                                    // eslint-disable-next-line react/prop-types
-                                    setInputValue(value.trim());
-                                }}
-                                tagRender={tagRender}
-                                value={selectedOwners}
-                                onClear={clearInput}
-                                onFocus={() => setIsFocusedOnInput(true)}
-                                onBlur={handleBlur}
-                            >
-                                {ownerSearchOptions}
-                            </SelectInput>
-                        </Form.Item>
+                <Form.Item key="owners" name="owners" label={<Typography.Text strong>Owner</Typography.Text>}>
+                    <Typography.Paragraph>Find a user or group</Typography.Paragraph>
+                    <Form.Item name="owner">
+                        <SelectInput
+                            labelInValue
+                            autoFocus
+                            defaultOpen
+                            ref={inputEl}
+                            mode="multiple"
+                            placeholder="Search for users or groups..."
+                            showSearch
+                            filterOption={false}
+                            defaultActiveFirstOption={false}
+                            onSelect={(asset: any) => onSelectOwner(asset)}
+                            onDeselect={(asset: any) => onDeselectOwner(asset)}
+                            onSearch={(value: string) => {
+                                // eslint-disable-next-line react/prop-types
+                                handleActorSearch(value.trim());
+                                // eslint-disable-next-line react/prop-types
+                                setInputValue(value.trim());
+                            }}
+                            tagRender={tagRender}
+                            value={selectedOwners}
+                            onClear={clearInput}
+                            onBlur={handleBlur}
+                        >
+                            {ownerSearchOptions}
+                        </SelectInput>
                     </Form.Item>
-                </ClickOutside>
+                </Form.Item>
                 {!hideOwnerType && (
                     <Form.Item label={<Typography.Text strong>Type</Typography.Text>}>
                         <Typography.Paragraph>Choose an owner type</Typography.Paragraph>
