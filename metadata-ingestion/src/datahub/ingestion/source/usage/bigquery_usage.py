@@ -773,13 +773,13 @@ class BigQueryUsageSource(Source):
         self.report.num_operational_stats_workunits_emitted = 0
         for event in hydrated_read_events:
             logger.debug(f"Event: {event}")
-            if self.config.include_operational_stats:
+            if self.config.include_operational_stats and event.query_event:
                 operational_wu = self._create_operation_aspect_work_unit(event)
                 if operational_wu:
                     self.report.report_workunit(operational_wu)
                     yield operational_wu
                     self.report.num_operational_stats_workunits_emitted += 1
-            if event.query_event and event.read_event:
+            if event.read_event:
                 aggregated_info = self._aggregate_enriched_read_events(
                     aggregated_info, event
                 )
@@ -1009,9 +1009,9 @@ class BigQueryUsageSource(Source):
         self, event: AuditEvent
     ) -> Optional[MetadataWorkUnit]:
         assert event.query_event
+
         if (
-            event.query_event.query
-            and event.query_event.statementType in OPERATION_STATEMENT_TYPES
+            event.query_event.statementType in OPERATION_STATEMENT_TYPES
             and event.query_event.destinationTable
             and self._is_table_allowed(event.query_event.destinationTable)
         ):
@@ -1032,14 +1032,6 @@ class BigQueryUsageSource(Source):
             else:
                 raise Exception(f"Unable to find destination table in event {event}")
 
-            try:
-                destination_table = destination_table.remove_extras()
-            except Exception as e:
-                self.report.report_warning(
-                    str(destination_table),
-                    f"Failed to clean up destination table, {e}",
-                )
-                return None
             reported_time: int = int(time.time() * 1000)
             last_updated_timestamp: int = int(
                 event.query_event.timestamp.timestamp() * 1000
@@ -1079,12 +1071,12 @@ class BigQueryUsageSource(Source):
                 affectedDatasets=affected_datasets,
             )
 
-            operation_aspect.customProperties = (
-                self._create_operational_custom_properties(event)
-            )
-
-            if event.query_event.numAffectedRows:
-                operation_aspect.numAffectedRows = event.query_event.numAffectedRows
+            if self.config.include_read_operational_stats:
+                operation_aspect.customProperties = (
+                    self._create_operational_custom_properties(event)
+                )
+                if event.query_event.numAffectedRows:
+                    operation_aspect.numAffectedRows = event.query_event.numAffectedRows
 
             mcp = MetadataChangeProposalWrapper(
                 entityType="dataset",
@@ -1118,7 +1110,8 @@ class BigQueryUsageSource(Source):
 
             if event.query_event.job_name:
                 custom_properties["sessionId"] = event.query_event.job_name
-            if event.query_event.query:
+
+            if "query" in event.query_event.query and event.query_event.query:
                 custom_properties["text"] = event.query_event.query
 
             if event.read_event and event.read_event.fieldsRead:
@@ -1257,9 +1250,9 @@ class BigQueryUsageSource(Source):
 
         num_joined: int = 0
         for event in delayed_read_events:
-            if event.query_event:
+            if event.query_event and not event.read_event:
                 yield event
-
+                continue
             if (
                 event.read_event is None
                 or event.read_event.timestamp < self.config.start_time
@@ -1268,19 +1261,23 @@ class BigQueryUsageSource(Source):
             ):
                 continue
 
+            # There are some read event which does not have jobName because it was read in a different way
+            # Like https://cloud.google.com/logging/docs/reference/audit/bigquery/rest/Shared.Types/AuditData#tabledatalistrequest
+            # There are various reason to read a table
+            # https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/BigQueryAuditMetadata.TableDataRead.Reason
             if event.read_event.jobName:
                 if event.read_event.jobName in query_jobs:
                     # Join the query log event into the table read log event.
                     num_joined += 1
                     event.query_event = query_jobs[event.read_event.jobName]
                     yield event
-                    # TODO also join into the query itself for column references
+                    continue
                 else:
                     self.report.report_warning(
                         str(event.read_event.resource),
                         f"Failed to match table read event {event.read_event.jobName} with job; try increasing `query_log_delay` or `max_query_duration`",
                     )
-                    yield event
+            yield event
         logger.info(f"Number of read events joined with query events: {num_joined}")
 
     def _aggregate_enriched_read_events(
@@ -1319,10 +1316,10 @@ class BigQueryUsageSource(Source):
                 user_email_pattern=self.config.user_email_pattern,
             ),
         )
-        assert event.query_event
+
         agg_bucket.add_read_entry(
             event.read_event.actor_email,
-            event.query_event.query,
+            event.query_event.query if event.query_event else None,
             event.read_event.fieldsRead,
         )
 
