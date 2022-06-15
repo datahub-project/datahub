@@ -55,7 +55,7 @@ public class RestoreGlossaryIndices implements BootstrapStep {
   @Nonnull
   @Override
   public ExecutionMode getExecutionMode() {
-    return ExecutionMode.BLOCKING;
+    return ExecutionMode.ASYNC;
   }
 
   @Override
