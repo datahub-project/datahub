@@ -118,6 +118,9 @@ export const AddOwnersModal = ({
         return renderSearchResult(result);
     });
 
+    console.log('ownerSearchOptions::', ownerSearchOptions);
+    console.log('recommendedOwnersData::', recommendedOwnersData);
+
     const onModalClose = () => {
         setInputValue('');
         setSelectedOwners([]);
@@ -269,6 +272,7 @@ export const AddOwnersModal = ({
                                 placeholder="Search for users or groups..."
                                 showSearch
                                 filterOption={false}
+                                defaultActiveFirstOption={false}
                                 onSelect={(asset: any) => onSelectOwner(asset)}
                                 onDeselect={(asset: any) => onDeselectOwner(asset)}
                                 onSearch={(value: string) => {
