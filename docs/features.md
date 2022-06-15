@@ -16,8 +16,6 @@ Here’s an overview of DataHub’s current functionality. Check out our [roadma
 
 DataHub's unified search experience surfaces results across across databases, datalakes, BI platforms, ML feature stores, orchestration tools, and more.
 
-<!-- ![](./imgs/feature-search-across-all-entities.gif) -->
-
 <p align="center">
   <img style="width: 70%;"  src="./imgs/feature-search-all-corners-of-your-datastack.gif">
 </p>
