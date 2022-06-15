@@ -101,87 +101,10 @@ DataHub admins can create Policies to define who can perform what action against
   <img style="width: 70%;" src="./imgs/feature-manage-policies.png">
 </p>
 
-### **UI-Based Metadata Ingestion**
+### **Ingest Metadata from the UI**
 
 Create, configure, schedule, & execute batch metadata ingestion using the DataHub user interface. This makes getting metadata into DataHub easier by minimizing the overhead required to operate custom integration pipelines.
 
 <p align="center">
   <img style="width: 70%;" src="./imgs/feature-managed-ingestion-config.png">
 </p>
-
-## DataHub is a Platform for Developers
-
-DataHub is an API- and stream-first platform, empowering developers to implement an instance tailored to their specific data stack. Our growing set of flexible integration models allow for push and pull metadata ingestion, as well as no-code metadata model extensions to quickly get up and running. 
-
-### Dataset Sources
-| Source | Status |
-|---|:---:|
-| Athena | Supported |
-| BigQuery | Supported |
-| ClickHouse | Supported |
-| Delta Lake | Planned |
-| Druid | Supported |
-| Elasticsearch | Supported |
-| Hive | Supported |
-| Hudi | Planned |
-| Iceberg | Supported |
-| Kafka Metadata | Supported |
-| MongoDB | Supported |
-| Microsoft SQL Server | Supported |
-| MySQL | Supported |
-| Oracle | Supported |
-| PostgreSQL | Supported |
-| Protobuf | Supported |
-| Pulsar | Supported |
-| Redshift | Supported |
-| s3 | Supported |
-| SAP HANA | Supported |
-| Snowflake | Supported |
-| Spark/Databricks | Partially Supported |
-| Trino FKA Presto | Supported |
-| Vertica | Supported |
-
-### BI Tools
-| Source | Status |
-|---|:---:|
-| Business Glossary | Supported |
-| Looker | Supported |
-| Metabase | Supported |
-| Mode | Supported |
-| PowerBI | Supported |
-| Redash | Supported |
-| Superset | Supported |
-| Tableau | Supported |
-| Grafana | Partially Supported |
-
-### ETL / ELT
-| Source | Status |
-|---|:---:|
-| dbt | Supported |
-| Glue | Supported |
-
-### Workflow Orchestration
-| Source | Status |
-|---|:---:|
-| Airflow | Supported |
-| NiFi | Supported |
-| Dagster | Planned |
-| Prefect | Planned |
-
-### Data Observability
-| Source | Status |
-|---|:---:|
-| Great Expectations | Supported |
-
-### ML Platform
-| Source | Status |
-|---|:---:|
-| Feast | Supported |
-| Sagemaker | Supported |
-
-### Identity Management
-| Source | Status |
-|---|:---:|
-| Azure AD | Supported |
-| LDAP | Supported |
-| Okta | Supported |
