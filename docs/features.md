@@ -19,7 +19,7 @@ DataHub's unified search experience surfaces results across across databases, da
 <!-- ![](./imgs/feature-search-across-all-entities.gif) -->
 
 <p align="center">
-  <img style="width: 80%;"  src="./imgs/feature-search-all-corners-of-your-datastack.gif">
+  <img style="width: 70%;"  src="./imgs/feature-search-all-corners-of-your-datastack.gif">
 </p>
 
 ### **Trace End-to-End Lineage**
@@ -29,7 +29,7 @@ Easily understand the end-to-end journey of data by tracing lineage across platf
 <!-- ![](./imgs/feature-navigate-lineage-vis.gif) -->
 
 <p align="center">
-  <img style="width: 80%;" src="./imgs/feature-end-to-end-lineage.png">
+  <img style="width: 70%;" src="./imgs/feature-end-to-end-lineage.png">
 </p>
 
 ### **View Metadata 360 at a Glance**
@@ -43,7 +43,7 @@ Combine *technical* and *logical* metadata to provide a robust 360º view of you
 <!-- ![](./imgs/feature-table-usage-and-stats.gif) -->
 
 <p align="center">
-  <img style="width: 80%;" src="./imgs/feature-dataset-stats.png">
+  <img style="width: 70%;" src="./imgs/feature-dataset-stats.png">
 </p>
 
 ---
@@ -69,7 +69,7 @@ Quickly and easily assign entitiy ownership to users and/or user groups.
 <!-- ![](./imgs/feature-add-owners.gif) -->
 
 <p align="center">
-  <img style="width: 80%;" src="./imgs/feature-entity-owner.png">
+  <img style="width: 70%;" src="./imgs/feature-entity-owner.png">
 </p>
 
 ### **Govern with Tags, Glossary Terms, and Domains**
@@ -80,7 +80,7 @@ Empower data owners to govern their data entities with:
 3. **Domains:** Curated, top-level folders or categories, commonly used in Data Mesh to organize entities by department (i.e., Finance, Marketing) and/or Data Products.
 
 <p align="center">
-  <img style="width: 80%;" src="./imgs/feature-tags-terms-domains.png">
+  <img style="width: 70%;" src="./imgs/feature-tags-terms-domains.png">
 </p>
 
 ---
@@ -98,7 +98,7 @@ DataHub admins can create Policies to define who can perform what action against
 <!-- ![](./imgs/feature-create-policy.gif) -->
 
 <p align="center">
-  <img style="width: 80%;" src="./imgs/feature-manage-policies.png">
+  <img style="width: 70%;" src="./imgs/feature-manage-policies.png">
 </p>
 
 ### **UI-Based Metadata Ingestion**
@@ -106,7 +106,7 @@ DataHub admins can create Policies to define who can perform what action against
 Create, configure, schedule, & execute batch metadata ingestion using the DataHub user interface. This makes getting metadata into DataHub easier by minimizing the overhead required to operate custom integration pipelines.
 
 <p align="center">
-  <img style="width: 80%;" src="./imgs/feature-managed-ingestion-config.png">
+  <img style="width: 70%;" src="./imgs/feature-managed-ingestion-config.png">
 </p>
 
 ## DataHub is a Platform for Developers
