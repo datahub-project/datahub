@@ -1,14 +1,14 @@
 import React from 'react';
-import { Col, Form, Input, Popover, Row } from 'antd';
+import { Form, Input } from 'antd';
 import { SpecifyBrowsePath } from './SpecifyBrowsePath';
 import { MarkDownEditable } from './MarkDownEditable';
 import { DatasetFrequencyInput } from './DatasetFrequencyInput';
 
 export const CommonFields = () => {
-    const aboutName =
-        'The dataset name will be appended with a timestamp UUID, for instance datasetName_1654856808524, which is the permanent "key" for the dataset. However, display names can be changed.';
-    const aboutOrigin = 'Where the dataset came from. Is it a derived dataset, etc?';
-    const aboutLocation = 'Location of dataset, or where a sample of it can be found';
+    // const aboutName =
+    //     'The dataset name will be appended with a timestamp UUID, for instance datasetName_1654856808524, which is the permanent "key" for the dataset. However, display names can be changed.';
+    // const aboutOrigin = 'Where the dataset came from. Is it a derived dataset, etc?';
+    // const aboutLocation = 'Location of dataset, or where a sample of it can be found';
     return (
         <>
             <Form.Item
@@ -21,13 +21,9 @@ export const CommonFields = () => {
                     },
                 ]}
             >
-                <Row>
-                    <Col span={8} offset={0}>
-                        <Popover trigger="hover" content={aboutName}>
-                            <Input />
-                        </Popover>
-                    </Col>
-                </Row>
+                {/* <Tooltip trigger="hover" title={aboutName}> */}
+                <Input />
+                {/* </Tooltip> */}
             </Form.Item>
             <MarkDownEditable />
             <DatasetFrequencyInput />
@@ -41,13 +37,7 @@ export const CommonFields = () => {
                     },
                 ]}
             >
-                <Row>
-                    <Col span={12} offset={0}>
-                        <Popover trigger="hover" content={aboutOrigin}>
-                            <Input />
-                        </Popover>
-                    </Col>
-                </Row>
+                <Input />
             </Form.Item>
             <Form.Item
                 name="dataset_location"
@@ -59,19 +49,9 @@ export const CommonFields = () => {
                     },
                 ]}
             >
-                <Row>
-                    <Col span={12} offset={0}>
-                        <Popover trigger="hover" content={aboutLocation}>
-                            <Input />
-                        </Popover>
-                    </Col>
-                </Row>
+                <Input />
             </Form.Item>
-            <Row>
-                <Col span={12} offset={3}>
-                    <SpecifyBrowsePath />
-                </Col>
-            </Row>
+            <SpecifyBrowsePath />
         </>
     );
 };

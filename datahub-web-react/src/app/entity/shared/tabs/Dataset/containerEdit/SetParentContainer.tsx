@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Select from 'antd/lib/select';
-import { Col, Form, Row } from 'antd';
+import { Form } from 'antd';
 import { EntityType, SearchResult } from '../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { useGetSearchResultsQuery } from '../../../../../../graphql/search.generated';
@@ -50,23 +50,19 @@ export const SetParentContainer = (props: Props) => {
                 ]}
                 shouldUpdate={(prevValues, curValues) => prevValues.props !== curValues.props}
             >
-                <Row>
-                    <Col span={8} offset={0}>
-                        <Select
-                            autoFocus
-                            filterOption
-                            value={selectedContainers}
-                            showArrow
-                            placeholder="Search for a parent container.."
-                            allowClear
-                            onSelect={(container: any) => setSelectedContainers(container)}
-                        >
-                            {containerCandidates?.search?.searchResults.map((result) => (
-                                <Select.Option value={result?.entity?.urn}>{renderSearchResult(result)}</Select.Option>
-                            ))}
-                        </Select>
-                    </Col>
-                </Row>
+                <Select
+                    autoFocus
+                    filterOption
+                    value={selectedContainers}
+                    showArrow
+                    placeholder="Search for a parent container.."
+                    allowClear
+                    onSelect={(container: any) => setSelectedContainers(container)}
+                >
+                    {containerCandidates?.search?.searchResults.map((result) => (
+                        <Select.Option value={result?.entity?.urn}>{renderSearchResult(result)}</Select.Option>
+                    ))}
+                </Select>
             </Form.Item>
             {/* </Popover> */}
         </>

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 // import { Select } from 'antd';
 import Select from 'antd/lib/select';
 import styled from 'styled-components';
-import { Col, Form, Row } from 'antd';
+import { Form } from 'antd';
 import { SetParentContainer } from '../containerEdit/SetParentContainer';
 
 const SearchResultContainer = styled.div`
@@ -41,7 +41,7 @@ export const DataPlatformSelect = () => {
     // Hence, must resort to fixed list.
     // in order to seed the dropdown if the user immediately click on the drop down,
     // i will initialise selectedPlaform with FILE platform.
-    const [selectedPlatform, setSelectedPlatform] = useState('urn:li:dataPlatform:file');
+    const [selectedPlatform, setSelectedPlatform] = useState('');
     const renderSearchResult = (result: string) => {
         const displayName = result.split(':').pop()?.toUpperCase();
         return (
@@ -76,27 +76,23 @@ export const DataPlatformSelect = () => {
                     },
                 ]}
             >
-                <Row>
-                    <Col span={8} offset={0}>
-                        <Select
-                            autoFocus
-                            filterOption
-                            showSearch
-                            value={selectedPlatform}
-                            defaultValue="urn:li:dataPlatform:elasticsearch"
-                            showArrow
-                            placeholder="Search for a parent container.."
-                            onSelect={(platform: string) => onSelectMember(platform)}
-                            allowClear
-                            onClear={removeOption}
-                            onDeselect={removeOption}
-                        >
-                            {platformSelection?.map((platform) => (
-                                <Select.Option value={platform}>{renderSearchResult(platform)}</Select.Option>
-                            ))}
-                        </Select>
-                    </Col>
-                </Row>
+                <Select
+                    autoFocus
+                    filterOption
+                    showSearch
+                    value={selectedPlatform}
+                    defaultValue="urn:li:dataPlatform:elasticsearch"
+                    showArrow
+                    placeholder="Search for a parent container.."
+                    onSelect={(platform: string) => onSelectMember(platform)}
+                    allowClear
+                    onClear={removeOption}
+                    onDeselect={removeOption}
+                >
+                    {platformSelection?.map((platform) => (
+                        <Select.Option value={platform}>{renderSearchResult(platform)}</Select.Option>
+                    ))}
+                </Select>
             </Form.Item>
             <SetParentContainer platformType={selectedPlatform} compulsory={false} />
         </>

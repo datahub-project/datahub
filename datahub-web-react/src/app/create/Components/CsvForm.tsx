@@ -95,8 +95,12 @@ export const CsvForm = () => {
                 {...layout}
                 form={form}
                 initialValues={{
+                    dataset_name: 'abc',
                     fields: [{ field_description: '', field_type: 'string' }],
                     browsepathList: ['/file/'],
+                    frequency: 'Unknown',
+                    dataset_origin: 'dunno',
+                    platformSelect: 'urn:li:dataPlatform:elasticsearch',
                 }}
                 name="dynamic_form_item"
             >

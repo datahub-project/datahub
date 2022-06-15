@@ -1,10 +1,10 @@
 import React from 'react';
-import { Button, Col, Form, Input, Popover, Row } from 'antd';
+import { Button, Form, Input } from 'antd';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 
 export const SpecifyBrowsePath = () => {
-    const aboutBrowsePath =
-        'BrowsePath affects where the dataset is located when user browses datasets. BrowsePath must start and end with a /';
+    // const aboutBrowsePath =
+    //     'BrowsePath affects where the dataset is located when user browses datasets. BrowsePath must start and end with a /';
     return (
         <>
             <Form.Item label="Specify Browse Location" style={{ marginBottom: 0 }}>
@@ -43,41 +43,23 @@ export const SpecifyBrowsePath = () => {
                                         ]}
                                         noStyle
                                     >
-                                        <Row>
-                                            <Col span={16}>
-                                                <Popover trigger="hover" content={aboutBrowsePath}>
-                                                    <Input placeholder="browsing path" style={{ width: '100%' }} />
-                                                </Popover>
-                                            </Col>
-                                            <Col span={1}>
-                                                {fields.length > 1 ? (
-                                                    <Button aria-label="removepath">
-                                                        <MinusCircleOutlined
-                                                            className="dynamic-delete-button"
-                                                            onClick={() => remove(field.name)}
-                                                        />
-                                                    </Button>
-                                                ) : null}
-                                            </Col>
-                                        </Row>
+                                        <Input placeholder="browsing path" style={{ width: '100%' }} />
+                                        {fields.length > 1 ? (
+                                            // <Button aria-label="removepath">
+                                            <MinusCircleOutlined
+                                                className="dynamic-delete-button"
+                                                onClick={() => remove(field.name)}
+                                            />
+                                        ) : // </Button>
+                                        null}
                                     </Form.Item>
                                 </Form.Item>
                             ))}
                             <Form.Item>
-                                <Row>
-                                    <Col span={16}>
-                                        <Button
-                                            type="dashed"
-                                            style={{ width: '100%' }}
-                                            onClick={() => add()}
-                                            icon={<PlusOutlined />}
-                                            disabled={fields.length >= 3}
-                                        >
-                                            Add more browsing paths
-                                        </Button>
-                                        <Form.ErrorList errors={errors} />
-                                    </Col>
-                                </Row>
+                                <Button onClick={() => add()} icon={<PlusOutlined />} disabled={fields.length >= 3}>
+                                    Add more browsing paths
+                                </Button>
+                                <Form.ErrorList errors={errors} />
                             </Form.Item>
                         </>
                     )}
