@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.auth;
 
-import com.datahub.authentication.token.StatefulTokenService;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -34,11 +33,9 @@ public class ListAccessTokensResolver implements DataFetcher<CompletableFuture<L
   private static final String EXPIRES_AT_FIELD_NAME = "expiresAt";
 
   private final EntityClient _entityClient;
-  private final StatefulTokenService _statefulTokenService;
 
-  public ListAccessTokensResolver(final EntityClient entityClient, final StatefulTokenService statefulTokenService) {
+  public ListAccessTokensResolver(final EntityClient entityClient) {
     this._entityClient = entityClient;
-    _statefulTokenService = statefulTokenService;
   }
 
   @Override
@@ -63,7 +60,6 @@ public class ListAccessTokensResolver implements DataFetcher<CompletableFuture<L
 
           final List<AccessTokenMetadata> tokens = searchResult.getEntities()
               .stream()
-              .filter(entity -> !_statefulTokenService.isTokenRevoked(entity.getEntity().getId()))
               .map(entity -> {
                 final AccessTokenMetadata metadata = new AccessTokenMetadata();
                 metadata.setUrn(entity.getEntity().toString());

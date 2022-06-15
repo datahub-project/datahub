@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.auth;
 
-import com.datahub.authentication.token.StatefulTokenService;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.TestUtils;
@@ -42,9 +41,7 @@ public class ListAccessTokensResolverTest extends TestCase {
             Mockito.eq(getAuthentication(mockEnv))))
         .thenReturn(null);
 
-    final StatefulTokenService mockTokenService = Mockito.mock(StatefulTokenService.class);
-
-    final ListAccessTokensResolver resolver = new ListAccessTokensResolver(mockClient, mockTokenService);
+    final ListAccessTokensResolver resolver = new ListAccessTokensResolver(mockClient);
     final ListAccessTokenResult listAccessTokenResult = resolver.get(mockEnv).get();
   }
 }
