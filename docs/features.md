@@ -26,8 +26,6 @@ DataHub's unified search experience surfaces results across across databases, da
 
 Easily understand the end-to-end journey of data by tracing lineage across platforms, datasets, ETL/ELT pipelines, charts, and dashboards, and beyond.
 
-<!-- ![](./imgs/feature-navigate-lineage-vis.gif) -->
-
 <p align="center">
   <img style="width: 70%;" src="./imgs/feature-end-to-end-lineage.png">
 </p>
