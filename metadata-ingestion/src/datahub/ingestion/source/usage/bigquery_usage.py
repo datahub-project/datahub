@@ -769,7 +769,7 @@ class BigQueryUsageSource(Source):
         num_aggregated: int = 0
         self.report.num_operational_stats_workunits_emitted = 0
         for event in hydrated_read_events:
-            if self.config.include_operational_stats and event.query_event:
+            if self.config.include_operational_stats:
                 operational_wu = self._create_operation_aspect_work_unit(event)
                 if operational_wu:
                     self.report.report_workunit(operational_wu)
@@ -1018,6 +1018,9 @@ class BigQueryUsageSource(Source):
         elif event.read_event:
             destination_table = event.read_event.resource.remove_extras()
         else:
+            # TODO: CREATE_SCHEMA operation ends up here, maybe we should capture that as well
+            # but it is tricky as we only get the query so it can't be tied to anything
+            # - SCRIPT statement type ends up here as well
             logger.warning(f"Unable to find destination table in event {event}")
             return None
 
@@ -1033,7 +1036,7 @@ class BigQueryUsageSource(Source):
         if not event.query_event and event.read_event:
             statement_type = OperationTypeClass.CUSTOM
             custom_type = "CUSTOM_READ"
-            last_updated_timstamp = int(event.read_event.timestamp.timestamp() * 1000)
+            last_updated_timestamp = int(event.read_event.timestamp.timestamp() * 1000)
             actor_email = event.read_event.actor_email
         elif event.query_event:
             # If AuditEvent only have queryEvent that means it is the target of the Insert Operation
@@ -1117,30 +1120,36 @@ class BigQueryUsageSource(Source):
     ) -> Dict[str, str]:
         custom_properties: Dict[str, str] = {}
         # This only needs for backward compatibility reason. To make sure we generate the same operational metadata than before
-        if self.config.include_read_operational_stats and event.query_event:
-            if event.query_event.end_time and event.query_event.start_time:
-                custom_properties["millisecondsTaken"] = str(
-                    int(event.query_event.end_time.timestamp() * 1000)
-                    - int(event.query_event.start_time.timestamp() * 1000)
-                )
+        if self.config.include_read_operational_stats:
+            if event.query_event:
+                if event.query_event.end_time and event.query_event.start_time:
+                    custom_properties["millisecondsTaken"] = str(
+                        int(event.query_event.end_time.timestamp() * 1000)
+                        - int(event.query_event.start_time.timestamp() * 1000)
+                    )
 
-            if event.query_event.job_name:
-                custom_properties["sessionId"] = event.query_event.job_name
+                if event.query_event.job_name:
+                    custom_properties["sessionId"] = event.query_event.job_name
 
-            custom_properties["text"] = event.query_event.query
+                custom_properties["text"] = event.query_event.query
 
-            if event.read_event and event.read_event.fieldsRead:
-                custom_properties["fieldsRead"] = ",".join(event.read_event.fieldsRead)
+                if event.query_event.billed_bytes:
+                    custom_properties["bytesProcessed"] = str(
+                        event.query_event.billed_bytes
+                    )
 
-            if event.query_event.billed_bytes:
-                custom_properties["bytesProcessed"] = str(
-                    event.query_event.billed_bytes
-                )
-
+                if event.query_event.default_dataset:
+                    custom_properties[
+                        "defaultDatabase"
+                    ] = event.query_event.default_dataset
             if event.read_event:
-                custom_properties["readReason"] = event.read_event.readReason
-            if event.query_event.default_dataset:
-                custom_properties["defaultDatabase"] = event.query_event.default_dataset
+                if event.read_event.readReason:
+                    custom_properties["readReason"] = event.read_event.readReason
+
+                if event.read_event.fieldsRead:
+                    custom_properties["fieldsRead"] = ",".join(
+                        event.read_event.fieldsRead
+                    )
 
         return custom_properties
 
