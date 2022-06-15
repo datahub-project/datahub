@@ -95,8 +95,6 @@ DataHub admins can create Policies to define who can perform what action against
 * **Privileges** - Choose the set of permissions, such as Edit Owners, Edit Documentation, Edit Links
 * **Users and/or Groups** - Assign relevant Users and/or Groups; you can also assign the Policy to Resource Owners, regardless of which Group they belong to
 
-<!-- ![](./imgs/feature-create-policy.gif) -->
-
 <p align="center">
   <img style="width: 70%;" src="./imgs/feature-manage-policies.png">
 </p>
