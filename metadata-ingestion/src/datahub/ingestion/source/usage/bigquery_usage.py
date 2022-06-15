@@ -462,7 +462,6 @@ class QueryEvent:
 
     @classmethod
     def from_entry(cls, entry: AuditLogEntry) -> "QueryEvent":
-        logger.info(f"QueryEvent:{entry}")
         job: Dict = entry.payload["serviceData"]["jobCompletedEvent"]["job"]
         job_query_conf: Dict = job["jobConfiguration"]["query"]
         # basic query_event
@@ -1038,7 +1037,10 @@ class BigQueryUsageSource(Source):
             actor_email = event.read_event.actor_email
         elif event.query_event:
             # If AuditEvent only have queryEvent that means it is the target of the Insert Operation
-            if event.query_event.statementType in OPERATION_STATEMENT_TYPES and not event.read_event:
+            if (
+                event.query_event.statementType in OPERATION_STATEMENT_TYPES
+                and not event.read_event
+            ):
                 statement_type = OPERATION_STATEMENT_TYPES[
                     event.query_event.statementType
                 ]
@@ -1201,9 +1203,6 @@ class BigQueryUsageSource(Source):
             )
             if missing_query_event_exported_audit is None:
                 event = QueryEvent.from_exported_bigquery_audit_metadata(audit_metadata)
-            #                wu = self._create_operation_aspect_work_unit(event)
-            #                if wu:
-            #                    yield wu
 
             missing_read_event_exported_audit = (
                 ReadEvent.get_missing_key_exported_bigquery_audit_metadata(
