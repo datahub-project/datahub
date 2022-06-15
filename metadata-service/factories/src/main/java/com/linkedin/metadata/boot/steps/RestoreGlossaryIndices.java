@@ -41,7 +41,7 @@ public class RestoreGlossaryIndices implements BootstrapStep {
   private static final Urn GLOSSARY_UPGRADE_URN =
       EntityKeyUtils.convertEntityKeyToUrn(new DataHubUpgradeKey().setId(UPGRADE_ID), Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
   private static final Integer BATCH_SIZE = 1000;
-  private static final Integer SLEEP_SECONDS = 30;
+  private static final Integer SLEEP_SECONDS = 120;
 
   private final EntityService _entityService;
   private final EntitySearchService _entitySearchService;
