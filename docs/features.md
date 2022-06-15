@@ -40,8 +40,6 @@ Combine *technical* and *logical* metadata to provide a robust 360º view of you
 * **Validation outcomes** from tools like Great Expectations
 * **Schema Version History** to track changes to the physical structure of data over time
 
-<!-- ![](./imgs/feature-table-usage-and-stats.gif) -->
-
 <p align="center">
   <img style="width: 70%;" src="./imgs/feature-dataset-stats.png">
 </p>
