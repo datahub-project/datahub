@@ -28,3 +28,17 @@ export function GetOwnerRecommendation() {
     });
     return data?.searchAcrossEntities?.searchResults;
 }
+
+export function GetDomainRecommendation() {
+    const { data } = useGetSearchResultsForMultipleQuery({
+        variables: {
+            input: {
+                types: [EntityType.Domain],
+                query: '*',
+                start: 0,
+                count: 5,
+            },
+        },
+    });
+    return data?.searchAcrossEntities?.searchResults;
+}
