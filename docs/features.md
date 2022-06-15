@@ -66,8 +66,6 @@ Combine *technical* and *logical* metadata to provide a robust 360º view of you
 ### **Manage Entity Ownership**
 Quickly and easily assign entitiy ownership to users and/or user groups.
 
-<!-- ![](./imgs/feature-add-owners.gif) -->
-
 <p align="center">
   <img style="width: 70%;" src="./imgs/feature-entity-owner.png">
 </p>
