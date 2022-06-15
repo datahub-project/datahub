@@ -165,7 +165,6 @@ OPERATION_STATEMENT_TYPES = {
     "CREATE_TABLE_AS_SELECT": OperationTypeClass.CREATE,
     "CREATE_SCHEMA": OperationTypeClass.CREATE,
     "DROP_TABLE": OperationTypeClass.DROP,
-    "SELECT": OperationTypeClass.CUSTOM,
 }
 
 READ_STATEMENT_TYPES: List[str] = ["SELECT"]
@@ -436,8 +435,8 @@ class QueryEvent:
     job_name: str
     actor_email: str
     query: str
+    statementType: str
 
-    statementType: Optional[str] = None
     destinationTable: Optional[BigQueryTableRef] = None
     referencedTables: List[BigQueryTableRef] = field(default_factory=list)
     referencedViews: List[BigQueryTableRef] = field(default_factory=list)
@@ -487,6 +486,7 @@ class QueryEvent:
             if "queryOutputRowCount" in job["jobStatistics"]
             and job["jobStatistics"]["queryOutputRowCount"]
             else None,
+            statementType=job_query_conf["statementType"],
         )
         # destinationTable
         raw_dest_table = job_query_conf.get("destinationTable")
@@ -495,7 +495,6 @@ class QueryEvent:
                 raw_dest_table
             )
         # statementType
-        query_event.statementType = job_query_conf.get("statementType")
         # referencedTables
         job_stats: Dict = job["jobStatistics"]
         if "totalBilledBytes" in job_stats and job_stats["totalBilledBytes"]:
@@ -564,6 +563,7 @@ class QueryEvent:
             numAffectedRows=int(query_stats["outputRowCount"])
             if "outputRowCount" in query_stats and query_stats["outputRowCount"]
             else None,
+            statementType=query_config["statementType"],
         )
         # jobName
         query_event.job_name = job["jobName"]
@@ -585,8 +585,6 @@ class QueryEvent:
             query_event.referencedViews = [
                 BigQueryTableRef.from_string_name(spec) for spec in raw_ref_views
             ]
-        # statementType
-        query_event.statementType = query_config.get("statementType")
         # payload
         query_event.payload = payload if DEBUG_INCLUDE_FULL_PAYLOADS else None
 
@@ -627,6 +625,7 @@ class QueryEvent:
             numAffectedRows=int(query_stats["outputRowCount"])
             if "outputRowCount" in query_stats and query_stats["outputRowCount"]
             else None,
+            statementType=query_config["statementType"],
         )
         query_event.job_name = job["jobName"]
         # destinationTable
@@ -636,7 +635,6 @@ class QueryEvent:
                 raw_dest_table
             )
         # statementType
-        query_event.statementType = query_config.get("statementType")
         # referencedTables
         raw_ref_tables = query_stats.get("referencedTables")
         if raw_ref_tables:
@@ -772,7 +770,6 @@ class BigQueryUsageSource(Source):
         num_aggregated: int = 0
         self.report.num_operational_stats_workunits_emitted = 0
         for event in hydrated_read_events:
-            logger.debug(f"Event: {event}")
             if self.config.include_operational_stats and event.query_event:
                 operational_wu = self._create_operation_aspect_work_unit(event)
                 if operational_wu:
@@ -1008,100 +1005,117 @@ class BigQueryUsageSource(Source):
     def _create_operation_aspect_work_unit(
         self, event: AuditEvent
     ) -> Optional[MetadataWorkUnit]:
-        assert event.query_event
 
+        if not event.read_event and not event.query_event:
+            return None
+
+        destination_table: BigQueryTableRef
         if (
-            event.query_event.statementType in OPERATION_STATEMENT_TYPES
+            not event.read_event
+            and event.query_event
             and event.query_event.destinationTable
-            and self._is_table_allowed(event.query_event.destinationTable)
         ):
-            if not self.config.include_read_operational_stats and (
-                event.query_event.statementType == "SELECT" or event.read_event
-            ):
-                return None
+            destination_table = event.query_event.destinationTable.remove_extras()
+        elif event.read_event:
+            destination_table = event.read_event.resource.remove_extras()
+        else:
+            logger.warning(f"Unable to find destination table in event {event}")
+            return None
+
+        if not self._is_table_allowed(destination_table):
+            return None
+
+        statement_type: str
+        custom_type: Optional[str] = None
+        last_updated_timestamp: int
+        actor_email: str
+        # If we don't have Query object that means this is a queryless read operation or a read operation which was not executed as JOB
+        # https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/BigQueryAuditMetadata.TableDataRead.Reason/
+        if not event.query_event and event.read_event:
+            statement_type = OperationTypeClass.CUSTOM
+            custom_type = "CUSTOM_READ"
+            last_updated_timstamp = int(event.read_event.timestamp.timestamp() * 1000)
+            actor_email = event.read_event.actor_email
+        elif event.query_event:
+            # If AuditEvent only have queryEvent that means it is the target of the Insert Operation
+            if event.query_event.statementType in OPERATION_STATEMENT_TYPES and not event.read_event:
+                statement_type = OPERATION_STATEMENT_TYPES[
+                    event.query_event.statementType
+                ]
+            # We don't have SELECT in OPERATION_STATEMENT_TYPES , so those queries will end up here
+            # and this part should capture those operation types as well which we don't have in our mapping
+            else:
+                statement_type = OperationTypeClass.CUSTOM
+                custom_type = event.query_event.statementType
 
             self.report.operation_types_stat[event.query_event.statementType] = (
                 self.report.operation_types_stat.get(event.query_event.statementType, 0)
                 + 1
             )
-            destination_table: BigQueryTableRef
-            if not event.read_event and event.query_event.destinationTable:
-                destination_table = event.query_event.destinationTable.remove_extras()
-            elif event.read_event:
-                destination_table = event.read_event.resource.remove_extras()
-            else:
-                raise Exception(f"Unable to find destination table in event {event}")
+            last_updated_timestamp = int(event.query_event.timestamp.timestamp() * 1000)
+            actor_email = event.query_event.actor_email
+        else:
+            return None
 
-            reported_time: int = int(time.time() * 1000)
-            last_updated_timestamp: int = int(
-                event.query_event.timestamp.timestamp() * 1000
-            )
-            affected_datasets = []
-            if event.query_event.referencedTables:
-                for table in event.query_event.referencedTables:
-                    try:
-                        affected_datasets.append(
-                            _table_ref_to_urn(
-                                table.remove_extras(),
-                                self.config.env,
-                            )
+        if not self.config.include_read_operational_stats and (
+            statement_type not in OPERATION_STATEMENT_TYPES.values()
+        ):
+            return None
+
+        reported_time: int = int(time.time() * 1000)
+        affected_datasets = []
+        if event.query_event and event.query_event.referencedTables:
+            for table in event.query_event.referencedTables:
+                try:
+                    affected_datasets.append(
+                        _table_ref_to_urn(
+                            table.remove_extras(),
+                            self.config.env,
                         )
-                    except Exception as e:
-                        self.report.report_warning(
-                            str(table),
-                            f"Failed to clean up table, {e}",
-                        )
+                    )
+                except Exception as e:
+                    self.report.report_warning(
+                        str(table),
+                        f"Failed to clean up table, {e}",
+                    )
 
-            # For select into statements queries are SELECT queries from referenced tables perspective
-            statement_type: str = (
-                event.query_event.statementType if not event.read_event else "SELECT"
+        operation_aspect = OperationClass(
+            timestampMillis=reported_time,
+            lastUpdatedTimestamp=last_updated_timestamp,
+            actor=builder.make_user_urn(actor_email.split("@")[0]),
+            operationType=statement_type,
+            customOperationType=custom_type if custom_type else None,
+            affectedDatasets=affected_datasets,
+        )
+
+        if self.config.include_read_operational_stats:
+            operation_aspect.customProperties = (
+                self._create_operational_custom_properties(event)
             )
+            if event.query_event and event.query_event.numAffectedRows:
+                operation_aspect.numAffectedRows = event.query_event.numAffectedRows
 
-            operation_aspect = OperationClass(
-                timestampMillis=reported_time,
-                lastUpdatedTimestamp=last_updated_timestamp,
-                actor=builder.make_user_urn(
-                    event.query_event.actor_email.split("@")[0]
-                ),
-                operationType=OPERATION_STATEMENT_TYPES[statement_type],
-                customOperationType="SELECT"
-                if OPERATION_STATEMENT_TYPES[statement_type]
-                == OperationTypeClass.CUSTOM
-                else None,
-                affectedDatasets=affected_datasets,
-            )
-
-            if self.config.include_read_operational_stats:
-                operation_aspect.customProperties = (
-                    self._create_operational_custom_properties(event)
-                )
-                if event.query_event.numAffectedRows:
-                    operation_aspect.numAffectedRows = event.query_event.numAffectedRows
-
-            mcp = MetadataChangeProposalWrapper(
-                entityType="dataset",
-                aspectName="operation",
-                changeType=ChangeTypeClass.UPSERT,
-                entityUrn=_table_ref_to_urn(
-                    destination_table,
-                    env=self.config.env,
-                ),
-                aspect=operation_aspect,
-            )
-            return MetadataWorkUnit(
-                id=f"{event.query_event.timestamp.isoformat()}-operation-aspect-{destination_table}",
-                mcp=mcp,
-            )
-
-        return None
+        mcp = MetadataChangeProposalWrapper(
+            entityType="dataset",
+            aspectName="operation",
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn=_table_ref_to_urn(
+                destination_table,
+                env=self.config.env,
+            ),
+            aspect=operation_aspect,
+        )
+        return MetadataWorkUnit(
+            id=f"{datetime.fromtimestamp(last_updated_timestamp/1000).isoformat()}-operation-aspect-{destination_table}",
+            mcp=mcp,
+        )
 
     def _create_operational_custom_properties(
         self, event: AuditEvent
     ) -> Dict[str, str]:
-        assert event.query_event
         custom_properties: Dict[str, str] = {}
         # This only needs for backward compatibility reason. To make sure we generate the same operational metadata than before
-        if self.config.include_read_operational_stats:
+        if self.config.include_read_operational_stats and event.query_event:
             if event.query_event.end_time and event.query_event.start_time:
                 custom_properties["millisecondsTaken"] = str(
                     int(event.query_event.end_time.timestamp() * 1000)
@@ -1111,8 +1125,7 @@ class BigQueryUsageSource(Source):
             if event.query_event.job_name:
                 custom_properties["sessionId"] = event.query_event.job_name
 
-            if "query" in event.query_event.query and event.query_event.query:
-                custom_properties["text"] = event.query_event.query
+            custom_properties["text"] = event.query_event.query
 
             if event.read_event and event.read_event.fieldsRead:
                 custom_properties["fieldsRead"] = ",".join(event.read_event.fieldsRead)
@@ -1122,6 +1135,8 @@ class BigQueryUsageSource(Source):
                     event.query_event.billed_bytes
                 )
 
+            if event.read_event:
+                custom_properties["readReason"] = event.read_event.readReason
             if event.query_event.default_dataset:
                 custom_properties["defaultDatabase"] = event.query_event.default_dataset
 
@@ -1168,7 +1183,6 @@ class BigQueryUsageSource(Source):
                     f"Unable to parse {type(entry)} missing read {missing_query_entry}, missing query {missing_query_entry} missing v2 {missing_query_entry_v2} for {entry}",
                 )
             else:
-                logger.debug(f"Yielding {event} from log entries")
                 yield event
 
         logger.info(
