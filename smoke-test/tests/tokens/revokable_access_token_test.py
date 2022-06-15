@@ -3,7 +3,7 @@ import pytest
 import requests
 from time import sleep
 
-from tests.utils import FRONTEND_ENDPOINT
+from tests.utils import get_frontend_url()
 from tests.utils import ingest_file_via_rest
 from datahub.cli.docker import check_local_docker_containers
 from datahub.cli.ingest_cli import get_session_and_host
@@ -37,7 +37,7 @@ def custom_user_setup():
       }"""
   }
 
-  get_invite_token_response = admin_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=get_invite_token_json)
+  get_invite_token_response = admin_session.post(f"{get_frontend_url()}/api/v2/graphql", json=get_invite_token_json)
   get_invite_token_response.raise_for_status()
   get_invite_token_res_data = get_invite_token_response.json()
 
@@ -56,7 +56,7 @@ def custom_user_setup():
     "inviteToken": invite_token
   }
 
-  sign_up_response = admin_session.post(f"{FRONTEND_ENDPOINT}/signUp", json=sign_up_json)
+  sign_up_response = admin_session.post(f"{get_frontend_url()}/signUp", json=sign_up_json)
   assert sign_up_response
   assert "error" not in sign_up_response
 
@@ -400,7 +400,7 @@ def removeUser(session, urn):
     }
 
     response = session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+        f"{get_frontend_url()}/api/v2/graphql", json=json
     )
     #sleep(5)
     response.raise_for_status()
