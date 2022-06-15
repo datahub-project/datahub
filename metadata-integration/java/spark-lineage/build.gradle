@@ -163,6 +163,7 @@ jacocoTestReport {
 }
 
 test {
+  forkEvery = 1
   useJUnit()
   finalizedBy jacocoTestReport
 }

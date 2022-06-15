@@ -102,6 +102,8 @@ if TYPE_CHECKING:
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+MISSING_COLUMN_INFO = "missing column information"
+
 
 def _platform_alchemy_uri_tester_gen(
     platform: str, opt_starts_with: Optional[str] = None
@@ -1040,7 +1042,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         try:
             columns = inspector.get_columns(table, schema)
             if len(columns) == 0:
-                self.report.report_warning(dataset_name, "missing column information")
+                self.report.report_warning(MISSING_COLUMN_INFO, dataset_name)
         except Exception as e:
             self.report.report_warning(
                 dataset_name,
@@ -1183,6 +1185,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         except NotImplementedError:
             description: Optional[str] = None
             properties: Dict[str, str] = {}
+        except ProgrammingError as pe:
+            # Snowflake needs schema names quoted when fetching table comments.
+            logger.debug(
+                f"Encountered ProgrammingError. Retrying with quoted schema name for schema {schema} and view {view}",
+                pe,
+            )
+            description = None
+            properties = {}
+            view_info: dict = inspector.get_table_comment(view, f'"{schema}"')  # type: ignore
         else:
             description = view_info["text"]
 
@@ -1301,13 +1312,32 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     ) -> Tuple[Optional[str], Optional[str]]:
         return None, None
 
+    def is_table_partitioned(
+        self, database: Optional[str], schema: str, table: str
+    ) -> Optional[bool]:
+        return None
+
+    # Override if needed
+    def generate_profile_candidates(
+        self, inspector: Inspector, threshold_time: datetime.datetime
+    ) -> Optional[List[str]]:
+        raise NotImplementedError()
+
     # Override if you want to do additional checks
     def is_dataset_eligible_for_profiling(
-        self, dataset_name: str, sql_config: SQLAlchemyConfig
+        self,
+        dataset_name: str,
+        sql_config: SQLAlchemyConfig,
+        inspector: Inspector,
+        profile_candidates: Optional[List[str]],
     ) -> bool:
-        return sql_config.table_pattern.allowed(
-            dataset_name
-        ) and sql_config.profile_pattern.allowed(dataset_name)
+        return (
+            sql_config.table_pattern.allowed(dataset_name)
+            and sql_config.profile_pattern.allowed(dataset_name)
+        ) and (
+            profile_candidates is None
+            or (profile_candidates is not None and dataset_name in profile_candidates)
+        )
 
     def loop_profiler_requests(
         self,
@@ -1318,6 +1348,19 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
 
         tables_seen: Set[str] = set()
+        profile_candidates = None  # Default value if profile candidates not available.
+        if sql_config.profiling.profile_if_updated_since_days is not None:
+            try:
+                threshold_time: datetime.datetime = datetime.datetime.now(
+                    datetime.timezone.utc
+                ) - datetime.timedelta(
+                    sql_config.profiling.profile_if_updated_since_days  # type:ignore
+                )
+                profile_candidates = self.generate_profile_candidates(
+                    inspector, threshold_time
+                )
+            except NotImplementedError:
+                logger.debug("Source does not support generating profile candidates.")
 
         for table in inspector.get_table_names(schema):
             schema, table = self.standardize_schema_table_names(
@@ -1326,7 +1369,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             dataset_name = self.get_identifier(
                 schema=schema, entity=table, inspector=inspector
             )
-            if not self.is_dataset_eligible_for_profiling(dataset_name, sql_config):
+            if not self.is_dataset_eligible_for_profiling(
+                dataset_name, sql_config, inspector, profile_candidates
+            ):
                 if self.config.profiling.report_dropped_profiles:
                     self.report.report_dropped(f"profile of {dataset_name}")
                 continue
@@ -1339,9 +1384,24 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 logger.debug(f"{dataset_name} has already been seen, skipping...")
                 continue
 
+            missing_column_info_warn = self.report.warnings.get(MISSING_COLUMN_INFO)
+            if (
+                missing_column_info_warn is not None
+                and dataset_name in missing_column_info_warn
+            ):
+                continue
+
             (partition, custom_sql) = self.generate_partition_profiler_query(
                 schema, table, self.config.profiling.partition_datetime
             )
+
+            if partition is None and self.is_table_partitioned(
+                database=None, schema=schema, table=table
+            ):
+                self.report.report_warning(
+                    "profile skipped as partitioned table empty", dataset_name
+                )
+                continue
 
             if (
                 partition is not None

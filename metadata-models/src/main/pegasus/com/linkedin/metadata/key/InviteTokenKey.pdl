@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for an InviteToken.
+ */
+@Aspect = {
+  "name": "inviteTokenKey"
+}
+record InviteTokenKey {
+  /**
+  * A unique id for the invite token.
+  */
+  id: string
+}

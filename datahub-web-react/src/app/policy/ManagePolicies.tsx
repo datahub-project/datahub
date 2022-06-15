@@ -4,8 +4,6 @@ import styled from 'styled-components';
 import * as QueryString from 'query-string';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useLocation } from 'react-router';
-
-import { SearchablePage } from '../search/SearchablePage';
 import PolicyBuilderModal from './PolicyBuilderModal';
 import {
     Policy,
@@ -86,6 +84,10 @@ const EditPolicyButton = styled(Button)`
     margin-right: 16px;
 `;
 
+const PageContainer = styled.span`
+    width: 100%;
+`;
+
 const DEFAULT_PAGE_SIZE = 10;
 
 type PrivilegeOptionType = {
@@ -139,7 +141,7 @@ const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyUpdateInput => {
 };
 
 // TODO: Cleanup the styling.
-export const PoliciesPage = () => {
+export const ManagePolicies = () => {
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -246,15 +248,23 @@ export const PoliciesPage = () => {
         setFocusPolicyUrn(undefined);
     };
 
+    const onEditPolicy = (policy: Policy) => {
+        setShowPolicyBuilderModal(true);
+        setFocusPolicyUrn(policy?.urn);
+        setFocusPolicy({ ...policy });
+    };
+
+    // On Delete Policy handler
     const onRemovePolicy = (policy: Policy) => {
         Modal.confirm({
             title: `Delete ${policy?.name}`,
             content: `Are you sure you want to remove policy?`,
             onOk() {
                 deletePolicy({ variables: { urn: policy?.urn as string } }); // There must be a focus policy urn.
+                message.success('Successfully removed policy.');
                 setTimeout(function () {
                     policiesRefetch();
-                }, 2000);
+                }, 3000);
                 onCancelViewPolicy();
             },
             onCancel() {},
@@ -264,16 +274,12 @@ export const PoliciesPage = () => {
         });
     };
 
-    const onEditPolicy = (policy: Policy) => {
-        setShowPolicyBuilderModal(true);
-        setFocusPolicyUrn(policy?.urn);
-        setFocusPolicy({ ...policy });
-    };
-
+    // On Activate and deactivate Policy handler
     const onToggleActiveDuplicate = (policy: Policy) => {
+        const newState = policy?.state === PolicyState.Active ? PolicyState.Inactive : PolicyState.Active;
         const newPolicy = {
             ...policy,
-            state: policy?.state === PolicyState.Active ? PolicyState.Inactive : PolicyState.Active,
+            state: newState,
         };
         updatePolicy({
             variables: {
@@ -281,9 +287,14 @@ export const PoliciesPage = () => {
                 input: toPolicyInput(newPolicy),
             },
         });
+        message.success(`Successfully ${newState === PolicyState.Active ? 'activated' : 'deactivated'} policy.`);
+        setTimeout(function () {
+            policiesRefetch();
+        }, 3000);
         setShowViewPolicyModal(false);
     };
 
+    // On Add/Update Policy handler
     const onSavePolicy = (savePolicy: Omit<Policy, 'urn'>) => {
         if (focusPolicyUrn) {
             // If there's an URN associated with the focused policy, then we are editing an existing policy.
@@ -295,7 +306,7 @@ export const PoliciesPage = () => {
         message.success('Successfully saved policy.');
         setTimeout(function () {
             policiesRefetch();
-        }, 2000);
+        }, 3000);
         onClosePolicyBuilder();
     };
 
@@ -346,6 +357,7 @@ export const PoliciesPage = () => {
                         />
                         {record?.allUsers ? <ActorTag>All Users</ActorTag> : null}
                         {record?.allGroups ? <ActorTag>All Groups</ActorTag> : null}
+                        {record?.resourceOwners ? <ActorTag>All Owners</ActorTag> : null}
                     </>
                 );
             },
@@ -402,6 +414,7 @@ export const PoliciesPage = () => {
     const tableData = policies?.map((policy) => ({
         allGroups: policy?.actors?.allGroups,
         allUsers: policy?.actors?.allUsers,
+        resourceOwners: policy?.actors?.resourceOwners,
         description: policy?.description,
         editable: policy?.editable,
         name: policy?.name,
@@ -416,7 +429,7 @@ export const PoliciesPage = () => {
     }));
 
     return (
-        <SearchablePage>
+        <PageContainer>
             {policiesLoading && !policiesData && (
                 <Message type="loading" content="Loading policies..." style={{ marginTop: '10%' }} />
             )}
@@ -424,9 +437,9 @@ export const PoliciesPage = () => {
             {updateError && message.error('Failed to update the Policy :(')}
             <PoliciesContainer>
                 <PoliciesHeaderContainer>
-                    <PoliciesTitle level={2}>Manage Policies</PoliciesTitle>
+                    <PoliciesTitle level={2}>Manage Access Policies</PoliciesTitle>
                     <Typography.Paragraph type="secondary">
-                        Manage access for DataHub Users & Groups using Policies.
+                        Manage access for DataHub Users & Groups using Access Policies.
                     </Typography.Paragraph>
                 </PoliciesHeaderContainer>
             </PoliciesContainer>
@@ -459,7 +472,7 @@ export const PoliciesPage = () => {
                     dataSource={tableData}
                     rowKey="urn"
                     locale={{
-                        emptyText: <Empty description="No Ingestion Sources!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                        emptyText: <Empty description="No Policies!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
                     pagination={false}
                 />
@@ -492,6 +505,6 @@ export const PoliciesPage = () => {
                     privileges={getPrivilegeNames(focusPolicy)}
                 />
             )}
-        </SearchablePage>
+        </PageContainer>
     );
 };

@@ -865,7 +865,8 @@ def test_frontend_me_query(frontend_session):
                   viewAnalytics
                   managePolicies
                   manageIdentities
-                  generatePersonalAccessTokens
+                  manageUserCredentials
+                  generatePersonalAccessTokens 
                 }\n
             }\n
         }"""
@@ -880,6 +881,7 @@ def test_frontend_me_query(frontend_session):
     assert res_data["data"]["me"]["corpUser"]["urn"] == "urn:li:corpuser:datahub"
     assert res_data["data"]["me"]["platformPrivileges"]["viewAnalytics"] is True
     assert res_data["data"]["me"]["platformPrivileges"]["managePolicies"] is True
+    assert res_data["data"]["me"]["platformPrivileges"]["manageUserCredentials"] is True
     assert res_data["data"]["me"]["platformPrivileges"]["manageIdentities"] is True
     assert (
         res_data["data"]["me"]["platformPrivileges"]["generatePersonalAccessTokens"]
@@ -1445,3 +1447,159 @@ def test_generate_personal_access_token(frontend_session):
 
     assert res_data
     assert "errors" in res_data  # Assert the request fails
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_native_user_endpoints(frontend_session):
+    # Sign up tests
+
+    # Test getting the invite token
+    get_invite_token_json = {
+        "query": """query getNativeUserInviteToken {\n
+            getNativeUserInviteToken{\n
+              inviteToken\n
+            }\n
+        }"""
+    }
+
+    get_invite_token_response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=get_invite_token_json)
+    get_invite_token_response.raise_for_status()
+    get_invite_token_res_data = get_invite_token_response.json()
+
+    assert get_invite_token_res_data
+    assert get_invite_token_res_data["data"]
+    invite_token = get_invite_token_res_data["data"]["getNativeUserInviteToken"]["inviteToken"]
+    assert invite_token is not None
+    assert "error" not in get_invite_token_res_data
+
+
+    # Pass the invite token when creating the user
+    sign_up_json = {
+        "fullName": "Test User",
+        "email": "test@email.com",
+        "password": "password",
+        "title": "Date Engineer",
+        "inviteToken": invite_token
+    }
+
+    sign_up_response = frontend_session.post(f"{FRONTEND_ENDPOINT}/signUp", json=sign_up_json)
+    assert sign_up_response
+    assert "error" not in sign_up_response
+
+    # Creating the same user again fails
+    same_user_sign_up_response = frontend_session.post(f"{FRONTEND_ENDPOINT}/signUp", json=sign_up_json)
+    assert not same_user_sign_up_response
+
+    # Test that a bad invite token leads to failed sign up
+    bad_sign_up_json = {
+        "fullName": "Test2 User",
+        "email": "test2@email.com",
+        "password": "password",
+        "title": "Date Engineer",
+        "inviteToken": "invite_token"
+    }
+    bad_sign_up_response = frontend_session.post(f"{FRONTEND_ENDPOINT}/signUp", json=bad_sign_up_json)
+    assert not bad_sign_up_response
+
+    frontend_session.cookies.clear()
+
+
+    # Reset credentials tests
+
+    # Log in as root again
+    headers = {
+        "Content-Type": "application/json",
+    }
+    root_login_data = '{"username":"datahub", "password":"datahub"}'
+    frontend_session.post(f"{FRONTEND_ENDPOINT}/logIn", headers=headers, data=root_login_data)
+
+    # Test creating the password reset token
+    create_reset_token_json = {
+        "query": """mutation createNativeUserResetToken($input: CreateNativeUserResetTokenInput!) {\n
+            createNativeUserResetToken(input: $input) {\n
+              resetToken\n
+            }\n
+        }""",
+        "variables": {
+            "input": {
+                "userUrn": "urn:li:corpuser:test@email.com"
+            }
+        },
+    }
+
+    create_reset_token_response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=create_reset_token_json)
+    create_reset_token_response.raise_for_status()
+    create_reset_token_res_data = create_reset_token_response.json()
+
+    assert create_reset_token_res_data
+    assert create_reset_token_res_data["data"]
+    reset_token = create_reset_token_res_data["data"]["createNativeUserResetToken"]["resetToken"]
+    assert reset_token is not None
+    assert "error" not in create_reset_token_res_data
+
+    # Pass the reset token when resetting credentials
+    reset_credentials_json = {
+        "email": "test@email.com",
+        "password": "password",
+        "resetToken": reset_token
+    }
+
+    reset_credentials_response = frontend_session.post(f"{FRONTEND_ENDPOINT}/resetNativeUserCredentials", json=reset_credentials_json)
+    assert reset_credentials_response
+    assert "error" not in reset_credentials_response
+
+    # Test that a bad reset token leads to failed response
+    bad_user_reset_credentials_json = {
+        "email": "test@email.com",
+        "password": "password",
+        "resetToken": "reset_token"
+    }
+    bad_reset_credentials_response = frontend_session.post(f"{FRONTEND_ENDPOINT}/resetNativeUserCredentials", json=bad_user_reset_credentials_json)
+    assert not bad_reset_credentials_response
+
+    # Test that only a native user can reset their password
+    jaas_user_reset_credentials_json = {
+        "email": "datahub",
+        "password": "password",
+        "resetToken": reset_token
+    }
+    jaas_user_reset_credentials_response = frontend_session.post(f"{FRONTEND_ENDPOINT}/resetNativeUserCredentials", json=jaas_user_reset_credentials_json)
+    assert not jaas_user_reset_credentials_response
+
+
+    # Tests that unauthenticated users can't invite users or send reset password links
+
+    native_user_frontend_session = requests.Session()
+
+    native_user_login_data = '{"username":"test@email.com", "password":"password"}'
+    native_user_frontend_session.post(f"{FRONTEND_ENDPOINT}/logIn", headers=headers, data=native_user_login_data)
+
+    unauthenticated_get_invite_token_response = native_user_frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=get_invite_token_json)
+    unauthenticated_get_invite_token_response.raise_for_status()
+    unauthenticated_get_invite_token_res_data = unauthenticated_get_invite_token_response.json()
+
+    assert unauthenticated_get_invite_token_res_data
+    assert "errors" in unauthenticated_get_invite_token_res_data
+    assert unauthenticated_get_invite_token_res_data["data"]
+    assert unauthenticated_get_invite_token_res_data["data"]["getNativeUserInviteToken"] is None
+
+    unauthenticated_create_reset_token_json = {
+        "query": """mutation createNativeUserResetToken($input: CreateNativeUserResetTokenInput!) {\n
+            createNativeUserResetToken(input: $input) {\n
+              resetToken\n
+            }\n
+        }""",
+        "variables": {
+            "input": {
+                "userUrn": "urn:li:corpuser:test@email.com"
+            }
+        },
+    }
+
+    unauthenticated_create_reset_token_response = native_user_frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=unauthenticated_create_reset_token_json)
+    unauthenticated_create_reset_token_response.raise_for_status()
+    unauthenticated_create_reset_token_res_data = unauthenticated_create_reset_token_response.json()
+
+    assert unauthenticated_create_reset_token_res_data
+    assert "errors" in unauthenticated_create_reset_token_res_data
+    assert unauthenticated_create_reset_token_res_data["data"]
+    assert unauthenticated_create_reset_token_res_data["data"]["createNativeUserResetToken"] is None

@@ -28,7 +28,6 @@ import com.linkedin.timeseries.GroupingBucketType;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -122,7 +121,14 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<Heal
           .stream()
           .map(relationship -> relationship.getEntity().toString()).collect(Collectors.toSet());
 
-      final List<String> failingAssertionUrns = getFailingAssertionUrns(datasetUrn, activeAssertionUrns);
+      final GenericTable assertionRunResults = getAssertionRunsTable(datasetUrn);
+
+      if (!assertionRunResults.hasRows() || assertionRunResults.getRows().size() == 0) {
+        // No assertion run results found. Return empty health!
+        return null;
+      }
+
+      final List<String> failingAssertionUrns = getFailingAssertionUrns(assertionRunResults, activeAssertionUrns);
 
       // Finally compute & return the health.
       final Health health = new Health();
@@ -141,20 +147,18 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<Heal
     return null;
   }
 
-  private List<String> getFailingAssertionUrns(final String asserteeUrn, final Set<String> candidateAssertionUrns) {
-    // Query timeseries backend
-    GenericTable result = _timeseriesAspectService.getAggregatedStats(
+  private GenericTable getAssertionRunsTable(final String asserteeUrn) {
+    return _timeseriesAspectService.getAggregatedStats(
         Constants.ASSERTION_ENTITY_NAME,
         Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
         createAssertionAggregationSpecs(),
         createAssertionsFilter(asserteeUrn),
         createAssertionGroupingBuckets());
-    if (!result.hasRows()) {
-      // No completed assertion runs found. Return empty list.
-      return Collections.emptyList();
-    }
+  }
+
+  private List<String> getFailingAssertionUrns(final GenericTable assertionRunsResult, final Set<String> candidateAssertionUrns) {
     // Create the buckets based on the result
-    return resultToFailedAssertionUrns(result.getRows(), candidateAssertionUrns);
+    return resultToFailedAssertionUrns(assertionRunsResult.getRows(), candidateAssertionUrns);
   }
 
   private Filter createAssertionsFilter(final String datasetUrn) {
