@@ -28,6 +28,14 @@ Easily understand the end-to-end journey of data by tracing lineage across platf
   <img style="width: 70%;" src="./imgs/feature-end-to-end-lineage.png">
 </p>
 
+### **Understand the Impact of Breaking Changes on Downstream Dependencies**
+
+Proactively identify which entities may be impacted by a breaking change using Impact Analysis.
+
+<p align="center">
+  <img style="width: 70%;" src="./imgs/feature-impact-analysis.gif">
+</p>
+
 ### **View Metadata 360 at a Glance**
 
 Combine *technical* and *logical* metadata to provide a robust 360º view of your data entities, including:
