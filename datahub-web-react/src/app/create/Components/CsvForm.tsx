@@ -1,17 +1,14 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { CSVReader } from 'react-papaparse';
-import { Col, Form, Input, Space, Select, Button, message, Divider, Popconfirm, Row, Popover } from 'antd';
+import { Col, Form, Input, Space, Select, Button, message, Divider, Popconfirm, Row, Tooltip } from 'antd';
 import { MinusCircleOutlined, PlusOutlined, AlertOutlined } from '@ant-design/icons';
-// import { gql, useQuery } from '@apollo/client';
 import { CommonFields } from './CommonFields';
-// import adhocConfig from '../../../conf/Adhoc';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import { GetMyToken } from '../../entity/dataset/whoAmI';
 import { WhereAmI } from '../../home/whereAmI';
 import { DataPlatformSelect } from '../../entity/shared/tabs/Dataset/platformSelect/DataPlatformSelect';
 import { printErrorMsg, printSuccessMsg } from '../../entity/shared/tabs/Dataset/ApiCallUtils';
-// import { TagTermSelect } from './TagTermSelect';
 
 export const CsvForm = () => {
     const urlBase = WhereAmI();
@@ -23,6 +20,7 @@ export const CsvForm = () => {
     const userUrn = user?.corpUser?.urn || '';
     const userToken = GetMyToken(userUrn);
     const aboutType = 'Specify the datatype for field. If unsure, set "unknown"';
+    // const aboutDesc = 'Field description. Can accept markdown as well, except there is no preview in this form.';
     // const [fileType, setFileType] = useState({ dataset_type: 'application/octet-stream' });
 
     const [form] = Form.useForm();
@@ -42,6 +40,7 @@ export const CsvForm = () => {
     const popupHandleOk = () => {
         setConfirmLoading(true);
         const values = form.getFieldsValue();
+        console.log(`the values received are ${Object.values(values)}`);
         const finalValue = { ...values, dataset_owner: user?.corpUser?.username, user_token: userToken };
         axios
             .post(publishUrl, finalValue)
@@ -63,17 +62,18 @@ export const CsvForm = () => {
     const handleOnFileLoad = (data, fileInfo) => {
         console.log('data:', data);
         console.log('fileInfo:', fileInfo);
-        let headerLine = form.getFieldValue('headerLine');
+        const headerLine = 0;
         console.log('form values', form.getFieldValue('headerLine'));
         // set state for file type
         // setFileType({ dataset_type: fileInfo.type });
         // get the first row as headers
         if (data.length > 0 && headerLine <= data.length) {
             // map to array of objects
-            const res = data[--headerLine].data.map((item) => {
+            const res = data[headerLine].data.map((item) => {
                 return { field_name: item, field_description: '' };
             });
-            form.setFieldsValue({ fields: res, hasHeader: 'yes' });
+            form.setFieldsValue({ fields: res });
+            console.log(`res is ${res}`);
         } else {
             message.error('Empty file or invalid header line', 3).then();
         }
@@ -88,15 +88,14 @@ export const CsvForm = () => {
     };
     const popupMsg = `Confirm Dataset Name is correct: ${form.getFieldValue('dataset_name')}? 
     This will permanently affect the dataset URL`;
-    const { TextArea } = Input;
+    // const { TextArea } = Input;
     return (
         <>
             <Form
                 {...layout}
                 form={form}
                 initialValues={{
-                    platformSelect: 'urn:li:dataPlatform:hive',
-                    fields: [{ field_description: 'dsf', field_type: 'string' }],
+                    fields: [{ field_description: '', field_type: 'string' }],
                     browsepathList: ['/file/'],
                 }}
                 name="dynamic_form_item"
@@ -129,18 +128,15 @@ export const CsvForm = () => {
                                             </Form.Item>
                                         </Col>
                                         <Col span={2}>
-                                            <Form.Item
-                                                {...restField}
-                                                name={[name, 'field_type']}
-                                                fieldKey={[fieldKey, 'field_type']}
-                                                rules={[{ required: true, message: 'Missing field type' }]}
-                                            >
-                                                <Popover trigger="hover" content={aboutType}>
-                                                    <Select
-                                                        showSearch
-                                                        placeholder="Select field type"
-                                                        defaultValue="string"
-                                                    >
+                                            <Tooltip trigger="hover" title={aboutType}>
+                                                <Form.Item
+                                                    {...restField}
+                                                    name={[name, 'field_type']}
+                                                    fieldKey={[fieldKey, 'field_type']}
+                                                    rules={[{ required: true, message: 'Missing field type' }]}
+                                                >
+                                                    {/* <Popover trigger="hover" content={aboutType}> */}
+                                                    <Select showSearch placeholder="Select field type">
                                                         <Option value="num">Number</Option>
                                                         <Option value="double">Double</Option>
                                                         <Option value="string">String</Option>
@@ -151,8 +147,9 @@ export const CsvForm = () => {
                                                         <Option value="bytes">Bytes</Option>
                                                         <Option value="unknown">Unknown</Option>
                                                     </Select>
-                                                </Popover>
-                                            </Form.Item>
+                                                    {/* </Popover> */}
+                                                </Form.Item>
+                                            </Tooltip>
                                         </Col>
                                         <Col span={14}>
                                             <Form.Item
@@ -166,21 +163,26 @@ export const CsvForm = () => {
                                                     },
                                                 ]}
                                             >
-                                                <TextArea
-                                                    rows={4}
-                                                    placeholder="Field Description"
-                                                    autoSize={{ minRows: 1, maxRows: 3 }}
-                                                />
+                                                {/* <Popover trigger="hover" content={aboutDesc}> */}
+                                                <Input placeholder="Field Name" />
+                                                {/* <TextArea
+                                                        rows={4}
+                                                        placeholder="Field Description"
+                                                        autoSize={{ minRows: 1, maxRows: 3 }}
+                                                    /> */}
+                                                {/* </Popover> */}
                                             </Form.Item>
                                         </Col>
                                         <Col span={1}>
                                             {fields.length > 1 ? (
-                                                <Button>
-                                                    <MinusCircleOutlined
-                                                        data-testid="delete-icon"
-                                                        onClick={() => remove(name)}
-                                                    />
-                                                </Button>
+                                                <Form.Item>
+                                                    <Button>
+                                                        <MinusCircleOutlined
+                                                            data-testid="delete-icon"
+                                                            onClick={() => remove(name)}
+                                                        />
+                                                    </Button>
+                                                </Form.Item>
                                             ) : null}
                                         </Col>
                                     </Row>
@@ -194,8 +196,6 @@ export const CsvForm = () => {
                                                     add({
                                                         field_description: '',
                                                         field_type: 'string',
-                                                        field_tag: '',
-                                                        field_term: '',
                                                     })
                                                 }
                                                 block

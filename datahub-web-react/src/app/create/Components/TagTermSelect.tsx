@@ -6,6 +6,9 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
 import { EntityType, SearchResult, Tag } from '../../../types.generated';
 
+// this component is abandoned, till next time due to the complexity in tag / term retrieval and display.
+// I don't think I can reuse the existing component wholesale as there are undesired behaviors, like the ability
+// to create new tags, and the new glossary browse UI is also another issue.
 export const TagTermSelect = () => {
     const TagSelect = styled(Select)`
         padding-left: 1px;
