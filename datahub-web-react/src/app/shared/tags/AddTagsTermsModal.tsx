@@ -118,18 +118,14 @@ export default function AddTagsTermsModal({
         );
     };
 
-    // TO DO: Why It is not working in useEffect
     const recommendedTagData = GetTagRecommendation();
 
-    let tagSearchOptions: any[] | undefined = tagSearchResults.map((result) => {
+    const tagResult =
+        (!inputValue || inputValue.length === 0) && type === EntityType.Tag ? recommendedTagData : tagSearchResults;
+
+    const tagSearchOptions = tagResult?.map((result) => {
         return renderSearchResult(result);
     });
-
-    if (!inputValue && type === EntityType.Tag && isFocusedOnInput) {
-        tagSearchOptions = recommendedTagData?.map((tag) => {
-            return renderSearchResult(tag);
-        });
-    }
 
     const inputExistsInTagSearch = tagSearchResults.some((result: SearchResult) => {
         const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
