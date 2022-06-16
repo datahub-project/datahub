@@ -4,7 +4,10 @@ apply plugin: 'pegasus'
 dependencies {
     compile spec.product.pegasus.data
     compile externalDependency.commonsLang
-    compile externalDependency.reflections
+    compile(externalDependency.reflections) {
+        exclude group: 'com.google.guava', module: 'guava'
+    }
+    compile externalDependency.guava
 
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok

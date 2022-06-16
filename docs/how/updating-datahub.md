@@ -11,6 +11,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Deprecations
 
 ### Other notable Changes
+- #5132 Profile tables in `snowflake` source only if they have been updated since configured (default: `1`) number of day(s). Update the config `profiling.profile_if_updated_since_days` as per your profiling schedule or set it to `None` if you want older behaviour.
 
 ## `v0.8.38`
 
