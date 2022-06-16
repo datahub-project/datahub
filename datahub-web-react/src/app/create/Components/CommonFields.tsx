@@ -22,7 +22,7 @@ export const CommonFields = () => {
                         },
                     ]}
                 >
-                    <Input />
+                    <Input style={{ width: '30%' }} />
                 </Form.Item>
             </Tooltip>
             <MarkDownEditable />
@@ -37,7 +37,7 @@ export const CommonFields = () => {
                     },
                 ]}
             >
-                <Input />
+                <Input style={{ width: '50%' }} />
             </Form.Item>
             <Form.Item
                 name="dataset_location"
@@ -49,7 +49,7 @@ export const CommonFields = () => {
                     },
                 ]}
             >
-                <Input />
+                <Input style={{ width: '50%' }} />
             </Form.Item>
         </>
     );

@@ -63,6 +63,7 @@ export const SetParentContainer = (props: Props) => {
                         placeholder="Search for a parent container.."
                         allowClear
                         onSelect={(container: any) => setSelectedContainers(container)}
+                        style={{ width: '20%' }}
                     >
                         {candidates.map((result) => (
                             <Select.Option key={result?.entity?.urn} value={result?.entity?.urn}>
