@@ -605,6 +605,11 @@ def generate(
                 os.makedirs(config_dir, exist_ok=True)
                 with open(f"{config_dir}/{plugin_name}_config.json", "w") as f:
                     f.write(source_config_class.schema_json(indent=2))
+                
+                create_or_update(source_documentation,
+                                    [platform_id, "plugins", plugin_name, "config_schema"],
+                    source_config_class.schema_json(indent=2) or "",
+                )
 
                 table_md = gen_md_table_from_struct(source_config_class.schema())
                 create_or_update(
@@ -644,6 +649,7 @@ def generate(
 
         with open(platform_doc_file, "w") as f:
             if "name" in platform_docs:
+                f.write(f"import Tabs from '@theme/Tabs';\nimport TabItem from '@theme/TabItem';\n\n")
                 f.write(f"# {platform_docs['name']}\n")
             if len(platform_docs["plugins"].keys()) > 1:
                 # More than one plugin used to provide integration with this platform
@@ -716,6 +722,8 @@ def generate(
                     f.write("\n```\n")
                 if "config" in plugin_docs:
                     f.write("\n### Config Details\n")
+                    f.write("""<Tabs>
+                <TabItem value="options" label="Options" default>\n\n""")
                     f.write(
                         "Note that a `.` is used to denote nested fields in the YAML recipe.\n\n"
                     )
@@ -725,6 +733,15 @@ def generate(
                     for doc in plugin_docs["config"]:
                         f.write(doc)
                     f.write("\n</details>\n\n")
+                    f.write(f"""</TabItem>
+<TabItem value="schema" label="Schema">
+
+The [JSONSchema](https://json-schema.org/) for this configuration is inlined below.\n\n
+```javascript
+{plugin_docs['config_schema']}
+```\n\n
+</TabItem>
+</Tabs>\n\n""")
                 # insert custom plugin docs after config details
                 f.write(plugin_docs.get("custom_docs", ""))
                 if "classname" in plugin_docs:

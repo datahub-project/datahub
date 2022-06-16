@@ -49,7 +49,7 @@ authorization:
 
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
-  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.35}'
+  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.38}'
 
 telemetry:
   enabledCli: ${CLI_TELEMETRY_ENABLED:true}
@@ -106,7 +106,7 @@ platformAnalytics:
 
 visualConfig:
   assets:
-    logoUrl: ${REACT_APP_LOGO_URL:#{null}}
+    logoUrl: ${REACT_APP_LOGO_URL:/assets/logos/acryl-dark-mark.svg}
 
 # Storage Layer
 
@@ -205,14 +205,14 @@ metadataTests:
 # Notifications config
 notifications:
   # Enable if you want to enable creation of the Notification Manager.
-  enabled: ${METADATA_SERVICE_NOTIFICATIONS_ENABLED:false} # Enable to turn on notifications.
+  enabled: ${METADATA_SERVICE_NOTIFICATIONS_ENABLED:true} # Enable to turn on notifications.
 
   # Required if enabled is true! The set of notification sinks to use.
   sinks:
     - type: com.datahub.notification.slack.SlackNotificationSink
       # This simply determines whether we try to instantiate and register this sink. Note that it does not control
       # app-layer configurations as to whether notifications are actually sent to slack.
-      enabled: ${SLACK_SINK_ENABLED:false}
+      enabled: ${SLACK_SINK_ENABLED:true}
       configs:
         botToken: ${SLACK_BOT_TOKEN}
         defaultChannel: ${SLACK_DEFAULT_CHANNEL:datahub-slack-notifications}

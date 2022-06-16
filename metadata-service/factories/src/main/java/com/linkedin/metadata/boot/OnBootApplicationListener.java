@@ -11,11 +11,11 @@ import org.springframework.web.context.WebApplicationContext;
 
 
 /**
- * Responsible for coordinating boot-time checks.
+ * Responsible for coordinating starting steps that happen before the application starts up.
  */
 @Slf4j
 @Component
-public class BootstrapManagerApplicationListener implements ApplicationListener<ContextRefreshedEvent> {
+public class OnBootApplicationListener implements ApplicationListener<ContextRefreshedEvent> {
 
   private static final String ROOT_WEB_APPLICATION_CONTEXT_ID = String.format("%s:", WebApplicationContext.class.getName());
 

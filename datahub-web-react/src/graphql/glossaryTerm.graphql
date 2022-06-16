@@ -28,6 +28,19 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
                 }
             }
         }
+        isAChildren: relationships(input: { types: ["IsA"], direction: INCOMING, start: $start, count: $count }) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ... on GlossaryTerm {
+                        urn
+                        hierarchicalName
+                    }
+                }
+            }
+        }
         parentNodes {
             ...parentNodesFields
         }
@@ -64,4 +77,12 @@ mutation createGlossaryTerm($input: CreateGlossaryEntityInput!) {
 
 mutation createGlossaryNode($input: CreateGlossaryEntityInput!) {
     createGlossaryNode(input: $input)
+}
+
+mutation addRelatedTerms($input: RelatedTermsInput!) {
+    addRelatedTerms(input: $input)
+}
+
+mutation removeRelatedTerms($input: RelatedTermsInput!) {
+    removeRelatedTerms(input: $input)
 }

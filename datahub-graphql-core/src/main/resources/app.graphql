@@ -102,6 +102,11 @@ type PlatformPrivileges {
   manageGlossaries: Boolean!
 
   """
+  Whether the user is able to manage user credentials
+  """
+  manageUserCredentials: Boolean!
+
+  """
   SaaS-only: Whether the user is able to manage global platform settings
   """
   manageGlobalSettings: Boolean!
@@ -152,7 +157,7 @@ type AppConfig {
   """
   Configurations related to visual appearance, allows styling the UI without rebuilding the bundle
   """
-  visualConfig: VisualConfiguration!
+  visualConfig: VisualConfig!
 
   """
   Configurations related to tracking users in the app
@@ -168,7 +173,7 @@ type AppConfig {
 """
 Configurations related to visual appearance of the app
 """
-type VisualConfiguration {
+type VisualConfig {
   """
   Custom logo url for the homepage & top banner
   """
@@ -345,6 +350,11 @@ type SlackIntegrationSettings {
   Whether the slack integration is enabled or not.
   """
   enabled: Boolean!
+
+  """
+  A bot token used for sending notifications
+  """
+  botToken: String
 
   """
   A default slack channel to route to.

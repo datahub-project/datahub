@@ -41,6 +41,8 @@ query getMe {
             manageDomains
             manageTests
             manageGlossaries
+            manageUserCredentials
+            manageGlobalSettings
         }
     }
 }

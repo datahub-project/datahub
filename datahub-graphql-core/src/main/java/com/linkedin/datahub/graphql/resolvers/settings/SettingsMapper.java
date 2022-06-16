@@ -15,6 +15,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.settings.NotificationSettingMap;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import java.util.ArrayList;
@@ -29,7 +30,13 @@ import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
 /**
  * Utility functions useful for Settings resolvers.
  */
-public class SettingsUtils {
+public class SettingsMapper {
+
+  private final SecretService _secretService;
+
+  public SettingsMapper(final SecretService secretService) {
+    _secretService = secretService;
+  }
 
   /**
    * Returns true if the authenticated user is able to manage global settings.
@@ -60,14 +67,14 @@ public class SettingsUtils {
   /**
    * Maps GMS settings into GraphQL global settings.
    */
-  public static GlobalSettings mapGlobalSettings(@Nonnull GlobalSettingsInfo input) {
+  public GlobalSettings mapGlobalSettings(@Nonnull GlobalSettingsInfo input) {
     final GlobalSettings result = new GlobalSettings();
     result.setIntegrationSettings(mapGlobalIntegrationSettings(input.getIntegrations()));
     result.setNotificationSettings(mapGlobalNotificationSettings(input.getNotifications()));
     return result;
   }
 
-  private static GlobalIntegrationSettings mapGlobalIntegrationSettings(@Nonnull com.linkedin.settings.global.GlobalIntegrationSettings input) {
+  private GlobalIntegrationSettings mapGlobalIntegrationSettings(@Nonnull com.linkedin.settings.global.GlobalIntegrationSettings input) {
     final GlobalIntegrationSettings result = new GlobalIntegrationSettings();
     if (input.hasSlackSettings()) {
       result.setSlackSettings(mapSlackIntegrationSettings(input.getSlackSettings()));
@@ -75,16 +82,19 @@ public class SettingsUtils {
     return result;
   }
 
-  private static SlackIntegrationSettings mapSlackIntegrationSettings(@Nonnull com.linkedin.settings.global.SlackIntegrationSettings input) {
+  private SlackIntegrationSettings mapSlackIntegrationSettings(@Nonnull com.linkedin.settings.global.SlackIntegrationSettings input) {
     final SlackIntegrationSettings result = new SlackIntegrationSettings();
     result.setEnabled(input.isEnabled());
     if (input.hasDefaultChannelName()) {
       result.setDefaultChannelName(input.getDefaultChannelName());
     }
+    if (input.hasEncryptedBotToken()) {
+      result.setBotToken(_secretService.decrypt(input.getEncryptedBotToken()));
+    }
     return result;
   }
 
-  private static GlobalNotificationSettings mapGlobalNotificationSettings(@Nonnull com.linkedin.settings.global.GlobalNotificationSettings input) {
+  private GlobalNotificationSettings mapGlobalNotificationSettings(@Nonnull com.linkedin.settings.global.GlobalNotificationSettings input) {
     final GlobalNotificationSettings result = new GlobalNotificationSettings();
     if (input.hasSettings()) {
       result.setSettings(mapNotificationSettings(input.getSettings()));
@@ -94,13 +104,13 @@ public class SettingsUtils {
     return result;
   }
 
-  private static List<NotificationSetting> mapNotificationSettings(NotificationSettingMap settings) {
+  private List<NotificationSetting> mapNotificationSettings(NotificationSettingMap settings) {
     final List<NotificationSetting> result = new ArrayList<>();
     settings.forEach((key, value) -> result.add(mapNotificationSetting(key, value)));
     return result;
   }
 
-  private static NotificationSetting mapNotificationSetting(String typeStr, com.linkedin.settings.NotificationSetting setting) {
+  private NotificationSetting mapNotificationSetting(String typeStr, com.linkedin.settings.NotificationSetting setting) {
     final NotificationSetting result = new NotificationSetting();
     result.setType(NotificationScenarioType.valueOf(typeStr));
     result.setValue(NotificationSettingValue.valueOf(setting.getValue().name()));
@@ -109,7 +119,5 @@ public class SettingsUtils {
     }
     return result;
   }
-
-  private SettingsUtils() { }
 }
 

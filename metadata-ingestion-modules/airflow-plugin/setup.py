@@ -29,7 +29,7 @@ base_requirements = {
     "typing-inspect",
     "pydantic>=1.5.1",
     "apache-airflow >= 1.10.2",
-    "acryl-datahub[airflow]",
+    "acryl-datahub[airflow] >= 0.8.36",
 }
 
 

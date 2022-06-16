@@ -18,6 +18,8 @@ public class Constants {
 
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
 
+  public static final String GLOBAL_INVITE_TOKEN = "urn:li:inviteToken:global";
+
   /**
    * Entities
    */
@@ -51,6 +53,9 @@ public class Constants {
   public static final String NOTEBOOK_ENTITY_NAME = "notebook";
   public static final String DATA_PLATFORM_INSTANCE_ENTITY_NAME = "dataPlatformInstance";
   public static final String ACCESS_TOKEN_ENTITY_NAME = "dataHubAccessToken";
+  public static final String DATA_HUB_UPGRADE_ENTITY_NAME = "dataHubUpgrade";
+  public static final String INVITE_TOKEN_ENTITY_NAME = "inviteToken";
+
 
   /**
    * Aspects
@@ -75,6 +80,7 @@ public class Constants {
   public static final String CORP_USER_EDITABLE_INFO_ASPECT_NAME = "corpUserEditableInfo";
   public static final String CORP_USER_INFO_ASPECT_NAME = "corpUserInfo";
   public static final String CORP_USER_STATUS_ASPECT_NAME = "corpUserStatus";
+  public static final String CORP_USER_CREDENTIALS_ASPECT_NAME = "corpUserCredentials";
 
   // Group
   public static final String CORP_GROUP_KEY_ASPECT_NAME = "corpGroupKey";
@@ -232,12 +238,19 @@ public class Constants {
   public static final String ACCESS_TOKEN_KEY_ASPECT_NAME = "dataHubAccessTokenKey";
   public static final String ACCESS_TOKEN_INFO_NAME = "dataHubAccessTokenInfo";
 
+  // DataHub Upgrade
+  public static final String DATA_HUB_UPGRADE_KEY_ASPECT_NAME = "dataHubUpgradeKey";
+  public static final String DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME = "dataHubUpgradeRequest";
+  public static final String DATA_HUB_UPGRADE_RESULT_ASPECT_NAME = "dataHubUpgradeResult";
 
+
+  // Invite Token
+  public static final String INVITE_TOKEN_ASPECT_NAME = "inviteToken";
+
+  /* SaaS-Only */
 
   // Constraints
   public static final String CONSTRAINT_INFO_ASPECT_NAME = "constraintInfo";
-
-  /* SaaS-Only */
 
   // Settings
   public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";

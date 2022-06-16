@@ -1,10 +1,10 @@
 package com.linkedin.gms.factory.graphql;
 
 import com.datahub.authentication.token.StatefulTokenService;
+import com.datahub.authentication.user.NativeUserService;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
-import com.linkedin.datahub.graphql.generated.VisualConfiguration;
 import com.linkedin.entity.client.JavaEntityClient;
 import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
 import com.linkedin.gms.factory.common.GitVersionFactory;
@@ -113,12 +113,12 @@ public class GraphQLEngineFactory {
   private GitVersion _gitVersion;
 
   @Autowired
-  @Qualifier("visualConfig")
-  private VisualConfiguration _visualConfiguration;
-
-  @Autowired
   @Qualifier("timelineService")
   private TimelineService _timelineService;
+
+  @Autowired
+  @Qualifier("nativeUserService")
+  private NativeUserService _nativeUserService;
 
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
@@ -141,13 +141,14 @@ public class GraphQLEngineFactory {
           _entityRegistry,
           _secretService,
           _testEngine,
+          _nativeUserService,
           _configProvider.getIngestion(),
           _configProvider.getAuthentication(),
           _configProvider.getAuthorization(),
           _gitVersion,
           _timelineService,
           _graphService.supportsMultiHop(),
-          _visualConfiguration,
+          _configProvider.getVisualConfig(),
           _configProvider.getTelemetry(),
           _configProvider.getMetadataTests(),
           _configProvider.getDatahub(),
@@ -167,13 +168,14 @@ public class GraphQLEngineFactory {
         _entityRegistry,
         _secretService,
         _testEngine,
+        _nativeUserService,
         _configProvider.getIngestion(),
         _configProvider.getAuthentication(),
         _configProvider.getAuthorization(),
         _gitVersion,
         _timelineService,
         _graphService.supportsMultiHop(),
-        _visualConfiguration,
+        _configProvider.getVisualConfig(),
         _configProvider.getTelemetry(),
         _configProvider.getMetadataTests(),
         _configProvider.getDatahub(),

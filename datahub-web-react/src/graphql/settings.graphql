@@ -1,0 +1,56 @@
+query getGlobalSettings {
+    globalSettings {
+        integrationSettings {
+            slackSettings {
+                enabled
+                defaultChannelName
+                botToken
+            }
+        }
+        notificationSettings {
+            settings {
+                type
+                value
+                params {
+                    key
+                    value
+                }
+            }
+        }
+    }
+}
+
+query getIntegrationSettings {
+    globalSettings {
+        integrationSettings {
+            slackSettings {
+                enabled
+                defaultChannelName
+                botToken
+            }
+        }
+    }
+}
+
+query getNotificationSettings {
+    globalSettings {
+        notificationSettings {
+            settings {
+                type
+                value
+                params {
+                    key
+                    value
+                }
+            }
+        }
+    }
+}
+
+mutation updateGlobalIntegrationSettings($input: UpdateGlobalIntegrationSettingsInput!) {
+    updateGlobalSettings(input: { integrationSettings: $input })
+}
+
+mutation updateGlobalNotificationSettings($input: UpdateGlobalNotificationSettingsInput!) {
+    updateGlobalSettings(input: { notificationSettings: $input })
+}

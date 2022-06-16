@@ -1,5 +1,5 @@
-import { Popover, Typography } from 'antd';
-import React from 'react';
+import { Popover, Typography, Button } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import {
     AssertionStdAggregation,
@@ -10,10 +10,11 @@ import {
     SchemaFieldRef,
 } from '../../../../../../types.generated';
 import { getFormattedParameterValue } from './assertionUtils';
+import { DatasetAssertionLogicModal } from './DatasetAssertionLogicModal';
 
-const SqlText = styled.pre`
-    margin: 0px;
+const ViewLogicButton = styled(Button)`
     padding: 0px;
+    margin: 0px;
 `;
 
 type Props = {
@@ -314,7 +315,7 @@ const TOOLTIP_MAX_WIDTH = 440;
  */
 export const DatasetAssertionDescription = ({ assertionInfo }: Props) => {
     const { scope, aggregation, fields, operator, parameters, nativeType, nativeParameters, logic } = assertionInfo;
-
+    const [isLogicVisible, setIsLogicVisible] = useState(false);
     /**
      * Build a description component from a) input (aggregation, inputs) b) the operator text
      */
@@ -342,7 +343,19 @@ export const DatasetAssertionDescription = ({ assertionInfo }: Props) => {
                 </>
             }
         >
-            <div>{(logic && <SqlText>{logic}</SqlText>) || description}</div>
+            <div>{description}</div>
+            {logic && (
+                <div>
+                    <ViewLogicButton onClick={() => setIsLogicVisible(true)} type="link">
+                        View Logic
+                    </ViewLogicButton>
+                </div>
+            )}
+            <DatasetAssertionLogicModal
+                logic={logic || 'N/A'}
+                visible={isLogicVisible}
+                onClose={() => setIsLogicVisible(false)}
+            />
         </Popover>
     );
 };

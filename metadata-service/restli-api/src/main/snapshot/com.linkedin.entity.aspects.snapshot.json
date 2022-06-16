@@ -823,6 +823,11 @@
               "filterNameOverride" : "Tag",
               "hasValuesFieldName" : "hasTags"
             }
+          }, {
+            "name" : "context",
+            "type" : "string",
+            "doc" : "Additional context about the association",
+            "optional" : true
           } ]
         }
       },
@@ -908,6 +913,11 @@
       "name" : "actor",
       "type" : "Urn",
       "doc" : "The user URN which will be credited for adding associating this term to the entity",
+      "optional" : true
+    }, {
+      "name" : "context",
+      "type" : "string",
+      "doc" : "Additional context about the association",
       "optional" : true
     } ]
   }, "com.linkedin.common.GlossaryTermUrn", {
@@ -1713,7 +1723,16 @@
       "name" : "parentNode",
       "type" : "com.linkedin.common.GlossaryNodeUrn",
       "doc" : "Parent node of the glossary term",
-      "optional" : true
+      "optional" : true,
+      "Relationship" : {
+        "entityTypes" : [ "glossaryNode" ],
+        "name" : "IsPartOf"
+      },
+      "Searchable" : {
+        "fieldName" : "parentNode",
+        "fieldType" : "URN",
+        "hasValuesFieldName" : "hasParentNode"
+      }
     }, {
       "name" : "name",
       "type" : "string",
@@ -1722,6 +1741,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
+        "fieldName" : "displayName",
         "fieldType" : "TEXT_PARTIAL"
       }
     } ],
@@ -1753,7 +1773,16 @@
       "name" : "parentNode",
       "type" : "com.linkedin.common.GlossaryNodeUrn",
       "doc" : "Parent node of the glossary term",
-      "optional" : true
+      "optional" : true,
+      "Relationship" : {
+        "entityTypes" : [ "glossaryNode" ],
+        "name" : "IsPartOf"
+      },
+      "Searchable" : {
+        "fieldName" : "parentNode",
+        "fieldType" : "URN",
+        "hasValuesFieldName" : "hasParentNode"
+      }
     }, {
       "name" : "termSource",
       "type" : "string",
