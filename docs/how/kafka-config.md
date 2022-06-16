@@ -61,7 +61,7 @@ By default, DataHub relies on the a set of Kafka topics to operate. By default, 
 7. (Deprecated) **MetadataAuditEvent_v4**: Metadata change log messages
 8. (Deprecated) **FailedMetadataChangeEvent_v4**: Failed to process #1 event
 
-These topics are discussed at more length in [Metadata Events](./what/mxe).
+These topics are discussed at more length in [Metadata Events](../what/mxe.md).
 
 We've included environment variables to customize the name each of these topics, for cases where an organization has naming rules for your topics.
 
