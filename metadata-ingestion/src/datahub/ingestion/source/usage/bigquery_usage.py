@@ -554,7 +554,7 @@ class QueryEvent:
             query=query_config["query"],
             job_name=job["jobName"],
             default_dataset=query_config["defaultDataset"]
-            if "defaultDataset" in query_config and query_config["defaultDataset"]
+            if query_config.get("defaultDataset")
             else None,
             start_time=parser.parse(job["jobStats"]["startTime"])
             if job["jobStats"]["startTime"]
@@ -563,12 +563,12 @@ class QueryEvent:
             if job["jobStats"]["endTime"]
             else None,
             numAffectedRows=int(query_stats["outputRowCount"])
-            if "outputRowCount" in query_stats and query_stats["outputRowCount"]
+            if query_stats.get("outputRowCount")
             else None,
             statementType=query_config["statementType"],
         )
         # jobName
-        query_event.job_name = job["jobName"]
+        query_event.job_name = job.get("jobName")
         # destinationTable
         raw_dest_table = query_config.get("destinationTable")
         if raw_dest_table:
@@ -596,7 +596,7 @@ class QueryEvent:
                 "BigQueryAuditMetadata entry - {logEntry}".format(logEntry=row)
             )
 
-        if "totalBilledBytes" in query_stats and query_stats["totalBilledBytes"]:
+        if query_stats.get("totalBilledBytes"):
             query_event.billed_bytes = int(query_stats["totalBilledBytes"])
 
         return query_event
@@ -629,7 +629,7 @@ class QueryEvent:
             else None,
             statementType=query_config["statementType"],
         )
-        query_event.job_name = job["jobName"]
+        query_event.job_name = job.get("jobName")
         # destinationTable
         raw_dest_table = query_config.get("destinationTable")
         if raw_dest_table:
@@ -658,7 +658,7 @@ class QueryEvent:
                 "BigQueryAuditMetadata entry - {logEntry}".format(logEntry=row)
             )
 
-        if "totalBilledBytes" in query_stats and query_stats["totalBilledBytes"]:
+        if query_stats.get("totalBilledBytes"):
             query_event.billed_bytes = int(query_stats["totalBilledBytes"])
 
         return query_event
@@ -940,8 +940,12 @@ class BigQueryUsageSource(Source):
             if use_allow_filter
             else ""
         )
+
+        base_deny_pattern: str = "__TABLES_SUMMARY__|INFORMATION_SCHEMA"
         deny_regex = audit_templates["BQ_FILTER_REGEX_DENY_TEMPLATE"].format(
-            deny_pattern=f"__TABLES_SUMMARY__|INFORMATION_SCHEMA{'|'.join(self.config.get_deny_pattern_string())}",
+            deny_pattern=base_deny_pattern + "|" + self.config.get_deny_pattern_string()
+            if self.config.get_deny_pattern_string()
+            else base_deny_pattern,
             logical_operator="AND" if use_allow_filter else "",
         )
 
@@ -1257,6 +1261,8 @@ class BigQueryUsageSource(Source):
                 if isinstance(event, QueryEvent):
                     if event.job_name:
                         query_jobs[event.job_name] = event
+                        # For Insert operations we yield the query event as it is possible
+                        # there won't be any read event.
                         if event.statementType not in READ_STATEMENT_TYPES:
                             yield AuditEvent(query_event=event)
                         # If destination table exists we yield the query event as it is insert operation
@@ -1275,6 +1281,8 @@ class BigQueryUsageSource(Source):
 
         num_joined: int = 0
         for event in delayed_read_events:
+            # If event_processor yields a query event which is an insert operation
+            # then we should just yield it.
             if event.query_event and not event.read_event:
                 yield event
                 continue
@@ -1295,8 +1303,6 @@ class BigQueryUsageSource(Source):
                     # Join the query log event into the table read log event.
                     num_joined += 1
                     event.query_event = query_jobs[event.read_event.jobName]
-                    yield event
-                    continue
                 else:
                     self.report.report_warning(
                         str(event.read_event.resource),
