@@ -248,6 +248,7 @@ No active consumers.
 
 The PDL schema can be found [here](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/mxe/FailedMetadataChangeProposal.pdl).
 
+
 # Deprecated Events
 
 DataHub ships with a set of deprecated events, which were historically used for proposing and logging
@@ -407,7 +408,7 @@ An example of an MAE emitted representing a change made to the 'ownership' aspec
 ```
 
 
-## Failed Metadata Change Event
+## Failed Metadata Change Event (FMCE)
 
 When a Metadata Change Event cannot be processed successfully, the event is written to a [dead letter queue](https://en.wikipedia.org/wiki/Dead_letter_queue) in an event called Failed Metadata Change Event (FMCE).
 
