@@ -18,6 +18,7 @@ import com.linkedin.secret.DataHubSecretValue;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -76,13 +77,19 @@ public class RotateSecretsStep implements UpgradeStep {
     return (context) -> {
 
       // Verify arguments.
-      _existingKey = context.parsedArgs().get(EXISTING_KEY_ARG).get(); // Will throw if not provided.
-      _newKey = context.parsedArgs().get(NEW_KEY_ARG).get(); // Will throw if not provided.
+      _existingKey = context.parsedArgs().containsKey(EXISTING_KEY_ARG)
+        ? context.parsedArgs().get(EXISTING_KEY_ARG).get()
+        : Objects.requireNonNull(System.getenv(EXISTING_KEY_ARG));
+      // Will throw if not provided.
+      _existingKey = context.parsedArgs().containsKey(NEW_KEY_ARG)
+          ? context.parsedArgs().get(NEW_KEY_ARG).get()
+          : Objects.requireNonNull(System.getenv(NEW_KEY_ARG));
+      // Will throw if not provided.
       _existingSecretService = new SecretService(_existingKey);
       _newSecretService = new SecretService(_newKey);
       _mode = context.parsedArgs().containsKey(MODE_ARG) && context.parsedArgs().get(MODE_ARG).isPresent()
           ? RotationMode.valueOf(context.parsedArgs().get(MODE_ARG).get())
-          : RotationMode.DEFAULT;
+          : System.getenv().containsKey(MODE_ARG) ? RotationMode.valueOf(System.getenv(MODE_ARG)) : RotationMode.DEFAULT;
 
 
       context.report().addLine("Preparing to rotate secrets...");
