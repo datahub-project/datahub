@@ -28,6 +28,9 @@ class BigQueryUsageSourceReport(SourceReport):
     read_reasons_stat: Counter[str] = dataclasses.field(
         default_factory=collections.Counter
     )
+    operation_types_stat: Counter[str] = dataclasses.field(
+        default_factory=collections.Counter
+    )
 
     def report_dropped(self, key: str) -> None:
         self.dropped_table[key] += 1
