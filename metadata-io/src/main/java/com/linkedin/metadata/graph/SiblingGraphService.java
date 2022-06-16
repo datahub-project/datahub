@@ -52,20 +52,23 @@ public class SiblingGraphService {
       Set<Urn> allSiblingsInGroup = siblingUrns.stream().collect(Collectors.toSet());
       allSiblingsInGroup.add(entityUrn);
 
+      // remove your siblings from your lineage
       entityLineage =
-          filterLineageResultFromSiblings(entityUrn, allSiblingsInGroup, entityLineage, ImmutableList.of());
+          filterLineageResultFromSiblings(entityUrn, allSiblingsInGroup, entityLineage, null);
 
-      // Update offset and count to fetch the correct number of incoming edges below
+      // Update offset and count to fetch the correct number of edges from the next sibling node
       offset = Math.max(0, offset - entityLineage.getTotal());
       count = Math.max(0, count - entityLineage.getRelationships().size());
 
+      // iterate through each sibling and include their lineage in the bunch
       for (Urn siblingUrn : siblingUrns) {
         EntityLineageResult nextEntityLineage = filterLineageResultFromSiblings(siblingUrn, allSiblingsInGroup,
-            _graphService.getLineage(siblingUrn, direction, offset, count, maxHops), entityLineage.getRelationships());
+            _graphService.getLineage(siblingUrn, direction, offset, count, maxHops), entityLineage);
 
-        // Update offset and count to fetch the correct number of incoming edges below
+        // Update offset and count to fetch the correct number of edges from the next sibling node
         offset = Math.max(0, offset - nextEntityLineage.getTotal());
         count = Math.max(0, count - nextEntityLineage.getCount() - entityLineage.getCount());
+
         entityLineage = nextEntityLineage;
       };
     }
@@ -73,26 +76,33 @@ public class SiblingGraphService {
     return entityLineage;
   }
 
+  // takes a lineage result and removes any nodes that are siblings of some other node already in the result
   private EntityLineageResult filterLineageResultFromSiblings(
       Urn urn,
       Set<Urn> allSiblingsInGroup,
       EntityLineageResult entityLineageResult,
-      List<LineageRelationship> existingResults
+      EntityLineageResult existingResult
   ) {
+    // 1) remove the source entities siblings from this entity's downstreams
     List<LineageRelationship> filteredRelationships = entityLineageResult.getRelationships()
         .stream()
         .filter(lineageRelationship -> !allSiblingsInGroup.contains(lineageRelationship.getEntity())
             || lineageRelationship.getEntity().equals(urn))
         .collect(Collectors.toList());
 
-    List<LineageRelationship> combinedResults = Stream.concat(filteredRelationships.stream(), existingResults.stream())
+    // 2) combine this entity's lineage with the lineage we've already seen
+    List<LineageRelationship> combinedResults = Stream.concat(
+        filteredRelationships.stream(),
+        existingResult != null ? existingResult.getRelationships().stream() : ImmutableList.<LineageRelationship>of().stream())
         .collect(Collectors.toList());
 
+    // 3) fetch the siblings of each lineage result
     Set<Urn> combinedResultUrns = combinedResults.stream().map(result -> result.getEntity()).collect(Collectors.toSet());
 
     Map<Urn, List<RecordTemplate>> siblingAspects =
         _entityService.getLatestAspects(combinedResultUrns, ImmutableSet.of(SIBLINGS_ASPECT_NAME));
 
+    // 4) if you are not primary & your sibling is in the results, filter yourself out of the return set
     filteredRelationships = combinedResults.stream().filter(result -> {
       Optional<RecordTemplate> optionalSiblingsAspect = siblingAspects.get(result.getEntity()).stream().filter(
           aspect -> aspect instanceof Siblings
@@ -115,7 +125,8 @@ public class SiblingGraphService {
     }).collect(Collectors.toList());
 
     entityLineageResult.setRelationships(new LineageRelationshipArray(filteredRelationships));
-    entityLineageResult.setTotal(filteredRelationships.size());
+    entityLineageResult.setTotal(entityLineageResult.getTotal() + (existingResult != null ? existingResult.getTotal() : 0));
+    entityLineageResult.setCount(filteredRelationships.size());
     return entityLineageResult;
   }
 

@@ -24,164 +24,24 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
 
 query getDataset($urn: String!) {
     dataset(urn: $urn) {
-        ...nonRecursiveDatasetFields
-        schemaMetadata(version: 0) {
-            ...schemaMetadataFields
-        }
-        previousSchemaMetadata: schemaMetadata(version: -1) {
-            ...schemaMetadataFields
-        }
-        editableSchemaMetadata {
-            editableSchemaFieldInfo {
-                fieldPath
-                description
-                globalTags {
-                    ...globalTagsFields
-                }
-                glossaryTerms {
-                    ...glossaryTerms
-                }
-            }
-        }
-        deprecation {
-            actor
-            deprecated
-            note
-            decommissionTime
-        }
-        globalTags {
-            ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        subTypes {
-            typeNames
-        }
-        domain {
-            ...entityDomain
-        }
-        container {
-            ...entityContainer
-        }
-        parentContainers {
-            ...parentContainersFields
-        }
-        usageStats(range: MONTH) {
-            buckets {
-                bucket
-                duration
-                resource
-                metrics {
-                    uniqueUserCount
-                    totalSqlQueries
-                    topSqlQueries
-                }
-            }
-            aggregations {
-                uniqueUserCount
-                totalSqlQueries
-                users {
-                    user {
-                        urn
-                        username
-                    }
-                    count
-                    userEmail
-                }
-                fields {
-                    fieldName
-                    count
-                }
-            }
-        }
-        datasetProfiles(limit: 1) {
-            rowCount
-            columnCount
-            timestampMillis
-            fieldProfiles {
-                fieldPath
-                uniqueCount
-                uniqueProportion
-                nullCount
-                nullProportion
-                min
-                max
-                mean
-                median
-                stdev
-                sampleValues
-            }
-        }
-        health {
-            status
-            message
-            causes
-        }
-        assertions(start: 0, count: 1) {
-            total
-        }
-        operations(limit: 1) {
-            timestampMillis
-            lastUpdatedTimestamp
-        }
-        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
-            ...fullLineageResults
-        }
-        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
-            ...fullLineageResults
-        }
-        ...viewProperties
-        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
-            aspectName
-            payload
-            renderSpec {
-                displayType
-                displayName
-                key
-            }
-        }
-        status {
-            removed
-        }
-        readRuns: runs(start: 0, count: 20, direction: INCOMING) {
-            count
-            start
-            total
-        }
-        writeRuns: runs(start: 0, count: 20, direction: OUTGOING) {
-            count
-            start
-            total
-        }
-        testResults {
-            passing {
-                test {
-                    ...testFields
-                }
-                type
-            }
-            failing {
-                test {
-                    ...testFields
-                }
-                type
-            }
-        }
+        ...nonSiblingDatasetFields
         siblings {
             isPrimary
             siblings {
                 urn
                 type
-                ...siblingFields
+                ...nonSiblingDatasetFields
             }
         }
     }
 }
 
-fragment siblingFields on Dataset {
+fragment nonSiblingDatasetFields on Dataset {
     ...nonRecursiveDatasetFields
     schemaMetadata(version: 0) {
+        ...schemaMetadataFields
+    }
+    previousSchemaMetadata: schemaMetadata(version: -1) {
         ...schemaMetadataFields
     }
     editableSchemaMetadata {
@@ -214,13 +74,13 @@ fragment siblingFields on Dataset {
     domain {
         ...entityDomain
     }
-    upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
-        ...fullLineageResults
+    container {
+        ...entityContainer
     }
-    downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
-        ...fullLineageResults
+    parentContainers {
+        ...parentContainersFields
     }
-    usageStats(resource: $urn, range: MONTH) {
+    usageStats(range: MONTH) {
         buckets {
             bucket
             duration
@@ -266,16 +126,60 @@ fragment siblingFields on Dataset {
             sampleValues
         }
     }
-    parentContainers {
-        ...parentContainersFields
+    health {
+        status
+        message
+        causes
     }
-    ...viewProperties
     assertions(start: 0, count: 1) {
         total
     }
     operations(limit: 1) {
         timestampMillis
         lastUpdatedTimestamp
+    }
+    upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+        ...fullLineageResults
+    }
+    downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+        ...fullLineageResults
+    }
+    ...viewProperties
+    autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+        aspectName
+        payload
+        renderSpec {
+            displayType
+            displayName
+            key
+        }
+    }
+    status {
+        removed
+    }
+    readRuns: runs(start: 0, count: 20, direction: INCOMING) {
+        count
+        start
+        total
+    }
+    writeRuns: runs(start: 0, count: 20, direction: OUTGOING) {
+        count
+        start
+        total
+    }
+    testResults {
+        passing {
+            test {
+                ...testFields
+            }
+            type
+        }
+        failing {
+            test {
+                ...testFields
+            }
+            type
+        }
     }
 }
 
