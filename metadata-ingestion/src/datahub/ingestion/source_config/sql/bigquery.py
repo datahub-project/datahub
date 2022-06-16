@@ -8,12 +8,13 @@ import pydantic
 from datahub.configuration.common import ConfigurationError
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.source.sql.sql_common import SQLAlchemyConfig
+from datahub.ingestion.source_config.bigquery import BigQueryBaseConfig
 from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryCredential
 
 logger = logging.getLogger(__name__)
 
 
-class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
+class BigQueryConfig(BigQueryBaseConfig, BaseTimeWindowConfig, SQLAlchemyConfig):
     scheme: str = "bigquery"
     project_id: Optional[str] = pydantic.Field(
         default=None,
@@ -56,6 +57,10 @@ class BigQueryConfig(BaseTimeWindowConfig, SQLAlchemyConfig):
         description="Whether to read date sharded tables or time partitioned tables when extracting usage from exported audit logs.",
     )
     _credentials_path: Optional[str] = pydantic.PrivateAttr(None)
+    temp_table_dataset_prefix: str = pydantic.Field(
+        default="_",
+        description="If you are creating temp tables in a dataset with a particular prefix you can use this config to set the prefix for the dataset. This is to support workflows from before bigquery's introduction of temp tables. By default we use `_` because of datasets that begin with an underscore are hidden by default https://cloud.google.com/bigquery/docs/datasets#dataset-naming.",
+    )
     use_v2_audit_metadata: Optional[bool] = pydantic.Field(
         default=False, description="Whether to ingest logs using the v2 format."
     )

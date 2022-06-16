@@ -1,6 +1,5 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Alert, Divider } from 'antd';
-import SplitPane from 'react-split-pane';
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
 import styled from 'styled-components';
 import { useHistory } from 'react-router';
@@ -20,6 +19,11 @@ import LineageExplorer from '../../../../lineage/LineageExplorer';
 import CompactContext from '../../../../shared/CompactContext';
 import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
 import analytics, { EventType } from '../../../../analytics';
+import { ProfileSidebarResizer } from './sidebar/ProfileSidebarResizer';
+import { EntityMenuItems } from '../../EntityDropdown/EntityDropdown';
+import GlossaryBrowser from '../../../../glossary/GlossaryBrowser/GlossaryBrowser';
+import GlossarySearch from '../../../../glossary/GlossarySearch';
+import { BrowserWrapper, MAX_BROWSER_WIDTH, MIN_BROWSWER_WIDTH } from '../../../../glossary/BusinessGlossaryPage';
 
 type Props<T, U> = {
     urn: string;
@@ -43,21 +47,22 @@ type Props<T, U> = {
     getOverrideProperties: (T) => GenericEntityProperties;
     tabs: EntityTab[];
     sidebarSections: EntitySidebarSection[];
-    showDeprecateOption?: boolean;
+    customNavBar?: React.ReactNode;
+    headerDropdownItems?: Set<EntityMenuItems>;
+    displayGlossaryBrowser?: boolean;
+    isNameEditable?: boolean;
 };
 
 const ContentContainer = styled.div`
     display: flex;
     height: auto;
     min-height: 100%;
-    align-items: stretch;
     flex: 1;
 `;
 
 const HeaderAndTabs = styled.div`
-    flex-basis: 70%;
+    flex-grow: 1;
     min-width: 640px;
-    height: 100%;
 `;
 
 const HeaderAndTabsFlex = styled.div`
@@ -81,10 +86,10 @@ const HeaderAndTabsFlex = styled.div`
         -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
     }
 `;
-const Sidebar = styled.div`
+const Sidebar = styled.div<{ $width: number }>`
     max-height: 100%;
     overflow: auto;
-    flex-basis: 30%;
+    flex-basis: ${(props) => props.$width}px;
     padding-left: 20px;
     padding-right: 20px;
 `;
@@ -102,14 +107,6 @@ const TabContent = styled.div`
     overflow: auto;
 `;
 
-const resizerStyles = {
-    borderLeft: `1px solid #E9E9E9`,
-    width: '2px',
-    cursor: 'col-resize',
-    margin: '0 5px',
-    height: '100%',
-};
-
 const defaultTabDisplayConfig = {
     visible: (_, _1) => true,
     enabled: (_, _1) => true,
@@ -118,6 +115,10 @@ const defaultTabDisplayConfig = {
 const defaultSidebarSection = {
     visible: (_, _1) => true,
 };
+
+const INITIAL_SIDEBAR_WIDTH = 400;
+const MAX_SIDEBAR_WIDTH = 800;
+const MIN_SIDEBAR_WIDTH = 200;
 
 /**
  * Container for display of the Entity Page
@@ -130,7 +131,10 @@ export const EntityProfile = <T, U>({
     getOverrideProperties,
     tabs,
     sidebarSections,
-    showDeprecateOption,
+    customNavBar,
+    headerDropdownItems,
+    displayGlossaryBrowser,
+    isNameEditable,
 }: Props<T, U>): JSX.Element => {
     const isLineageMode = useIsLineageMode();
     const entityRegistry = useEntityRegistry();
@@ -141,6 +145,15 @@ export const EntityProfile = <T, U>({
         ...sidebarSection,
         display: { ...defaultSidebarSection, ...sidebarSection.display },
     }));
+
+    const [sidebarWidth, setSidebarWidth] = useState(INITIAL_SIDEBAR_WIDTH);
+    const [browserWidth, setBrowserWith] = useState(window.innerWidth * 0.2);
+    const [shouldUpdateBrowser, setShouldUpdateBrowser] = useState(false);
+
+    function refreshBrowser() {
+        setShouldUpdateBrowser(true);
+        setTimeout(() => setShouldUpdateBrowser(false), 0);
+    }
 
     const routeToTab = useCallback(
         ({
@@ -219,7 +232,7 @@ export const EntityProfile = <T, U>({
                     )}
                     {!loading && (
                         <>
-                            <EntityHeader showDeprecateOption={showDeprecateOption} />
+                            <EntityHeader headerDropdownItems={headerDropdownItems} />
                             <Divider />
                             <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
                         </>
@@ -247,7 +260,8 @@ export const EntityProfile = <T, U>({
             }}
         >
             <>
-                {showBrowseBar && <EntityProfileNavBar urn={urn} entityType={entityType} />}
+                {customNavBar}
+                {showBrowseBar && !customNavBar && <EntityProfileNavBar urn={urn} entityType={entityType} />}
                 {entityData?.status?.removed === true && (
                     <Alert
                         message="This entity is not discoverable via search or lineage graph. Contact your DataHub admin for more information."
@@ -262,22 +276,32 @@ export const EntityProfile = <T, U>({
                     {isLineageMode ? (
                         <LineageExplorer type={entityType} urn={urn} />
                     ) : (
-                        <SplitPane
-                            split="vertical"
-                            minSize={window.innerWidth - 400}
-                            maxSize={window.innerWidth - 250}
-                            defaultSize={window.innerWidth - 400}
-                            resizerStyle={resizerStyles}
-                            style={{
-                                position: 'inherit',
-                                height: 'auto',
-                                overflow: 'auto',
-                            }}
-                        >
+                        <>
+                            {displayGlossaryBrowser && (
+                                <>
+                                    <BrowserWrapper width={browserWidth}>
+                                        <GlossarySearch />
+                                        <GlossaryBrowser openToEntity refreshBrowser={shouldUpdateBrowser} />
+                                    </BrowserWrapper>
+                                    <ProfileSidebarResizer
+                                        setSidePanelWidth={(width) =>
+                                            setBrowserWith(
+                                                Math.min(Math.max(width, MIN_BROWSWER_WIDTH), MAX_BROWSER_WIDTH),
+                                            )
+                                        }
+                                        initialSize={browserWidth}
+                                        isSidebarOnLeft
+                                    />
+                                </>
+                            )}
                             <HeaderAndTabs>
                                 <HeaderAndTabsFlex>
                                     <Header>
-                                        <EntityHeader showDeprecateOption={showDeprecateOption} />
+                                        <EntityHeader
+                                            headerDropdownItems={headerDropdownItems}
+                                            isNameEditable={isNameEditable}
+                                            refreshBrowser={refreshBrowser}
+                                        />
                                         <EntityTabs
                                             tabs={[...tabsWithDefaults, ...autoRenderTabs]}
                                             selectedTab={routedTab}
@@ -288,10 +312,16 @@ export const EntityProfile = <T, U>({
                                     </TabContent>
                                 </HeaderAndTabsFlex>
                             </HeaderAndTabs>
-                            <Sidebar>
+                            <ProfileSidebarResizer
+                                setSidePanelWidth={(width) =>
+                                    setSidebarWidth(Math.min(Math.max(width, MIN_SIDEBAR_WIDTH), MAX_SIDEBAR_WIDTH))
+                                }
+                                initialSize={sidebarWidth}
+                            />
+                            <Sidebar $width={sidebarWidth}>
                                 <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
                             </Sidebar>
-                        </SplitPane>
+                        </>
                     )}
                 </ContentContainer>
             </>

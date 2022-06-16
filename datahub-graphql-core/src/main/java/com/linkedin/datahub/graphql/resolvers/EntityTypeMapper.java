@@ -24,6 +24,7 @@ public class EntityTypeMapper {
           .put(EntityType.DATA_FLOW, "dataFlow")
           .put(EntityType.DATA_JOB, "dataJob")
           .put(EntityType.GLOSSARY_TERM, "glossaryTerm")
+          .put(EntityType.GLOSSARY_NODE, "glossaryNode")
           .put(EntityType.MLMODEL, "mlModel")
           .put(EntityType.MLMODEL_GROUP, "mlModelGroup")
           .put(EntityType.MLFEATURE_TABLE, "mlFeatureTable")
@@ -32,6 +33,8 @@ public class EntityTypeMapper {
           .put(EntityType.CONTAINER, "container")
           .put(EntityType.DOMAIN, "domain")
           .put(EntityType.NOTEBOOK, "notebook")
+          .put(EntityType.DATA_PLATFORM_INSTANCE, "dataPlatformInstance")
+          .put(EntityType.TEST, "test")
           .build();
 
   private static final Map<String, EntityType> ENTITY_NAME_TO_TYPE =

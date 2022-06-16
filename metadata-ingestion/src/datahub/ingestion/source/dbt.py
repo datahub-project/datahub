@@ -3,6 +3,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, cast
+from urllib.parse import urlparse
 
 import dateutil.parser
 import requests
@@ -23,6 +24,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.ingestion_job_state_provider import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.sql.sql_types import (
     BIGQUERY_TYPES_MAP,
     POSTGRES_TYPES_MAP,
@@ -121,6 +123,10 @@ class DBTConfig(StatefulIngestionConfigBase):
     target_platform: str = Field(
         description="The platform that dbt is loading onto. (e.g. bigquery / redshift / postgres etc.)"
     )
+    target_platform_instance: Optional[str] = Field(
+        default=None,
+        description="The platform instance for the platform that dbt is operating on. Use this if you have multiple instances of the same platform (e.g. redshift) and need to distinguish between them.",
+    )
     load_schemas: bool = Field(
         default=True,
         description="This flag is only consulted when disable_dbt_node_creation is set to True. Load schemas for target_platform entities from dbt catalog file, not necessary when you are already ingesting this metadata from the data platform directly. If set to False, table schema details (e.g. columns) will not be ingested.",
@@ -182,8 +188,17 @@ class DBTConfig(StatefulIngestionConfigBase):
     )
     owner_extraction_pattern: Optional[str] = Field(
         default=None,
-        description='Regex string to extract owner from the dbt node using the `(?P<name>...) syntax` of the [match object](https://docs.python.org/3/library/re.html#match-objects), where the group name must be `owner`. Examples: (1)`r"(?P<owner>(.*)): (\w+) (\w+)"` will extract `jdoe` as the owner from `"jdoe: John Doe"` (2) `r"@(?P<owner>(.*))"` will extract `alice` as the owner from `"@alice"`.',  # noqa: W605
+        description='Regex string to extract owner from the dbt node using the `(?P<name>...) syntax` of the [match object](https://docs.python.org/3/library/re.html#match-objects), where the group name must be `owner`. Examples: (1)`r"(?P<owner>(.*)): (\\w+) (\\w+)"` will extract `jdoe` as the owner from `"jdoe: John Doe"` (2) `r"@(?P<owner>(.*))"` will extract `alice` as the owner from `"@alice"`.',
     )
+    aws_connection: Optional[AwsConnectionConfig] = Field(
+        default=None,
+        description="When fetching manifest files from s3, configuration for aws connection details",
+    )
+
+    @property
+    def s3_client(self):
+        assert self.aws_connection
+        return self.aws_connection.get_s3_client()
 
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[DBTStatefulIngestionConfig] = Field(
@@ -208,6 +223,23 @@ class DBTConfig(StatefulIngestionConfigBase):
                 "provide a datahub_api: configuration on your ingestion recipe"
             )
         return write_semantics
+
+    @validator("aws_connection")
+    def aws_connection_needed_if_s3_uris_present(
+        cls, aws_connection: Optional[AwsConnectionConfig], values: Dict, **kwargs: Any
+    ) -> Optional[AwsConnectionConfig]:
+        # first check if there are fields that contain s3 uris
+        uri_containing_fields = [
+            f
+            for f in ["manifest_path", "catalog_path", "sources_path"]
+            if (values.get(f) or "").startswith("s3://")
+        ]
+
+        if uri_containing_fields and not aws_connection:
+            raise ValueError(
+                f"Please provide aws_connection configuration, since s3 uris have been provided in fields {uri_containing_fields}"
+            )
+        return aws_connection
 
 
 @dataclass
@@ -409,84 +441,6 @@ def extract_dbt_entities(
     return dbt_entities
 
 
-def load_file_as_json(uri: str) -> Any:
-    if re.match("^https?://", uri):
-        return json.loads(requests.get(uri).text)
-    else:
-        with open(uri, "r") as f:
-            return json.load(f)
-
-
-def loadManifestAndCatalog(
-    manifest_path: str,
-    catalog_path: str,
-    sources_path: Optional[str],
-    load_schemas: bool,
-    use_identifiers: bool,
-    tag_prefix: str,
-    node_type_pattern: AllowDenyPattern,
-    report: DBTSourceReport,
-    node_name_pattern: AllowDenyPattern,
-    database_pattern: AllowDenyPattern,
-    schema_pattern: AllowDenyPattern,
-) -> Tuple[
-    List[DBTNode],
-    Optional[str],
-    Optional[str],
-    Optional[str],
-    Optional[str],
-    Dict[str, Dict[str, Any]],
-]:
-    dbt_manifest_json = load_file_as_json(manifest_path)
-
-    dbt_catalog_json = load_file_as_json(catalog_path)
-
-    if sources_path is not None:
-        dbt_sources_json = load_file_as_json(sources_path)
-        sources_results = dbt_sources_json["results"]
-    else:
-        sources_results = {}
-
-    manifest_schema = dbt_manifest_json.get("metadata", {}).get("dbt_schema_version")
-    manifest_version = dbt_manifest_json.get("metadata", {}).get("dbt_version")
-
-    catalog_schema = dbt_catalog_json.get("metadata", {}).get("dbt_schema_version")
-    catalog_version = dbt_catalog_json.get("metadata", {}).get("dbt_version")
-
-    manifest_nodes = dbt_manifest_json["nodes"]
-    manifest_sources = dbt_manifest_json["sources"]
-
-    all_manifest_entities = {**manifest_nodes, **manifest_sources}
-
-    catalog_nodes = dbt_catalog_json["nodes"]
-    catalog_sources = dbt_catalog_json["sources"]
-
-    all_catalog_entities = {**catalog_nodes, **catalog_sources}
-
-    nodes = extract_dbt_entities(
-        all_manifest_entities,
-        all_catalog_entities,
-        sources_results,
-        load_schemas,
-        use_identifiers,
-        tag_prefix,
-        node_type_pattern,
-        report,
-        node_name_pattern,
-        database_pattern,
-        schema_pattern,
-    )
-
-    return (
-        nodes,
-        manifest_schema,
-        manifest_version,
-        catalog_schema,
-        catalog_version,
-        all_manifest_entities,
-    )
-
-
 def get_db_fqn(database: Optional[str], schema: str, name: str) -> str:
     if database is not None:
         fqn = f"{database}.{schema}.{name}"
@@ -496,10 +450,20 @@ def get_db_fqn(database: Optional[str], schema: str, name: str) -> str:
 
 
 def get_urn_from_dbtNode(
-    database: Optional[str], schema: str, name: str, target_platform: str, env: str
+    database: Optional[str],
+    schema: str,
+    name: str,
+    target_platform: str,
+    env: str,
+    data_platform_instance: Optional[str],
 ) -> str:
     db_fqn = get_db_fqn(database, schema, name)
-    return mce_builder.make_dataset_urn(target_platform, db_fqn, env)
+    return mce_builder.make_dataset_urn_with_platform_instance(
+        platform=target_platform,
+        name=db_fqn,
+        platform_instance=data_platform_instance,
+        env=env,
+    )
 
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
@@ -526,8 +490,10 @@ def get_upstreams(
     all_nodes: Dict[str, Dict[str, Any]],
     use_identifiers: bool,
     target_platform: str,
+    target_platform_instance: Optional[str],
     environment: str,
     disable_dbt_node_creation: bool,
+    platform_instance: Optional[str],
 ) -> List[str]:
     upstream_urns = []
 
@@ -553,9 +519,12 @@ def get_upstreams(
         # create lineages for platform nodes otherwise, for dbt node, we connect it to another dbt node or a platform
         # node.
         platform_value = DBT_PLATFORM
+        platform_instance_value = platform_instance
 
         if disable_dbt_node_creation:
+            # we generate all urns in the target platform universe
             platform_value = target_platform
+            platform_instance_value = target_platform_instance
         else:
             materialized = upstream_manifest_node.get("config", {}).get("materialized")
             resource_type = upstream_manifest_node["resource_type"]
@@ -564,7 +533,9 @@ def get_upstreams(
                 materialized in {"view", "table", "incremental"}
                 or resource_type == "source"
             ):
+                # upstream urns point to the target platform
                 platform_value = target_platform
+                platform_instance_value = target_platform_instance
 
         upstream_urns.append(
             get_urn_from_dbtNode(
@@ -573,6 +544,7 @@ def get_upstreams(
                 name,
                 platform_value,
                 environment,
+                platform_instance_value,
             )
         )
     return upstream_urns
@@ -786,6 +758,88 @@ class DBTSource(StatefulIngestionSourceBase):
             ):
                 yield from soft_delete_item(table_urn, "dataset")
 
+    # s3://data-analysis.pelotime.com/dbt-artifacts/data-engineering-dbt/catalog.json
+    def load_file_as_json(self, uri: str) -> Any:
+        if re.match("^https?://", uri):
+            return json.loads(requests.get(uri).text)
+        elif re.match("^s3://", uri):
+            u = urlparse(uri)
+            response = self.config.s3_client.get_object(
+                Bucket=u.netloc, Key=u.path.lstrip("/")
+            )
+            return json.loads(response["Body"].read().decode("utf-8"))
+        else:
+            with open(uri, "r") as f:
+                return json.load(f)
+
+    def loadManifestAndCatalog(
+        self,
+        manifest_path: str,
+        catalog_path: str,
+        sources_path: Optional[str],
+        load_schemas: bool,
+        use_identifiers: bool,
+        tag_prefix: str,
+        node_type_pattern: AllowDenyPattern,
+        report: DBTSourceReport,
+        node_name_pattern: AllowDenyPattern,
+    ) -> Tuple[
+        List[DBTNode],
+        Optional[str],
+        Optional[str],
+        Optional[str],
+        Optional[str],
+        Dict[str, Dict[str, Any]],
+    ]:
+        dbt_manifest_json = self.load_file_as_json(manifest_path)
+
+        dbt_catalog_json = self.load_file_as_json(catalog_path)
+
+        if sources_path is not None:
+            dbt_sources_json = self.load_file_as_json(sources_path)
+            sources_results = dbt_sources_json["results"]
+        else:
+            sources_results = {}
+
+        manifest_schema = dbt_manifest_json.get("metadata", {}).get(
+            "dbt_schema_version"
+        )
+        manifest_version = dbt_manifest_json.get("metadata", {}).get("dbt_version")
+
+        catalog_schema = dbt_catalog_json.get("metadata", {}).get("dbt_schema_version")
+        catalog_version = dbt_catalog_json.get("metadata", {}).get("dbt_version")
+
+        manifest_nodes = dbt_manifest_json["nodes"]
+        manifest_sources = dbt_manifest_json["sources"]
+
+        all_manifest_entities = {**manifest_nodes, **manifest_sources}
+
+        catalog_nodes = dbt_catalog_json["nodes"]
+        catalog_sources = dbt_catalog_json["sources"]
+
+        all_catalog_entities = {**catalog_nodes, **catalog_sources}
+
+        nodes = extract_dbt_entities(
+            all_manifest_entities,
+            all_catalog_entities,
+            sources_results,
+            load_schemas,
+            use_identifiers,
+            tag_prefix,
+            node_type_pattern,
+            report,
+            node_name_pattern,
+        )
+
+        return (
+            nodes,
+            manifest_schema,
+            manifest_version,
+            catalog_schema,
+            catalog_version,
+            all_manifest_entities,
+        )
+
     # create workunits from dbt nodes
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         if self.config.write_semantics == "PATCH" and not self.ctx.graph:
@@ -801,7 +855,7 @@ class DBTSource(StatefulIngestionSourceBase):
             catalog_schema,
             catalog_version,
             manifest_nodes_raw,
-        ) = loadManifestAndCatalog(
+        ) = self.loadManifestAndCatalog(
             self.config.manifest_path,
             self.config.catalog_path,
             self.config.sources_path,
@@ -834,6 +888,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 additional_custom_props_filtered,
                 manifest_nodes_raw,
                 DBT_PLATFORM,
+                self.config.platform_instance,
             )
 
         yield from self.create_platform_mces(
@@ -841,6 +896,7 @@ class DBTSource(StatefulIngestionSourceBase):
             additional_custom_props_filtered,
             manifest_nodes_raw,
             self.config.target_platform,
+            self.config.target_platform_instance,
         )
 
         if self.is_stateful_ingestion_configured():
@@ -873,6 +929,7 @@ class DBTSource(StatefulIngestionSourceBase):
         additional_custom_props_filtered: Dict[str, str],
         manifest_nodes_raw: Dict[str, Dict[str, Any]],
         mce_platform: str,
+        mce_platform_instance: Optional[str],
     ) -> Iterable[MetadataWorkUnit]:
         """
         This function creates mce based out of dbt nodes. Since dbt ingestion creates "dbt" nodes
@@ -905,6 +962,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 node.name,
                 mce_platform,
                 self.config.env,
+                mce_platform_instance,
             )
             self.save_checkpoint(node_datahub_urn)
 
@@ -956,6 +1014,7 @@ class DBTSource(StatefulIngestionSourceBase):
                             node.name,
                             DBT_PLATFORM,
                             self.config.env,
+                            self.config.platform_instance,
                         )
                         upstreams_lineage_class = get_upstream_lineage(
                             [upstream_dbt_urn]
@@ -1241,8 +1300,10 @@ class DBTSource(StatefulIngestionSourceBase):
             manifest_nodes_raw,
             self.config.use_identifiers,
             self.config.target_platform,
+            self.config.target_platform_instance,
             self.config.env,
             self.config.disable_dbt_node_creation,
+            self.config.platform_instance,
         )
 
         # if a node is of type source in dbt, its upstream lineage should have the corresponding table/view
@@ -1255,6 +1316,7 @@ class DBTSource(StatefulIngestionSourceBase):
                     node.name,
                     self.config.target_platform,
                     self.config.env,
+                    self.config.target_platform_instance,
                 )
             )
         if upstream_urns:
@@ -1273,8 +1335,10 @@ class DBTSource(StatefulIngestionSourceBase):
             manifest_nodes_raw,
             self.config.use_identifiers,
             self.config.target_platform,
+            self.config.target_platform_instance,
             self.config.env,
             self.config.disable_dbt_node_creation,
+            self.config.platform_instance,
         )
         if upstream_urns:
             return get_upstream_lineage(upstream_urns)
@@ -1370,7 +1434,7 @@ class DBTSource(StatefulIngestionSourceBase):
         """
 
         project_id = (
-            load_file_as_json(self.config.manifest_path)
+            self.load_file_as_json(self.config.manifest_path)
             .get("metadata", {})
             .get("project_id")
         )

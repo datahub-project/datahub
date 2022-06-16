@@ -8,6 +8,10 @@ record TagAssociation {
  /**
   * Urn of the applied tag
   */
+  @Relationship = {
+    "name": "TaggedWith",
+    "entityTypes": [ "tag" ]
+    }
   @Searchable = {
     "fieldName": "tags",
     "fieldType": "URN",
@@ -16,4 +20,9 @@ record TagAssociation {
     "filterNameOverride": "Tag"
   }
   tag: TagUrn
+
+  /**
+   * Additional context about the association
+   */
+  context: optional string
 }

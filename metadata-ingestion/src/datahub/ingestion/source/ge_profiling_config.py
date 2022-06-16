@@ -20,6 +20,10 @@ class GEProfilingConfig(ConfigModel):
         default=None,
         description="Offset in documents to profile. By default, uses no offset.",
     )
+    report_dropped_profiles: bool = Field(
+        default=False,
+        description="If datasets which were not profiled are reported in source report or not. Set to `True` for debugging purposes.",
+    )
 
     # These settings will override the ones below.
     turn_off_expensive_profiling_metrics: bool = Field(
@@ -78,6 +82,11 @@ class GEProfilingConfig(ConfigModel):
     max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = Field(
         default=None,
         description="A positive integer that specifies the maximum number of columns to profile for any table. `None` implies all columns. The cost of profiling goes up significantly as the number of columns to profile goes up.",
+    )
+
+    profile_if_updated_since_days: Optional[pydantic.PositiveFloat] = Field(
+        default=1,
+        description="Profile table only if it has been updated since these many number of days. `None` implies profile all tables. Only Snowflake supports this.",
     )
 
     # The default of (5 * cpu_count) is adopted from the default max_workers

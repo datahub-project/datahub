@@ -901,11 +901,13 @@ class TableauSource(Source):
                 sheet_external_url = None
             fields = {}
             for field in sheet.get("datasourceFields", ""):
+                name = get_field_value_in_sheet(field, "name")
                 description = make_description_from_params(
                     get_field_value_in_sheet(field, "description"),
                     get_field_value_in_sheet(field, "formula"),
                 )
-                fields[get_field_value_in_sheet(field, "name")] = description
+                if name:
+                    fields[name] = description
 
             # datasource urn
             datasource_urn = []

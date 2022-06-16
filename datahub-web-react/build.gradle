@@ -87,6 +87,14 @@ distZip {
   from 'dist'
 }
 
+task copyAssets {
+  dependsOn distZip
+  copy {
+    from 'dist'
+    into '../datahub-frontend/public/'
+  }
+}
+
 if (!gradle.startParameter.taskNames.any { it in ["idea"] }) {
   artifacts {
     assets distZip

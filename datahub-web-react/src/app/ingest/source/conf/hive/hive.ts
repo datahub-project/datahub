@@ -27,7 +27,7 @@ const hiveConfig: SourceConfig = {
     type: 'hive',
     placeholderRecipe,
     displayName: 'Hive',
-    docsUrl: 'https://datahubproject.io/docs/metadata-ingestion/source_docs/hive/',
+    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/hive/',
     logoUrl: hiveLogo,
 };
 

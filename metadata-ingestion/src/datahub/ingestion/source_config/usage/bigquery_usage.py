@@ -11,6 +11,7 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
+from datahub.ingestion.source_config.bigquery import BigQueryBaseConfig
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ class BigQueryCredential(ConfigModel):
     project_id: str = pydantic.Field(description="Project id to set the credentials")
     private_key_id: str = pydantic.Field(description="Private key id")
     private_key: str = pydantic.Field(
-        description="Private key in a form of '-----BEGIN PRIVATE KEY-----\nprivate-key\n-----END PRIVATE KEY-----\n'"
+        description="Private key in a form of '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n'"
     )
     client_email: str = pydantic.Field(description="Client email")
     client_id: str = pydantic.Field(description="Client Id")
@@ -57,7 +58,7 @@ class BigQueryCredential(ConfigModel):
             return fp.name
 
 
-class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
+class BigQueryUsageConfig(BigQueryBaseConfig, DatasetSourceConfigBase, BaseUsageConfig):
     projects: Optional[List[str]] = pydantic.Field(
         default=None,
         description="List of project ids to ingest usage from. If not specified, will infer from environment.",
@@ -116,6 +117,10 @@ class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
         description="Bigquery credential. Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set. See this example recipe for details",
     )
     _credentials_path: Optional[str] = pydantic.PrivateAttr(None)
+    temp_table_dataset_prefix: str = pydantic.Field(
+        default="_",
+        description="If you are creating temp tables in a dataset with a particular prefix you can use this config to set the prefix for the dataset. This is to support workflows from before bigquery's introduction of temp tables. By default we use `_` because of datasets that begin with an underscore are hidden by default https://cloud.google.com/bigquery/docs/datasets#dataset-naming.",
+    )
 
     def __init__(self, **data: Any):
         super().__init__(**data)

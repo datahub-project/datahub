@@ -142,13 +142,14 @@ shadowJar {
         })
 
   }
-
+  relocate 'com.fasterxml.jackson', 'datahub.shaded.jackson'
   relocate 'org.apache.http','datahub.spark2.shaded.http'
   relocate 'org.apache.commons.codec', 'datahub.spark2.shaded.o.a.c.codec'
   relocate 'org.apache.commons.compress', 'datahub.spark2.shaded.o.a.c.compress'
   relocate 'mozilla', 'datahub.spark2.shaded.mozilla'
   relocate 'com.typesafe','datahub.spark2.shaded.typesafe'
   relocate 'io.opentracing','datahub.spark2.shaded.io.opentracing'
+  relocate 'io.netty','datahub.spark2.shaded.io.netty'
   finalizedBy checkShadowJar
 }
 
@@ -162,6 +163,7 @@ jacocoTestReport {
 }
 
 test {
+  forkEvery = 1
   useJUnit()
   finalizedBy jacocoTestReport
 }

@@ -65,6 +65,7 @@ def test_serde_to_json(
     [
         "tests/unit/serde/test_serde_large.json",
         "tests/unit/serde/test_serde_chart_snapshot.json",
+        "tests/unit/serde/test_serde_extra_field.json",
     ],
 )
 @freeze_time(FROZEN_TIME)
@@ -122,8 +123,6 @@ def test_check_mce_schema(pytestconfig: PytestConfig, json_filename: str) -> Non
 @pytest.mark.parametrize(
     "json_filename",
     [
-        # Extra field.
-        "tests/unit/serde/test_serde_extra_field.json",
         # Missing fields.
         "tests/unit/serde/test_serde_missing_field.json",
     ],

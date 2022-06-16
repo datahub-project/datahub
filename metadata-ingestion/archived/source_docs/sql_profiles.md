@@ -41,6 +41,7 @@ Supported SQL sources:
 - [Oracle](./oracle.md)
 - [Postgres](./postgres.md)
 - [Redshift](./redshift.md)
+- [SAP HANA](./hana.md)
 - [Snowflake](./snowflake.md)
 - [Generic SQLAlchemy source](./sqlalchemy.md)
 - [Trino](./trino.md)

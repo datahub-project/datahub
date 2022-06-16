@@ -91,7 +91,7 @@ export default function SchemaTable({
         title: 'Field',
         dataIndex: 'fieldPath',
         key: 'fieldPath',
-        width: 250,
+        width: 300,
         render: schemaTitleRenderer,
         filtered: true,
     };

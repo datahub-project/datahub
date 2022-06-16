@@ -1,0 +1,67 @@
+name: metadata-io
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "**/*.gradle"
+      - "li-utils/**"
+      - "metadata-models/**"
+      - "metadata-io/**"
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "**/*.gradle"
+      - "li-utils/**"
+      - "metadata-models/**"
+      - "metadata-io/**"
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK 1.8
+        uses: actions/setup-java@v1
+        with:
+          java-version: 1.8
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.6"
+      - name: Gradle build (and test)
+        # there is some race condition in gradle build, which makes gradle never terminate in ~30% of the runs
+        # running build first without datahub-web-react:yarnBuild and then with it is 100% stable
+        # datahub-frontend:unzipAssets depends on datahub-web-react:yarnBuild but gradle does not know about it
+        run: |
+          ./gradlew :metadata-io:test
+      - uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: Test Results (metadata-io)
+          path: |
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+            **/junit.*.xml
+      - name: Ensure codegen is updated
+        run: |
+          if output=$(git status --porcelain) && [ ! -z "$output" ]; then
+            # See https://unix.stackexchange.com/a/155077/378179.
+            echo 'There are uncommitted changes:'
+            echo $output
+            exit 1
+          else
+            echo 'All good!'
+          fi
+
+  event-file:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upload
+        uses: actions/upload-artifact@v2
+        with:
+          name: Event File
+          path: ${{ github.event_path }}
