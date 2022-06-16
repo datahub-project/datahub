@@ -26,7 +26,7 @@ dependencies {
     implementation externalDependency.javaxValidation
     implementation externalDependency.springContext
     implementation externalDependency.swaggerAnnotations
-    implementation(externalDependency.kafkaAvroSerizalizer) {
+    implementation(externalDependency.kafkaAvroSerializer) {
       exclude group: "org.apache.avro"
     }
     
@@ -146,7 +146,7 @@ shadowJar {
   relocate 'com.github.benmanes.caffeine', 'datahub.shaded.com.github.benmanes.caffeine'
   relocate 'org.checkerframework', 'datahub.shaded.org.checkerframework'
   relocate 'com.google.errorprone', 'datahub.shaded.com.google.errorprone'
-  // Bellow jars added for kafka emitter only
+  // Below jars added for kafka emitter only
   relocate 'org.apache.avro', 'datahub.shaded.org.apache.avro'
   relocate 'org.codehaus.jackson', 'datahub.shaded.org.codehaus.jackson'
   relocate 'com.thoughtworks.paranamer', 'datahub.shaded.com.thoughtworks.paranamer'

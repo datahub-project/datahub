@@ -125,37 +125,41 @@ KafkaEmitterConfig.KafkaEmitterConfigBuilder builder = KafkaEmitterConfig.builde
 KafkaEmitter emitter = new KafkaEmitter(config);
  
 //Test if topic is available
-System.out.println(emitter.testConnection());
+
+if(emitter.testConnection()){
  
-MetadataChangeProposalWrapper mcpw = MetadataChangeProposalWrapper.builder()
-        .entityType("dataset")
-        .entityUrn("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.user-table,PROD)")
-        .upsert()
-        .aspect(new DatasetProperties().setDescription("This is the canonical User profile dataset"))
-        .build();
+	MetadataChangeProposalWrapper mcpw = MetadataChangeProposalWrapper.builder()
+	        .entityType("dataset")
+	        .entityUrn("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.user-table,PROD)")
+	        .upsert()
+	        .aspect(new DatasetProperties().setDescription("This is the canonical User profile dataset"))
+	        .build();
+	
+	// Blocking call using future
+	Future<MetadataWriteResponse> requestFuture = emitter.emit(mcpw, null).get();
+	
+	// Non-blocking using callback
+	emitter.emit(mcpw, new Callback() {
+	
+	      @Override
+	      public void onFailure(Throwable exception) {
+	        System.out.println("Failed to send with: " + exception);
+	      }
+	      @Override
+	      public void onCompletion(MetadataWriteResponse metadataWriteResponse) {
+	        if (metadataWriteResponse.isSuccess()) {
+	          RecordMetadata metadata = (RecordMetadata) metadataWriteResponse.getUnderlyingResponse();
+	          System.out.println("Sent successfully over topic: " + metadata.topic());
+	        } else {
+	          System.out.println("Failed to send with: " + metadataWriteResponse.getUnderlyingResponse());
+	        }
+	      }
+	    });
 
-// Blocking call using future
-Future<MetadataWriteResponse> requestFuture = emitter.emit(mcpw, null).get();
-
-// Non-blocking using callback
-emitter.emit(mcpw, new Callback() {
-
-      @Override
-      public void onFailure(Throwable exception) {
-        System.out.println("Failed to send with: " + exception);
-      }
-      @Override
-      public void onCompletion(MetadataWriteResponse metadataWriteResponse) {
-        if (metadataWriteResponse.isSuccess()) {
-          RecordMetadata metadata = (RecordMetadata) metadataWriteResponse.getUnderlyingResponse();
-          System.out.println("Sent successfully over topic: " + metadata.topic());
-        } else {
-          System.out.println("Failed to send with: " + metadataWriteResponse.getUnderlyingResponse());
-        }
-      }
-    });
-
-
+}
+else {
+	System.out.println("Kafka service is down.");
+}
 ```
 
 ## Other Languages
