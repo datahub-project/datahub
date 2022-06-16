@@ -6,7 +6,6 @@ import com.linkedin.common.Siblings;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import java.util.List;
 import java.util.Map;
@@ -108,11 +107,16 @@ public class SiblingGraphService {
           aspect -> aspect instanceof Siblings
       ).findAny();
 
-      if (!optionalSiblingsAspect.isPresent()) return true;
+      if (!optionalSiblingsAspect.isPresent()) {
+        return true;
+      }
+
 
       Siblings siblingsAspect = (Siblings) optionalSiblingsAspect.get();
 
-      if (siblingsAspect.isPrimary()) return true;
+      if (siblingsAspect.isPrimary()) {
+        return true;
+      }
 
       // if you are not primary and your sibling exists in the result set, filter yourself out
       if (siblingsAspect.getSiblings().stream().anyMatch(
