@@ -17,7 +17,7 @@ Here’s an overview of DataHub’s current functionality. Check out our [roadma
 DataHub's unified search experience surfaces results across across databases, datalakes, BI platforms, ML feature stores, orchestration tools, and more.
 
 <p align="center">
-  <img style="width: 70%;"  src="./imgs/feature-search-all-corners-of-your-datastack.gif">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/feature-search-all-corners-of-your-datastack.gif"/>
 </p>
 
 ### **Trace End-to-End Lineage**
@@ -25,7 +25,7 @@ DataHub's unified search experience surfaces results across across databases, da
 Easily understand the end-to-end journey of data by tracing lineage across platforms, datasets, ETL/ELT pipelines, charts, and dashboards, and beyond.
 
 <p align="center">
-  <img style="width: 70%;" src="./imgs/feature-end-to-end-lineage.png">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/feature-end-to-end-lineage.png"/>
 </p>
 
 ### **Understand the Impact of Breaking Changes on Downstream Dependencies**
@@ -33,19 +33,29 @@ Easily understand the end-to-end journey of data by tracing lineage across platf
 Proactively identify which entities may be impacted by a breaking change using Impact Analysis.
 
 <p align="center">
-  <img style="width: 70%;" src="./imgs/feature-impact-analysis.gif">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/feature-impact-analysis.gif"/>
 </p>
 
 ### **View Metadata 360 at a Glance**
 
-Combine *technical* and *logical* metadata to provide a robust 360º view of your data entities, including:
+Combine *technical* and *logical* metadata to provide a robust 360º view of your data entities.
 
-* **Dataset Stats** to understand the shape & distribution of the data
-* **Validation outcomes** from tools like Great Expectations
-* **Schema Version History** to track changes to the physical structure of data over time
+Generate **Dataset Stats** to understand the shape & distribution of the data
 
 <p align="center">
-  <img style="width: 70%;" src="./imgs/feature-dataset-stats.png">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/feature-dataset-stats.png"/>
+</p>
+
+Capture historical **Data Validation Outcomes** from tools like Great Expectations
+
+<p align="center">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/44Pr_55Qkik" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</p>
+
+Leverage DataHub's **Schema Version History** to track changes to the physical structure of data over time
+
+<p align="center">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/IYaV7r5HjZY" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 </p>
 
 ---
@@ -69,7 +79,7 @@ Combine *technical* and *logical* metadata to provide a robust 360º view of you
 Quickly and easily assign entitiy ownership to users and/or user groups.
 
 <p align="center">
-  <img style="width: 70%;" src="./imgs/feature-entity-owner.png">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/feature-entity-owner.png"/>
 </p>
 
 ### **Govern with Tags, Glossary Terms, and Domains**
@@ -80,7 +90,7 @@ Empower data owners to govern their data entities with:
 3. **Domains:** Curated, top-level folders or categories, commonly used in Data Mesh to organize entities by department (i.e., Finance, Marketing) and/or Data Products.
 
 <p align="center">
-  <img style="width: 70%;" src="./imgs/feature-tags-terms-domains.png">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/feature-tags-terms-domains.png"/>
 </p>
 
 ---
@@ -96,7 +106,7 @@ DataHub admins can create Policies to define who can perform what action against
 * **Users and/or Groups** - Assign relevant Users and/or Groups; you can also assign the Policy to Resource Owners, regardless of which Group they belong to
 
 <p align="center">
-  <img style="width: 70%;" src="./imgs/feature-manage-policies.png">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/feature-manage-policies.png"/>
 </p>
 
 ### **Ingest Metadata from the UI**
@@ -104,5 +114,5 @@ DataHub admins can create Policies to define who can perform what action against
 Create, configure, schedule, & execute batch metadata ingestion using the DataHub user interface. This makes getting metadata into DataHub easier by minimizing the overhead required to operate custom integration pipelines.
 
 <p align="center">
-  <img style="width: 70%;" src="./imgs/feature-managed-ingestion-config.png">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/feature-managed-ingestion-config.png"/>
 </p>
