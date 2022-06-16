@@ -311,8 +311,10 @@ def _table_ref_to_urn(ref: BigQueryTableRef, env: str) -> str:
     )
 
 
-def _job_name_ref(project: str, jobId: str) -> str:
-    return f"projects/{project}/jobs/{jobId}"
+def _job_name_ref(project: str, jobId: str) -> Optional[str]:
+    if project and jobId:
+        return f"projects/{project}/jobs/{jobId}"
+    return None
 
 
 @dataclass
@@ -432,11 +434,11 @@ class QueryEvent:
     """
 
     timestamp: datetime
-    job_name: str
     actor_email: str
     query: str
     statementType: str
 
+    job_name: Optional[str] = None
     destinationTable: Optional[BigQueryTableRef] = None
     referencedTables: List[BigQueryTableRef] = field(default_factory=list)
     referencedViews: List[BigQueryTableRef] = field(default_factory=list)
@@ -470,7 +472,8 @@ class QueryEvent:
             actor_email=entry.payload["authenticationInfo"]["principalEmail"],
             query=job_query_conf["query"],
             job_name=_job_name_ref(
-                job["jobName"]["projectId"], job["jobName"]["jobId"]
+                job.get("jobName", {}).get("projectId"),
+                job.get("jobName", {}).get("jobId"),
             ),
             default_dataset=job_query_conf["defaultDataset"]
             if job_query_conf["defaultDataset"]
@@ -496,7 +499,7 @@ class QueryEvent:
         # statementType
         # referencedTables
         job_stats: Dict = job["jobStatistics"]
-        if "totalBilledBytes" in job_stats and job_stats["totalBilledBytes"]:
+        if job_stats.get("totalBilledBytes"):
             query_event.billed_bytes = job_stats["totalBilledBytes"]
 
         raw_ref_tables = job_stats.get("referencedTables")
