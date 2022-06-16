@@ -51,6 +51,8 @@ register_custom_type(custom_types.TIMESTAMP_NTZ, TimeTypeClass)
 register_custom_type(custom_types.VARIANT, RecordTypeClass)
 
 logger: logging.Logger = logging.getLogger(__name__)
+# tmp added to force running python tests
+logger2 = logger
 
 snowdialect.ischema_names["GEOGRAPHY"] = sqltypes.NullType
 

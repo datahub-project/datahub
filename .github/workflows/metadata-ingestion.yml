@@ -68,7 +68,7 @@ jobs:
       - name: Codegen
         run: ./gradlew :metadata-ingestion:codegen
       - name: Run tox tests
-        run: cd metadata-ingestion && tox
+        run: cd metadata-ingestion && tox -p all --parallel-live
       - uses: actions/upload-artifact@v2
         if: always()
         with:
