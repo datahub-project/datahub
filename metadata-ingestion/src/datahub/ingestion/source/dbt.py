@@ -123,6 +123,10 @@ class DBTConfig(StatefulIngestionConfigBase):
     target_platform: str = Field(
         description="The platform that dbt is loading onto. (e.g. bigquery / redshift / postgres etc.)"
     )
+    target_platform_instance: Optional[str] = Field(
+        default=None,
+        description="The platform instance for the platform that dbt is operating on. Use this if you have multiple instances of the same platform (e.g. redshift) and need to distinguish between them.",
+    )
     load_schemas: bool = Field(
         default=True,
         description="This flag is only consulted when disable_dbt_node_creation is set to True. Load schemas for target_platform entities from dbt catalog file, not necessary when you are already ingesting this metadata from the data platform directly. If set to False, table schema details (e.g. columns) will not be ingested.",
@@ -432,9 +436,12 @@ def get_urn_from_dbtNode(
     data_platform_instance: Optional[str],
 ) -> str:
     db_fqn = get_db_fqn(database, schema, name)
-    if data_platform_instance is not None and target_platform == DBT_PLATFORM:
-        db_fqn = f"{data_platform_instance}.{db_fqn}"
-    return mce_builder.make_dataset_urn(target_platform, db_fqn, env)
+    return mce_builder.make_dataset_urn_with_platform_instance(
+        platform=target_platform,
+        name=db_fqn,
+        platform_instance=data_platform_instance,
+        env=env,
+    )
 
 
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
@@ -461,6 +468,7 @@ def get_upstreams(
     all_nodes: Dict[str, Dict[str, Any]],
     use_identifiers: bool,
     target_platform: str,
+    target_platform_instance: Optional[str],
     environment: str,
     disable_dbt_node_creation: bool,
     platform_instance: Optional[str],
@@ -489,9 +497,12 @@ def get_upstreams(
         # create lineages for platform nodes otherwise, for dbt node, we connect it to another dbt node or a platform
         # node.
         platform_value = DBT_PLATFORM
+        platform_instance_value = platform_instance
 
         if disable_dbt_node_creation:
+            # we generate all urns in the target platform universe
             platform_value = target_platform
+            platform_instance_value = target_platform_instance
         else:
             materialized = upstream_manifest_node.get("config", {}).get("materialized")
             resource_type = upstream_manifest_node["resource_type"]
@@ -500,7 +511,9 @@ def get_upstreams(
                 materialized in {"view", "table", "incremental"}
                 or resource_type == "source"
             ):
+                # upstream urns point to the target platform
                 platform_value = target_platform
+                platform_instance_value = target_platform_instance
 
         upstream_urns.append(
             get_urn_from_dbtNode(
@@ -509,7 +522,7 @@ def get_upstreams(
                 name,
                 platform_value,
                 environment,
-                platform_instance,
+                platform_instance_value,
             )
         )
     return upstream_urns
@@ -851,6 +864,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 additional_custom_props_filtered,
                 manifest_nodes_raw,
                 DBT_PLATFORM,
+                self.config.platform_instance,
             )
 
         yield from self.create_platform_mces(
@@ -858,6 +872,7 @@ class DBTSource(StatefulIngestionSourceBase):
             additional_custom_props_filtered,
             manifest_nodes_raw,
             self.config.target_platform,
+            self.config.target_platform_instance,
         )
 
         if self.is_stateful_ingestion_configured():
@@ -890,6 +905,7 @@ class DBTSource(StatefulIngestionSourceBase):
         additional_custom_props_filtered: Dict[str, str],
         manifest_nodes_raw: Dict[str, Dict[str, Any]],
         mce_platform: str,
+        mce_platform_instance: Optional[str],
     ) -> Iterable[MetadataWorkUnit]:
         """
         This function creates mce based out of dbt nodes. Since dbt ingestion creates "dbt" nodes
@@ -922,7 +938,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 node.name,
                 mce_platform,
                 self.config.env,
-                self.config.platform_instance,
+                mce_platform_instance,
             )
             self.save_checkpoint(node_datahub_urn)
 
@@ -1260,6 +1276,7 @@ class DBTSource(StatefulIngestionSourceBase):
             manifest_nodes_raw,
             self.config.use_identifiers,
             self.config.target_platform,
+            self.config.target_platform_instance,
             self.config.env,
             self.config.disable_dbt_node_creation,
             self.config.platform_instance,
@@ -1275,7 +1292,7 @@ class DBTSource(StatefulIngestionSourceBase):
                     node.name,
                     self.config.target_platform,
                     self.config.env,
-                    self.config.platform_instance,
+                    self.config.target_platform_instance,
                 )
             )
         if upstream_urns:
@@ -1294,9 +1311,10 @@ class DBTSource(StatefulIngestionSourceBase):
             manifest_nodes_raw,
             self.config.use_identifiers,
             self.config.target_platform,
+            self.config.target_platform_instance,
             self.config.env,
             self.config.disable_dbt_node_creation,
-            None,
+            self.config.platform_instance,
         )
         if upstream_urns:
             return get_upstream_lineage(upstream_urns)
