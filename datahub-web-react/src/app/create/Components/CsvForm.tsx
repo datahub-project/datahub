@@ -3,12 +3,46 @@ import axios from 'axios';
 import { CSVReader } from 'react-papaparse';
 import { Col, Form, Input, Space, Select, Button, message, Divider, Popconfirm, Row, Tooltip } from 'antd';
 import { MinusCircleOutlined, PlusOutlined, AlertOutlined } from '@ant-design/icons';
+import styled from 'styled-components';
 import { CommonFields } from './CommonFields';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import { GetMyToken } from '../../entity/dataset/whoAmI';
 import { WhereAmI } from '../../home/whereAmI';
-import { DataPlatformSelect } from '../../entity/shared/tabs/Dataset/platformSelect/DataPlatformSelect';
+// import { DataPlatformSelect } from '../../entity/shared/tabs/Dataset/platformSelect/DataPlatformSelect';
 import { printErrorMsg, printSuccessMsg } from '../../entity/shared/tabs/Dataset/ApiCallUtils';
+import { SetParentContainer } from '../../entity/shared/tabs/Dataset/containerEdit/SetParentContainer';
+import { SpecifyBrowsePath } from './SpecifyBrowsePath';
+
+const SearchResultContainer = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2px;
+`;
+
+const SearchResultContent = styled.div`
+    display: flex;
+    justify-content: start;
+    align-items: center;
+`;
+
+const SearchResultDisplayName = styled.div`
+    margin-left: 5px;
+`;
+
+const platformSelection = [
+    'urn:li:dataPlatform:csv',
+    // 'urn:li:dataPlatform:mongodb',
+    // 'urn:li:dataPlatform:elasticsearch',
+    // 'urn:li:dataPlatform:mssql',
+    'urn:li:dataPlatform:mysql',
+    // 'urn:li:dataPlatform:oracle',
+    // 'urn:li:dataPlatform:mariadb',
+    // 'urn:li:dataPlatform:hdfs',
+    'urn:li:dataPlatform:hive',
+    'urn:li:dataPlatform:kudu',
+    'urn:li:dataPlatform:postgres',
+];
 
 export const CsvForm = () => {
     const urlBase = WhereAmI();
@@ -19,7 +53,7 @@ export const CsvForm = () => {
     const user = useGetAuthenticatedUser();
     const userUrn = user?.corpUser?.urn || '';
     const userToken = GetMyToken(userUrn);
-    const aboutType = 'Specify the datatype for field. If unsure, set "unknown"';
+    // const aboutType = 'Specify the datatype for field. If unsure, set "unknown"';
     // const aboutDesc = 'Field description. Can accept markdown as well, except there is no preview in this form.';
     // const [fileType, setFileType] = useState({ dataset_type: 'application/octet-stream' });
 
@@ -64,16 +98,11 @@ export const CsvForm = () => {
         console.log('fileInfo:', fileInfo);
         const headerLine = 0;
         console.log('form values', form.getFieldValue('headerLine'));
-        // set state for file type
-        // setFileType({ dataset_type: fileInfo.type });
-        // get the first row as headers
         if (data.length > 0 && headerLine <= data.length) {
-            // map to array of objects
             const res = data[headerLine].data.map((item) => {
                 return { field_name: item, field_description: '' };
             });
             form.setFieldsValue({ fields: res });
-            console.log(`res is ${res}`);
         } else {
             message.error('Empty file or invalid header line', 3).then();
         }
@@ -86,23 +115,50 @@ export const CsvForm = () => {
             showPopconfirm();
         });
     };
-    const popupMsg = `Confirm Dataset Name is correct: ${form.getFieldValue('dataset_name')}? 
-    This will permanently affect the dataset URL`;
+    const [selectedPlatform, setSelectedPlatform] = useState('urn:li:dataPlatform:csv');
+    const renderSearchResult = (result: string) => {
+        const displayName = result.split(':').pop()?.toUpperCase();
+        return (
+            <SearchResultContainer>
+                <SearchResultContent>
+                    <SearchResultDisplayName>
+                        <div>{displayName}</div>
+                    </SearchResultDisplayName>
+                </SearchResultContent>
+            </SearchResultContainer>
+        );
+    };
+    // const aboutPlatform =
+    //     'If dataset is not from an existing database, use FILE. For databases not in list, refer to admin';
+    const onSelectMember = (urn: string) => {
+        setSelectedPlatform(urn);
+        form.setFieldsValue({ parentContainer: '' });
+        form.setFieldsValue({ browsepathList: [{ browsepath: '' }] });
+    };
+    console.log(`selected platform: ${selectedPlatform}`);
+    const removeOption = () => {
+        console.log(`removing ${selectedPlatform}`);
+        setSelectedPlatform('');
+        form.setFieldsValue({ parentContainer: '' });
+    };
+    const popupMsg = `Confirm Dataset Name: ${form.getFieldValue('dataset_name')}? 
+    This permanently affects the dataset URL`;
     // const { TextArea } = Input;
     return (
         <>
             <Form
                 {...layout}
+                name="main_form_item"
                 form={form}
                 initialValues={{
                     dataset_name: 'abc',
-                    fields: [{ field_description: '', field_type: 'string' }],
-                    browsepathList: ['/file/'],
+                    fields: [{ field_description: '', field_type: 'string', field_name: 'field1' }],
+                    browsepathList: [{ browsepath: `/${selectedPlatform.split(':').pop()}/` }],
                     frequency: 'Unknown',
                     dataset_origin: 'dunno',
-                    platformSelect: 'urn:li:dataPlatform:elasticsearch',
+                    dataset_location: 'dumpster',
+                    platformSelect: 'urn:li:dataPlatform:csv',
                 }}
-                name="dynamic_form_item"
             >
                 <CSVReader onFileLoad={handleOnFileLoad} addRemoveButton onRemoveFile={handleOnRemoveFile}>
                     <span>
@@ -113,83 +169,113 @@ export const CsvForm = () => {
                 <Divider dashed orientation="left">
                     Dataset Info
                 </Divider>
-                <DataPlatformSelect />
+                <Tooltip title="aBC">
+                    <Row>
+                        <Col span={2} />
+                        <Col span={10}>
+                            <Form.Item
+                                name="platformSelect"
+                                label="Specify a Data Source Type"
+                                rules={[
+                                    {
+                                        required: true,
+                                        message: 'A type MUST be specified.',
+                                    },
+                                ]}
+                            >
+                                <Select
+                                    value={selectedPlatform}
+                                    defaultValue=""
+                                    showArrow
+                                    placeholder="Search for a parent container.."
+                                    onSelect={(platform: string) => onSelectMember(platform)}
+                                    allowClear
+                                    onClear={removeOption}
+                                    onDeselect={removeOption}
+                                >
+                                    {platformSelection?.map((platform) => (
+                                        <Select.Option value={platform}>{renderSearchResult(platform)}</Select.Option>
+                                    ))}
+                                </Select>
+                            </Form.Item>
+                        </Col>
+                    </Row>
+                </Tooltip>
+                <Row>
+                    <Col span={2} />
+                    <Col span={10}>
+                        <SetParentContainer platformType={selectedPlatform} compulsory={false} />
+                    </Col>
+                </Row>
                 <CommonFields />
+                <SpecifyBrowsePath />
                 <Form.Item label="Dataset Fields" name="fields">
                     <Form.List name="fields">
                         {(fields, { add, remove }) => (
                             <>
                                 {fields.map(({ key, name, fieldKey, ...restField }) => (
-                                    <Row key={key}>
-                                        <Col span={4} offset={0}>
+                                    <Space key={key}>
+                                        <Form.Item
+                                            {...restField}
+                                            name={[name, 'field_name']}
+                                            fieldKey={[fieldKey, 'field_name']}
+                                            rules={[{ required: true, message: 'Missing field name' }]}
+                                        >
+                                            <Input placeholder="Field Name" />
+                                        </Form.Item>
+                                        <Tooltip title="fIELD tYPE">
                                             <Form.Item
                                                 {...restField}
-                                                name={[name, 'field_name']}
-                                                fieldKey={[fieldKey, 'field_name']}
-                                                rules={[{ required: true, message: 'Missing field name' }]}
+                                                name={[name, 'field_type']}
+                                                fieldKey={[fieldKey, 'field_type']}
+                                                rules={[{ required: true, message: 'Missing field type' }]}
                                             >
-                                                <Input placeholder="Field Name" />
-                                            </Form.Item>
-                                        </Col>
-                                        <Col span={2}>
-                                            <Tooltip trigger="hover" title={aboutType}>
-                                                <Form.Item
-                                                    {...restField}
-                                                    name={[name, 'field_type']}
-                                                    fieldKey={[fieldKey, 'field_type']}
-                                                    rules={[{ required: true, message: 'Missing field type' }]}
-                                                >
-                                                    {/* <Popover trigger="hover" content={aboutType}> */}
-                                                    <Select showSearch placeholder="Select field type">
-                                                        <Option value="num">Number</Option>
-                                                        <Option value="double">Double</Option>
-                                                        <Option value="string">String</Option>
-                                                        <Option value="bool">Boolean</Option>
-                                                        <Option value="date-time">Datetime</Option>
-                                                        <Option value="date">Date</Option>
-                                                        <Option value="time">Time</Option>
-                                                        <Option value="bytes">Bytes</Option>
-                                                        <Option value="unknown">Unknown</Option>
-                                                    </Select>
-                                                    {/* </Popover> */}
-                                                </Form.Item>
-                                            </Tooltip>
-                                        </Col>
-                                        <Col span={14}>
-                                            <Form.Item
-                                                {...restField}
-                                                name={[name, 'field_description']}
-                                                fieldKey={[fieldKey, 'field_description']}
-                                                rules={[
-                                                    {
-                                                        required: false,
-                                                        message: 'Missing field description',
-                                                    },
-                                                ]}
-                                            >
-                                                {/* <Popover trigger="hover" content={aboutDesc}> */}
-                                                <Input placeholder="Field Name" />
-                                                {/* <TextArea
-                                                        rows={4}
-                                                        placeholder="Field Description"
-                                                        autoSize={{ minRows: 1, maxRows: 3 }}
-                                                    /> */}
+                                                {/* <Popover trigger="hover" content={aboutType}> */}
+                                                <Select showSearch placeholder="Select field type">
+                                                    <Option value="num">Number</Option>
+                                                    <Option value="double">Double</Option>
+                                                    <Option value="string">String</Option>
+                                                    <Option value="bool">Boolean</Option>
+                                                    <Option value="date-time">Datetime</Option>
+                                                    <Option value="date">Date</Option>
+                                                    <Option value="time">Time</Option>
+                                                    <Option value="bytes">Bytes</Option>
+                                                    <Option value="unknown">Unknown</Option>
+                                                </Select>
                                                 {/* </Popover> */}
                                             </Form.Item>
-                                        </Col>
-                                        <Col span={1}>
-                                            {fields.length > 1 ? (
-                                                <Form.Item>
-                                                    <Button>
-                                                        <MinusCircleOutlined
-                                                            data-testid="delete-icon"
-                                                            onClick={() => remove(name)}
-                                                        />
-                                                    </Button>
-                                                </Form.Item>
-                                            ) : null}
-                                        </Col>
-                                    </Row>
+                                        </Tooltip>
+                                        <Form.Item
+                                            {...restField}
+                                            name={[name, 'field_description']}
+                                            fieldKey={[fieldKey, 'field_description']}
+                                            rules={[
+                                                {
+                                                    required: false,
+                                                    message: 'Missing field description',
+                                                },
+                                            ]}
+                                        >
+                                            {/* <Popover trigger="hover" content={aboutDesc}> */}
+                                            <Input placeholder="Field Name" />
+                                            {/* <TextArea
+                                                    rows={4}
+                                                    placeholder="Field Description"
+                                                    autoSize={{ minRows: 1, maxRows: 3 }}
+                                                /> */}
+                                            {/* </Popover> */}
+                                        </Form.Item>
+                                        {fields.length > 1 ? (
+                                            <Form.Item>
+                                                <Button>
+                                                    <MinusCircleOutlined
+                                                        data-testid="delete-icon"
+                                                        onClick={() => remove(name)}
+                                                    />
+                                                </Button>
+                                            </Form.Item>
+                                        ) : null}
+                                    </Space>
                                 ))}
                                 <Row>
                                     <Col span={20} offset={0}>

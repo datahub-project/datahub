@@ -3,7 +3,10 @@ import React, { useState } from 'react';
 import Select from 'antd/lib/select';
 import styled from 'styled-components';
 import { Form } from 'antd';
-import { SetParentContainer } from '../containerEdit/SetParentContainer';
+// import { SetParentContainer } from '../containerEdit/SetParentContainer';
+import { useGetSearchResultsQuery } from '../../../../../../graphql/search.generated';
+import { EntityType, SearchResult } from '../../../../../../types.generated';
+import { useEntityRegistry } from '../../../../../useEntityRegistry';
 
 const SearchResultContainer = styled.div`
     display: flex;
@@ -23,14 +26,14 @@ const SearchResultDisplayName = styled.div`
 `;
 
 const platformSelection = [
-    'urn:li:dataPlatform:file',
-    'urn:li:dataPlatform:mongodb',
-    'urn:li:dataPlatform:elasticsearch',
-    'urn:li:dataPlatform:mssql',
+    'urn:li:dataPlatform:csv',
+    // 'urn:li:dataPlatform:mongodb',
+    // 'urn:li:dataPlatform:elasticsearch',
+    // 'urn:li:dataPlatform:mssql',
     'urn:li:dataPlatform:mysql',
-    'urn:li:dataPlatform:oracle',
-    'urn:li:dataPlatform:mariadb',
-    'urn:li:dataPlatform:hdfs',
+    // 'urn:li:dataPlatform:oracle',
+    // 'urn:li:dataPlatform:mariadb',
+    // 'urn:li:dataPlatform:hdfs',
     'urn:li:dataPlatform:hive',
     'urn:li:dataPlatform:kudu',
     'urn:li:dataPlatform:postgres',
@@ -42,6 +45,28 @@ export const DataPlatformSelect = () => {
     // in order to seed the dropdown if the user immediately click on the drop down,
     // i will initialise selectedPlaform with FILE platform.
     const [selectedPlatform, setSelectedPlatform] = useState('');
+    const [selectedContainers, setSelectedContainers] = useState('');
+    console.log(`parentcontainer is ${selectedContainers}`);
+    const { data: containerCandidates } = useGetSearchResultsQuery({
+        variables: {
+            input: {
+                type: EntityType.Container,
+                query: '*',
+                filters: [
+                    {
+                        field: 'platform',
+                        value: selectedPlatform,
+                    },
+                ],
+            },
+        },
+    });
+    const candidates = containerCandidates?.search?.searchResults || [];
+    const entityRegistry = useEntityRegistry();
+    const renderSearchedContainer = (result: SearchResult) => {
+        const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
+        return displayName;
+    };
     const renderSearchResult = (result: string) => {
         const displayName = result.split(':').pop()?.toUpperCase();
         return (
@@ -58,11 +83,13 @@ export const DataPlatformSelect = () => {
     //     'If dataset is not from an existing database, use FILE. For databases not in list, refer to admin';
     const onSelectMember = (urn: string) => {
         setSelectedPlatform(urn);
+        setSelectedContainers('');
     };
     console.log(`selected platform: ${selectedPlatform}`);
     const removeOption = () => {
         console.log(`removing ${selectedPlatform}`);
         setSelectedPlatform('');
+        setSelectedContainers('');
     };
     return (
         <>
@@ -77,11 +104,8 @@ export const DataPlatformSelect = () => {
                 ]}
             >
                 <Select
-                    autoFocus
-                    filterOption
-                    showSearch
                     value={selectedPlatform}
-                    defaultValue="urn:li:dataPlatform:elasticsearch"
+                    defaultValue=""
                     showArrow
                     placeholder="Search for a parent container.."
                     onSelect={(platform: string) => onSelectMember(platform)}
@@ -94,7 +118,34 @@ export const DataPlatformSelect = () => {
                     ))}
                 </Select>
             </Form.Item>
-            <SetParentContainer platformType={selectedPlatform} compulsory={false} />
+            <Form.Item
+                // {...formItemLayout}
+                name="parentContainer"
+                label="Specify a Container(Optional)"
+                rules={[
+                    {
+                        required: false,
+                        message: 'A container must be specified.',
+                    },
+                ]}
+                shouldUpdate={(prevValues, curValues) => prevValues.platformSelect !== curValues.platformSelect}
+            >
+                <Select
+                    filterOption
+                    value={selectedContainers}
+                    showArrow
+                    placeholder="Search for a parent container.."
+                    allowClear
+                    onSelect={(container: any) => setSelectedContainers(container)}
+                >
+                    {candidates.map((result) => (
+                        <Select.Option key={result?.entity?.urn} value={result?.entity?.urn}>
+                            {renderSearchedContainer(result)}
+                        </Select.Option>
+                    ))}
+                </Select>
+            </Form.Item>
+            {/* <SetParentContainer platformType={selectedPlatform} compulsory={false} /> */}
         </>
     );
 };
