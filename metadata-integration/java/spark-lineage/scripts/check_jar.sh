@@ -24,6 +24,8 @@ jar -tvf $jarFile |\
       grep -v "xml-header-style.xml" |\
       grep -v "license.header" |\
       grep -v "module-info.class" |\
+      grep -v "com/google/" |\
+      grep -v "org/codehaus/" |\
       grep -v "client.properties"
 
 if [ $? -ne 0 ]; then
