@@ -84,7 +84,7 @@ task testQuick(type: Exec, dependsOn: installDev) {
   inputs.files(project.fileTree(dir: "tests/"))
   outputs.dir("${venv_name}")
   commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest --durations=20 -m 'not integration and not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
+    "source ${venv_name}/bin/activate && pytest --durations=20 -m 'not slow_unit and not integration and not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
 }
 
 task installDevTest(type: Exec, dependsOn: [installDev]) {
