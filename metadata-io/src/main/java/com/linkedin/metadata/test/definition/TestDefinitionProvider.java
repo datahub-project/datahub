@@ -10,6 +10,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.test.definition.operation.OperationParam;
 import com.linkedin.metadata.test.definition.operation.ParamKeyConstants;
 import com.linkedin.metadata.test.definition.operation.PredicateParam;
+import com.linkedin.metadata.test.definition.operation.QueryParam;
 import com.linkedin.metadata.test.definition.operation.StringParam;
 import com.linkedin.metadata.test.eval.TestPredicateEvaluator;
 import com.linkedin.metadata.test.exception.OperationParamsInvalidException;
@@ -142,8 +143,9 @@ public class TestDefinitionProvider {
       ObjectNode operationParams = (ObjectNode) testRule.get("params");
       operationParams.fields().forEachRemaining(entry -> params.put(entry.getKey(), createParam(entry.getValue())));
     }
+    params.put(ParamKeyConstants.QUERY, new QueryParam(query));
 
-    TestPredicate testPredicate = new TestPredicate(query, operation, params, negated);
+    TestPredicate testPredicate = new TestPredicate(operation, params, negated);
     try {
       testPredicateEvaluator.validate(testPredicate);
     } catch (OperationParamsInvalidException e) {

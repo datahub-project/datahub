@@ -8,4 +8,5 @@ public class ParamKeyConstants {
   public static final String VALUES = "values";
   public static final String PREDICATE = "predicate";
   public static final String PREDICATES = "predicates";
+  public static final String QUERY = "query";
 }

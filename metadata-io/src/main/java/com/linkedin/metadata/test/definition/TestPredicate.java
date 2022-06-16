@@ -12,11 +12,6 @@ import lombok.Value;
 @Value
 public class TestPredicate {
   /**
-   * Query to fetch the fields used to apply operation: e.g. dataPlatformInstance.platform
-   */
-  TestQuery query;
-
-  /**
    * Operation to evaluate the rule e.g. equals
    */
   String operation;
@@ -31,22 +26,13 @@ public class TestPredicate {
    */
   boolean negated;
 
-  public TestPredicate(String query, String operation, Map<String, OperationParam> params, boolean negated) {
-    this.query = new TestQuery(query);
+  public TestPredicate(String operation, Map<String, OperationParam> params, boolean negated) {
     this.operation = operation;
     this.params = new OperationParams(params);
     this.negated = negated;
   }
 
-  public TestPredicate(String query, String operation, Map<String, OperationParam> params) {
-    this(query, operation, params, false);
-  }
-
-  public TestPredicate(String operation, Map<String, OperationParam> params, boolean negated) {
-    this("", operation, params, negated);
-  }
-
   public TestPredicate(String operation, Map<String, OperationParam> params) {
-    this("", operation, params, false);
+    this(operation, params, false);
   }
 }

@@ -1,7 +1,9 @@
 package com.linkedin.metadata.test.definition.operation;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import lombok.Value;
 
 
@@ -20,5 +22,14 @@ public class OperationParams {
       return Optional.empty();
     }
     return Optional.of(paramClass.cast(params.get(key)));
+  }
+
+  // Utility function to get all parameters with the input paramClass type
+  public <T> List<T> getAllParamsOfType(Class<T> paramClass) {
+    return params.values()
+        .stream()
+        .filter(param -> paramClass.isAssignableFrom(param.getClass()))
+        .map(paramClass::cast)
+        .collect(Collectors.toList());
   }
 }

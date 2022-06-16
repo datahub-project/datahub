@@ -4,6 +4,9 @@ import java.util.List;
 import lombok.Value;
 
 
+/**
+ * Parameter with a list of simple string values (no resolution required)
+ */
 @Value
 public class StringParam implements OperationParam {
   List<String> values;

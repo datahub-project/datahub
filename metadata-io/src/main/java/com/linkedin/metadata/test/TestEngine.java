@@ -251,7 +251,7 @@ public class TestEngine {
         Collections.emptyMap());
     // Evaluate whether each test passes using the query evaluation result above (no service calls. pure computation)
     for (TestDefinition eligibleTest : eligibleTests) {
-      if (_testPredicateEvaluator.evaluate(mainRulesQueryResponses, eligibleTest.getRule())) {
+      if (_testPredicateEvaluator.evaluate(eligibleTest.getRule(), mainRulesQueryResponses)) {
         result.getPassing().add(new TestResult().setTest(eligibleTest.getTestUrn()).setType(TestResultType.SUCCESS));
       } else {
         result.getFailing().add(new TestResult().setTest(eligibleTest.getTestUrn()).setType(TestResultType.FAILURE));
@@ -300,8 +300,8 @@ public class TestEngine {
           batchQuery(urnsToTest, ImmutableList.of(testDefinition.getRule()));
       // For each entity, evaluate whether it passes the test using the query evaluation results
       for (Urn urn : urnsToTest) {
-        if (_testPredicateEvaluator.evaluate(mainRulesQueryResponses.getOrDefault(urn, Collections.emptyMap()),
-            testDefinition.getRule())) {
+        if (_testPredicateEvaluator.evaluate(testDefinition.getRule(),
+            mainRulesQueryResponses.getOrDefault(urn, Collections.emptyMap()))) {
           finalTestResults.get(urn)
               .getPassing()
               .add(new TestResult().setTest(testDefinition.getTestUrn()).setType(TestResultType.SUCCESS));
@@ -336,7 +336,7 @@ public class TestEngine {
     if (!targetingRule.isPresent()) {
       return true;
     }
-    return _testPredicateEvaluator.evaluate(targetingRulesQueryResponses, targetingRule.get());
+    return _testPredicateEvaluator.evaluate(targetingRule.get(), targetingRulesQueryResponses);
   }
 
   private List<TestPredicate> getPredicatesFromTargetingRules(List<TestDefinition> tests) {

@@ -1,13 +1,12 @@
 package com.linkedin.metadata.test.eval.operation;
 
-import com.linkedin.metadata.test.definition.TestPredicate;
-import com.linkedin.metadata.test.definition.TestQuery;
+import com.linkedin.metadata.test.definition.operation.OperationParam;
 import com.linkedin.metadata.test.definition.operation.OperationParams;
+import com.linkedin.metadata.test.eval.ResolvedParams;
 import com.linkedin.metadata.test.exception.OperationParamsInvalidException;
 import com.linkedin.metadata.test.query.TestQueryResponse;
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
+
+import static com.linkedin.metadata.test.definition.operation.ParamKeyConstants.QUERY;
 
 
 /**
@@ -21,17 +20,23 @@ public class ExistsEvaluator extends BaseOperationEvaluator {
 
   @Override
   public void validate(OperationParams params) throws OperationParamsInvalidException {
+    if (!params.hasKeyOfType(QUERY, OperationParam.Type.QUERY)) {
+      throw new OperationParamsInvalidException(
+          "Invalid params for the exists operation: Need to have query field set");
+    }
   }
 
   @Override
-  public boolean evaluate(Map<TestQuery, TestQueryResponse> batchedQueryResponse, TestPredicate testPredicate) {
-    return !batchedQueryResponse.getOrDefault(testPredicate.getQuery(), TestQueryResponse.empty())
-        .getValues()
-        .isEmpty();
-  }
-
-  @Override
-  public Set<TestQuery> getRequiredQueries(TestPredicate testPredicate) {
-    return Collections.singleton(testPredicate.getQuery());
+  public boolean evaluate(ResolvedParams resolvedParams) throws OperationParamsInvalidException {
+    if (!resolvedParams.hasKeyOfType(QUERY, OperationParam.Type.QUERY)) {
+      throw new OperationParamsInvalidException(
+          "Invalid params for the exists operation: Need to have query field set");
+    }
+    TestQueryResponse queryResponse = resolvedParams.getResolvedParam(QUERY).getResolvedQueryParam();
+    // If query response is empty, return false
+    if (queryResponse == null) {
+      return false;
+    }
+    return !queryResponse.getValues().isEmpty();
   }
 }

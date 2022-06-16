@@ -8,6 +8,6 @@ public interface OperationParam {
   Type getType();
 
   enum Type {
-    STRING, PREDICATE
+    STRING, PREDICATE, QUERY
   }
 }
