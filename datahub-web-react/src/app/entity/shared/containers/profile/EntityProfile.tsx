@@ -63,7 +63,6 @@ const ContentContainer = styled.div`
 const HeaderAndTabs = styled.div`
     flex-grow: 1;
     min-width: 640px;
-    height: 100%;
 `;
 
 const HeaderAndTabsFlex = styled.div`

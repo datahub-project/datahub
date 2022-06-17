@@ -7,6 +7,7 @@ import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.telemetry.TelemetryConfiguration;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.config.VisualConfiguration;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
@@ -34,6 +35,10 @@ public class ConfigurationProvider {
    * Telemetry related configs
    */
   private TelemetryConfiguration telemetry;
+  /**
+   * Viz related configs
+   */
+  private VisualConfiguration visualConfig;
   /**
    * Tests related configs
    */

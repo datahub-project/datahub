@@ -292,6 +292,7 @@ function new_url(original: string, filepath: string): string {
       ".py",
       ".ts",
       ".yml",
+      ".yaml",
       ".sh",
       ".env",
       ".sql",

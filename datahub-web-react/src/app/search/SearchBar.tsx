@@ -170,6 +170,7 @@ interface Props {
     autoCompleteStyle?: React.CSSProperties;
     entityRegistry: EntityRegistry;
     fixAutoComplete?: boolean;
+    hideRecommendations?: boolean;
     setIsSearchBarFocused?: (isSearchBarFocused: boolean) => void;
     onFocus?: () => void;
     onBlur?: () => void;
@@ -193,6 +194,7 @@ export const SearchBar = ({
     inputStyle,
     autoCompleteStyle,
     fixAutoComplete,
+    hideRecommendations,
     setIsSearchBarFocused,
     onFocus,
     onBlur,
@@ -213,6 +215,7 @@ export const SearchBar = ({
                 limit: 1,
             },
         },
+        skip: hideRecommendations,
     });
 
     const effectiveQuery = searchQuery !== undefined ? searchQuery : initialQuery || '';

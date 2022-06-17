@@ -1,7 +1,15 @@
 import React from 'react';
 import { Tooltip } from 'antd';
+import styled from 'styled-components';
 import { getHealthIcon } from '../../../../../shared/health/healthUtils';
 import { HealthStatus } from '../../../../../../types.generated';
+
+const StatusContainer = styled.div`
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-left: 8px;
+`;
 
 type Props = {
     status: HealthStatus;
@@ -11,8 +19,8 @@ type Props = {
 export const EntityHealthStatus = ({ status, message }: Props) => {
     const icon = getHealthIcon(status, 18);
     return (
-        <div style={{ paddingLeft: 12, paddingRight: 12, paddingTop: 4, paddingBottom: 4 }}>
+        <StatusContainer>
             <Tooltip title={message}>{icon}</Tooltip>
-        </div>
+        </StatusContainer>
     );
 };
