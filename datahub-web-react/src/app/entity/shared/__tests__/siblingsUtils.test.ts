@@ -460,7 +460,7 @@ describe('siblingUtils', () => {
         });
     });
 
-    describe('combineEntityDataWithSiblings', () => {
+    describe('combineSiblingsInSearchResults', () => {
         it('combines search results to deduplicate siblings', () => {
             const result = combineSiblingsInSearchResults(searchResultWithSiblings as any);
 
