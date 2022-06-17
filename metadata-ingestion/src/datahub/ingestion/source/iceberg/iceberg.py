@@ -313,16 +313,30 @@ def _parse_datatype(type: IcebergTypes.Type, nullable: bool = False) -> Dict[str
             "_nullable": nullable,
         }
     elif type.is_map_type():
+        # The Iceberg Map type will be handled differently.  The idea is to translate the map
+        # similar to the Map.Entry struct of Java i.e. as an array of map_entry struct, where
+        # the map_entry struct has a key field and a value field. The key and value type can
+        # be complex or primitive types.
         map_type: IcebergTypes.MapType = type
-        kt = _parse_datatype(map_type.key_type())
-        vt = _parse_datatype(map_type.value_type())
-        # keys are assumed to be strings in avro map
+        map_entry: Dict[str, Any] = {
+            "type": "record",
+            "name": _gen_name("__map_entry_"),
+            "fields": [
+                {
+                    "name": "key",
+                    "type": _parse_datatype(map_type.key_type(), False),
+                },
+                {
+                    "name": "value",
+                    "type": _parse_datatype(map_type.value_type(), True),
+                },
+            ],
+        }
         return {
-            "type": "map",
-            "values": vt,
-            "native_data_type": str(map_type),
-            "key_type": kt,
-            "key_native_data_type": repr(map_type.key_type()),
+            "type": "array",
+            "items": map_entry,
+            "native_data_type": str(type),
+            "_nullable": nullable,
         }
     elif type.is_struct_type():
         structType: IcebergTypes.StructType = type
@@ -340,7 +354,7 @@ def _parse_struct_fields(parts: Tuple[NestedField], nullable: bool) -> Dict[str,
         fields.append({"name": field_name, "type": field_type, "doc": nested_field.doc})
     return {
         "type": "record",
-        "name": "__struct_{}".format(str(uuid.uuid4()).replace("-", "")),
+        "name": _gen_name("__struct_"),
         "fields": fields,
         "native_data_type": "struct<{}>".format(parts),
         "_nullable": nullable,
@@ -367,7 +381,7 @@ def _parse_basic_datatype(
         fixed_type: IcebergTypes.FixedType = type
         return {
             "type": "fixed",
-            "name": "name",  # TODO: Pass-in field name since it is required by Avro spec
+            "name": _gen_name("__fixed_"),
             "size": fixed_type.length,
             "native_data_type": repr(fixed_type),
             "_nullable": nullable,
@@ -380,7 +394,9 @@ def _parse_basic_datatype(
         return {
             # "type": "bytes", # when using bytes, avro drops _nullable attribute and others.  See unit test.
             "type": "fixed",  # to fix avro bug ^ resolved by using a fixed type
-            "name": "bogus",  # to fix avro bug ^ resolved by using a fixed type
+            "name": _gen_name(
+                "__fixed_"
+            ),  # to fix avro bug ^ resolved by using a fixed type
             "size": 1,  # to fix avro bug ^ resolved by using a fixed type
             "logicalType": "decimal",
             "precision": decimal_type.precision,
@@ -431,3 +447,7 @@ def _parse_basic_datatype(
         }
 
     return {"type": "null", "native_data_type": repr(type)}
+
+
+def _gen_name(prefix: str) -> str:
+    return f"{prefix}{str(uuid.uuid4()).replace('-', '')}"

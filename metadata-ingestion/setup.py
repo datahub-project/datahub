@@ -41,7 +41,7 @@ framework_common = {
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.2",
+    "avro-gen3==0.7.4",
     "avro>=1.10.2,<1.11",
     "python-dateutil>=2.8.0",
     "stackprinter",
@@ -58,6 +58,8 @@ framework_common = {
     "markupsafe>=1.1.1,<=2.0.1",
     "Deprecated",
     "types-Deprecated",
+    "humanfriendly",
+    "packaging",
 }
 
 kafka_common = {
@@ -91,6 +93,9 @@ sql_common = {
     "great-expectations>=0.14.11,<0.15.3",
     # datahub does not depend on Jinja2 directly but great expectations does. With Jinja2 3.1.0 GE 0.14.11 is breaking
     "Jinja2<3.1.0",
+    # datahub does not depend on traitlets directly but great expectations does.
+    # https://github.com/ipython/traitlets/issues/741
+    "traitlets<5.2.2",
     "greenlet",
 }
 
@@ -109,7 +114,7 @@ looker_common = {
 
 bigquery_common = {
     # Google cloud logging library
-    "google-cloud-logging",
+    "google-cloud-logging<3.1.2",
     "google-cloud-bigquery",
     "more-itertools>=8.12.0",
     # we do not use protobuf directly but newer version caused bigquery connector to fail
@@ -122,6 +127,7 @@ snowflake_common = {
     # Required for all Snowflake sources
     "snowflake-sqlalchemy<=1.2.4",
     "cryptography",
+    "msal",
 }
 
 trino = {
@@ -294,6 +300,7 @@ mypy_stubs = {
     "types-tabulate",
     # avrogen package requires this
     "types-pytz",
+    "types-pyOpenSSL",
 }
 
 base_dev_requirements = {
@@ -314,14 +321,12 @@ base_dev_requirements = {
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "pytest-docker>=0.10.3,<0.12",
-    "tox",
     "deepdiff",
     "requests-mock",
     "freezegun",
     "jsonpickle",
     "build",
     "twine",
-    "packaging",
     *list(
         dependency
         for plugin in [

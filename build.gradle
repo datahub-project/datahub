@@ -2,7 +2,7 @@ buildscript {
   ext.junitJupiterVersion = '5.6.1'
   ext.pegasusVersion = '29.22.16'
   ext.mavenVersion = '3.6.3'
-  ext.springVersion = '5.3.19'
+  ext.springVersion = '5.3.20'
   ext.springBootVersion = '2.5.12'
   apply from: './repositories.gradle'
   buildscript.repositories.addAll(project.repositories)
@@ -42,6 +42,7 @@ project.ext.spec = [
 ]
 
 project.ext.externalDependency = [
+    'akkaHttp': 'com.typesafe.akka:akka-http-core_2.12:10.1.15',
     'antlr4Runtime': 'org.antlr:antlr4-runtime:4.7.2',
     'antlr4': 'org.antlr:antlr4:4.7.2',
     'assertJ': 'org.assertj:assertj-core:3.11.1',
@@ -89,6 +90,7 @@ project.ext.externalDependency = [
     'jgrapht': 'org.jgrapht:jgrapht-core:1.5.1',
     'jsonSchemaAvro': 'com.github.fge:json-schema-avro:0.1.4',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
+    'jsonSmart': 'net.minidev:json-smart:2.4.6',
     'junitJupiterApi': "org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion",
     'junitJupiterParams': "org.junit.jupiter:junit-jupiter-params:$junitJupiterVersion",
     'junitJupiterEngine': "org.junit.jupiter:junit-jupiter-engine:$junitJupiterVersion",
@@ -117,6 +119,8 @@ project.ext.externalDependency = [
     'playDocs': 'com.typesafe.play:play-docs_2.12:2.7.6',
     'playGuice': 'com.typesafe.play:play-guice_2.12:2.7.6',
     'playJavaJdbc': 'com.typesafe.play:play-java-jdbc_2.12:2.7.6',
+    'playAkkaHttpServer': 'com.typesafe.play:play-akka-http-server_2.12:2.7.6',
+    'playServer': 'com.typesafe.play:play-server_2.12:2.7.6',
     'playTest': 'com.typesafe.play:play-test_2.12:2.7.6',
     'pac4j': 'org.pac4j:pac4j-oidc:3.6.0',
     'playPac4j': 'org.pac4j:play-pac4j_2.12:8.0.2',

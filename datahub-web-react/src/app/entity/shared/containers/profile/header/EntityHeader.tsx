@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckOutlined, CopyOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons';
+import { InfoCircleOutlined, RightOutlined } from '@ant-design/icons';
 import { Typography, Button, Tooltip, Popover } from 'antd';
 import styled from 'styled-components/macro';
 import moment from 'moment';
@@ -16,6 +16,7 @@ import { useGetAuthenticatedUser } from '../../../../../useGetAuthenticatedUser'
 import { EntityType, PlatformPrivileges } from '../../../../../../types.generated';
 import EntityCount from './EntityCount';
 import EntityName from './EntityName';
+import CopyUrn from '../../../../../shared/CopyUrn';
 
 const TitleWrapper = styled.div`
     display: flex;
@@ -61,6 +62,18 @@ const DeprecatedContainer = styled.div`
 const DeprecatedText = styled.div`
     color: #ef5b5b;
     margin-left: 5px;
+`;
+
+const DeprecatedTitle = styled(Typography.Text)`
+    display: block;
+    font-size: 14px;
+    margin-bottom: 5px;
+    font-weight: bold;
+`;
+
+const DeprecatedSubTitle = styled(Typography.Text)`
+    display: block;
+    margin-bottom: 5px;
 `;
 
 const LastEvaluatedAtLabel = styled.div`
@@ -130,9 +143,7 @@ export const EntityHeader = ({ refreshBrowser, headerDropdownItems, isNameEditab
         (entityData?.deprecation?.decommissionTime &&
             `Scheduled to be decommissioned on ${moment
                 .unix(entityData?.deprecation?.decommissionTime)
-                .format('DD/MMM/YYYY')} at ${moment
-                .unix(entityData?.deprecation?.decommissionTime)
-                .format('HH:mm:ss')} (${localeTimezone})`) ||
+                .format('DD/MMM/YYYY')} (${localeTimezone})`) ||
         undefined;
     const decommissionTimeGMT =
         entityData?.deprecation?.decommissionTime &&
@@ -156,9 +167,12 @@ export const EntityHeader = ({ refreshBrowser, headerDropdownItems, isNameEditab
                                 hasDetails ? (
                                     <>
                                         {entityData?.deprecation?.note !== '' && (
-                                            <Typography.Text>{entityData?.deprecation?.note}</Typography.Text>
+                                            <DeprecatedTitle>Note</DeprecatedTitle>
                                         )}
                                         {isDividerNeeded && <Divider />}
+                                        {entityData?.deprecation?.note !== '' && (
+                                            <DeprecatedSubTitle>{entityData?.deprecation?.note}</DeprecatedSubTitle>
+                                        )}
                                         {entityData?.deprecation?.decommissionTime !== null && (
                                             <Typography.Text type="secondary">
                                                 <Tooltip placement="right" title={decommissionTimeGMT}>
@@ -189,15 +203,7 @@ export const EntityHeader = ({ refreshBrowser, headerDropdownItems, isNameEditab
             </MainHeaderContent>
             <SideHeaderContent>
                 <TopButtonsWrapper>
-                    <Tooltip title="Copy URN. An URN uniquely identifies an entity on DataHub.">
-                        <Button
-                            icon={copiedUrn ? <CheckOutlined /> : <CopyOutlined />}
-                            onClick={() => {
-                                navigator.clipboard.writeText(urn);
-                                setCopiedUrn(true);
-                            }}
-                        />
-                    </Tooltip>
+                    <CopyUrn urn={urn} isActive={copiedUrn} onClick={() => setCopiedUrn(true)} />
                     {headerDropdownItems && (
                         <EntityDropdown
                             menuItems={headerDropdownItems}
