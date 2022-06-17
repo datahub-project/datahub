@@ -1,7 +1,7 @@
 # flake8: noqa
 import logging
 from typing import Any, Dict, List, Optional, Union
-
+import re
 from pydantic import BaseModel, validator
 
 log = logging.getLogger("ingest")
@@ -28,7 +28,6 @@ class FieldParamEdited(BaseModel):
 
 class create_dataset_params(BaseModel):
     dataset_name: str
-    dataset_type: Union[str, Dict[str, str]]
     fields: List[FieldParam]
     dataset_owner: str = "no_owner"
     dataset_description: str = ""
@@ -36,8 +35,13 @@ class create_dataset_params(BaseModel):
     dataset_origin: str = ""
     hasHeader: str = "n/a"
     headerLine: int = 1
-    browsepathList: List[str]
+    browsepathList: List[Dict[str,str]]
     user_token: str
+    platformSelect: str
+    parentContainer: str = ""
+    frequency: str = ""
+    dataset_frequency_details: str = ""
+
 
 
 class dataset_status_params(BaseModel):
@@ -51,7 +55,7 @@ class browsepath_params(BaseModel):
     dataset_name: str
     requestor: str
     user_token: str
-    browsePaths: List[str]
+    browsePaths: List[Dict[str,str]]
 
 
 class add_sample_params(BaseModel):
@@ -101,23 +105,17 @@ class name_param(BaseModel):
 #         arbitary_types_allowed = True
 
 
-def determine_type(type_input: Union[str, Dict[str, str]]) -> str:
+def determine_type(input: str) -> str:
     """
     this list will grow when we have more dataset types in the form
     """
-    if isinstance(type_input, Dict):
-        type_input_str = type_input.get("dataset_type", "")
-    else:
-        type_input_str = type_input
-    if (type_input_str.lower() == "text/csv") or (
-        type_input_str.lower() == "application/octet-stream"
-    ):
-        return "csv"
-    if type_input_str.lower() == "json":
-        return "json"  #
-    else:
-        log.error(f"data type for request is {type_input}")
-        return "csv"
+    m = re.search('urn:li:dataPlatform:(.+)', input)
+    if m:
+        platform = m.group(1)
+        if platform.islower(): # should not allow any uppercase.
+            return platform
+
+    return 'error'
 
 class MyFilter(object):
     def __init__(self, level):

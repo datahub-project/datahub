@@ -10,7 +10,6 @@ export const DatasetFrequencyInput = () => {
     const aboutPeriodic = 'This dataset is updated on a periodic basis. Suggest providing details of frequency if any';
     const aboutUnknown = 'Update Frequency is unknown.';
     const onChange = ({ target: { value } }: RadioChangeEvent) => {
-        console.log('radio3 checked', value);
         setPickFreq(value);
     };
     return (
@@ -46,7 +45,7 @@ export const DatasetFrequencyInput = () => {
                     </Col>
                     <Col className="blah" span={14}>
                         <Form.Item name="dataset_frequency_details" label="Details" style={{ marginBottom: 0 }} key="2">
-                            <Input placeholder="Any other details about frequency, for instance, upload date, how frequently updated" />
+                            <Input placeholder="[Dataset Property] Any other details about frequency, for instance, upload date, how frequently updated" />
                         </Form.Item>
                     </Col>
                 </Row>

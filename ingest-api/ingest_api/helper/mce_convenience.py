@@ -19,7 +19,7 @@ from datahub.metadata.schema_classes import (ArrayTypeClass, AuditStampClass,
                                              DatasetProfileClass,
                                              DatasetPropertiesClass,
                                              DatasetSnapshotClass,
-                                             DateTypeClass, EnumTypeClass,
+                                             DateTypeClass, EditableDatasetPropertiesClass, EnumTypeClass,
                                              FixedTypeClass,
                                              InstitutionalMemoryClass,
                                              InstitutionalMemoryMetadataClass,
@@ -172,18 +172,22 @@ def derive_platform_name(input: str) -> str:
 def make_dataset_description_mce(
     dataset_name: str,
     description: str,
-    externalUrl: str = None,
-    tags: List[str] = [],
     customProperties: Optional[Dict[str, str]] = None,
 ) -> DatasetPropertiesClass:
     """
     Tags and externalUrl doesnt seem to have any impact on UI.
     """
     return DatasetPropertiesClass(
-        name = dataset_name,
+        name=dataset_name,
         description=description,
-        externalUrl=externalUrl,
         customProperties=customProperties,
+    )
+
+def make_editable_dataset_description(
+    description: str
+) -> EditableDatasetPropertiesClass:
+    return EditableDatasetPropertiesClass(
+        description=description
     )
 
 

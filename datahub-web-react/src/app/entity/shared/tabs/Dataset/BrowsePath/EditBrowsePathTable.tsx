@@ -82,7 +82,11 @@ export const EditBrowsePathTable = () => {
         form.resetFields();
         setModifiedState(false);
         form.setFieldsValue({
-            browsepathList: originalData,
+            browsepathList: (originalData || []).map((x) => {
+                return {
+                    browsepath: x,
+                };
+            }),
         });
     };
     console.log(`the browsepath to show is ${originalData}`);

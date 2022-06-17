@@ -180,7 +180,7 @@ export const CsvForm = () => {
                 </Divider>
                 <Form.Item
                     name="platformSelect"
-                    label="Specify a Data Source Type"
+                    label="Specify a Data Source Type."
                     rules={[
                         {
                             required: true,
@@ -224,7 +224,10 @@ export const CsvForm = () => {
                                             </Form.Item>
                                         </Col>
                                         &nbsp;
-                                        <Tooltip title="fIELD tYPE">
+                                        <Tooltip
+                                            title="Select column type. Unknown type is also available if unsure"
+                                            placement="left"
+                                        >
                                             <Col span={3}>
                                                 <Form.Item
                                                     {...restField}
