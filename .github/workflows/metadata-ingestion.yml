@@ -38,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Run metadata-ingestion tests
-        run: ./gradlew :metadata-ingestion:build :metadata-ingestion:testQuick
+        run: ./gradlew :metadata-ingestion:build :metadata-ingestion:testQuick :metadata-ingestion:check
       - uses: actions/upload-artifact@v2
         if: always()
         with:
@@ -69,7 +69,7 @@ jobs:
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Run metadata-ingestion tests
-        run: ./gradlew :metadata-ingestion:build :metadata-ingestion:${{ matrix.command }} -x:metadata-ingestion:testQuick
+        run: ./gradlew :metadata-ingestion:build :metadata-ingestion:${{ matrix.command }} -x:metadata-ingestion:testQuick -x:metadata-ingestion:check
       - uses: actions/upload-artifact@v2
         if: always()
         with:
