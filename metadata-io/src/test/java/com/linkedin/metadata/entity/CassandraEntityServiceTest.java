@@ -4,6 +4,7 @@ import com.datastax.oss.driver.api.core.CqlSession;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.AspectIngestionUtils;
 import com.linkedin.metadata.CassandraTestUtils;
 import com.linkedin.metadata.entity.cassandra.CassandraAspectDao;
@@ -95,7 +96,7 @@ public class CassandraEntityServiceTest extends EntityServiceTest<CassandraAspec
     Map<Urn, CorpUserInfo> writtenAspects = AspectIngestionUtils.ingestCorpUserInfoAspects(_entityService, totalEntities);
     Set<Urn> writtenUrns = writtenAspects.keySet();
     String entity = writtenUrns.stream().findFirst().get().getEntityType();
-    String aspect = getAspectName(new CorpUserInfo());
+    String aspect = AspectGenerationUtils.getAspectName(new CorpUserInfo());
 
     List<Urn> readUrns = new ArrayList<>();
     for (int pageNo = 0; pageNo < expectedTotalPages; pageNo++) {
