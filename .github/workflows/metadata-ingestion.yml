@@ -19,7 +19,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-
 jobs:
 
   metadata-ingestion-general:
@@ -57,6 +56,7 @@ jobs:
       matrix:
         python-version: ["3.6", "3.9"]
         command: ["installAirflow1", "testIntegration", "testSlowIntegration"]
+      fail-fast: false
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
