@@ -153,6 +153,9 @@ datahub-mae-consumer;
           value: "MetadataAuditEvent"
 datahub-mce-consumer; 
     extraEnvs:
+        - name: METADATA_CHANGE_PROPOSAL_TOPIC_NAME
+          value: "CustomMetadataChangeLogVersioned_v1"
+          ....
         - name: METADATA_CHANGE_EVENT_NAME
           value: "MetadataChangeEvent"
         ....
