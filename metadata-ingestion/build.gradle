@@ -109,7 +109,7 @@ task testSingle(dependsOn: [installDevTest]) {
   }
 }
 
-task installAirflow1(type: Exec, dependsOn: [installDev]) {
+task installAirflow1(type: Exec, dependsOn: [install]) {
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
   outputs.file("${venv_name}/.build_install_airflow_sentinel")
