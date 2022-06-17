@@ -87,7 +87,7 @@ task testQuick(type: Exec, dependsOn: installDev) {
     "source ${venv_name}/bin/activate && pytest --durations=20 -m 'not slow_unit and not integration and not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
 }
 
-task installDevTest(type: Exec, dependsOn: [installDev]) {
+task installDevTest(type: Exec, dependsOn: [install]) {
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
   outputs.file("${venv_name}/.build_install_dev_test_sentinel")
