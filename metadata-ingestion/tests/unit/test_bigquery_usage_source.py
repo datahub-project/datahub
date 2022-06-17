@@ -1,13 +1,14 @@
 import json
 import os
 
+from freezegun import freeze_time
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.usage.bigquery_usage import (
+    BQ_AUDIT_V1,
     BigQueryUsageConfig,
     BigQueryUsageSource,
-    BQ_AUDIT_V1,
 )
-from freezegun import freeze_time
 
 FROZEN_TIME = "2021-07-20 00:00:00"
 
