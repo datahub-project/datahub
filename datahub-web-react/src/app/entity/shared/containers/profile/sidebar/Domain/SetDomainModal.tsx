@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Button, Form, message, Modal, Select, Tag } from 'antd';
 import styled from 'styled-components';
 
@@ -42,6 +42,14 @@ export const SetDomainModal = ({ visible, onCloseModal, refetch }: Props) => {
 
     const inputEl = useRef(null);
 
+    useEffect(() => {
+        setTimeout(() => {
+            if (inputEl && inputEl.current) {
+                (inputEl.current as any).focus();
+            }
+        }, 1);
+    });
+
     const recommendedDomainsData = GetDomainRecommendation();
 
     const handleSearch = (text: string) => {
@@ -63,7 +71,7 @@ export const SetDomainModal = ({ visible, onCloseModal, refetch }: Props) => {
     const renderSearchResult = (result: SearchResult) => {
         const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
         return (
-            <Select.Option value={result.entity.urn} key={result.entity.urn} name={displayName}>
+            <Select.Option value={result.entity.urn} key={result.entity.urn}>
                 <DomainLabel name={displayName} />
             </Select.Option>
         );

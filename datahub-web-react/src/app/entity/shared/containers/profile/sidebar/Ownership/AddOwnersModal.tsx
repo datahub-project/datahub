@@ -76,9 +76,11 @@ export const AddOwnersModal = ({
     const inputEl = useRef(null);
 
     useEffect(() => {
-        if (inputEl && inputEl.current) {
-            (inputEl.current as any).focus();
-        }
+        setTimeout(() => {
+            if (inputEl && inputEl.current) {
+                (inputEl.current as any).focus();
+            }
+        }, 1);
     });
 
     const recommendedOwnersData = GetOwnerRecommendation();
@@ -119,7 +121,7 @@ export const AddOwnersModal = ({
                 : undefined;
         const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
         return (
-            <Select.Option value={result.entity.urn} key={result.entity.urn} name={displayName}>
+            <Select.Option value={result.entity.urn} key={result.entity.urn}>
                 <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={result.entity.type} />
             </Select.Option>
         );
