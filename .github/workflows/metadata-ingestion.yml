@@ -21,6 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SPARK_VERSION: 3.0.3
+      DATAHUB_TELEMETRY_ENABLED: false
     strategy:
       matrix:
         python-version: ["3.6", "3.9"]
@@ -69,7 +70,7 @@ jobs:
       - name: Codegen
         run: ./gradlew :metadata-ingestion:codegen
       - name: Run tox tests
-        run: cd metadata-ingestion && tox -p 3 --parallel-live
+        run: cd metadata-ingestion && tox -p 2 --parallel-live
       - uses: actions/upload-artifact@v2
         if: always()
         with:
