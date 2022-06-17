@@ -60,19 +60,17 @@ def test_bigquery_uri_with_credential():
 
 @freeze_time(FROZEN_TIME)
 def test_bigquery_filters_with_allow_filter():
-    config = BigQueryUsageConfig.parse_obj(
-        {
+    config = {
+        "project_id": "test-project",
+        "credential": {
             "project_id": "test-project",
-            "credential": {
-                "project_id": "test-project",
-                "private_key_id": "test-private-key",
-                "private_key": "random_private_key",
-                "client_email": "test@acryl.io",
-                "client_id": "test_client-id",
-            },
-            "table_pattern": {"allow": ["test-regex", "test-regex-1"], "deny": []},
-        }
-    )
+            "private_key_id": "test-private-key",
+            "private_key": "random_private_key",
+            "client_email": "test@acryl.io",
+            "client_id": "test_client-id",
+        },
+        "table_pattern": {"allow": ["test-regex", "test-regex-1"], "deny": []},
+    }
     expected_filter: str = """protoPayload.serviceName="bigquery.googleapis.com"
 AND
 (
@@ -105,31 +103,32 @@ AND
 timestamp >= "2021-07-18T23:45:00Z"
 AND
 timestamp < "2021-07-21T00:15:00Z\""""  # noqa: W293
-    source: BigQueryUsageSource = BigQueryUsageSource(
-        config=config, ctx=PipelineContext(run_id="test")
-    )
+
+    source = BigQueryUsageSource.create(config, PipelineContext(run_id="bq-usage-test"))
+
+    # source: BigQueryUsageSource = BigQueryUsageSource(
+    #    config=config, ctx=PipelineContext(run_id="test")
+    # )
     filter: str = source._generate_filter(BQ_AUDIT_V1)
     assert filter == expected_filter
 
 
 @freeze_time(FROZEN_TIME)
 def test_bigquery_filters_with_deny_filter():
-    config = BigQueryUsageConfig.parse_obj(
-        {
+    config = {
+        "project_id": "test-project",
+        "credential": {
             "project_id": "test-project",
-            "credential": {
-                "project_id": "test-project",
-                "private_key_id": "test-private-key",
-                "private_key": "random_private_key",
-                "client_email": "test@acryl.io",
-                "client_id": "test_client-id",
-            },
-            "table_pattern": {
-                "allow": ["test-regex", "test-regex-1"],
-                "deny": ["excluded_table_regex", "excluded-regex-2"],
-            },
-        }
-    )
+            "private_key_id": "test-private-key",
+            "private_key": "random_private_key",
+            "client_email": "test@acryl.io",
+            "client_id": "test_client-id",
+        },
+        "table_pattern": {
+            "allow": ["test-regex", "test-regex-1"],
+            "deny": ["excluded_table_regex", "excluded-regex-2"],
+        },
+    }
     expected_filter: str = """protoPayload.serviceName="bigquery.googleapis.com"
 AND
 (
@@ -162,8 +161,6 @@ AND
 timestamp >= "2021-07-18T23:45:00Z"
 AND
 timestamp < "2021-07-21T00:15:00Z\""""  # noqa: W293
-    source: BigQueryUsageSource = BigQueryUsageSource(
-        config=config, ctx=PipelineContext(run_id="test")
-    )
+    source = BigQueryUsageSource.create(config, PipelineContext(run_id="bq-usage-test"))
     filter: str = source._generate_filter(BQ_AUDIT_V1)
     assert filter == expected_filter
