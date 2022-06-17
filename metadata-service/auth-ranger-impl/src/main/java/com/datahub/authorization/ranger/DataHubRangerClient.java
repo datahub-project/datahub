@@ -7,7 +7,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.util.StringUtils;
-import org.apache.ranger.RangerServiceException;
 import org.apache.ranger.plugin.audit.RangerDefaultAuditHandler;
 import org.apache.ranger.plugin.policyengine.RangerAccessRequest;
 import org.apache.ranger.plugin.policyengine.RangerAccessResult;
@@ -68,8 +67,6 @@ public class DataHubRangerClient {
       groups = this.rangerRestClientWrapper.getUserById(userByName.getId()).getGroupNameList();
 
       log.debug(StringUtils.format("User %s groups %s", userIdentifier, groups.toString()));
-    } catch (RangerServiceException e) {
-      throw new RuntimeException(e);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }

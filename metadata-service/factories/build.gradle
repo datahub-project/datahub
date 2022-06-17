@@ -4,7 +4,6 @@ dependencies {
   compile project(':metadata-io')
   compile project(':metadata-utils')
   compile project(':metadata-service:auth-impl')
-  compile project(':metadata-service:auth-ranger-impl')
   compile project(':datahub-graphql-core')
   compile project(':metadata-service:restli-servlet-impl')
   compile project(':metadata-dao-impl:kafka-producer')
@@ -24,6 +23,7 @@ dependencies {
   compile externalDependency.springCore
   compile externalDependency.springKafka
   compile externalDependency.springWeb
+  compile project(':metadata-service:auth-ranger-impl')
 
   annotationProcessor externalDependency.lombok
 
@@ -31,4 +31,5 @@ dependencies {
 
   testCompile externalDependency.mockito
   testCompile externalDependency.testng
+
 }
