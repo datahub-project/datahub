@@ -3,9 +3,12 @@ package com.linkedin.metadata;
 import com.linkedin.chart.ChartInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.ChangeAuditStamps;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.metadata.key.CorpUserKey;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.SystemMetadata;
 import javax.annotation.Nonnull;
@@ -27,6 +30,11 @@ public class AspectGenerationUtils {
     metadata.setLastObserved(1625792689);
     metadata.setRunId("run-123");
     return metadata;
+  }
+
+  @Nonnull
+  public static CorpUserKey createCorpUserKey(Urn urn) {
+    return (CorpUserKey) EntityKeyUtils.convertUrnToEntityKey(urn, new CorpUserKey().schema());
   }
 
   @Nonnull

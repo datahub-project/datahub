@@ -5,6 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.key.CorpUserKey;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -13,6 +14,24 @@ import javax.annotation.Nonnull;
 public class AspectIngestionUtils {
 
   private AspectIngestionUtils() {
+  }
+
+  @Nonnull
+  public static Map<Urn, CorpUserKey> ingestCorpUserKeyAspects(EntityService entityService, int aspectCount) {
+    return ingestCorpUserKeyAspects(entityService, aspectCount, 0);
+  }
+
+  @Nonnull
+  public static Map<Urn, CorpUserKey> ingestCorpUserKeyAspects(EntityService entityService, int aspectCount, int startIndex) {
+    String aspectName = AspectGenerationUtils.getAspectName(new CorpUserKey());
+    Map<Urn, CorpUserKey> aspects = new HashMap<>();
+    for (int i = startIndex; i < startIndex + aspectCount; i++) {
+      Urn urn = UrnUtils.getUrn(String.format("urn:li:corpuser:tester%d", i));
+      CorpUserKey aspect = AspectGenerationUtils.createCorpUserKey(urn);
+      aspects.put(urn, aspect);
+      entityService.ingestAspect(urn, aspectName, aspect, AspectGenerationUtils.createAuditStamp(), AspectGenerationUtils.createSystemMetadata());
+    }
+    return aspects;
   }
 
   @Nonnull

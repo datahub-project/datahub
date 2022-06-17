@@ -985,12 +985,12 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     }
 
     @Nonnull
-    protected RecordTemplate createCorpUserKey(Urn urn) throws Exception {
+    protected RecordTemplate createCorpUserKey(Urn urn) {
         return EntityKeyUtils.convertUrnToEntityKey(urn, new CorpUserKey().schema());
     }
 
     @Nonnull
-    protected CorpUserInfo createCorpUserInfo(String email) throws Exception {
+    protected CorpUserInfo createCorpUserInfo(String email) {
         CorpUserInfo corpUserInfo = new CorpUserInfo();
         corpUserInfo.setEmail(email);
         corpUserInfo.setActive(true);
