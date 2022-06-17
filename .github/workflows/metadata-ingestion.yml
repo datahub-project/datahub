@@ -17,6 +17,32 @@ on:
 
 jobs:
 
+  metadata-ingestion-general:
+    runs-on: ubuntu-latest
+    env:
+      SPARK_VERSION: 3.0.3
+      DATAHUB_TELEMETRY_ENABLED: false
+    strategy:
+      matrix:
+        python-version: ["3.6", "3.9"]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Run metadata-ingestion tests
+        run: ./gradlew :metadata-ingestion:build :metadata-ingestion:testQuick
+      - uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: Test Results (metadata ingestion ${{ matrix.python-version }} testQuick)
+          path: |
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+            **/junit.*.xml
+
   metadata-ingestion:
     runs-on: ubuntu-latest
     env:
@@ -36,15 +62,13 @@ jobs:
           spark-version: '3.0.3'
           hadoop-version: '3.2'
       - name: Install dependencies
-        run: ./metadata-ingestion/scripts/install_deps.sh && python -m pip install --upgrade pip
-      - name: Codegen
-        run: ./gradlew :metadata-ingestion:codegen
+        run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Run metadata-ingestion tests
-        run: ./gradlew :metadata-ingestion:build :metadata-ingestion:${{ matrix.command }}
+        run: ./gradlew :metadata-ingestion:build :metadata-ingestion:${{ matrix.command }} -x:metadata-ingestion:testQuick
       - uses: actions/upload-artifact@v2
         if: always()
         with:
-          name: Test Results (metadata ingestion ${{ matrix.command }})
+          name: Test Results (metadata ingestion ${{ matrix.python-version }})
           path: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**
