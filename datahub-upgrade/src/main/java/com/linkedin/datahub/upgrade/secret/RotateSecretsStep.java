@@ -81,7 +81,7 @@ public class RotateSecretsStep implements UpgradeStep {
         ? context.parsedArgs().get(EXISTING_KEY_ARG).get()
         : Objects.requireNonNull(System.getenv(EXISTING_KEY_ARG));
       // Will throw if not provided.
-      _existingKey = context.parsedArgs().containsKey(NEW_KEY_ARG)
+      _newKey = context.parsedArgs().containsKey(NEW_KEY_ARG)
           ? context.parsedArgs().get(NEW_KEY_ARG).get()
           : Objects.requireNonNull(System.getenv(NEW_KEY_ARG));
       // Will throw if not provided.
@@ -169,9 +169,9 @@ public class RotateSecretsStep implements UpgradeStep {
   private DataHubSecretValue createNewSecretValue(final Urn secretUrn, final DataHubSecretValue value) {
 
     // 1. Attempt to decrypt the secret
-    final String decryptedKey = decryptExistingSecret(secretUrn, value.getValue());
+    final String decryptedSecret = decryptExistingSecret(secretUrn, value.getValue());
 
-    if (decryptedKey == null) {
+    if (decryptedSecret == null) {
       // Skip this secret
       return null;
     }
@@ -179,7 +179,7 @@ public class RotateSecretsStep implements UpgradeStep {
     log.info("Successfully decrypted key with urn {}", secretUrn);
 
     // 2. Re-encrypt using new key
-    final String encryptedKey = _newSecretService.encrypt(decryptedKey);
+    final String encryptedKey = _newSecretService.encrypt(decryptedSecret);
 
     // 3. Create and return new secret value
     DataHubSecretValue newValue = new DataHubSecretValue(value.data());
