@@ -109,14 +109,32 @@ task testSingle(dependsOn: [installDevTest]) {
   }
 }
 
-task testFull(type: Exec, dependsOn: [testQuick, installDevTest]) {
+task installAirflow1(type: Exec, dependsOn: [installDev]) {
+  inputs.file file('setup.py')
+  outputs.dir("${venv_name}")
+  outputs.file("${venv_name}/.build_install_airflow_sentinel")
   commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest --durations=20 -m 'not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+    "${venv_name}/bin/pip install -e .[dev-airflow1] -c tests/airflow1-constraints.txt && touch ${venv_name}/.build_install_airflow_sentinel"
 }
 
-task testSlowIntegration(type: Exec, dependsOn: [testQuick, installDevTest]) {
+task testAirflow1(type: Exec, dependsOn: [installAirflow1]) {
   commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest --durations=20 -m 'slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+    "source ${venv_name}/bin/activate && pytest --durations=20 -m 'not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.integration.xml"
+}
+
+task testIntegration(type: Exec, dependsOn: [installDevTest]) {
+  commandLine 'bash', '-x', '-c',
+    "source ${venv_name}/bin/activate && pytest --durations=20 -m 'not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.integration.xml"
+}
+
+task testFull(type: Exec, dependsOn: [installDevTest]) {
+  commandLine 'bash', '-x', '-c',
+    "source ${venv_name}/bin/activate && pytest --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+}
+
+task testSlowIntegration(type: Exec, dependsOn: [installDevTest]) {
+  commandLine 'bash', '-x', '-c',
+    "source ${venv_name}/bin/activate && pytest --durations=20 -m 'slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.slow.integration.xml"
 }
 
 task docGen(type: Exec, dependsOn: [codegen, installDevTest]) {

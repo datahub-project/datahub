@@ -35,7 +35,7 @@ jobs:
           spark-version: '3.0.3'
           hadoop-version: '3.2'
       - name: Install dependencies
-        run: ./metadata-ingestion/scripts/install_deps.sh
+        run: ./metadata-ingestion/scripts/install_deps.sh && python -m pip install --upgrade pip
       - name: Run metadata-ingestion tests
         run: ./gradlew :metadata-ingestion:build :metadata-ingestion:check
       - uses: actions/upload-artifact@v2
@@ -47,7 +47,7 @@ jobs:
             **/build/test-results/test/**
             **/junit.*.xml
 
-  metadata-ingestion-by-version:
+  metadata-ingestion-airflow:
     runs-on: ubuntu-latest
     env:
       SPARK_VERSION: 3.0.3
@@ -66,11 +66,44 @@ jobs:
           spark-version: '3.0.3'
           hadoop-version: '3.2'
       - name: Install dependencies
-        run: ./metadata-ingestion/scripts/install_deps.sh && python -m pip install --upgrade pip && pip install tox tox-gh-actions
+        run: ./metadata-ingestion/scripts/install_deps.sh && python -m pip install --upgrade pip
       - name: Codegen
         run: ./gradlew :metadata-ingestion:codegen
-      - name: Run tox tests
-        run: cd metadata-ingestion && tox -p 2 --parallel-live -vv
+      - name: Run metadata-ingestion tests
+        run: ./gradlew :metadata-ingestion:build :metadata-ingestion:testAirflow1
+      - uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: Test Results (metadata ingestion ${{ matrix.python-version }})
+          path: |
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+            **/junit.*.xml
+
+  metadata-ingestion-integration:
+    runs-on: ubuntu-latest
+    env:
+      SPARK_VERSION: 3.0.3
+      DATAHUB_TELEMETRY_ENABLED: false
+    strategy:
+      matrix:
+        python-version: ["3.6", "3.9"]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: vemonet/setup-spark@v1 # spark is required for pyspark+pydeequ data lake profiling
+        with:
+          spark-version: '3.0.3'
+          hadoop-version: '3.2'
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh && python -m pip install --upgrade pip
+      - name: Codegen
+        run: ./gradlew :metadata-ingestion:codegen
+      - name: Run metadata-ingestion tests
+        run: ./gradlew :metadata-ingestion:build :metadata-ingestion:testIntegration
       - uses: actions/upload-artifact@v2
         if: always()
         with:
