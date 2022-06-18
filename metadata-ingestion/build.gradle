@@ -84,10 +84,10 @@ task testQuick(type: Exec, dependsOn: installDev) {
   inputs.files(project.fileTree(dir: "tests/"))
   outputs.dir("${venv_name}")
   commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest -m 'not integration and not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
+    "source ${venv_name}/bin/activate && pytest --durations=20 -m 'not slow_unit and not integration and not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
 }
 
-task installDevTest(type: Exec, dependsOn: [installDev]) {
+task installDevTest(type: Exec, dependsOn: [install]) {
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
   outputs.file("${venv_name}/.build_install_dev_test_sentinel")
@@ -109,14 +109,27 @@ task testSingle(dependsOn: [installDevTest]) {
   }
 }
 
-task testFull(type: Exec, dependsOn: [testQuick, installDevTest]) {
+task installAirflow1(type: Exec, dependsOn: [install]) {
+  inputs.file file('setup.py')
+  outputs.dir("${venv_name}")
+  outputs.file("${venv_name}/.build_install_airflow_sentinel")
   commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest -m 'not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+    "${venv_name}/bin/pip install -e .[dev-airflow1] -c tests/airflow1-constraints.txt && touch ${venv_name}/.build_install_airflow_sentinel"
 }
 
-task testSlowIntegration(type: Exec, dependsOn: [testQuick, installDevTest]) {
+task testIntegration(type: Exec, dependsOn: [installDevTest]) {
   commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest -m 'slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+    "source ${venv_name}/bin/activate && pytest --durations=50 -m 'not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.integration.xml"
+}
+
+task testFull(type: Exec, dependsOn: [installDevTest]) {
+  commandLine 'bash', '-x', '-c',
+    "source ${venv_name}/bin/activate && pytest --durations=50 -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+}
+
+task testSlowIntegration(type: Exec, dependsOn: [installDevTest]) {
+  commandLine 'bash', '-x', '-c',
+    "source ${venv_name}/bin/activate && pytest --durations=20 -m 'slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.slow.integration.xml"
 }
 
 task docGen(type: Exec, dependsOn: [codegen, installDevTest]) {
