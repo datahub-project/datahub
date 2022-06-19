@@ -2,6 +2,7 @@ package com.linkedin.metadata.boot.steps;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -36,12 +37,12 @@ import java.util.stream.Collectors;
 @Slf4j
 @RequiredArgsConstructor
 public class RestoreGlossaryIndices implements BootstrapStep {
-  private static final String VERSION = "0";
+  private static final String VERSION = "1";
   private static final String UPGRADE_ID = "restore-glossary-indices-ui";
   private static final Urn GLOSSARY_UPGRADE_URN =
       EntityKeyUtils.convertEntityKeyToUrn(new DataHubUpgradeKey().setId(UPGRADE_ID), Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
   private static final Integer BATCH_SIZE = 1000;
-  private static final Integer SLEEP_SECONDS = 30;
+  private static final Integer SLEEP_SECONDS = 120;
 
   private final EntityService _entityService;
   private final EntitySearchService _entitySearchService;
@@ -55,7 +56,7 @@ public class RestoreGlossaryIndices implements BootstrapStep {
   @Nonnull
   @Override
   public ExecutionMode getExecutionMode() {
-    return ExecutionMode.BLOCKING;
+    return ExecutionMode.ASYNC;
   }
 
   @Override
@@ -67,9 +68,18 @@ public class RestoreGlossaryIndices implements BootstrapStep {
     Thread.sleep(SLEEP_SECONDS * 1000);
 
     try {
-      if (_entityService.exists(GLOSSARY_UPGRADE_URN)) {
-        log.info("Glossary Upgrade has run before. Skipping");
-        return;
+      EntityResponse response = _entityService.getEntityV2(
+          Constants.DATA_HUB_UPGRADE_ENTITY_NAME,
+          GLOSSARY_UPGRADE_URN,
+          Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)
+      );
+      if (response != null && response.getAspects().containsKey(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)) {
+        DataMap dataMap = response.getAspects().get(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME).getValue().data();
+        DataHubUpgradeRequest request = new DataHubUpgradeRequest(dataMap);
+        if (request.hasVersion() && request.getVersion().equals(VERSION)) {
+          log.info("Glossary Upgrade has run before with this version. Skipping");
+          return;
+        }
       }
 
       final AspectSpec termAspectSpec =
@@ -130,7 +140,7 @@ public class RestoreGlossaryIndices implements BootstrapStep {
     );
 
     //  Loop over Terms and produce changelog
-    for (Urn termUrn: termUrns) {
+    for (Urn termUrn : termUrns) {
       EntityResponse termEntityResponse = termInfoResponses.get(termUrn);
       if (termEntityResponse == null) {
         log.warn("Term not in set of entity responses {}", termUrn);
@@ -171,7 +181,7 @@ public class RestoreGlossaryIndices implements BootstrapStep {
     );
 
     //  Loop over Nodes and produce changelog
-    for (Urn nodeUrn: nodeUrns) {
+    for (Urn nodeUrn : nodeUrns) {
       EntityResponse nodeEntityResponse = nodeInfoResponses.get(nodeUrn);
       if (nodeEntityResponse == null) {
         log.warn("Node not in set of entity responses {}", nodeUrn);
