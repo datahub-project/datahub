@@ -32,7 +32,7 @@ public class KafkaEmitter implements Emitter {
 
   private final KafkaEmitterConfig config;
   private final KafkaProducer<Object, Object> producer;
-  private final Properties kafkaConfgiProperties;
+  private final Properties kafkaConfigProperties;
   private AvroSerializer _avroSerializer;
   private static final int ADMIN_CLIENT_TIMEOUT_MS = 5000;
 
@@ -44,16 +44,16 @@ public class KafkaEmitter implements Emitter {
    */
   public KafkaEmitter(KafkaEmitterConfig config) throws IOException {
     this.config = config;
-    kafkaConfgiProperties = new Properties();
-    kafkaConfgiProperties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, this.config.getBootstrap());
-    kafkaConfgiProperties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+    kafkaConfigProperties = new Properties();
+    kafkaConfigProperties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, this.config.getBootstrap());
+    kafkaConfigProperties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
         org.apache.kafka.common.serialization.StringSerializer.class);
-    kafkaConfgiProperties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+    kafkaConfigProperties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
         io.confluent.kafka.serializers.KafkaAvroSerializer.class);
-    kafkaConfgiProperties.put("schema.registry.url", this.config.getSchemaRegistryUrl());
-    kafkaConfgiProperties.putAll(config.getSchemaRegistryConfig());
-    kafkaConfgiProperties.putAll(config.getProducerConfig());
-    producer = new KafkaProducer<Object, Object>(kafkaConfgiProperties);
+    kafkaConfigProperties.put("schema.registry.url", this.config.getSchemaRegistryUrl());
+    kafkaConfigProperties.putAll(config.getSchemaRegistryConfig());
+    kafkaConfigProperties.putAll(config.getProducerConfig());
+    producer = new KafkaProducer<Object, Object>(kafkaConfigProperties);
     _avroSerializer = new AvroSerializer();
   }
 
@@ -123,7 +123,7 @@ public class KafkaEmitter implements Emitter {
 
   @Override
   public boolean testConnection() throws IOException, ExecutionException, InterruptedException {
-    try (AdminClient client = AdminClient.create(this.kafkaConfgiProperties)) {
+    try (AdminClient client = AdminClient.create(this.kafkaConfigProperties)) {
       log.info("Available topics:"
           + client.listTopics(new ListTopicsOptions().timeoutMs(ADMIN_CLIENT_TIMEOUT_MS)).listings().get());
     } catch (ExecutionException ex) {
@@ -155,7 +155,7 @@ public class KafkaEmitter implements Emitter {
   }
 
   public Properties getKafkaConfgiProperties() {
-    return kafkaConfgiProperties;
+    return kafkaConfigProperties;
   }
 
 }
