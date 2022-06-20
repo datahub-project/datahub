@@ -70,6 +70,7 @@ def custom_user_setup(wait_for_healthchecks):
 
   # Make user created user is there.
   res_data = listUsers(admin_session)
+  print(res_data)
   assert res_data["data"]
   assert res_data["data"]["listUsers"]
   assert res_data["data"]["listUsers"]["total"] == 1
@@ -100,13 +101,7 @@ def access_token_setup(wait_for_healthchecks):
     assert res_data["data"]["listAccessTokens"]["total"] == 0
     assert not res_data["data"]["listAccessTokens"]["tokens"]
 
-    ingest_file_via_rest("tests/tokens/revokable_test_data.json")
-
-    sleep(2)
-
     yield
-
-    sleep(2)
 
     # Clean up
     res_data = listAccessTokens(admin_session)
