@@ -321,7 +321,6 @@ base_dev_requirements = {
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "pytest-docker>=0.10.3,<0.12",
-    "tox",
     "deepdiff",
     "requests-mock",
     "freezegun",

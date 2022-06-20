@@ -2,6 +2,7 @@ import json
 import pathlib
 from unittest import mock
 
+import pytest
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
@@ -40,6 +41,7 @@ def side_effect_query_metadata(query):
 
 
 @freeze_time(FROZEN_TIME)
+@pytest.mark.slow_unit
 def test_tableau_ingest(pytestconfig, tmp_path):
 
     global test_resources_dir
