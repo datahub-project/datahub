@@ -61,8 +61,14 @@ def custom_user_setup():
 
   yield
 
-  # delete created user
-  removeUser(admin_session, "urn:li:corpuser:user")
+  # Delete created user
+  res_data = removeUser(admin_session, "urn:li:corpuser:user")
+  print("removeUser response: " + str(res_data))
+
+  # Make user created user is not there.
+  res_data = listUsers(admin_session)
+  print("list users:")
+  print(res_data)
 
 
 @pytest.fixture(autouse=True)
@@ -369,8 +375,9 @@ def revokeAccessToken(session, tokenId):
     }
 
     response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-
     response.raise_for_status()
+    sleep(5)
+
     return response.json()
 
 
@@ -401,6 +408,37 @@ def removeUser(session, urn):
     response = session.post(
         f"{get_frontend_url()}/api/v2/graphql", json=json
     )
+    sleep(5)
+    response.raise_for_status()
+    return response.json()
 
+
+def listUsers(session):
+    input = {
+      "start": "0",
+      "count": "20",
+    }
+
+    # list users
+    json = {
+        "query": """query listUsers($input: ListUsersInput!) {\n
+            listUsers(input: $input) {\n
+              start\n
+              count\n
+              total\n
+              users {\n
+                username\n
+              }
+            }
+        }""",
+        "variables": {
+          "input": input
+        }
+    }
+
+    response = session.post(
+        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+    )
+    sleep(5)
     response.raise_for_status()
     return response.json()
