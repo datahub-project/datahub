@@ -130,7 +130,7 @@ def guess_person_ldap(
         if "uid" in attrs:
             report.report_warning(
                 "<general>",
-                f"Defaulting to uid as it was found in attrs and not set in attrs_mapping in recipe",
+                "Defaulting to uid as it was found in attrs and not set in attrs_mapping in recipe",
             )
             return attrs["uid"][0].decode()
         return None
