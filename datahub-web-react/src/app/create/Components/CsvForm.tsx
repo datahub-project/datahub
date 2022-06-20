@@ -31,14 +31,14 @@ const SearchResultDisplayName = styled.div`
 `;
 
 const platformSelection = [
-    'urn:li:dataPlatform:csv',
-    // 'urn:li:dataPlatform:mongodb',
-    // 'urn:li:dataPlatform:elasticsearch',
-    // 'urn:li:dataPlatform:mssql',
+    'urn:li:dataPlatform:file',
+    'urn:li:dataPlatform:mongodb',
+    'urn:li:dataPlatform:elasticsearch',
+    'urn:li:dataPlatform:mssql',
     'urn:li:dataPlatform:mysql',
-    // 'urn:li:dataPlatform:oracle',
-    // 'urn:li:dataPlatform:mariadb',
-    // 'urn:li:dataPlatform:hdfs',
+    'urn:li:dataPlatform:oracle',
+    'urn:li:dataPlatform:mariadb',
+    'urn:li:dataPlatform:hdfs',
     'urn:li:dataPlatform:hive',
     'urn:li:dataPlatform:kudu',
     'urn:li:dataPlatform:postgres',
@@ -53,6 +53,7 @@ export const CsvForm = () => {
     const user = useGetAuthenticatedUser();
     const userUrn = user?.corpUser?.urn || '';
     const userToken = GetMyToken(userUrn);
+    const sourceType = 'Select a Datasouce Type. For sources not listed, refer to admin team';
     // const aboutType = 'Specify the datatype for field. If unsure, set "unknown"';
     // const aboutDesc = 'Field description. Can accept markdown as well, except there is no preview in this form.';
     // const [fileType, setFileType] = useState({ dataset_type: 'application/octet-stream' });
@@ -115,7 +116,7 @@ export const CsvForm = () => {
             showPopconfirm();
         });
     };
-    const [selectedPlatform, setSelectedPlatform] = useState('urn:li:dataPlatform:csv');
+    const [selectedPlatform, setSelectedPlatform] = useState('urn:li:dataPlatform:file');
     useEffect(() => {
         form.setFieldsValue({ browsepathList: [{ browsepath: `/${selectedPlatform.split(':').pop()}/` }] });
     }, [selectedPlatform, form]);
@@ -154,14 +155,14 @@ export const CsvForm = () => {
                 name="main_form_item"
                 form={form}
                 initialValues={{
-                    dataset_name: 'abc',
-                    fields: [{ field_description: '', field_type: 'string', field_name: 'field1' }],
-                    browsepathList: [{ browsepath: `/csv/` }],
+                    dataset_name: '',
+                    fields: [{ field_description: '', field_type: 'string', field_name: '' }],
+                    browsepathList: [{ browsepath: `/file/` }],
                     frequency: 'Unknown',
-                    dataset_frequency_details: 'blah',
-                    dataset_origin: 'dunno',
-                    dataset_location: 'dumpster',
-                    platformSelect: 'urn:li:dataPlatform:csv',
+                    dataset_frequency_details: '',
+                    dataset_origin: '',
+                    dataset_location: '',
+                    platformSelect: 'urn:li:dataPlatform:file',
                 }}
             >
                 <Row>
@@ -178,32 +179,34 @@ export const CsvForm = () => {
                 <Divider dashed orientation="left">
                     Dataset Info
                 </Divider>
-                <Form.Item
-                    name="platformSelect"
-                    label="Specify a Data Source Type."
-                    rules={[
-                        {
-                            required: true,
-                            message: 'A type MUST be specified.',
-                        },
-                    ]}
-                >
-                    <Select
-                        value={selectedPlatform}
-                        defaultValue=""
-                        showArrow
-                        placeholder="Search for a type.."
-                        onSelect={(platform: string) => onSelectMember(platform)}
-                        allowClear
-                        onClear={removeOption}
-                        onDeselect={removeOption}
-                        style={{ width: '20%' }}
+                <Tooltip title={sourceType}>
+                    <Form.Item
+                        name="platformSelect"
+                        label="Specify a Data Source Type."
+                        rules={[
+                            {
+                                required: true,
+                                message: 'A type MUST be specified.',
+                            },
+                        ]}
                     >
-                        {platformSelection?.map((platform) => (
-                            <Select.Option value={platform}>{renderSearchResult(platform)}</Select.Option>
-                        ))}
-                    </Select>
-                </Form.Item>
+                        <Select
+                            value={selectedPlatform}
+                            defaultValue=""
+                            showArrow
+                            placeholder="Search for a type.."
+                            onSelect={(platform: string) => onSelectMember(platform)}
+                            allowClear
+                            onClear={removeOption}
+                            onDeselect={removeOption}
+                            style={{ width: '20%' }}
+                        >
+                            {platformSelection?.map((platform) => (
+                                <Select.Option value={platform}>{renderSearchResult(platform)}</Select.Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+                </Tooltip>
                 <SetParentContainer platformType={selectedPlatform} compulsory={false} />
                 <CommonFields />
                 <SpecifyBrowsePath />

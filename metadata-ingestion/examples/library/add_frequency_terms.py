@@ -8,7 +8,7 @@ from datahub.metadata.schema_classes import (
     GlossaryTermInfoClass,
 )
 
-nodeUrn="urn:li:glossaryNode:Metadata.Dataset.Frequency"
+nodeUrn = "urn:li:glossaryNode:Metadata.Dataset.Frequency"
 
 all_mcps = []
 mcp = MetadataChangeProposalWrapper(
@@ -18,11 +18,11 @@ mcp = MetadataChangeProposalWrapper(
     aspectName="glossaryNodeInfo",
     aspect=GlossaryNodeInfoClass(
         definition="Term that describes the frequency of data upload",
-        name="Dataset Frequency"
+        name="Dataset Frequency",
     ),
 )
 all_mcps.append(mcp)
-for term in ["Adhoc","Onetime","Periodic","Unknown","Test"]:
+for term in ["Adhoc", "Onetime", "Periodic", "Unknown", "Test"]:
     termUrn = f"urn:li:glossaryTerm:Metadata.Dataset.Frequency.{term}"
     mcp1 = MetadataChangeProposalWrapper(
         entityType="glossaryTerm",
@@ -33,8 +33,8 @@ for term in ["Adhoc","Onetime","Periodic","Unknown","Test"]:
             definition=f"Upload for this dataset is {term}",
             name=f"{term} Upload",
             parentNode=nodeUrn,
-            termSource="INTERNAL"
-        )
+            termSource="INTERNAL",
+        ),
     )
     # mcp2 = MetadataChangeProposalWrapper(
     #     entityType="glossaryTerm",

@@ -13,6 +13,7 @@ interface Props {
 export const SetParentContainer = (props: Props) => {
     // need this to render the display name of the container
     // decided not to put name of parent container of selected container - the new feature in 0.8.36 would be better
+    const aboutContainer = 'Select a collection that this dataset belongs to. Can be optional';
     const [selectedContainers, setSelectedContainers] = useState('');
     console.log(`parentcontainer is ${selectedContainers}`);
     useEffect(() => {
@@ -43,7 +44,7 @@ export const SetParentContainer = (props: Props) => {
     return (
         <>
             {/* <Popover trigger="hover" content={aboutContainer}> */}
-            <Tooltip title="a">
+            <Tooltip title={aboutContainer}>
                 <Form.Item
                     // {...formItemLayout}
                     name="parentContainer"
