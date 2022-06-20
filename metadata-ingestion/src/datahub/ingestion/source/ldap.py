@@ -254,7 +254,7 @@ class LDAPSource(Source):
                 result = self.ldap_client.result3(manager_msgid)
                 if result[1]:
                     _m_dn, m_attrs = result[1][0]
-                    manager_ldap = guess_person_ldap(m_attrs)
+                    manager_ldap = guess_person_ldap(m_attrs, self.config, self.report)
             except ldap.LDAPError as e:
                 self.report.report_warning(
                     dn, "manager LDAP search failed: {}".format(e)
