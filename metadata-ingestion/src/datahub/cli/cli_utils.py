@@ -579,7 +579,7 @@ def post_entity(
     )
     response = session.post(url, payload)
     response.raise_for_status()
-    return (response.status_code)
+    return response.status_code
 
 
 type_class_to_name_map = {
