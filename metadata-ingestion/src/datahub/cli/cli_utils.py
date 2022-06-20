@@ -554,7 +554,7 @@ def post_entity(
     aspect_name: str,
     aspect_value: Dict,
     cached_session_host: Optional[Tuple[Session, str]] = None,
-) -> Dict:
+) -> int:
     session, gms_host = cached_session_host or get_session_and_host()
     endpoint: str = "/aspects/?action=ingestProposal"
 
@@ -579,7 +579,7 @@ def post_entity(
     )
     response = session.post(url, payload)
     response.raise_for_status()
-    return int(response.status_code)
+    return (response.status_code)
 
 
 type_class_to_name_map = {
