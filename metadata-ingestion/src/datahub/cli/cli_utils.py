@@ -67,6 +67,7 @@ ENV_SKIP_CONFIG = "DATAHUB_SKIP_CONFIG"
 ENV_METADATA_HOST_URL = "DATAHUB_GMS_URL"
 ENV_METADATA_HOST = "DATAHUB_GMS_HOST"
 ENV_METADATA_PORT = "DATAHUB_GMS_PORT"
+ENV_METADATA_PROTOCOL = "DATAHUB_GMS_PROTOCOL"
 ENV_METADATA_HOST_DEPRECATED = "GMS_HOST"
 ENV_METADATA_PORT_DEPRECATED = "GMS_PORT"
 ENV_METADATA_TOKEN = "DATAHUB_GMS_TOKEN"
@@ -139,16 +140,17 @@ def get_details_from_config():
 
 
 def get_details_from_env() -> Tuple[Optional[str], Optional[str]]:
-    host = os.environ.get(ENV_METADATA_HOST)
-    port = os.environ.get(ENV_METADATA_PORT)
+    host = os.environ.get(ENV_METADATA_HOST) or os.environ.get(
+        ENV_METADATA_HOST_DEPRECATED
+    )
+    port = os.environ.get(ENV_METADATA_PORT) or os.environ.get(
+        ENV_METADATA_PORT_DEPRECATED
+    )
     token = os.environ.get(ENV_METADATA_TOKEN)
+    protocol = os.environ.get(ENV_METADATA_PROTOCOL, "http")
     url = os.environ.get(ENV_METADATA_HOST_URL)
-    if host is None:
-        host = os.environ.get(ENV_METADATA_HOST_DEPRECATED)
-    if port is None:
-        port = os.environ.get(ENV_METADATA_PORT_DEPRECATED)
     if port is not None:
-        url = f"http://{host}:{port}"
+        url = f"{protocol}://{host}:{port}"
         return url, token
     # The reason for using host as URL is backward compatibility
     # If port is not being used we assume someone is using host env var as URL
