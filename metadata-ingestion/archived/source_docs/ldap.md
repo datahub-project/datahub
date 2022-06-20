@@ -63,30 +63,30 @@ sink:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field                          | Required | Default             | Description                                                                                  |
-| ------------------------------ | -------- | ------------------- | -------------------------------------------------------------------------------------------- |
-| `ldap_server`                  | ✅       |                     | LDAP server URL.                                                                             |
-| `ldap_user`                    | ✅       |                     | LDAP user.                                                                                   |
-| `ldap_password`                | ✅       |                     | LDAP password.                                                                               |
-| `base_dn`                      | ✅       |                     | LDAP DN.                                                                                     |
-| `filter`                       |          | `"(objectClass=*)"` | LDAP extractor filter.                                                                       |
-| `drop_missing_first_last_name` |          | `True`              | If set to true, any users without first and last names will be dropped.                      |
-| `page_size`                    |          | `20`                | Size of each page to fetch when extracting metadata.                                         |
-| `attrs_mapping.urn`            |          | `sAMAccountName`    | Alternate attrs key representing same information as sAMAccountName in the organization.     |
-| `attrs_mapping.managerUrn`     |          | `manager`           | Alternate attrs key representing same information as manager in the organization.            |
-| `attrs_mapping.firstName`      |          | `givenName`         | Alternate attrs key representing same information as givenName in the organization.          |
-| `attrs_mapping.lastName`       |          | `sn`                | Alternate attrs key representing same information as sn in the organization.                 |
-| `attrs_mapping.fullName`       |          | `cn`                | Alternate attrs key representing same information as cn in the organization.                 |
-| `attrs_mapping.email`          |          | `mail`              | Alternate attrs key representing same information as mail in the organization.               |
-| `attrs_mapping.displayName`    |          | `displayName`       | Alternate attrs key representing same information as displayName in the organization.        |
-| `attrs_mapping.departmentId`   |          | `departmentNumber`  | Alternate attrs key representing same information as departmentNumber in the organization.   |
-| `attrs_mapping.departmentName` |          | `department`        | Alternate attrs key representing same information as departmentNumber in the organization.   |
-| `attrs_mapping.title`          |          | `title`             | Alternate attrs key representing same information as title in the organization.              |
-| `attrs_mapping.countryCode`    |          | `countryCode`       | Alternate attrs key representing same information as title in the organization.              |
-| `attrs_mapping.group_urn`      |          | `cn`                | Alternate attrs key representing same information as the cn for the LDAP group.              |
-| `attrs_mapping.admins`         |          | `owner`             | Alternate attrs key representing same information as owner in the organization.              |
-| `attrs_mapping.members`        |          | `uniqueMember`      | Alternate attrs key representing same information as group members in the organization.      |
-| `attrs_mapping.displayName`    |          | `name`              | Alternate attrs key representing same information as group display name in the organization. |
+| Field                          | Required | Default             | Description                                                                                                                                   |
+| ------------------------------ | -------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ldap_server`                  | ✅       |                     | LDAP server URL.                                                                                                                              |
+| `ldap_user`                    | ✅       |                     | LDAP user.                                                                                                                                    |
+| `ldap_password`                | ✅       |                     | LDAP password.                                                                                                                                |
+| `base_dn`                      | ✅       |                     | LDAP DN.                                                                                                                                      |
+| `filter`                       |          | `"(objectClass=*)"` | LDAP extractor filter.                                                                                                                        |
+| `drop_missing_first_last_name` |          | `True`              | If set to true, any users without first and last names will be dropped.                                                                       |
+| `page_size`                    |          | `20`                | Size of each page to fetch when extracting metadata.                                                                                          |
+| `attrs_mapping.urn`            |          | `sAMAccountName`    | An attribute to use in constructing the DataHub User urn. This should be something that uniquely identifies the user and is stable over time. |
+| `attrs_mapping.managerUrn`     |          | `manager`           | Alternate attrs key representing same information as manager in the organization.                                                             |
+| `attrs_mapping.firstName`      |          | `givenName`         | Alternate attrs key representing same information as givenName in the organization.                                                           |
+| `attrs_mapping.lastName`       |          | `sn`                | Alternate attrs key representing same information as sn in the organization.                                                                  |
+| `attrs_mapping.fullName`       |          | `cn`                | Alternate attrs key representing same information as cn in the organization.                                                                  |
+| `attrs_mapping.email`          |          | `mail`              | Alternate attrs key representing same information as mail in the organization.                                                                |
+| `attrs_mapping.displayName`    |          | `displayName`       | Alternate attrs key representing same information as displayName in the organization.                                                         |
+| `attrs_mapping.departmentId`   |          | `departmentNumber`  | Alternate attrs key representing same information as departmentNumber in the organization.                                                    |
+| `attrs_mapping.departmentName` |          | `department`        | Alternate attrs key representing same information as departmentNumber in the organization.                                                    |
+| `attrs_mapping.title`          |          | `title`             | Alternate attrs key representing same information as title in the organization.                                                               |
+| `attrs_mapping.countryCode`    |          | `countryCode`       | Alternate attrs key representing same information as title in the organization.                                                               |
+| `attrs_mapping.group_urn`      |          | `cn`                | Alternate attrs key representing same information as the cn for the LDAP group.                                                               |
+| `attrs_mapping.admins`         |          | `owner`             | Alternate attrs key representing same information as owner in the organization.                                                               |
+| `attrs_mapping.members`        |          | `uniqueMember`      | Alternate attrs key representing same information as group members in the organization.                                                       |
+| `attrs_mapping.displayName`    |          | `name`              | Alternate attrs key representing same information as group display name in the organization.                                                  |
 
 The `drop_missing_first_last_name` should be set to true if you've got many "headless" user LDAP accounts
 for devices or services should be excluded when they do not contain a first and last name. This will only
