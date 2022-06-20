@@ -38,7 +38,7 @@ attrs_mapping["managerUrn"] = "manager"
 attrs_mapping["email"] = "mail"
 attrs_mapping["departmentId"] = "departmentNumber"
 attrs_mapping["title"] = "title"
-attrs_mapping["departmentName"] = "department"
+attrs_mapping["departmentName"] = "departmentNumber"
 attrs_mapping["countryCode"] = "countryCode"
 
 # group related attrs
