@@ -1,6 +1,6 @@
 // import { Empty } from 'antd';
 import React, { useState } from 'react';
-import { Button, Divider, Form, Input, Table, Typography } from 'antd';
+import { Button, Divider, Form, Input, Row, Table, Typography } from 'antd';
 import PropTypes from 'prop-types';
 import axios from 'axios';
 // import adhocConfig from '../../../../../../conf/Adhoc';
@@ -282,18 +282,20 @@ export const EditPropertiesTableEditable = () => {
     };
     return (
         <Form form={form} component={false}>
-            <Button onClick={addRow}>Add New Row</Button>
-            <Button onClick={deleteRow}>Delete Row</Button>
-            &nbsp;
-            <Button onClick={shiftUpwards}>&#x2191;</Button>
-            <Button onClick={shiftDownwards}>&#x2193;</Button>
-            &nbsp;
-            <Button onClick={submitData} disabled={!modifiedForm}>
-                Submit Changes
-            </Button>
-            <Button onClick={resetState} disabled={!modifiedForm}>
-                Reset Changes
-            </Button>
+            <Row>
+                <Button onClick={addRow}>Add New Row</Button>
+                <Button onClick={deleteRow}>Delete Row</Button>
+                &nbsp;
+                <Button onClick={shiftUpwards}>&#x2191;</Button>
+                <Button onClick={shiftDownwards}>&#x2193;</Button>
+                &nbsp;
+                <Button onClick={submitData} disabled={!modifiedForm}>
+                    Submit Changes
+                </Button>
+                <Button onClick={resetState} disabled={!modifiedForm}>
+                    Reset Changes
+                </Button>
+            </Row>
             <Divider dashed orientation="left">
                 Refresh webpage with <b>F5</b> after successful submission to see updated schema.
             </Divider>
