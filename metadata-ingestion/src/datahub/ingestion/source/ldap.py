@@ -46,6 +46,7 @@ attrs_mapping["group_urn"] = "cn"
 attrs_mapping["admins"] = "owner"
 attrs_mapping["members"] = "uniqueMember"
 attrs_mapping["displayName"] = "name"
+attrs_mapping["description"] = "info"
 
 
 def create_controls(pagesize: int) -> SimplePagedResultsControl:

@@ -86,6 +86,7 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `attrs_mapping.admins`         |          | `owner`             | Alternate attrs key representing same information as owner in the organization.                                                               |
 | `attrs_mapping.members`        |          | `uniqueMember`      | Alternate attrs key representing same information as group members in the organization.                                                       |
 | `attrs_mapping.displayName`    |          | `name`              | Alternate attrs key representing same information as group display name in the organization.                                                  |
+| `attrs_mapping.description`    |          | `info`              | Alternate attrs key representing same information as group description in the organization.                                                   |
 
 The `drop_missing_first_last_name` should be set to true if you've got many "headless" user LDAP accounts
 for devices or services should be excluded when they do not contain a first and last name. This will only
