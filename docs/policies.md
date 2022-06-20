@@ -75,11 +75,12 @@ We currently support the following:
 | Manage Policies                 | Allow actor to create and remove access control policies. Be careful - Actors with this privilege are effectively super users. |
 | Manage Metadata Ingestion       | Allow actor to create, remove, and update Metadata Ingestion sources.                                                          |
 | Manage Secrets                  | Allow actor to create & remove secrets stored inside DataHub.                                                                  |
-| Manage Users & Groups           | Allow actor to create, remove, and update users and groups on DataHub.                                                         |
+| Manage Users & Groups           | Allow actor to create, remove, and update users and groups on DataHub.                                                          |
 | Manage All Access Tokens        | Allow actor to create, remove, and list access tokens for all users on DataHub.                                                |
 | Manage Domains                  | Allow actor to create and remove Asset Domains.                                                                                |
-| View Analytics                  | Allow the actor access to the DataHub analytics dashboard.                                                                     |
+| View Analytics                  | Allow the actor access to the DataHub analytics dashboard.                                                                      |
 | Generate Personal Access Tokens | Allow the actor to generate access tokens for personal use with DataHub APIs.                                                  |
+| Manage User Credentials         | Allow the actor to generate invite links for new native DataHub users, and password reset links for existing native users.   |
 
 **Common metadata privileges** to view & modify any entity within DataHub.
 
