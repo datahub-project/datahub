@@ -1,11 +1,27 @@
+import os
 import json
 import pytest
 from time import sleep
 from datahub.cli import delete_cli, ingest_cli
+from datahub.cli.docker import check_local_docker_containers
 from datahub.cli.cli_utils import guess_entity_type, post_entity, get_aspects_for_entity
 from datahub.cli.ingest_cli import get_session_and_host
 from datahub.cli.delete_cli import guess_entity_type, delete_one_urn_cmd, delete_references
 from tests.utils import ingest_file_via_rest, delete_urns_from_file
+
+# Disable telemetry
+os.putenv("DATAHUB_TELEMETRY_ENABLED", "false")
+
+@pytest.fixture(scope="session")
+def wait_for_healthchecks():
+    # Simply assert that everything is healthy, but don't wait.
+    assert not check_local_docker_containers()
+    yield
+
+@pytest.mark.dependency()
+def test_healthchecks(wait_for_healthchecks):
+    # Call to wait_for_healthchecks fixture will do the actual functionality.
+    pass
 
 @pytest.fixture(autouse=True)
 def test_setup():
@@ -38,7 +54,7 @@ def test_setup():
     assert "editableDatasetProperties" not in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False)
 
 @pytest.mark.dependency()
-def test_delete_reference():
+def test_delete_reference(depends=["test_healthchecks"]):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = "test-delete"
 

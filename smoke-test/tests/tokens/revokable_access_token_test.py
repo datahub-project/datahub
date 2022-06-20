@@ -3,7 +3,6 @@ import pytest
 import requests
 from time import sleep
 
-from tests.utils import get_frontend_url()
 from tests.utils import ingest_file_via_rest
 from datahub.cli.docker import check_local_docker_containers
 from datahub.cli.ingest_cli import get_session_and_host
@@ -323,8 +322,8 @@ def generateAccessToken_v2(session, actorUrn):
 
     response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
-
     sleep(2)
+
     return response.json()
 
 
@@ -402,6 +401,6 @@ def removeUser(session, urn):
     response = session.post(
         f"{get_frontend_url()}/api/v2/graphql", json=json
     )
-    #sleep(5)
+
     response.raise_for_status()
     return response.json()
