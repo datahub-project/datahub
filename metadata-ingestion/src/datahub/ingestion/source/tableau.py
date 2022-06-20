@@ -134,8 +134,9 @@ class TableauConfig(ConfigModel):
 
     workbooks_page_size: int = Field(
         default=10,
-        description="Number of workbooks to query at a time using Tableau api.",
+        description="Number of metadata objects (e.g. workbooks, etc) to query at a time using Tableau api.",
     )
+
     env: str = Field(
         default=builder.DEFAULT_ENV,
         description="Environment to use in namespace when constructing URNs.",
@@ -247,6 +248,9 @@ class TableauSource(Source):
         count: int = 0,
         current_count: int = 0,
     ) -> Tuple[dict, int, int]:
+        logger.debug(
+            f"Query {connection_type} to get {count} objects with offset {current_count}"
+        )
         query_data = query_metadata(
             self.server, query, connection_type, count, current_count, query_filter
         )
@@ -410,7 +414,7 @@ class TableauSource(Source):
         return upstream_tables
 
     def emit_custom_sql_datasources(self) -> Iterable[MetadataWorkUnit]:
-        count_on_query = len(self.custom_sql_ids_being_used)
+        count_on_query = self.config.workbooks_page_size
         custom_sql_filter = "idWithin: {}".format(
             json.dumps(self.custom_sql_ids_being_used)
         )
@@ -779,7 +783,7 @@ class TableauSource(Source):
             )
 
     def emit_published_datasources(self) -> Iterable[MetadataWorkUnit]:
-        count_on_query = len(self.datasource_ids_being_used)
+        count_on_query = self.config.workbooks_page_size
         datasource_filter = "idWithin: {}".format(
             json.dumps(self.datasource_ids_being_used)
         )

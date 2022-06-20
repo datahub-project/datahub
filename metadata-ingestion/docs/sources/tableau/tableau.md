@@ -408,7 +408,7 @@ Lineage is emitted as received from Tableau's metadata API for
 
 ## Troubleshooting
 
-### Why are only some workbooks ingested from the specified project?
+### Why are only some workbooks/custom SQLs/published datasources ingested from the specified project?
 
 This may happen when the Tableau API returns NODE_LIMIT_EXCEEDED error in response to metadata query and returns partial results with message "Showing partial results. , The request exceeded the ‘n’ node limit. Use pagination, additional filtering, or both in the query to adjust results." To resolve this, consider 
 - reducing the page size using the `workbooks_page_size` config param in datahub recipe (Defaults to 10).
