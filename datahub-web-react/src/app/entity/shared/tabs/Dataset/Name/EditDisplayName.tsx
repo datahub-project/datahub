@@ -33,18 +33,11 @@ export const EditDisplayName = () => {
     };
 
     const updateForm = () => {
-        if (existingProperties?.name !== undefined) {
-            if (formState.getFieldValue('displayName') === existingProperties?.name) {
-                setModifiedState(false);
-            } else {
-                setModifiedState(true);
-            }
-        }
-        // undefined
-        else if (formState.getFieldValue('displayName') === '') {
-            setModifiedState(false);
-        } else {
+        if (existingProperties?.name !== formState.getFieldValue('displayName')) {
             setModifiedState(true);
+        }
+        if (formState.getFieldValue('displayName') === '') {
+            setModifiedState(false);
         }
     };
     const submitForm = async (values) => {

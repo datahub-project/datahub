@@ -178,7 +178,7 @@ def make_dataset_description_mce(
     Tags and externalUrl doesnt seem to have any impact on UI.
     """
     return DatasetPropertiesClass(
-        name=dataset_name,
+        name = dataset_name,
         description=description,
         customProperties=customProperties,
     )
