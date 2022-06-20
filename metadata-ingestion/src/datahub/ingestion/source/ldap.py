@@ -34,17 +34,18 @@ attrs_mapping["fullName"] = "cn"
 attrs_mapping["lastName"] = "sn"
 attrs_mapping["firstName"] = "givenName"
 attrs_mapping["displayName"] = "displayName"
-attrs_mapping["manager"] = "manager"
-attrs_mapping["mail"] = "mail"
-attrs_mapping["departmentNumber"] = "departmentNumber"
+attrs_mapping["managerUrn"] = "manager"
+attrs_mapping["email"] = "mail"
+attrs_mapping["departmentId"] = "departmentNumber"
 attrs_mapping["title"] = "title"
+attrs_mapping["departmentName"] = "department"
+attrs_mapping["countryCode"] = "countryCode"
 
 # group related attrs
 attrs_mapping["group_urn"] = "cn"
-attrs_mapping["owner"] = "owner"
-attrs_mapping["managedBy"] = "managedBy"
-attrs_mapping["uniqueMember"] = "uniqueMember"
-attrs_mapping["member"] = "member"
+attrs_mapping["admins"] = "owner"
+attrs_mapping["members"] = "uniqueMember"
+attrs_mapping["displayName"] = "name"
 
 
 def create_controls(pagesize: int) -> SimplePagedResultsControl:
@@ -104,18 +105,6 @@ class LDAPSourceConfig(ConfigModel):
     attrs_mapping: Dict[str, Any] = {}
 
 
-def guess_person_ldap(attrs: Dict[str, Any], config: LDAPSourceConfig) -> Optional[str]:
-    """Determine the user's LDAP based on the DN and attributes."""
-    if config.attrs_mapping["urn"] in attrs:
-        return attrs[config.attrs_mapping["urn"]][0].decode()
-    else:  # for backward compatiblity
-        if "sAMAccountName" in attrs:
-            return attrs["sAMAccountName"][0].decode()
-        if "uid" in attrs:
-            return attrs["uid"][0].decode()
-        return None
-
-
 @dataclasses.dataclass
 class LDAPSourceReport(SourceReport):
 
@@ -123,6 +112,28 @@ class LDAPSourceReport(SourceReport):
 
     def report_dropped(self, dn: str) -> None:
         self.dropped_dns.append(dn)
+
+
+def guess_person_ldap(
+    attrs: Dict[str, Any], config: LDAPSourceConfig, report: LDAPSourceReport
+) -> Optional[str]:
+    """Determine the user's LDAP based on the DN and attributes."""
+    if config.attrs_mapping["urn"] in attrs:
+        return attrs[config.attrs_mapping["urn"]][0].decode()
+    else:  # for backward compatiblity
+        if "sAMAccountName" in attrs:
+            report.report_warning(
+                "<general>",
+                "Defaulting to sAMAccountName as it was found in attrs and not set in attrs_mapping in recipe",
+            )
+            return attrs["sAMAccountName"][0].decode()
+        if "uid" in attrs:
+            report.report_warning(
+                "<general>",
+                f"Defaulting to uid as it was found in attrs and not set in attrs_mapping in recipe",
+            )
+            return attrs["uid"][0].decode()
+        return None
 
 
 @platform_name("LDAP")
@@ -231,9 +242,9 @@ class LDAPSource(Source):
         work unit based on the information.
         """
         manager_ldap = None
-        if self.config.attrs_mapping["manager"] in attrs:
+        if self.config.attrs_mapping["managerUrn"] in attrs:
             try:
-                m_cn = attrs[self.config.attrs_mapping["manager"]][0].decode()
+                m_cn = attrs[self.config.attrs_mapping["managerUrn"]][0].decode()
                 manager_msgid = self.ldap_client.search_ext(
                     m_cn,
                     ldap.SCOPE_BASE,
@@ -241,7 +252,7 @@ class LDAPSource(Source):
                     serverctrls=[self.lc],
                 )
                 _m_dn, m_attrs = self.ldap_client.result3(manager_msgid)[1][0]
-                manager_ldap = guess_person_ldap(m_attrs, self.config)
+                manager_ldap = guess_person_ldap(m_attrs, self.config, self.report)
             except ldap.LDAPError as e:
                 self.report.report_warning(
                     dn, "manager LDAP search failed: {}".format(e)
@@ -274,7 +285,7 @@ class LDAPSource(Source):
         """
         Create the MetadataChangeEvent via DN and attributes.
         """
-        ldap_user = guess_person_ldap(attrs, self.config)
+        ldap_user = guess_person_ldap(attrs, self.config, self.report)
 
         if self.config.drop_missing_first_last_name and (
             self.config.attrs_mapping["firstName"] not in attrs
@@ -286,8 +297,8 @@ class LDAPSource(Source):
         last_name = attrs[self.config.attrs_mapping["lastName"]][0].decode()
 
         email = (
-            (attrs[self.config.attrs_mapping["mail"]][0]).decode()
-            if self.config.attrs_mapping["mail"] in attrs
+            (attrs[self.config.attrs_mapping["email"]][0]).decode()
+            if self.config.attrs_mapping["email"] in attrs
             else ldap_user
         )
         display_name = (
@@ -295,9 +306,19 @@ class LDAPSource(Source):
             if self.config.attrs_mapping["displayName"] in attrs
             else full_name
         )
-        department = (
-            (attrs[self.config.attrs_mapping["departmentNumber"]][0]).decode()
-            if self.config.attrs_mapping["departmentNumber"] in attrs
+        department_id = (
+            (attrs[self.config.attrs_mapping["departmentId"]][0]).decode()
+            if self.config.attrs_mapping["departmentId"] in attrs
+            else None
+        )
+        department_name = (
+            (attrs[self.config.attrs_mapping["departmentName"]][0]).decode()
+            if self.config.attrs_mapping["departmentName"] in attrs
+            else None
+        )
+        country_code = (
+            (attrs[self.config.attrs_mapping["countryCode"]][0]).decode()
+            if self.config.attrs_mapping["countryCode"] in attrs
             else None
         )
         title = (
@@ -317,8 +338,10 @@ class LDAPSource(Source):
                         fullName=full_name,
                         firstName=first_name,
                         lastName=last_name,
-                        departmentName=department,
+                        departmentId=department_id,
+                        departmentName=department_name,
                         displayName=display_name,
+                        countryCode=country_code,
                         title=title,
                         managerUrn=manager_urn,
                     )
@@ -331,23 +354,34 @@ class LDAPSource(Source):
         cn = attrs.get(self.config.attrs_mapping["group_urn"])
         if cn:
             full_name = cn[0].decode()
-            owners = parse_from_attrs(attrs, self.config.attrs_mapping["owner"])
-            members = parse_from_attrs(attrs, self.config.attrs_mapping["uniqueMember"])
+            admins = parse_from_attrs(attrs, self.config.attrs_mapping["admins"])
+            members = parse_from_attrs(attrs, self.config.attrs_mapping["members"])
             email = (
-                attrs[self.config.attrs_mapping["mail"]][0].decode()
-                if self.config.attrs_mapping["mail"] in attrs
+                attrs[self.config.attrs_mapping["email"]][0].decode()
+                if self.config.attrs_mapping["email"] in attrs
                 else full_name
             )
-
+            description = (
+                attrs[self.config.attrs_mapping["description"]][0].decode()
+                if self.config.attrs_mapping["description"] in attrs
+                else None
+            )
+            displayName = (
+                attrs[self.config.attrs_mapping["displayName"]][0].decode()
+                if self.config.attrs_mapping["displayName"] in attrs
+                else None
+            )
             return MetadataChangeEvent(
                 proposedSnapshot=CorpGroupSnapshotClass(
                     urn=f"urn:li:corpGroup:{full_name}",
                     aspects=[
                         CorpGroupInfoClass(
                             email=email,
-                            admins=owners,
+                            admins=admins,
                             members=members,
                             groups=[],
+                            description=description,
+                            displayName=displayName,
                         )
                     ],
                 )
