@@ -11,6 +11,7 @@ from tests.utils import get_frontend_url, ingest_file_via_rest
 # Disable telemetry
 os.putenv("DATAHUB_TELEMETRY_ENABLED", "false")
 
+
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
     # Simply assert that everything is healthy, but don't wait.
@@ -22,11 +23,17 @@ def test_healthchecks(wait_for_healthchecks):
     # Call to wait_for_healthchecks fixture will do the actual functionality.
     pass
 
-@pytest.fixture(scope='session', autouse=True)
-def custom_user_setup():
+@pytest.mark.dependency(depends=["test_healthchecks"])
+@pytest.fixture(scope='class', autouse=True)
+def custom_user_setup(wait_for_healthchecks):
   """Fixture to execute asserts before and after a test is run"""
   admin_session = loginAs("datahub", "datahub")
-  removeUser(admin_session, "urn:li:corpuser:user")
+  res_data = removeUser(admin_session, "urn:li:corpuser:user")
+  assert res_data
+  assert res_data['data']
+  assert res_data['data']['removeUser'] == True
+
+
   # Test getting the invite token
   get_invite_token_json = {
       "query": """query getNativeUserInviteToken {\n
@@ -56,23 +63,34 @@ def custom_user_setup():
   }
 
   sign_up_response = admin_session.post(f"{get_frontend_url()}/signUp", json=sign_up_json)
+  sign_up_response.raise_for_status()
+  sleep(5)
   assert sign_up_response
   assert "error" not in sign_up_response
+
+  # Make user created user is there.
+  res_data = listUsers(admin_session)
+  assert res_data["data"]
+  assert res_data["data"]["listUsers"]
+  assert res_data["data"]["listUsers"]["total"] == 1
 
   yield
 
   # Delete created user
   res_data = removeUser(admin_session, "urn:li:corpuser:user")
-  print("removeUser response: " + str(res_data))
+  assert res_data
+  assert res_data['data']
+  assert res_data['data']['removeUser'] == True
 
   # Make user created user is not there.
   res_data = listUsers(admin_session)
-  print("list users:")
-  print(res_data)
+  assert res_data["data"]
+  assert res_data["data"]["listUsers"]
+  assert res_data["data"]["listUsers"]["total"] == 0
 
-
+@pytest.mark.dependency(depends=["test_healthchecks"])
 @pytest.fixture(autouse=True)
-def test_setup():
+def access_token_setup(wait_for_healthchecks):
     """Fixture to execute asserts before and after a test is run"""
     admin_session = loginAs("datahub", "datahub")
 
@@ -97,7 +115,7 @@ def test_setup():
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
-def test_admin_can_create_list_and_revoke_tokens():
+def test_admin_can_create_list_and_revoke_tokens(wait_for_healthchecks):
     admin_session = loginAs("datahub", "datahub")
 
     # Using a super account, there should be no tokens
@@ -140,7 +158,7 @@ def test_admin_can_create_list_and_revoke_tokens():
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
-def test_admin_can_create_and_revoke_tokens_for_other_user():
+def test_admin_can_create_and_revoke_tokens_for_other_user(wait_for_healthchecks):
     admin_session = loginAs("datahub", "datahub")
 
     # Using a super account, there should be no tokens
@@ -183,7 +201,7 @@ def test_admin_can_create_and_revoke_tokens_for_other_user():
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
-def test_non_admin_can_create_list_revoke_tokens():
+def test_non_admin_can_create_list_revoke_tokens(wait_for_healthchecks):
     user_session = loginAs("user", "user")
     admin_session = loginAs("datahub", "datahub")
 
@@ -221,7 +239,7 @@ def test_non_admin_can_create_list_revoke_tokens():
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
-def test_admin_can_manage_tokens_generated_by_other_user():
+def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     user_session = loginAs("user", "user")
     admin_session = loginAs("datahub", "datahub")
 
