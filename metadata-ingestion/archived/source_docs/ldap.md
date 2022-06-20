@@ -50,10 +50,9 @@ source:
 
       # group related attrs
       group_urn: cn
-      owner: owner
-      managedBy: managedBy
-      uniqueMember: uniqueMember
-      member: member
+      admins: owner
+      members: uniqueMember
+      displayName: name
 
 sink:
   # sink configs
