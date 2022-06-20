@@ -15,7 +15,7 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import \
     DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import (ChangeTypeClass,
+from datahub.metadata.schema_classes import (ChangeTypeClass, GlossaryTermAssociationClass, GlossaryTermsClass,
                                              SystemMetadataClass)
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -28,6 +28,9 @@ from ingest_api.helper.models import *
 from ingest_api.helper.security import authenticate_action, verify_token
 
 CLI_MODE = False if environ.get("RUNNING_IN_DOCKER") else True
+
+frequency_enum = ["Adhoc","Periodic","Onetime","Unknown"]
+
 
 # when running ingest-api from CLI, need to set some params.
 # cos dataset_profile_index name varies depending on ES. If there is an existing index (and datahub is instantiated on top, then it will append a UUID to it)
@@ -508,7 +511,6 @@ async def create_item(item: create_dataset_params) -> None:
         properties = {
             "dataset_origin": item.dict().get("dataset_origin", ""),
             "dataset_location": item.dict().get("dataset_location", ""),
-            "dataset_frequency": item.dict().get("frequency", "") + ": " + item.dict().get("dataset_frequency_details", ""),
         }
         dataset_description = (
             item.dataset_description if item.dataset_description else ""
@@ -517,6 +519,19 @@ async def create_item(item: create_dataset_params) -> None:
             urn=datasetUrn,
             aspects=[],
         )
+        if item.dict().get("frequency","") in frequency_enum:
+            properties["dataset_frequency"] = item.dict().get("frequency", "") + ": " + item.dict().get("dataset_frequency_details", "")
+            freq = item.dict().get("frequency")
+            frequency = GlossaryTermsClass(
+                terms = [
+                    GlossaryTermAssociationClass(urn=f"urn:li:glossaryTerm:Metadata.Dataset.Frequency.{freq}")
+                ],
+                auditStamp=AuditStampClass(
+                    time=0,
+                    actor=f"urn:li:corpuser:{item.dataset_owner}"
+                )
+            )
+            dataset_snapshot.aspects.append(frequency)
         dataset_snapshot.aspects.append(
             make_dataset_description_mce(
                 dataset_name=datasetDisplayName,
