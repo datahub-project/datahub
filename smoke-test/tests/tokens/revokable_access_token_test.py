@@ -25,14 +25,13 @@ def test_healthchecks(wait_for_healthchecks):
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 @pytest.fixture(scope='class', autouse=True)
-def custom_user_setup(wait_for_healthchecks):
+def custom_user_setup():
   """Fixture to execute asserts before and after a test is run"""
   admin_session = loginAs("datahub", "datahub")
+
   res_data = removeUser(admin_session, "urn:li:corpuser:user")
   assert res_data
-  assert res_data['data']
-  assert res_data['data']['removeUser'] == True
-
+  assert "error" not in res_data
 
   # Test getting the invite token
   get_invite_token_json = {
@@ -51,7 +50,7 @@ def custom_user_setup(wait_for_healthchecks):
   assert get_invite_token_res_data["data"]
   invite_token = get_invite_token_res_data["data"]["getNativeUserInviteToken"]["inviteToken"]
   assert invite_token is not None
-  assert "error" not in get_invite_token_res_data
+  assert "error" not in invite_token
 
   # Pass the invite token when creating the user
   sign_up_json = {
@@ -70,7 +69,6 @@ def custom_user_setup(wait_for_healthchecks):
 
   # Make user created user is there.
   res_data = listUsers(admin_session)
-  print(res_data)
   assert res_data["data"]
   assert res_data["data"]["listUsers"]
   assert res_data["data"]["listUsers"]["total"] == 1
@@ -91,7 +89,7 @@ def custom_user_setup(wait_for_healthchecks):
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 @pytest.fixture(autouse=True)
-def access_token_setup(wait_for_healthchecks):
+def access_token_setup():
     """Fixture to execute asserts before and after a test is run"""
     admin_session = loginAs("datahub", "datahub")
 
