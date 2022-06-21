@@ -922,51 +922,7 @@ class BigQueryUsageSource(Source):
         if self.config.use_v2_audit_metadata:
             audit_templates = BQ_AUDIT_V2
 
-        # We adjust the filter values a bit, since we need to make sure that the join
-        # between query events and read events is complete. For example, this helps us
-        # handle the case where the read happens within our time range but the query
-        # completion event is delayed and happens after the configured end time.
-
-        # Can safely access the first index of the allow list as it by default contains ".*"
-        use_allow_filter = self.config.table_pattern and (
-            len(self.config.table_pattern.allow) > 1
-            or self.config.table_pattern.allow[0] != ".*"
-        )
-        use_deny_filter = self.config.table_pattern and self.config.table_pattern.deny
-        allow_regex = (
-            audit_templates["BQ_FILTER_REGEX_ALLOW_TEMPLATE"].format(
-                allow_pattern=self.config.get_allow_pattern_string()
-            )
-            if use_allow_filter
-            else ""
-        )
-
-        base_deny_pattern: str = "__TABLES_SUMMARY__|INFORMATION_SCHEMA"
-        deny_regex = audit_templates["BQ_FILTER_REGEX_DENY_TEMPLATE"].format(
-            deny_pattern=base_deny_pattern + "|" + self.config.get_deny_pattern_string()
-            if self.config.get_deny_pattern_string()
-            else base_deny_pattern,
-            logical_operator="AND" if use_allow_filter else "",
-        )
-
-        logger.debug(
-            f"use_allow_filter={use_allow_filter}, use_deny_filter={use_deny_filter}, "
-            f"allow_regex={allow_regex}, deny_regex={deny_regex}"
-        )
-        start_time = (self.config.start_time - self.config.max_query_duration).strftime(
-            BQ_DATETIME_FORMAT
-        )
-        self.report.log_entry_start_time = start_time
-        end_time = (self.config.end_time + self.config.max_query_duration).strftime(
-            BQ_DATETIME_FORMAT
-        )
-        self.report.log_entry_end_time = end_time
-        filter = audit_templates["BQ_FILTER_RULE_TEMPLATE"].format(
-            start_time=start_time,
-            end_time=end_time,
-            allow_regex=allow_regex,
-            deny_regex=deny_regex,
-        )
+        filter = self._generate_filter(audit_templates)
         logger.debug(filter)
 
         list_entry_generators_across_clients: List[
@@ -1007,6 +963,51 @@ class BigQueryUsageSource(Source):
             self.report.total_log_entries += 1
             yield entry
         logger.info(f"Finished loading {i} log entries from GCP Logging")
+
+    def _generate_filter(self, audit_templates: Dict[str, str]) -> str:
+        # We adjust the filter values a bit, since we need to make sure that the join
+        # between query events and read events is complete. For example, this helps us
+        # handle the case where the read happens within our time range but the query
+        # completion event is delayed and happens after the configured end time.
+        # Can safely access the first index of the allow list as it by default contains ".*"
+        use_allow_filter = self.config.table_pattern and (
+            len(self.config.table_pattern.allow) > 1
+            or self.config.table_pattern.allow[0] != ".*"
+        )
+        use_deny_filter = self.config.table_pattern and self.config.table_pattern.deny
+        allow_regex = (
+            audit_templates["BQ_FILTER_REGEX_ALLOW_TEMPLATE"].format(
+                allow_pattern=self.config.get_allow_pattern_string()
+            )
+            if use_allow_filter
+            else ""
+        )
+        base_deny_pattern: str = "__TABLES_SUMMARY__|INFORMATION_SCHEMA"
+        deny_regex = audit_templates["BQ_FILTER_REGEX_DENY_TEMPLATE"].format(
+            deny_pattern=base_deny_pattern + "|" + self.config.get_deny_pattern_string()
+            if self.config.get_deny_pattern_string()
+            else base_deny_pattern,
+            logical_operator="AND" if use_allow_filter else "",
+        )
+        logger.debug(
+            f"use_allow_filter={use_allow_filter}, use_deny_filter={use_deny_filter}, "
+            f"allow_regex={allow_regex}, deny_regex={deny_regex}"
+        )
+        start_time = (self.config.start_time - self.config.max_query_duration).strftime(
+            BQ_DATETIME_FORMAT
+        )
+        self.report.log_entry_start_time = start_time
+        end_time = (self.config.end_time + self.config.max_query_duration).strftime(
+            BQ_DATETIME_FORMAT
+        )
+        self.report.log_entry_end_time = end_time
+        filter = audit_templates["BQ_FILTER_RULE_TEMPLATE"].format(
+            start_time=start_time,
+            end_time=end_time,
+            allow_regex=allow_regex,
+            deny_regex=deny_regex,
+        )
+        return filter
 
     def _create_operation_aspect_work_unit(
         self, event: AuditEvent

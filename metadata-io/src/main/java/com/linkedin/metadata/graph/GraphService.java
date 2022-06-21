@@ -94,8 +94,7 @@ public interface GraphService {
   default EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction, int offset,
       int count, int maxHops) {
     if (maxHops > 1) {
-      throw new UnsupportedOperationException(
-          String.format("More than 1 hop is not supported for %s", this.getClass().getSimpleName()));
+      maxHops = 1;
     }
     List<LineageRegistry.EdgeInfo> edgesToFetch =
         getLineageRegistry().getLineageRelationships(entityUrn.getEntityType(), direction);
