@@ -305,10 +305,10 @@ public class JavaEntityClient implements EntityClient {
     @Nonnull
     @Override
     public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
-        @Nonnull List<String> entities, @Nullable String input, @Nullable Filter filter,
+        @Nonnull List<String> entities, @Nullable String input, @Nullable Integer maxHops, @Nullable Filter filter,
         @Nullable SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
-        return _lineageSearchService.searchAcrossLineage(sourceUrn, direction, entities, input, filter,
+        return _lineageSearchService.searchAcrossLineage(sourceUrn, direction, entities, input, maxHops, filter,
             sortCriterion, start, count);
     }
 
