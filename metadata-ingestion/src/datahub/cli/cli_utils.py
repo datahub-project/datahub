@@ -71,6 +71,8 @@ ENV_METADATA_PROTOCOL = "DATAHUB_GMS_PROTOCOL"
 ENV_METADATA_HOST_DEPRECATED = "GMS_HOST"
 ENV_METADATA_PORT_DEPRECATED = "GMS_PORT"
 ENV_METADATA_TOKEN = "DATAHUB_GMS_TOKEN"
+ENV_DATAHUB_SYSTEM_CLIENT_ID = "DATAHUB_SYSTEM_CLIENT_ID"
+ENV_DATAHUB_SYSTEM_CLIENT_SECRET = "DATAHUB_SYSTEM_CLIENT_SECRET"
 
 config_override: Dict = {}
 
@@ -147,6 +149,11 @@ def get_details_from_env() -> Tuple[Optional[str], Optional[str]]:
         ENV_METADATA_PORT_DEPRECATED
     )
     token = os.environ.get(ENV_METADATA_TOKEN)
+    if token is None:
+        system_client_id = os.environ.get(ENV_DATAHUB_SYSTEM_CLIENT_ID)
+        system_client_secret = os.environ.get(ENV_DATAHUB_SYSTEM_CLIENT_SECRET)
+        if system_client_id is not None and system_client_secret is not None:
+            token = f"Basic {system_client_id}:{system_client_secret}"
     protocol = os.environ.get(ENV_METADATA_PROTOCOL, "http")
     url = os.environ.get(ENV_METADATA_HOST_URL)
     if port is not None:

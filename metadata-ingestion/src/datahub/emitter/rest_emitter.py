@@ -90,7 +90,11 @@ class DataHubRestEmitter:
             }
         )
         if token:
-            self._session.headers.update({"Authorization": f"Bearer {token}"})
+            if token.startswith("Basic "):
+                auth = token
+            else:
+                auth = f"Bearer {token}"
+            self._session.headers.update({"Authorization": auth})
 
         if extra_headers:
             self._session.headers.update(extra_headers)
