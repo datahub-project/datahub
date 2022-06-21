@@ -34,9 +34,9 @@ function EmptyGlossarySection(props: Props) {
             <StyledEmpty
                 description={
                     <>
-                        <Typography.Title level={4}>No Glossary yet</Typography.Title>
+                        <Typography.Title level={4}>Empty Glossary</Typography.Title>
                         <Typography.Paragraph type="secondary">
-                            Create Terms and Term Groups to organize data assets using a shared vocabular.
+                            Create Terms and Term Groups to organize data assets using a shared vocabulary.
                         </Typography.Paragraph>
                     </>
                 }
