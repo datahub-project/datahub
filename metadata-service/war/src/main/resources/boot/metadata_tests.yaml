@@ -1,0 +1,57 @@
+-
+  urn: "urn:li:test:0"
+  name: Dataset has description
+  category: Metadata Completeness
+  description: All datasets should have a description
+  definition:
+    on:
+      types:
+        - dataset
+    rules:
+      or:
+        - query: editableDatasetProperties.description
+          operation: exists
+        - query: datasetProperties.description
+          operation: exists
+-
+  urn: "urn:li:test:1"
+  name: Dataset has owners
+  category: Metadata Completeness
+  description: All datasets or their domains should have at least one owner
+  definition:
+    on:
+      types:
+        - dataset
+    rules:
+      or:
+        - query: ownership.owners.owner
+          operation: exists
+        - query: domains.domains.ownership.owners.owner
+          operation: exists
+-
+  urn: "urn:li:test:2"
+  name: Dataset has domain
+  category: Metadata Completeness
+  description: All datasets should have a domain
+  definition:
+    on:
+      types:
+        - dataset
+    rules:
+      - query: domains.domains
+        operation: exists
+-
+  urn: "urn:li:test:3"
+  name: Dataset has a Classification glossary term
+  category: Data Governance
+  description: All datasets should have a glossary term under Classification node
+  definition:
+    on:
+      types:
+        - dataset
+    rules:
+      - query: glossaryTerms.terms.urn.glossaryTermInfo.parentNode
+        operation: equals
+        params:
+          values:
+            - 'urn:li:glossaryNode:Classification'
