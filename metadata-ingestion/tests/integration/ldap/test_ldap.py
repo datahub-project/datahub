@@ -29,7 +29,7 @@ def test_ldap_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
                         "ldap_user": "cn=admin,dc=example,dc=org",
                         "ldap_password": "admin",
                         "base_dn": "dc=example,dc=org",
-                        "attrs_mapping": {
+                        "group_attrs_map": {
                             "members": "memberUid",
                         },
                     },
