@@ -72,7 +72,7 @@ public class MetadataTestHook implements MetadataChangeLogHook {
   @WithSpan
   private void evaluateTest(Urn entity) {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "evaluateTestOnChange").time()) {
-      log.info("Evaluating tests for urn {}", entity);
+      log.debug("Evaluating tests for urn {}", entity);
       _testClient.evaluate(entity, null, true, _systemAuthentication);
     } catch (RemoteInvocationException e) {
       MetricUtils.counter(this.getClass(), "evaluteTestOnChangeFailed").inc();
