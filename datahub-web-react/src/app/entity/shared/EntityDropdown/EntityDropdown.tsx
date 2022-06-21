@@ -9,8 +9,9 @@ import {
     LinkOutlined,
     MoreOutlined,
     PlusOutlined,
+    WarningOutlined,
 } from '@ant-design/icons';
-import { Redirect } from 'react-router';
+import { Redirect, useHistory } from 'react-router';
 import { EntityType, PlatformPrivileges } from '../../../../types.generated';
 import CreateGlossaryEntityModal from './CreateGlossaryEntityModal';
 import { AddDeprecationDetailsModal } from './AddDeprecationDetailsModal';
@@ -22,6 +23,8 @@ import { PageRoutes } from '../../../../conf/Global';
 import { ANTD_GRAY } from '../constants';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useGetAuthenticatedUser } from '../../../useGetAuthenticatedUser';
+import { AddIncidentModal } from '../tabs/Incident/components/AddIncidentModal';
+import { getEntityPath } from '../containers/profile/utils';
 
 export enum EntityMenuItems {
     COPY_URL,
@@ -30,6 +33,8 @@ export enum EntityMenuItems {
     ADD_TERM_GROUP,
     DELETE,
     MOVE,
+    // acryl-main only
+    RAISE_INCIDENT,
 }
 
 const MenuIcon = styled(MoreOutlined)`
@@ -67,6 +72,8 @@ interface Props {
 }
 
 function EntityDropdown(props: Props) {
+    const history = useHistory();
+
     const { menuItems, platformPrivileges, refetchForTerms, refetchForNodes, refreshBrowser } = props;
 
     const entityRegistry = useEntityRegistry();
@@ -80,6 +87,8 @@ function EntityDropdown(props: Props) {
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
     const [isMoveModalVisible, setIsMoveModalVisible] = useState(false);
+    // acryl-main only
+    const [isRaiseIncidentModalVisible, setIsRaiseIncidentModalVisible] = useState(false);
 
     const handleUpdateDeprecation = async (deprecatedStatus: boolean) => {
         message.loading({ content: 'Updating...' });
@@ -176,6 +185,14 @@ function EntityDropdown(props: Props) {
                                 </Tooltip>
                             </StyledMenuItem>
                         )}
+                        {/** acryl-main only */}
+                        {menuItems.has(EntityMenuItems.RAISE_INCIDENT) && (
+                            <StyledMenuItem key="6" disabled={false}>
+                                <MenuItem onClick={() => setIsRaiseIncidentModalVisible(true)}>
+                                    <WarningOutlined /> &nbsp;Raise Incident
+                                </MenuItem>
+                            </StyledMenuItem>
+                        )}
                     </Menu>
                 }
                 trigger={['click']}
@@ -208,6 +225,19 @@ function EntityDropdown(props: Props) {
                 <MoveGlossaryEntityModal onClose={() => setIsMoveModalVisible(false)} refetchData={refreshBrowser} />
             )}
             {hasBeenDeleted && <Redirect to={`${PageRoutes.GLOSSARY}`} />}
+            {/* acryl-main only */}
+            {isRaiseIncidentModalVisible && (
+                <AddIncidentModal
+                    visible={isRaiseIncidentModalVisible}
+                    onClose={() => setIsRaiseIncidentModalVisible(false)}
+                    refetch={
+                        (() => {
+                            refetch();
+                            history.push(`${getEntityPath(entityType, urn, entityRegistry, false, 'Incidents')}`);
+                        }) as any
+                    }
+                />
+            )}
         </>
     );
 }

@@ -86,7 +86,9 @@ export class DatasetEntity implements Entity<Dataset> {
             useEntityQuery={useGetDatasetQuery}
             useUpdateQuery={useUpdateDatasetMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={
+                new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT])
+            }
             tabs={[
                 {
                     name: 'Schema',
