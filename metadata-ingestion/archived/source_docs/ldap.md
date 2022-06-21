@@ -34,11 +34,9 @@ source:
     # Options
     base_dn: "dc=example,dc=org"
 
-    # Optional attribute mapping to allow ldap config differences across orgs
-    attrs_map:
-      urn: sAMAccountName
-
-      # user related attrs
+    # Optional: Map LDAP User Attributes to DataHub User Attributes
+    user_attrs_map:
+      urn: sAMAccountName # A unique, stable ID for the User
       fullName: cn
       lastName: sn
       firstName: givenName
@@ -48,8 +46,9 @@ source:
       departmentNumber: departmentNumber
       title: title
 
-      # group related attrs
-      group_urn: cn
+    # Optional: Map LDAP Group Attributes to DataHub Group Attributes
+    group_attrs_map:   
+      urn: cn # A unique, stable ID for the Group
       admins: owner
       members: uniqueMember
       displayName: name
