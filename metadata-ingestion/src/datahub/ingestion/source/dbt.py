@@ -363,8 +363,8 @@ def extract_dbt_entities(
         if "identifier" in manifest_node and use_identifiers:
             name = manifest_node["identifier"]
 
-        if manifest_node.get("alias") is not None:
-            name = manifest_node["alias"]
+        if manifest_node.get("name") is not None:
+            name = manifest_node["name"]
 
         if not node_name_pattern.allowed(key):
             continue
