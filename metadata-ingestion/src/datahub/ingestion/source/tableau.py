@@ -5,7 +5,7 @@ from functools import lru_cache
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import dateutil.parser as dp
-from pydantic import validator
+from pydantic import root_validator, validator
 from pydantic.fields import Field
 from tableauserverclient import (
     PersonalAccessTokenAuth,
@@ -132,9 +132,14 @@ class TableauConfig(ConfigModel):
         description="Ingest details for tables external to (not embedded in) tableau as entities.",
     )
 
-    workbooks_page_size: int = Field(
+    workbooks_page_size: Optional[int] = Field(
+        default=None,
+        description="@deprecated(use page_size instead) Number of workbooks to query at a time using Tableau api.",
+    )
+
+    page_size: int = Field(
         default=10,
-        description="Number of metadata objects (e.g. workbooks, etc) to query at a time using Tableau api.",
+        description="Number of metadata objects (e.g. CustomSQLTable, PublishedDatasource, etc) to query at a time using Tableau api.",
     )
 
     env: str = Field(
@@ -145,6 +150,17 @@ class TableauConfig(ConfigModel):
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
+
+    @root_validator()
+    def show_warning_for_deprecated_config_field(
+        cls, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        if values.get("workbooks_page_size") is not None:
+            logger.warn(
+                "Config workbooks_page_size is deprecated. Please use config page_size instead."
+            )
+
+        return values
 
 
 class WorkbookKey(PlatformKey):
@@ -271,7 +287,12 @@ class TableauSource(Source):
         has_next_page = connection_object.get("pageInfo", {}).get("hasNextPage", False)
         return connection_object, total_count, has_next_page
 
-    def emit_workbooks(self, workbooks_page_size: int) -> Iterable[MetadataWorkUnit]:
+    def emit_workbooks(self) -> Iterable[MetadataWorkUnit]:
+        count_on_query = (
+            self.config.page_size
+            if self.config.workbooks_page_size is None
+            else self.config.workbooks_page_size
+        )
 
         projects = (
             f"projectNameWithin: {json.dumps(self.config.projects)}"
@@ -286,8 +307,8 @@ class TableauSource(Source):
         current_count = 0
         while has_next_page:
             count = (
-                workbooks_page_size
-                if current_count + workbooks_page_size < total_count
+                count_on_query
+                if current_count + count_on_query < total_count
                 else total_count - current_count
             )
             (
@@ -414,7 +435,7 @@ class TableauSource(Source):
         return upstream_tables
 
     def emit_custom_sql_datasources(self) -> Iterable[MetadataWorkUnit]:
-        count_on_query = self.config.workbooks_page_size
+        count_on_query = self.config.page_size
         custom_sql_filter = "idWithin: {}".format(
             json.dumps(self.custom_sql_ids_being_used)
         )
@@ -783,7 +804,7 @@ class TableauSource(Source):
             )
 
     def emit_published_datasources(self) -> Iterable[MetadataWorkUnit]:
-        count_on_query = self.config.workbooks_page_size
+        count_on_query = self.config.page_size
         datasource_filter = "idWithin: {}".format(
             json.dumps(self.datasource_ids_being_used)
         )
@@ -1152,7 +1173,7 @@ class TableauSource(Source):
         if self.server is None or not self.server.is_signed_in():
             return
         try:
-            yield from self.emit_workbooks(self.config.workbooks_page_size)
+            yield from self.emit_workbooks()
             if self.datasource_ids_being_used:
                 yield from self.emit_published_datasources()
             if self.custom_sql_ids_being_used:
