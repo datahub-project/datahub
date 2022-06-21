@@ -8,29 +8,28 @@ The figure below shows the high-level system diagram for DataHub's Serving Tier.
 
 ![datahub-serving](../imgs/datahub-serving.png)
 
-The primary service is called [gms](../../metadata-service) and exposes a REST API and a GraphQL API for performing CRUD operations on metadata. The metadata service also exposes search and graph query API-s to support secondary-index style queries, full-text search queries as well as relationship queries like lineage. In addition, the [datahub-frontend](../../datahub-frontend) service expose a GraphQL API on top of the metadata graph. 
+The primary component is called [the Metadata Service](../../metadata-service) and exposes a REST API and a GraphQL API for performing CRUD operations on metadata. The service also exposes search and graph query API-s to support secondary-index style queries, full-text search queries as well as relationship queries like lineage. In addition, the [datahub-frontend](../../datahub-frontend) service expose a GraphQL API on top of the metadata graph. 
 
 ## DataHub Serving Tier Components
 
 ### Metadata Storage
 
-The DataHub Metadata Service (gms) persists metadata in a document store (could be an RDBMS like MySQL, Postgres or a key-value store like Couchbase etc.). 
+The DataHub Metadata Service persists metadata in a document store (an RDBMS like MySQL, Postgres, or Cassandra, etc.). 
 
-### Metadata Commit Log Stream (MAE)
+### Metadata Change Log Stream (MCL)
 
-The DataHub Service Tier also emits a commit event [Metadata Audit Event (MAE)] when a metadata change has been successfully committed to persistent storage. This event is sent over Kafka. 
+The DataHub Service Tier also emits a commit event [Metadata Change Log] when a metadata change has been successfully committed to persistent storage. This event is sent over Kafka. 
 
-The MAE stream is a public API and can be subscribed to by external systems providing an extremely powerful way to react in real-time to changes happening in metadata. For example, you could build an access control enforcer that reacts to change in metadata (e.g. a previously world-readable dataset now has a pii field) to immediately lock down the dataset in question.
-Note that not all MCE-s will result in an MAE, because the DataHub serving tier will ignore any duplicate changes to metadata.
+The MCL stream is a public API and can be subscribed to by external systems (for example, the Actions Framework) providing an extremely powerful way to react in real-time to changes happening in metadata. For example, you could build an access control enforcer that reacts to change in metadata (e.g. a previously world-readable dataset now has a pii field) to immediately lock down the dataset in question.
+Note that not all MCP-s will result in an MCL, because the DataHub serving tier will ignore any duplicate changes to metadata.
 
 ### Metadata Index Applier (mae-consumer-job)
 
-[MAE]-s are consumed by another Kafka Streams job, [mae-consumer-job], which applies the changes to the [graph] and [search index] accordingly. 
+[Metadata Change Logs]s are consumed by another Kafka Streams job, [mae-consumer-job], which applies the changes to the [graph] and [search index] accordingly. 
 The job is entity-agnostic and will execute corresponding graph & search index builders, which will be invoked by the job when a specific metadata aspect is changed. 
 The builder should instruct the job how to update the graph and search index based on the metadata change. 
-The builder can optionally use [Remote DAO] to fetch additional metadata from other sources to help compute the final update.
 
-To ensure that metadata changes are processed in the correct chronological order, MAEs are keyed by the entity [URN] — meaning all MAEs for a particular entity will be processed sequentially by a single Kafka streams thread. 
+To ensure that metadata changes are processed in the correct chronological order, MCLs are keyed by the entity [URN] — meaning all MAEs for a particular entity will be processed sequentially by a single Kafka streams thread. 
 
 ### Metadata Query Serving
 
@@ -38,19 +37,20 @@ Primary-key based reads (e.g. getting schema metadata for a dataset based on the
 
 [RecordTemplate]: https://github.com/linkedin/rest.li/blob/master/data/src/main/java/com/linkedin/data/template/RecordTemplate.java
 [GenericRecord]: https://github.com/apache/avro/blob/master/lang/java/avro/src/main/java/org/apache/avro/generic/GenericRecord.java
-[DAO]: https://en.wikipedia.org/wiki/Data_access_object
 [Pegasus]: https://linkedin.github.io/rest.li/DATA-Data-Schema-and-Templates
 [relationship]: ../what/relationship.md
 [entity]: ../what/entity.md
 [aspect]: ../what/aspect.md
 [GMS]: ../what/gms.md
-[MAE]: ../what/mxe.md#metadata-audit-event-mae
+[Metadata Change Log]: ../what/mxe.md#metadata-change-log-mcl
 [rest.li]: https://rest.li
 
 
-[Metadata Change Event (MCE)]: ../what/mxe.md#metadata-change-event-mce
-[Metadata Audit Event (MAE)]: ../what/mxe.md#metadata-audit-event-mae
-[MAE]: ../what/mxe.md#metadata-audit-event-mae
+[Metadata Change Proposal (MCP)]: ../what/mxe.md#metadata-change-proposal-mcp
+[Metadata Change Log (MCL)]: ../what/mxe.md#metadata-change-log-mcl
+[MCP]: ../what/mxe.md#metadata-change-proposal-mcp
+[MCL]: ../what/mxe.md#metadata-change-log-mcl
+
 [equivalent Pegasus format]: https://linkedin.github.io/rest.li/how_data_is_represented_in_memory#the-data-template-layer
 [graph]: ../what/graph.md
 [search index]: ../what/search-index.md

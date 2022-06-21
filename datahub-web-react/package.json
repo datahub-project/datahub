@@ -64,6 +64,7 @@
         "lodash.debounce": "^4.0.8",
         "miragejs": "^0.1.41",
         "moment-timezone": "^0.5.34",
+        "monaco-editor": "^0.28.1",
         "monaco-yaml": "^3.2.1",
         "query-string": "^6.13.8",
         "rc-table": "^7.13.1",

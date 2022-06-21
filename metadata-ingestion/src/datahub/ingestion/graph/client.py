@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from json.decoder import JSONDecodeError
 from typing import Any, Dict, List, Optional, Type
 
@@ -22,6 +23,11 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
+
+
+telemetry_enabled = (
+    os.environ.get("DATAHUB_TELEMETRY_ENABLED", "true").lower() == "true"
+)
 
 
 class DatahubClientConfig(ConfigModel):
@@ -51,6 +57,9 @@ class DataHubGraph(DatahubRestEmitter):
             ca_certificate_path=self.config.ca_certificate_path,
         )
         self.test_connection()
+        if not telemetry_enabled:
+            self.server_id = "missing"
+            return
         try:
             client_id: Optional[TelemetryClientIdClass] = self.get_aspect_v2(
                 "urn:li:telemetry:clientId", TelemetryClientIdClass, "telemetryClientId"

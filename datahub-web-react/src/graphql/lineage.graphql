@@ -1,4 +1,4 @@
-fragment relationshipFields on EntityWithRelationships {
+fragment lineageNodeProperties on EntityWithRelationships {
     urn
     type
     ... on DataJob {
@@ -139,6 +139,10 @@ fragment relationshipFields on EntityWithRelationships {
     ... on MLPrimaryKey {
         ...nonRecursiveMLPrimaryKey
     }
+}
+
+fragment relationshipFields on EntityWithRelationships {
+    ...lineageNodeProperties
     upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
         ...leafLineageResults
     }
@@ -168,6 +172,28 @@ fragment leafLineageResults on EntityLineageResult {
         entity {
             urn
             type
+        }
+    }
+}
+
+fragment partialLineageResults on EntityLineageResult {
+    start
+    count
+    total
+}
+
+query getEntityLineage($urn: String!) {
+    entity(urn: $urn) {
+        urn
+        type
+        ...lineageNodeProperties
+        ... on EntityWithRelationships {
+            upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+                ...fullLineageResults
+            }
+            downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+                ...fullLineageResults
+            }
         }
     }
 }

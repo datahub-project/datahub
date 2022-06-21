@@ -10,7 +10,7 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 import { capitalizeFirstLetter } from '../shared/textUtil';
 import { nodeHeightFromTitleLength } from './utils/nodeHeightFromTitleLength';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
-import useLazyGetEntityQuery from './utils/useLazyGetEntityQuery';
+import { useGetEntityLineageLazyQuery } from '../../graphql/lineage.generated';
 
 const CLICK_DELAY_THRESHOLD = 1000;
 const DRAG_DISTANCE_THRESHOLD = 20;
@@ -89,13 +89,17 @@ export default function LineageEntityNode({
     const { expandTitles } = useContext(LineageExplorerContext);
     const [isExpanding, setIsExpanding] = useState(false);
     const [expandHover, setExpandHover] = useState(false);
-    const { getAsyncEntity, asyncData } = useLazyGetEntityQuery();
+    const [getAsyncEntityLineage, { data: asyncLineageData }] = useGetEntityLineageLazyQuery();
 
     useEffect(() => {
-        if (asyncData) {
-            onExpandClick(asyncData);
+        if (asyncLineageData && asyncLineageData.entity) {
+            const entityAndType = {
+                type: asyncLineageData.entity.type,
+                entity: { ...asyncLineageData.entity },
+            } as EntityAndType;
+            onExpandClick(entityAndType);
         }
-    }, [asyncData, onExpandClick]);
+    }, [asyncLineageData, onExpandClick]);
 
     const entityRegistry = useEntityRegistry();
     const unexploredHiddenChildren =
@@ -148,7 +152,8 @@ export default function LineageEntityNode({
                         onClick={() => {
                             setIsExpanding(true);
                             if (node.data.urn && node.data.type) {
-                                getAsyncEntity(node.data.urn, node.data.type);
+                                // getAsyncEntity(node.data.urn, node.data.type);
+                                getAsyncEntityLineage({ variables: { urn: node.data.urn } });
                             }
                         }}
                         onMouseOver={() => {

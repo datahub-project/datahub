@@ -15,6 +15,10 @@ on:
   release:
     types: [published, edited]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   DATAHUB_GMS_IMAGE: 'linkedin/datahub-gms'
   DATAHUB_FRONTEND_IMAGE: 'linkedin/datahub-frontend-react'
