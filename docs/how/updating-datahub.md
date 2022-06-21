@@ -6,6 +6,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- Refactored the `health` field of the `Dataset` GraphQL Type to be of type **List<HealthStatus>** (was type **HealthStatus**). See [this PR](https://github.com/datahub-project/datahub/pull/5222/files) for more details.
+
 ### Potential Downtime
 
 ### Deprecations
