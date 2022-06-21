@@ -1,17 +1,22 @@
 package com.datahub.graphql;
 
-import com.datahub.authentication.AuthenticationContext;
+import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.datahub.graphql.GraphQLEngine;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.ExecutionResult;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -104,6 +109,9 @@ public class GraphQLController {
        * Format & Return Response
        */
       try {
+        submitMetrics(executionResult);
+        // Remove tracing from response to reduce bulk, not used by the frontend
+        executionResult.getExtensions().remove("tracing");
         String responseBodyStr = new ObjectMapper().writeValueAsString(executionResult.toSpecification());
         return new ResponseEntity<>(responseBodyStr, HttpStatus.OK);
       } catch (IllegalArgumentException | JsonProcessingException e) {
@@ -116,5 +124,25 @@ public class GraphQLController {
   @GetMapping("/graphql")
   void getGraphQL(HttpServletRequest request, HttpServletResponse response) {
     throw new UnsupportedOperationException("GraphQL gets not supported.");
+  }
+
+  @SuppressWarnings("unchecked")
+  private void submitMetrics(ExecutionResult executionResult) {
+    try {
+      Object tracingInstrumentation = executionResult.getExtensions().get("tracing");
+      if (tracingInstrumentation instanceof Map) {
+        Map<String, Object> tracingMap = (Map<String, Object>) tracingInstrumentation;
+        long totalDuration = TimeUnit.NANOSECONDS.toMillis((long) tracingMap.get("duration"));
+        Map<String, Object> executionData = (Map<String, Object>) tracingMap.get("execution");
+        // Extract top level resolver, parent is top level query. Assumes single query per call.
+        List<Map<String, Object>> resolvers = (List<Map<String, Object>>) executionData.get("resolvers");
+        Optional<Map<String, Object>>
+            parentResolver = resolvers.stream().filter(resolver -> resolver.get("parentType").equals("Query")).findFirst();
+        String fieldName = parentResolver.isPresent() ? (String) parentResolver.get().get("fieldName") : "UNKNOWN";
+        MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), fieldName)).update(totalDuration);
+      }
+    } catch (Exception e) {
+      log.error("Unable to submit metrics for GraphQL call.", e);
+    }
   }
 }
