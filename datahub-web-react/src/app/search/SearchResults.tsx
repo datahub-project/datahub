@@ -131,6 +131,8 @@ interface Props {
     }) => Promise<SearchResultsInterface | null | undefined>;
     entityFilters: EntityType[];
     filtersWithoutEntities: FacetFilterInput[];
+    numResultsPerPage: number;
+    setNumResultsPerPage: (numResults: number) => void;
 }
 
 export const SearchResults = ({
@@ -145,6 +147,8 @@ export const SearchResults = ({
     callSearchOnVariables,
     entityFilters,
     filtersWithoutEntities,
+    numResultsPerPage,
+    setNumResultsPerPage,
 }: Props) => {
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
@@ -167,6 +171,10 @@ export const SearchResults = ({
 
     const onFilterSelect = (newFilters) => {
         onChangeFilters(newFilters);
+    };
+
+    const updateNumResults = (_currentNum: number, newNum: number) => {
+        setNumResultsPerPage(newNum);
     };
 
     const history = useHistory();
@@ -242,11 +250,13 @@ export const SearchResults = ({
                                 <PaginationControlContainer>
                                     <Pagination
                                         current={page}
-                                        pageSize={SearchCfg.RESULTS_PER_PAGE}
+                                        pageSize={numResultsPerPage}
                                         total={totalResults}
                                         showLessItems
                                         onChange={onChangePage}
-                                        showSizeChanger={false}
+                                        showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
+                                        onShowSizeChange={updateNumResults}
+                                        pageSizeOptions={['10', '20', '50']}
                                     />
                                 </PaginationControlContainer>
                                 {authenticatedUserUrn && (
