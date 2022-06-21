@@ -14,7 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
-public class RemoveUnknownAspectsStep implements UpgradeStep {
+public class RemoveClientIdAspectStep implements UpgradeStep {
 
   private static final String INVALID_CLIENT_ID_ASPECT = "clientId";
 

@@ -21,7 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
-public class RemoveUnknownAspectsStep implements BootstrapStep {
+public class RemoveClientIdAspectStep implements BootstrapStep {
 
   private final EntityService _entityService;
 
