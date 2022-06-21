@@ -78,25 +78,21 @@ The following are environment variables you can use to configure topic names use
 - (Deprecated) `METADATA_CHANGE_EVENT_NAME`: The name of the metadata change event topic.
 - (Deprecated) `METADATA_AUDIT_EVENT_NAME`: The name of the metadata audit event topic.
 - (Deprecated) `FAILED_METADATA_CHANGE_EVENT_NAME`: The name of the failed metadata change event topic.
-- (Deprecated) `KAFKA_MCE_TOPIC_NAME`: The name of the deprecated topic that an embedded MCE consumer will consume from. This should technically be
-the same as `METADATA_CHANGE_EVENT_NAME` and will soon be removed. 
-- (Deprecated) `KAFKA_FMCE_TOPIC_NAME`: The name of the deprecated topic that failed MCEs will be written to. This should technically be
-  the same as `FAILED_METADATA_CHANGE_EVENT_NAME` and will soon be removed.
-- (Deprecated) `KAFKA_TOPIC_NAME`: The name of the deprecated topic that MAEs are writtent to. This is used by the MAE consumer when
-reading messages. It should contain the same value as `METADATA_AUDIT_EVENT_NAME` and will soon be removed.
   
 ### MCE Consumer (datahub-mce-consumer)
 
-- (Deprecated) `KAFKA_MCE_TOPIC_NAME`: The name of the deprecated topic that an embedded MCE consumer will consume from. This should technically be
-  the same as `METADATA_CHANGE_EVENT_NAME` and will soon be removed and replaced by `METADATA_CHANGE_EVENT_NAME`.
-- (Deprecated) `KAFKA_FMCE_TOPIC_NAME`: The name of the deprecated topic that failed MCEs will be written to. This should technically be
-  the same as `FAILED_METADATA_CHANGE_EVENT_NAME` and will soon be removed and replaced by
-  `FAILED_METADATA_CHANGE_EVENT_NAME`.
+- `METADATA_CHANGE_PROPOSAL_TOPIC_NAME`: The name of the topic for Metadata Change Proposals emitted by the ingestion framework.
+- `FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME`: The name of the topic for Metadata Change Proposals emitted when MCPs fail processing.
+- (Deprecated) `METADATA_CHANGE_EVENT_NAME`: The name of the deprecated topic that an embedded MCE consumer will consume from.
+- (Deprecated) `FAILED_METADATA_CHANGE_EVENT_NAME`: The name of the deprecated topic that failed MCEs will be written to.
 
 ### MAE Consumer (datahub-mae-consumer) 
 
-- (Deprecated) `KAFKA_TOPIC_NAME`: The name of the deprecated metadata audit event topic. This will soon be removed
-and replaced by `METADATA_AUDIT_EVENT_NAME`. 
+- `METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME`: The name of the topic for Metadata Change Logs that are produced for Versioned Aspects.
+- `METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME`: The name of the topic for Metadata Change Logs that are produced for Timeseries Aspects.
+- `METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME`: The name of the topic for Platform Events (high-level semantic events).
+- `DATAHUB_USAGE_EVENT_NAME`: The name of the topic for product analytics events.
+- (Deprecated) `METADATA_AUDIT_EVENT_NAME`: The name of the deprecated metadata audit event topic.
   
 ### DataHub Frontend (datahub-frontend-react)
 
@@ -131,12 +127,12 @@ configurations inside your `values.yaml` file.
 datahub-gms: 
     ...
     extraEnvs:
-      - name: METADATA_CHANGE_EVENT_NAME
-        value: "MetadataChangeEvent"
-      - name: METADATA_AUDIT_EVENT_NAME
-        value: "MetadataAuditEvent"
-      - name: FAILED_METADATA_CHANGE_EVENT_NAME
-        value: "FailedMetadataChangeEvent"
+      - name: METADATA_CHANGE_PROPOSAL_TOPIC_NAME
+        value: "CustomMetadataChangeProposal_v1"
+      - name: METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME
+        value: "CustomMetadataChangeLogVersioned_v1"
+      - name: FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME
+        value: "CustomFailedMetadataChangeProposal_v1"
       - name: KAFKA_CONSUMER_GROUP_ID
         value: "my-apps-mae-consumer"
         ....
@@ -150,11 +146,17 @@ datahub-frontend:
 # If standalone consumers are enabled
 datahub-mae-consumer; 
     extraEnvs:
-        - name: KAFKA_TOPIC_NAME
+        - name: METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME
+          value: "CustomMetadataChangeLogVersioned_v1"
+          ....
+        - name: METADATA_AUDIT_EVENT_NAME
           value: "MetadataAuditEvent"
 datahub-mce-consumer; 
     extraEnvs:
-        - name: KAFKA_MCE_TOPIC_NAME
+        - name: METADATA_CHANGE_PROPOSAL_TOPIC_NAME
+          value: "CustomMetadataChangeLogVersioned_v1"
+          ....
+        - name: METADATA_CHANGE_EVENT_NAME
           value: "MetadataChangeEvent"
         ....
 ```
