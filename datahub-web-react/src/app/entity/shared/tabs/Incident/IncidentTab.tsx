@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Empty, List, Pagination, Select, Typography } from 'antd';
+import { Button, Empty, List, Pagination, Select, Typography } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 
 import { useGetIncidentsQuery } from '../../../../../graphql/dataset.generated';
 import TabToolbar from '../../components/styled/TabToolbar';
@@ -87,6 +88,7 @@ export const IncidentTab = () => {
     const [page, setPage] = useState(1);
     const incidentStates = INCIDENT_DISPLAY_STATES;
     const [selectedIncidentState, setSelectedIncidentState] = useState<string>('All');
+    const [isRaiseIncidentModalVisible, setIsRaiseIncidentModalVisible] = useState(false);
 
     // Fetching the incidents data using Incidents Query
     const { loading, data, refetch } = useGetIncidentsQuery({
@@ -117,7 +119,14 @@ export const IncidentTab = () => {
     return (
         <>
             <TabToolbar>
-                <AddIncidentModal refetch={refetch} />
+                <Button icon={<PlusOutlined />} onClick={() => setIsRaiseIncidentModalVisible(true)} type="text">
+                    Raise Incident
+                </Button>
+                <AddIncidentModal
+                    refetch={refetch}
+                    visible={isRaiseIncidentModalVisible}
+                    onClose={() => setIsRaiseIncidentModalVisible(false)}
+                />
                 <IncidentStateSelect value={selectedIncidentState} onChange={onSelectIncidentState} autoFocus>
                     {incidentStates.map((incidentType) => {
                         return (

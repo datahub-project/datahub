@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { message, Modal, Button, Form, Input, Typography, Select } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { useEntityData } from '../../../EntityContext';
 import { IncidentType } from '../../../../../../types.generated';
@@ -8,11 +7,12 @@ import { INCIDENT_DISPLAY_TYPES } from '../incidentUtils';
 import { useRaiseIncidentMutation } from '../../../../../../graphql/mutations.generated';
 
 type AddIncidentProps = {
+    visible: boolean;
+    onClose?: () => void;
     refetch?: () => Promise<any>;
 };
 
-export const AddIncidentModal = ({ refetch }: AddIncidentProps) => {
-    const [isModalVisible, setIsModalVisible] = useState(false);
+export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps) => {
     const { urn, entityType } = useEntityData();
     const incidentTypes = INCIDENT_DISPLAY_TYPES;
     const [selectedIncidentType, setSelectedIncidentType] = useState<IncidentType>(IncidentType.Operational);
@@ -21,14 +21,10 @@ export const AddIncidentModal = ({ refetch }: AddIncidentProps) => {
 
     const [form] = Form.useForm();
 
-    const showModal = () => {
-        setIsModalVisible(true);
-    };
-
     const handleClose = () => {
         form.resetFields();
-        setIsModalVisible(false);
         setIsOtherTypeSelected(false);
+        onClose?.();
     };
 
     const onSelectIncidentType = (newType) => {
@@ -75,12 +71,9 @@ export const AddIncidentModal = ({ refetch }: AddIncidentProps) => {
 
     return (
         <>
-            <Button icon={<PlusOutlined />} onClick={showModal} type="text">
-                Raise Incident
-            </Button>
             <Modal
                 title="Raise Incident"
-                visible={isModalVisible}
+                visible={visible}
                 destroyOnClose
                 onCancel={handleClose}
                 footer={[

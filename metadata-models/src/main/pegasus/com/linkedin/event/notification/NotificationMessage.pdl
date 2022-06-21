@@ -11,7 +11,7 @@ record NotificationMessage {
   template: string
 
   /**
-   * Parameters serving as input to the template, validated & substituted based on the selected template.
+   * Parameters serving as input to the template, validated and substituted based on the selected template.
    */
    parameters: optional map[string, string]
 }
