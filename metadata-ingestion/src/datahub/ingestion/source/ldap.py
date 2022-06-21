@@ -45,6 +45,7 @@ user_attrs_map["countryCode"] = "countryCode"
 
 # group related attrs
 group_attrs_map["urn"] = "cn"
+group_attrs_map["email"] = "mail"
 group_attrs_map["admins"] = "owner"
 group_attrs_map["members"] = "uniqueMember"
 group_attrs_map["displayName"] = "name"
