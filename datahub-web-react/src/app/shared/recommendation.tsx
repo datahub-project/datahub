@@ -1,7 +1,7 @@
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import { EntityType } from '../../types.generated';
 
-export function GetTagRecommendation() {
+export function useGetRecommendedTags() {
     const { data } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
@@ -15,7 +15,7 @@ export function GetTagRecommendation() {
     return data?.searchAcrossEntities?.searchResults;
 }
 
-export function GetOwnerRecommendation() {
+export function useGetRecommendedOwners() {
     const { data } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
@@ -29,7 +29,7 @@ export function GetOwnerRecommendation() {
     return data?.searchAcrossEntities?.searchResults;
 }
 
-export function GetDomainRecommendation() {
+export function useGetRecommendedDomains() {
     const { data } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {

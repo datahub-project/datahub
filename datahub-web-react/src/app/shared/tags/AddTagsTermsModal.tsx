@@ -13,7 +13,7 @@ import TagLabel from '../TagLabel';
 import GlossaryBrowser from '../../glossary/GlossaryBrowser/GlossaryBrowser';
 import ClickOutside from '../ClickOutside';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { GetTagRecommendation } from '../recommendation';
+import { useGetRecommendedTags } from '../recommendation';
 
 type AddTagsModalProps = {
     visible: boolean;
@@ -118,7 +118,7 @@ export default function AddTagsTermsModal({
         );
     };
 
-    const recommendedTagData = GetTagRecommendation();
+    const recommendedTagData = useGetRecommendedTags();
 
     const tagResult =
         (!inputValue || inputValue.length === 0) && type === EntityType.Tag ? recommendedTagData : tagSearchResults;

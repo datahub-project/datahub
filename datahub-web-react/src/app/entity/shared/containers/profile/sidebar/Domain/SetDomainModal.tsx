@@ -8,7 +8,7 @@ import { useSetDomainMutation } from '../../../../../../../graphql/mutations.gen
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { useEntityData } from '../../../../EntityContext';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
-import { GetDomainRecommendation } from '../../../../../../shared/recommendation';
+import { useGetRecommendedDomains } from '../../../../../../shared/recommendation';
 import { DomainLabel } from '../../../../../../shared/DomainLabel';
 
 type Props = {
@@ -50,7 +50,7 @@ export const SetDomainModal = ({ visible, onCloseModal, refetch }: Props) => {
         }, 1);
     });
 
-    const recommendedDomainsData = GetDomainRecommendation();
+    const recommendedDomainsData = useGetRecommendedDomains();
 
     const handleSearch = (text: string) => {
         if (text.length > 2) {

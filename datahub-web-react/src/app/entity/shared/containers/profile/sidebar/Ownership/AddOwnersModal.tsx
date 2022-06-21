@@ -14,7 +14,7 @@ import analytics, { EventType, EntityActionType } from '../../../../../../analyt
 import { OWNERSHIP_DISPLAY_TYPES } from './ownershipUtils';
 import { useAddOwnersMutation } from '../../../../../../../graphql/mutations.generated';
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
-import { GetOwnerRecommendation } from '../../../../../../shared/recommendation';
+import { useGetRecommendedOwners } from '../../../../../../shared/recommendation';
 import { OwnerLabel } from '../../../../../../shared/OwnerLabel';
 
 const SelectInput = styled(Select)`
@@ -83,7 +83,7 @@ export const AddOwnersModal = ({
         }, 1);
     });
 
-    const recommendedOwnersData = GetOwnerRecommendation();
+    const recommendedOwnersData = useGetRecommendedOwners();
 
     useEffect(() => {
         if (ownershipTypes) {
