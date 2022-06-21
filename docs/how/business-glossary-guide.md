@@ -2,9 +2,9 @@
 
 ## Introduction
 
-When working in complex data ecosystems, it is very useful to organize data assets using a shared vocabulary. The Business Glossary feature in DataHub help you do this, by providing a framework for defining a standardized set of data concepts and then associating them with real physical assets that exist in your data ecosystem.
+When working in complex data ecosystems, it is very useful to organize data assets using a shared vocabulary. The Business Glossary feature in DataHub helps you do this, by providing a framework for defining a standardized set of data concepts and then associating them with the physical assets that exist within your data ecosystem.
 
-Starting in version `v0.8.36`, DataHub supports managing a custom Business Glossary through the UI. Within this document, we'll introduce the core concepts comprising DataHub's Business Glossary feature and show you how to put it to work in your organization. 
+Within this document, we'll introduce the core concepts comprising DataHub's Business Glossary feature and show you how to put it to work in your organization. 
 
 ### Terms & Term Groups
 
@@ -13,9 +13,9 @@ A Business Glossary is comprised of two important primitives: Terms and Term Gro
 - **Terms**: words or phrases with a specific business definition assigned to them.
 - **Term Groups**: act like folders, containing Terms and even other Term Groups to allow for a nested structure.
 
-Both Terms and Term Groups allow you to add Documentation, as well as Owners.
+Both Terms and Term Groups allow you to add documentation and unique owners.
 
-For Terms specifically, you are also able to establish relationships between different Terms in the **Related Terms** tab. Here you can create Contains and Inherits relationships. Finally, you can view all of the entities that have been tagged with a Term in the **Related Entities** tab.
+For Glossary Terms, you are also able to establish relationships between different Terms in the **Related Terms** tab. Here you can create Contains and Inherits relationships. Finally, you can view all of the entities that have been tagged with a Term in the **Related Entities** tab.
 
 ## Getting to your Glossary
 
