@@ -15,20 +15,42 @@ jar.enabled = false // Since we only want to build shadow jars, disabling the re
 dependencies {
 
     implementation project(':metadata-models')
+    compile externalDependency.avro_1_7
+    constraints {
+      implementation('commons-collections:commons-collections:3.2.2') {
+        because 'Vulnerability Issue'
+      }
+    }
     shadow externalDependency.httpAsyncClient // we want our clients to provide this
     implementation externalDependency.jacksonDataBind
     implementation externalDependency.javaxValidation
     implementation externalDependency.springContext
     implementation externalDependency.swaggerAnnotations
+    implementation(externalDependency.kafkaAvroSerializer) {
+      exclude group: "org.apache.avro"
+    }
+    
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
     testCompile externalDependency.httpAsyncClient // needed as shadow excludes it
     testCompile externalDependency.mockito
     testCompile externalDependency.mockServer
     testCompile externalDependency.mockServerClient
+    testCompile externalDependency.testContainers
 
     swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
 }
+
+task copyAvroSchemas {
+  dependsOn(':metadata-events:mxe-schemas:renameNamespace')
+  copy {
+    from file('../../../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeProposal.avsc')
+    into file('./src/main/resources')
+  }
+}
+
+compileJava.dependsOn copyAvroSchemas
+
 
 jacocoTestReport {
     dependsOn test // tests are required to run before generating the report
@@ -100,6 +122,9 @@ shadowJar {
   archiveClassifier = ''
   dependencies {
     exclude(dependency('org.apache.httpcomponents:httpasyncclient'))
+    exclude 'LICENSE'
+    exclude 'NOTICE'
+    exclude 'LICENSE.txt'
   }
   mergeServiceFiles()
   // we relocate namespaces manually, because we want to know exactly which libs we are exposing and why
@@ -121,6 +146,21 @@ shadowJar {
   relocate 'com.github.benmanes.caffeine', 'datahub.shaded.com.github.benmanes.caffeine'
   relocate 'org.checkerframework', 'datahub.shaded.org.checkerframework'
   relocate 'com.google.errorprone', 'datahub.shaded.com.google.errorprone'
+  // Below jars added for kafka emitter only
+  relocate 'org.apache.avro', 'datahub.shaded.org.apache.avro'
+  relocate 'org.codehaus.jackson', 'datahub.shaded.org.codehaus.jackson'
+  relocate 'com.thoughtworks.paranamer', 'datahub.shaded.com.thoughtworks.paranamer'
+  relocate 'org.xerial.snappy', 'datahub.shaded.org.xerial.snappy'
+  relocate 'org.apache.kafka', 'datahub.shaded.org.apache.kafka'
+  relocate 'io.confluent', 'datahub.shaded.io.confluent'
+  relocate 'org.apache.zookeeper', 'datahub.shaded.org.apache.zookeeper'
+  relocate 'org.apache.yetus', 'datahub.shaded.org.apache.yetus'
+  relocate 'jline', 'datahub.shaded.jline'
+  relocate 'org.apache.jute', 'datahub.shaded.org.apache.jute'
+  relocate 'org.I0Itec.zkclient', 'datahub.shaded.org.I0Itec.zkclient'
+  relocate 'net.jpountz', 'datahub.shaded.net.jpountz'
+  relocate 'com.github.luben', 'datahub.shaded.com.github.luben'
+ 
   finalizedBy checkShadowJar
 }
 
