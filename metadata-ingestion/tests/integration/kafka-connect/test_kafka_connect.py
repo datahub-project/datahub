@@ -12,7 +12,7 @@ FROZEN_TIME = "2021-10-25 13:00:00"
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration
+@pytest.mark.integration_batch_1
 def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka-connect"
     test_resources_dir_kafka = pytestconfig.rootpath / "tests/integration/kafka"

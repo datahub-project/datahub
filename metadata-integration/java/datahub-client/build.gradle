@@ -17,17 +17,28 @@ dependencies {
     implementation project(':metadata-events:mxe-utils-avro-1.7')
    
     implementation project(':metadata-models')
+    compile externalDependency.avro_1_7
+    constraints {
+      implementation('commons-collections:commons-collections:3.2.2') {
+        because 'Vulnerability Issue'
+      }
+    }
     shadow externalDependency.httpAsyncClient // we want our clients to provide this
     implementation externalDependency.jacksonDataBind
     implementation externalDependency.javaxValidation
     implementation externalDependency.springContext
     implementation externalDependency.swaggerAnnotations
+    implementation(externalDependency.kafkaAvroSerializer) {
+      exclude group: "org.apache.avro"
+    }
+    
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
     testCompile externalDependency.httpAsyncClient // needed as shadow excludes it
     testCompile externalDependency.mockito
     testCompile externalDependency.mockServer
     testCompile externalDependency.mockServerClient
+    testCompile externalDependency.testContainers
 
     swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
 }
@@ -35,6 +46,16 @@ dependencies {
 //jacocoTestReport {
 //    dependsOn test // tests are required to run before generating the report
 //}
+
+task copyAvroSchemas {
+  dependsOn(':metadata-events:mxe-schemas:renameNamespace')
+  copy {
+    from file('../../../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeProposal.avsc')
+    into file('./src/main/resources')
+  }
+}
+
+compileJava.dependsOn copyAvroSchemas
 
 
 def detailedVersionString = "0.0.0-unknown-SNAPSHOT"
@@ -95,6 +116,9 @@ shadowJar {
   archiveClassifier = ''
   dependencies {
     exclude(dependency('org.apache.httpcomponents:httpasyncclient'))
+    exclude 'LICENSE'
+    exclude 'NOTICE'
+    exclude 'LICENSE.txt'
   }
   mergeServiceFiles()
   // we relocate namespaces manually, because we want to know exactly which libs we are exposing and why
