@@ -2,7 +2,9 @@
 
 ## Introduction
 
-When working with large swaths of metadata, it's important to organize assets appropriately for governance as well as ensure everyone has a shared vocabulary in order to minimize miscommunications. That's where a Business Glossary comes into play. Starting in version `0.8.36` DataHub introduces a new way to maintain a Glossary through the UI. You can add, edit, move, and delete both Terms and Term Groups in-app. Finally, there are improved flows for adding Terms to entities.
+When working in complex data ecosystems, it is very useful to organize data assets using a shared vocabulary. The Business Glossary feature in DataHub help you do this, by providing a framework for defining a standardized set of data concepts and then associating them with real physical assets that exist in your data ecosystem.
+
+Starting in version `v0.8.36`, DataHub supports managing a custom Business Glossary through the UI. Within this document, we'll introduce the core concepts comprising DataHub's Business Glossary feature and show you how to put it to work in your organization. 
 
 ### Terms & Term Groups
 
