@@ -310,7 +310,7 @@ class LDAPSource(Source):
             else full_name
         )
         department_id = (
-            (attrs[self.config.attrs_mapping["departmentId"]][0]).decode()
+            int(attrs[self.config.attrs_mapping["departmentId"]][0].decode())
             if self.config.attrs_mapping["departmentId"] in attrs
             else None
         )
