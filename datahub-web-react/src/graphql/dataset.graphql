@@ -394,6 +394,20 @@ fragment siblingFields on Dataset {
         timestampMillis
         lastUpdatedTimestamp
     }
+    testResults {
+        passing {
+            test {
+                ...testFields
+            }
+            type
+        }
+        failing {
+            test {
+                ...testFields
+            }
+            type
+        }
+    }
 }
 
 mutation updateDataset($urn: String!, $input: DatasetUpdateInput!) {

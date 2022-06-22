@@ -5,6 +5,7 @@ import com.linkedin.metadata.test.definition.operation.OperationParams;
 import com.linkedin.metadata.test.eval.ResolvedParams;
 import com.linkedin.metadata.test.exception.OperationParamsInvalidException;
 import com.linkedin.metadata.test.query.TestQueryResponse;
+import org.apache.commons.lang3.StringUtils;
 
 import static com.linkedin.metadata.test.definition.operation.ParamKeyConstants.QUERY;
 
@@ -37,6 +38,7 @@ public class ExistsEvaluator extends BaseOperationEvaluator {
     if (queryResponse == null) {
       return false;
     }
-    return !queryResponse.getValues().isEmpty();
+    // Return true only if there is a non-empty value
+    return queryResponse.getValues().stream().anyMatch(StringUtils::isNotEmpty);
   }
 }
