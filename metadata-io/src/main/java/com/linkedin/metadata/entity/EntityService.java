@@ -3,7 +3,6 @@ package com.linkedin.metadata.entity;
 import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;
 import com.datahub.util.exception.ModelConversionException;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
@@ -44,15 +43,10 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataAuditOperation;
-import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
-import lombok.Value;
-import lombok.extern.slf4j.Slf4j;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -67,11 +61,13 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import lombok.Value;
+import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
-import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
-import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromSchema;
-import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.PegasusUtils.*;
 
 
 /**
@@ -1315,7 +1311,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
   }
 
   @Nullable
-  public RollbackResult deleteAspect(String urn, String aspectName, Map<String, String> conditions, boolean hardDelete) {
+  public RollbackResult deleteAspect(String urn, String aspectName, @Nonnull Map<String, String> conditions, boolean hardDelete) {
     // Validate pre-conditions before running queries
     Urn entityUrn;
     EntitySpec entitySpec;
@@ -1323,8 +1319,6 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       entityUrn = Urn.createFromString(urn);
       String entityName = PegasusUtils.urnToEntityName(entityUrn);
       entitySpec = getEntityRegistry().getEntitySpec(entityName);
-      Preconditions.checkState(entitySpec != null, String.format("Could not find entity definition for %s", entityName));
-      Preconditions.checkState(entitySpec.hasAspect(aspectName), String.format("Could not find aspect %s in definition for %s", aspectName, entityName));
     } catch (URISyntaxException uriSyntaxException) {
       // don't expect this to happen, so raising RuntimeException here
       throw new RuntimeException(String.format("Failed to extract urn from %s", urn));
@@ -1353,7 +1347,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       try {
         isKeyAspect = getKeyAspectName(Urn.createFromString(urn)).equals(aspectName);
       } catch (URISyntaxException e) {
-        e.printStackTrace();
+        log.error("Error occurred while parsing urn: {}", urn, e);
       }
 
       // 4. Fetch all preceding aspects, that match
@@ -1437,6 +1431,9 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
             survivingAspect == null ? ChangeType.DELETE : ChangeType.UPSERT, isKeyAspect, additionalRowsDeleted);
       } catch (URISyntaxException e) {
         throw new RuntimeException(String.format("Failed to emit the update for urn %s", urn));
+      } catch (IllegalStateException e) {
+        log.warn("Unable to find aspect, rollback result will not be sent. Error: {}", e.getMessage());
+        return null;
       }
     }, DEFAULT_MAX_TRANSACTION_RETRY);
 

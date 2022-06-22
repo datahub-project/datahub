@@ -416,7 +416,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   @Nonnull
   @Override
   public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
-      @Nonnull List<String> entities, @Nonnull String input, @Nullable Filter filter,
+      @Nonnull List<String> entities, @Nonnull String input, @Nullable Integer maxHops, @Nullable Filter filter,
       @Nullable SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
 

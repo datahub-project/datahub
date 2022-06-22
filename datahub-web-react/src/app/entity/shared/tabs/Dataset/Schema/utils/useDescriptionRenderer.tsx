@@ -3,10 +3,10 @@ import { EditableSchemaMetadata, SchemaField, SubResourceType } from '../../../.
 import DescriptionField from '../../../../../dataset/profile/schema/components/SchemaDescriptionField';
 import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
 import { useUpdateDescriptionMutation } from '../../../../../../../graphql/mutations.generated';
-import { useEntityData, useRefetch } from '../../../../EntityContext';
+import { useMutationUrn, useRefetch } from '../../../../EntityContext';
 
 export default function useDescriptionRenderer(editableSchemaMetadata: EditableSchemaMetadata | null | undefined) {
-    const { urn } = useEntityData();
+    const urn = useMutationUrn();
     const refetch = useRefetch();
     const [updateDescription] = useUpdateDescriptionMutation();
 

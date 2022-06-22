@@ -11,6 +11,7 @@ import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.kafka.hook.UpdateIndicesHook;
 import com.linkedin.metadata.kafka.hook.event.EntityChangeEventGeneratorHook;
 import com.linkedin.metadata.kafka.hook.ingestion.IngestionSchedulerHook;
+import com.linkedin.metadata.kafka.hook.siblings.SiblingAssociationHook;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.Topics;
@@ -30,7 +31,13 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Conditional(MetadataChangeLogProcessorCondition.class)
-@Import({UpdateIndicesHook.class, IngestionSchedulerHook.class, EntityChangeEventGeneratorHook.class, KafkaEventConsumerFactory.class})
+@Import({
+    UpdateIndicesHook.class,
+    IngestionSchedulerHook.class,
+    EntityChangeEventGeneratorHook.class,
+    KafkaEventConsumerFactory.class,
+    SiblingAssociationHook.class
+})
 @EnableKafka
 public class MetadataChangeLogProcessor {
 
@@ -41,8 +48,10 @@ public class MetadataChangeLogProcessor {
   public MetadataChangeLogProcessor(
       @Nonnull final UpdateIndicesHook updateIndicesHook,
       @Nonnull final IngestionSchedulerHook ingestionSchedulerHook,
-      @Nonnull final EntityChangeEventGeneratorHook entityChangeEventHook) {
-    this.hooks = ImmutableList.of(updateIndicesHook, ingestionSchedulerHook, entityChangeEventHook);
+      @Nonnull final EntityChangeEventGeneratorHook entityChangeEventHook,
+      @Nonnull final SiblingAssociationHook siblingAssociationHook
+  ) {
+    this.hooks = ImmutableList.of(updateIndicesHook, ingestionSchedulerHook, entityChangeEventHook, siblingAssociationHook);
     this.hooks.forEach(MetadataChangeLogHook::init);
   }
 
