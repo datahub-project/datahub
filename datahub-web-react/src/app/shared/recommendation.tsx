@@ -1,44 +1,18 @@
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import { EntityType } from '../../types.generated';
 
-export function useGetRecommendedTags() {
+export const useGetRecommendations = (types: Array<EntityType>) => {
     const { data } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
-                types: [EntityType.Tag],
+                types,
                 query: '*',
                 start: 0,
                 count: 5,
             },
         },
     });
-    return data?.searchAcrossEntities?.searchResults;
-}
 
-export function useGetRecommendedOwners() {
-    const { data } = useGetSearchResultsForMultipleQuery({
-        variables: {
-            input: {
-                types: [EntityType.CorpGroup, EntityType.CorpUser],
-                query: '*',
-                start: 0,
-                count: 5,
-            },
-        },
-    });
-    return data?.searchAcrossEntities?.searchResults;
-}
-
-export function useGetRecommendedDomains() {
-    const { data } = useGetSearchResultsForMultipleQuery({
-        variables: {
-            input: {
-                types: [EntityType.Domain],
-                query: '*',
-                start: 0,
-                count: 5,
-            },
-        },
-    });
-    return data?.searchAcrossEntities?.searchResults;
-}
+    const recommendedData = data?.searchAcrossEntities?.searchResults?.map((searchResult) => searchResult.entity) || [];
+    return [recommendedData];
+};

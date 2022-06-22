@@ -2,19 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Button, Form, message, Modal, Select, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 
-import {
-    CorpUser,
-    EntityType,
-    OwnerEntityType,
-    OwnershipType,
-    SearchResult,
-} from '../../../../../../../types.generated';
+import { CorpUser, Entity, EntityType, OwnerEntityType, OwnershipType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
 import { OWNERSHIP_DISPLAY_TYPES } from './ownershipUtils';
 import { useAddOwnersMutation } from '../../../../../../../graphql/mutations.generated';
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
-import { useGetRecommendedOwners } from '../../../../../../shared/recommendation';
+import { useGetRecommendations } from '../../../../../../shared/recommendation';
 import { OwnerLabel } from '../../../../../../shared/OwnerLabel';
 
 const SelectInput = styled(Select)`
@@ -66,9 +60,10 @@ export const AddOwnersModal = ({
     // User and group dropdown search results!
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
     const [groupSearch, { data: groupSearchData }] = useGetSearchResultsLazyQuery();
-    const userSearchResults = userSearchData?.search?.searchResults || [];
-    const groupSearchResults = groupSearchData?.search?.searchResults || [];
+    const userSearchResults = userSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
+    const groupSearchResults = groupSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
     const combinedSearchResults = [...userSearchResults, ...groupSearchResults];
+    const [recommendedData] = useGetRecommendations([EntityType.CorpGroup, EntityType.CorpUser]);
 
     // Add owners Form
     const [form] = Form.useForm();
@@ -82,8 +77,6 @@ export const AddOwnersModal = ({
             }
         }, 1);
     });
-
-    const recommendedOwnersData = useGetRecommendedOwners();
 
     useEffect(() => {
         if (ownershipTypes) {
@@ -114,20 +107,20 @@ export const AddOwnersModal = ({
     };
 
     // Renders a search result in the select dropdown.
-    const renderSearchResult = (result: SearchResult) => {
+    const renderSearchResult = (entity: Entity) => {
         const avatarUrl =
-            result.entity.type === EntityType.CorpUser
-                ? (result.entity as CorpUser).editableProperties?.pictureLink || undefined
+            entity.type === EntityType.CorpUser
+                ? (entity as CorpUser).editableProperties?.pictureLink || undefined
                 : undefined;
-        const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
+        const displayName = entityRegistry.getDisplayName(entity.type, entity);
         return (
-            <Select.Option value={result.entity.urn} key={result.entity.urn}>
-                <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={result.entity.type} />
+            <Select.Option value={entity.urn} key={entity.urn}>
+                <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />
             </Select.Option>
         );
     };
 
-    const ownerResult = !inputValue || inputValue.length === 0 ? recommendedOwnersData : combinedSearchResults;
+    const ownerResult = !inputValue || inputValue.length === 0 ? recommendedData : combinedSearchResults;
 
     const ownerSearchOptions = ownerResult?.map((result) => {
         return renderSearchResult(result);
@@ -150,8 +143,8 @@ export const AddOwnersModal = ({
             (inputEl.current as any).blur();
         }
         const filteredActors = ownerResult
-            ?.filter((result) => result.entity.urn === selectedValue.value)
-            .map((result) => result.entity);
+            ?.filter((entity) => entity.urn === selectedValue.value)
+            .map((entity) => entity);
         if (filteredActors?.length) {
             const actor = filteredActors[0];
             const ownerEntityType =

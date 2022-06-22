@@ -3,12 +3,12 @@ import { Button, Form, message, Modal, Select, Tag } from 'antd';
 import styled from 'styled-components';
 
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
-import { EntityType, SearchResult } from '../../../../../../../types.generated';
+import { Entity, EntityType } from '../../../../../../../types.generated';
 import { useSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { useEntityData } from '../../../../EntityContext';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
-import { useGetRecommendedDomains } from '../../../../../../shared/recommendation';
+import { useGetRecommendations } from '../../../../../../shared/recommendation';
 import { DomainLabel } from '../../../../../../shared/DomainLabel';
 
 type Props = {
@@ -37,7 +37,8 @@ export const SetDomainModal = ({ visible, onCloseModal, refetch }: Props) => {
     const { urn } = useEntityData();
     const [selectedDomain, setSelectedDomain] = useState<SelectedDomain | undefined>(undefined);
     const [domainSearch, { data: domainSearchData }] = useGetSearchResultsLazyQuery();
-    const domainSearchResults = domainSearchData?.search?.searchResults || [];
+    const domainSearchResults =
+        domainSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
     const [setDomainMutation] = useSetDomainMutation();
 
     const inputEl = useRef(null);
@@ -50,7 +51,7 @@ export const SetDomainModal = ({ visible, onCloseModal, refetch }: Props) => {
         }, 1);
     });
 
-    const recommendedDomainsData = useGetRecommendedDomains();
+    const [recommendedData] = useGetRecommendations([EntityType.Domain]);
 
     const handleSearch = (text: string) => {
         if (text.length > 2) {
@@ -68,16 +69,16 @@ export const SetDomainModal = ({ visible, onCloseModal, refetch }: Props) => {
     };
 
     // Renders a search result in the select dropdown.
-    const renderSearchResult = (result: SearchResult) => {
-        const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
+    const renderSearchResult = (entity: Entity) => {
+        const displayName = entityRegistry.getDisplayName(entity.type, entity);
         return (
-            <Select.Option value={result.entity.urn} key={result.entity.urn}>
+            <Select.Option value={entity.urn} key={entity.urn}>
                 <DomainLabel name={displayName} />
             </Select.Option>
         );
     };
 
-    const domainResult = !inputValue || inputValue.length === 0 ? recommendedDomainsData : domainSearchResults;
+    const domainResult = !inputValue || inputValue.length === 0 ? recommendedData : domainSearchResults;
 
     const domainSearchOptions = domainResult?.map((result) => {
         return renderSearchResult(result);
@@ -87,8 +88,7 @@ export const SetDomainModal = ({ visible, onCloseModal, refetch }: Props) => {
         if (inputEl && inputEl.current) {
             (inputEl.current as any).blur();
         }
-        const filteredDomains =
-            domainResult?.filter((result) => result.entity.urn === newUrn).map((result) => result.entity) || [];
+        const filteredDomains = domainResult?.filter((entity) => entity.urn === newUrn).map((entity) => entity) || [];
         if (filteredDomains.length) {
             const domain = filteredDomains[0];
             setSelectedDomain({

@@ -3,7 +3,7 @@ import { message, Button, Modal, Select, Typography, Tag as CustomTag } from 'an
 import styled from 'styled-components';
 
 import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
-import { EntityType, SubResourceType, SearchResult, Tag } from '../../../types.generated';
+import { EntityType, SubResourceType, Tag, Entity } from '../../../types.generated';
 import CreateTagModal from './CreateTagModal';
 import { useAddTagsMutation, useAddTermsMutation } from '../../../graphql/mutations.generated';
 import analytics, { EventType, EntityActionType } from '../../analytics';
@@ -13,7 +13,7 @@ import TagLabel from '../TagLabel';
 import GlossaryBrowser from '../../glossary/GlossaryBrowser/GlossaryBrowser';
 import ClickOutside from '../ClickOutside';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { useGetRecommendedTags } from '../recommendation';
+import { useGetRecommendations } from '../recommendation';
 
 type AddTagsModalProps = {
     visible: boolean;
@@ -79,7 +79,8 @@ export default function AddTagsTermsModal({
     const [addTermsMutation] = useAddTermsMutation();
 
     const [tagTermSearch, { data: tagTermSearchData }] = useGetSearchResultsLazyQuery();
-    const tagSearchResults = tagTermSearchData?.search?.searchResults || [];
+    const tagSearchResults = tagTermSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
+    const [recommendedData] = useGetRecommendations([EntityType.Tag]);
 
     const handleSearch = (text: string) => {
         if (text.length > 0) {
@@ -96,39 +97,35 @@ export default function AddTagsTermsModal({
         }
     };
 
-    const renderSearchResult = (result: SearchResult) => {
+    const renderSearchResult = (entity: Entity) => {
         const displayName =
-            result.entity.type === EntityType.Tag
-                ? (result.entity as Tag).name
-                : entityRegistry.getDisplayName(result.entity.type, result.entity);
+            entity.type === EntityType.Tag ? (entity as Tag).name : entityRegistry.getDisplayName(entity.type, entity);
         const tagOrTermComponent =
-            result.entity.type === EntityType.Tag ? (
+            entity.type === EntityType.Tag ? (
                 <TagLabel
                     name={displayName}
-                    colorHash={(result.entity as Tag).urn}
-                    color={(result.entity as Tag).properties?.colorHex}
+                    colorHash={(entity as Tag).urn}
+                    color={(entity as Tag).properties?.colorHex}
                 />
             ) : (
                 <TermLabel name={displayName} />
             );
         return (
-            <Select.Option value={result.entity.urn} key={result.entity.urn} name={displayName}>
+            <Select.Option value={entity.urn} key={entity.urn} name={displayName}>
                 {tagOrTermComponent}
             </Select.Option>
         );
     };
 
-    const recommendedTagData = useGetRecommendedTags();
-
     const tagResult =
-        (!inputValue || inputValue.length === 0) && type === EntityType.Tag ? recommendedTagData : tagSearchResults;
+        (!inputValue || inputValue.length === 0) && type === EntityType.Tag ? recommendedData : tagSearchResults;
 
     const tagSearchOptions = tagResult?.map((result) => {
         return renderSearchResult(result);
     });
 
-    const inputExistsInTagSearch = tagSearchResults.some((result: SearchResult) => {
-        const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
+    const inputExistsInTagSearch = tagSearchResults.some((entity: Entity) => {
+        const displayName = entityRegistry.getDisplayName(entity.type, entity);
         return displayName.toLowerCase() === inputValue.toLowerCase();
     });
 
