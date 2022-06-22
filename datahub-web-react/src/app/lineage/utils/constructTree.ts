@@ -22,6 +22,7 @@ export default function constructTree(
         icon: fetchedEntity?.icon,
         platform: fetchedEntity?.platform,
         unexploredChildren: 0,
+        siblingPlatforms: fetchedEntity?.siblingPlatforms,
     };
     const lineageConfig = entityRegistry.getLineageVizConfig(entityAndType.type, entityAndType.entity);
     let children: EntityAndType[] = [];

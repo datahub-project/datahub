@@ -3,12 +3,14 @@ import React, { useState } from 'react';
 import { PlusOutlined } from '@ant-design/icons';
 import { ExpandedOwner } from '../../../../components/styled/ExpandedOwner';
 import { EMPTY_MESSAGES } from '../../../../constants';
-import { useEntityData, useRefetch } from '../../../../EntityContext';
+import { useEntityData, useMutationUrn, useRefetch } from '../../../../EntityContext';
 import { SidebarHeader } from '../SidebarHeader';
 import { AddOwnersModal } from './AddOwnersModal';
 
 export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
     const { urn, entityType, entityData } = useEntityData();
+    const mutationUrn = useMutationUrn();
+
     const refetch = useRefetch();
     const [showAddModal, setShowAddModal] = useState(false);
     const ownersEmpty = !entityData?.ownership?.owners?.length;
@@ -31,7 +33,7 @@ export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
                 </Button>
             </div>
             <AddOwnersModal
-                urn={urn}
+                urn={mutationUrn}
                 defaultOwnerType={properties?.defaultOwnerType}
                 hideOwnerType={properties?.hideOwnerType || false}
                 type={entityType}

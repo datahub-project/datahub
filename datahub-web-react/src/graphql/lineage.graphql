@@ -141,8 +141,37 @@ fragment lineageNodeProperties on EntityWithRelationships {
     }
 }
 
+fragment relationshipFieldsWithoutSiblings on EntityWithRelationships {
+    ...lineageNodeProperties
+    ... on Dataset {
+        siblings {
+            isPrimary
+            siblings {
+                urn
+                type
+            }
+        }
+    }
+    upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+        ...leafLineageResults
+    }
+    downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+        ...leafLineageResults
+    }
+}
+
 fragment relationshipFields on EntityWithRelationships {
     ...lineageNodeProperties
+    ... on Dataset {
+        siblings {
+            isPrimary
+            siblings {
+                urn
+                type
+                ...relationshipFieldsWithoutSiblings
+            }
+        }
+    }
     upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
         ...leafLineageResults
     }
@@ -187,6 +216,16 @@ query getEntityLineage($urn: String!) {
         urn
         type
         ...lineageNodeProperties
+        ... on Dataset {
+            siblings {
+                isPrimary
+                siblings {
+                    urn
+                    type
+                    ...relationshipFieldsWithoutSiblings
+                }
+            }
+        }
         ... on EntityWithRelationships {
             upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
                 ...fullLineageResults

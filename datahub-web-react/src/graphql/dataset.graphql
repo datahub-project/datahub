@@ -24,149 +24,161 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
 
 query getDataset($urn: String!) {
     dataset(urn: $urn) {
-        ...nonRecursiveDatasetFields
-        schemaMetadata(version: 0) {
-            ...schemaMetadataFields
-        }
-        previousSchemaMetadata: schemaMetadata(version: -1) {
-            ...schemaMetadataFields
-        }
-        editableSchemaMetadata {
-            editableSchemaFieldInfo {
-                fieldPath
-                description
-                globalTags {
-                    ...globalTagsFields
-                }
-                glossaryTerms {
-                    ...glossaryTerms
-                }
+        ...nonSiblingDatasetFields
+        siblings {
+            isPrimary
+            siblings {
+                urn
+                type
+                ...nonSiblingDatasetFields
             }
         }
-        deprecation {
-            actor
-            deprecated
-            note
-            decommissionTime
-        }
-        globalTags {
-            ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        subTypes {
-            typeNames
-        }
-        domain {
-            ...entityDomain
-        }
-        container {
-            ...entityContainer
-        }
-        parentContainers {
-            ...parentContainersFields
-        }
-        usageStats(range: MONTH) {
-            buckets {
-                bucket
-                duration
-                resource
-                metrics {
-                    uniqueUserCount
-                    totalSqlQueries
-                    topSqlQueries
-                }
+    }
+}
+
+fragment nonSiblingDatasetFields on Dataset {
+    ...nonRecursiveDatasetFields
+    schemaMetadata(version: 0) {
+        ...schemaMetadataFields
+    }
+    previousSchemaMetadata: schemaMetadata(version: -1) {
+        ...schemaMetadataFields
+    }
+    editableSchemaMetadata {
+        editableSchemaFieldInfo {
+            fieldPath
+            description
+            globalTags {
+                ...globalTagsFields
             }
-            aggregations {
+            glossaryTerms {
+                ...glossaryTerms
+            }
+        }
+    }
+    deprecation {
+        actor
+        deprecated
+        note
+        decommissionTime
+    }
+    globalTags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    subTypes {
+        typeNames
+    }
+    domain {
+        ...entityDomain
+    }
+    container {
+        ...entityContainer
+    }
+    parentContainers {
+        ...parentContainersFields
+    }
+    usageStats(range: MONTH) {
+        buckets {
+            bucket
+            duration
+            resource
+            metrics {
                 uniqueUserCount
                 totalSqlQueries
-                users {
-                    user {
-                        urn
-                        username
-                    }
-                    count
-                    userEmail
+                topSqlQueries
+            }
+        }
+        aggregations {
+            uniqueUserCount
+            totalSqlQueries
+            users {
+                user {
+                    urn
+                    username
                 }
-                fields {
-                    fieldName
-                    count
-                }
+                count
+                userEmail
+            }
+            fields {
+                fieldName
+                count
             }
         }
-        datasetProfiles(limit: 1) {
-            rowCount
-            columnCount
-            timestampMillis
-            fieldProfiles {
-                fieldPath
-                uniqueCount
-                uniqueProportion
-                nullCount
-                nullProportion
-                min
-                max
-                mean
-                median
-                stdev
-                sampleValues
+    }
+    datasetProfiles(limit: 1) {
+        rowCount
+        columnCount
+        timestampMillis
+        fieldProfiles {
+            fieldPath
+            uniqueCount
+            uniqueProportion
+            nullCount
+            nullProportion
+            min
+            max
+            mean
+            median
+            stdev
+            sampleValues
+        }
+    }
+    health {
+        status
+        message
+        causes
+    }
+    assertions(start: 0, count: 1) {
+        total
+    }
+    operations(limit: 1) {
+        timestampMillis
+        lastUpdatedTimestamp
+    }
+    upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+        ...partialLineageResults
+    }
+    downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+        ...partialLineageResults
+    }
+    ...viewProperties
+    autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+        aspectName
+        payload
+        renderSpec {
+            displayType
+            displayName
+            key
+        }
+    }
+    status {
+        removed
+    }
+    readRuns: runs(start: 0, count: 20, direction: INCOMING) {
+        count
+        start
+        total
+    }
+    writeRuns: runs(start: 0, count: 20, direction: OUTGOING) {
+        count
+        start
+        total
+    }
+    testResults {
+        passing {
+            test {
+                ...testFields
             }
+            type
         }
-        health {
-            status
-            message
-            causes
-        }
-        assertions(start: 0, count: 1) {
-            total
-        }
-        operations(limit: 1) {
-            timestampMillis
-            lastUpdatedTimestamp
-        }
-        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
-            ...partialLineageResults
-        }
-        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
-            ...partialLineageResults
-        }
-        ...viewProperties
-        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
-            aspectName
-            payload
-            renderSpec {
-                displayType
-                displayName
-                key
+        failing {
+            test {
+                ...testFields
             }
-        }
-        status {
-            removed
-        }
-        readRuns: runs(start: 0, count: 20, direction: INCOMING) {
-            count
-            start
-            total
-        }
-        writeRuns: runs(start: 0, count: 20, direction: OUTGOING) {
-            count
-            start
-            total
-        }
-        testResults {
-            passing {
-                test {
-                    ...testFields
-                }
-                type
-            }
-            failing {
-                test {
-                    ...testFields
-                }
-                type
-            }
+            type
         }
     }
 }
