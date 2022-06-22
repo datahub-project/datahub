@@ -22,17 +22,6 @@ const PageNotFoundTextContainer = styled.div`
     height: 240px;
 `;
 
-const Title = styled.h3`
-    position: relative;
-    font-size: 16px;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: #262626;
-    margin: 0px;
-    letter-spacing: 3px;
-    padding-left: 6px;
-`;
-
 const NumberContainer = styled.h1`
     position: absolute;
     left: 50%;
@@ -71,15 +60,14 @@ export const NoPageFound = () => {
         <MainContainer>
             <PageNotFoundContainer>
                 <PageNotFoundTextContainer>
-                    <Title>Oops! Page not found</Title>
                     <NumberContainer>
                         <Number>4</Number>
                         <Number>0</Number>
                         <Number>4</Number>
                     </NumberContainer>
                 </PageNotFoundTextContainer>
-                <SubTitle>we are sorry, but the page you requested was not found</SubTitle>
-                <Button onClick={goToHomepage}>Go To Homepage</Button>
+                <SubTitle>The page your requested was not found,</SubTitle>
+                <Button onClick={goToHomepage}>Back to Home</Button>
             </PageNotFoundContainer>
         </MainContainer>
     );
