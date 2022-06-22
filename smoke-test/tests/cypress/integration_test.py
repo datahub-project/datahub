@@ -10,10 +10,12 @@ from tests.utils import delete_urns_from_file
 def ingest_cleanup_data():
     print("ingesting test data")
     ingest_file_via_rest("tests/cypress/data.json")
+    ingest_file_via_rest("tests/cypress/cypress_dbt_data.json")
     ingest_file_via_rest("tests/cypress/schema-blame-data.json")
     yield
     print("removing test data")
     delete_urns_from_file("tests/cypress/data.json")
+    delete_urns_from_file("tests/cypress/cypress_dbt_data.json")
     delete_urns_from_file("tests/cypress/schema-blame-data.json")
 
 

@@ -139,6 +139,7 @@ export default class EntityRegistry {
                     })),
                 numUpstreamChildren: genericEntityProperties?.upstream?.total,
                 status: genericEntityProperties?.status,
+                siblingPlatforms: genericEntityProperties?.siblingPlatforms,
             } as FetchedEntity) || undefined
         );
     }
