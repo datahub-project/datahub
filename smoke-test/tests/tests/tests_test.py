@@ -21,7 +21,9 @@ test_id = "test id"
 test_name = "test name"
 test_category = "test category"
 test_description = "test description"
-test_description = "test description"
+test_definition_json = "{\"on\":{\"types\":[\"dataset\"]},\"rules\":{\"or\":[{" \
+                       "\"query\":\"editableDatasetProperties.description\",\"operation\":\"exists\"}," \
+                       "{\"query\":\"datasetProperties.description\",\"operation\":\"exists\"}]}} "
 
 def create_test(frontend_session):
 
@@ -37,7 +39,7 @@ def create_test(frontend_session):
               "category": test_category,
               "description": test_description,
               "definition": {
-                "json": "{}"
+                "json": test_definition_json
               }
           }
         }
@@ -107,7 +109,7 @@ def test_create_test(frontend_session,wait_for_healthchecks):
       "category": test_category,
       "description": test_description,
       "definition": {
-        "json": "{}",
+        "json": test_definition_json
       }
     }
     assert "errors" not in res_data
@@ -146,7 +148,7 @@ def test_update_test(frontend_session,wait_for_healthchecks):
               "category": test_category,
               "description": test_description,
               "definition": {
-                "json": "{}"
+                "json": test_definition_json
               }
           }
         }
@@ -194,7 +196,7 @@ def test_update_test(frontend_session,wait_for_healthchecks):
       "category": test_category,
       "description": test_description,
       "definition": {
-        "json": "{}",
+        "json": test_definition_json,
       }
     }
     assert "errors" not in res_data
