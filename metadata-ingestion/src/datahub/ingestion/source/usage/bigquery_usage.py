@@ -9,7 +9,18 @@ import textwrap
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast
+from re import Pattern
+from typing import (
+    Any,
+    AnyStr,
+    Dict,
+    Iterable,
+    List,
+    MutableMapping,
+    Optional,
+    Union,
+    cast,
+)
 
 import cachetools
 from dateutil import parser
@@ -67,6 +78,7 @@ DEBUG_INCLUDE_FULL_PAYLOADS = False
 PARTITIONED_TABLE_REGEX = re.compile(
     r"^(.+)[\$_](\d{4}|\d{6}|\d{8}|\d{10}|__PARTITIONS_SUMMARY__)$"
 )
+PARTITION_SUMMARY_REGEXP = re.compile(r"^(.+)\$__PARTITIONS_SUMMARY__$")
 
 # Handle table snapshots
 # See https://cloud.google.com/bigquery/docs/table-snapshots-intro.
@@ -268,14 +280,26 @@ class BigQueryTableRef:
         # Temporary tables will have a dataset that begins with an underscore.
         return self.dataset.startswith(prefix)
 
-    def remove_extras(self) -> "BigQueryTableRef":
+    def remove_extras(self, sharded_table_regex: str) -> "BigQueryTableRef":
         # Handle partitioned and sharded tables.
-        matches = PARTITIONED_TABLE_REGEX.match(self.table)
+        table_name: Optional[str] = None
+
+        matches = re.match(sharded_table_regex, self.table)
         if matches:
-            table_name = matches.group(1)
+            table_name = matches.group(2)
+        else:
+            matches = PARTITION_SUMMARY_REGEXP.match(self.table)
+            if matches:
+                table_name = matches.group(1)
+        if matches:
             logger.debug(
-                f"Found partitioned table {self.table}. Using {table_name} as the table name."
+                f"Found sharded table {self.table}. Using {table_name} as the table name."
             )
+            if not table_name:
+                logger.debug(
+                    f"Using dataset id {self.dataset} as table name because table only contains date value {self.table}"
+                )
+                table_name = self.dataset
             return BigQueryTableRef(self.project, self.dataset, table_name)
 
         # Handle table snapshots.
@@ -1021,9 +1045,13 @@ class BigQueryUsageSource(Source):
             and event.query_event
             and event.query_event.destinationTable
         ):
-            destination_table = event.query_event.destinationTable.remove_extras()
+            destination_table = event.query_event.destinationTable.remove_extras(
+                self.config.sharded_table_pattern
+            )
         elif event.read_event:
-            destination_table = event.read_event.resource.remove_extras()
+            destination_table = event.read_event.resource.remove_extras(
+                self.config.sharded_table_pattern
+            )
         else:
             # TODO: CREATE_SCHEMA operation ends up here, maybe we should capture that as well
             # but it is tricky as we only get the query so it can't be tied to anything
@@ -1081,7 +1109,7 @@ class BigQueryUsageSource(Source):
                 try:
                     affected_datasets.append(
                         _table_ref_to_urn(
-                            table.remove_extras(),
+                            table.remove_extras(self.config.sharded_table_pattern),
                             self.config.env,
                         )
                     )
@@ -1324,7 +1352,9 @@ class BigQueryUsageSource(Source):
         )
         resource: Optional[BigQueryTableRef] = None
         try:
-            resource = event.read_event.resource.remove_extras()
+            resource = event.read_event.resource.remove_extras(
+                self.config.sharded_table_pattern
+            )
         except Exception as e:
             self.report.report_warning(
                 str(event.read_event.resource), f"Failed to clean up resource, {e}"
