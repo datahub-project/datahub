@@ -89,8 +89,7 @@ public class IngestMetadataTestsStep implements BootstrapStep {
     try {
       RecordTemplate aspect =
           _entityService.getLatestEnvelopedAspect(Constants.TEST_ENTITY_NAME, testUrn, Constants.TEST_INFO_ASPECT_NAME);
-//      return aspect != null;
-      return false;
+      return aspect != null;
     } catch (Exception e) {
       return false;
     }
