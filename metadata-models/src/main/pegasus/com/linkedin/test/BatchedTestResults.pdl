@@ -1,0 +1,13 @@
+namespace com.linkedin.test
+
+import com.linkedin.common.Urn
+
+/**
+ * Batched test results returning test results per entity
+ */
+record BatchedTestResults {
+  /**
+   * Test result per entity
+   */
+  results: map[string, TestResults]
+}

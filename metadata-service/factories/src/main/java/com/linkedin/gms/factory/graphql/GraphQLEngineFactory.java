@@ -15,13 +15,17 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
+import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
+import com.linkedin.gms.factory.test.TestEngineFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.secret.SecretService;
+import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -40,7 +44,7 @@ import org.springframework.context.annotation.Import;
 @Configuration
 @Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, RestliEntityClientFactory.class,
     RecommendationServiceFactory.class, EntityRegistryFactory.class, DataHubTokenServiceFactory.class,
-    GitVersionFactory.class, SiblingGraphServiceFactory.class})
+    GitVersionFactory.class, SiblingGraphServiceFactory.class, TestEngineFactory.class, EntitySearchServiceFactory.class})
 public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
@@ -67,6 +71,10 @@ public class GraphQLEngineFactory {
   private EntityService _entityService;
 
   @Autowired
+  @Qualifier("entitySearchService")
+  private EntitySearchService _entitySearchService;
+
+  @Autowired
   @Qualifier("graphService")
   private GraphService _graphService;
 
@@ -88,6 +96,10 @@ public class GraphQLEngineFactory {
   @Autowired
   @Qualifier("dataHubSecretService")
   private SecretService _secretService;
+
+  @Autowired
+  @Qualifier("testEngine")
+  private TestEngine _testEngine;
 
   @Autowired
   @Qualifier("entityRegistry")
@@ -122,11 +134,13 @@ public class GraphQLEngineFactory {
           _usageClient,
           new AnalyticsService(elasticClient, indexConvention),
           _entityService,
+          _entitySearchService,
           _recommendationsService,
           _statefulTokenService,
           _timeseriesAspectService,
           _entityRegistry,
           _secretService,
+          _testEngine,
           _nativeUserService,
           _configProvider.getIngestion(),
           _configProvider.getAuthentication(),
@@ -147,11 +161,13 @@ public class GraphQLEngineFactory {
         _usageClient,
         null,
         _entityService,
+        _entitySearchService,
         _recommendationsService,
         _statefulTokenService,
         _timeseriesAspectService,
         _entityRegistry,
         _secretService,
+        _testEngine,
         _nativeUserService,
         _configProvider.getIngestion(),
         _configProvider.getAuthentication(),

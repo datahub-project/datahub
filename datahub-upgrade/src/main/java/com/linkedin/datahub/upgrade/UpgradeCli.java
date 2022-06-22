@@ -8,6 +8,7 @@ import com.linkedin.datahub.upgrade.restoreaspect.RestoreAspect;
 import com.linkedin.datahub.upgrade.restorebackup.RestoreBackup;
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
 import com.linkedin.datahub.upgrade.secret.RotateSecrets;
+import com.linkedin.datahub.upgrade.test.EvaluateTests;
 import java.util.List;
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -59,6 +60,10 @@ public class UpgradeCli implements CommandLineRunner {
   @Named("rotateSecrets")
   private RotateSecrets rotateSecrets;
 
+  @Inject
+  @Named("evaluateTests")
+  private EvaluateTests evaluateTests;
+
   @Override
   public void run(String... cmdLineArgs) {
     _upgradeManager.register(noCodeUpgrade);
@@ -68,6 +73,7 @@ public class UpgradeCli implements CommandLineRunner {
     _upgradeManager.register(restoreAspect);
     _upgradeManager.register(propagateTerms);
     _upgradeManager.register(rotateSecrets);
+    _upgradeManager.register(evaluateTests);
 
     final Args args = new Args();
     new CommandLine(args).setCaseInsensitiveEnumValuesAllowed(true).parseArgs(cmdLineArgs);

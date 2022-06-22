@@ -50,4 +50,12 @@ record TestInfo {
        */
        json: optional string
     }
+
+    /**
+     * Timestamp when the test was last updated
+     */
+    @Searchable = {
+      "fieldType": "DATETIME"
+    }
+    lastUpdatedTimestamp: optional long
 }

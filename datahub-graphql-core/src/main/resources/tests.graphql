@@ -110,6 +110,11 @@ extend type Query {
   List all DataHub Tests
   """
   listTests(input: ListTestsInput!): ListTestsResult
+
+  """
+  Validate test definition
+  """
+  validateTest(input: TestDefinitionInput!): TestValidationResult
 }
 
 """
@@ -213,6 +218,18 @@ input TestDefinitionInput {
   json: String
 }
 
+type TestValidationResult {
+  """
+  Whether or not the test definition is valid
+  """
+  isValid: Boolean
+
+  """
+  Additional messages to indicate the reasons why definition is invalid
+  """
+  messages: [String!]
+}
+
 extend type Mutation {
   """
   Create a new test
@@ -228,4 +245,9 @@ extend type Mutation {
   Create an existing test - note that this will NOT delete dangling pointers until the next execution of the test.
   """
   deleteTest(urn: String!): Boolean
+
+  """
+  Run tests for the given entity urn
+  """
+  runTests(urn: String!): TestValidationResult
 }
