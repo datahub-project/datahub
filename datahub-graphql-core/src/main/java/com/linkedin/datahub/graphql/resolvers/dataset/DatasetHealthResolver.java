@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Health;
 import com.linkedin.datahub.graphql.generated.HealthStatus;
+import com.linkedin.datahub.graphql.generated.HealthStatusType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.Condition;
@@ -35,6 +36,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 
 
 /**
@@ -44,34 +47,45 @@ import lombok.AllArgsConstructor;
  * health status will be undefined for the Dataset.
  *
  */
-public class DatasetHealthResolver implements DataFetcher<CompletableFuture<Health>> {
+@Slf4j
+public class DatasetHealthResolver implements DataFetcher<CompletableFuture<List<Health>>> {
 
   private static final String ASSERTS_RELATIONSHIP_NAME = "Asserts";
   private static final String ASSERTION_RUN_EVENT_SUCCESS_TYPE = "SUCCESS";
-  private static final CachedHealth NO_HEALTH = new CachedHealth(false, null);
 
   private final GraphClient _graphClient;
   private final TimeseriesAspectService _timeseriesAspectService;
+  private final Config _config;
 
   private final Cache<String, CachedHealth> _statusCache;
 
-  public DatasetHealthResolver(final GraphClient graphClient, final TimeseriesAspectService timeseriesAspectService) {
+  public DatasetHealthResolver(
+      final GraphClient graphClient,
+      final TimeseriesAspectService timeseriesAspectService) {
+    this(graphClient, timeseriesAspectService, new Config(true));
+
+  }
+  public DatasetHealthResolver(
+      final GraphClient graphClient,
+      final TimeseriesAspectService timeseriesAspectService,
+      final Config config) {
     _graphClient = graphClient;
     _timeseriesAspectService = timeseriesAspectService;
     _statusCache = CacheBuilder.newBuilder()
         .maximumSize(10000)
         .expireAfterWrite(1, TimeUnit.MINUTES)
         .build();
+    _config = config;
   }
 
   @Override
-  public CompletableFuture<Health> get(final DataFetchingEnvironment environment) throws Exception {
+  public CompletableFuture<List<Health>> get(final DataFetchingEnvironment environment) throws Exception {
     final Dataset parent = environment.getSource();
     return CompletableFuture.supplyAsync(() -> {
         try {
           final CachedHealth cachedStatus = _statusCache.get(parent.getUrn(), () -> (
               computeHealthStatusForDataset(parent.getUrn(), environment.getContext())));
-          return cachedStatus.hasStatus ? cachedStatus.health : null;
+          return cachedStatus.healths;
         } catch (Exception e) {
           throw new RuntimeException("Failed to resolve dataset's health status.", e);
         }
@@ -87,11 +101,15 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<Heal
    *
    */
   private CachedHealth computeHealthStatusForDataset(final String datasetUrn, final QueryContext context) {
-    final Health result = computeAssertionHealthForDataset(datasetUrn, context);
-    if (result == null) {
-      return NO_HEALTH;
+    final List<Health> healthStatuses = new ArrayList<>();
+
+    if (_config.getAssertionsEnabled()) {
+      final Health assertionsHealth = computeAssertionHealthForDataset(datasetUrn, context);
+      if (assertionsHealth != null) {
+        healthStatuses.add(assertionsHealth);
+      }
     }
-    return new CachedHealth(true, result);
+    return new CachedHealth(healthStatuses);
   }
 
   /**
@@ -132,6 +150,7 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<Heal
 
       // Finally compute & return the health.
       final Health health = new Health();
+      health.setType(HealthStatusType.ASSERTIONS);
       if (failingAssertionUrns.size() > 0) {
         health.setStatus(HealthStatus.FAIL);
         health.setMessage(String.format("Dataset is failing %s/%s assertions.", failingAssertionUrns.size(),
@@ -217,9 +236,14 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<Heal
     return failedAssertionUrns;
   }
 
-    @AllArgsConstructor
+  @Data
+  @AllArgsConstructor
+  public static class Config {
+    private Boolean assertionsEnabled;
+  }
+
+  @AllArgsConstructor
   private static class CachedHealth {
-    private final boolean hasStatus;
-    private final Health health;
+    private final List<Health> healths;
   }
 }

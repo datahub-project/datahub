@@ -127,6 +127,7 @@ fragment nonSiblingDatasetFields on Dataset {
         }
     }
     health {
+        type
         status
         message
         causes
