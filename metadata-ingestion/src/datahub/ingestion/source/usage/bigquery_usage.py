@@ -9,16 +9,7 @@ import textwrap
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import (
-    Any,
-    Dict,
-    Iterable,
-    List,
-    MutableMapping,
-    Optional,
-    Union,
-    cast,
-)
+from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast
 
 import cachetools
 from dateutil import parser
