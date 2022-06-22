@@ -74,10 +74,15 @@ public class EntityUtils {
   }
 
   /**
-   * Check if entity is removed (removed=true in Status aspect)
+   * Check if entity is removed (removed=true in Status aspect) and exists 
    */
   public static boolean checkIfRemoved(EntityService entityService, Urn entityUrn) {
     try {
+      
+      if (!entityService.exists(entityUrn)) {
+        return false;
+      }
+      
       EnvelopedAspect statusAspect =
           entityService.getLatestEnvelopedAspect(entityUrn.getEntityType(), entityUrn, "status");
       if (statusAspect == null) {

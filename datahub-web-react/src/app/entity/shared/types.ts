@@ -29,6 +29,7 @@ import {
     ParentContainersResult,
     EntityRelationshipsResult,
     ParentNodesResult,
+    SiblingProperties,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -85,6 +86,8 @@ export type GenericEntityProperties = {
     children?: Maybe<EntityRelationshipsResult>;
     parentNodes?: Maybe<ParentNodesResult>;
     isAChildren?: Maybe<EntityRelationshipsResult>;
+    siblings?: Maybe<SiblingProperties>;
+    siblingPlatforms?: Maybe<DataPlatform[]>;
 };
 
 export type GenericEntityUpdate = {

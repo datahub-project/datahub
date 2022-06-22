@@ -255,6 +255,10 @@ def make_ml_model_group_urn(platform: str, group_name: str, env: str) -> str:
 
 def is_valid_ownership_type(ownership_type: Optional[str]) -> bool:
     return ownership_type is not None and ownership_type in [
+        OwnershipTypeClass.TECHNICAL_OWNER,
+        OwnershipTypeClass.BUSINESS_OWNER,
+        OwnershipTypeClass.DATA_STEWARD,
+        OwnershipTypeClass.NONE,
         OwnershipTypeClass.DEVELOPER,
         OwnershipTypeClass.DATAOWNER,
         OwnershipTypeClass.DELEGATE,

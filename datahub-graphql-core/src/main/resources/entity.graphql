@@ -168,6 +168,11 @@ type Query {
     Gets the current invite token. If the optional regenerate param is set to true, generate a new invite token.
     """
     getNativeUserInviteToken: InviteToken
+
+    """
+    Gets an entity based on its urn
+    """
+    entity(urn: String!): Entity
 }
 
 """
@@ -990,6 +995,25 @@ type Dataset implements EntityWithRelationships & Entity {
     History of datajob runs that either produced or consumed this dataset
     """
     runs(start: Int, count: Int, direction: RelationshipDirection!): DataProcessInstanceResult
+
+    """
+    Metadata about the datasets siblings
+    """
+    siblings: SiblingProperties
+}
+
+"""
+Metadata about the entity's siblings
+"""
+type SiblingProperties {
+    """
+    If this entity is the primary sibling among the sibling set
+    """
+    isPrimary: Boolean
+    """
+    The sibling entities
+    """
+    siblings: [Entity]
 }
 
 """
