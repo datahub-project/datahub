@@ -52,7 +52,7 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
   public Task<TestResults> evaluate(@ActionParam(PARAM_URN) @Nonnull String urnStr,
       @ActionParam(PARAM_TESTS) @Optional @Nullable String[] testUrns,
       @ActionParam(PARAM_PUSH) @Optional @Nullable Boolean shouldPush) throws URISyntaxException {
-    log.info("Evaluate tests {} for entity {}", Arrays.toString(testUrns), urnStr);
+    log.debug("Evaluate tests {} for entity {}", Arrays.toString(testUrns), urnStr);
     final Urn urn = Urn.createFromString(urnStr);
     final List<Urn> tests =
         testUrns == null ? null : Arrays.stream(testUrns).map(UrnUtils::getUrn).collect(Collectors.toList());
@@ -71,7 +71,7 @@ public class MetadataTestResource extends SimpleResourceTaskTemplate<TestInfo> {
   public Task<BatchedTestResults> batchEvaluate(@ActionParam(PARAM_URNS) @Nonnull String[] urnStrs,
       @ActionParam(PARAM_TESTS) @Optional @Nullable String[] testUrns,
       @ActionParam(PARAM_PUSH) @Optional @Nullable Boolean shouldPush) throws URISyntaxException {
-    log.info("Evaluate tests {} for entity {}", Arrays.toString(testUrns), urnStrs);
+    log.debug("Evaluate tests {} for entity {}", Arrays.toString(testUrns), urnStrs);
 
     final List<Urn> urns = Arrays.stream(urnStrs).map(UrnUtils::getUrn).collect(Collectors.toList());
     final List<Urn> tests =
