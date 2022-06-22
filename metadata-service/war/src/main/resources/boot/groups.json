@@ -1,0 +1,42 @@
+[
+  {
+    "urn": "urn:li:corpgroup:organization-admins",
+    "info": {
+      "displayName": "Organization Admins",
+      "description": "Top level DataHub administrators. They have ALL privileges.",
+      "admins": [],
+      "members": [],
+      "groups": []
+    }
+  },
+  {
+    "urn": "urn:li:corpgroup:metadata-stewards",
+    "info": {
+      "displayName": "Metadata Stewards",
+      "description": "Overseers of all metadata assets across DataHub.",
+      "admins": [],
+      "members": [],
+      "groups": []
+    }
+  },
+  {
+    "urn": "urn:li:corpgroup:metadata-readers",
+    "info": {
+      "displayName": "Metadata Readers",
+      "description": "Users in this group have the ability to read metadata, but cannot change it by default.",
+      "admins": [],
+      "members": [],
+      "groups": []
+    }
+  },
+  {
+    "urn": "urn:li:corpgroup:access-admins",
+    "info": {
+      "displayName": "Access Admins",
+      "description": "Administrators for managing users, groups, and security-related features.",
+      "admins": [],
+      "members": [],
+      "groups": []
+    }
+  }
+]
