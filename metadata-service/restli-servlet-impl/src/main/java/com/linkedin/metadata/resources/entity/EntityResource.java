@@ -33,6 +33,7 @@ import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.Task;
@@ -273,16 +274,16 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<LineageSearchResult> searchAcrossLineage(@ActionParam(PARAM_URN) @Nonnull String urnStr,
       @ActionParam(PARAM_DIRECTION) String direction,
       @ActionParam(PARAM_ENTITIES) @Optional @Nullable String[] entities,
-      @ActionParam(PARAM_INPUT) @Optional @Nullable String input, @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
-      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion, @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count) throws URISyntaxException {
+      @ActionParam(PARAM_INPUT) @Optional @Nullable String input, @ActionParam(PARAM_MAX_HOPS) @Optional @Nullable Integer maxHops,
+      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter, @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
+      @ActionParam(PARAM_START) int start, @ActionParam(PARAM_COUNT) int count) throws URISyntaxException {
     Urn urn = Urn.createFromString(urnStr);
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.info("GET SEARCH RESULTS ACROSS RELATIONSHIPS for source urn {}, direction {}, entities {} with query {}",
         urnStr, direction, entityList, input);
     return RestliUtil.toTask(
         () -> _lineageSearchService.searchAcrossLineage(urn, LineageDirection.valueOf(direction), entityList,
-            input, filter, sortCriterion, start, count), "searchAcrossRelationships");
+            input, maxHops, filter, sortCriterion, start, count), "searchAcrossRelationships");
   }
 
   @Action(name = ACTION_LIST)
@@ -369,7 +370,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     return RestliUtil.toTask(() -> {
       RollbackResponse response = new RollbackResponse();
       List<AspectRowSummary> aspectRowsToDelete =
-          _systemMetadataService.findByRegistry(finalRegistryName, finalRegistryVersion.toString(), false);
+          _systemMetadataService.findByRegistry(finalRegistryName, finalRegistryVersion.toString(), false, 0,
+              ESUtils.MAX_RESULT_SIZE);
       log.info("found {} rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
       response.setAspectsAffected(aspectRowsToDelete.size());
       response.setEntitiesAffected(

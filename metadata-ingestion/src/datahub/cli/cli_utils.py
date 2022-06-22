@@ -64,7 +64,12 @@ CONDENSED_DATAHUB_CONFIG_PATH = "~/.datahubenv"
 DATAHUB_CONFIG_PATH = os.path.expanduser(CONDENSED_DATAHUB_CONFIG_PATH)
 
 ENV_SKIP_CONFIG = "DATAHUB_SKIP_CONFIG"
+ENV_METADATA_HOST_URL = "DATAHUB_GMS_URL"
 ENV_METADATA_HOST = "DATAHUB_GMS_HOST"
+ENV_METADATA_PORT = "DATAHUB_GMS_PORT"
+ENV_METADATA_PROTOCOL = "DATAHUB_GMS_PROTOCOL"
+ENV_METADATA_HOST_DEPRECATED = "GMS_HOST"
+ENV_METADATA_PORT_DEPRECATED = "GMS_PORT"
 ENV_METADATA_TOKEN = "DATAHUB_GMS_TOKEN"
 
 config_override: Dict = {}
@@ -79,9 +84,9 @@ class DatahubConfig(BaseModel):
     gms: GmsConfig
 
 
-def set_env_variables_override_config(host: str, token: Optional[str]) -> None:
+def set_env_variables_override_config(url: str, token: Optional[str]) -> None:
     """Should be used to override the config when using rest emitter"""
-    config_override[ENV_METADATA_HOST] = host
+    config_override[ENV_METADATA_HOST_URL] = url
     if token is not None:
         config_override[ENV_METADATA_TOKEN] = token
 
@@ -135,7 +140,25 @@ def get_details_from_config():
 
 
 def get_details_from_env() -> Tuple[Optional[str], Optional[str]]:
-    return os.environ.get(ENV_METADATA_HOST), os.environ.get(ENV_METADATA_TOKEN)
+    host = os.environ.get(ENV_METADATA_HOST) or os.environ.get(
+        ENV_METADATA_HOST_DEPRECATED
+    )
+    port = os.environ.get(ENV_METADATA_PORT) or os.environ.get(
+        ENV_METADATA_PORT_DEPRECATED
+    )
+    token = os.environ.get(ENV_METADATA_TOKEN)
+    protocol = os.environ.get(ENV_METADATA_PROTOCOL, "http")
+    url = os.environ.get(ENV_METADATA_HOST_URL)
+    if port is not None:
+        url = f"{protocol}://{host}:{port}"
+        return url, token
+    # The reason for using host as URL is backward compatibility
+    # If port is not being used we assume someone is using host env var as URL
+    if url is None and host is not None:
+        log.warning(
+            f"Do not use {ENV_METADATA_HOST} as URL. Use {ENV_METADATA_HOST_URL} instead"
+        )
+    return url or host, token
 
 
 def first_non_null(ls: List[Optional[str]]) -> Optional[str]:
@@ -147,10 +170,10 @@ def guess_entity_type(urn: str) -> str:
     return urn.split(":")[2]
 
 
-def get_host_and_token():
+def get_url_and_token():
     gms_host_env, gms_token_env = get_details_from_env()
     if len(config_override.keys()) > 0:
-        gms_host = config_override.get(ENV_METADATA_HOST)
+        gms_host = config_override.get(ENV_METADATA_HOST_URL)
         gms_token = config_override.get(ENV_METADATA_TOKEN)
     elif should_skip_config():
         gms_host = gms_host_env
@@ -164,17 +187,17 @@ def get_host_and_token():
 
 
 def get_token():
-    return get_host_and_token()[1]
+    return get_url_and_token()[1]
 
 
 def get_session_and_host():
     session = requests.Session()
 
-    gms_host, gms_token = get_host_and_token()
+    gms_host, gms_token = get_url_and_token()
 
     if gms_host is None or gms_host.strip() == "":
         log.error(
-            f"GMS Host is not set. Use datahub init command or set {ENV_METADATA_HOST} env var"
+            f"GMS Host is not set. Use datahub init command or set {ENV_METADATA_HOST_URL} env var"
         )
         return None, None
 
@@ -242,6 +265,21 @@ def parse_run_restli_response(response: requests.Response) -> dict:
     return summary
 
 
+def format_aspect_summaries(summaries: list) -> typing.List[typing.List[str]]:
+    local_timezone = datetime.now().astimezone().tzinfo
+    return [
+        [
+            row.get("urn"),
+            row.get("aspectName"),
+            datetime.fromtimestamp(row.get("timestamp") / 1000).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+            + f" ({local_timezone})",
+        ]
+        for row in summaries
+    ]
+
+
 def post_rollback_endpoint(
     payload_obj: dict,
     path: str,
@@ -266,19 +304,7 @@ def post_rollback_endpoint(
     if len(rows) == 0:
         click.secho(f"No entities found. Payload used: {payload}", fg="yellow")
 
-    local_timezone = datetime.now().astimezone().tzinfo
-    structured_rolled_back_results = [
-        [
-            row.get("urn"),
-            row.get("aspectName"),
-            datetime.fromtimestamp(row.get("timestamp") / 1000).strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
-            + f" ({local_timezone})",
-        ]
-        for row in rolled_back_aspects
-    ]
-
+    structured_rolled_back_results = format_aspect_summaries(rolled_back_aspects)
     return (
         structured_rolled_back_results,
         entities_affected,
@@ -349,9 +375,9 @@ def get_urns_by_filter(
     endpoint: str = "/entities?action=search"
     url = gms_host + endpoint
     filter_criteria = []
-    if env:
-        filter_criteria.append({"field": "origin", "value": env, "condition": "EQUAL"})
     entity_type_lower = entity_type.lower()
+    if env and entity_type_lower != "container":
+        filter_criteria.append({"field": "origin", "value": env, "condition": "EQUAL"})
     if (
         platform is not None
         and entity_type_lower == "dataset"

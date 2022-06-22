@@ -2,34 +2,48 @@
 title: "metadata-jobs:mce-consumer-job"
 ---
 
-# MetadataChangeEvent (MCE) Consumer Job
-MCE Consumer is a [Kafka Streams](https://kafka.apache.org/documentation/streams/) job. Its main function is to listen
-`MetadataChangeEvent` Kafka topic for messages and process those messages and writes new metadata to `DataHub GMS`.
-After every successful update of metadata, GMS fires a `MetadataAuditEvent` and this is consumed by 
-[MAE Consumer Job](../mae-consumer-job).
+# Metadata Change Event Consumer Job
+
+The Metadata Change Event Consumer is a [Kafka Streams](https://kafka.apache.org/documentation/streams/) job which can be deployed by itself, or as part of the Metadata Service.
+
+Its main function is to listen to change proposal events emitted by clients of DataHub which request changes to the Metadata Graph. It then applies
+these requests against DataHub's storage layer: the Metadata Service. 
+
+Today the job consumes from two topics:
+
+1. `MetadataChangeProposal_v1`
+2. (Deprecated) `MetadataChangeEvent_v4`
+
+and produces to the following topics
+
+1. `FailedMetadataChangeProposal_v1`
+2. (Deprecated) `FailedMetadataChangeEvent_v4`
+
+> Where does the misleeading name **Metadata Change Event** come from? Well, history. Previously, this job consumed
+> a single `MetadataChangeEvent` topic which has been deprecated and replaced by per-aspect Metadata Change Proposals. Hence, the name!
 
 ## Pre-requisites
 * You need to have [JDK8](https://www.oracle.com/java/technologies/jdk8-downloads.html) installed on your machine to be
-able to build `DataHub GMS`.
+able to build `DataHub Metadata Service`.
 
 ## Build
-`MCE Consumer Job` is already built as part of top level build:
+`Metadata Change Event Consumer Job` is already built as part of top level build:
 
 ```
 ./gradlew build
 ```
 
-However, if you only want to build `MCE Consumer Job` specifically:
+However, if you only want to build `Metadata Change Event Consumer Job` specifically:
 ```
 ./gradlew :metadata-jobs:mce-consumer-job:build
 ```
 
 ## Dependencies
-Before starting `MCE Consumer Job`, you need to make sure that [Kafka, Schema Registry & Zookeeper](../../docker/kafka-setup)
+Before starting `Metadata Change Event Consumer Job`, you need to make sure that [Kafka, Schema Registry & Zookeeper](../../docker/kafka-setup)
 and [DataHub GMS](../../docker/datahub-gms) Docker containers are up and running.
 
 ## Start via Docker image
-Quickest way to try out `MCE Consumer Job` is running the [Docker image](../../docker/datahub-mce-consumer).
+Quickest way to try out `Metadata Change Event Consumer Job` is running the [Docker image](../../docker/datahub-mce-consumer).
 
 ## Start via command line
 If you do modify things and want to try it out quickly without building the Docker image, you can also run

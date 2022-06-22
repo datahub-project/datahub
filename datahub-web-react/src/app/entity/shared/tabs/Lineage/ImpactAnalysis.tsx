@@ -18,9 +18,10 @@ const ImpactAnalysisWrapper = styled.div`
 
 type Props = {
     urn: string;
+    direction: LineageDirection;
 };
 
-export const ImpactAnalysis = ({ urn }: Props) => {
+export const ImpactAnalysis = ({ urn, direction }: Props) => {
     const location = useLocation();
 
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -38,7 +39,7 @@ export const ImpactAnalysis = ({ urn }: Props) => {
         variables: {
             input: {
                 urn,
-                direction: LineageDirection.Downstream,
+                direction,
                 types: entityFilters,
                 query,
                 start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
@@ -63,8 +64,10 @@ export const ImpactAnalysis = ({ urn }: Props) => {
             <EmbeddedListSearch
                 useGetSearchResults={generateUseSearchResultsViaRelationshipHook({
                     urn,
-                    direction: LineageDirection.Downstream,
+                    direction,
                 })}
+                defaultShowFilters
+                defaultFilters={[{ field: 'degree', value: '1' }]}
             />
         </ImpactAnalysisWrapper>
     );

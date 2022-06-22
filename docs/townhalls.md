@@ -9,7 +9,7 @@ From time to time we also use the opportunity to showcase upcoming features.
 
 ## Meeting Invite
 
-You can join with this link https://zoom.datahubproject.io, or [RSVP](https://www.addevent.com/event/zE13785865) to get a calendar invite. 
+You can join with this link https://zoom.datahubproject.io, or [RSVP](https://rsvp.datahubproject.io/) to get a calendar invite.
 
 ## Agenda
 

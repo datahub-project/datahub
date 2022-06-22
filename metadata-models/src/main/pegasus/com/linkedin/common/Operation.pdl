@@ -12,12 +12,6 @@ import com.linkedin.timeseries.TimeseriesAspectBase
 record Operation includes TimeseriesAspectBase {
 
   /**
-   * When the entity was last updated.
-   */
-  @TimeseriesField = {}
-  lastUpdatedTimestamp: long
-
-  /**
    * Actor who issued this operation.
    */
   @TimeseriesField = {}
@@ -30,6 +24,12 @@ record Operation includes TimeseriesAspectBase {
   operationType: OperationType
 
   /**
+   * A custom type of operation. Required if operationType is CUSTOM.
+   */
+  @TimeseriesField = {}
+  customOperationType: optional string
+
+  /**
    * How many rows were affected by this operation.
    */
   @TimeseriesField = {}
@@ -40,4 +40,21 @@ record Operation includes TimeseriesAspectBase {
    */
   @TimeseriesFieldCollection = {"key":"datasetName"}
   affectedDatasets: optional array[Urn]
+
+  /**
+   * Source Type
+   */
+   @TimeseriesField = {}
+   sourceType: optional OperationSourceType
+
+  /**
+   * Custom properties
+   */
+   customProperties: optional map[string, string]
+
+  /**
+   * The time at which the operation occurred.
+   */
+  @TimeseriesField = {}
+  lastUpdatedTimestamp: long
 }

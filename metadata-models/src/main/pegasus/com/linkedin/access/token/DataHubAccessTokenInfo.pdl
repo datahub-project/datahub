@@ -1,0 +1,60 @@
+namespace com.linkedin.access.token
+
+import com.linkedin.common.Time
+import com.linkedin.common.Urn
+
+/**
+ * Information about a DataHub Access Token
+ */
+@Aspect = {
+  "name": "dataHubAccessTokenInfo"
+}
+record DataHubAccessTokenInfo {
+
+  /**
+   * User defined name for the access token if defined.
+   */
+  @Searchable = {
+   "fieldType": "TEXT_PARTIAL"
+  }
+  name: string
+
+  /**
+   * Urn of the actor to which this access token belongs to.
+   */
+  @Searchable = {
+    "fieldType": "URN"
+  }
+  actorUrn: Urn
+
+  /**
+   * Urn of the actor which created this access token.
+   */
+  @Searchable = {
+    "fieldType": "URN"
+  }
+  ownerUrn: Urn
+
+  /**
+   * When the token was created.
+   */
+  @Searchable = {
+      "fieldType": "COUNT",
+      "queryByDefault": false
+  }
+  createdAt: Time
+
+  /**
+   * When the token was expires.
+   */
+ @Searchable = {
+     "fieldType": "COUNT",
+     "queryByDefault": false
+  }
+  expiresAt: Time
+
+  /**
+   * Description of the token if defined.
+   */
+  description: optional string
+}

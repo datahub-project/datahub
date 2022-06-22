@@ -139,7 +139,6 @@ where
     is_partitioning_column = 'YES'
     -- Filter out special partitions (https://cloud.google.com/bigquery/docs/partitioned-tables#date_timestamp_partitioned_tables)
     and p.partition_id not in ('__NULL__', '__UNPARTITIONED__', '__STREAMING_UNPARTITIONED__')
-    and STORAGE_TIER='ACTIVE'
     and p.table_name= '{table}'
 group by
     c.table_catalog,
@@ -333,6 +332,7 @@ class BigQuerySource(SQLAlchemySource):
         self.report: BigQueryReport = BigQueryReport()
         self.lineage_metadata: Optional[Dict[str, Set[str]]] = None
         self.maximum_shard_ids: Dict[str, str] = dict()
+        self.partition_info: Dict[str, str] = dict()
         atexit.register(cleanup, config)
 
     def get_db_name(
@@ -634,6 +634,20 @@ class BigQuerySource(SQLAlchemySource):
                 self.report.num_skipped_lineage_entries_other += 1
         return lineage_map
 
+    def is_table_partitioned(
+        self, database: Optional[str], schema: str, table: str
+    ) -> bool:
+        project_id: str
+        if database:
+            project_id = database
+        else:
+            url = self.config.get_sql_alchemy_url()
+            engine = create_engine(url, **self.config.options)
+            with engine.connect() as con:
+                inspector = inspect(con)
+                project_id = self.get_db_name(inspector)
+        return f"{project_id}.{schema}.{table}" in self.partition_info
+
     def get_latest_partition(
         self, schema: str, table: str
     ) -> Optional[BigQueryPartitionColumn]:
@@ -643,6 +657,11 @@ class BigQuerySource(SQLAlchemySource):
         engine = create_engine(url, **self.config.options)
         with engine.connect() as con:
             inspector = inspect(con)
+            project_id = self.get_db_name(inspector)
+            if not self.is_table_partitioned(
+                database=project_id, schema=schema, table=table
+            ):
+                return None
             sql = BQ_GET_LATEST_PARTITION_TEMPLATE.format(
                 project_id=self.get_db_name(inspector, for_sql_queries=True),
                 schema=schema,
@@ -696,15 +715,35 @@ class BigQuerySource(SQLAlchemySource):
         else:
             return True
 
+    def add_information_for_schema(self, inspector: Inspector, schema: str) -> None:
+        url = self.config.get_sql_alchemy_url()
+        engine = create_engine(url, **self.config.options)
+        project_id = self.get_db_name(inspector)
+        with engine.connect() as con:
+            inspector = inspect(con)
+            sql = f"""
+                select table_name, column_name
+                from `{project_id}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+                where is_partitioning_column = 'YES';
+            """
+            result = con.execute(sql)
+            for row in result.fetchall():
+                table = row[0]
+                partition_column = row[1]
+                self.partition_info[f"{project_id}.{schema}.{table}"] = partition_column
+        self.report.partition_info = self.partition_info
+
     def get_extra_tags(
         self, inspector: Inspector, schema: str, table: str
     ) -> Dict[str, List[str]]:
         extra_tags: Dict[str, List[str]] = {}
-        partition: Optional[BigQueryPartitionColumn] = self.get_latest_partition(
-            schema, table
-        )
-        if partition:
-            extra_tags[partition.column_name] = [Constants.TAG_PARTITION_KEY]
+        project_id = self.get_db_name(inspector)
+
+        partition_lookup_key = f"{project_id}.{schema}.{table}"
+        if partition_lookup_key in self.partition_info:
+            extra_tags[self.partition_info[partition_lookup_key]] = [
+                Constants.TAG_PARTITION_KEY
+            ]
         return extra_tags
 
     def generate_partition_profiler_query(
@@ -778,13 +817,19 @@ WHERE
         )
 
     def is_dataset_eligible_for_profiling(
-        self, dataset_name: str, sql_config: SQLAlchemyConfig
+        self,
+        dataset_name: str,
+        sql_config: SQLAlchemyConfig,
+        inspector: Inspector,
+        profile_candidates: Optional[List[str]],
     ) -> bool:
         """
         Method overrides default profiling filter which checks profiling eligibility based on allow-deny pattern.
         This one also don't profile those sharded tables which are not the latest.
         """
-        if not super().is_dataset_eligible_for_profiling(dataset_name, sql_config):
+        if not super().is_dataset_eligible_for_profiling(
+            dataset_name, sql_config, inspector, profile_candidates
+        ):
             return False
 
         (project_id, schema, table) = dataset_name.split(".")

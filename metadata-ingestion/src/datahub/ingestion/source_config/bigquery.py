@@ -5,7 +5,7 @@ from datahub.configuration.common import ConfigModel
 
 class BigQueryBaseConfig(ConfigModel):
     rate_limit: bool = pydantic.Field(
-        default=False, description="Should we rate limit reqeusts made to API."
+        default=False, description="Should we rate limit requests made to API."
     )
     requests_per_min: int = pydantic.Field(
         default=60,

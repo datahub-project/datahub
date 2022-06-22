@@ -126,10 +126,10 @@ query getDataset($urn: String!) {
             lastUpdatedTimestamp
         }
         upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
-            ...fullLineageResults
+            ...partialLineageResults
         }
         downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
-            ...fullLineageResults
+            ...partialLineageResults
         }
         ...viewProperties
         autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
@@ -153,6 +153,20 @@ query getDataset($urn: String!) {
             count
             start
             total
+        }
+        testResults {
+            passing {
+                test {
+                    ...testFields
+                }
+                type
+            }
+            failing {
+                test {
+                    ...testFields
+                }
+                type
+            }
         }
     }
 }

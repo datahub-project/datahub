@@ -66,6 +66,26 @@ type PlatformPrivileges {
   Whether the user is able to manage UI-based secrets
   """
   manageSecrets: Boolean!
+
+  """
+  Whether the user should be able to manage tokens on behalf of other users.
+  """
+  manageTokens: Boolean!
+
+  """
+  Whether the user is able to manage Tests
+  """
+  manageTests: Boolean!
+
+  """
+  Whether the user should be able to manage Glossaries
+  """
+  manageGlossaries: Boolean!
+
+  """
+  Whether the user is able to manage user credentials
+  """
+  manageUserCredentials: Boolean!
 }
 
 """
@@ -111,18 +131,23 @@ type AppConfig {
   """
   Configurations related to visual appearance, allows styling the UI without rebuilding the bundle
   """
-  visualConfig: VisualConfiguration!
+  visualConfig: VisualConfig!
 
   """
   Configurations related to tracking users in the app
   """
   telemetryConfig: TelemetryConfig!
+
+  """
+  Configurations related to DataHub tests
+  """
+  testsConfig: TestsConfig!
 }
 
 """
 Configurations related to visual appearance of the app
 """
-type VisualConfiguration {
+type VisualConfig {
   """
   Custom logo url for the homepage & top banner
   """
@@ -252,6 +277,16 @@ Configurations related to managed, UI based ingestion
 type ManagedIngestionConfig {
   """
   Whether ingestion screen is enabled in the UI
+  """
+  enabled: Boolean!
+}
+
+"""
+Configurations related to DataHub Tests feature
+"""
+type TestsConfig {
+  """
+  Whether Tests feature is enabled
   """
   enabled: Boolean!
 }

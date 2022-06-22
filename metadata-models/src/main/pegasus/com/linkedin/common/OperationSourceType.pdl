@@ -1,0 +1,15 @@
+namespace com.linkedin.common
+
+/**
+  * The source of an operation
+  */
+enum OperationSourceType {
+  /**
+   * Provided by a Data Process
+   */
+  DATA_PROCESS
+  /**
+   * Rows were updated
+   */
+  DATA_PLATFORM
+}
