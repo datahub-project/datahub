@@ -168,6 +168,11 @@ type Query {
     Gets the current invite token. If the optional regenerate param is set to true, generate a new invite token.
     """
     getNativeUserInviteToken: InviteToken
+
+    """
+    Gets an entity based on its urn
+    """
+    entity(urn: String!): Entity
 }
 
 """

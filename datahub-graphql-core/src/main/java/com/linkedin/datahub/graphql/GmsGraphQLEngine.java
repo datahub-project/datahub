@@ -6,6 +6,7 @@ import com.datahub.authentication.user.NativeUserService;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.VersionedUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.analytics.resolver.AnalyticsChartTypeResolver;
 import com.linkedin.datahub.graphql.analytics.resolver.GetChartsResolver;
@@ -179,6 +180,7 @@ import com.linkedin.datahub.graphql.types.assertion.AssertionType;
 import com.linkedin.datahub.graphql.types.auth.AccessTokenMetadataType;
 import com.linkedin.datahub.graphql.types.chart.ChartType;
 import com.linkedin.datahub.graphql.types.common.mappers.OperationMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.container.ContainerType;
 import com.linkedin.datahub.graphql.types.corpgroup.CorpGroupType;
 import com.linkedin.datahub.graphql.types.corpuser.CorpUserType;
@@ -633,7 +635,20 @@ public class GmsGraphQLEngine {
             .dataFetcher("getRootGlossaryNodes", new GetRootGlossaryNodesResolver(this.entityClient))
             .dataFetcher("entityExists", new EntityExistsResolver(this.entityService))
             .dataFetcher("getNativeUserInviteToken", new GetNativeUserInviteTokenResolver(this.nativeUserService))
+            .dataFetcher("entity", getEntityResolver())
         );
+    }
+
+    private DataFetcher getEntityResolver() {
+        return new EntityTypeResolver(entityTypes,
+            (env) -> {
+                try {
+                    Urn urn = Urn.createFromString(env.getArgument(URN_FIELD_NAME));
+                    return UrnToEntityMapper.map(urn);
+                } catch (Exception e) {
+                    throw new RuntimeException("Failed to get entity", e);
+                }
+            });
     }
 
     private DataFetcher getResolver(LoadableType<?, String> loadableType) {

@@ -11,20 +11,20 @@ import com.linkedin.metadata.boot.steps.IngestDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRootUserStep;
+import com.linkedin.metadata.boot.steps.RemoveClientIdAspectStep;
 import com.linkedin.metadata.boot.steps.RestoreGlossaryIndices;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Scope;
-
-import javax.annotation.Nonnull;
 
 
 @Configuration
@@ -67,7 +67,8 @@ public class BootstrapManagerFactory {
     final IngestDataPlatformInstancesStep ingestDataPlatformInstancesStep =
         new IngestDataPlatformInstancesStep(_entityService, _migrationsDao);
     final RestoreGlossaryIndices restoreGlossaryIndicesStep = new RestoreGlossaryIndices(_entityService, _entitySearchService, _entityRegistry);
+    final RemoveClientIdAspectStep removeClientIdAspectStep = new RemoveClientIdAspectStep(_entityService);
     return new BootstrapManager(ImmutableList.of(ingestRootUserStep, ingestPoliciesStep, ingestDataPlatformsStep,
-        ingestDataPlatformInstancesStep, _ingestRetentionPoliciesStep, restoreGlossaryIndicesStep));
+        ingestDataPlatformInstancesStep, _ingestRetentionPoliciesStep, restoreGlossaryIndicesStep, removeClientIdAspectStep));
   }
 }
