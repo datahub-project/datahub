@@ -9,10 +9,8 @@ import textwrap
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from re import Pattern
 from typing import (
     Any,
-    AnyStr,
     Dict,
     Iterable,
     List,
