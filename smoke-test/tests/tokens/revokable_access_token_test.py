@@ -69,9 +69,11 @@ def custom_user_setup():
 
   # Make user created user is there.
   res_data = listUsers(admin_session)
+  print("list users after creation: " + str(res_data))
   assert res_data["data"]
   assert res_data["data"]["listUsers"]
-  assert res_data["data"]["listUsers"]["total"] == 1
+  #assert res_data["data"]["listUsers"]["total"] == 2
+  assert {'username': 'user'} in res_data["data"]["listUsers"]["users"]
 
   yield
 
@@ -80,12 +82,15 @@ def custom_user_setup():
   assert res_data
   assert res_data['data']
   assert res_data['data']['removeUser'] == True
+  sleep(5)
 
   # Make user created user is not there.
   res_data = listUsers(admin_session)
+  print("list users after deleting: " + str(res_data))
   assert res_data["data"]
   assert res_data["data"]["listUsers"]
-  assert res_data["data"]["listUsers"]["total"] == 0
+  #assert res_data["data"]["listUsers"]["total"] == 0
+  assert {'username': 'user'} not in res_data["data"]["listUsers"]["users"]
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 @pytest.fixture(autouse=True)
