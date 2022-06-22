@@ -21,16 +21,12 @@ FROM openjdk:8 as prod-build
 COPY . /datahub-src
 RUN cd /datahub-src && ./gradlew :metadata-events:mxe-schemas:build
 
-FROM base as prod-codegen
-COPY --from=prod-build /datahub-src /datahub-src
-RUN cd /datahub-src/metadata-ingestion && \
-    pip install -e ".[base]" && \
-    ./scripts/codegen.sh
-
 FROM base as prod-install
-COPY --from=prod-codegen /datahub-src/metadata-ingestion /datahub-ingestion
+COPY --from=prod-build /datahub-src/metadata-ingestion /datahub-ingestion
 ARG RELEASE_VERSION
 RUN cd /datahub-ingestion && \
+    pip install -e ".[base]" && \
+    ./scripts/codegen.sh && \
     sed -i.bak "s/__version__ = \"0.0.0.dev0\"/__version__ = \"$RELEASE_VERSION\"/" src/datahub/__init__.py && \
     cat src/datahub/__init__.py && \
     pip install ".[all]"
