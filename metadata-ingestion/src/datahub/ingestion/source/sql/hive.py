@@ -88,7 +88,6 @@ except ModuleNotFoundError:
     pass
 except Exception as e:
     logger.warning(f"Failed to patch method due to {e}")
-    pass
 
 
 class HiveConfig(BasicSQLAlchemyConfig):
