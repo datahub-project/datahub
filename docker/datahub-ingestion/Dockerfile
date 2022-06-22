@@ -32,8 +32,6 @@ COPY --from=prod-codegen /datahub-src/metadata-ingestion /datahub-ingestion
 COPY --from=prod-codegen /root/.cache/pip /root/.cache/pip
 ARG RELEASE_VERSION
 RUN cd /datahub-ingestion && \
-    pip install -e ".[base]" && \
-    ./scripts/codegen.sh && \
     sed -i.bak "s/__version__ = \"0.0.0.dev0\"/__version__ = \"$RELEASE_VERSION\"/" src/datahub/__init__.py && \
     cat src/datahub/__init__.py && \
     pip install ".[all]"
