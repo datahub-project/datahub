@@ -922,7 +922,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         splits = dataset_name.split(".")
         if splits:
             normalised_table = splits[-1]
-            if properties:
+            if properties and normalised_table != table:
                 properties["original_table_name"] = table
 
         dataset_properties = DatasetPropertiesClass(
