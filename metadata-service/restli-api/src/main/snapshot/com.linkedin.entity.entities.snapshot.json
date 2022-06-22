@@ -5823,6 +5823,10 @@
           "type" : "string",
           "optional" : true
         }, {
+          "name" : "maxHops",
+          "type" : "int",
+          "optional" : true
+        }, {
           "name" : "filter",
           "type" : "com.linkedin.metadata.query.filter.Filter",
           "optional" : true

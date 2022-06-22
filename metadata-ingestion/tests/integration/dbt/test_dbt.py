@@ -6,8 +6,9 @@ import pytest
 import requests_mock
 from freezegun import freeze_time
 
-from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.dbt import DBTSource
+from datahub.configuration.common import DynamicTypedConfig
+from datahub.ingestion.run.pipeline import Pipeline, PipelineConfig, SourceConfig
+from datahub.ingestion.source.dbt import DBTConfig, DBTSource
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
@@ -421,3 +422,46 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
             output_path=deleted_mces_path,
             golden_path=deleted_actor_golden_mcs,
         )
+
+
+@pytest.mark.integration
+@freeze_time(FROZEN_TIME)
+def test_dbt_tests(pytestconfig, tmp_path, mock_time, **kwargs):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
+
+    # Run the metadata ingestion pipeline.
+    output_file = tmp_path / "dbt_test_events.json"
+    golden_path = test_resources_dir / "dbt_test_events_golden.json"
+
+    pipeline = Pipeline(
+        config=PipelineConfig(
+            source=SourceConfig(
+                type="dbt",
+                config=DBTConfig(
+                    manifest_path=str(
+                        (test_resources_dir / "jaffle_shop_manifest.json").resolve()
+                    ),
+                    catalog_path=str(
+                        (test_resources_dir / "jaffle_shop_catalog.json").resolve()
+                    ),
+                    target_platform="postgres",
+                    delete_tests_as_datasets=True,
+                    test_results_path=str(
+                        (test_resources_dir / "jaffle_shop_test_results.json").resolve()
+                    ),
+                    # this is just here to avoid needing to access datahub server
+                    write_semantics="OVERRIDE",
+                ),
+            ),
+            sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+    # Verify the output.
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_file,
+        golden_path=golden_path,
+        ignore_paths=[],
+    )

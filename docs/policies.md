@@ -81,6 +81,7 @@ We currently support the following:
 | View Analytics                  | Allow the actor access to the DataHub analytics dashboard.                                                                      |
 | Generate Personal Access Tokens | Allow the actor to generate access tokens for personal use with DataHub APIs.                                                  |
 | Manage User Credentials         | Allow the actor to generate invite links for new native DataHub users, and password reset links for existing native users.   |
+| Manage Glossaries               | Allow the actor to create, edit, move, and delete Glossary Terms and Term Groups                                               |
 
 **Common metadata privileges** to view & modify any entity within DataHub.
 

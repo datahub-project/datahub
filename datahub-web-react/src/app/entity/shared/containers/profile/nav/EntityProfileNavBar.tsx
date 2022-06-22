@@ -27,8 +27,8 @@ export const EntityProfileNavBar = ({ urn, entityType }: Props) => {
                 breadcrumbLinksEnabled={isBrowsable}
                 type={entityType}
                 path={browseData?.browsePaths?.[0]?.path || []}
-                upstreams={lineage?.upstreamChildren?.length || 0}
-                downstreams={lineage?.downstreamChildren?.length || 0}
+                upstreams={lineage?.numUpstreamChildren || 0}
+                downstreams={lineage?.numDownstreamChildren || 0}
             />
         </AffixWithHeight>
     );

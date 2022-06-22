@@ -274,16 +274,16 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   public Task<LineageSearchResult> searchAcrossLineage(@ActionParam(PARAM_URN) @Nonnull String urnStr,
       @ActionParam(PARAM_DIRECTION) String direction,
       @ActionParam(PARAM_ENTITIES) @Optional @Nullable String[] entities,
-      @ActionParam(PARAM_INPUT) @Optional @Nullable String input, @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
-      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion, @ActionParam(PARAM_START) int start,
-      @ActionParam(PARAM_COUNT) int count) throws URISyntaxException {
+      @ActionParam(PARAM_INPUT) @Optional @Nullable String input, @ActionParam(PARAM_MAX_HOPS) @Optional @Nullable Integer maxHops,
+      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter, @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion,
+      @ActionParam(PARAM_START) int start, @ActionParam(PARAM_COUNT) int count) throws URISyntaxException {
     Urn urn = Urn.createFromString(urnStr);
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.info("GET SEARCH RESULTS ACROSS RELATIONSHIPS for source urn {}, direction {}, entities {} with query {}",
         urnStr, direction, entityList, input);
     return RestliUtil.toTask(
         () -> _lineageSearchService.searchAcrossLineage(urn, LineageDirection.valueOf(direction), entityList,
-            input, filter, sortCriterion, start, count), "searchAcrossRelationships");
+            input, maxHops, filter, sortCriterion, start, count), "searchAcrossRelationships");
   }
 
   @Action(name = ACTION_LIST)
