@@ -67,12 +67,14 @@ def custom_user_setup():
   assert sign_up_response
   assert "error" not in sign_up_response
 
+  # signUp will override the session cookie to the new user to be signed up.
+  admin_session.cookies.clear()
+  admin_session = loginAs("datahub", "datahub")
+
   # Make user created user is there.
   res_data = listUsers(admin_session)
-  print("list users after creation: " + str(res_data))
   assert res_data["data"]
   assert res_data["data"]["listUsers"]
-  #assert res_data["data"]["listUsers"]["total"] == 2
   assert {'username': 'user'} in res_data["data"]["listUsers"]["users"]
 
   yield
@@ -82,14 +84,11 @@ def custom_user_setup():
   assert res_data
   assert res_data['data']
   assert res_data['data']['removeUser'] == True
-  sleep(5)
 
   # Make user created user is not there.
   res_data = listUsers(admin_session)
-  print("list users after deleting: " + str(res_data))
   assert res_data["data"]
   assert res_data["data"]["listUsers"]
-  #assert res_data["data"]["listUsers"]["total"] == 0
   assert {'username': 'user'} not in res_data["data"]["listUsers"]["users"]
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
@@ -411,7 +410,7 @@ def loginAs(username, password):
 
 
 def removeUser(session, urn):
-    # Revoke token
+    # Remove user
     json = {
         "query": """mutation removeUser($urn: String!) {\n
             removeUser(urn: $urn)
