@@ -1,4 +1,4 @@
-# Código de Conducta del Pacto del Contribuyente
+# Código de Conducta Convenido para Contribuyentes
 
 ## Nuestro Compromiso
 
