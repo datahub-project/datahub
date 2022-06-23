@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { FacetMetadata } from '../../types.generated';
 import { SearchFilter } from './SearchFilter';
 
-const TOP_FILTERS = ['entity', 'tags', 'glossaryTerms', 'domains', 'owners'];
+const TOP_FILTERS = ['degree', 'entity', 'tags', 'glossaryTerms', 'domains', 'owners'];
 
 export const SearchFilterWrapper = styled.div`
     max-height: 100%;

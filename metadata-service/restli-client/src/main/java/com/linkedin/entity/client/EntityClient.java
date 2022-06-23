@@ -187,6 +187,7 @@ public interface EntityClient {
    * @param direction Direction of the relationship
    * @param entities list of entities to search (If empty, searches across all entities)
    * @param input the search input text
+   * @param maxHops the max number of hops away to search for. If null, searches all hops.
    * @param filter the request map with fields and values as filters to be applied to search hits
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param start index to start the search from
@@ -195,7 +196,7 @@ public interface EntityClient {
    */
   @Nonnull
   public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
-      @Nonnull List<String> entities, @Nonnull String input, @Nullable Filter filter,
+      @Nonnull List<String> entities, @Nonnull String input, @Nullable Integer maxHops, @Nullable Filter filter,
       @Nullable SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
 

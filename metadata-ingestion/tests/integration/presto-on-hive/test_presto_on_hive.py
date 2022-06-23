@@ -52,7 +52,7 @@ def loaded_presto_on_hive(presto_on_hive_runner):
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration
+@pytest.mark.integration_batch_1
 def test_presto_on_hive_ingest(
     loaded_presto_on_hive, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):
@@ -112,7 +112,7 @@ def test_presto_on_hive_ingest(
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration
+@pytest.mark.integration_batch_1
 def test_presto_on_hive_instance_ingest(
     loaded_presto_on_hive, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):
