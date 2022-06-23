@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Form, message, Modal, Select, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 
@@ -68,16 +68,6 @@ export const AddOwnersModal = ({
     // Add owners Form
     const [form] = Form.useForm();
 
-    const inputEl = useRef(null);
-
-    useEffect(() => {
-        setTimeout(() => {
-            if (inputEl && inputEl.current) {
-                (inputEl.current as any).focus();
-            }
-        }, 1);
-    });
-
     useEffect(() => {
         if (ownershipTypes) {
             setSelectedOwnerType(ownershipTypes[0].type);
@@ -139,9 +129,6 @@ export const AddOwnersModal = ({
      * value: {ownerUrn: string, ownerEntityType: EntityType}
      */
     const onSelectOwner = (selectedValue: { key: string; label: React.ReactNode; value: string }) => {
-        if (inputEl && inputEl.current) {
-            (inputEl.current as any).blur();
-        }
         const filteredActors = ownerResult
             ?.filter((entity) => entity.urn === selectedValue.value)
             .map((entity) => entity);
@@ -229,14 +216,6 @@ export const AddOwnersModal = ({
         }
     };
 
-    function clearInput() {
-        setInputValue('');
-    }
-
-    function handleBlur() {
-        setInputValue('');
-    }
-
     return (
         <Modal
             title="Add Owners"
@@ -262,7 +241,6 @@ export const AddOwnersModal = ({
                             labelInValue
                             autoFocus
                             defaultOpen
-                            ref={inputEl}
                             mode="multiple"
                             placeholder="Search for users or groups..."
                             showSearch
@@ -278,8 +256,6 @@ export const AddOwnersModal = ({
                             }}
                             tagRender={tagRender}
                             value={selectedOwners}
-                            onClear={clearInput}
-                            onBlur={handleBlur}
                         >
                             {ownerSearchOptions}
                         </SelectInput>
