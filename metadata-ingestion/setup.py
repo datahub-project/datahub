@@ -31,6 +31,7 @@ base_requirements = {
     "typing-inspect",
     "pydantic>=1.5.1",
     "mixpanel>=4.9.0",
+    "gql[requests]>=3.3.0",
 }
 
 framework_common = {
