@@ -1,6 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Button, Form, message, Modal, Select, Tag } from 'antd';
-import styled from 'styled-components';
+import React, { useState } from 'react';
+import { Button, Form, message, Modal, Select } from 'antd';
 
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { Entity, EntityType } from '../../../../../../../types.generated';
@@ -23,35 +22,24 @@ type SelectedDomain = {
     urn: string;
 };
 
-const StyleTag = styled(Tag)`
-    padding: 0px 7px;
-    margin-right: 3px;
-    display: flex;
-    justify-content: start;
-    align-items: center;
-`;
-
 export const SetDomainModal = ({ visible, onCloseModal, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const [inputValue, setInputValue] = useState('');
     const { urn } = useEntityData();
+    const [inputValue, setInputValue] = useState('');
     const [selectedDomain, setSelectedDomain] = useState<SelectedDomain | undefined>(undefined);
     const [domainSearch, { data: domainSearchData }] = useGetSearchResultsLazyQuery();
     const domainSearchResults =
         domainSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
     const [setDomainMutation] = useSetDomainMutation();
-
-    const inputEl = useRef(null);
-
-    useEffect(() => {
-        setTimeout(() => {
-            if (inputEl && inputEl.current) {
-                (inputEl.current as any).focus();
-            }
-        }, 1);
-    });
-
     const [recommendedData] = useGetRecommendations([EntityType.Domain]);
+    const [form] = Form.useForm();
+
+    const onModalClose = () => {
+        setInputValue('');
+        setSelectedDomain(undefined);
+        form.resetFields();
+        onCloseModal();
+    };
 
     const handleSearch = (text: string) => {
         if (text.length > 2) {
@@ -85,9 +73,6 @@ export const SetDomainModal = ({ visible, onCloseModal, refetch }: Props) => {
     });
 
     const onSelectDomain = (newUrn: string) => {
-        if (inputEl && inputEl.current) {
-            (inputEl.current as any).blur();
-        }
         const filteredDomains = domainResult?.filter((entity) => entity.urn === newUrn).map((entity) => entity) || [];
         if (filteredDomains.length) {
             const domain = filteredDomains[0];
@@ -119,46 +104,24 @@ export const SetDomainModal = ({ visible, onCloseModal, refetch }: Props) => {
         }
         setSelectedDomain(undefined);
         refetch?.();
-        onCloseModal();
+        onModalClose();
     };
 
-    const tagRender = (props) => {
-        // eslint-disable-next-line react/prop-types
-        const { label, closable, onClose } = props;
-        const onPreventMouseDown = (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-        };
-        return (
-            <StyleTag onMouseDown={onPreventMouseDown} closable={closable} onClose={onClose}>
-                {label}
-            </StyleTag>
-        );
-    };
-
-    const selectValue = (selectedDomain && [selectedDomain?.displayName]) || [];
+    const selectValue = (selectedDomain && [selectedDomain?.displayName]) || undefined;
 
     // Handle the Enter press
     useEnterKeyListener({
         querySelectorToExecuteClick: '#setDomainButton',
     });
 
-    function clearInput() {
-        setInputValue('');
-    }
-
-    function handleBlur() {
-        setInputValue('');
-    }
-
     return (
         <Modal
             title="Set Domain"
             visible={visible}
-            onCancel={onCloseModal}
+            onCancel={onModalClose}
             footer={
                 <>
-                    <Button onClick={onCloseModal} type="text">
+                    <Button onClick={onModalClose} type="text">
                         Cancel
                     </Button>
                     <Button id="setDomainButton" disabled={selectedDomain === undefined} onClick={onOk}>
@@ -167,29 +130,20 @@ export const SetDomainModal = ({ visible, onCloseModal, refetch }: Props) => {
                 </>
             }
         >
-            <Form component={false}>
+            <Form component={false} form={form}>
                 <Form.Item>
                     <Select
                         autoFocus
                         defaultOpen
-                        mode="multiple"
-                        ref={inputEl}
                         placeholder="Search for Domains..."
-                        showSearch
-                        filterOption={false}
-                        defaultActiveFirstOption={false}
                         onSelect={(domainUrn: any) => onSelectDomain(domainUrn)}
-                        onDeselect={() => setSelectedDomain(undefined)}
                         onSearch={(value: string) => {
                             // eslint-disable-next-line react/prop-types
                             handleSearch(value.trim());
                             // eslint-disable-next-line react/prop-types
                             setInputValue(value.trim());
                         }}
-                        tagRender={tagRender}
                         value={selectValue}
-                        onClear={clearInput}
-                        onBlur={handleBlur}
                     >
                         {domainSearchOptions}
                     </Select>
