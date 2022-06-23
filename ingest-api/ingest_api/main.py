@@ -15,7 +15,7 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import \
     DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import (ChangeTypeClass,
+from datahub.metadata.schema_classes import (ChangeTypeClass, GlossaryTermAssociationClass, GlossaryTermsClass,
                                              SystemMetadataClass)
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -28,6 +28,9 @@ from ingest_api.helper.models import *
 from ingest_api.helper.security import authenticate_action, verify_token
 
 CLI_MODE = False if environ.get("RUNNING_IN_DOCKER") else True
+
+frequency_enum = ["Adhoc","Periodic","Onetime","Unknown"]
+
 
 # when running ingest-api from CLI, need to set some params.
 # cos dataset_profile_index name varies depending on ES. If there is an existing index (and datahub is instantiated on top, then it will append a UUID to it)
@@ -198,7 +201,7 @@ async def update_browsepath(item: browsepath_params):
         )
         all_paths = []
         for path in item.browsePaths:
-            all_paths.append(path + "dataset")
+            all_paths.append(path['browsepath'] + "dataset")
         browsepath_aspect = make_browsepath_mce(path=all_paths)
         dataset_snapshot.aspects.append(browsepath_aspect)
         metadata_record = MetadataChangeEvent(
@@ -489,53 +492,58 @@ async def create_item(item: create_dataset_params) -> None:
     """
     rootLogger.info("make_dataset_request_received from {}".format(item.dataset_owner))
     rootLogger.debug("make_dataset_request_received {}".format(item))
-    item.dataset_type = determine_type(item.dataset_type)
+    dataset_type = determine_type(item.platformSelect)
     token = item.user_token
     user = item.dataset_owner
-    requestor = make_user_urn(item.dataset_owner)
-    if verify_token(token, user):
-        item.dataset_name = "{}_{}".format(item.dataset_name, str(get_sys_time()))
-        datasetName = make_dataset_urn(item.dataset_type, item.dataset_name)
-        platformName = make_platform(item.dataset_type)
-        item.browsepathList = [
-            item + "/" if not item.endswith("/") else item
+    requestor = make_user_urn(user)
+    if verify_token(token, user): # check user is who he say he is
+        dataset_name_uuid = "{}_{}".format(item.dataset_name, str(get_sys_time()))
+        datasetDisplayName = item.dataset_name
+        datasetUrn = make_dataset_urn(dataset_type, dataset_name_uuid)
+        platformName = make_platform(dataset_type)
+        browsepathList = [
+            item['browsepath'] + "/" if not item['browsepath'].endswith("/") else item['browsepath']
             for item in item.browsepathList
         ]
         # this line is in case the endpoint is called by API and not UI,
         # which will enforce ending with /.
-        browsepaths = [path + "dataset" for path in item.browsepathList]        
-        headerRowNum = (
-            "n/a"
-            if item.dict().get("hasHeader", "n/a") == "no"
-            else str(item.dict().get("headerLine", "n/a"))
-        )
+        browsepaths = [path + "dataset" for path in browsepathList]        
         properties = {
             "dataset_origin": item.dict().get("dataset_origin", ""),
             "dataset_location": item.dict().get("dataset_location", ""),
-            "has_header": item.dict().get("hasHeader", "n/a"),
-            "header_row_number": headerRowNum,
         }
-        if item.dataset_type == "json":  # json has no headers
-            properties.pop("has_header")
-            properties.pop("header_row_number")
-
         dataset_description = (
             item.dataset_description if item.dataset_description else ""
         )
         dataset_snapshot = DatasetSnapshot(
-            urn=datasetName,
+            urn=datasetUrn,
             aspects=[],
         )
+        if item.dict().get("frequency","") in frequency_enum:
+            properties["dataset_frequency"] = item.dict().get("frequency", "") + ": " + item.dict().get("dataset_frequency_details", "")
+            freq = item.dict().get("frequency")
+            frequency = GlossaryTermsClass(
+                terms = [
+                    GlossaryTermAssociationClass(urn=f"urn:li:glossaryTerm:Metadata.Dataset.Frequency.{freq}")
+                ],
+                auditStamp=AuditStampClass(
+                    time=0,
+                    actor=f"urn:li:corpuser:{item.dataset_owner}"
+                )
+            )
+            dataset_snapshot.aspects.append(frequency)
         dataset_snapshot.aspects.append(
             make_dataset_description_mce(
-                dataset_name=item.dataset_name,
-                description=dataset_description,
+                dataset_name=datasetDisplayName,
+                description="",
                 customProperties=properties,
             )
         )
-
         dataset_snapshot.aspects.append(
-            make_ownership_mce(actor=requestor, dataset_urn=datasetName)
+            make_editable_dataset_description(description=dataset_description)
+        )
+        dataset_snapshot.aspects.append(
+            make_ownership_mce(actor=requestor, dataset_urn=datasetUrn)
         )
         dataset_snapshot.aspects.append(make_browsepath_mce(path=browsepaths))
         field_params = []
@@ -560,17 +568,35 @@ async def create_item(item: create_dataset_params) -> None:
                 runId=f"{requestor}_make_{str(int(time.time()))}"
             ),
         )
-        response = emit_mce_respond(
+        # i am emitting 2 times now, 1 for dataset and 1 for container MCP, 
+        # which unfortunately do not fit into MCE snapshot, as a new aspect
+        response1 = emit_mce_respond(
             metadata_record=metadata_record,
             owner=requestor,
             event="Create Dataset",
             token=token,
         )
-        if response["status_code"]==201:
-            response["message"] = datasetName
-        return JSONResponse(
-            content={"message": response["message"] }, status_code=response["status_code"]
-        ) 
+        container_mcp = MetadataChangeProposalWrapper(
+            aspect = make_container_aspect(item.parentContainer),
+            entityType="dataset",
+            changeType=ChangeTypeClass.UPSERT,
+            entityUrn=datasetUrn,
+            aspectName="container",
+            systemMetadata=SystemMetadataClass(
+                runId=f"{dataset_name_uuid}_container_{str(int(time.time()))}"
+            ),
+        )
+        response2 = emit_mcp_respond(
+            metadata_record=container_mcp,
+            owner=requestor,
+            event=f"Make-Dataset: update_container:{item.parentContainer}",
+            token=item.user_token,
+        )
+        
+        if response1["status_code"]==201 and response2["status_code"]==201:
+            return JSONResponse(
+                content={"message": "completed" }, status_code=201
+            )
     else:
         rootLogger.error("make_dataset request failed from {}".format(requestor))
         return JSONResponse(content={"message": "Authentication Failed"}, status_code=401)

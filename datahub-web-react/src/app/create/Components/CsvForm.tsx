@@ -1,32 +1,63 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { CSVReader } from 'react-papaparse';
-import { Form, Input, Space, Select, Button, message, Divider, InputNumber } from 'antd';
-import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
-// import { gql, useQuery } from '@apollo/client';
+import { Col, Form, Input, Space, Select, Button, message, Divider, Popconfirm, Row, Tooltip } from 'antd';
+import { MinusCircleOutlined, PlusOutlined, AlertOutlined } from '@ant-design/icons';
+import styled from 'styled-components';
 import { CommonFields } from './CommonFields';
-// import adhocConfig from '../../../conf/Adhoc';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 import { GetMyToken } from '../../entity/dataset/whoAmI';
 import { WhereAmI } from '../../home/whereAmI';
+// import { DataPlatformSelect } from '../../entity/shared/tabs/Dataset/platformSelect/DataPlatformSelect';
+import { printErrorMsg, printSuccessMsg } from '../../entity/shared/tabs/Dataset/ApiCallUtils';
+import { SetParentContainer } from '../../entity/shared/tabs/Dataset/containerEdit/SetParentContainer';
+import { SpecifyBrowsePath } from './SpecifyBrowsePath';
+
+const SearchResultContainer = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2px;
+`;
+
+const SearchResultContent = styled.div`
+    display: flex;
+    justify-content: start;
+    align-items: center;
+`;
+
+const SearchResultDisplayName = styled.div`
+    margin-left: 5px;
+`;
+
+const platformSelection = [
+    'urn:li:dataPlatform:file',
+    'urn:li:dataPlatform:mongodb',
+    'urn:li:dataPlatform:elasticsearch',
+    'urn:li:dataPlatform:mssql',
+    'urn:li:dataPlatform:mysql',
+    'urn:li:dataPlatform:oracle',
+    'urn:li:dataPlatform:mariadb',
+    'urn:li:dataPlatform:hdfs',
+    'urn:li:dataPlatform:hive',
+    'urn:li:dataPlatform:kudu',
+    'urn:li:dataPlatform:postgres',
+];
 
 export const CsvForm = () => {
     const urlBase = WhereAmI();
     const publishUrl = `${urlBase}custom/make_dataset`;
+    const [visible, setVisible] = useState(false);
+    const [confirmLoading, setConfirmLoading] = useState(false);
     console.log(`the publish url is ${publishUrl}`);
     const user = useGetAuthenticatedUser();
     const userUrn = user?.corpUser?.urn || '';
     const userToken = GetMyToken(userUrn);
-    // console.log(`user is ${userUrn} and token is ${userToken}, received at ${Date().toLocaleString()}`);
-    const [fileType, setFileType] = useState({ dataset_type: 'application/octet-stream' });
-    const [hasHeader, setHasHeader] = useState('no');
+    const sourceType = 'Select a Datasouce Type. For sources not listed, refer to admin team';
+    // const aboutType = 'Specify the datatype for field. If unsure, set "unknown"';
+    // const aboutDesc = 'Field description. Can accept markdown as well, except there is no preview in this form.';
+    // const [fileType, setFileType] = useState({ dataset_type: 'application/octet-stream' });
 
-    const printSuccessMsg = (status) => {
-        message.success(`Status:${status} - Request submitted successfully`, 3).then();
-    };
-    const printErrorMsg = (error) => {
-        message.error(error, 3).then();
-    };
     const [form] = Form.useForm();
     const { Option } = Select;
     const layout = {
@@ -34,161 +65,267 @@ export const CsvForm = () => {
             span: 6,
         },
         wrapperCol: {
-            span: 14,
+            span: 18,
         },
     };
-    const onFinish = (values) => {
-        // console.log('Received values of form:', values);
-        const finalValue = { ...values, ...fileType, dataset_owner: user?.corpUser?.username, user_token: userToken };
-        // console.log('Received finalValue:', finalValue);
-        // POST request using axios with error handling
-        console.log(`publish is now ${publishUrl}`);
+
+    function showPopconfirm() {
+        setVisible(true);
+    }
+    const popupHandleOk = () => {
+        setConfirmLoading(true);
+        const values = form.getFieldsValue();
+        console.log(`the values received are ${Object.values(values)}`);
+        const finalValue = { ...values, dataset_owner: user?.corpUser?.username, user_token: userToken };
         axios
             .post(publishUrl, finalValue)
             .then((response) => printSuccessMsg(response.status))
             .catch((error) => {
                 printErrorMsg(error.toString());
             });
+        setTimeout(() => {
+            setVisible(false);
+            setConfirmLoading(false);
+        }, 3000);
+    };
+    const popuphandleCancel = () => {
+        setVisible(false);
     };
     const onReset = () => {
         form.resetFields();
     };
-    const onHeaderChange = (value) => {
-        setHasHeader(value);
-    };
     const handleOnFileLoad = (data, fileInfo) => {
         console.log('data:', data);
         console.log('fileInfo:', fileInfo);
-        let headerLine = form.getFieldValue('headerLine');
+        const headerLine = 0;
         console.log('form values', form.getFieldValue('headerLine'));
-        // set state for file type
-        setFileType({ dataset_type: fileInfo.type });
-        // get the first row as headers
         if (data.length > 0 && headerLine <= data.length) {
-            // map to array of objects
-            const res = data[--headerLine].data.map((item) => {
+            const res = data[headerLine].data.map((item) => {
                 return { field_name: item, field_description: '' };
             });
-            form.setFieldsValue({ fields: res, hasHeader: 'yes' });
-            setHasHeader('yes');
+            form.setFieldsValue({ fields: res });
         } else {
             message.error('Empty file or invalid header line', 3).then();
         }
     };
     const handleOnRemoveFile = () => {
         form.resetFields();
-        setHasHeader('no');
     };
+    const validateForm = () => {
+        form.validateFields().then(() => {
+            showPopconfirm();
+        });
+    };
+    const [selectedPlatform, setSelectedPlatform] = useState('urn:li:dataPlatform:file');
+    useEffect(() => {
+        form.setFieldsValue({ browsepathList: [{ browsepath: `/${selectedPlatform.split(':').pop()}/` }] });
+    }, [selectedPlatform, form]);
+    const renderSearchResult = (result: string) => {
+        const displayName = result.split(':').pop()?.toUpperCase();
+        return (
+            <SearchResultContainer>
+                <SearchResultContent>
+                    <SearchResultDisplayName>
+                        <div>{displayName}</div>
+                    </SearchResultDisplayName>
+                </SearchResultContent>
+            </SearchResultContainer>
+        );
+    };
+    // const aboutPlatform =
+    //     'If dataset is not from an existing database, use FILE. For databases not in list, refer to admin';
+    const onSelectMember = (urn: string) => {
+        setSelectedPlatform(urn);
+        form.setFieldsValue({ parentContainer: '' });
+    };
+    console.log(`selected platform: ${selectedPlatform}`);
+    const removeOption = () => {
+        console.log(`removing ${selectedPlatform}`);
+        setSelectedPlatform('');
+        form.setFieldsValue({ parentContainer: '' });
+        form.setFieldsValue({ browsepathList: [{ browsepath: '' }] });
+    };
+    const popupMsg = `Confirm Dataset Name: ${form.getFieldValue('dataset_name')}? 
+    This permanently affects the dataset URL`;
+    const { TextArea } = Input;
     return (
         <>
             <Form
                 {...layout}
+                name="main_form_item"
                 form={form}
                 initialValues={{
-                    fields: [{ field_description: '', field_type: 'string' }],
-                    hasHeader: 'no',
-                    headerLine: 1,
-                    browsepathList: ['/csv/'],
+                    dataset_name: '',
+                    fields: [{ field_description: '', field_type: 'string', field_name: '' }],
+                    browsepathList: [{ browsepath: `/file/` }],
+                    frequency: 'Unknown',
+                    dataset_frequency_details: '',
+                    dataset_origin: '',
+                    dataset_location: '',
+                    platformSelect: 'urn:li:dataPlatform:file',
                 }}
-                name="dynamic_form_item"
-                onFinish={onFinish}
             >
-                <CSVReader onFileLoad={handleOnFileLoad} addRemoveButton onRemoveFile={handleOnRemoveFile}>
-                    <span>Click here to parse your file header (CSV or delimited text file only)</span>
-                </CSVReader>
+                <Row>
+                    <Col span={4} />
+                    <Col span={16}>
+                        <CSVReader onFileLoad={handleOnFileLoad} addRemoveButton onRemoveFile={handleOnRemoveFile}>
+                            <span>
+                                Click here to pre-generate dictionary from your data file header (CSV or delimited text
+                                file only)
+                            </span>
+                        </CSVReader>
+                    </Col>
+                </Row>
                 <Divider dashed orientation="left">
                     Dataset Info
                 </Divider>
-                <CommonFields />
-                <Form.Item
-                    name="hasHeader"
-                    label="File Header"
-                    rules={[
-                        {
-                            required: true,
-                        },
-                    ]}
-                >
-                    <Select placeholder="Does the file contains header" onChange={onHeaderChange} data-testid="select">
-                        <Option value="yes">Yes</Option>
-                        <Option value="no">No</Option>
-                    </Select>
-                </Form.Item>
-                {hasHeader === 'yes' && (
-                    <Form.Item label="Header Line" name="headerLine">
-                        <InputNumber min={1} max={10} />
+                <Tooltip title={sourceType}>
+                    <Form.Item
+                        name="platformSelect"
+                        label="Specify a Data Source Type."
+                        rules={[
+                            {
+                                required: true,
+                                message: 'A type MUST be specified.',
+                            },
+                        ]}
+                    >
+                        <Select
+                            value={selectedPlatform}
+                            defaultValue=""
+                            showArrow
+                            placeholder="Search for a type.."
+                            onSelect={(platform: string) => onSelectMember(platform)}
+                            allowClear
+                            onClear={removeOption}
+                            onDeselect={removeOption}
+                            style={{ width: '20%' }}
+                        >
+                            {platformSelection?.map((platform) => (
+                                <Select.Option value={platform}>{renderSearchResult(platform)}</Select.Option>
+                            ))}
+                        </Select>
                     </Form.Item>
-                )}
+                </Tooltip>
+                <SetParentContainer platformType={selectedPlatform} compulsory={false} />
+                <CommonFields />
+                <SpecifyBrowsePath />
                 <Form.Item label="Dataset Fields" name="fields">
-                    <Form.List {...layout} name="fields">
+                    <Form.List name="fields">
                         {(fields, { add, remove }) => (
                             <>
                                 {fields.map(({ key, name, fieldKey, ...restField }) => (
-                                    <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
-                                        <Form.Item
-                                            {...restField}
-                                            name={[name, 'field_name']}
-                                            fieldKey={[fieldKey, 'field_name']}
-                                            rules={[{ required: true, message: 'Missing field name' }]}
+                                    <Row key={key}>
+                                        <Col span={6}>
+                                            <Form.Item
+                                                {...restField}
+                                                name={[name, 'field_name']}
+                                                fieldKey={[fieldKey, 'field_name']}
+                                                rules={[{ required: true, message: 'Missing field name' }]}
+                                            >
+                                                <Input placeholder="Field Name" />
+                                            </Form.Item>
+                                        </Col>
+                                        &nbsp;
+                                        <Tooltip
+                                            title="Select column type. Unknown type is also available if unsure"
+                                            placement="left"
                                         >
-                                            <Input placeholder="Field Name" />
-                                        </Form.Item>
-                                        <Form.Item
-                                            {...restField}
-                                            name={[name, 'field_type']}
-                                            fieldKey={[fieldKey, 'field_type']}
-                                            rules={[{ required: true, message: 'Missing field type' }]}
-                                        >
-                                            <Select showSearch style={{ width: 150 }} placeholder="Select field type">
-                                                <Option value="num">Number</Option>
-                                                <Option value="double">Double</Option>
-                                                <Option value="string">String</Option>
-                                                <Option value="bool">Boolean</Option>
-                                                <Option value="date-time">Datetime</Option>
-                                                <Option value="date">Date</Option>
-                                                <Option value="time">Time</Option>
-                                                <Option value="bytes">Bytes</Option>
-                                                <Option value="unknown">Unknown</Option>
-                                            </Select>
-                                        </Form.Item>
-                                        <Form.Item
-                                            {...restField}
-                                            name={[name, 'field_description']}
-                                            fieldKey={[fieldKey, 'field_description']}
-                                            rules={[
-                                                {
-                                                    required: false,
-                                                    message: 'Missing field description',
-                                                },
-                                            ]}
-                                        >
-                                            <Input style={{ width: 200 }} placeholder="Field Description" />
-                                        </Form.Item>
+                                            <Col span={3}>
+                                                <Form.Item
+                                                    {...restField}
+                                                    name={[name, 'field_type']}
+                                                    fieldKey={[fieldKey, 'field_type']}
+                                                    rules={[{ required: true, message: 'Missing field type' }]}
+                                                >
+                                                    {/* <Popover trigger="hover" content={aboutType}> */}
+                                                    <Select showSearch placeholder="Select field type">
+                                                        <Option value="num">Number</Option>
+                                                        <Option value="double">Double</Option>
+                                                        <Option value="string">String</Option>
+                                                        <Option value="bool">Boolean</Option>
+                                                        <Option value="date-time">Datetime</Option>
+                                                        <Option value="date">Date</Option>
+                                                        <Option value="time">Time</Option>
+                                                        <Option value="bytes">Bytes</Option>
+                                                        <Option value="unknown">Unknown</Option>
+                                                    </Select>
+                                                    {/* </Popover> */}
+                                                </Form.Item>
+                                            </Col>
+                                        </Tooltip>
+                                        &nbsp;
+                                        <Col span={11}>
+                                            <Form.Item
+                                                {...restField}
+                                                name={[name, 'field_description']}
+                                                fieldKey={[fieldKey, 'field_description']}
+                                                rules={[
+                                                    {
+                                                        required: false,
+                                                        message: 'Missing field description',
+                                                    },
+                                                ]}
+                                            >
+                                                {/* <Popover trigger="hover" content={aboutDesc}> */}
+                                                {/* <Input placeholder="Field Description" /> */}
+                                                <TextArea
+                                                    rows={4}
+                                                    placeholder="Field Description"
+                                                    autoSize={{ minRows: 1, maxRows: 3 }}
+                                                />
+                                                {/* </Popover> */}
+                                            </Form.Item>
+                                        </Col>
                                         {fields.length > 1 ? (
-                                            <MinusCircleOutlined
-                                                data-testid="delete-icon"
-                                                onClick={() => remove(name)}
-                                            />
+                                            <Col span={1}>
+                                                <Form.Item>
+                                                    <Button>
+                                                        <MinusCircleOutlined
+                                                            data-testid="delete-icon"
+                                                            onClick={() => remove(name)}
+                                                        />
+                                                    </Button>
+                                                </Form.Item>
+                                            </Col>
                                         ) : null}
-                                    </Space>
+                                    </Row>
                                 ))}
-                                <Form.Item>
-                                    <Button
-                                        type="dashed"
-                                        onClick={() => add({ field_description: '', field_type: 'string' })}
-                                        block
-                                        icon={<PlusOutlined />}
-                                    >
-                                        Add field
-                                    </Button>
-                                </Form.Item>
+                                <Row>
+                                    <Col span={21} offset={0}>
+                                        <Form.Item>
+                                            <Button
+                                                type="dashed"
+                                                onClick={() =>
+                                                    add({
+                                                        field_description: '',
+                                                        field_type: 'string',
+                                                    })
+                                                }
+                                                block
+                                                icon={<PlusOutlined />}
+                                            >
+                                                Add field
+                                            </Button>
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
                             </>
                         )}
                     </Form.List>
                     <Space>
-                        <Button type="primary" htmlType="submit">
-                            Submit
-                        </Button>
+                        <Popconfirm
+                            title={popupMsg}
+                            visible={visible}
+                            onConfirm={popupHandleOk}
+                            okButtonProps={{ loading: confirmLoading }}
+                            onCancel={popuphandleCancel}
+                            icon={<AlertOutlined style={{ color: 'red' }} />}
+                        >
+                            <Button htmlType="button" onClick={validateForm}>
+                                Submit
+                            </Button>
+                        </Popconfirm>
                         <Button htmlType="button" onClick={onReset}>
                             Reset
                         </Button>

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { Input, AutoComplete, Image, Typography, Popover } from 'antd';
-import { SearchOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { Input, AutoComplete, Image, Typography } from 'antd';
+import { SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { useHistory } from 'react-router';
 import { AutoCompleteResultForEntity, CorpUser, Entity, EntityType, ScenarioType, Tag } from '../../types.generated';
@@ -15,7 +15,6 @@ import { StyledTag } from '../entity/shared/components/styled/StyledTag';
 import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
 import { useGetAuthenticatedUserUrn } from '../useGetAuthenticatedUser';
 import { getPlatformName } from '../entity/shared/utils';
-import { helpRefLink } from '../../conf/Adhoc';
 
 const SuggestionContainer = styled.div`
     display: flex;
@@ -64,12 +63,6 @@ const PreviewImage = styled(Image)`
     object-fit: contain;
     background-color: transparent;
 `;
-
-const helpLinkContent = (
-    <div>
-        <a href={helpRefLink}>How to search better</a>
-    </div>
-);
 
 const EXACT_AUTOCOMPLETE_OPTION_TYPE = 'exact_query';
 const RECOMMENDED_QUERY_OPTION_TYPE = 'recommendation';
@@ -343,10 +336,6 @@ export const SearchBar = ({
                     prefix={<SearchOutlined onClick={() => onSearch(filterSearchQuery(searchQuery || ''))} />}
                 />
             </StyledAutoComplete>
-            &nbsp;
-            <Popover trigger="hover" content={helpLinkContent}>
-                <QuestionCircleOutlined />
-            </Popover>
         </AutoCompleteContainer>
     );
 };

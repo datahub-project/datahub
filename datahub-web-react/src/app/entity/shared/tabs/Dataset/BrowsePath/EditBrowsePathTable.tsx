@@ -82,9 +82,14 @@ export const EditBrowsePathTable = () => {
         form.resetFields();
         setModifiedState(false);
         form.setFieldsValue({
-            browsepathList: originalData,
+            browsepathList: (originalData || []).map((x) => {
+                return {
+                    browsepath: x,
+                };
+            }),
         });
     };
+    console.log(`the browsepath to show is ${originalData}`);
     const handleFormChange = () => {
         const hasErrors = form.getFieldsError().some(({ errors }) => errors.length);
         setModifiedState(!hasErrors);
@@ -94,7 +99,11 @@ export const EditBrowsePathTable = () => {
         setOriginalData(formatted);
         form.resetFields();
         form.setFieldsValue({
-            browsepathList: formatted,
+            browsepathList: formatted.map((x) => {
+                return {
+                    browsepath: x,
+                };
+            }),
         });
     }, [form, data]);
     return (
