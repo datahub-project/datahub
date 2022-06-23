@@ -42,6 +42,7 @@ public class KafkaSchemaRegistryFactory {
     @Value("${kafka.schema.registry.security.protocol:}")
     private String securityProtocol;
 
+    // change this
     @Bean(name = "kafkaSchemaRegistry")
     @Nonnull
     protected SchemaRegistryConfig getInstance() {

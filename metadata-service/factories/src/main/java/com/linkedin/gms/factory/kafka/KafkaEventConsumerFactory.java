@@ -51,6 +51,7 @@ public class KafkaEventConsumerFactory {
   @Qualifier("awsGlueSchemaRegistry")
   private SchemaRegistryConfig awsGlueSchemaRegistryConfig;
 
+  // CHANGE THIS
   @Bean(name = "kafkaEventConsumer")
   protected KafkaListenerContainerFactory<?> createInstance(KafkaProperties properties) {
 

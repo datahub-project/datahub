@@ -13,7 +13,7 @@ import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-
+// CHANGE THIS
 @Configuration
 public class KafkaConfig {
   @Value("${KAFKA_BOOTSTRAP_SERVER:localhost:9092}")
@@ -27,6 +27,7 @@ public class KafkaConfig {
     KafkaProperties.Producer producerProps = properties.getProducer();
 
     producerProps.setKeySerializer(StringSerializer.class);
+    // CHANGE THIS
     producerProps.setValueSerializer(KafkaAvroSerializer.class);
 
     // KAFKA_BOOTSTRAP_SERVER has precedence over SPRING_KAFKA_BOOTSTRAP_SERVERS

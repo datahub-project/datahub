@@ -13,7 +13,7 @@ dependencies {
   compile externalDependency.httpClient
   compile externalDependency.gson
   compile externalDependency.kafkaClients
-  compile externalDependency.kafkaAvroSerde
+//  compile externalDependency.kafkaAvroSerde
   compile externalDependency.lombok
   compile externalDependency.servletApi
   compile externalDependency.springBeans

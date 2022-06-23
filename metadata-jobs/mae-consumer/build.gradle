@@ -27,7 +27,7 @@ dependencies {
 
 
     compile externalDependency.elasticSearchRest
-    compile externalDependency.kafkaAvroSerde
+//    compile externalDependency.kafkaAvroSerde
     compile externalDependency.neo4jJavaDriver
 
     compile externalDependency.springKafka

@@ -73,6 +73,7 @@ class DatahubKafkaEmitter:
             tuple_encoding = mce.to_obj(tuples=True)
             return tuple_encoding
 
+        # todo change this
         mce_avro_serializer = AvroSerializer(
             schema_str=getMetadataChangeEventSchema(),
             schema_registry_client=schema_registry_client,
@@ -86,6 +87,7 @@ class DatahubKafkaEmitter:
             tuple_encoding = mcp.to_obj(tuples=True)
             return tuple_encoding
 
+        # todo change this
         mcp_avro_serializer = AvroSerializer(
             schema_str=getMetadataChangeProposalSchema(),
             schema_registry_client=schema_registry_client,
