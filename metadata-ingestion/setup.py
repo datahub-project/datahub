@@ -333,6 +333,7 @@ base_dev_requirements = {
     *list(
         dependency
         for plugin in [
+            "api",
             "bigquery",
             "bigquery-usage",
             "clickhouse",
