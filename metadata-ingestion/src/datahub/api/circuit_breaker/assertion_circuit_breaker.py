@@ -27,7 +27,7 @@ class AssertionCircuitBreakerConfig(CircuitBreakerConfig):
 
 class AssertionCircuitBreaker(AbstractCircuitBreaker):
     r"""
-    Datahub Assertion Circuit Breaker
+    DataHub Assertion Circuit Breaker
 
     The circuit breaker checks if there are passing assertion on the Dataset.
     """
@@ -80,8 +80,8 @@ class AssertionCircuitBreaker(AbstractCircuitBreaker):
 
         for assertion_urn, last_assertion in assertion_last_states.items():
             if last_assertion.state == "FAILURE":
-                print(f"Runevent: {last_assertion.run_event}")
-                print(
+                logger.debug(f"Runevent: {last_assertion.run_event}")
+                logger.info(
                     f"Assertion {assertion_urn} is failed on dataset. Breaking the circuit"
                 )
                 return True
@@ -91,7 +91,7 @@ class AssertionCircuitBreaker(AbstractCircuitBreaker):
             if last_updated is not None:
                 last_run = datetime.fromtimestamp(last_assertion.time / 1000)
                 if last_updated > last_run:
-                    print(
+                    logger.error(
                         f"Missing assertion run for {assertion_urn}. The dataset was updated on {last_updated} but the last assertion run was at {last_run}"
                     )
                     return True
@@ -101,7 +101,7 @@ class AssertionCircuitBreaker(AbstractCircuitBreaker):
         r"""
         Checks if the circuit breaker is active
 
-        :param urn: The Datahub dataset unique identifier.
+        :param urn: The DataHub dataset unique identifier.
         """
 
         last_updated: Optional[datetime] = None

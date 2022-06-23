@@ -22,7 +22,7 @@ class OperationCircuitBreakerConfig(CircuitBreakerConfig):
 
 class OperationCircuitBreaker(AbstractCircuitBreaker):
     r"""
-    Datahub Operation Circuit Breaker
+    DataHub Operation Circuit Breaker
 
     The circuit breaker checks if there is an operation metadata for the dataset.
     If there is no valid Operation metadata then the circuit breaker fails.
@@ -51,7 +51,7 @@ class OperationCircuitBreaker(AbstractCircuitBreaker):
         Checks if the circuit breaker is active
 
         :param urn: The Datahub dataset unique identifier.
-        :param datahub_rest_conn_id: The REST datahub connection id to communicate with Datahbub
+        :param datahub_rest_conn_id: The REST DataHub connection id to communicate with DataHub
             which is set as Airflow connection.
         :param partition: The partition to check the operation.
         :param source_type: The source type to filter on. If not set it will accept any source type.
@@ -60,17 +60,22 @@ class OperationCircuitBreaker(AbstractCircuitBreaker):
             See valid types here: https://datahubproject.io/docs/graphql/enums/#operationtype
         """
 
+        start_time_millis: int = int(
+            (datetime.now() - self.config.time_delta).timestamp() * 1000
+        )
         operations = self.operation_api.query_operations(
             urn,
-            start_time_millis=int(
-                (datetime.now() - self.config.time_delta).timestamp() * 1000
-            ),
+            start_time_millis=start_time_millis,
             partition=partition,
             source_type=source_type,
             operation_type=operation_type,
         )
         logger.info(f"Operations: {operations}")
-        if operations:
-            return False
+        for operation in operations:
+            if (
+                operation.get("lastUpdatedTimestamp")
+                and operation["lastUpdatedTimestamp"] >= start_time_millis
+            ):
+                return False
 
         return True

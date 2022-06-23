@@ -16,7 +16,7 @@ dag = DAG(
     catchup=False,
 )
 
-# New Datahub Operation Circuit Breaker Sensor
+# New DataHub Operation Circuit Breaker Sensor
 pet_profiles_operation_sensor = DatahubOperationCircuitBreakerSensor(
     task_id="pet_profiles_operation_sensor",
     datahub_rest_conn_id="datahub_longtail",

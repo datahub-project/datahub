@@ -29,7 +29,9 @@ items_operation_sensor = DatahubOperationCircuitBreakerSensor(
     time_delta=datetime.timedelta(days=1),
 )
 
-# NEW ASSERTION OPERATOR
+# Assertion circuit breaker to check if there are assertions for the urns specified.
+# check_last_assertion_time is enabled which means it will get from the latest operation the timeframe
+# it accepts assertions.
 assertion_circuit_breaker = DatahubAssertionOperator(
     task_id="pet_profiles_assertion_circuit_breaker",
     datahub_rest_conn_id="datahub_longtail",

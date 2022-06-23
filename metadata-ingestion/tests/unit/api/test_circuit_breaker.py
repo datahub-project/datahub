@@ -1,9 +1,13 @@
 import json
 from unittest.mock import patch
 
+from freezegun import freeze_time
+
 from datahub.api.circuit_breaker import (
     AssertionCircuitBreaker,
     AssertionCircuitBreakerConfig,
+    OperationCircuitBreaker,
+    OperationCircuitBreakerConfig,
 )
 
 lastUpdatedResponseBeforeLastAssertion = {
@@ -15,7 +19,63 @@ lastUpdatedResponseAfterLastAssertion = {
 }
 
 
-def test_circuit_breaker_no_error(pytestconfig):
+def test_operation_circuit_breaker_with_empty_response(pytestconfig):
+    with patch("gql.client.Client.execute") as mock_gql_client:
+        test_resources_dir = pytestconfig.rootpath / "tests/unit/api"
+        f = open(
+            f"{test_resources_dir}/operation_gql_empty_response.json",
+        )
+        data = json.load(f)
+        mock_gql_client.side_effect = [data]
+
+        config = OperationCircuitBreakerConfig(datahub_host="dummy")
+        cb = OperationCircuitBreaker(config)
+
+        result = cb.is_circuit_breaker_active(
+            urn="urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD))"
+        )
+        assert result is True
+
+
+@freeze_time("2022-06-20 05:00:00")
+def test_operation_circuit_breaker_with_valid_response(pytestconfig):
+    with patch("gql.client.Client.execute") as mock_gql_client:
+        test_resources_dir = pytestconfig.rootpath / "tests/unit/api"
+        f = open(
+            f"{test_resources_dir}/operation_gql_response.json",
+        )
+        data = json.load(f)
+        mock_gql_client.side_effect = [data]
+
+        config = OperationCircuitBreakerConfig(datahub_host="dummy")
+        cb = OperationCircuitBreaker(config)
+
+        result = cb.is_circuit_breaker_active(
+            urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.jaffle_shop.customers,PROD)"
+        )
+        assert result is False
+
+
+@freeze_time("2022-06-21 07:00:00")
+def test_operation_circuit_breaker_with_not_recent_operation(pytestconfig):
+    with patch("gql.client.Client.execute") as mock_gql_client:
+        test_resources_dir = pytestconfig.rootpath / "tests/unit/api"
+        f = open(
+            f"{test_resources_dir}/operation_gql_response.json",
+        )
+        data = json.load(f)
+        mock_gql_client.side_effect = [data]
+
+        config = OperationCircuitBreakerConfig(datahub_host="dummy")
+        cb = OperationCircuitBreaker(config)
+
+        result = cb.is_circuit_breaker_active(
+            urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.jaffle_shop.customers,PROD)"
+        )
+        assert result is True
+
+
+def test_assertion_circuit_breaker_with_no_error(pytestconfig):
     with patch("gql.client.Client.execute") as mock_gql_client:
         test_resources_dir = pytestconfig.rootpath / "tests/unit/api"
         f = open(
@@ -33,7 +93,7 @@ def test_circuit_breaker_no_error(pytestconfig):
         assert result is False
 
 
-def test_circuit_breaker_updated_at_after_last_assertion(pytestconfig):
+def test_assertion_circuit_breaker_updated_at_after_last_assertion(pytestconfig):
     with patch("gql.client.Client.execute") as mock_gql_client:
         test_resources_dir = pytestconfig.rootpath / "tests/unit/api"
         f = open(
@@ -50,7 +110,7 @@ def test_circuit_breaker_updated_at_after_last_assertion(pytestconfig):
         assert result is True
 
 
-def test_circuit_breaker_assertion_with_active_assertion(pytestconfig):
+def test_assertion_circuit_breaker_assertion_with_active_assertion(pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/unit/api"
     with patch("gql.client.Client.execute") as mock_gql_client:
         f = open(

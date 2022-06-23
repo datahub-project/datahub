@@ -98,7 +98,7 @@ mutation reportOperation($urn: String!, $sourceType: OperationSourceType!, $oper
         r"""
         Query operations for a dataset.
 
-        :param urn: The Datahub dataset unique identifier.
+        :param urn: The DataHub dataset unique identifier.
         :param start_time_millis: The start time in milliseconds from the operations will be queried.
         :param end_time_millis: The end time in milliseconds until the operations will be queried.
         :param limit: The maximum number of items to return.

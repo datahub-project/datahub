@@ -14,8 +14,8 @@ class DatahubOperationCircuitBreakerOperator(BaseSensorOperator):
     r"""
     Datahub Operation Circuit Breaker Operator.
 
-    :param urn: The Datahub dataset unique identifier. (templated)
-    :param datahub_rest_conn_id: The REST datahub connection id to communicate with Datahbub
+    :param urn: The DataHub dataset unique identifier. (templated)
+    :param datahub_rest_conn_id: The REST datahub connection id to communicate with DataHub
         which is set as Airflow connection.
     :param partition: The partition to check the operation.
     :param source_type: The partition to check the operation. :ref:`https://datahubproject.io/docs/graphql/enums#operationsourcetype`

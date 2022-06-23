@@ -32,7 +32,7 @@ pet_profiles_load = BashOperator(
     on_success_callback=report_operation,
 )
 
-# NEW RUNNING GE ASSERTION
+# Simple bash command as example to load great expectation tests
 run_ge_tests = BashOperator(
     task_id="pet_profiles_ge_tests_run",
     inlets=[Dataset("snowflake", "long_tail_companions.adoption.pet_profiles")],

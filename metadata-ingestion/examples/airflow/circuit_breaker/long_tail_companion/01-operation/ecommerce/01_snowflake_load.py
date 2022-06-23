@@ -14,7 +14,8 @@ dag = DAG(
 )
 
 
-# NEW - OPERATION PUSH
+# Operation push
+# The number of rows is hardcoded in this example but this shouldn't in normal operation
 def report_operation(context):
     hook: DatahubRestHook = DatahubRestHook("datahub_longtail")
     host, password, timeout_sec = hook._get_config()
@@ -27,7 +28,6 @@ def report_operation(context):
         )
 
 
-# NEW - OPERATION PUSH
 pet_profiles_load = BashOperator(
     task_id="load_s3_adoption_pet_profiles",
     dag=dag,

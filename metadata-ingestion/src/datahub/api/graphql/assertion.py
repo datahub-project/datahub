@@ -64,7 +64,7 @@ query dataset($urn: String!, $start: Int, $count: Int, $status: AssertionRunStat
         r"""
         Query assertions for a dataset.
 
-        :param urn: The Datahub dataset unique identifier.
+        :param urn: The DataHub dataset unique identifier.
         :param status: The assertion status to filter for. Every status will be accepted if it is not set.
             See valid status at https://datahubproject.io/docs/graphql/enums#assertionrunstatus
         :param start_time_millis: The start time in milliseconds from the assertions will be queried.

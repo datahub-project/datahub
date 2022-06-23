@@ -14,8 +14,8 @@ class DatahubAssertionOperator(BaseOperator):
     r"""
     Datahub Assertion Circuit Breaker Operator.
 
-    :param urn: The Datahub dataset unique identifier. (templated)
-    :param datahub_rest_conn_id: The REST datahub connection id to communicate with Datahbub
+    :param urn: The DataHub dataset unique identifier. (templated)
+    :param datahub_rest_conn_id: The REST datahub connection id to communicate with DataHub
         which is set as Airflow connection.
     :param check_last_assertion_time: If set it checks assertions after the last operation was set on the dataset.
         By default it is True.
