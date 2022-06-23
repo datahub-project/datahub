@@ -73,7 +73,7 @@ public class AuthModule extends AbstractModule {
          */
         String sessionStoreProvider = _configs.getString(PAC4J_SESSIONSTORE_PROVIDER_CONF);
 
-        if(sessionStoreProvider.equals("PlayCacheSessionStore")){
+        if (sessionStoreProvider.equals("PlayCacheSessionStore")) {
             final PlayCacheSessionStore playCacheSessionStore = new PlayCacheSessionStore(getProvider(SyncCacheApi.class));
             bind(SessionStore.class).toInstance(playCacheSessionStore);
             bind(PlaySessionStore.class).toInstance(playCacheSessionStore);
