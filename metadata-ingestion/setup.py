@@ -375,7 +375,6 @@ if is_py37_or_newer:
         {
             dependency
             for plugin in [
-                "circuit-breaker",
                 "feast",
                 "iceberg",
                 "lookml",
@@ -416,6 +415,7 @@ full_test_dev_requirements = {
     *list(
         dependency
         for plugin in [
+            "circuit-breaker",
             "clickhouse",
             "druid",
             "feast-legacy",
