@@ -31,7 +31,6 @@ base_requirements = {
     "typing-inspect",
     "pydantic>=1.5.1",
     "mixpanel>=4.9.0",
-    "gql[requests]>=3.3.0",
 }
 
 framework_common = {
@@ -177,6 +176,9 @@ plugins: Dict[str, Set[str]] = {
     # Integrations.
     "airflow": {
         "apache-airflow >= 1.10.2",
+    },
+    "api": {
+        "gql[requests]>=3.3.0",
     },
     "great-expectations": sql_common | {"sqllineage==1.3.5"},
     # Source plugins
