@@ -57,10 +57,6 @@ class BigQueryConfig(BigQueryBaseConfig, BaseTimeWindowConfig, SQLAlchemyConfig)
         description="Whether to read date sharded tables or time partitioned tables when extracting usage from exported audit logs.",
     )
     _credentials_path: Optional[str] = pydantic.PrivateAttr(None)
-    temp_table_dataset_prefix: str = pydantic.Field(
-        default="_",
-        description="If you are creating temp tables in a dataset with a particular prefix you can use this config to set the prefix for the dataset. This is to support workflows from before bigquery's introduction of temp tables. By default we use `_` because of datasets that begin with an underscore are hidden by default https://cloud.google.com/bigquery/docs/datasets#dataset-naming.",
-    )
     use_v2_audit_metadata: Optional[bool] = pydantic.Field(
         default=False, description="Whether to ingest logs using the v2 format."
     )

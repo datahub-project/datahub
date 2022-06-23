@@ -1,8 +1,6 @@
 import { SourceConfig } from '../types';
 import postgresLogo from '../../../../../images/postgreslogo.png';
 
-const baseUrl = window.location.origin;
-
 const placeholderRecipe = `\
 source: 
     type: postgres
@@ -23,12 +21,7 @@ source:
         # Profiling
         profiling:
             enabled: false
-sink: 
-    type: datahub-rest 
-    config: 
-        server: "${baseUrl}/api/gms"
-        # Add a secret in secrets Tab
-        token: "\${GMS_TOKEN}"`;
+`;
 
 const postgresConfig: SourceConfig = {
     type: 'postgres',

@@ -64,6 +64,7 @@ public class Constants {
   public static final String SUB_TYPES_ASPECT_NAME = "subTypes";
   public static final String DEPRECATION_ASPECT_NAME = "deprecation";
   public static final String OPERATION_ASPECT_NAME = "operation";
+  public static final String SIBLINGS_ASPECT_NAME = "siblings";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";

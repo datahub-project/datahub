@@ -12,6 +12,7 @@ import {
     MlModelGroup,
     Maybe,
     Status,
+    DataPlatform,
 } from '../../types.generated';
 
 export type EntitySelectParams = {
@@ -41,6 +42,7 @@ export type FetchedEntity = {
     fullyFetched?: boolean;
     platform?: string;
     status?: Maybe<Status>;
+    siblingPlatforms?: Maybe<DataPlatform[]>;
 };
 
 export type NodeData = {
@@ -58,6 +60,7 @@ export type NodeData = {
     countercurrentChildrenUrns?: string[];
     platform?: string;
     status?: Maybe<Status>;
+    siblingPlatforms?: Maybe<DataPlatform[]>;
 };
 
 export type VizNode = {

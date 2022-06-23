@@ -249,6 +249,7 @@ export class DatasetEntity implements Entity<Dataset> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Dataset;
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 urn={data.urn}
@@ -258,6 +259,10 @@ export class DatasetEntity implements Entity<Dataset> {
                 platformName={data.platform.properties?.displayName || data.platform.name}
                 platformLogo={data.platform.properties?.logoUrl}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
+                platformNames={genericProperties?.siblingPlatforms?.map(
+                    (platform) => platform.properties?.displayName || platform.name,
+                )}
+                platformLogos={genericProperties?.siblingPlatforms?.map((platform) => platform.properties?.logoUrl)}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 domain={data.domain}

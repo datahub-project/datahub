@@ -1,18 +1,20 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
-import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityLineageResult;
 import com.linkedin.datahub.graphql.generated.LineageDirection;
 import com.linkedin.datahub.graphql.generated.LineageInput;
 import com.linkedin.datahub.graphql.generated.LineageRelationship;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
-import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.graph.SiblingGraphService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.net.URISyntaxException;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
@@ -21,17 +23,17 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
  * GraphQL Resolver responsible for fetching lineage relationships between entities in the DataHub graph.
  * Lineage relationship denotes whether an entity is directly upstream or downstream of another entity
  */
+@Slf4j
 public class EntityLineageResultResolver implements DataFetcher<CompletableFuture<EntityLineageResult>> {
 
-  private final GraphClient _graphClient;
+  private final SiblingGraphService _siblingGraphService;
 
-  public EntityLineageResultResolver(final GraphClient graphClient) {
-    _graphClient = graphClient;
+  public EntityLineageResultResolver(final SiblingGraphService siblingGraphService) {
+    _siblingGraphService = siblingGraphService;
   }
 
   @Override
   public CompletableFuture<EntityLineageResult> get(DataFetchingEnvironment environment) {
-    final QueryContext context = environment.getContext();
     final String urn = ((Entity) environment.getSource()).getUrn();
     final LineageInput input = bindArgument(environment.getArgument("input"), LineageInput.class);
 
@@ -43,8 +45,16 @@ public class EntityLineageResultResolver implements DataFetcher<CompletableFutur
 
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
-    return CompletableFuture.supplyAsync(() -> mapEntityRelationships(lineageDirection,
-        _graphClient.getLineageEntities(urn, resolvedDirection, start, count, 1, context.getActorUrn())));
+
+    return CompletableFuture.supplyAsync(() -> {
+      try {
+        return mapEntityRelationships(lineageDirection,
+            _siblingGraphService.getLineage(Urn.createFromString(urn), resolvedDirection, start != null ? start : 0, count != null ? count : 100, 1));
+      } catch (URISyntaxException e) {
+        log.error("Failed to fetch lineage for {}", urn);
+        throw new RuntimeException(String.format("Failed to fetch lineage for {}", urn), e);
+      }
+    });
   }
 
   private EntityLineageResult mapEntityRelationships(final LineageDirection lineageDirection,
