@@ -335,7 +335,6 @@ base_dev_requirements = {
         for plugin in [
             "bigquery",
             "bigquery-usage",
-            "circuit-breaker",
             "clickhouse",
             "clickhouse-usage",
             "druid",
@@ -375,6 +374,7 @@ if is_py37_or_newer:
         {
             dependency
             for plugin in [
+                "circuit-breaker",
                 "feast",
                 "iceberg",
                 "lookml",
