@@ -1,6 +1,7 @@
 import json
 from unittest.mock import patch
 
+import pytest
 from freezegun import freeze_time
 
 from datahub.api.circuit_breaker import (
@@ -19,6 +20,7 @@ lastUpdatedResponseAfterLastAssertion = {
 }
 
 
+@pytest.mark.integration
 def test_operation_circuit_breaker_with_empty_response(pytestconfig):
     with patch("gql.client.Client.execute") as mock_gql_client:
         test_resources_dir = pytestconfig.rootpath / "tests/integration/circuit_breaker"
@@ -38,6 +40,7 @@ def test_operation_circuit_breaker_with_empty_response(pytestconfig):
 
 
 @freeze_time("2022-06-20 05:00:00")
+@pytest.mark.integration
 def test_operation_circuit_breaker_with_valid_response(pytestconfig):
     with patch("gql.client.Client.execute") as mock_gql_client:
         test_resources_dir = pytestconfig.rootpath / "tests/integration/circuit_breaker"
@@ -57,6 +60,7 @@ def test_operation_circuit_breaker_with_valid_response(pytestconfig):
 
 
 @freeze_time("2022-06-21 07:00:00")
+@pytest.mark.integration
 def test_operation_circuit_breaker_with_not_recent_operation(pytestconfig):
     with patch("gql.client.Client.execute") as mock_gql_client:
         test_resources_dir = pytestconfig.rootpath / "tests/integration/circuit_breaker"
@@ -75,6 +79,7 @@ def test_operation_circuit_breaker_with_not_recent_operation(pytestconfig):
         assert result is True
 
 
+@pytest.mark.integration
 def test_assertion_circuit_breaker_with_empty_response(pytestconfig):
     with patch("gql.client.Client.execute") as mock_gql_client:
         test_resources_dir = pytestconfig.rootpath / "tests/integration/circuit_breaker"
@@ -93,6 +98,7 @@ def test_assertion_circuit_breaker_with_empty_response(pytestconfig):
         assert result is True
 
 
+@pytest.mark.integration
 def test_assertion_circuit_breaker_with_no_error(pytestconfig):
     with patch("gql.client.Client.execute") as mock_gql_client:
         test_resources_dir = pytestconfig.rootpath / "tests/integration/circuit_breaker"
@@ -111,6 +117,7 @@ def test_assertion_circuit_breaker_with_no_error(pytestconfig):
         assert result is False
 
 
+@pytest.mark.integration
 def test_assertion_circuit_breaker_updated_at_after_last_assertion(pytestconfig):
     with patch("gql.client.Client.execute") as mock_gql_client:
         test_resources_dir = pytestconfig.rootpath / "tests/integration/circuit_breaker"
@@ -128,6 +135,7 @@ def test_assertion_circuit_breaker_updated_at_after_last_assertion(pytestconfig)
         assert result is True
 
 
+@pytest.mark.integration
 def test_assertion_circuit_breaker_assertion_with_active_assertion(pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/circuit_breaker"
     with patch("gql.client.Client.execute") as mock_gql_client:
