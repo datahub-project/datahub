@@ -1,8 +1,6 @@
 import { SourceConfig } from '../types';
 import snowflakeLogo from '../../../../../images/snowflakelogo.png';
 
-const baseUrl = window.location.origin;
-
 const placeholderRecipe = `\
 source: 
     type: snowflake
@@ -49,10 +47,7 @@ source:
         #     - ".*revenue"
         #     - ".*sales"
         
-sink: 
-    type: datahub-rest 
-    config: 
-        server: "${baseUrl}/api/gms"`;
+`;
 
 const snowflakeConfig: SourceConfig = {
     type: 'snowflake',

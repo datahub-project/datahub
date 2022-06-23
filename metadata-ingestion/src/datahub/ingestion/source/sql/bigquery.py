@@ -152,8 +152,6 @@ order by
     c.column_name
 """.strip()
 
-SHARDED_TABLE_REGEX = r"^(.+)[_](\d{4}|\d{6}|\d{8}|\d{10})$"
-
 BQ_GET_LATEST_SHARD = """
 SELECT SUBSTR(MAX(table_id), LENGTH('{table}_') + 1) as max_shard
 FROM `{project_id}.{schema}.__TABLES_SUMMARY__`
@@ -608,7 +606,9 @@ class BigQuerySource(SQLAlchemySource):
                 self.report.num_skipped_lineage_entries_missing_data += 1
                 continue
             # Skip if schema/table pattern don't allow the destination table
-            destination_table_str = str(e.destinationTable.remove_extras())
+            destination_table_str = str(
+                e.destinationTable.remove_extras(self.config.sharded_table_pattern)
+            )
             destination_table_str_parts = destination_table_str.split("/")
             if not self.config.schema_pattern.allowed(
                 destination_table_str_parts[3]
@@ -617,13 +617,17 @@ class BigQuerySource(SQLAlchemySource):
                 continue
             has_table = False
             for ref_table in e.referencedTables:
-                ref_table_str = str(ref_table.remove_extras())
+                ref_table_str = str(
+                    ref_table.remove_extras(self.config.sharded_table_pattern)
+                )
                 if ref_table_str != destination_table_str:
                     lineage_map[destination_table_str].add(ref_table_str)
                     has_table = True
             has_view = False
             for ref_view in e.referencedViews:
-                ref_view_str = str(ref_view.remove_extras())
+                ref_view_str = str(
+                    ref_view.remove_extras(self.config.sharded_table_pattern)
+                )
                 if ref_view_str != destination_table_str:
                     lineage_map[destination_table_str].add(ref_view_str)
                     has_view = True
@@ -684,10 +688,10 @@ class BigQuerySource(SQLAlchemySource):
             return None
 
     def get_shard_from_table(self, table: str) -> Tuple[str, Optional[str]]:
-        match = re.search(SHARDED_TABLE_REGEX, table, re.IGNORECASE)
+        match = re.search(self.config.sharded_table_pattern, table, re.IGNORECASE)
         if match:
-            table_name = match.group(1)
-            shard = match.group(2)
+            table_name = match.group(2)
+            shard = match.group(3)
             return table_name, shard
         return table, None
 
@@ -985,7 +989,7 @@ WHERE
             BigQueryTableRef.from_spec_obj(
                 {"projectId": project_id, "datasetId": schema, "tableId": table}
             )
-            .remove_extras()
+            .remove_extras(self.config.sharded_table_pattern)
             .table
         )
         return f"{project_id}.{schema}.{trimmed_table_name}"

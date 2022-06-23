@@ -273,7 +273,8 @@ class _SingleTableProfiler:
         )
         column_null_counts = null_counts.toPandas().T[0].to_dict()
         column_null_fractions = {
-            c: column_null_counts[c] / self.row_count for c in self.columns_to_profile
+            c: column_null_counts[c] / self.row_count if self.row_count != 0 else 0
+            for c in self.columns_to_profile
         }
         column_nonnull_counts = {
             c: self.row_count - column_null_counts[c] for c in self.columns_to_profile
