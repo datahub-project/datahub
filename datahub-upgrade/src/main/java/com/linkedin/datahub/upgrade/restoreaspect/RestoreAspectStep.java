@@ -1,6 +1,5 @@
 package com.linkedin.datahub.upgrade.restoreaspect;
 
-import com.amazonaws.regions.Regions;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -59,8 +58,7 @@ public class RestoreAspectStep implements UpgradeStep {
       }
 
       Optional<String> s3Region = context.parsedArgs().get(S3BackupReader.S3_REGION);
-      EbeanAspectBackupIterator iterator = new S3BackupReader(Collections.singletonList(s3Region.orElse(Regions.US_WEST_2.getName())))
-          .getBackupIterator(context);
+      EbeanAspectBackupIterator iterator = new S3BackupReader(Collections.singletonList(s3Region)).getBackupIterator(context);
       EbeanAspectV2 aspect;
       while ((aspect = iterator.next()) != null) {
 
