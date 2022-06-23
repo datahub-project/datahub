@@ -1,7 +1,7 @@
 import json
 import time
 import urllib
-
+import os
 import pytest
 import requests
 
@@ -28,8 +28,15 @@ from datahub.metadata.schema_classes import (
 from tests.utils import ingest_file_via_rest
 from tests.utils import delete_urns_from_file
 
+K8S_CLUSTER_ENABLED = os.getenv('K8S_CLUSTER_ENABLED','false')
+if K8S_CLUSTER_ENABLED in ['true', 'yes'] :
+    GMS_SVC = os.getenv('GMS_SVC')
+    GMS_ENDPOINT = f"http://{GMS_SVC}:8080"
+else:
+    GMS_ENDPOINT = "http://localhost:8080"
 
-GMS_ENDPOINT = "http://localhost:8080"
+#GMS_ENDPOINT = "http://localhost:8080"
+
 
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",

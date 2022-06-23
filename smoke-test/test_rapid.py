@@ -1,4 +1,5 @@
 import time
+import os
 import urllib
 from typing import Any, Dict, Optional, cast
 
@@ -12,12 +13,22 @@ from tests.utils import ingest_file_via_rest
 
 bootstrap_small = "test_resources/bootstrap_single.json"
 bootstrap_small_2 = "test_resources/bootstrap_single2.json"
-FRONTEND_ENDPOINT = "http://localhost:9002"
+
+K8S_CLUSTER_ENABLED = os.getenv('K8S_CLUSTER_ENABLED','false')
+
+if K8S_CLUSTER_ENABLED in ['true', 'yes'] :
+    FRONTEND_SVC = os.getenv('FRONTEND_SVC') 
+#    FRONTEND_SVC = "datahub-datahub-fronend"
+    FRONTEND_ENDPOINT = f"http://{FRONTEND_SVC}:9002"
+else:    
+    FRONTEND_ENDPOINT = "http://localhost:9002"
+ 
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
     # Simply assert that everything is healthy, but don't wait.
-    assert not check_local_docker_containers()
+    if K8S_CLUSTER_ENABLED not in ['true', 'yes'] :
+        assert not check_local_docker_containers()
     yield
 
 @pytest.fixture(scope="session")
@@ -35,7 +46,8 @@ def frontend_session(wait_for_healthchecks):
 
     yield session
 
-def test_ingestion_via_rest_rapid(frontend_session, wait_for_healthchecks):
+#def test_ingestion_via_rest_rapid(frontend_session, wait_for_healthchecks):
+def test_ingestion_via_rest_rapid(frontend_session):
     ingest_file_via_rest(bootstrap_small)
     ingest_file_via_rest(bootstrap_small_2)
     urn = f"urn:li:dataset:(urn:li:dataPlatform:testPlatform,testDataset,PROD)"

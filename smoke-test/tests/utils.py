@@ -1,12 +1,23 @@
 import json
-
+import os
 import requests
 from typing import Any
 from datahub.cli import cli_utils
 from datahub.ingestion.run.pipeline import Pipeline
 
-GMS_ENDPOINT = "http://localhost:8080"
-FRONTEND_ENDPOINT = "http://localhost:9002"
+K8S_CLUSTER_ENABLED = os.getenv('K8S_CLUSTER_ENABLED','false')
+if K8S_CLUSTER_ENABLED in ['true', 'yes'] :
+    FRONTEND_SVC = os.getenv('FRONTEND_SVC')
+    GMS_SVC = os.getenv('GMS_SVC')
+
+    FRONTEND_ENDPOINT = f"http://{FRONTEND_SVC}:9002"
+    GMS_ENDPOINT = f"http://{GMS_SVC}:8080"
+else:
+    GMS_ENDPOINT = "http://localhost:8080"
+    FRONTEND_ENDPOINT = "http://localhost:9002"
+
+#GMS_ENDPOINT = "http://localhost:8080"
+#FRONTEND_ENDPOINT = "http://localhost:9002"
 
 def ingest_file_via_rest(filename: str) -> Any:
     pipeline = Pipeline.create(
