@@ -13,6 +13,7 @@ import { ManageIngestionPage } from './ingest/ManageIngestionPage';
 import { ManageDomainsPage } from './domain/ManageDomainsPage';
 import BusinessGlossaryPage from './glossary/BusinessGlossaryPage';
 import { SettingsPage } from './settings/SettingsPage';
+import { NoPageFound } from './shared/NoPageFound';
 
 /**
  * Container for all views behind an authentication wall.
@@ -41,6 +42,7 @@ export const ProtectedRoutes = (): JSX.Element => {
                         <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
                         <Route path={PageRoutes.SETTINGS} render={() => <SettingsPage />} />
                         <Route path={PageRoutes.GLOSSARY} render={() => <BusinessGlossaryPage />} />
+                        <Route path="/*" component={NoPageFound} />
                     </Switch>
                 </Layout>
             </Layout>

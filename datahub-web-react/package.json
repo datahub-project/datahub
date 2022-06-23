@@ -52,6 +52,7 @@
         "cypress": "7.3.0",
         "d3-scale": "^3.3.0",
         "d3-time-format": "^3.0.0",
+        "deepmerge": "^4.2.2",
         "diff": "^5.0.0",
         "dotenv": "^8.2.0",
         "faker": "5.5.3",

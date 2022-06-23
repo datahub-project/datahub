@@ -47,7 +47,7 @@ export default function TableStats({
                 {rowCount && (
                     <InfoItem title="Rows">
                         <Tooltip title={countSeparator(rowCount)} placement="right">
-                            <Typography.Text strong style={{ fontSize: 24 }}>
+                            <Typography.Text strong style={{ fontSize: 24 }} data-testid="table-stats-rowcount">
                                 {countFormatter(rowCount)}
                             </Typography.Text>
                         </Tooltip>
