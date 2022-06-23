@@ -74,6 +74,7 @@ def test_operation_circuit_breaker_with_not_recent_operation(pytestconfig):
         )
         assert result is True
 
+
 def test_assertion_circuit_breaker_with_empty_response(pytestconfig):
     with patch("gql.client.Client.execute") as mock_gql_client:
         test_resources_dir = pytestconfig.rootpath / "tests/unit/api"
