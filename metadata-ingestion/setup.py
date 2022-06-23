@@ -178,6 +178,7 @@ plugins: Dict[str, Set[str]] = {
         "apache-airflow >= 1.10.2",
     },
     "circuit-breaker": {
+        "gql>=3.3.0",
         "gql[requests]>=3.3.0",
     },
     "great-expectations": sql_common | {"sqllineage==1.3.5"},
