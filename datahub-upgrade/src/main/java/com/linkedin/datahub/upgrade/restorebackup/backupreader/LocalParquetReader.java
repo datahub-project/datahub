@@ -3,6 +3,8 @@ package com.linkedin.datahub.upgrade.restorebackup.backupreader;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -19,10 +21,19 @@ import org.apache.parquet.hadoop.ParquetReader;
 @Slf4j
 public class LocalParquetReader implements BackupReader {
 
-  public LocalParquetReader() {
+  public static final String READER_NAME = "LOCAL_PARQUET";
+
+  public LocalParquetReader(@Nonnull List<Optional<String>> args) {
+    if (args.size() != argNames().size()) {
+      throw new IllegalArgumentException("Incorrect number of arguments for LocalParquetReader.");
+    }
     // Need below to solve issue with hadoop path class not working in linux systems
     // https://stackoverflow.com/questions/41864985/hadoop-ioexception-failure-to-login
     UserGroupInformation.setLoginUser(UserGroupInformation.createRemoteUser("hduser"));
+  }
+
+  public static List<String> argNames() {
+    return Collections.emptyList();
   }
 
   @Override

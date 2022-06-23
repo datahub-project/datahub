@@ -12,6 +12,7 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -27,16 +28,42 @@ import org.apache.parquet.hadoop.ParquetReader;
 
 @Slf4j
 public class S3BackupReader implements BackupReader {
+
+  public static final String READER_NAME = "S3_PARQUET";
+  public static final String S3_REGION = "S3_REGION";
+
   private final AmazonS3 _client;
 
   private static final String PARQUET_SUFFIX = ".gz.parquet";
   private static final String TEMP_DIR = "/tmp/";
 
-  public S3BackupReader() {
-    _client = AmazonS3ClientBuilder.standard().withRegion(Regions.US_WEST_2).build();
+  public S3BackupReader(@Nonnull List<Optional<String>> args) {
+    if (args.size() != argNames().size()) {
+      throw new IllegalArgumentException("Incorrect number of arguments for S3BackupReader.");
+    }
+    Regions region;
+    String s3Region;
+    Optional<String> arg = args.get(0);
+    if (!arg.isPresent()) {
+      log.warn("Region not provided, defaulting to us-west-2");
+      s3Region = Regions.US_WEST_2.getName();
+    } else {
+      s3Region = arg.get();
+    }
+    try {
+      region = Regions.valueOf(s3Region);
+    } catch (Exception e) {
+      log.warn("Invalid region: {} , defaulting to us-west-2", s3Region);
+      region = Regions.US_WEST_2;
+    }
+    _client = AmazonS3ClientBuilder.standard().withRegion(region).build();
     // Need below to solve issue with hadoop path class not working in linux systems
     // https://stackoverflow.com/questions/41864985/hadoop-ioexception-failure-to-login
     UserGroupInformation.setLoginUser(UserGroupInformation.createRemoteUser("hduser"));
+  }
+
+  public static List<String> argNames() {
+    return Collections.singletonList(S3_REGION);
   }
 
   @Override
