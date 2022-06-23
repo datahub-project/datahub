@@ -36,29 +36,4 @@ describe('AdHocPage', () => {
         expect(screen.getByDisplayValue('test dataset location')).toBeInTheDocument();
         // console.log(prettyDOM(container));
     });
-
-    // it('test toggle csv/json tabs', async () => {
-    //     render(
-    //         <MockedProvider mocks={mocks} addTypename={false}>
-    //             <TestPageContainer>
-    //                 <Router>
-    //                     <AdHocPage />
-    //                 </Router>
-    //             </TestPageContainer>
-    //         </MockedProvider>,
-    //     );
-
-    //     const panel1 = screen.getByRole('tab', { name: 'Json' });
-    //     const panel2 = screen.getByRole('tab', { name: 'Csv' });
-
-    //     // toggle to json tab
-    //     fireEvent.click(panel1);
-    //     expect(screen.getByText('Click here to infer schema from json file')).toBeInTheDocument();
-
-    //     // toggle to csv tab
-    //     fireEvent.click(panel2);
-    //     expect(
-    //         screen.getByText('Click here to parse your file header (CSV or delimited text file only)'),
-    //     ).toBeInTheDocument();
-    // });
 });
