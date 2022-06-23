@@ -14,6 +14,7 @@ import { ManageIngestionPage } from './ingest/ManageIngestionPage';
 import { ManageDomainsPage } from './domain/ManageDomainsPage';
 import BusinessGlossaryPage from './glossary/BusinessGlossaryPage';
 import { SettingsPage } from './settings/SettingsPage';
+import { NoPageFound } from './shared/NoPageFound';
 import { ManageTestsPage } from './tests/ManageTestsPage';
 
 /**
@@ -45,6 +46,7 @@ export const ProtectedRoutes = (): JSX.Element => {
                         <Route path={PageRoutes.SETTINGS} render={() => <SettingsPage />} />
                         <Route path={PageRoutes.GLOSSARY} render={() => <BusinessGlossaryPage />} />
                         <Route path={PageRoutes.TESTS} render={() => <ManageTestsPage />} />
+                        <Route path="/*" component={NoPageFound} />
                     </Switch>
                 </Layout>
             </Layout>

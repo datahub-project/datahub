@@ -240,11 +240,13 @@ export const SearchResults = ({
                                             <List.Item
                                                 style={{ padding: 0 }}
                                                 onClick={() => onResultClick(item, index)}
+                                                // class name for counting in test purposes only
+                                                className="test-search-result"
                                             >
                                                 {entityRegistry.renderSearchResult(item.entity.type, item)}
                                             </List.Item>
                                             {item.matchedEntities && item.matchedEntities.length > 0 && (
-                                                <SiblingResultContainer>
+                                                <SiblingResultContainer className="test-search-result-sibling-section">
                                                     <CompactEntityNameList entities={item.matchedEntities} />
                                                 </SiblingResultContainer>
                                             )}

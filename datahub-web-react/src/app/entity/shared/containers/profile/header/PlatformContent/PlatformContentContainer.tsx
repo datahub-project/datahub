@@ -45,8 +45,8 @@ function PlatformContentContainer() {
         <PlatformContentView
             platformName={platformName}
             platformLogoUrl={platformLogoUrl}
-            platformNames={entityData?.siblingPlatforms?.map((platform) =>
-                capitalizeFirstLetterOnly(platform.properties?.displayName || platform.name),
+            platformNames={entityData?.siblingPlatforms?.map(
+                (platform) => platform.properties?.displayName || platform.name,
             )}
             platformLogoUrls={entityData?.siblingPlatforms?.map((platform) => platform.properties?.logoUrl)}
             entityLogoComponent={entityLogoComponent}

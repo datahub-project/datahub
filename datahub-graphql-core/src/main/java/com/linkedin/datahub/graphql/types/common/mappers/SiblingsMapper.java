@@ -13,20 +13,20 @@ import javax.annotation.Nonnull;
  */
 public class SiblingsMapper implements ModelMapper<com.linkedin.common.Siblings, SiblingProperties> {
 
-    public static final SiblingsMapper INSTANCE = new SiblingsMapper();
+  public static final SiblingsMapper INSTANCE = new SiblingsMapper();
 
-    public static SiblingProperties map(@Nonnull final com.linkedin.common.Siblings siblings) {
-        return INSTANCE.apply(siblings);
-    }
+  public static SiblingProperties map(@Nonnull final com.linkedin.common.Siblings siblings) {
+    return INSTANCE.apply(siblings);
+  }
 
-    @Override
-    public SiblingProperties apply(@Nonnull final com.linkedin.common.Siblings siblings) {
-        final SiblingProperties result = new SiblingProperties();
-        result.setIsPrimary(siblings.isPrimary());
-        result.setSiblings(siblings.getSiblings()
-                .stream()
-                .map(UrnToEntityMapper::map)
-                .collect(Collectors.toList()));
-        return result;
-    }
+  @Override
+  public SiblingProperties apply(@Nonnull final com.linkedin.common.Siblings siblings) {
+    final SiblingProperties result = new SiblingProperties();
+    result.setIsPrimary(siblings.isPrimary());
+    result.setSiblings(siblings.getSiblings()
+        .stream()
+        .map(UrnToEntityMapper::map)
+        .collect(Collectors.toList()));
+    return result;
+  }
 }

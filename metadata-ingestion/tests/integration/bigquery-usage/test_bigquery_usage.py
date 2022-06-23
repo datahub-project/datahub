@@ -192,8 +192,16 @@ def test_bq_usage_source_with_read_events(pytestconfig, tmp_path):
         ("test_table$20220101", "test_table"),
         ("test_table$__PARTITIONS_SUMMARY__", "test_table"),
         ("test_table_20220101", "test_table"),
+        ("20220101", "test_dataset"),
+        ("test_table", "test_table"),
     ],
 )
 def test_remove_extras(test_input, expected):
+    config = BigQueryUsageConfig.parse_obj(
+        dict(
+            project_id="sample-bigquery-project-name-1234",
+        )
+    )
+
     table_ref = BigQueryTableRef("test_project", "test_dataset", test_input)
-    assert table_ref.remove_extras().table == expected
+    assert table_ref.remove_extras(config.sharded_table_pattern).table == expected

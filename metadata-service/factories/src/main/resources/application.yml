@@ -49,7 +49,7 @@ authorization:
 
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
-  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.38}'
+  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.38.2}'
 
 telemetry:
   enabledCli: ${CLI_TELEMETRY_ENABLED:true}
@@ -235,4 +235,4 @@ eventSinks:
 
 # experimental siblings config
 siblings:
-  enabled: ${ENABLE_SIBLING_HOOK:false} # enable to turn on automatic sibling associations for dbt
+  enabled: ${ENABLE_SIBLING_HOOK:true} # enable to turn on automatic sibling associations for dbt

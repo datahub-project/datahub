@@ -40,7 +40,7 @@ public class BootstrapManager {
           try {
             step.execute();
           } catch (Exception e) {
-            log.error(String.format("Caught exception while executing bootstrap step %s. Exiting...", step.name()), e);
+            log.error(String.format("Caught exception while executing bootstrap step %s. Continuing...", step.name()), e);
           }
         });
       }

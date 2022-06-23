@@ -80,7 +80,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
                 <a href="/openapi/swagger-ui/index.html">OpenAPI</a>
             </MenuItem>
             <MenuItem danger key="logout" tabIndex={0}>
-                <a href="/logOut" onClick={handleLogout}>
+                <a href="/" onClick={handleLogout}>
                     Logout
                 </a>
             </MenuItem>
