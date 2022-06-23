@@ -28,7 +28,7 @@ from datahub.metadata.schema_classes import (
 from tests.utils import ingest_file_via_rest
 from tests.utils import delete_urns_from_file
 
-K8S_CLUSTER_ENABLED = os.getenv('K8S_CLUSTER_ENABLED','false')
+K8S_CLUSTER_ENABLED = os.getenv('K8S_CLUSTER_ENABLED','false').lower()
 if K8S_CLUSTER_ENABLED in ['true', 'yes'] :
     GMS_SVC = os.getenv('GMS_SVC')
     GMS_ENDPOINT = f"http://{GMS_SVC}:8080"

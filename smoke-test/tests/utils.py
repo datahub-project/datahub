@@ -5,7 +5,7 @@ from typing import Any
 from datahub.cli import cli_utils
 from datahub.ingestion.run.pipeline import Pipeline
 
-K8S_CLUSTER_ENABLED = os.getenv('K8S_CLUSTER_ENABLED','false')
+K8S_CLUSTER_ENABLED = os.getenv('K8S_CLUSTER_ENABLED','false').lower()
 if K8S_CLUSTER_ENABLED in ['true', 'yes'] :
     FRONTEND_SVC = os.getenv('FRONTEND_SVC')
     GMS_SVC = os.getenv('GMS_SVC')

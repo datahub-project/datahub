@@ -14,7 +14,7 @@ from tests.utils import ingest_file_via_rest
 bootstrap_small = "test_resources/bootstrap_single.json"
 bootstrap_small_2 = "test_resources/bootstrap_single2.json"
 
-K8S_CLUSTER_ENABLED = os.getenv('K8S_CLUSTER_ENABLED','false')
+K8S_CLUSTER_ENABLED = os.getenv('K8S_CLUSTER_ENABLED','false').lower()
 
 if K8S_CLUSTER_ENABLED in ['true', 'yes'] :
     FRONTEND_SVC = os.getenv('FRONTEND_SVC') 
