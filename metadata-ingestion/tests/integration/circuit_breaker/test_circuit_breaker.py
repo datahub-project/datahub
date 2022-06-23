@@ -21,7 +21,7 @@ lastUpdatedResponseAfterLastAssertion = {
 
 def test_operation_circuit_breaker_with_empty_response(pytestconfig):
     with patch("gql.client.Client.execute") as mock_gql_client:
-        test_resources_dir = pytestconfig.rootpath / "tests/unit/api"
+        test_resources_dir = pytestconfig.rootpath / "tests/integration/circuit_breaker"
         f = open(
             f"{test_resources_dir}/operation_gql_empty_response.json",
         )
@@ -40,7 +40,7 @@ def test_operation_circuit_breaker_with_empty_response(pytestconfig):
 @freeze_time("2022-06-20 05:00:00")
 def test_operation_circuit_breaker_with_valid_response(pytestconfig):
     with patch("gql.client.Client.execute") as mock_gql_client:
-        test_resources_dir = pytestconfig.rootpath / "tests/unit/api"
+        test_resources_dir = pytestconfig.rootpath / "tests/integration/circuit_breaker"
         f = open(
             f"{test_resources_dir}/operation_gql_response.json",
         )
@@ -59,7 +59,7 @@ def test_operation_circuit_breaker_with_valid_response(pytestconfig):
 @freeze_time("2022-06-21 07:00:00")
 def test_operation_circuit_breaker_with_not_recent_operation(pytestconfig):
     with patch("gql.client.Client.execute") as mock_gql_client:
-        test_resources_dir = pytestconfig.rootpath / "tests/unit/api"
+        test_resources_dir = pytestconfig.rootpath / "tests/integration/circuit_breaker"
         f = open(
             f"{test_resources_dir}/operation_gql_response.json",
         )
@@ -77,7 +77,7 @@ def test_operation_circuit_breaker_with_not_recent_operation(pytestconfig):
 
 def test_assertion_circuit_breaker_with_empty_response(pytestconfig):
     with patch("gql.client.Client.execute") as mock_gql_client:
-        test_resources_dir = pytestconfig.rootpath / "tests/unit/api"
+        test_resources_dir = pytestconfig.rootpath / "tests/integration/circuit_breaker"
         f = open(
             f"{test_resources_dir}/assertion_gql_empty_response.json",
         )
@@ -95,7 +95,7 @@ def test_assertion_circuit_breaker_with_empty_response(pytestconfig):
 
 def test_assertion_circuit_breaker_with_no_error(pytestconfig):
     with patch("gql.client.Client.execute") as mock_gql_client:
-        test_resources_dir = pytestconfig.rootpath / "tests/unit/api"
+        test_resources_dir = pytestconfig.rootpath / "tests/integration/circuit_breaker"
         f = open(
             f"{test_resources_dir}/assertion_gql_response_with_no_error.json",
         )
@@ -113,7 +113,7 @@ def test_assertion_circuit_breaker_with_no_error(pytestconfig):
 
 def test_assertion_circuit_breaker_updated_at_after_last_assertion(pytestconfig):
     with patch("gql.client.Client.execute") as mock_gql_client:
-        test_resources_dir = pytestconfig.rootpath / "tests/unit/api"
+        test_resources_dir = pytestconfig.rootpath / "tests/integration/circuit_breaker"
         f = open(
             f"{test_resources_dir}/assertion_gql_response_with_no_error.json",
         )
@@ -129,7 +129,7 @@ def test_assertion_circuit_breaker_updated_at_after_last_assertion(pytestconfig)
 
 
 def test_assertion_circuit_breaker_assertion_with_active_assertion(pytestconfig):
-    test_resources_dir = pytestconfig.rootpath / "tests/unit/api"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/circuit_breaker"
     with patch("gql.client.Client.execute") as mock_gql_client:
         f = open(
             f"{test_resources_dir}/assertion_gql_response.json",
