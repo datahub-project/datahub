@@ -66,17 +66,20 @@ class AssertionCircuitBreaker(AbstractCircuitBreaker):
         result: bool = True
         assertion_last_states: Dict[str, AssertionResult] = {}
         for assertion in assertions:
-            for run_event in assertion["runEvents"]["runEvents"]:
-                assertion_time = run_event["timestampMillis"]
-                assertion_state = run_event["result"]["type"]
-                assertion_urn = run_event["assertionUrn"]
-                if (
-                    assertion_urn not in assertion_last_states
-                    or assertion_last_states[assertion_urn].time < assertion_time
-                ):
-                    assertion_last_states[assertion_urn] = AssertionResult(
-                        time=assertion_time, state=assertion_state, run_event=run_event
-                    )
+            if "runEvents" in assertion and "runEvents" in assertion["runEvents"]:
+                for run_event in assertion["runEvents"]["runEvents"]:
+                    assertion_time = run_event["timestampMillis"]
+                    assertion_state = run_event["result"]["type"]
+                    assertion_urn = run_event["assertionUrn"]
+                    if (
+                        assertion_urn not in assertion_last_states
+                        or assertion_last_states[assertion_urn].time < assertion_time
+                    ):
+                        assertion_last_states[assertion_urn] = AssertionResult(
+                            time=assertion_time,
+                            state=assertion_state,
+                            run_event=run_event,
+                        )
 
         for assertion_urn, last_assertion in assertion_last_states.items():
             if last_assertion.state == "FAILURE":
