@@ -200,7 +200,6 @@ def test_admin_can_create_and_revoke_tokens_for_other_user(wait_for_healthchecks
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_non_admin_can_create_list_revoke_tokens(wait_for_healthchecks):
     user_session = loginAs("user", "user")
-    admin_session = loginAs("datahub", "datahub")
 
     # Normal user should be able to generate token for himself.
     res_data = generateAccessToken_v2(user_session, "urn:li:corpuser:user")
@@ -237,7 +236,6 @@ def test_non_admin_can_create_list_revoke_tokens(wait_for_healthchecks):
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
-    user_session = loginAs("user", "user")
     admin_session = loginAs("datahub", "datahub")
 
     # Using a super account, there should be no tokens
@@ -248,6 +246,8 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
 
     # Normal user should be able to generate token for himself.
+    admin_session.cookies.clear()
+    user_session = loginAs("user", "user")
     res_data = generateAccessToken_v2(user_session, "urn:li:corpuser:user")
     assert res_data
     assert res_data["data"]
@@ -258,6 +258,8 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     user_tokenId = res_data["data"]["createAccessToken"]["metadata"]["id"]
 
     # Admin should be able to list other tokens
+    user_session.cookies.clear()
+    admin_session = loginAs("datahub", "datahub")
     res_data = listAccessTokens(admin_session, [{"field": "ownerUrn","value": "urn:li:corpuser:user"}])
     assert res_data
     assert res_data["data"]
@@ -268,6 +270,8 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     assert res_data["data"]["listAccessTokens"]["tokens"][0]["id"] == user_tokenId
 
     # Admin can delete token created by someone else.
+    admin_session.cookies.clear()
+    admin_session = loginAs("datahub", "datahub")
     res_data = revokeAccessToken(admin_session, user_tokenId)
     assert res_data
     assert res_data["data"]
@@ -275,6 +279,8 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     assert res_data["data"]["revokeAccessToken"] == True
 
     # Using a normal account, check that all its tokens where removed.
+    user_session.cookies.clear()
+    user_session = loginAs("user", "user")
     res_data = listAccessTokens(user_session, [{"field": "ownerUrn","value": "urn:li:corpuser:user"}])
     assert res_data
     assert res_data["data"]
@@ -282,6 +288,7 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
 
     # Using the super account, check that all tokens where removed.
+    admin_session = loginAs("datahub", "datahub")
     res_data = listAccessTokens(admin_session, [{"field": "ownerUrn","value": "urn:li:corpuser:user"}])
     assert res_data
     assert res_data["data"]
