@@ -177,7 +177,7 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {
         "apache-airflow >= 1.10.2",
     },
-    "api": {
+    "circuit-breaker": {
         "gql[requests]>=3.3.0",
     },
     "great-expectations": sql_common | {"sqllineage==1.3.5"},
@@ -333,9 +333,9 @@ base_dev_requirements = {
     *list(
         dependency
         for plugin in [
-            "api",
             "bigquery",
             "bigquery-usage",
+            "circuit-breaker",
             "clickhouse",
             "clickhouse-usage",
             "druid",
