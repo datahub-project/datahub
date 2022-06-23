@@ -57,6 +57,7 @@ public class DataHubKafkaProducerFactory {
   @Qualifier("awsGlueSchemaRegistry")
   private SchemaRegistryConfig awsGlueSchemaRegistryConfig;
 
+  // CHANGE THIS
   @Bean(name = "kafkaProducer")
   protected Producer<String, IndexedRecord> createInstance(KafkaProperties properties) {
     KafkaProperties.Producer producerProps = properties.getProducer();

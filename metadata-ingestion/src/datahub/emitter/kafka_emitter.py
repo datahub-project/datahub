@@ -68,6 +68,7 @@ class DatahubKafkaEmitter:
         ) -> dict:
             return mce.to_obj(tuples=True)
 
+        # todo change this
         mce_avro_serializer = AvroSerializer(
             schema_str=getMetadataChangeEventSchema(),
             schema_registry_client=schema_registry_client,
@@ -80,6 +81,7 @@ class DatahubKafkaEmitter:
         ) -> dict:
             return mcp.to_obj(tuples=True)
 
+        # todo change this
         mcp_avro_serializer = AvroSerializer(
             schema_str=getMetadataChangeProposalSchema(),
             schema_registry_client=schema_registry_client,
