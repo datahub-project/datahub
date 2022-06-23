@@ -2,7 +2,7 @@ import { Typography, Button, Modal, message } from 'antd';
 import React, { useState } from 'react';
 import { EditOutlined } from '@ant-design/icons';
 import { EMPTY_MESSAGES } from '../../../../constants';
-import { useEntityData, useRefetch } from '../../../../EntityContext';
+import { useEntityData, useMutationUrn, useRefetch } from '../../../../EntityContext';
 import { SidebarHeader } from '../SidebarHeader';
 import { SetDomainModal } from './SetDomainModal';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
@@ -11,7 +11,8 @@ import { useUnsetDomainMutation } from '../../../../../../../graphql/mutations.g
 import { DomainLink } from '../../../../../../shared/tags/DomainLink';
 
 export const SidebarDomainSection = () => {
-    const { urn, entityData } = useEntityData();
+    const mutationUrn = useMutationUrn();
+    const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const refetch = useRefetch();
     const [unsetDomainMutation] = useUnsetDomainMutation();
@@ -19,7 +20,7 @@ export const SidebarDomainSection = () => {
     const domain = entityData?.domain;
 
     const removeDomain = () => {
-        unsetDomainMutation({ variables: { entityUrn: urn } })
+        unsetDomainMutation({ variables: { entityUrn: mutationUrn } })
             .then(() => {
                 message.success({ content: 'Removed Domain.', duration: 2 });
                 refetch?.();

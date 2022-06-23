@@ -6,61 +6,97 @@ title: "Features"
 
 DataHub is a modern data catalog built to enable end-to-end data discovery, data observability, and data governance. This extensible metadata platform is built for developers to tame the complexity of their rapidly evolving data ecosystems, and for data practitioners to leverage the full value of data within their organization.
 
-Here’s an overview of DataHub’s current functionality. Curious about what’s to come? Check out our [roadmap](https://feature-requests.datahubproject.io/roadmap).
+Here’s an overview of DataHub’s current functionality. Check out our [roadmap](https://feature-requests.datahubproject.io/roadmap) to see what's to come.
 
-## End-to-end Search and Discovery
+---
 
-### Search for assets across databases, datalakes, BI platforms, ML feature stores, workflow orchestration, and more
+## Search and Discovery
 
-Here’s an example of searching for assets related to the term `health`: we see results spanning Looker dashboards, BigQuery datasets, and DataHub Tags & Users, and ultimately navigate to the “DataHub Health” Looker dashboard overview ([view in demo site](https://demo.datahubproject.io/dashboard/urn:li:dashboard:(looker,dashboards.11)/Documentation?is_lineage_mode=false))
+### **Search All Corners of Your Data Stack**
 
-![](./imgs/feature-search-across-all-entities.gif)
+DataHub's unified search experience surfaces results across across databases, datalakes, BI platforms, ML feature stores, orchestration tools, and more.
 
-### Easily understand the end-to-end journey of data by tracing lineage across platforms, datasets, pipelines, charts, and dashboards
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/feature-search-all-corners-of-your-datastack.gif"/>
+</p>
 
-Let’s dig into the dependency chain of the “DataHub Health” Looker dashboard. Using the lineage view, we can navigate all upstream dependencies of the Dashboard including Looker Charts, Snowflake and s3 Datasets, and Airflow Pipelines ([view in demo site](https://demo.datahubproject.io/dashboard/urn:li:dashboard:(looker,dashboards.11)/Documentation?is_lineage_mode=true))
+### **Trace End-to-End Lineage**
 
-![](./imgs/feature-navigate-lineage-vis.gif)
+Easily understand the end-to-end journey of data by tracing lineage across platforms, datasets, ETL/ELT pipelines, charts, and dashboards, and beyond.
 
-### Quickly gain context about related entities as you navigate the lineage graph
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/feature-end-to-end-lineage.png"/>
+</p>
 
-As you explore the relationships between entities, it’s easy to view documentation, usage stats, ownership, and more without leaving the lineage graph
+### **Understand the Impact of Breaking Changes on Downstream Dependencies**
 
-![](./imgs/feature-view-entitiy-details-via-lineage-vis.gif)
+Proactively identify which entities may be impacted by a breaking change using Impact Analysis.
 
-### Gain confidence in the accuracy and relevance of datasets
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/feature-impact-analysis.gif"/>
+</p>
 
-DataHub provides dataset profiling and usage statistics for popular data warehousing platforms, making it easy for data practitioners to understand the shape of the data and how it has evolved over time. Query stats give context into how often (and by whom) the data is queried which can act as a strong signal of the trustworthiness of a dataset
+### **View Metadata 360 at a Glance**
 
-![](./imgs/feature-table-usage-and-stats.gif)
+Combine *technical* and *logical* metadata to provide a robust 360º view of your data entities.
 
-## Robust Documentation and Tagging
+Generate **Dataset Stats** to understand the shape & distribution of the data
 
-### Capture and maintain institutional knowledge via API and/or the DataHub UI
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/feature-dataset-stats.png"/>
+</p>
 
-DataHub makes it easy to update and maintain documentation as definitions and use cases evolve. In addition to managing documentation via GMS, DataHub offers rich documentation and support for external links via the UI. 
+Capture historical **Data Validation Outcomes** from tools like Great Expectations
 
-![](./imgs/feature-rich-documentation.gif)
+<p align="center">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/44Pr_55Qkik" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</p>
 
-### Create and define new tags via API and/or the DataHub UI
+Leverage DataHub's **Schema Version History** to track changes to the physical structure of data over time
 
-Create and add tags to any type of entity within DataHub via the GraphQL API, or allow your end users to create and define new tags within the UI as use cases evolve over time
+<p align="center">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/IYaV7r5HjZY" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</p>
 
-![](./imgs/feature-create-new-tag.gif)
+---
 
-### Browse and search specific tags to fast-track discovery across entities
+## Modern Data Governance
 
-Seamlessly browse entities associated with a tag or filter search results for a specific tag to find the entities that matter most
+### **Govern in Real Time**
 
-![](./imgs/feature-tag-browse.gif)
+[The Actions Framework](./actions/README.md) powers the following real-time use cases:
 
-## Data Governance at your fingertips 
+* **Notifications:** Generate organization-specific notifications when a change is made on DataHub. For example, send an email to the governance team when a "PII" tag is added to any data asset.
+* **Workflow Integration:** Integrate DataHub into your organization's internal workflows. For example, create a Jira ticket when specific Tags or Terms are proposed on a Dataset.
+* **Synchronization:** Syncing changes made in DataHub into a 3rd party system. For example, reflecting Tag additions in DataHub into Snowflake.
+* **Auditing:** Audit who is making what changes on DataHub through time.
 
-### Quickly assign asset ownership to users and/or user groups 
+<p align="center">
+    <iframe width="560" height="315" src="https://www.youtube.com/embed/yeloymkK5ow" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</p>
 
-![](./imgs/feature-add-owners.gif)
+### **Manage Entity Ownership**
+Quickly and easily assign entitiy ownership to users and/or user groups.
 
-### Manage Fine-Grained Access Control with Policies
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/feature-entity-owner.png"/>
+</p>
+
+### **Govern with Tags, Glossary Terms, and Domains**
+Empower data owners to govern their data entities with:
+
+1. **Tags:** Informal, loosely controlled labels that serve as a tool for search & discovery. No formal, central management.
+2. **Glossary Terms:** A controlled vocabulary with optional hierarchy, commonly used to describe core business concepts and/or measurements.
+3. **Domains:** Curated, top-level folders or categories, commonly used in Data Mesh to organize entities by department (i.e., Finance, Marketing) and/or Data Products.
+
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/feature-tags-terms-domains.png"/>
+</p>
+
+---
+## DataHub Administration
+
+### **Create Users, Groups, & Access Policies**
 
 DataHub admins can create Policies to define who can perform what action against which resource(s). When you create a new Policy, you will be able to define the following:
 
@@ -69,77 +105,14 @@ DataHub admins can create Policies to define who can perform what action against
 * **Privileges** - Choose the set of permissions, such as Edit Owners, Edit Documentation, Edit Links
 * **Users and/or Groups** - Assign relevant Users and/or Groups; you can also assign the Policy to Resource Owners, regardless of which Group they belong to
 
-![](./imgs/feature-create-policy.gif)
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/feature-manage-policies.png"/>
+</p>
 
-## Metadata quality & usage analytics
+### **Ingest Metadata from the UI**
 
-Gain a deeper understanding of the health of metadata within DataHub and how end-users are interacting with the platform. The Analytics view provides a snapshot of volume of assets and percentage with assigned ownership, weekly active users, and most common searches & actions ([view in demo site](https://demo.datahubproject.io/analytics)).
+Create, configure, schedule, & execute batch metadata ingestion using the DataHub user interface. This makes getting metadata into DataHub easier by minimizing the overhead required to operate custom integration pipelines.
 
-![](./imgs/feature-datahub-analytics.png)
-
-## DataHub is a Platform for Developers
-
-DataHub is an API- and stream-first platform, empowering developers to implement an instance tailored to their specific data stack. Our growing set of flexible integration models allow for push and pull metadata ingestion, as well as no-code metadata model extensions to quickly get up and running. 
-
-### Dataset Sources
-| Source | Status |
-|---|:---:|
-| Athena | Supported |
-| BigQuery | Supported |
-| Delta Lake | Planned |
-| Druid | Supported |
-| Elasticsearch | Supported |
-| Hive | Supported |
-| Hudi | Planned |
-| Iceberg | Planned |
-| Kafka Metadata | Supported |
-| MongoDB | Supported |
-| Microsoft SQL Server | Supported |
-| MySQL | Supported |
-| Oracle | Supported |
-| PostgreSQL | Supported |
-| Redshift | Supported |
-| s3 | Supported |
-| Snowflake | Supported |
-| Spark/Databricks | Partially Supported |
-| Trino FKA Presto | Supported |
-
-### BI Tools
-| Source | Status |
-|---|:---:|
-| Business Glossary | Supported |
-| Looker | Supported |
-| Redash | Supported |
-| Superset | Supported |
-| Tableau | Planned |
-| Grafana | Partially Supported |
-
-### ETL / ELT
-| Source | Status |
-|---|:---:|
-| dbt | Supported |
-| Glue | Supported |
-
-### Workflow Orchestration
-| Source | Status |
-|---|:---:|
-| Airflow | Supported |
-| Prefect | Planned |
-
-### Data Observability
-| Source | Status |
-|---|:---:|
-| Great Expectations | Planned |
-
-### ML Platform
-| Source | Status |
-|---|:---:|
-| Feast | Supported |
-| Sagemaker | Supported |
-
-### Identity Management
-| Source | Status |
-|---|:---:|
-| Azure AD | Supported |
-| LDAP | Supported |
-| Okta | Supported |
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/feature-managed-ingestion-config.png"/>
+</p>
