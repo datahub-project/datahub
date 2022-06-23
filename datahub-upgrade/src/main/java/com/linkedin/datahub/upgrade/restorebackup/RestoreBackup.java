@@ -13,7 +13,7 @@ import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.SearchService;
 import io.ebean.EbeanServer;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +30,7 @@ public class RestoreBackup implements Upgrade {
       final Authentication systemAuthentication,
       final RestliEntityClient entityClient,
       final GraphService graphClient,
-      final EntitySearchService searchClient) {
+      final SearchService searchClient) {
     _steps = buildSteps(server, entityService, entityRegistry, systemAuthentication, entityClient, graphClient, searchClient);
   }
 
@@ -51,7 +51,7 @@ public class RestoreBackup implements Upgrade {
       final Authentication systemAuthentication,
       final RestliEntityClient entityClient,
       final GraphService graphClient,
-      final EntitySearchService searchClient) {
+      final SearchService searchClient) {
     final List<UpgradeStep> steps = new ArrayList<>();
     steps.add(new GMSDisableWriteModeStep(systemAuthentication, entityClient));
     steps.add(new ClearSearchServiceStep(searchClient, true));

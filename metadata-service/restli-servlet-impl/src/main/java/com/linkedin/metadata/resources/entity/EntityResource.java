@@ -27,7 +27,6 @@ import com.linkedin.metadata.run.AspectRowSummaryArray;
 import com.linkedin.metadata.run.DeleteEntityResponse;
 import com.linkedin.metadata.run.DeleteReferencesResponse;
 import com.linkedin.metadata.run.RollbackResponse;
-import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchEntity;
@@ -99,10 +98,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Inject
   @Named("searchService")
   private SearchService _searchService;
-
-  @Inject
-  @Named("entitySearchService")
-  private EntitySearchService _entitySearchService;
 
   @Inject
   @Named("systemMetadataService")
@@ -250,7 +245,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     log.info("GET SEARCH RESULTS for {} with query {}", entityName, input);
     // TODO - change it to use _searchService once we are confident on it's latency
-    return RestliUtil.toTask(() -> _entitySearchService.search(entityName, input, filter, sortCriterion, start, count),
+    return RestliUtil.toTask(() -> _searchService.search(entityName, input, filter, sortCriterion, start, count),
         MetricRegistry.name(this.getClass(), "search"));
   }
 
@@ -264,7 +259,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     List<String> entityList = entities == null ? Collections.emptyList() : Arrays.asList(entities);
     log.info("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
     return RestliUtil.toTask(
-        () -> _searchService.searchAcrossEntities(entityList, input, filter, sortCriterion, start, count, null),
+        () -> _searchService.searchAcrossEntities(entityList, input, filter, sortCriterion, start, count),
         "searchAcrossEntities");
   }
 
@@ -296,7 +291,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     log.info("GET LIST RESULTS for {} with filter {}", entityName, filter);
     return RestliUtil.toTask(
-        () -> toListResult(_entitySearchService.filter(entityName, filter, sortCriterion, start, count)),
+        () -> toListResult(_searchService.filter(entityName, filter, sortCriterion, start, count)),
         MetricRegistry.name(this.getClass(), "filter"));
   }
 
@@ -307,7 +302,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_QUERY) @Nonnull String query, @ActionParam(PARAM_FIELD) @Optional @Nullable String field,
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter, @ActionParam(PARAM_LIMIT) int limit) {
 
-    return RestliUtil.toTask(() -> _entitySearchService.autoComplete(entityName, query, field, filter, limit),
+    return RestliUtil.toTask(() -> _searchService.autoComplete(entityName, query, field, filter, limit),
         MetricRegistry.name(this.getClass(), "autocomplete"));
   }
 
@@ -319,7 +314,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_START) int start, @ActionParam(PARAM_LIMIT) int limit) {
 
     log.info("GET BROWSE RESULTS for {} at path {}", entityName, path);
-    return RestliUtil.toTask(() -> _entitySearchService.browse(entityName, path, filter, start, limit),
+    return RestliUtil.toTask(() -> _searchService.browse(entityName, path, filter, start, limit),
         MetricRegistry.name(this.getClass(), "browse"));
   }
 
@@ -328,8 +323,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @WithSpan
   public Task<StringArray> getBrowsePaths(
       @ActionParam(value = PARAM_URN, typeref = com.linkedin.common.Urn.class) @Nonnull Urn urn) {
-    log.info("GET BROWSE PATHS for {}", urn);
-    return RestliUtil.toTask(() -> new StringArray(_entitySearchService.getBrowsePaths(urnToEntityName(urn), urn)),
+    log.info("GET BROWSE PATHS for {}", urn.toString());
+    return RestliUtil.toTask(() -> new StringArray(_searchService.getBrowsePaths(urnToEntityName(urn), urn)),
         MetricRegistry.name(this.getClass(), "getBrowsePaths"));
   }
 
@@ -480,7 +475,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_COUNT) int count) {
 
     log.info("FILTER RESULTS for {} with filter {}", entityName, filter);
-    return RestliUtil.toTask(() -> _entitySearchService.filter(entityName, filter, sortCriterion, start, count),
+    return RestliUtil.toTask(() -> _searchService.filter(entityName, filter, sortCriterion, start, count),
         MetricRegistry.name(this.getClass(), "search"));
   }
 }

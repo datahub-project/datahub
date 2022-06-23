@@ -8,7 +8,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
-import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.SearchService;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -27,8 +27,8 @@ public class TopPlatformsSource extends EntitySearchAggregationSource {
   private final EntityService _entityService;
   private static final String PLATFORM = "platform";
 
-  public TopPlatformsSource(EntityService entityService, EntitySearchService entitySearchService) {
-    super(entitySearchService);
+  public TopPlatformsSource(EntityService entityService, SearchService searchService) {
+    super(searchService);
     _entityService = entityService;
   }
 

@@ -9,7 +9,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.common.GraphServiceFactory;
 import com.linkedin.gms.factory.common.SystemMetadataServiceFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
-import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
+import com.linkedin.gms.factory.search.SearchServiceFactory;
 import com.linkedin.gms.factory.search.SearchDocumentTransformerFactory;
 import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.Constants;
@@ -23,7 +23,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
@@ -53,12 +53,12 @@ import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
 @Slf4j
 @Component
-@Import({GraphServiceFactory.class, EntitySearchServiceFactory.class, TimeseriesAspectServiceFactory.class,
+@Import({GraphServiceFactory.class, SearchServiceFactory.class, TimeseriesAspectServiceFactory.class,
     EntityRegistryFactory.class, SystemMetadataServiceFactory.class, SearchDocumentTransformerFactory.class})
 public class UpdateIndicesHook implements MetadataChangeLogHook {
 
   private final GraphService _graphService;
-  private final EntitySearchService _entitySearchService;
+  private final SearchService _searchService;
   private final TimeseriesAspectService _timeseriesAspectService;
   private final SystemMetadataService _systemMetadataService;
   private final EntityRegistry _entityRegistry;
@@ -67,19 +67,19 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   @Autowired
   public UpdateIndicesHook(
       GraphService graphService,
-      EntitySearchService entitySearchService,
+      SearchService searchService,
       TimeseriesAspectService timeseriesAspectService,
       SystemMetadataService systemMetadataService,
       EntityRegistry entityRegistry,
       SearchDocumentTransformer searchDocumentTransformer) {
     _graphService = graphService;
-    _entitySearchService = entitySearchService;
+    _searchService = searchService;
     _timeseriesAspectService = timeseriesAspectService;
     _systemMetadataService = systemMetadataService;
     _entityRegistry = entityRegistry;
     _searchDocumentTransformer = searchDocumentTransformer;
     _graphService.configure();
-    _entitySearchService.configure();
+    _searchService.configure();
     _systemMetadataService.configure();
     _timeseriesAspectService.configure();
   }
@@ -204,7 +204,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       return;
     }
 
-    _entitySearchService.upsertDocument(entityName, searchDocument.get(), docId.get());
+    _searchService.upsertDocument(entityName, searchDocument.get(), docId.get());
   }
 
   /**
@@ -271,7 +271,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
       }
 
       if (isKeyAspect) {
-        _entitySearchService.deleteDocument(entityName, docId);
+        _searchService.deleteDocument(entityName, docId);
         return;
       }
 
@@ -287,6 +287,6 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         return;
       }
 
-    _entitySearchService.upsertDocument(entityName, searchDocument.get(), docId);
+    _searchService.upsertDocument(entityName, searchDocument.get(), docId);
   }
 }

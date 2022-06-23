@@ -14,6 +14,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -54,12 +55,15 @@ public class ESSearchDAO {
 
   @Nonnull
   @WithSpan
-  private SearchResult executeAndExtract(@Nonnull EntitySpec entitySpec, @Nonnull SearchRequest searchRequest, int from,
-      int size) {
+  private SearchResult executeAndExtract(@Nullable EntitySpec entitySpec, @Nonnull SearchRequest searchRequest,
+      int from, int size) {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esSearch").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
+      final SearchRequestHandler searchRequestHandler =
+          entitySpec == null ? SearchRequestHandler.getBuilderForAllEntities(entityRegistry)
+              : SearchRequestHandler.getBuilder(entitySpec);
       // extract results, validated against document model as well
-      return SearchRequestHandler.getBuilder(entitySpec).extractResult(searchResponse, from, size);
+      return searchRequestHandler.extractResult(searchResponse, from, size);
     } catch (Exception e) {
       if (e instanceof ElasticsearchStatusException) {
         final ElasticsearchStatusException statusException = (ElasticsearchStatusException) e;
@@ -72,6 +76,33 @@ public class ESSearchDAO {
       log.error("Search query failed", e);
       throw new ESQueryException("Search query failed:", e);
     }
+  }
+
+  /**
+   * Gets a list of documents that match given search request. The results are aggregated and filters are applied to the
+   * search hits and not the aggregation results.
+   *
+   * @param input the search input text
+   * @param postFilters the request map with fields and values as filters to be applied to search hits
+   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param from index to start the search from
+   * @param size the number of search hits to return
+   * @return a {@link com.linkedin.metadata.dao.SearchResult} that contains a list of matched documents and related search result metadata
+   */
+  @Nonnull
+  public SearchResult searchAcrossEntities(@Nonnull List<String> entityNames, @Nonnull String input,
+      @Nullable Filter postFilters, @Nullable SortCriterion sortCriterion, int from, int size) {
+    final String finalInput = input.isEmpty() ? "*" : input;
+    Timer.Context searchRequestTimer = MetricUtils.timer(this.getClass(), "searchAcrossEntitiesRequest").time();
+    // Step 1: construct the query
+    final SearchRequest searchRequest = SearchRequestHandler.getBuilderForAllEntities(entityRegistry)
+        .getSearchRequest(finalInput, postFilters, sortCriterion, from, size);
+    searchRequest.indices(entityNames.stream()
+        .map(entityName -> indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName)))
+        .toArray(String[]::new));
+    searchRequestTimer.stop();
+    // Step 2: execute the query and extract results, validated against document model as well
+    return executeAndExtract(null, searchRequest, from, size);
   }
 
   /**

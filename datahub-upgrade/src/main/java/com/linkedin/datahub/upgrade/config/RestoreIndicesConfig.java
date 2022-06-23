@@ -4,7 +4,7 @@ import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.SearchService;
 import io.ebean.EbeanServer;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,11 +25,11 @@ public class RestoreIndicesConfig {
   public RestoreIndices createInstance() {
     final EbeanServer ebeanServer = applicationContext.getBean(EbeanServer.class);
     final EntityService entityService = applicationContext.getBean(EntityService.class);
-    final EntitySearchService entitySearchService = applicationContext.getBean(EntitySearchService.class);
+    final SearchService searchService = applicationContext.getBean(SearchService.class);
     final GraphService graphService = applicationContext.getBean(GraphService.class);
     final EntityRegistry entityRegistry = applicationContext.getBean(EntityRegistry.class);
 
-    return new RestoreIndices(ebeanServer, entityService, entityRegistry, entitySearchService,
+    return new RestoreIndices(ebeanServer, entityService, entityRegistry, searchService,
         graphService);
   }
 }

@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch;
 import com.datahub.test.Snapshot;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.ElasticTestUtils;
@@ -44,8 +45,6 @@ public class ElasticSearchServiceTest {
   private ElasticsearchContainer _elasticsearchContainer;
   private RestHighLevelClient _searchClient;
   private EntityRegistry _entityRegistry;
-  private IndexConvention _indexConvention;
-  private SettingsBuilder _settingsBuilder;
   private ElasticSearchService _elasticSearchService;
 
   private static final String ENTITY_NAME = "testEntity";
@@ -53,13 +52,11 @@ public class ElasticSearchServiceTest {
   @BeforeClass
   public void setup() {
     _entityRegistry = new SnapshotEntityRegistry(new Snapshot());
-    _indexConvention = new IndexConventionImpl(null);
     _elasticsearchContainer = ElasticTestUtils.getNewElasticsearchContainer();
-    _settingsBuilder = new SettingsBuilder(Collections.emptyList(), null);
     checkContainerEngine(_elasticsearchContainer.getDockerClient());
     _elasticsearchContainer.start();
     _searchClient = ElasticTestUtils.buildRestClient(_elasticsearchContainer);
-    _elasticSearchService = buildService();
+    _elasticSearchService = buildService(_searchClient, _entityRegistry);
     _elasticSearchService.configure();
   }
 
@@ -84,13 +81,15 @@ public class ElasticSearchServiceTest {
   }
 
   @Nonnull
-  private ElasticSearchService buildService() {
+  public static ElasticSearchService buildService(RestHighLevelClient searchClient, EntityRegistry entityRegistry) {
+    IndexConvention indexConvention = new IndexConventionImpl(null);
+    SettingsBuilder settingsBuilder = new SettingsBuilder(Collections.emptyList(), null);
     EntityIndexBuilders indexBuilders =
-        new EntityIndexBuilders(getIndexBuilder(_searchClient), _entityRegistry, _indexConvention, _settingsBuilder);
-    ESSearchDAO searchDAO = new ESSearchDAO(_entityRegistry, _searchClient, _indexConvention);
-    ESBrowseDAO browseDAO = new ESBrowseDAO(_entityRegistry, _searchClient, _indexConvention);
+        new EntityIndexBuilders(getIndexBuilder(searchClient), entityRegistry, indexConvention, settingsBuilder);
+    ESSearchDAO searchDAO = new ESSearchDAO(entityRegistry, searchClient, indexConvention);
+    ESBrowseDAO browseDAO = new ESBrowseDAO(entityRegistry, searchClient, indexConvention);
     ESWriteDAO writeDAO =
-        new ESWriteDAO(_entityRegistry, _searchClient, _indexConvention, getBulkProcessor(_searchClient));
+        new ESWriteDAO(entityRegistry, searchClient, indexConvention, getBulkProcessor(searchClient));
     return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
   }
 
@@ -166,5 +165,46 @@ public class ElasticSearchServiceTest {
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 0);
     assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 0);
     assertEquals(_elasticSearchService.aggregateByValue(ENTITY_NAME, "textField", null, 10).size(), 0);
+  }
+
+  @Test
+  public void testSearchAcrossEntities() throws Exception {
+    SearchResult searchResult =
+        _elasticSearchService.searchAcrossEntities(ImmutableList.of(ENTITY_NAME), "test", null, null, 0, 10);
+    assertEquals(searchResult.getNumEntities().intValue(), 0);
+    searchResult = _elasticSearchService.searchAcrossEntities(ImmutableList.of(), "test", null, null, 0, 10);
+    assertEquals(searchResult.getNumEntities().intValue(), 0);
+
+    Urn urn = new TestEntityUrn("test", "testUrn", "VALUE_1");
+    ObjectNode document = JsonNodeFactory.instance.objectNode();
+    document.set("urn", JsonNodeFactory.instance.textNode(urn.toString()));
+    document.set("keyPart1", JsonNodeFactory.instance.textNode("test"));
+    document.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride"));
+    document.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
+    _elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
+    syncAfterWrite(_searchClient);
+
+    searchResult = _elasticSearchService.searchAcrossEntities(ImmutableList.of(), "test", null, null, 0, 10);
+    assertEquals(searchResult.getNumEntities().intValue(), 1);
+    assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
+
+    Urn urn2 = new TestEntityUrn("test", "testUrn2", "VALUE_2");
+    ObjectNode document2 = JsonNodeFactory.instance.objectNode();
+    document2.set("urn", JsonNodeFactory.instance.textNode(urn2.toString()));
+    document2.set("keyPart1", JsonNodeFactory.instance.textNode("random"));
+    document2.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride2"));
+    document2.set("browsePaths", JsonNodeFactory.instance.textNode("/b/c"));
+    _elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
+    syncAfterWrite(_searchClient);
+
+    searchResult = _elasticSearchService.searchAcrossEntities(ImmutableList.of(), "test", null, null, 0, 10);
+    assertEquals(searchResult.getNumEntities().intValue(), 1);
+    assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
+
+    _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
+    _elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
+    syncAfterWrite(_searchClient);
+    searchResult = _elasticSearchService.searchAcrossEntities(ImmutableList.of(), "test", null, null, 0, 10);
+    assertEquals(searchResult.getNumEntities().intValue(), 0);
   }
 }

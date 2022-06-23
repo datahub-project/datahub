@@ -36,7 +36,6 @@ public class LineageSearchServiceFactory {
   @Primary
   @Nonnull
   protected LineageSearchService getInstance() {
-    return new LineageSearchService(searchService, graphService,
-        cacheManager.getCache("relationshipSearchService"));
+    return new LineageSearchService(searchService, graphService, cacheManager.getCache("relationshipSearchService"));
   }
 }
