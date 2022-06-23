@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Input, AutoComplete, Image, Typography } from 'antd';
-import { SearchOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { useHistory } from 'react-router';
 import { AutoCompleteResultForEntity, CorpUser, Entity, EntityType, ScenarioType, Tag } from '../../types.generated';
