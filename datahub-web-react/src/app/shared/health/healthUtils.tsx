@@ -1,6 +1,6 @@
 import { CheckOutlined, CloseOutlined, WarningOutlined } from '@ant-design/icons';
 import React from 'react';
-import { HealthStatus } from '../../../types.generated';
+import { HealthStatus, HealthStatusType } from '../../../types.generated';
 
 export const getHealthColor = (status: HealthStatus) => {
     switch (status) {
@@ -18,7 +18,7 @@ export const getHealthColor = (status: HealthStatus) => {
     }
 };
 
-export const getHealthIcon = (status: HealthStatus, fontSize: number) => {
+export const getAssertionsHealthIcon = (status: HealthStatus, fontSize: number) => {
     switch (status) {
         case HealthStatus.Pass: {
             return <CheckOutlined style={{ color: getHealthColor(status), fontSize }} />;
@@ -31,5 +31,15 @@ export const getHealthIcon = (status: HealthStatus, fontSize: number) => {
         }
         default:
             throw new Error(`Unrecognized Health Status ${status} provided`);
+    }
+};
+
+export const getHealthIcon = (type: HealthStatusType, status: HealthStatus, fontSize: number) => {
+    switch (type) {
+        case HealthStatusType.Assertions: {
+            return getAssertionsHealthIcon(status, fontSize);
+        }
+        default:
+            throw new Error(`Unrecognized Health Status Type ${type} provided`);
     }
 };

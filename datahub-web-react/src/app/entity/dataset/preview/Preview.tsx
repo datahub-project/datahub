@@ -9,6 +9,7 @@ import {
     Domain,
     Container,
     ParentContainersResult,
+    Maybe,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -22,6 +23,8 @@ export const Preview = ({
     description,
     platformName,
     platformLogo,
+    platformNames,
+    platformLogos,
     platformInstanceId,
     owners,
     globalTags,
@@ -39,6 +42,8 @@ export const Preview = ({
     description?: string | null;
     platformName: string;
     platformLogo?: string | null;
+    platformNames?: (Maybe<string> | undefined)[];
+    platformLogos?: (Maybe<string> | undefined)[];
     platformInstanceId?: string;
     owners?: Array<Owner> | null;
     domain?: Domain | null;
@@ -61,6 +66,8 @@ export const Preview = ({
             logoUrl={platformLogo || ''}
             typeIcon={entityRegistry.getIcon(EntityType.Dataset, 12, IconStyleType.ACCENT)}
             platform={capitalPlatformName}
+            platforms={platformNames}
+            logoUrls={platformLogos}
             platformInstanceId={platformInstanceId}
             qualifier={origin}
             tags={globalTags || undefined}

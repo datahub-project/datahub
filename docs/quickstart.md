@@ -46,6 +46,13 @@ To deploy a new instance of DataHub, perform the following steps.
    datahub docker ingest-sample-data
    ```
 
+:::note
+
+If you've enabled [Metadata Service Authentication](./introducing-metadata-service-authentication.md), you'll need to provide a Personal Access Token
+using the `--token <token>` parameter in the command.
+
+:::
+
 That's it! To start pushing your company's metadata into DataHub, take a look at
 the [Metadata Ingestion Framework](../metadata-ingestion/README.md).
 
