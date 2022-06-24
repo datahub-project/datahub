@@ -18,12 +18,11 @@ class BigQueryConfig(BigQueryBaseConfig, BaseTimeWindowConfig, SQLAlchemyConfig)
     scheme: str = "bigquery"
     project_id: Optional[str] = pydantic.Field(
         default=None,
-        description="Project ID to ingest from. If not specified, will infer from environment.",
+        description="Project ID where you have rights to run queries and create tables. If `storage_project_id` is not specified then it is assumed this is the same project where data is stored. If not specified, will infer from environment.",
     )
     storage_project_id: Optional[str] = pydantic.Field(
         default=None,
-        # alias="lineage_client_project_id",
-        description="If you want to use a different ProjectId for the lineage collection you can set it here.",
+        description="If your data is stored in a different project where you don't have rights to run jobs and create tables then specify this field. The same service account must have read rights in this GCP project and write rights in `project_id`.",
     )
     log_page_size: pydantic.PositiveInt = pydantic.Field(
         default=1000,
