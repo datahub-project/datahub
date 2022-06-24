@@ -71,7 +71,7 @@ public class RestoreStorageStep implements UpgradeStep {
           Collectors.toList());
       BackupReader backupReader;
       try {
-        backupReader = clazz.getConstructor().newInstance(args);
+        backupReader = clazz.getConstructor(List.class).newInstance(args);
       } catch (InstantiationException | InvocationTargetException | IllegalAccessException | NoSuchMethodException e) {
         context.report().addLine("Invalid BackupReader, not able to construct instance of " + clazz.getSimpleName());
         throw new IllegalArgumentException("Invalid BackupReader: " + clazz.getSimpleName() + ", need to implement proper constructor.");
