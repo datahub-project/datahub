@@ -27,11 +27,6 @@ import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
-import java.util.Arrays;
-import lombok.extern.slf4j.Slf4j;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.util.HashMap;
@@ -41,13 +36,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
-import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.deleteFrom;
-import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.insertInto;
-import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.literal;
-import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.selectFrom;
-import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.update;
-import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
+import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.*;
+import static com.linkedin.metadata.Constants.*;
 
 @Slf4j
 public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
