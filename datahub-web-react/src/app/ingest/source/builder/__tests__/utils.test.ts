@@ -5,7 +5,7 @@ import {
     invalidTypeRecipe,
     missingSourceRecipe,
     invalidNestedFieldRecipe,
-} from './ingestionMocks';
+} from '../ingestionMocks';
 
 describe('ingestion builder utils', () => {
     it('should return true for a valid recipe', () => {
