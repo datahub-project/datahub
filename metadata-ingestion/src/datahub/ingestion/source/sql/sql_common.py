@@ -289,7 +289,9 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
 
 class BasicSQLAlchemyConfig(SQLAlchemyConfig):
     username: Optional[str] = Field(default=None, description="username")
-    password: Optional[pydantic.SecretStr] = Field(default=None, description="password")
+    password: Optional[pydantic.SecretStr] = Field(
+        default=None, exclude=True, description="password"
+    )
     host_port: str = Field(description="host URL")
     database: Optional[str] = Field(default=None, description="database (catalog)")
     database_alias: Optional[str] = Field(
@@ -914,8 +916,19 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         description, properties, location_urn = self.get_table_properties(
             inspector, schema, table
         )
+
+        # Tablename might be different from the real table if we ran some normalisation ont it.
+        # Getting normalized table name from the dataset_name
+        # Table is the last item in the dataset name
+        normalised_table = table
+        splits = dataset_name.split(".")
+        if splits:
+            normalised_table = splits[-1]
+            if properties and normalised_table != table:
+                properties["original_table_name"] = table
+
         dataset_properties = DatasetPropertiesClass(
-            name=table,
+            name=normalised_table,
             description=description,
             customProperties=properties,
         )

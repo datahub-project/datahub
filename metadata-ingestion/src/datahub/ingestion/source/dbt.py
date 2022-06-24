@@ -283,6 +283,7 @@ class DBTNode:
     database: Optional[str]
     schema: str
     name: str  # name, identifier
+    alias: Optional[str]  # alias if present
     comment: str
     description: str
     raw_sql: Optional[str]
@@ -363,7 +364,11 @@ def extract_dbt_entities(
         if "identifier" in manifest_node and use_identifiers:
             name = manifest_node["identifier"]
 
-        if manifest_node.get("alias") is not None:
+        if (
+            manifest_node.get("alias") is not None
+            and manifest_node.get("resource_type")
+            != "test"  # tests have non-human-friendly aliases, so we don't want to use it for tests
+        ):
             name = manifest_node["alias"]
 
         if not node_name_pattern.allowed(key):
@@ -417,6 +422,7 @@ def extract_dbt_entities(
             database=manifest_node["database"],
             schema=manifest_node["schema"],
             name=name,
+            alias=manifest_node.get("alias"),
             dbt_file_path=manifest_node["original_file_path"],
             node_type=manifest_node["resource_type"],
             max_loaded_at=sources_by_id.get(key, {}).get("max_loaded_at"),
@@ -1250,7 +1256,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 node_datahub_urn = get_urn_from_dbtNode(
                     node.database,
                     node.schema,
-                    node.name,
+                    node.alias or node.name,  # previous code used the alias
                     mce_platform,
                     self.config.env,
                     self.config.platform_instance

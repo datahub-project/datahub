@@ -44,7 +44,7 @@ Workbooks from Tableau are ingested as Container in datahub. <br/>
 - GraphQL query <br/>
 ```graphql
 {
-  workbooksConnection(first: 15, offset: 0, filter: {projectNameWithin: ["default", "Project 2"]}) {
+  workbooksConnection(first: 10, offset: 0, filter: {projectNameWithin: ["default", "Project 2"]}) {
     nodes {
       id
       name
@@ -73,7 +73,7 @@ Dashboards from Tableau are ingested as Dashboard in datahub. <br/>
 - GraphQL query <br/>
 ```graphql
 {
-  workbooksConnection(first: 15, offset: 0, filter: {projectNameWithin: ["default", "Project 2"]}) {
+  workbooksConnection(first: 10, offset: 0, filter: {projectNameWithin: ["default", "Project 2"]}) {
     nodes {
       .....
       dashboards {
@@ -185,7 +185,7 @@ Embedded Data source from Tableau is ingested as a Dataset in datahub.
 - GraphQL query <br/>
 ```graphql
 {
-  workbooksConnection(first: 15, offset: 0, filter: {projectNameWithin: ["default"]}) {
+  workbooksConnection(first: 10, offset: 0, filter: {projectNameWithin: ["default"]}) {
     nodes {
       ....
       embeddedDatasources {
@@ -265,7 +265,7 @@ Published Data source from Tableau is ingested as a Dataset in datahub.
 - GraphQL query <br/>
 ```graphql
 {
-  publishedDatasourcesConnection(filter: {idWithin: ["00cce29f-b561-bb41-3557-8e19660bb5dd", "618c87db-5959-338b-bcc7-6f5f4cc0b6c6"]}) {
+  publishedDatasourcesConnection(first: 10, offset: 0, filter: {idWithin: ["00cce29f-b561-bb41-3557-8e19660bb5dd", "618c87db-5959-338b-bcc7-6f5f4cc0b6c6"]}) {
     nodes {
       __typename
       id
@@ -343,7 +343,7 @@ For custom sql data sources, the query is viewable in UI under View Definition t
 - GraphQL query <br/>
 ```graphql
 {
-  customSQLTablesConnection(filter: {idWithin: ["22b0b4c3-6b85-713d-a161-5a87fdd78f40"]}) {
+  customSQLTablesConnection(first: 10, offset: 0, filter: {idWithin: ["22b0b4c3-6b85-713d-a161-5a87fdd78f40"]}) {
     nodes {
       id
       name
@@ -408,8 +408,8 @@ Lineage is emitted as received from Tableau's metadata API for
 
 ## Troubleshooting
 
-### Why are only some workbooks ingested from the specified project?
+### Why are only some workbooks/custom SQLs/published datasources ingested from the specified project?
 
 This may happen when the Tableau API returns NODE_LIMIT_EXCEEDED error in response to metadata query and returns partial results with message "Showing partial results. , The request exceeded the ‘n’ node limit. Use pagination, additional filtering, or both in the query to adjust results." To resolve this, consider 
-- reducing the page size using the `workbooks_page_size` config param in datahub recipe (Defaults to 10).
+- reducing the page size using the `page_size` config param in datahub recipe (Defaults to 10).
 - increasing tableau configuration [metadata query node limit](https://help.tableau.com/current/server/en-us/cli_configuration-set_tsm.htm#metadata_nodelimit) to higher value. 

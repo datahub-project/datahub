@@ -106,8 +106,8 @@ function EntityDropdown(props: Props) {
     };
 
     const canManageGlossaries = platformPrivileges
-        ? platformPrivileges.manageDomains
-        : me?.platformPrivileges.manageDomains;
+        ? platformPrivileges.manageGlossaries
+        : me?.platformPrivileges.manageGlossaries;
     const pageUrl = window.location.href;
     const isDeleteDisabled = !!entityData?.children?.count;
 
