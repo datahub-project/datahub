@@ -49,6 +49,9 @@ export const SidebarAboutSection = ({ properties }: { properties?: Props }) => {
     const description = entityData?.editableProperties?.description || entityData?.properties?.description;
     const links = entityData?.institutionalMemory?.elements || [];
 
+    console.log('entityData', entityData?.properties?.sourceUrl);
+    const sourceUrl = entityData?.properties?.sourceUrl;
+
     const isUntouched = !description && !(links?.length > 0);
 
     return (
@@ -94,8 +97,14 @@ export const SidebarAboutSection = ({ properties }: { properties?: Props }) => {
                     </StripMarkdownText>
                 </DescriptionTypography>
             )}
-            {links?.length > 0 ? (
+            {links?.length > 0 || !!sourceUrl ? (
                 <SidebarLinkList>
+                    {sourceUrl && (
+                        <LinkButton type="link" href={sourceUrl} target="_blank" rel="noreferrer">
+                            <LinkOutlined />
+                            Definition
+                        </LinkButton>
+                    )}
                     {(links || []).map((link) => (
                         <LinkButton
                             type="link"

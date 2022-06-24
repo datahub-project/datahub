@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components';
-import { message, Button, List, Typography } from 'antd';
+import styled from 'styled-components/macro';
+import { message, Button, List, Typography, Divider } from 'antd';
 import { LinkOutlined, DeleteOutlined } from '@ant-design/icons';
 import { EntityType } from '../../../../../../types.generated';
 import { useEntityData } from '../../../EntityContext';
@@ -28,6 +28,10 @@ const ListOffsetIcon = styled.span`
     margin-right: 6px;
 `;
 
+const StyledDivider = styled(Divider)`
+    margin: 0;
+`;
+
 type LinkListProps = {
     refetch?: () => Promise<any>;
 };
@@ -37,6 +41,7 @@ export const LinkList = ({ refetch }: LinkListProps) => {
     const entityRegistry = useEntityRegistry();
     const [removeLinkMutation] = useRemoveLinkMutation();
     const links = entityData?.institutionalMemory?.elements || [];
+    const sourceUrl = entityData?.properties?.sourceUrl;
 
     const handleDeleteLink = async (linkUrl: string) => {
         try {
@@ -55,6 +60,29 @@ export const LinkList = ({ refetch }: LinkListProps) => {
 
     return entityData ? (
         <>
+            {sourceUrl && (
+                <List
+                    size="large"
+                    dataSource={[sourceUrl]}
+                    renderItem={(url) => (
+                        <LinkListItem>
+                            <List.Item.Meta
+                                title={
+                                    <Typography.Title level={5} style={{ margin: 0 }}>
+                                        <a href={url} target="_blank" rel="noreferrer">
+                                            <ListOffsetIcon>
+                                                <LinkOutlined />
+                                            </ListOffsetIcon>
+                                            Definition
+                                        </a>
+                                    </Typography.Title>
+                                }
+                            />
+                        </LinkListItem>
+                    )}
+                />
+            )}
+            {sourceUrl && links.length > 0 && <StyledDivider />}
             {links.length > 0 && (
                 <List
                     size="large"

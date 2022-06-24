@@ -118,11 +118,30 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
     };
 
     getOverridePropertiesFromEntity = (glossaryTerm?: GlossaryTerm | null): GenericEntityProperties => {
+        // let institutionalMemory = glossaryTerm?.institutionalMemory;
+        // if (glossaryTerm?.properties?.sourceUrl) {
+        //     const sourceInfo = {
+        //         url: glossaryTerm.properties.sourceUrl,
+        //         label: 'Definition',
+        //     } as InstitutionalMemoryMetadata;
+
+        //     if (glossaryTerm.institutionalMemory) {
+        //         const elements = glossaryTerm.institutionalMemory.elements || [];
+        //         const updatedElements = [...elements, sourceInfo];
+        //         institutionalMemory = { ...glossaryTerm.institutionalMemory, elements: updatedElements };
+        //     } else {
+        //         institutionalMemory = { elements: [sourceInfo], __typename: 'InstitutionalMemory' };
+        //     }
+        // }
+
         // if dataset has subTypes filled out, pick the most specific subtype and return it
         return {
             customProperties: glossaryTerm?.properties?.customProperties,
+            // institutionalMemory,
         };
     };
+
+    // if
 
     renderSearch = (result: SearchResult) => {
         return this.renderPreview(PreviewType.SEARCH, result.entity as GlossaryTerm);

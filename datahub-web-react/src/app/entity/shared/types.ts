@@ -57,6 +57,7 @@ export type GenericEntityProperties = {
     properties?: Maybe<{
         description?: Maybe<string>;
         qualifiedName?: Maybe<string>;
+        sourceUrl?: Maybe<string>;
     }>;
     globalTags?: Maybe<GlobalTags>;
     glossaryTerms?: Maybe<GlossaryTerms>;
