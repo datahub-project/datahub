@@ -38,7 +38,6 @@ export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
                     defaultOwnerType={properties?.defaultOwnerType}
                     hideOwnerType={properties?.hideOwnerType || false}
                     type={entityType}
-                    visible={showAddModal}
                     refetch={refetch}
                     onCloseModal={() => {
                         setShowAddModal(false);

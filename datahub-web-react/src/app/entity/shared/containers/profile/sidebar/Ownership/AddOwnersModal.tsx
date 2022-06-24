@@ -28,7 +28,6 @@ const StyleTag = styled(Tag)`
 type Props = {
     urn: string;
     type: EntityType;
-    visible: boolean;
     defaultOwnerType?: OwnershipType;
     hideOwnerType?: boolean | undefined;
     onCloseModal: () => void;
@@ -41,15 +40,7 @@ type SelectedOwner = {
     value;
 };
 
-export const AddOwnersModal = ({
-    urn,
-    type,
-    visible,
-    hideOwnerType,
-    defaultOwnerType,
-    onCloseModal,
-    refetch,
-}: Props) => {
+export const AddOwnersModal = ({ urn, type, hideOwnerType, defaultOwnerType, onCloseModal, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
     const [inputValue, setInputValue] = useState('');
     const [addOwnersMutation] = useAddOwnersMutation();
@@ -219,7 +210,7 @@ export const AddOwnersModal = ({
     return (
         <Modal
             title="Add Owners"
-            visible={visible}
+            visible
             onCancel={onModalClose}
             keyboard
             footer={

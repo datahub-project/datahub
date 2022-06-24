@@ -12,7 +12,6 @@ import { useGetRecommendations } from '../../../../../../shared/recommendation';
 import { DomainLabel } from '../../../../../../shared/DomainLabel';
 
 type Props = {
-    visible: boolean;
     onCloseModal: () => void;
     refetch?: () => Promise<any>;
 };
@@ -31,7 +30,7 @@ const StyleTag = styled(Tag)`
     align-items: center;
 `;
 
-export const SetDomainModal = ({ visible, onCloseModal, refetch }: Props) => {
+export const SetDomainModal = ({ onCloseModal, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
     const { urn } = useEntityData();
     const [inputValue, setInputValue] = useState('');
@@ -140,7 +139,7 @@ export const SetDomainModal = ({ visible, onCloseModal, refetch }: Props) => {
     return (
         <Modal
             title="Set Domain"
-            visible={visible}
+            visible
             onCancel={onModalClose}
             footer={
                 <>
