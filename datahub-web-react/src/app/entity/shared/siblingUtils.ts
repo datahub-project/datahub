@@ -89,7 +89,7 @@ export const combineEntityDataWithSiblings = <T>(baseEntity: T): T => {
 
     // eslint-disable-next-line @typescript-eslint/dot-notation
     const siblings: T[] = siblingAspect?.siblings || [];
-    const isPrimary = !!extractedBaseEntity?.siblings?.isPrimary; // curr base entity is primary?
+    const isPrimary = !!extractedBaseEntity?.siblings?.isPrimary;
 
     const combinedBaseEntity: any = siblings.reduce(
         (prev, current) =>
