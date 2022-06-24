@@ -101,7 +101,7 @@ class OauthConfiguration(ConfigModel):
 
 
 class AllowDenyPattern(ConfigModel):
-    """A class to store allow deny regexs"""
+    """A class to store allow deny regexes"""
 
     allow: List[str] = Field(
         default=[".*"],
@@ -143,7 +143,7 @@ class AllowDenyPattern(ConfigModel):
 
     def is_fully_specified_allow_list(self) -> bool:
         """
-        If the allow patterns are literals and not full regexs, then it is considered
+        If the allow patterns are literals and not full regexes, then it is considered
         fully specified. This is useful if you want to convert a 'list + filter'
         pattern into a 'search for the ones that are allowed' pattern, which can be
         much more efficient in some cases.
@@ -159,7 +159,7 @@ class AllowDenyPattern(ConfigModel):
 
 
 class KeyValuePattern(ConfigModel):
-    """A class to store allow deny regexs"""
+    """A class to store allow deny regexes"""
 
     rules: Dict[str, List[str]] = {".*": []}
     alphabet: str = "[A-Za-z0-9 _.-]"
@@ -182,7 +182,7 @@ class KeyValuePattern(ConfigModel):
 
     def is_fully_specified_key(self) -> bool:
         """
-        If the allow patterns are literals and not full regexs, then it is considered
+        If the allow patterns are literals and not full regexes, then it is considered
         fully specified. This is useful if you want to convert a 'list + filter'
         pattern into a 'search for the ones that are allowed' pattern, which can be
         much more efficient in some cases.
