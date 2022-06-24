@@ -164,7 +164,6 @@ export const SetDomainModal = ({ onCloseModal, refetch }: Props) => {
                             setInputValue(value.trim());
                         }}
                         value={selectValue}
-                        mode="tags"
                         tagRender={tagRender}
                     >
                         {domainSearchOptions}
