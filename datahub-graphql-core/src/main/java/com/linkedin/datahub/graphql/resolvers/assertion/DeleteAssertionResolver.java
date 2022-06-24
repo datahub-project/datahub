@@ -46,6 +46,7 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
       if (isAuthorizedToDeleteAssertion(context, assertionUrn)) {
           try {
             _entityClient.deleteEntity(assertionUrn, context.getAuthentication());
+            _entityClient.deleteEntityReferences(assertionUrn, context.getAuthentication());
             return true;
           } catch (Exception e) {
             throw new RuntimeException(String.format("Failed to perform delete against assertion with urn %s", assertionUrn), e);

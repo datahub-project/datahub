@@ -105,7 +105,7 @@ public class DeleteEntityUtils {
       if (valueExistsInRecord) {
         if (canDelete) {
           record.remove(pathComponents.get(index));
-        } else if (record.size() == 1) {
+        } else {
           return null;
         }
       } else {
