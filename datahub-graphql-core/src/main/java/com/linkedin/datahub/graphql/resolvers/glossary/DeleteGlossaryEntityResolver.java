@@ -38,12 +38,12 @@ public class DeleteGlossaryEntityResolver implements DataFetcher<CompletableFutu
         try {
           _entityClient.deleteEntity(entityUrn, context.getAuthentication());
 
-          // Asynchronously Delete all references to the term (to return quickly)
+          // Asynchronously Delete all references to the entity (to return quickly)
           CompletableFuture.runAsync(() -> {
             try {
               _entityClient.deleteEntityReferences(entityUrn, context.getAuthentication());
             } catch (RemoteInvocationException e) {
-              log.error(String.format("Caught exception while attempting to clear all entity references for glossary term with urn %s", entityUrn), e);
+              log.error(String.format("Caught exception while attempting to clear all entity references for glossary entity with urn %s", entityUrn), e);
             }
           });
 

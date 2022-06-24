@@ -34,7 +34,7 @@ public class RemoveGroupResolver implements DataFetcher<CompletableFuture<Boolea
         try {
           _entityClient.deleteEntity(urn, context.getAuthentication());
 
-          // Asynchronously Delete all references to the term (to return quickly)
+          // Asynchronously Delete all references to the entity (to return quickly)
           CompletableFuture.runAsync(() -> {
             try {
               _entityClient.deleteEntityReferences(urn, context.getAuthentication());
