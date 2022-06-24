@@ -1,7 +1,10 @@
 # Defining environment
 ARG APP_ENV=prod
 
+FROM anshbansal/datahub-ingestion-base:latest as pip-cache
+
 FROM python:3.8 as base
+COPY --from=pip-cache /root/.cache/pip /root/.cache/pip
 # ENV DOCKERIZE_VERSION v0.6.1
 # RUN apk --no-cache add curl tar \
 #     && curl https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-runner/9.4.20.v20190813/jetty-runner-9.4.20.v20190813.jar --output jetty-runner.jar \
