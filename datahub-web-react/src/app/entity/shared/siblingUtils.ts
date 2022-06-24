@@ -100,6 +100,9 @@ export const combineEntityDataWithSiblings = <T>(baseEntity: T): T => {
         extractedBaseEntity,
     ) as T;
 
+    // Force the urn of the combined entity to the current entity urn.
+    combinedBaseEntity.urn = extractedBaseEntity.urn;
+
     return { [baseEntityKey]: combinedBaseEntity } as unknown as T;
 };
 
