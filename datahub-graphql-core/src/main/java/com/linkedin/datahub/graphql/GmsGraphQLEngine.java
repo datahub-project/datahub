@@ -389,7 +389,6 @@ public class GmsGraphQLEngine {
         this.graphClient = graphClient;
         this.siblingGraphService = siblingGraphService;
         this.usageClient = usageClient;
-        this.siblingGraphService = siblingGraphService;
 
         this.analyticsService = analyticsService;
         this.entityService = entityService;
