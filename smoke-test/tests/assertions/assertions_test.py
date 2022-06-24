@@ -246,9 +246,9 @@ def generate_test_data(tmp_path_factory):
 @pytest.fixture(scope="session")
 def wait_for_healthchecks(generate_test_data):
     # Simply assert that everything is healthy, but don't wait.
-    assert not check_local_docker_containers()
+    if K8S_CLUSTER_ENABLED not in ['true', 'yes'] :
+        assert not check_local_docker_containers()
     yield
-
 
 @pytest.mark.dependency()
 def test_healthchecks(wait_for_healthchecks):
