@@ -18,11 +18,13 @@ import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
+import lombok.extern.slf4j.Slf4j;
 
 
 /**
  * GraphQL Resolver that deletes an Assertion.
  */
+@Slf4j
 public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Boolean>>  {
 
   private final EntityClient _entityClient;
@@ -53,7 +55,7 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
               try {
                 _entityClient.deleteEntityReferences(assertionUrn, context.getAuthentication());
               } catch (RemoteInvocationException e) {
-                log.error(String.format("Caught exception while attempting to clear all entity references for assertion with urn %s", urn), e);
+                log.error(String.format("Caught exception while attempting to clear all entity references for assertion with urn %s", assertionUrn), e);
               }
             });
 
