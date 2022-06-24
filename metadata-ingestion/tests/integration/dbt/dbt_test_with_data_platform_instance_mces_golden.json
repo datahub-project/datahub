@@ -27,6 +27,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "owner": "@alice2",
                             "business_owner": "jdoe.last@gmail.com",
                             "data_governance.team_owner": "Finance",
                             "has_pii": "True",
@@ -67,8 +68,7 @@
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         }
                     }
                 },
@@ -76,7 +76,8 @@
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
                         "tags": [
                             {
-                                "tag": "urn:li:tag:dbt:test_tag"
+                                "tag": "urn:li:tag:dbt:test_tag",
+                                "context": null
                             }
                         ]
                     }
@@ -89,14 +90,12 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -120,8 +119,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)",
                                 "type": "TRANSFORMED"
@@ -130,8 +128,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.address,PROD)",
                                 "type": "TRANSFORMED"
@@ -140,8 +137,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)",
                                 "type": "TRANSFORMED"
@@ -232,14 +228,12 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -344,8 +338,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
                                 "type": "TRANSFORMED"
@@ -354,8 +347,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,dbt-instance-1.pagila.dbt_postgres.customer_details,PROD)",
                                 "type": "TRANSFORMED"
@@ -441,14 +433,12 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -593,8 +583,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_01,PROD)",
                                 "type": "TRANSFORMED"
@@ -603,8 +592,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)",
                                 "type": "TRANSFORMED"
@@ -613,8 +601,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)",
                                 "type": "TRANSFORMED"
@@ -623,8 +610,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_03,PROD)",
                                 "type": "TRANSFORMED"
@@ -633,8 +619,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_04,PROD)",
                                 "type": "TRANSFORMED"
@@ -643,8 +628,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_05,PROD)",
                                 "type": "TRANSFORMED"
@@ -653,8 +637,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_06,PROD)",
                                 "type": "TRANSFORMED"
@@ -740,14 +723,12 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -832,8 +813,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
                                 "type": "TRANSFORMED"
@@ -925,8 +905,7 @@
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         }
                     }
                 },
@@ -938,14 +917,12 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "lastModified": {
                             "time": 1581759273000,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -994,7 +971,8 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:dbt:column_tag"
+                                            "tag": "urn:li:tag:dbt:column_tag",
+                                            "context": null
                                         }
                                     ]
                                 },
@@ -1056,8 +1034,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)",
                                 "type": "TRANSFORMED"
@@ -1135,14 +1112,12 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "lastModified": {
                             "time": 1581759930000,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -1327,8 +1302,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.address,PROD)",
                                 "type": "TRANSFORMED"
@@ -1406,14 +1380,12 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "lastModified": {
                             "time": 1581759987000,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -1498,8 +1470,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.category,PROD)",
                                 "type": "TRANSFORMED"
@@ -1577,14 +1548,12 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "lastModified": {
                             "time": 1581759925000,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -1689,8 +1658,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.city,PROD)",
                                 "type": "TRANSFORMED"
@@ -1775,8 +1743,7 @@
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         }
                     }
                 },
@@ -1788,14 +1755,12 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "lastModified": {
                             "time": 1581759840000,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -1880,8 +1845,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.country,PROD)",
                                 "type": "TRANSFORMED"
@@ -1959,14 +1923,12 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "lastModified": {
                             "time": 1581760640000,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -2191,8 +2153,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.customer,PROD)",
                                 "type": "TRANSFORMED"
@@ -2270,14 +2231,12 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "lastModified": {
                             "time": 1580505371996,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -2422,8 +2381,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_01,PROD)",
                                 "type": "TRANSFORMED"
@@ -2509,8 +2467,7 @@
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         }
                     }
                 },
@@ -2522,14 +2479,12 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "lastModified": {
                             "time": 1582319845996,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -2674,8 +2629,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_02,PROD)",
                                 "type": "TRANSFORMED"
@@ -2753,14 +2707,12 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "lastModified": {
                             "time": 1584998318996,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -2905,8 +2857,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_03,PROD)",
                                 "type": "TRANSFORMED"
@@ -2984,14 +2935,12 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "lastModified": {
                             "time": 1588287228996,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -3136,8 +3085,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_04,PROD)",
                                 "type": "TRANSFORMED"
@@ -3215,14 +3163,12 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "lastModified": {
                             "time": 1589460269996,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -3367,8 +3313,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_05,PROD)",
                                 "type": "TRANSFORMED"
@@ -3446,14 +3391,12 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "lastModified": {
                             "time": -62135596800000,
                             "actor": "urn:li:corpuser:dbt_executor",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -3598,8 +3541,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payment_p2020_06,PROD)",
                                 "type": "TRANSFORMED"
@@ -3633,8 +3575,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,dbt-instance-1.pagila.dbt_postgres.an-aliased-view-for-monthly-billing,PROD)",
                                 "type": "TRANSFORMED"
@@ -3668,8 +3609,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,dbt-instance-1.pagila.dbt_postgres.an-aliased-view-for-payments,PROD)",
                                 "type": "TRANSFORMED"
@@ -3703,8 +3643,7 @@
                                 "auditStamp": {
                                     "time": 0,
                                     "actor": "urn:li:corpuser:unknown",
-                                    "impersonator": null,
-                                    "message": null
+                                    "impersonator": null
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,dbt-instance-1.pagila.dbt_postgres.payments_by_customer_by_month,PROD)",
                                 "type": "TRANSFORMED"

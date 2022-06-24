@@ -49,6 +49,7 @@ module.exports = {
           "docs/components",
           "docs/architecture/metadata-ingestion",
           "docs/architecture/metadata-serving",
+          "docs/what/mxe",
           // "docs/what/gma",
           // "docs/what/gms",
         ],
@@ -274,6 +275,7 @@ module.exports = {
       "docs/how/search",
       "docs/how/auth/add-users",
       "docs/how/ui-tabs-guide",
+      "docs/how/business-glossary-guide",
     ],
     "Developer Guides": [
       // TODO: the titles of these should not be in question form in the sidebar
@@ -297,6 +299,7 @@ module.exports = {
           "docs/how/auth/sso/configure-oidc-react-azure",
         ],
       },
+      "docs/what/mxe",
       "docs/how/restore-indices",
       "docs/dev-guides/timeline",
       "docs/how/extract-container-logs",

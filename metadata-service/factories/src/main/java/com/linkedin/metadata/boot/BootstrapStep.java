@@ -30,6 +30,6 @@ public interface BootstrapStep {
     // Block service from starting up while running the step
     BLOCKING,
     // Start the step asynchronously without waiting for it to end
-    ASYNC;
+    ASYNC,
   }
 }
