@@ -16,7 +16,7 @@ from requests.models import Response
 from requests.sessions import Session
 
 from datahub.emitter.mce_builder import Aspect
-from datahub.emitter.rest_emitter import _make_curl_command
+from datahub.emitter.request_helper import _make_curl_command
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import (
     AssertionRunEventClass,
@@ -71,6 +71,8 @@ ENV_METADATA_PROTOCOL = "DATAHUB_GMS_PROTOCOL"
 ENV_METADATA_HOST_DEPRECATED = "GMS_HOST"
 ENV_METADATA_PORT_DEPRECATED = "GMS_PORT"
 ENV_METADATA_TOKEN = "DATAHUB_GMS_TOKEN"
+ENV_DATAHUB_SYSTEM_CLIENT_ID = "DATAHUB_SYSTEM_CLIENT_ID"
+ENV_DATAHUB_SYSTEM_CLIENT_SECRET = "DATAHUB_SYSTEM_CLIENT_SECRET"
 
 config_override: Dict = {}
 
@@ -168,6 +170,14 @@ def first_non_null(ls: List[Optional[str]]) -> Optional[str]:
 def guess_entity_type(urn: str) -> str:
     assert urn.startswith("urn:li:"), "urns must start with urn:li:"
     return urn.split(":")[2]
+
+
+def get_system_auth() -> Optional[str]:
+    system_client_id = os.environ.get(ENV_DATAHUB_SYSTEM_CLIENT_ID)
+    system_client_secret = os.environ.get(ENV_DATAHUB_SYSTEM_CLIENT_SECRET)
+    if system_client_id is not None and system_client_secret is not None:
+        return f"Basic {system_client_id}:{system_client_secret}"
+    return None
 
 
 def get_url_and_token():

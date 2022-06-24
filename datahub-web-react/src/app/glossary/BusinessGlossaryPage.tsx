@@ -10,6 +10,7 @@ import GlossaryEntitiesList from './GlossaryEntitiesList';
 import GlossaryBrowser from './GlossaryBrowser/GlossaryBrowser';
 import GlossarySearch from './GlossarySearch';
 import { ProfileSidebarResizer } from '../entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
+import EmptyGlossarySection from './EmptyGlossarySection';
 
 export const HeaderWrapper = styled(TabToolbar)`
     padding: 15px 45px 10px 24px;
@@ -44,6 +45,8 @@ function BusinessGlossaryPage() {
     const terms = termsData?.getRootGlossaryTerms?.terms;
     const nodes = nodesData?.getRootGlossaryNodes?.nodes;
 
+    const hasTermsOrNodes = !!nodes?.length || !!terms?.length;
+
     return (
         <SearchablePage>
             <GlossaryWrapper>
@@ -68,7 +71,10 @@ function BusinessGlossaryPage() {
                             refetchForNodes={refetchForNodes}
                         />
                     </HeaderWrapper>
-                    <GlossaryEntitiesList nodes={nodes || []} terms={terms || []} />
+                    {hasTermsOrNodes && <GlossaryEntitiesList nodes={nodes || []} terms={terms || []} />}
+                    {!hasTermsOrNodes && (
+                        <EmptyGlossarySection refetchForTerms={refetchForTerms} refetchForNodes={refetchForNodes} />
+                    )}
                 </MainContentWrapper>
             </GlossaryWrapper>
         </SearchablePage>

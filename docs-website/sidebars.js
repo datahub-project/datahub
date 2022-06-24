@@ -275,6 +275,7 @@ module.exports = {
       "docs/how/search",
       "docs/how/auth/add-users",
       "docs/how/ui-tabs-guide",
+      "docs/how/business-glossary-guide",
     ],
     "Developer Guides": [
       // TODO: the titles of these should not be in question form in the sidebar

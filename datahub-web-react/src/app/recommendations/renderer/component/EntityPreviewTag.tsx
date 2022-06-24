@@ -50,7 +50,9 @@ export const EntityPreviewTag = ({ displayName, url, platformLogoUrl, logoCompon
                         {(platformLogoUrl && <PlatformLogo preview={false} src={platformLogoUrl} alt="none" />) ||
                             logoComponent}
                     </IconContainer>
-                    <DisplayNameContainer>{displayName}</DisplayNameContainer>
+                    <DisplayNameContainer>
+                        <span className="test-mini-preview-class">{displayName}</span>
+                    </DisplayNameContainer>
                 </TitleContainer>
             </EntityTag>
         </Link>
