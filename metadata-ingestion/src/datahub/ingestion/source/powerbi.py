@@ -695,7 +695,7 @@ class PowerBiAPI:
             POWERBI_ADMIN_BASE_URL=self.__config.admin_base_url
         )
 
-        def create_scan_job():  # sourcery skip: avoid-builtin-shadow
+        def create_scan_job():
             """
             Create scan job on PowerBi for the workspace
             """
