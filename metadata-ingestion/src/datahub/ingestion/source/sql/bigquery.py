@@ -637,9 +637,9 @@ class BigQuerySource(SQLAlchemySource):
                     referenced_objs = set(
                         map(lambda x: x.split(".")[-1], parser.get_tables())
                     )
-                except Exception as e:
+                except Exception as ex:
                     logger.warning(
-                        f"Sql Parser failed on query: {e.query}. It will be skipped from lineage. The error was {e}"
+                        f"Sql Parser failed on query: {e.query}. It will be skipped from lineage. The error was {ex}"
                     )
                     self.report.num_skipped_lineage_entries_sql_parser_failure += 1
                     continue
