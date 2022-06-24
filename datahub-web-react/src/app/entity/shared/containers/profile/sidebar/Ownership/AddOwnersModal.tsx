@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Button, Form, message, Modal, Select, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 
@@ -55,6 +55,7 @@ export const AddOwnersModal = ({ urn, type, hideOwnerType, defaultOwnerType, onC
     const groupSearchResults = groupSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
     const combinedSearchResults = [...userSearchResults, ...groupSearchResults];
     const [recommendedData] = useGetRecommendations([EntityType.CorpGroup, EntityType.CorpUser]);
+    const inputEl = useRef(null);
 
     useEffect(() => {
         if (ownershipTypes) {
@@ -116,6 +117,9 @@ export const AddOwnersModal = ({ urn, type, hideOwnerType, defaultOwnerType, onC
      * value: {ownerUrn: string, ownerEntityType: EntityType}
      */
     const onSelectOwner = (selectedValue: { key: string; label: React.ReactNode; value: string }) => {
+        if (inputEl && inputEl.current) {
+            (inputEl.current as any).blur();
+        }
         const filteredActors = ownerResult
             ?.filter((entity) => entity.urn === selectedValue.value)
             .map((entity) => entity);
@@ -203,6 +207,10 @@ export const AddOwnersModal = ({ urn, type, hideOwnerType, defaultOwnerType, onC
         }
     };
 
+    function handleBlur() {
+        setInputValue('');
+    }
+
     return (
         <Modal
             title="Add Owners"
@@ -229,6 +237,7 @@ export const AddOwnersModal = ({ urn, type, hideOwnerType, defaultOwnerType, onC
                             autoFocus
                             defaultOpen
                             mode="multiple"
+                            ref={inputEl}
                             placeholder="Search for users or groups..."
                             showSearch
                             filterOption={false}
@@ -242,6 +251,7 @@ export const AddOwnersModal = ({ urn, type, hideOwnerType, defaultOwnerType, onC
                                 setInputValue(value.trim());
                             }}
                             tagRender={tagRender}
+                            onBlur={handleBlur}
                             value={selectedOwners}
                         >
                             {ownerSearchOptions}

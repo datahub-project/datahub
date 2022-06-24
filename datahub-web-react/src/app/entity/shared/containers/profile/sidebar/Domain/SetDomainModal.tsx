@@ -40,6 +40,7 @@ export const SetDomainModal = ({ onCloseModal, refetch }: Props) => {
         domainSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
     const [setDomainMutation] = useSetDomainMutation();
     const [recommendedData] = useGetRecommendations([EntityType.Domain]);
+    const inputEl = useRef(null);
 
     const onModalClose = () => {
         setInputValue('');
@@ -78,7 +79,6 @@ export const SetDomainModal = ({ onCloseModal, refetch }: Props) => {
         return renderSearchResult(result);
     });
 
-    const inputEl = useRef(null);
     const onSelectDomain = (newUrn: string) => {
         if (inputEl && inputEl.current) {
             (inputEl.current as any).blur();
@@ -158,7 +158,6 @@ export const SetDomainModal = ({ onCloseModal, refetch }: Props) => {
                 <Form.Item>
                     <Select
                         autoFocus
-                        mode="multiple"
                         defaultOpen
                         placeholder="Search for Domains..."
                         onSelect={(domainUrn: any) => onSelectDomain(domainUrn)}
