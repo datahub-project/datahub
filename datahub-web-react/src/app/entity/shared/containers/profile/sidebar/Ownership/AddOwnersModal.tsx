@@ -56,8 +56,6 @@ export const AddOwnersModal = ({ urn, type, hideOwnerType, defaultOwnerType, onC
     const combinedSearchResults = [...userSearchResults, ...groupSearchResults];
     const [recommendedData] = useGetRecommendations([EntityType.CorpGroup, EntityType.CorpUser]);
 
-    // Add owners Form
-
     useEffect(() => {
         if (ownershipTypes) {
             setSelectedOwnerType(ownershipTypes[0].type);
