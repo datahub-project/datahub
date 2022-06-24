@@ -89,6 +89,38 @@ dbt allows authors to define meta properties for datasets. Checkout this link to
 actions such as add a tag, term or owner. For example if a dbt model has a meta config ```"has_pii": True```, we can define an action
 that evaluates if the property is set to true and add, lets say, a ```pii``` tag.
 To leverage this feature we require users to define mappings as part of the recipe. Following is how mappings can be defined -
+<Tabs>
+<TabItem value="yaml" label="YAML" default>
+```yaml
+meta_mapping:
+  business_owner:
+    match: ".*"
+    operation: "add_owner"
+    config:
+      owner_type: user
+  has_pii:
+    match: True
+    operation: "add_tag"
+    config:
+      tag: "has_pii_test"
+  int_property:
+    match: 1
+    operation: "add_tag"
+    config:
+      tag: "int_meta_property"
+  double_property:
+    match: 2.5
+    operation: "add_term"
+    config:
+      term: "double_meta_property"
+    data_governance.team_owner:
+      match: "Finance"
+      operation: "add_term"
+      config:
+        term: "Finance_test"
+```
+</TabItem>
+<TabItem value="json" label="JSON">
 ```json
             "meta_mapping": {
                     "business_owner": {
@@ -118,6 +150,8 @@ To leverage this feature we require users to define mappings as part of the reci
                     },
                 }
 ```
+</TabItem>
+</Tabs>
 We support the below actions -
 1. add_tag - Requires ```tag``` property in config.
 2. add_term - Requires ```term``` property in config.
@@ -135,7 +169,7 @@ This works similarly as the dbt meta mapping but for the query tags
 We support the below actions -
 1. add_tag - Requires ```tag``` property in config.
 
-The below example set as global tag the query tag `tag` key's value. 
+The below example set as global tag the query tag `tag` key's value.
 ```json
 "query_tag_mapping":
 {
