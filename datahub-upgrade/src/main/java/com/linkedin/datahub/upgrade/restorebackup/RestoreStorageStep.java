@@ -105,8 +105,16 @@ public class RestoreStorageStep implements UpgradeStep {
         final String aspectName = aspect.getKey().getAspect();
 
         // 3. Create record from json aspect
-        final RecordTemplate aspectRecord =
-            EntityUtils.toAspectRecord(entityName, aspectName, aspect.getMetadata(), _entityRegistry);
+        final RecordTemplate aspectRecord;
+        try {
+          aspectRecord =
+              EntityUtils.toAspectRecord(entityName, aspectName, aspect.getMetadata(), _entityRegistry);
+        } catch (Exception e) {
+          context.report()
+              .addLine(String.format("Failed to create aspect record with name %s associated with entity named %s: %s",
+                  aspectName, entityName, e));
+          continue;
+        }
 
         // 4. Verify that the aspect is a valid aspect associated with the entity
         AspectSpec aspectSpec;
