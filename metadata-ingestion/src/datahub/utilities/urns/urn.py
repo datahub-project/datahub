@@ -122,7 +122,7 @@ class Urn:
                 part_start = i + 1
 
         if start_paren_count != 0:
-            raise InvalidUrnError(f"{entity_id}, mismatched parent nesting")
+            raise InvalidUrnError(f"{entity_id}, mismatched paren nesting")
 
         parts.append(entity_id[part_start:-1])
 

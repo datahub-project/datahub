@@ -448,6 +448,7 @@ class LookerDashboardSource(Source):
 
         if element.query is not None:
             fields = self._get_fields_from_query(element.query)
+            # Get the explore from the view directly
             explores = [element.query.view] if element.query.view is not None else []
             logger.debug(
                 "Element {}: Explores added: {}".format(element.title, explores)
@@ -468,6 +469,7 @@ class LookerDashboardSource(Source):
                 upstream_fields=fields,
             )
 
+        # Dashboard elements can *alternatively* link to an existing look
         elif element.look is not None:
             # we pick from element title by default, falling back to look title.
             title: str = (
@@ -505,6 +507,7 @@ class LookerDashboardSource(Source):
                     upstream_fields=fields,
                 )
 
+        # Failing the above two approaches, pick out details from result_maker
         elif element.result_maker is not None:
             model: str = ""
             fields = []

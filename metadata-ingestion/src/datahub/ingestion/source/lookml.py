@@ -650,7 +650,10 @@ class LookerView:
             )
 
         # If not a derived table, then this view essentially wraps an existing
-        # object in the database.
+        # object in the database. If sql_table_name is set, there is a single 
+        # dependency in the view, on the sql_table_name.
+        # Otherwise, default to the view name as per the docs:
+        # https://docs.looker.com/reference/view-params/sql_table_name-for-view
         sql_table_names = [view_name] if sql_table_name is None else [sql_table_name]
         output_looker_view = LookerView(
             id=LookerViewId(

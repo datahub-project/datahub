@@ -30,7 +30,7 @@ def _is_valid_hostname(hostname: str) -> bool:
     """
     if len(hostname) > 253:
         return False
-    # Hostname's ending on a dot are valid, if present strip exactly one
+    # Hostnames ending on a dot are valid, if present strip exactly one
     if hostname[-1] == ".":
         hostname = hostname[:-1]
     allowed = re.compile(r"(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
