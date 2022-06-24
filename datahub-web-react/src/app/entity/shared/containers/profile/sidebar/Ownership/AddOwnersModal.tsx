@@ -57,7 +57,6 @@ export const AddOwnersModal = ({ urn, type, hideOwnerType, defaultOwnerType, onC
     const [recommendedData] = useGetRecommendations([EntityType.CorpGroup, EntityType.CorpUser]);
 
     // Add owners Form
-    const [form] = Form.useForm();
 
     useEffect(() => {
         if (ownershipTypes) {
@@ -111,7 +110,6 @@ export const AddOwnersModal = ({ urn, type, hideOwnerType, defaultOwnerType, onC
         setInputValue('');
         setSelectedOwners([]);
         setSelectedOwnerType(defaultOwnerType || OwnershipType.None);
-        form.resetFields();
         onCloseModal();
     };
 
@@ -224,7 +222,7 @@ export const AddOwnersModal = ({ urn, type, hideOwnerType, defaultOwnerType, onC
                 </>
             }
         >
-            <Form layout="vertical" form={form} colon={false}>
+            <Form layout="vertical" colon={false}>
                 <Form.Item key="owners" name="owners" label={<Typography.Text strong>Owner</Typography.Text>}>
                     <Typography.Paragraph>Find a user or group</Typography.Paragraph>
                     <Form.Item name="owner">

@@ -40,12 +40,10 @@ export const SetDomainModal = ({ onCloseModal, refetch }: Props) => {
         domainSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
     const [setDomainMutation] = useSetDomainMutation();
     const [recommendedData] = useGetRecommendations([EntityType.Domain]);
-    const [form] = Form.useForm();
 
     const onModalClose = () => {
         setInputValue('');
         setSelectedDomain(undefined);
-        form.resetFields();
         onCloseModal();
     };
 
@@ -152,7 +150,7 @@ export const SetDomainModal = ({ onCloseModal, refetch }: Props) => {
                 </>
             }
         >
-            <Form component={false} form={form}>
+            <Form component={false}>
                 <Form.Item>
                     <Select
                         autoFocus
