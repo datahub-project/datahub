@@ -27,6 +27,7 @@ import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
+import java.util.Arrays;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nonnull;
@@ -94,11 +95,15 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   public long countEntities() {
     validateConnection();
     SimpleStatement ss = selectFrom(CassandraAspect.TABLE_NAME)
-        .countAll()
-        .groupBy(CassandraAspect.URN_COLUMN)
+        .distinct()
+        .column(CassandraAspect.URN_COLUMN)
         .build();
 
-    return _cqlSession.execute(ss).one().getLong(0);
+    ResultSet rs = _cqlSession.execute(ss);
+    // TODO: make sure it doesn't blow up on a large database
+    //  Getting a count of distinct values in a Cassandra query doesn't seem to be feasible, but counting them in the app is dangerous
+    //  The saving grace here is that the only place where this method is used should only run once, what the database is still young
+    return rs.all().size();
   }
 
   @Override
@@ -112,7 +117,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
         .build();
 
     ResultSet rs = _cqlSession.execute(ss);
-    return rs.all().size() > 0;
+    return rs.one() != null;
   }
 
   private Map<String, Long> getMaxVersions(@Nonnull final String urn, @Nonnull final Set<String> aspectNames) {
