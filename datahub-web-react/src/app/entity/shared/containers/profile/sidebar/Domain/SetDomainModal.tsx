@@ -138,6 +138,10 @@ export const SetDomainModal = ({ onCloseModal, refetch }: Props) => {
         );
     };
 
+    function handleBlur() {
+        setInputValue('');
+    }
+
     return (
         <Modal
             title="Set Domain"
@@ -159,6 +163,9 @@ export const SetDomainModal = ({ onCloseModal, refetch }: Props) => {
                     <Select
                         autoFocus
                         defaultOpen
+                        filterOption={false}
+                        showSearch
+                        defaultActiveFirstOption={false}
                         placeholder="Search for Domains..."
                         onSelect={(domainUrn: any) => onSelectDomain(domainUrn)}
                         onSearch={(value: string) => {
@@ -170,6 +177,7 @@ export const SetDomainModal = ({ onCloseModal, refetch }: Props) => {
                         ref={inputEl}
                         value={selectValue}
                         tagRender={tagRender}
+                        onBlur={handleBlur}
                     >
                         {domainSearchOptions}
                     </Select>
