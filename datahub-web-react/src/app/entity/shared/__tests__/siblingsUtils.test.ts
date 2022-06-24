@@ -108,8 +108,6 @@ const datasetPrimaryWithSiblings = {
     },
 };
 
-<<<<<<< HEAD
-=======
 const searchResultWithSiblings = [
     {
         entity: {
@@ -432,7 +430,6 @@ const searchResultWithSiblings = [
     },
 ];
 
->>>>>>> master
 // const datasetUnprimaryWithSiblings = {
 //     ...datasetUnprimary,
 //     siblings: {
@@ -462,8 +459,6 @@ describe('siblingUtils', () => {
             expect(combinedData.dataset.properties.description).toEqual('primary description');
         });
     });
-<<<<<<< HEAD
-=======
 
     describe('combineSiblingsInSearchResults', () => {
         it('combines search results to deduplicate siblings', () => {
@@ -478,5 +473,4 @@ describe('siblingUtils', () => {
             );
         });
     });
->>>>>>> master
 });

@@ -181,17 +181,6 @@ fragment nonSiblingDatasetFields on Dataset {
             }
             type
         }
-        totalIncidents: incidents(start: 0, count: 1) {
-            total
-        }
-        siblings {
-            isPrimary
-            siblings {
-                urn
-                type
-                ...siblingFields
-            }
-        }
     }
     termProposals: proposals(type: TERM_ASSOCIATION) {
         urn
@@ -306,6 +295,9 @@ fragment nonSiblingDatasetFields on Dataset {
                 nodeName
             }
         }
+    }
+    totalIncidents: incidents(start: 0, count: 1) {
+        total
     }
 }
 
