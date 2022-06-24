@@ -101,8 +101,66 @@ If you're interested in looking at the REST emitter code, it is available [here]
 
 ## Kafka Emitter
 
-The Java package doesn't currently support a Kafka emitter, but this will be available shortly.
+The Kafka emitter is a thin wrapper on top of the SerializingProducer class from `confluent-kafka` and offers a non-blocking interface for sending metadata events to DataHub. Use this when you want to decouple your metadata producer from the uptime of your datahub metadata server by utilizing Kafka as a highly available message bus. For example, if your DataHub metadata service is down due to planned or unplanned outages, you can still continue to collect metadata from your mission critical systems by sending it to Kafka. Also use this emitter when throughput of metadata emission is more important than acknowledgement of metadata being persisted to DataHub's backend store.
 
+**_Note_**: The Kafka emitter uses Avro to serialize the Metadata events to Kafka. Changing the serializer will result in unprocessable events as DataHub currently expects the metadata events over Kafka to be serialized in Avro.
+
+
+### Usage
+
+```java
+
+
+import java.io.IOException;
+import java.util.concurrent.ExecutionException;
+import com.linkedin.dataset.DatasetProperties;
+import datahub.client.kafka.KafkaEmitter;
+import datahub.client.kafka.KafkaEmitterConfig;
+import datahub.event.MetadataChangeProposalWrapper;
+
+// ... followed by
+
+// Creates the emitter with the default coordinates and settings
+KafkaEmitterConfig.KafkaEmitterConfigBuilder builder = KafkaEmitterConfig.builder(); KafkaEmitterConfig config = builder.build();
+KafkaEmitter emitter = new KafkaEmitter(config);
+ 
+//Test if topic is available
+
+if(emitter.testConnection()){
+ 
+	MetadataChangeProposalWrapper mcpw = MetadataChangeProposalWrapper.builder()
+	        .entityType("dataset")
+	        .entityUrn("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.user-table,PROD)")
+	        .upsert()
+	        .aspect(new DatasetProperties().setDescription("This is the canonical User profile dataset"))
+	        .build();
+	
+	// Blocking call using future
+	Future<MetadataWriteResponse> requestFuture = emitter.emit(mcpw, null).get();
+	
+	// Non-blocking using callback
+	emitter.emit(mcpw, new Callback() {
+	
+	      @Override
+	      public void onFailure(Throwable exception) {
+	        System.out.println("Failed to send with: " + exception);
+	      }
+	      @Override
+	      public void onCompletion(MetadataWriteResponse metadataWriteResponse) {
+	        if (metadataWriteResponse.isSuccess()) {
+	          RecordMetadata metadata = (RecordMetadata) metadataWriteResponse.getUnderlyingResponse();
+	          System.out.println("Sent successfully over topic: " + metadata.topic());
+	        } else {
+	          System.out.println("Failed to send with: " + metadataWriteResponse.getUnderlyingResponse());
+	        }
+	      }
+	    });
+
+}
+else {
+	System.out.println("Kafka service is down.");
+}
+```
 
 ## Other Languages
 

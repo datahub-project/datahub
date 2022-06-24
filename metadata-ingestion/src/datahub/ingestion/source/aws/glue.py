@@ -716,7 +716,7 @@ class GlueSource(Source):
             dataset_profile.rowCount = int(
                 float(table_stats[self.source_config.profiling.row_count])
             )
-        if self.source_config.profiling.row_count in table_stats:
+        if self.source_config.profiling.column_count in table_stats:
             dataset_profile.columnCount = int(
                 float(table_stats[self.source_config.profiling.column_count])
             )

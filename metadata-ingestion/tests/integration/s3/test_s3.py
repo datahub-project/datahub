@@ -69,6 +69,7 @@ SOURCE_FILES_PATH = "./tests/integration/s3/sources/s3"
 source_files = os.listdir(SOURCE_FILES_PATH)
 
 
+@pytest.mark.slow_unit
 @pytest.mark.parametrize("source_file", source_files)
 def test_data_lake_s3_ingest(
     pytestconfig, s3_populate, source_file, tmp_path, mock_time
@@ -101,6 +102,7 @@ def test_data_lake_s3_ingest(
     )
 
 
+@pytest.mark.slow_unit
 @pytest.mark.parametrize("source_file", source_files)
 def test_data_lake_local_ingest(pytestconfig, source_file, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/s3/"

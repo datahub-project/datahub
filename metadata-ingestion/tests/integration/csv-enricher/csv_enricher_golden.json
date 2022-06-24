@@ -1,0 +1,78 @@
+[
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTerms",
+    "aspect": {
+        "value": "{\"terms\": [{\"urn\": \"urn:li:glossaryTerm:AccountBalance\"}], \"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:ingestion\"}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "value": "{\"tags\": [{\"tag\": \"urn:li:tag:Legacy\"}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "value": "{\"owners\": [{\"owner\": \"urn:li:corpuser:datahub\", \"type\": \"NONE\"}, {\"owner\": \"urn:li:corpuser:jdoe\", \"type\": \"NONE\"}], \"lastModified\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:ingestion\"}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "editableSchemaMetadata",
+    "aspect": {
+        "value": "{\"created\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:ingestion\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"editableSchemaFieldInfo\": [{\"fieldPath\": \"field_foo\", \"glossaryTerms\": {\"terms\": [{\"urn\": \"urn:li:glossaryTerm:AccountBalance\"}], \"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:ingestion\"}}}, {\"fieldPath\": \"field_bar\", \"globalTags\": {\"tags\": [{\"tag\": \"urn:li:tag:Legacy\"}]}}]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+}
+]

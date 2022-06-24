@@ -6,9 +6,9 @@ import { ANTD_GRAY } from '../../../constants';
 
 const SummaryHeader = styled.div`
     width: 100%;
-    height: 80px;
     padding-left: 40px;
-    padding-top: 0px;
+    padding-top: 20px;
+    padding-bottom: 20px;
     display: flex;
     align-items: center;
     border-bottom: 1px solid ${ANTD_GRAY[4.5]};

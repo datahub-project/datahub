@@ -11,6 +11,7 @@ import {
     Container,
     Domain,
     ParentContainersResult,
+    Maybe,
 } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
 
@@ -117,6 +118,8 @@ interface Props {
     typeIcon?: JSX.Element;
     platform?: string;
     platformInstanceId?: string;
+    platforms?: Maybe<string | undefined>[];
+    logoUrls?: Maybe<string | undefined>[];
     qualifier?: string | null;
     tags?: GlobalTags;
     owners?: Array<Owner> | null;
@@ -161,6 +164,8 @@ export default function DefaultPreviewCard({
     onClick,
     degree,
     parentContainers,
+    platforms,
+    logoUrls,
 }: Props) {
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
@@ -190,6 +195,8 @@ export default function DefaultPreviewCard({
                         <PlatformContentView
                             platformName={platform}
                             platformLogoUrl={logoUrl}
+                            platformNames={platforms}
+                            platformLogoUrls={logoUrls}
                             entityLogoComponent={logoComponent}
                             instanceId={platformInstanceId}
                             typeIcon={typeIcon}
