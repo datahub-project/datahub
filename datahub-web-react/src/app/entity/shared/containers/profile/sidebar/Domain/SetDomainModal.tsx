@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Button, Form, message, Modal, Select, Tag } from 'antd';
 import styled from 'styled-components';
 
@@ -78,7 +78,11 @@ export const SetDomainModal = ({ onCloseModal, refetch }: Props) => {
         return renderSearchResult(result);
     });
 
+    const inputEl = useRef(null);
     const onSelectDomain = (newUrn: string) => {
+        if (inputEl && inputEl.current) {
+            (inputEl.current as any).blur();
+        }
         const filteredDomains = domainResult?.filter((entity) => entity.urn === newUrn).map((entity) => entity) || [];
         if (filteredDomains.length) {
             const domain = filteredDomains[0];
@@ -154,6 +158,7 @@ export const SetDomainModal = ({ onCloseModal, refetch }: Props) => {
                 <Form.Item>
                     <Select
                         autoFocus
+                        mode="multiple"
                         defaultOpen
                         placeholder="Search for Domains..."
                         onSelect={(domainUrn: any) => onSelectDomain(domainUrn)}
@@ -163,6 +168,7 @@ export const SetDomainModal = ({ onCloseModal, refetch }: Props) => {
                             // eslint-disable-next-line react/prop-types
                             setInputValue(value.trim());
                         }}
+                        ref={inputEl}
                         value={selectValue}
                         tagRender={tagRender}
                     >
