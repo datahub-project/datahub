@@ -1,0 +1,3 @@
+# Jerarquía de entidades
+
+WIP
