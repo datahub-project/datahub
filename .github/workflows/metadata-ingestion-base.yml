@@ -1,5 +1,10 @@
 name: ingestion base
 on:
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "docker/datahub-ingestion/**"
   push:
     branches:
       - master
