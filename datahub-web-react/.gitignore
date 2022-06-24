@@ -28,3 +28,6 @@ yarn-error.log*
 # gql codegen
 *.generated.ts
 /.vscode
+
+# json schema validation
+/src/assets/datahub_ingestion_schema.json

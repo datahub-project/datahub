@@ -41,6 +41,8 @@
         "@vx/scale": "^0.0.199",
         "@vx/shape": "^0.0.199",
         "@vx/zoom": "^0.0.199",
+        "ajv": "^8.11.0",
+        "ajv-formats": "^2.1.1",
         "analytics": "^0.7.5",
         "antd": "^4.16.0",
         "apollo-link": "^1.2.14",

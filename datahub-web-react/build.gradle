@@ -36,6 +36,14 @@ node {
 
 }
 
+task copyJsonSchema {
+  dependsOn(':docs-website:generateJsonSchema')
+  copy {
+    from file('../docs-website/static/schemas/datahub_ingestion_schema.json')
+    into file('./src/assets')
+  }
+}
+
 /*
   Wrappers around Yarn Tasks.
  */
@@ -51,7 +59,7 @@ task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   args = ['run', 'start',  '--proxy', 'http://localhost:9001']
 }
 
-task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+task yarnTest(type: YarnTask, dependsOn: [copyJsonSchema, yarnInstall, yarnGenerate]) {
   args = ['run', 'test', '--watchAll', 'false']
 }
 

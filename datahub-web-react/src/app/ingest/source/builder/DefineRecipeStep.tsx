@@ -6,6 +6,8 @@ import { getSourceConfigs, jsonToYaml, yamlToJson } from '../utils';
 import { YamlEditor } from './YamlEditor';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { IngestionSourceBuilderStep } from './steps';
+import { getSchemaValidator } from './utils';
+import { CUSTOM_TYPE } from '../conf/sources';
 
 const LOOKML_DOC_LINK = 'https://datahubproject.io/docs/generated/ingestion/sources/looker#module-lookml';
 
@@ -71,6 +73,15 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
         } catch (e) {
             message.warn('Found invalid YAML. Please check your recipe configuration.');
             return;
+        }
+
+        if (type !== CUSTOM_TYPE) {
+            const validate = getSchemaValidator();
+            const isValid = validate(JSON.parse(recipeJson));
+            if (!isValid) {
+                message.error('Something is invalid in your recipe. Please check all fields are correct.');
+                return;
+            }
         }
 
         const newState = {

@@ -17,6 +17,7 @@ import hiveConfig from './hive/hive';
 import oracleConfig from './oracle/oracle';
 
 const baseUrl = window.location.origin;
+export const CUSTOM_TYPE = 'custom';
 
 const DEFAULT_PLACEHOLDER_RECIPE = `\
 source:
@@ -45,7 +46,7 @@ export const SOURCE_TEMPLATE_CONFIGS: Array<SourceConfig> = [
     oracleConfig,
     hiveConfig,
     {
-        type: 'custom',
+        type: CUSTOM_TYPE,
         placeholderRecipe: DEFAULT_PLACEHOLDER_RECIPE,
         displayName: 'Custom',
         docsUrl: 'https://datahubproject.io/docs/metadata-ingestion/',
