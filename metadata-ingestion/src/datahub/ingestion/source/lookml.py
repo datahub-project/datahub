@@ -650,7 +650,7 @@ class LookerView:
             )
 
         # If not a derived table, then this view essentially wraps an existing
-        # object in the database. If sql_table_name is set, there is a single 
+        # object in the database. If sql_table_name is set, there is a single
         # dependency in the view, on the sql_table_name.
         # Otherwise, default to the view name as per the docs:
         # https://docs.looker.com/reference/view-params/sql_table_name-for-view
