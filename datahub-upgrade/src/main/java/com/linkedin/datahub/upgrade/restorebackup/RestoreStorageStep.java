@@ -89,7 +89,7 @@ public class RestoreStorageStep implements UpgradeStep {
           context.report()
               .addLine(
                   String.format("Failed to bind Urn with value %s into Urn object: %s", aspect.getKey().getUrn(), e));
-          return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+          continue;
         }
 
         // 2. Verify that the entity associated with the aspect is found in the registry.
@@ -100,7 +100,7 @@ public class RestoreStorageStep implements UpgradeStep {
         } catch (Exception e) {
           context.report()
               .addLine(String.format("Failed to find Entity with name %s in Entity Registry: %s", entityName, e));
-          return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+          continue;
         }
         final String aspectName = aspect.getKey().getAspect();
 
@@ -116,7 +116,7 @@ public class RestoreStorageStep implements UpgradeStep {
           context.report()
               .addLine(String.format("Failed to find aspect spec with name %s associated with entity named %s: %s",
                   aspectName, entityName, e));
-          return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+          continue;
         }
 
         // 5. Write the row back using the EntityService
