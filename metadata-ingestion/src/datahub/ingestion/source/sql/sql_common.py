@@ -1319,6 +1319,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             platform=self.platform,
         )
 
+    def get_profile_args(self) -> Dict:
+        """Passed down to GE profiler"""
+        return {}
+
     # Override if needed
     def generate_partition_profiler_query(
         self, schema: str, table: str, partition_datetime: Optional[datetime.datetime]
@@ -1446,7 +1450,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         platform: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         for request, profile in profiler.generate_profiles(
-            profile_requests, self.config.profiling.max_workers, platform=platform
+            profile_requests,
+            self.config.profiling.max_workers,
+            platform=platform,
+            profiler_args=self.get_profile_args(),
         ):
             if profile is None:
                 continue

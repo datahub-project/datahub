@@ -17,6 +17,7 @@ from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from ratelimiter import RateLimiter
 from sqlalchemy import create_engine, inspect
+from sqlalchemy.engine import Engine
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.emitter import mce_builder
@@ -653,8 +654,7 @@ class BigQuerySource(SQLAlchemySource):
         if database:
             project_id = database
         else:
-            url = self.config.get_sql_alchemy_url()
-            engine = create_engine(url, **self.config.options)
+            engine = self._get_engine(for_run_sql=False)
             with engine.connect() as con:
                 inspector = inspect(con)
                 project_id = self.get_db_name(inspector)
@@ -664,9 +664,7 @@ class BigQuerySource(SQLAlchemySource):
         self, schema: str, table: str
     ) -> Optional[BigQueryPartitionColumn]:
         logger.debug(f"get_latest_partition for {schema} and {table}")
-        url = self.config.get_sql_alchemy_url(for_run_sql=True)
-        logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
+        engine = self._get_engine(for_run_sql=True)
         with engine.connect() as con:
             inspector = inspect(con)
             project_id = self.get_db_name(inspector)
@@ -701,9 +699,7 @@ class BigQuerySource(SQLAlchemySource):
         table_name, shard = self.get_shard_from_table(table)
         if shard:
             logger.debug(f"{table_name} is sharded and shard id is: {shard}")
-            url = self.config.get_sql_alchemy_url(for_run_sql=True)
-            logger.debug(f"sql_alchemy_url={url}")
-            engine = create_engine(url, **self.config.options)
+            engine = self._get_engine(for_run_sql=True)
             if f"{project_id}.{schema}.{table_name}" not in self.maximum_shard_ids:
                 with engine.connect() as con:
                     sql = BQ_GET_LATEST_SHARD.format(
@@ -727,9 +723,13 @@ class BigQuerySource(SQLAlchemySource):
         else:
             return True
 
+    def _get_engine(self, for_run_sql: bool) -> Engine:
+        url = self.config.get_sql_alchemy_url(for_run_sql=for_run_sql)
+        logger.debug(f"sql_alchemy_url={url}")
+        return create_engine(url, **self.config.options)
+
     def add_information_for_schema(self, inspector: Inspector, schema: str) -> None:
-        url = self.config.get_sql_alchemy_url(for_run_sql=True)
-        engine = create_engine(url, **self.config.options)
+        engine = self._get_engine(for_run_sql=True)
         project_id = self.get_db_name(inspector)
         with engine.connect() as con:
             inspector = inspect(con)
@@ -815,9 +815,8 @@ WHERE
         return None, None
 
     def get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
-        url = self.config.get_sql_alchemy_url(for_run_sql=True)
-        logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
+        logger.debug("Getting profiler instance from bigquery")
+        engine = self._get_engine(for_run_sql=True)
         with engine.connect() as conn:
             inspector = inspect(conn)
 
@@ -827,6 +826,9 @@ WHERE
             config=self.config.profiling,
             platform=self.platform,
         )
+
+    def get_profile_args(self) -> Dict:
+        return {"temp_table_db": self.config.project_id}
 
     def is_dataset_eligible_for_profiling(
         self,
