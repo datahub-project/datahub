@@ -22,7 +22,7 @@ class BigQueryConfig(BigQueryBaseConfig, BaseTimeWindowConfig, SQLAlchemyConfig)
     )
     storage_project_id: Optional[str] = pydantic.Field(
         default=None,
-        alias="lineage_client_project_id",
+        # alias="lineage_client_project_id",
         description="If you want to use a different ProjectId for the lineage collection you can set it here.",
     )
     log_page_size: pydantic.PositiveInt = pydantic.Field(

@@ -728,7 +728,7 @@ class BigQuerySource(SQLAlchemySource):
             return True
 
     def add_information_for_schema(self, inspector: Inspector, schema: str) -> None:
-        url = self.config.get_sql_alchemy_url()
+        url = self.config.get_sql_alchemy_url(for_run_sql=True)
         engine = create_engine(url, **self.config.options)
         project_id = self.get_db_name(inspector)
         with engine.connect() as con:
