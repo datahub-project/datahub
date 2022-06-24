@@ -94,6 +94,11 @@ export const SetDomainModal = ({ onCloseModal, refetch }: Props) => {
         }
     };
 
+    const onDeselectDomain = () => {
+        setInputValue('');
+        setSelectedDomain(undefined);
+    };
+
     const onOk = async () => {
         if (!selectedDomain) {
             return;
@@ -165,9 +170,11 @@ export const SetDomainModal = ({ onCloseModal, refetch }: Props) => {
                         defaultOpen
                         filterOption={false}
                         showSearch
+                        mode="multiple"
                         defaultActiveFirstOption={false}
                         placeholder="Search for Domains..."
                         onSelect={(domainUrn: any) => onSelectDomain(domainUrn)}
+                        onDeselect={onDeselectDomain}
                         onSearch={(value: string) => {
                             // eslint-disable-next-line react/prop-types
                             handleSearch(value.trim());
