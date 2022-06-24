@@ -1,7 +1,7 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM anshbansal/datahub-ingestion-base:latest as pip-cache
+FROM acryldata/datahub-ingestion-base as pip-cache
 
 FROM python:3.8 as base
 COPY --from=pip-cache /root/.cache/pip /root/.cache/pip
