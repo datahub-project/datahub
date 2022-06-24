@@ -1,5 +1,6 @@
 import time
 import urllib
+import os
 
 import pytest
 import requests
@@ -8,9 +9,24 @@ from datahub.cli.docker import check_local_docker_containers
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.utils import ingest_file_via_rest
 
-GMS_ENDPOINT = "http://localhost:8080"
-FRONTEND_ENDPOINT = "http://localhost:9002"
-KAFKA_BROKER = "localhost:9092"
+#GMS_ENDPOINT = "http://localhost:8080"
+#FRONTEND_ENDPOINT = "http://localhost:9002"
+#KAFKA_BROKER = "localhost:9092"
+
+K8S_CLUSTER_ENABLED = os.getenv('K8S_CLUSTER_ENABLED','false').lower()
+if K8S_CLUSTER_ENABLED in ['true', 'yes'] :
+    FRONTEND_SVC = os.getenv('FRONTEND_SVC')
+    GMS_SVC = os.getenv('GMS_SVC')
+    KAFKA_SVC = os.getenv('KAFKA_SVC')
+
+    FRONTEND_ENDPOINT = f"http://{FRONTEND_SVC}:9002"
+    GMS_ENDPOINT = f"http://{GMS_SVC}:8080"
+    KAFKA_BROKER = f"{KAFKA_SVC}:8080"
+
+else:
+    GMS_ENDPOINT = "http://localhost:8080"
+    FRONTEND_ENDPOINT = "http://localhost:9002"
+    KAFKA_BROKER = "localhost:9092"
 
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 usage_sample_data = (
@@ -25,8 +41,9 @@ kafka_post_ingestion_wait_sec = 60
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
-    # Simply assert that everything is healthy, but don't wait.
-    assert not check_local_docker_containers()
+    if K8S_CLUSTER_ENABLED not in ['true', 'yes'] :
+        # Simply assert that everything is healthy, but don't wait.
+        assert not check_local_docker_containers()
     yield
 
 

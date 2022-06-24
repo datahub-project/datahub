@@ -11,10 +11,13 @@ from tests.utils import FRONTEND_ENDPOINT
 # Disable telemetry
 os.putenv("DATAHUB_TELEMETRY_ENABLED", "false")
 
+K8S_CLUSTER_ENABLED = os.getenv('K8S_CLUSTER_ENABLED','false').lower()
+
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
     # Simply assert that everything is healthy, but don't wait.
-    assert not check_local_docker_containers()
+    if K8S_CLUSTER_ENABLED not in ['true', 'yes'] :
+        assert not check_local_docker_containers()
     yield
 
 @pytest.fixture(scope="session")
