@@ -1,9 +1,9 @@
-# Código de Conducta del Pacto del Contribuyente
+# Código de Conducta Convenido para Contribuyentes
 
 ## Nuestro Compromiso
 
 En aras de fomentar un ambiente abierto y acogedor, nosotros como
-colaboradores y mantenedores se comprometen a participar en nuestro proyecto y
+colaboradores y mantenedores nos comprometemos a hacer la participación en nuestro proyecto y
 nuestra comunidad una experiencia libre de acoso para todos, independientemente de la edad, el cuerpo
 tamaño, discapacidad, etnia, características sexuales, identidad y expresión de género,
 nivel de experiencia, educación, condición socioeconómica, nacionalidad, personal
