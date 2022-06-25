@@ -22,7 +22,6 @@ entities:
       - container
       - deprecation
       - usageFeatures
-      - siblings
       - testResults
       - siblings
   - name: dataHubPolicy
