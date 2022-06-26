@@ -11,10 +11,9 @@ try:
         OperationCircuitBreaker,
         OperationCircuitBreakerConfig,
     )
-except Exception as e:
-    if pytest.mark.integration:
-        raise e
-
+# Imports are only available if we are running integrations tests
+except:
+    pass
 lastUpdatedResponseBeforeLastAssertion = {
     "dataset": {"operations": [{"lastUpdatedTimestamp": 1640685600000}]}
 }
