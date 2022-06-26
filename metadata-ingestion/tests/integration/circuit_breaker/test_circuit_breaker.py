@@ -4,12 +4,17 @@ from unittest.mock import patch
 import pytest
 from freezegun import freeze_time
 
-from datahub.api.circuit_breaker import (
-    AssertionCircuitBreaker,
-    AssertionCircuitBreakerConfig,
-    OperationCircuitBreaker,
-    OperationCircuitBreakerConfig,
-)
+
+try:
+    from datahub.api.circuit_breaker import (
+        AssertionCircuitBreaker,
+        AssertionCircuitBreakerConfig,
+        OperationCircuitBreaker,
+        OperationCircuitBreakerConfig,
+    )
+except Exception as e:
+    if pytest.mark.integration:
+        raise e
 
 lastUpdatedResponseBeforeLastAssertion = {
     "dataset": {"operations": [{"lastUpdatedTimestamp": 1640685600000}]}
