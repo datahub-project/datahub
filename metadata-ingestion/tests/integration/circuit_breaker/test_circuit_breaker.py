@@ -4,7 +4,6 @@ from unittest.mock import patch
 import pytest
 from freezegun import freeze_time
 
-
 try:
     from datahub.api.circuit_breaker import (
         AssertionCircuitBreaker,
