@@ -12,7 +12,7 @@ try:
         OperationCircuitBreakerConfig,
     )
 # Imports are only available if we are running integrations tests
-except:
+except ImportError:
     pass
 lastUpdatedResponseBeforeLastAssertion = {
     "dataset": {"operations": [{"lastUpdatedTimestamp": 1640685600000}]}
