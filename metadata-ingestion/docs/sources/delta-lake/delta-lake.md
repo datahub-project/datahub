@@ -58,6 +58,11 @@ datahub ingest -c local_config.yml
 #### On S3
 
 - Create 'aws_creds' config file 
+```
+[my-creds]
+aws_access_key_id: ######
+aws_secret_access_key: ######
+```
 - create delta table ( sample code below) if you dont have already created table
 ```python
 from pyspark.sql import SparkSession
