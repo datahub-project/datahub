@@ -28,8 +28,8 @@ You will be prompted with a login screen, upon which you must supply a username/
 This is typical scenario for a human interacting with DataHub.
 
 DataHub provides 2 methods of authentication:
- - [JaaS Authentication](../how/auth/jaas.md) for simple deployments where authenticated users are part of some known list.
- - [OIDC Authentication](../how/auth/sso/configure-oidc-react.md) to delegate authentication responsibility to third party systems like Okta or Google/Azure Authentication. This is the recommended approach for production systems.
+ - [JaaS Authentication](../../how/auth/jaas.md) for simple deployments where authenticated users are part of some known list.
+ - [OIDC Authentication](../../how/auth/sso/configure-oidc-react.md) to delegate authentication responsibility to third party systems like Okta or Google/Azure Authentication. This is the recommended approach for production systems.
 
 Upon validation of a user's credentials through one of these authentication systems, DataHub will generate a unique token that represents the session and all subsequent requests will be made in that session's behalf.
 
@@ -37,7 +37,7 @@ Upon validation of a user's credentials through one of these authentication syst
 
 The second way in which authentication occurs, is within DataHub's Backend (GMS) when a user makes a request either through the UI or through APIs.
 In this case DataHub makes use of Personal Access Tokens or session HTTP headers to apply actions on behalf of some user.
-To learn more about GMS authentication have a look at our docs on [Introducing Metadata Service Authentication](./introducing-metadata-service-authentication.md).
+To learn more about GMS authentication have a look at our docs on [Introducing Metadata Service Authentication](introducing-metadata-service-authentication.md).
 
 Note, while authentication can happen on both the frontend or backend components of DataHub, they are separate, related processes.
 The first is to authenticate users/services by a third party system (Open-ID connect or Java based authentication) and the latter to only permit identified requests to be accepted by DataHub via access tokens or bearer cookies.
@@ -51,4 +51,4 @@ Once the identity of a user or service has been established, DataHub determines 
 This is done by checking what operation a given user/service wants to perform within DataHub & whether it is allowed to do so.
 The set of operations that are allowed in DataHub are what we call **Policies**.
 
-Policies specify fine-grain access control for _who_ can do _what_ to _which_ resources, for more details on the set of Policies that DataHub provides please see the [Policies Guide](../policies.md).
+Policies specify fine-grain access control for _who_ can do _what_ to _which_ resources, for more details on the set of Policies that DataHub provides please see the [Policies Guide](../../policies.md).

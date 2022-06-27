@@ -9,10 +9,10 @@ granted to the user who generates them.
 
 ## Generating Personal Access Tokens
 
-To generate a personal access token, users must have been granted the "Generate Personal Access Tokens" (GENERATE_PERSONAL_ACCESS_TOKENS) or "Manage All Access Tokens" Privilege via a [DataHub Policy](../policies.md). Once
+To generate a personal access token, users must have been granted the "Generate Personal Access Tokens" (GENERATE_PERSONAL_ACCESS_TOKENS) or "Manage All Access Tokens" Privilege via a [DataHub Policy](../../policies.md). Once
 they have this permission, users can navigate to **'Settings'** > **'Access Tokens'** > **'Generate Personal Access Token'** to generate a token.
 
-![](../imgs/generate-personal-access-token.png)
+![](../../imgs/generate-personal-access-token.png)
 
 The token expiration dictates how long the token will be valid for. We recommend setting the shortest duration possible, as tokens are not currently
 revokable once granted (without changing the signing key).
@@ -37,7 +37,7 @@ or to Metadata Service directly:
 
 Since authorization now happens at the GMS level, this means that ingestion is also protected behind access tokens, to use them simply add a `token` to the sink config property as seen below:
 
-![](../imgs/ingestion-with-token.png)
+![](../../imgs/ingestion-with-token.png)
 
 :::note
 

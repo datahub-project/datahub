@@ -191,7 +191,7 @@ A variety of things can cause an ingestion run to fail. Common reasons for failu
    failures, metadata ingestion will fail. Ensure that the network where DataHub is deployed has access to the data source which
    you are trying to reach. 
    
-4. **Authentication**: If you've enabled [Metadata Service Authentication](security/introducing-metadata-service-authentication.md), you'll need to provide a Personal Access Token 
+4. **Authentication**: If you've enabled [Metadata Service Authentication](security/authentication/introducing-metadata-service-authentication.md), you'll need to provide a Personal Access Token 
     in your Recipe Configuration. To so this, set the 'token' field of the sink configuration to contain a Personal Access Token:
    ![](./imgs/ingestion-with-token.png)
 

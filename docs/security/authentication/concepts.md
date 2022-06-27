@@ -11,7 +11,7 @@ We introduced a few important concepts to the Metadata Service to make authentic
 
 In following sections, we'll take a closer look at each individually.
 
-![](../imgs/metadata-service-auth.png)
+![](../../imgs/metadata-service-auth.png)
 *High level overview of Metadata Service Authentication*
 
 ## What is an Actor?
@@ -112,8 +112,8 @@ Service contain the following claims:
 
 Today, Access Tokens are granted by the Token Service under two scenarios:
 
-1. **UI Login**: When a user logs into the DataHub UI, for example via [JaaS](../how/auth/jaas.md) or
-   [OIDC](../how/auth/sso/configure-oidc-react.md), the `datahub-frontend` service issues an
+1. **UI Login**: When a user logs into the DataHub UI, for example via [JaaS](../../how/auth/jaas.md) or
+   [OIDC](../../how/auth/sso/configure-oidc-react.md), the `datahub-frontend` service issues an
    request to the Metadata Service to generate a SESSION token *on behalf of* of the user logging in. (*Only the frontend service is authorized to perform this action).
 2. **Generating Personal Access Tokens**: When a user requests to generate a Personal Access Token (described below) from the UI.
 
