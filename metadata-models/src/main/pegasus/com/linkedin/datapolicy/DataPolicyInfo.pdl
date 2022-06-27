@@ -1,0 +1,35 @@
+namespace com.linkedin.datapolicy
+
+import com.linkedin.common.Urn
+
+
+/**
+ * Properties associated with a DataPolicy
+ */
+@Aspect = {
+   "name": "dataPolicyInfo"
+}
+
+@Aspect.EntityUrns = [ "com.linkedin.common.DataPolicyUrn" ]
+record DataPolicyInfo {
+  type: DataPolicyType
+
+  /**
+  * For type = "ResourcePrincipalPolicy"; the resourcePrincipalPolicy is required property
+  */
+  @Relationship = {
+    "/resourceRef/resourceUrn": {
+      "name": "AssignedToResource",
+      "entityTypes": [ "dataset" ]
+    }
+  }
+  resourcePrincipalPolicy: optional ResourcePrincipalPolicy
+
+  /**
+   * display name of the group.
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL"
+  }
+  displayName: optional string
+}

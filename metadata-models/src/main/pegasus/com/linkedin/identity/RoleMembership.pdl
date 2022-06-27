@@ -1,0 +1,22 @@
+namespace com.linkedin.identity
+
+import com.linkedin.common.Urn
+
+/**
+ * List of roles granted to a CorpUser or CorpGroup.
+ */
+@Aspect = {
+  "name": "roleMembership"
+}
+record RoleMembership {
+  /**
+  * List of role urn
+  */
+  @Relationship = {
+    "/*": {
+      "name": "IsAssignedRole",
+      "entityTypes": [ "corpRole"]
+    }
+  }
+  roles: array[Urn]
+}

@@ -1,0 +1,19 @@
+@java.class = "com.linkedin.common.urn.DataPolicyUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:security",
+  "entityType" : "dataPolicy",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "DataPolicy",
+  "doc" : "Database data policy",
+  "fields" : [ {
+    "name" : "dataPolicyName",
+    "doc" : "DataPolicy representing database access privileges.",
+    "type" : "string",
+    "maxLength" : 64
+  } ],
+  "maxLength" : 81
+}
+
+typeref DataPolicyUrn = string

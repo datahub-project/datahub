@@ -1,0 +1,35 @@
+namespace com.linkedin.datapolicy
+
+import com.linkedin.common.Urn
+
+/**
+*  DataPolicy Type
+*/
+
+record ResourcePrincipalPolicy {
+  /**
+  * Identity to apply the policy
+  * Possible values are CorpUserUrn or CorpGroupUrn or CorpRoleUrn
+  */
+  @Relationship = {
+      "name": "AssociatedWithPrincipal",
+      "entityTypes": [ "corpuser", "corpGroup", "corpRole" ]
+  }
+  principal: Urn
+
+  /**
+  * Reference to resource on which permission is granted to principal
+  */
+  resourceRef: ResourceReference
+
+  /**
+  * The permission a principal has on the resource referred by resourceRef
+  */
+  permission: string
+
+  /**
+  * true: Access is allowed to the principal for the mentioned resource in resourceRef
+  * false: Access is not allowed to the principal for the mentioned resource in resourceRef
+  */
+  isAllow: boolean
+}

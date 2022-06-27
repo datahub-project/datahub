@@ -1,0 +1,9 @@
+namespace com.linkedin.datapolicy
+
+import com.linkedin.common.Urn
+
+record ResourceReference {
+  type: ResourceIdentifierType
+  resourceUrn: optional Urn
+  special: optional ResourceKeyword
+}

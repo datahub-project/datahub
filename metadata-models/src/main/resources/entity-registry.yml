@@ -87,6 +87,7 @@ entities:
       - corpUserEditableInfo
       - corpUserStatus
       - groupMembership
+      - roleMembership
       - globalTags
       - status
       - corpUserCredentials
@@ -98,6 +99,7 @@ entities:
       - corpGroupEditableInfo
       - globalTags
       - ownership
+      - roleMembership
       - status
   - name: domain
     doc: A data domain within an organization.
@@ -239,4 +241,18 @@ entities:
     keyAspect: inviteTokenKey
     aspects:
       - inviteToken
+  - name: corpRole
+    doc: CorpRole represents a role define in a database.
+    keyAspect: corpRoleKey
+    aspects:
+      - corpRoleInfo
+      - inheritedRole
+      - status
+  - name: dataPolicy
+    doc: DataPolicy of a database.
+    keyAspect: dataPolicyKey
+    aspects:
+      - dataPolicyInfo
+      - status
+
 events:

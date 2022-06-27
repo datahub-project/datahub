@@ -1,0 +1,9 @@
+namespace com.linkedin.datapolicy
+
+/**
+* Type of resource a ResourceReference is referring to
+*/
+enum ResourceIdentifierType {
+  RESOURCE_URN
+  SPECIAL
+}

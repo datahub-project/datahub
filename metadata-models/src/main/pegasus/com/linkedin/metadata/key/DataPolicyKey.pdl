@@ -1,0 +1,39 @@
+namespace com.linkedin.metadata.key
+
+import com.linkedin.common.Urn
+import com.linkedin.common.FabricType
+
+/**
+ * Key for a DataPolicy
+ */
+@Aspect = {
+  "name": "dataPolicyKey"
+}
+record DataPolicyKey {
+  /**
+  * Data platform urn associated with the DataPolicy
+  */
+  platform: Urn
+
+  /**
+  * Unique guid for dataPolicy
+  */
+  @Searchable = {
+    "fieldName": "id"
+    "fieldType": "TEXT_PARTIAL",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  name: string
+
+  /**
+  * Fabric type where dataPolicy belongs to or where it was generated.
+  */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "addToFilters": true,
+    "filterNameOverride": "Environment",
+    "queryByDefault": false
+  }
+  origin: FabricType
+}

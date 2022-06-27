@@ -1,0 +1,17 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a CorpRole
+ */
+@Aspect = {
+  "name": "corpRoleKey"
+}
+record CorpRoleKey {
+  /**
+  * The URL-encoded name of the database role. Serves as a globally unique identifier within DataHub.
+  */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL"
+  }
+  name: string
+}

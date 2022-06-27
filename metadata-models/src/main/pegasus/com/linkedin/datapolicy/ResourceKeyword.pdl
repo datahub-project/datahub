@@ -1,0 +1,7 @@
+namespace com.linkedin.datapolicy
+/**
+ Keyword define for the Special resource
+*/
+enum ResourceKeyword {
+  ALL
+}

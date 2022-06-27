@@ -1,0 +1,29 @@
+namespace com.linkedin.identity
+
+import com.linkedin.common.CorpRoleUrn
+
+/**
+ * Information about a CorpRole ingested from a third party source
+ */
+@Aspect = {
+  "name": "corpRoleInfo"
+}
+@Aspect.EntityUrns = [ "com.linkedin.common.CorpRoleUrn" ]
+record CorpRoleInfo {
+
+  /**
+   * The display name of the role.
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL"
+  }
+  displayName: optional string
+
+  /**
+   * A description of the role.
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL"
+  }
+  description: optional string
+}

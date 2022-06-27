@@ -1,0 +1,25 @@
+namespace com.linkedin.common
+
+/**
+ * Role entity of database
+ */
+
+@java.class = "com.linkedin.common.urn.CorpRoleUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:security",
+  "entityType" : "corpRole",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "CorpRole",
+  "doc" : "An identity",
+  "fields" : [ {
+    "name" : "roleName",
+    "doc" : "The name of database role .",
+    "type" : "string",
+    "maxLength" : 64
+  } ],
+  "maxLength" : 81
+}
+
+typeref CorpRoleUrn = string
