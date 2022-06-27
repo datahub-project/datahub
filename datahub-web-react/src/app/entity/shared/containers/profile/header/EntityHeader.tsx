@@ -192,12 +192,13 @@ export const EntityHeader = ({ refreshBrowser, headerDropdownItems, isNameEditab
                             </DeprecatedContainer>
                         </Popover>
                     )}
-                    {entityData?.health && (
+                    {entityData?.health?.map((health) => (
                         <EntityHealthStatus
-                            status={entityData?.health.status}
-                            message={entityData?.health?.message || undefined}
+                            type={health.type}
+                            status={health.status}
+                            message={health.message || undefined}
                         />
-                    )}
+                    ))}
                 </TitleWrapper>
                 <EntityCount entityCount={entityCount} />
             </MainHeaderContent>

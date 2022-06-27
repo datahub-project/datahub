@@ -928,9 +928,9 @@ type Dataset implements EntityWithRelationships & Entity {
     lineage(input: LineageInput!): EntityLineageResult
 
     """
-    Experimental! The resolved health status of the Dataset
+    Experimental! The resolved health statuses of the Dataset
     """
-    health: Health
+    health: [Health!]
 
     """
     Schema metadata of the dataset
@@ -1119,7 +1119,7 @@ type VersionedDataset implements Entity {
     """
     Experimental! The resolved health status of the Dataset
     """
-    health: Health
+    health: [Health!]
 
     """
     Schema metadata of the dataset
@@ -8203,9 +8203,24 @@ enum HealthStatus {
 }
 
 """
+The type of the health status
+"""
+enum HealthStatusType {
+  """
+  Assertions status
+  """
+  ASSERTIONS
+}
+
+"""
 The resolved Health of an Asset
 """
 type Health {
+  """
+  An enum representing the type of health indicator
+  """
+  type: HealthStatusType!
+
   """
   An enum representing the resolved Health status of an Asset
   """

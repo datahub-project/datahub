@@ -5,11 +5,23 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ## Next
 
 ### Breaking Changes
+- #5240 `lineage_client_project_id` in `bigquery` source is removed. Use `storage_project_id` instead.
 
 ### Potential Downtime
 
 ### Deprecations
 
+### Other notable Changes
+
+## `v0.8.39`
+
+### Breaking Changes
+- Refactored the `health` field of the `Dataset` GraphQL Type to be of type **list of HealthStatus** (was type **HealthStatus**). See [this PR](https://github.com/datahub-project/datahub/pull/5222/files) for more details.
+
+### Potential Downtime
+
+### Deprecations
+- #5208 `GMS_HOST` and `GMS_PORT` environment variables being set in various containers are deprecated in favour of `DATAHUB_GMS_HOST` and `DATAHUB_GMS_PORT`.
 - `KAFKA_TOPIC_NAME` environment variable in **datahub-mae-consumer** and **datahub-gms** is now deprecated. Use `METADATA_AUDIT_EVENT_NAME` instead.
 - `KAFKA_MCE_TOPIC_NAME` environment variable in **datahub-mce-consumer** and **datahub-gms** is now deprecated. Use `METADATA_CHANGE_EVENT_NAME` instead.
 - `KAFKA_FMCE_TOPIC_NAME` environment variable in **datahub-mce-consumer** and **datahub-gms** is now deprecated. Use `FAILED_METADATA_CHANGE_EVENT_NAME` instead.

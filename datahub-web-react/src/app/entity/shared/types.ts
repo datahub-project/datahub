@@ -79,7 +79,7 @@ export type GenericEntityProperties = {
     subTypes?: Maybe<SubTypes>;
     entityCount?: number;
     container?: Maybe<Container>;
-    health?: Maybe<Health>;
+    health?: Maybe<Array<Health>>;
     status?: Maybe<Status>;
     deprecation?: Maybe<Deprecation>;
     parentContainers?: Maybe<ParentContainersResult>;
