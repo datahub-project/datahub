@@ -731,6 +731,7 @@ class DatahubGEProfiler:
         requests: List[GEProfilerRequest],
         max_workers: int,
         platform: Optional[str] = None,
+        profiler_args: Optional[Dict] = None,
     ) -> Iterable[Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]]:
         with PerfTimer() as timer, concurrent.futures.ThreadPoolExecutor(
             max_workers=max_workers
@@ -758,6 +759,7 @@ class DatahubGEProfiler:
                             query_combiner,
                             request,
                             platform=platform,
+                            profiler_args=profiler_args,
                         )
                         for request in requests
                     ]
@@ -817,11 +819,13 @@ class DatahubGEProfiler:
         query_combiner: SQLAlchemyQueryCombiner,
         request: GEProfilerRequest,
         platform: Optional[str] = None,
+        profiler_args: Optional[Dict] = None,
     ) -> Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]:
         return request, self._generate_single_profile(
             query_combiner=query_combiner,
             pretty_name=request.pretty_name,
             platform=platform,
+            profiler_args=profiler_args,
             **request.batch_kwargs,
         )
 
@@ -844,8 +848,12 @@ class DatahubGEProfiler:
         partition: Optional[str] = None,
         custom_sql: Optional[str] = None,
         platform: Optional[str] = None,
+        profiler_args: Optional[Dict] = None,
         **kwargs: Any,
     ) -> Optional[DatasetProfileClass]:
+        logger.debug(
+            f"Received single profile request for {pretty_name} for {schema}, {table}, {custom_sql}"
+        )
         bigquery_temp_table: Optional[str] = None
 
         ge_config = {
@@ -858,16 +866,19 @@ class DatahubGEProfiler:
 
         # We have to create temporary tables if offset or limit or custom sql is set on Bigquery
         if custom_sql or self.config.limit or self.config.offset:
+            if profiler_args is not None:
+                temp_table_db = profiler_args.get("temp_table_db", schema)
+                if platform is not None and platform == "bigquery":
+                    ge_config["schema"] = temp_table_db
+
             if self.config.bigquery_temp_table_schema:
-                bigquery_temp_table = (
-                    f"{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
-                )
+                bigquery_temp_table = f"{temp_table_db}.{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
             else:
                 assert table
                 table_parts = table.split(".")
                 if len(table_parts) == 2:
                     bigquery_temp_table = (
-                        f"{schema}.{table_parts[0]}.ge-temp-{uuid.uuid4()}"
+                        f"{temp_table_db}.{table_parts[0]}.ge-temp-{uuid.uuid4()}"
                     )
 
             # With this pr there is no option anymore to set the bigquery temp table:
@@ -941,6 +952,7 @@ class DatahubGEProfiler:
         #     },
         # )
 
+        logger.debug(f"Got pretty_name={pretty_name}, kwargs={batch_kwargs}")
         expectation_suite_name = ge_context.datasource_name + "." + pretty_name
 
         ge_context.data_context.create_expectation_suite(
@@ -955,4 +967,15 @@ class DatahubGEProfiler:
                 **batch_kwargs,
             },
         )
+        if platform is not None and platform == "bigquery":
+            # This is done as GE makes the name as DATASET.TABLE
+            # but we want it to be PROJECT.DATASET.TABLE instead for multi-project setups
+            logger.debug(f"Setting table name to be {pretty_name}")
+            batch._table = sa.text(pretty_name)
+            name_parts = pretty_name.split(".")
+            if len(name_parts) != 3:
+                logger.error(
+                    f"Unexpected {pretty_name} while profiling. Should have 3 parts but has {len(name_parts)} parts."
+                )
+
         return batch

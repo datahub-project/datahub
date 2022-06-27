@@ -87,7 +87,7 @@ that occurred at a particular time, for example profiling of a Dataset.
 
 ### Emission
 
-MCPs are emitted when *any* change is made to an entity on the DataHub Metadata Graph, this includes
+MCLs are emitted when *any* change is made to an entity on the DataHub Metadata Graph, this includes
 writing to any aspect of an entity. 
 
 Two distinct topics are maintained for Metadata Change Log. The default Kafka topic name for **versioned** aspects is `MetadataChangeLog_Versioned_v1` and for

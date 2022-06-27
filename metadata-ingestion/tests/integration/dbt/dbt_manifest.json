@@ -2983,6 +2983,7 @@
         "name": "sha256"
       },
       "meta": {
+        "owner": "@alice2",
         "business_owner": "jdoe.last@gmail.com",
         "data_governance.team_owner": "Finance",
         "has_pii": true,
@@ -3008,10 +3009,7 @@
         "quoting": {},
         "schema": null,
         "tags": [],
-        "vars": {},
-        "meta": {
-          "owner": "@alice2"
-        }
+        "vars": {}
       },
       "database": "pagila",
       "deferred": false,
@@ -3059,7 +3057,9 @@
           "city"
         ]
       ],
-      "tags": [ "test_tag" ],
+      "tags": [
+        "test_tag"
+      ],
       "unique_id": "model.sample_dbt.customer_details",
       "unrendered_config": {
         "materialized": "ephemeral"
@@ -3360,7 +3360,9 @@
           "meta": {},
           "name": "first_name",
           "quote": null,
-          "tags": ["column_tag"]
+          "tags": [
+            "column_tag"
+          ]
         },
         "last_name": {
           "data_type": null,

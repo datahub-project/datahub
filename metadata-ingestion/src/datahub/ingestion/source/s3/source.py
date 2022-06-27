@@ -60,13 +60,14 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.path_spec import PathSpec
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
     get_key_prefix,
     strip_s3_prefix,
 )
-from datahub.ingestion.source.s3.config import DataLakeSourceConfig, PathSpec
+from datahub.ingestion.source.s3.config import DataLakeSourceConfig
 from datahub.ingestion.source.s3.profiling import _SingleTableProfiler
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
@@ -474,7 +475,8 @@ class S3Source(Source):
 
         extension = pathlib.Path(table_data.full_path).suffix
         if path_spec.enable_compression and (
-            extension[1:] in datahub.ingestion.source.s3.config.SUPPORTED_COMPRESSIONS
+            extension[1:]
+            in datahub.ingestion.source.aws.path_spec.SUPPORTED_COMPRESSIONS
         ):
             # Removing the compression extension and using the one before that like .json.gz -> .json
             extension = pathlib.Path(table_data.full_path).with_suffix("").suffix
@@ -756,35 +758,18 @@ class S3Source(Source):
     ) -> TableData:
 
         logger.debug(f"Getting table data for path: {path}")
-        parsed_vars = path_spec.get_named_vars(path)
+        table_name, table_path = path_spec.extract_table_name_and_path(path)
         table_data = None
-        if parsed_vars is None or "table" not in parsed_vars.named:
-            table_data = TableData(
-                display_name=os.path.basename(path),
-                is_s3=path_spec.is_s3(),
-                full_path=path,
-                partitions=None,
-                timestamp=timestamp,
-                table_path=path,
-                number_of_files=1,
-                size_in_bytes=size,
-            )
-        else:
-            include = path_spec.include
-            depth = include.count("/", 0, include.find("{table}"))
-            table_path = (
-                "/".join(path.split("/")[:depth]) + "/" + parsed_vars.named["table"]
-            )
-            table_data = TableData(
-                display_name=self.extract_table_name(path_spec, parsed_vars.named),
-                is_s3=path_spec.is_s3(),
-                full_path=path,
-                partitions=None,
-                timestamp=timestamp,
-                table_path=table_path,
-                number_of_files=1,
-                size_in_bytes=size,
-            )
+        table_data = TableData(
+            display_name=table_name,
+            is_s3=path_spec.is_s3(),
+            full_path=path,
+            partitions=None,
+            timestamp=timestamp,
+            table_path=table_path,
+            number_of_files=1,
+            size_in_bytes=size,
+        )
         return table_data
 
     def resolve_templated_folders(self, bucket_name: str, prefix: str) -> Iterable[str]:
