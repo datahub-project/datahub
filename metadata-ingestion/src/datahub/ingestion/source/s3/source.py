@@ -38,17 +38,8 @@ import datahub.ingestion.source.s3.config
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
-    make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import (
-    FolderKey,
-    KeyType,
-    PlatformKey,
-    S3BucketKey,
-    add_dataset_to_container,
-    gen_containers,
-)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -60,14 +51,16 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.path_spec import PathSpec
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
     get_key_prefix,
+    get_s3_tags,
+    list_folders,
     strip_s3_prefix,
 )
-from datahub.ingestion.source.s3.config import DataLakeSourceConfig
+from datahub.ingestion.source.data_lake.data_lake_utils import ContainerWUCreator
+from datahub.ingestion.source.s3.config import DataLakeSourceConfig, PathSpec
 from datahub.ingestion.source.s3.profiling import _SingleTableProfiler
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
@@ -88,10 +81,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetPropertiesClass,
-    GlobalTagsClass,
     MapTypeClass,
     OtherSchemaClass,
-    TagAssociationClass,
 )
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
@@ -230,7 +221,7 @@ class S3Source(Source):
     source_config: DataLakeSourceConfig
     report: DataLakeSourceReport
     profiling_times_taken: List[float]
-    processed_containers: List[str]
+    container_WU_creator: ContainerWUCreator
 
     def __init__(self, config: DataLakeSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
@@ -382,80 +373,6 @@ class S3Source(Source):
         # replace periods in names because they break PyDeequ
         # see https://mungingdata.com/pyspark/avoid-dots-periods-column-names/
         return df.toDF(*(c.replace(".", "_") for c in df.columns))
-
-    def create_emit_containers(
-        self,
-        container_key: KeyType,
-        name: str,
-        sub_types: List[str],
-        parent_container_key: Optional[PlatformKey] = None,
-        domain_urn: Optional[str] = None,
-    ) -> Iterable[MetadataWorkUnit]:
-        if container_key.guid() not in self.processed_containers:
-            container_wus = gen_containers(
-                container_key=container_key,
-                name=name,
-                sub_types=sub_types,
-                parent_container_key=parent_container_key,
-                domain_urn=domain_urn,
-            )
-            self.processed_containers.append(container_key.guid())
-            logger.debug(f"Creating container with key: {container_key}")
-            for wu in container_wus:
-                self.report.report_workunit(wu)
-                yield wu
-
-    def create_container_hierarchy(
-        self, table_data: TableData, dataset_urn: str
-    ) -> Iterable[MetadataWorkUnit]:
-        logger.debug(f"Creating containers for {dataset_urn}")
-        base_full_path = table_data.table_path
-        parent_key = None
-        if table_data.is_s3:
-            bucket_name = get_bucket_name(table_data.table_path)
-            bucket_key = self.gen_bucket_key(bucket_name)
-            yield from self.create_emit_containers(
-                container_key=bucket_key,
-                name=bucket_name,
-                sub_types=["S3 bucket"],
-                parent_container_key=None,
-            )
-            parent_key = bucket_key
-            base_full_path = get_bucket_relative_path(table_data.table_path)
-
-        parent_folder_path = (
-            base_full_path[: base_full_path.rfind("/")]
-            if base_full_path.rfind("/") != -1
-            else ""
-        )
-
-        # Dataset is in the root folder
-        if not parent_folder_path and parent_key is None:
-            logger.warning(
-                f"Failed to associate Dataset ({dataset_urn}) with container"
-            )
-            return
-
-        for folder in parent_folder_path.split("/"):
-            abs_path = folder
-            if parent_key:
-                prefix: str = ""
-                if isinstance(parent_key, S3BucketKey):
-                    prefix = parent_key.bucket_name
-                elif isinstance(parent_key, FolderKey):
-                    prefix = parent_key.folder_abs_path
-                abs_path = prefix + "/" + folder
-            folder_key = self.gen_folder_key(abs_path)
-            yield from self.create_emit_containers(
-                container_key=folder_key,
-                name=folder,
-                sub_types=["Folder"],
-                parent_container_key=parent_key,
-            )
-            parent_key = folder_key
-
-        assert parent_key is not None
-        yield from add_dataset_to_container(parent_key, dataset_urn)
 
     def get_fields(self, table_data: TableData, path_spec: PathSpec) -> List:
         if table_data.is_s3:
@@ -650,7 +567,15 @@ class S3Source(Source):
                 if table_data.full_path == table_data.table_path
                 else None
             )
-            s3_tags = self.get_s3_tags(bucket, key_prefix, dataset_urn)
+            s3_tags = get_s3_tags(
+                bucket,
+                key_prefix,
+                dataset_urn,
+                self.source_config.aws_config,
+                self.ctx,
+                self.source_config.use_s3_bucket_tags,
+                self.source_config.use_s3_object_tags,
+            )
             if s3_tags is not None:
                 dataset_snapshot.aspects.append(s3_tags)
 
@@ -659,87 +584,15 @@ class S3Source(Source):
         self.report.report_workunit(wu)
         yield wu
 
-        yield from self.create_container_hierarchy(table_data, dataset_urn)
+        container_wus = self.container_WU_creator.create_container_hierarchy(
+            table_data.table_path, table_data.is_s3, dataset_urn
+        )
+        for wu in container_wus:
+            self.report.report_workunit(wu)
+            yield wu
 
         if self.source_config.profiling.enabled:
             yield from self.get_table_profile(table_data, dataset_urn)
-
-    def gen_bucket_key(self, name):
-        return S3BucketKey(
-            platform="s3",
-            instance=self.source_config.env
-            if self.source_config.platform_instance is None
-            else self.source_config.platform_instance,
-            bucket_name=name,
-        )
-
-    def get_s3_tags(
-        self, bucket_name: str, key_name: Optional[str], dataset_urn: str
-    ) -> Optional[GlobalTagsClass]:
-        if self.source_config.aws_config is None:
-            raise ValueError("aws_config not set. Cannot browse s3")
-        new_tags = GlobalTagsClass(tags=[])
-        tags_to_add = []
-        if self.source_config.use_s3_bucket_tags:
-            s3 = self.source_config.aws_config.get_s3_resource()
-            bucket = s3.Bucket(bucket_name)
-            try:
-                tags_to_add.extend(
-                    [
-                        make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
-                        for tag in bucket.Tagging().tag_set
-                    ]
-                )
-            except s3.meta.client.exceptions.ClientError:
-                logger.warn(f"No tags found for bucket={bucket_name}")
-
-        if self.source_config.use_s3_object_tags and key_name is not None:
-            s3_client = self.source_config.aws_config.get_s3_client()
-            object_tagging = s3_client.get_object_tagging(
-                Bucket=bucket_name, Key=key_name
-            )
-            tag_set = object_tagging["TagSet"]
-            if tag_set:
-                tags_to_add.extend(
-                    [
-                        make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
-                        for tag in tag_set
-                    ]
-                )
-            else:
-                # Unlike bucket tags, if an object does not have tags, it will just return an empty array
-                # as opposed to an exception.
-                logger.warn(f"No tags found for bucket={bucket_name} key={key_name}")
-        if len(tags_to_add) == 0:
-            return None
-        if self.ctx.graph is not None:
-            logger.debug("Connected to DatahubApi, grabbing current tags to maintain.")
-            current_tags: Optional[GlobalTagsClass] = self.ctx.graph.get_aspect_v2(
-                entity_urn=dataset_urn,
-                aspect="globalTags",
-                aspect_type=GlobalTagsClass,
-            )
-            if current_tags:
-                tags_to_add.extend(
-                    [current_tag.tag for current_tag in current_tags.tags]
-                )
-        else:
-            logger.warn("Could not connect to DatahubApi. No current tags to maintain")
-        # Remove duplicate tags
-        tags_to_add = list(set(tags_to_add))
-        new_tags = GlobalTagsClass(
-            tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
-        )
-        return new_tags
-
-    def gen_folder_key(self, abs_path):
-        return FolderKey(
-            platform=self.source_config.platform,
-            instance=self.source_config.env
-            if self.source_config.platform_instance is None
-            else self.source_config.platform_instance,
-            folder_abs_path=abs_path,
-        )
 
     def get_prefix(self, relative_path: str) -> str:
         index = re.search(r"[\*|\{]", relative_path)
@@ -779,24 +632,13 @@ class S3Source(Source):
             yield prefix
             return
 
-        folders: Iterable[str] = self.list_folders(bucket_name, folder_split[0])
+        folders: Iterable[str] = list_folders(
+            bucket_name, folder_split[0], self.source_config.aws_config
+        )
         for folder in folders:
             yield from self.resolve_templated_folders(
                 bucket_name, f"{folder}{folder_split[1]}"
             )
-
-    def list_folders(self, bucket_name: str, prefix: str) -> Iterable[str]:
-        assert self.source_config.aws_config
-        s3_client = self.source_config.aws_config.get_s3_client()
-        paginator = s3_client.get_paginator("list_objects_v2")
-        for page in paginator.paginate(
-            Bucket=bucket_name, Prefix=prefix, Delimiter="/"
-        ):
-            for o in page.get("CommonPrefixes", []):
-                folder: str = str(o.get("Prefix"))
-                if folder.endswith("/"):
-                    folder = folder[:-1]
-                yield f"{folder}"
 
     def s3_browser(self, path_spec: PathSpec) -> Iterable[Tuple[str, datetime, int]]:
         if self.source_config.aws_config is None:
@@ -833,7 +675,9 @@ class S3Source(Source):
             for folder in self.resolve_templated_folders(
                 bucket_name, get_bucket_relative_path(include[:table_index])
             ):
-                for f in self.list_folders(bucket_name, f"{folder}"):
+                for f in list_folders(
+                    bucket_name, f"{folder}", self.source_config.aws_config
+                ):
                     logger.info(f"Processing folder: {f}")
 
                     for obj in (
@@ -871,7 +715,11 @@ class S3Source(Source):
                     ), os.path.getsize(full_path)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        self.processed_containers = []
+        self.container_WU_creator = ContainerWUCreator(
+            self.source_config.platform,
+            self.source_config.platform_instance,
+            self.source_config.env,
+        )
         with PerfTimer() as timer:
             assert self.source_config.path_specs
             for path_spec in self.source_config.path_specs:
