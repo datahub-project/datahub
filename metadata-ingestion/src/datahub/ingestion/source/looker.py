@@ -301,6 +301,8 @@ class LookerDashboard:
     is_hidden: bool = False
     owner: Optional[LookerUser] = None
     strip_user_ids_from_email: Optional[bool] = True
+    last_updated_at: Optional[datetime.datetime] = None
+    last_updated_by: Optional[LookerUser] = None
 
     def url(self, base_url):
         # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
@@ -712,7 +714,7 @@ class LookerDashboardSource(Source):
             description=looker_dashboard.description or "",
             title=looker_dashboard.title,
             charts=[mce.proposedSnapshot.urn for mce in chart_mces],
-            lastModified=ChangeAuditStamps(),
+            lastModified=self._get_change_audit_stamps(looker_dashboard),
             dashboardUrl=looker_dashboard.url(self.source_config.external_base_url),
         )
 
@@ -751,6 +753,32 @@ class LookerDashboardSource(Source):
                 )
                 return ownership
         return None
+
+    def _get_change_audit_stamps(
+        self, looker_dashboard: LookerDashboard
+    ) -> ChangeAuditStamps:
+        change_audit_stamp: ChangeAuditStamps = ChangeAuditStamps()
+        if looker_dashboard.created_at is not None:
+            change_audit_stamp.created.time = round(
+                looker_dashboard.created_at.timestamp() * 1000
+            )
+        if looker_dashboard.last_updated_at is not None:
+            change_audit_stamp.lastModified.time = round(
+                looker_dashboard.last_updated_at.timestamp() * 1000
+            )
+        if looker_dashboard.last_updated_by is not None:
+            updated_by_urn = looker_dashboard.last_updated_by._get_urn(
+                self.source_config.strip_user_ids_from_email
+            )
+            if updated_by_urn:
+                change_audit_stamp.lastModified.actor = updated_by_urn
+        if looker_dashboard.owner is not None:
+            owner_urn = looker_dashboard.owner._get_urn(
+                self.source_config.strip_user_ids_from_email
+            )
+            if owner_urn:
+                change_audit_stamp.created.actor = owner_urn
+        return change_audit_stamp
 
     folder_path_cache: Dict[str, str] = {}
 
@@ -817,6 +845,24 @@ class LookerDashboardSource(Source):
             if dashboard_owner.email is None:
                 self.email_ids_missing += 1
 
+        dashboard_updated_by = (
+            self.user_registry.get_by_id(
+                dashboard.last_updater_id,
+                self.source_config.transport_options.get_transport_options()
+                if self.source_config.transport_options is not None
+                else None,
+            )
+            if self.source_config.extract_owners
+            and dashboard.last_updater_id is not None
+            else None
+        )
+
+        if dashboard_updated_by is not None and self.source_config.extract_owners:
+            # Keep track of how many user ids we were able to resolve
+            self.resolved_user_ids += 1
+            if dashboard_updated_by.email is None:
+                self.email_ids_missing += 1
+
         looker_dashboard = LookerDashboard(
             id=dashboard.id,
             title=dashboard.title,
@@ -828,6 +874,8 @@ class LookerDashboardSource(Source):
             folder_path=dashboard_folder_path,
             owner=dashboard_owner,
             strip_user_ids_from_email=self.source_config.strip_user_ids_from_email,
+            last_updated_at=dashboard.updated_at,
+            last_updated_by=dashboard_updated_by,
         )
         return looker_dashboard
 
@@ -850,8 +898,11 @@ class LookerDashboardSource(Source):
                 "description",
                 "folder",
                 "user_id",
+                "created_at",
+                "updated_at",
+                "last_updater_id",
             ]
-            dashboard_object = self.client.dashboard(
+            dashboard_object: Dashboard = self.client.dashboard(
                 dashboard_id=dashboard_id,
                 fields=",".join(fields),
                 transport_options=self.source_config.transport_options.get_transport_options()
