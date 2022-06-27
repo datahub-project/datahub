@@ -74,13 +74,13 @@ To add users to your deployment to share with your team check out our [Adding Us
 
 ### Enable Authentication 
 
-To enable SSO, check out [Configuring OIDC Authentication](./how/auth/sso/configure-oidc-react) or [Configuring JaaS Authentication](./how/auth/jaas). 
+To enable SSO, check out [Configuring OIDC Authentication](./how/auth/sso/configure-oidc-react.md) or [Configuring JaaS Authentication](./how/auth/jaas.md). 
 
 To enable backend Authentication, check out [authentication in DataHub's backend](./introducing-metadata-service-authentication.md#Configuring Metadata Service Authentication). 
 
 ### Move to Production
 
-We recommend deploying DataHub to production using Kubernetes. We provide helpful [Helm Charts](https://artifacthub.io/packages/helm/datahub/datahub) to help you quickly get up and running. Check out [Deploying DataHub to Kubernetes](./deploy/kubernetes) for a step-by-step walkthrough. 
+We recommend deploying DataHub to production using Kubernetes. We provide helpful [Helm Charts](https://artifacthub.io/packages/helm/datahub/datahub) to help you quickly get up and running. Check out [Deploying DataHub to Kubernetes](./deploy/kubernetes.md) for a step-by-step walkthrough. 
 
 ## Resetting DataHub
 
