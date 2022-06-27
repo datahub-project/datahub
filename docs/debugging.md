@@ -205,3 +205,12 @@ You'll need to ingest some metadata of the following form to see it inside the D
   "proposedDelta": null
 }
 ```
+
+## The datahub page just keeps refreshing after enabling OIDC
+It could be due to the cookie returned from Pac4j was more than 4096 bytes.
+One possible solution is to use Play Cache to store these data instead. 
+To enable Play Cache, you can set your env variable "PAC4J_SESSIONSTORE_PROVIDER" as "PlayCacheSessionStore"
+
+However, there is downside for using Play Cache. This means that datahub frontend container will no longer remain as a stateless service.
+For more details, please refer to https://github.com/datahub-project/datahub/pull/5114
+
