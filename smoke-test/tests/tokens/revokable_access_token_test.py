@@ -201,6 +201,38 @@ def test_admin_can_create_and_revoke_tokens_for_other_user(wait_for_healthchecks
 def test_non_admin_can_create_list_revoke_tokens(wait_for_healthchecks):
     user_session = loginAs("user", "user")
 
+    json = {
+        "query": """query me {\n
+            me {\n
+                corpUser {\n
+                  urn\n
+                  username\n
+                  editableInfo {\n
+                      pictureLink\n
+                  }\n
+                  info {\n
+                      firstName\n
+                      fullName\n
+                      title\n
+                      email\n
+                  }\n
+                }\n
+                platformPrivileges {\n
+                  viewAnalytics
+                  managePolicies
+                  manageIdentities
+                  manageUserCredentials
+                  generatePersonalAccessTokens
+                }\n
+            }\n
+        }"""
+    }
+
+    response = user_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+    print(res_data)
+
     # Normal user should be able to generate token for himself.
     res_data = generateAccessToken_v2(user_session, "urn:li:corpuser:user")
     assert res_data
@@ -248,7 +280,41 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     # Normal user should be able to generate token for himself.
     admin_session.cookies.clear()
     user_session = loginAs("user", "user")
+
+    json = {
+        "query": """query me {\n
+            me {\n
+                corpUser {\n
+                  urn\n
+                  username\n
+                  editableInfo {\n
+                      pictureLink\n
+                  }\n
+                  info {\n
+                      firstName\n
+                      fullName\n
+                      title\n
+                      email\n
+                  }\n
+                }\n
+                platformPrivileges {\n
+                  viewAnalytics
+                  managePolicies
+                  manageIdentities
+                  manageUserCredentials
+                  generatePersonalAccessTokens
+                }\n
+            }\n
+        }"""
+    }
+
+    response = user_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+    print(res_data)
+
     res_data = generateAccessToken_v2(user_session, "urn:li:corpuser:user")
+    print(res_data)
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["createAccessToken"]
