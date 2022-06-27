@@ -337,6 +337,11 @@ class BigQuerySource(SQLAlchemySource):
     def get_db_name(
         self, inspector: Inspector = None, for_sql_queries: bool = True
     ) -> str:
+        """
+        for_sql_queries - Used mainly for multi-project setups with different permissions
+            - should be set to True if this is to be used to run sql queries
+            - should be set to False if this is to inspect contents and not run sql queries
+        """
         if for_sql_queries and self.config.storage_project_id:
             return self.config.storage_project_id
         elif self.config.project_id:
