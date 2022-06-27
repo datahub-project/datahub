@@ -1,0 +1,4 @@
+{"commitInfo":{"timestamp":1655831649166,"operation":"WRITE","operationParameters":{},"isolationLevel":"Serializable","isBlindAppend":true,"operationMetrics":{},"engineInfo":"local Delta-Standalone/0.4.0"}}
+{"protocol":{"minReaderVersion":1,"minWriterVersion":2}}
+{"metaData":{"id":"de711767-c7b9-4c33-99d7-510978dc1fa5","format":{"provider":"parquet","options":{}},"schemaString":"{\"type\":\"struct\",\"fields\":[{\"name\":\"foo\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}},{\"name\":\"bar\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}},{\"name\":\"zip\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}]}","partitionColumns":["foo","bar"],"configuration":{},"createdTime":1655831648843}}
+{"add":{"path":"0","partitionValues":{"bar":"0","foo":"0"},"size":100,"modificationTime":1655831649141,"dataChange":true,"tags":{"someTagKey":"someTagVal"}}}
