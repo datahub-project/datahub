@@ -13,6 +13,7 @@
                             "table_creation_time": "1655831476360",
                             "id": "628d06df-ecb0-4314-a97e-75d8872db7c3",
                             "version": "4",
+                            "location": "tests/integration/delta_lake/test_data/delta_tables/my_table_basic/",
                             "operation": "WRITE",
                             "operationParameters": "{}",
                             "readVersion": "3",
@@ -38,14 +39,12 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "deleted": null,
                         "dataset": null,

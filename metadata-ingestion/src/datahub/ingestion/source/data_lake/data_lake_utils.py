@@ -15,6 +15,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
+    is_s3_uri,
 )
 
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -70,7 +71,7 @@ class ContainerWUCreator:
         logger.debug(f"Creating containers for {dataset_urn}")
         base_full_path = path
         parent_key = None
-        if is_s3:
+        if is_s3_uri(path):
             bucket_name = get_bucket_name(path)
             bucket_key = self.gen_bucket_key(bucket_name)
             yield from self.create_emit_containers(

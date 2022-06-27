@@ -13,6 +13,7 @@
                             "table_creation_time": "1655831648843",
                             "id": "de711767-c7b9-4c33-99d7-510978dc1fa5",
                             "version": "4",
+                            "location": "tests/integration/delta_lake/test_data/delta_tables",
                             "operation": "WRITE",
                             "operationParameters": "{}",
                             "readVersion": "3",
@@ -38,14 +39,12 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -529,6 +528,7 @@
                             "table_creation_time": "1655664813952",
                             "id": "eca9d2a0-4ce6-4ace-a732-75fda0157fb8",
                             "version": "0",
+                            "location": "tests/integration/delta_lake/test_data/delta_tables",
                             "operation": "CONVERT",
                             "operationParameters": "{}",
                             "isolationLevel": "Serializable",
@@ -553,14 +553,12 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -743,6 +741,7 @@
                             "table_creation_time": "1655831476360",
                             "id": "628d06df-ecb0-4314-a97e-75d8872db7c3",
                             "version": "4",
+                            "location": "tests/integration/delta_lake/test_data/delta_tables",
                             "operation": "WRITE",
                             "operationParameters": "{}",
                             "readVersion": "3",
@@ -768,14 +767,12 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "deleted": null,
                         "dataset": null,
@@ -898,6 +895,7 @@
                             "table_creation_time": "1655831864836",
                             "id": "3775a0fd-4f58-4dea-b71a-e3fedb10f5b4",
                             "version": "4",
+                            "location": "tests/integration/delta_lake/test_data/delta_tables",
                             "operation": "WRITE",
                             "operationParameters": "{}",
                             "readVersion": "3",
@@ -923,14 +921,12 @@
                         "created": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null,
-                            "message": null
+                            "impersonator": null
                         },
                         "deleted": null,
                         "dataset": null,

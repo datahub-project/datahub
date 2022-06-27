@@ -6,6 +6,7 @@ from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
+    ConfigModel,
     EnvBasedSourceConfigBase,
     PlatformSourceConfigBase,
 )
@@ -17,7 +18,24 @@ logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+class S3(ConfigModel):
+    aws_config: AwsSourceConfig = Field(default=None, description="AWS configuration")
+
+    # Whether or not to create in datahub from the s3 bucket
+    use_s3_bucket_tags: Optional[bool] = Field(
+        False, description="Whether or not to create tags in datahub from the s3 bucket"
+    )
+    # Whether or not to create in datahub from the s3 object
+    use_s3_object_tags: Optional[bool] = Field(
+        False,
+        description="# Whether or not to create tags in datahub from the s3 object",
+    )
+
+
 class DeltaLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
+    class Config:
+        arbitrary_types_allowed = True
+
     base_path: str = Field(
         description="Path to table (s3 or local file system). If path is not a delta table path "
         "then all subfolders will be scanned to detect and ingest delta tables."
@@ -41,19 +59,8 @@ class DeltaLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for tables to filter in ingestion.",
     )
-    aws_config: Optional[AwsSourceConfig] = Field(
-        default=None, description="AWS configuration"
-    )
 
-    # Whether or not to create in datahub from the s3 bucket
-    use_s3_bucket_tags: Optional[bool] = Field(
-        False, description="Whether or not to create tags in datahub from the s3 bucket"
-    )
-    # Whether or not to create in datahub from the s3 object
-    use_s3_object_tags: Optional[bool] = Field(
-        False,
-        description="# Whether or not to create tags in datahub from the s3 object",
-    )
+    s3: Optional[S3] = Field()
 
     # to be set internally
     _is_s3: bool
@@ -68,8 +75,9 @@ class DeltaLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
     @pydantic.root_validator()
     def validate_config(cls, values: Dict) -> Dict[str, Any]:
         values["_is_s3"] = is_s3_uri(values["base_path"])
-        if values["_is_s3"] and values["aws_config"] is None:
-            raise ValueError("AWS config must be set for s3 path")
+        if values["_is_s3"]:
+            if values["s3"] is None:
+                raise ValueError("s3 config must be set for s3 path")
         values["_complete_path"] = values["base_path"]
         if values["relative_path"] is not None:
             values[

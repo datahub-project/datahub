@@ -166,6 +166,7 @@ class DeltaLakeSource(Source):
             "table_creation_time": str(delta_table.metadata().created_time),
             "id": str(delta_table.metadata().id),
             "version": str(delta_table.version()),
+            "location": self.source_config.get_complete_path(),
         }
         customProperties.update(delta_table.history()[-1])
         customProperties["version_creation_time"] = customProperties["timestamp"]
@@ -191,9 +192,13 @@ class DeltaLakeSource(Source):
         )
         dataset_snapshot.aspects.append(schema_metadata)
 
-        if self.source_config.is_s3() and (
-            self.source_config.use_s3_bucket_tags
-            or self.source_config.use_s3_object_tags
+        if (
+            self.source_config.is_s3()
+            and self.source_config.s3
+            and (
+                self.source_config.s3.use_s3_bucket_tags
+                or self.source_config.s3.use_s3_object_tags
+            )
         ):
             bucket = get_bucket_name(path)
             key_prefix = get_key_prefix(path)
@@ -201,10 +206,10 @@ class DeltaLakeSource(Source):
                 bucket,
                 key_prefix,
                 dataset_urn,
-                self.source_config.aws_config,
+                self.source_config.s3.aws_config,
                 self.ctx,
-                self.source_config.use_s3_bucket_tags,
-                self.source_config.use_s3_object_tags,
+                self.source_config.s3.use_s3_bucket_tags,
+                self.source_config.s3.use_s3_object_tags,
             )
             if s3_tags is not None:
                 dataset_snapshot.aspects.append(s3_tags)
@@ -234,7 +239,8 @@ class DeltaLakeSource(Source):
                 yield from self.process_folder(path + "/" + folder, get_folders)
 
     def s3_get_folders(self, path: str) -> Iterable[str]:
-        yield from list_folders_path(path, self.source_config.aws_config)
+        if self.source_config.s3 is not None:
+            yield from list_folders_path(path, self.source_config.s3.aws_config)
 
     def local_get_folders(self, path: str) -> Iterable[str]:
         if not os.path.isdir(path):
