@@ -70,6 +70,7 @@ function GlossarySearch() {
                     initialQuery={query || ''}
                     placeholderText="Search Glossary"
                     suggestions={[]}
+                    hideRecommendations
                     style={{
                         padding: 12,
                         paddingBottom: 5,

@@ -24,6 +24,7 @@ import { EntityMenuItems } from '../../EntityDropdown/EntityDropdown';
 import GlossaryBrowser from '../../../../glossary/GlossaryBrowser/GlossaryBrowser';
 import GlossarySearch from '../../../../glossary/GlossarySearch';
 import { BrowserWrapper, MAX_BROWSER_WIDTH, MIN_BROWSWER_WIDTH } from '../../../../glossary/BusinessGlossaryPage';
+import { combineEntityDataWithSiblings } from '../../siblingUtils';
 
 type Props<T, U> = {
     urn: string;
@@ -63,7 +64,6 @@ const ContentContainer = styled.div`
 const HeaderAndTabs = styled.div`
     flex-grow: 1;
     min-width: 640px;
-    height: 100%;
 `;
 
 const HeaderAndTabsFlex = styled.div`
@@ -177,9 +177,16 @@ export const EntityProfile = <T, U>({
         [history, entityType, urn, entityRegistry],
     );
 
-    const { loading, error, data, refetch } = useEntityQuery({
+    const {
+        loading,
+        error,
+        data: dataNotCombinedWithSiblings,
+        refetch,
+    } = useEntityQuery({
         variables: { urn },
     });
+
+    const dataCombinedWithSiblings = combineEntityDataWithSiblings(dataNotCombinedWithSiblings);
 
     const maybeUpdateEntity = useUpdateQuery?.({
         onCompleted: () => refetch(),
@@ -190,7 +197,14 @@ export const EntityProfile = <T, U>({
     }
 
     const entityData =
-        (data && getDataForEntityType({ data: data[Object.keys(data)[0]], entityType, getOverrideProperties })) || null;
+        (dataCombinedWithSiblings &&
+            Object.keys(dataCombinedWithSiblings).length > 0 &&
+            getDataForEntityType({
+                data: dataCombinedWithSiblings[Object.keys(dataCombinedWithSiblings)[0]],
+                entityType,
+                getOverrideProperties,
+            })) ||
+        null;
 
     const lineage = entityData ? entityRegistry.getLineageVizConfig(entityType, entityData) : undefined;
 
@@ -219,7 +233,7 @@ export const EntityProfile = <T, U>({
                     urn,
                     entityType,
                     entityData,
-                    baseEntity: data,
+                    baseEntity: dataCombinedWithSiblings,
                     updateEntity,
                     routeToTab,
                     refetch,
@@ -253,7 +267,7 @@ export const EntityProfile = <T, U>({
                 urn,
                 entityType,
                 entityData,
-                baseEntity: data,
+                baseEntity: dataCombinedWithSiblings,
                 updateEntity,
                 routeToTab,
                 refetch,

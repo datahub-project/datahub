@@ -19,6 +19,7 @@ public final class RestliConstants {
   public static final String ACTION_LIST_URNS_FROM_INDEX = "listUrnsFromIndex";
 
   public static final String PARAM_INPUT = "input";
+  public static final String PARAM_MAX_HOPS = "maxHops";
   public static final String PARAM_ASPECTS = "aspects";
   public static final String PARAM_FILTER = "filter";
   public static final String PARAM_GROUP = "group";

@@ -158,6 +158,21 @@ type Query {
     Get all GlossaryNodes without a parentNode
     """
     getRootGlossaryNodes(input: GetRootGlossaryEntitiesInput!): GetRootGlossaryNodesResult
+
+    """
+    Get whether or not not an entity exists
+    """
+    entityExists(urn: String!): Boolean
+
+    """
+    Gets the current invite token. If the optional regenerate param is set to true, generate a new invite token.
+    """
+    getNativeUserInviteToken: InviteToken
+
+    """
+    Gets an entity based on its urn
+    """
+    entity(urn: String!): Entity
 }
 
 """
@@ -360,7 +375,7 @@ type Mutation {
       Input required to report an operation
       """
       input: ReportOperationInput!): String
-    
+
     """
     Create a new GlossaryTerm. Returns the urn of the newly created GlossaryTerm. If a term with the provided ID already exists, it will be overwritten.
     """
@@ -385,6 +400,26 @@ type Mutation {
     Updates the name of the entity.
     """
     updateName(input: UpdateNameInput!): Boolean
+
+    """
+    Add multiple related Terms to a Glossary Term to establish relationships
+    """
+    addRelatedTerms(input: RelatedTermsInput!): Boolean
+
+    """
+    Remove multiple related Terms for a Glossary Term
+    """
+    removeRelatedTerms(input: RelatedTermsInput!): Boolean
+
+    """
+    Generates an invite token that can be shared with prospective users to create their accounts.
+    """
+    createNativeUserInviteToken: InviteToken
+
+    """
+    Generates a token that can be shared with existing native users to reset their credentials.
+    """
+    createNativeUserResetToken(input: CreateNativeUserResetTokenInput!): ResetToken
 }
 
 """
@@ -893,9 +928,9 @@ type Dataset implements EntityWithRelationships & Entity {
     lineage(input: LineageInput!): EntityLineageResult
 
     """
-    Experimental! The resolved health status of the Dataset
+    Experimental! The resolved health statuses of the Dataset
     """
-    health: Health
+    health: [Health!]
 
     """
     Schema metadata of the dataset
@@ -960,6 +995,25 @@ type Dataset implements EntityWithRelationships & Entity {
     History of datajob runs that either produced or consumed this dataset
     """
     runs(start: Int, count: Int, direction: RelationshipDirection!): DataProcessInstanceResult
+
+    """
+    Metadata about the datasets siblings
+    """
+    siblings: SiblingProperties
+}
+
+"""
+Metadata about the entity's siblings
+"""
+type SiblingProperties {
+    """
+    If this entity is the primary sibling among the sibling set
+    """
+    isPrimary: Boolean
+    """
+    The sibling entities
+    """
+    siblings: [Entity]
 }
 
 """
@@ -1065,7 +1119,7 @@ type VersionedDataset implements Entity {
     """
     Experimental! The resolved health status of the Dataset
     """
-    health: Health
+    health: [Health!]
 
     """
     Schema metadata of the dataset
@@ -2656,6 +2710,11 @@ type CorpUser implements Entity {
     Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Whether or not this user is a native DataHub user
+    """
+    isNativeUser: Boolean
 
     """
     Deprecated, use properties field instead
@@ -6078,6 +6137,42 @@ enum SubResourceType {
     DATASET_FIELD
 }
 
+
+"""
+Input provided when adding Terms to an asset
+"""
+input RelatedTermsInput {
+    """
+    The Glossary Term urn to add or remove this relationship to/from
+    """
+    urn: String!
+
+    """
+    The primary key of the Glossary Term to add or remove
+    """
+    termUrns: [String!]!
+
+    """
+    The type of relationship we're adding or removing to/from for a Glossary Term
+    """
+    relationshipType: TermRelationshipType!
+}
+
+"""
+A type of Metadata Entity sub resource
+"""
+enum TermRelationshipType {
+    """
+    When a Term inherits from, or has an 'Is A' relationship with another Term
+    """
+    isA
+
+    """
+    When a Term contains, or has a 'Has A' relationship with another Term
+    """
+    hasA
+}
+
 """
 Input provided when updating the association between a Metadata Entity and a Tag
 """
@@ -8108,9 +8203,24 @@ enum HealthStatus {
 }
 
 """
+The type of the health status
+"""
+enum HealthStatusType {
+  """
+  Assertions status
+  """
+  ASSERTIONS
+}
+
+"""
 The resolved Health of an Asset
 """
 type Health {
+  """
+  An enum representing the type of health indicator
+  """
+  type: HealthStatusType!
+
   """
   An enum representing the resolved Health status of an Asset
   """
@@ -8140,4 +8250,34 @@ input StringMapEntryInput {
   The value fo the map entry
   """
   value: String
+}
+
+"""
+Token that allows users to sign up as a native user
+"""
+type InviteToken {
+    """
+    The invite token
+    """
+    inviteToken: String!
+}
+
+"""
+Input required to generate a password reset token for a native user.
+"""
+input CreateNativeUserResetTokenInput {
+    """
+    The urn of the user to reset the password of
+    """
+    userUrn: String!
+}
+
+"""
+Token that allows native users to reset their credentials
+"""
+type ResetToken {
+    """
+    The reset token
+    """
+    resetToken: String!
 }

@@ -98,6 +98,7 @@ export const AccessTokens = () => {
         data: tokensData,
         refetch: tokensRefetch,
     } = useListAccessTokensQuery({
+        skip: !canGeneratePersonalAccessTokens,
         variables: {
             input: {
                 start,
@@ -246,7 +247,7 @@ export const AccessTokens = () => {
                 dataSource={tableData}
                 rowKey="urn"
                 locale={{
-                    emptyText: <Empty description="No Ingestion Sources!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                    emptyText: <Empty description="No Access Tokens!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                 }}
                 pagination={false}
             />

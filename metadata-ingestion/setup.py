@@ -41,7 +41,7 @@ framework_common = {
     "entrypoints",
     "docker",
     "expandvars>=0.6.5",
-    "avro-gen3==0.7.2",
+    "avro-gen3==0.7.4",
     "avro>=1.10.2,<1.11",
     "python-dateutil>=2.8.0",
     "stackprinter",
@@ -59,6 +59,7 @@ framework_common = {
     "Deprecated",
     "types-Deprecated",
     "humanfriendly",
+    "packaging",
 }
 
 kafka_common = {
@@ -67,7 +68,7 @@ kafka_common = {
     # At the same time, we use Kafka's AvroSerializer, which internally relies on
     # fastavro for serialization. We do not use confluent_kafka[avro], since it
     # is incompatible with its own dep on avro-python3.
-    "confluent_kafka>=1.5.0",
+    "confluent_kafka>=1.5.0,<1.9.0",
     "fastavro>=1.2.0",
 }
 
@@ -113,7 +114,7 @@ looker_common = {
 
 bigquery_common = {
     # Google cloud logging library
-    "google-cloud-logging",
+    "google-cloud-logging<3.1.2",
     "google-cloud-bigquery",
     "more-itertools>=8.12.0",
     # we do not use protobuf directly but newer version caused bigquery connector to fail
@@ -320,14 +321,12 @@ base_dev_requirements = {
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "pytest-docker>=0.10.3,<0.12",
-    "tox",
     "deepdiff",
     "requests-mock",
     "freezegun",
     "jsonpickle",
     "build",
     "twine",
-    "packaging",
     *list(
         dependency
         for plugin in [
@@ -448,6 +447,7 @@ if is_py37_or_newer:
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
     "datahub.ingestion.source.plugins": [
+        "csv-enricher = datahub.ingestion.source.csv_enricher:CSVEnricherSource",
         "file = datahub.ingestion.source.file:GenericFileSource",
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
