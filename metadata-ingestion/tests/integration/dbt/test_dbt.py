@@ -62,6 +62,11 @@ class DbtTestConfig:
                 "enable_meta_mapping": False,
                 "write_semantics": "OVERRIDE",
                 "meta_mapping": {
+                    "owner": {
+                        "match": "^@(.*)",
+                        "operation": "add_owner",
+                        "config": {"owner_type": "user"},
+                    },
                     "business_owner": {
                         "match": ".*",
                         "operation": "add_owner",

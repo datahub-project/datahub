@@ -289,7 +289,9 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
 
 class BasicSQLAlchemyConfig(SQLAlchemyConfig):
     username: Optional[str] = Field(default=None, description="username")
-    password: Optional[pydantic.SecretStr] = Field(default=None, description="password")
+    password: Optional[pydantic.SecretStr] = Field(
+        default=None, exclude=True, description="password"
+    )
     host_port: str = Field(description="host URL")
     database: Optional[str] = Field(default=None, description="database (catalog)")
     database_alias: Optional[str] = Field(

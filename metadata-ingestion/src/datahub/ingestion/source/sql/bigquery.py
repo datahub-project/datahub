@@ -598,6 +598,7 @@ class BigQuerySource(SQLAlchemySource):
         self.report.num_skipped_lineage_entries_missing_data = 0
         self.report.num_skipped_lineage_entries_not_allowed = 0
         self.report.num_skipped_lineage_entries_other = 0
+        self.report.num_skipped_lineage_entries_sql_parser_failure = 0
         for e in entries:
             self.report.num_total_lineage_entries += 1
             if e.destinationTable is None or not (
@@ -635,10 +636,17 @@ class BigQuerySource(SQLAlchemySource):
                 # If there is a view being referenced then bigquery sends both the view as well as underlying table
                 # in the references. There is no distinction between direct/base objects accessed. So doing sql parsing
                 # to ensure we only use direct objects accessed for lineage
-                parser = BigQuerySQLParser(e.query)
-                referenced_objs = set(
-                    map(lambda x: x.split(".")[-1], parser.get_tables())
-                )
+                try:
+                    parser = BigQuerySQLParser(e.query)
+                    referenced_objs = set(
+                        map(lambda x: x.split(".")[-1], parser.get_tables())
+                    )
+                except Exception as ex:
+                    logger.warning(
+                        f"Sql Parser failed on query: {e.query}. It will be skipped from lineage. The error was {ex}"
+                    )
+                    self.report.num_skipped_lineage_entries_sql_parser_failure += 1
+                    continue
                 curr_lineage_str = lineage_map[destination_table_str]
                 new_lineage_str = set()
                 for lineage_str in curr_lineage_str:
