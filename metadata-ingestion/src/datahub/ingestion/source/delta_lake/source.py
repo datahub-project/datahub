@@ -63,17 +63,14 @@ config_options_to_report = [
 class DeltaLakeSource(Source):
     """
     This plugin extracts:
-          Metadata for delta tables, Column types and schema associated with each table
+    - Column types and schema associated with each delta table
+    - Custom properties: number_of_files, partition_columns, table_creation_time, location, version etc.
 
     :::caution
 
     If you are ingesting datasets from AWS S3, we recommend running the ingestion on a server in the same region to avoid high egress costs.
 
     :::
-
-    ## Setup
-
-    To install this plugin, run `pip install 'acryl-datahub[delta-lake]'`.
 
     """
 
@@ -268,14 +265,6 @@ class DeltaLakeSource(Source):
             self.source_config.get_complete_path(), get_folders
         ):
             yield wu
-
-        telemetry.telemetry_instance.ping(
-            "data_lake_profiling_summary",
-            # bucket by taking floor of log of time taken
-            {
-                "platform": self.source_config.platform,
-            },
-        )
 
     def get_report(self) -> SourceReport:
         return self.report

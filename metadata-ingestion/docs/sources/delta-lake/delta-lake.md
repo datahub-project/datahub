@@ -1,9 +1,12 @@
-## Quickstart Guide
+## Usage Guide
 
-### Follow below steps to get started on delta lake source
+If you are new to [Delta Lake](https://delta.io/) and want to test out a simple integration with Delta Lake and DataHub, you can follow this guide. 
 
-#### On local system
-- create delta table ( sample code below) if you dont have already created table
+### Delta Table on Local File System
+
+#### Step 1 
+Create a delta table using the sample PySpark code below if you don't have a delta table you can point to.
+
 ```python 
 import uuid
 import random
@@ -34,9 +37,10 @@ df.show()
 
 ```
 
-- create yml file with recipe
+#### Step 2
+Create a datahub ingestion yaml file (delta.dhub.yaml) to ingest metadata from the delta table you just created.
 
-```recipe.yml
+```yaml
 source:
   type: "delta-lake"
   config:
@@ -47,23 +51,25 @@ sink:
   config:
     server: "http://localhost:8080"
 ```
-Make sure you run the spark code as well as recipe from same folder otherwise use absolute paths.
 
-- execute recipe with command:
-```commandline
-datahub ingest -c local_config.yml
+Note: Make sure you run the Spark code as well as recipe from same folder otherwise use absolute paths.
+
+#### Step 3 
+Execute the ingestion recipe:
+```shell
+datahub ingest -c delta.dhub.yaml
 ```
 
+### Delta Table on S3
 
-#### On S3
-
-- Create 'aws_creds' config file 
+#### Step 1 
+Set up your AWS credentials by creating an AWS credentials config file; typically in '$HOME/.aws/credentials'.
 ```
 [my-creds]
 aws_access_key_id: ######
 aws_secret_access_key: ######
 ```
-- create delta table ( sample code below) if you dont have already created table
+Step 2: Create a Delta Table using the PySpark sample code below unless you already have Delta Tables on your S3. 
 ```python
 from pyspark.sql import SparkSession
 from delta.tables import DeltaTable
@@ -87,7 +93,7 @@ spark = SparkSession.builder \
 
 
 config_object = ConfigParser()
-config_object.read("aws_creds")
+config_object.read("$HOME/.aws/credentials")
 profile_info = config_object["my-creds"]
 access_id = profile_info["aws_access_key_id"]
 access_key = profile_info["aws_secret_access_key"]
@@ -105,7 +111,9 @@ df = spark.read.format("delta").load(table_path)
 df.show()
 
 ```
-- create yml file with recipe
+
+#### Step 3
+Create a datahub ingestion yaml file (delta.s3.dhub.yaml) to ingest metadata from the delta table you just created.
 
 ```yml
 source:
@@ -122,11 +130,13 @@ sink:
   config:
     server: "http://localhost:8080"
 ```
-- execute recipe with command:
-```commandline
-datahub ingest -c s3_config.yml
+
+#### Step 4
+Execute the ingestion recipe:
+```shell
+datahub ingest -c delta.s3.dhub.yaml
 ```
 
-### Notes
+### Note
 
-- Above recipes are minimal recipes. Please refer to Config Details section for full configuration.
+The above recipes are minimal recipes. Please refer to [Config Details](#config-details) section for the full configuration.
