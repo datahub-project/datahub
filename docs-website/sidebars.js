@@ -273,6 +273,28 @@ module.exports = {
         ],
       },
     ],
+    "Authorization & Authentication": [
+      {
+        type: "doc",
+        id: "docs/auth/README",
+        label: "Introduction",
+      },
+      {
+        type: "doc",
+        id: "docs/auth/introducing-metadata-service-authentication",
+        label: "GMS Authentication",
+      },
+      {
+        type: "doc",
+        id: "docs/auth/concepts",
+        label: "Concepts",
+      },
+      {
+        type: "doc",
+        id: "docs/auth/personal-access-tokens",
+        label: "Personal Access Tokens",
+      },
+    ],
     "Usage Guides": [
       "docs/policies",
       "docs/domains",

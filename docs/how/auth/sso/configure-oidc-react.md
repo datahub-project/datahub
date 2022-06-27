@@ -188,5 +188,5 @@ A brief summary of the steps that occur when the user navigates to the React app
 Even if OIDC is configured the root user can still login without OIDC by going
 to `/login` URL endpoint. It is recommended that you don't use the default
 credentials by mounting a different file in the front end container. To do this
-please see [jaas](https://datahubproject.io/docs/how/auth/jaas/#mount-a-custom-userprops-file-docker-compose) -
+please see [jaas](../jaas.md#mount-a-custom-userprops-file-docker-compose) -
 "Mount a custom user.props file".
