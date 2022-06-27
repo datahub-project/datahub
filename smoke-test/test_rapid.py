@@ -26,10 +26,22 @@ else:
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
-    # Simply assert that everything is healthy, but don't wait.
-    if K8S_CLUSTER_ENABLED not in ['true', 'yes'] :
+    if K8S_CLUSTER_ENABLED in ['true', 'yes'] :
+        # Simply assert that k8s service is healthy, but don't wait.
+        def check_k8s_endpoint(url):
+            try:
+                get = requests.get(url)
+                if get.status_code == 200:
+                    return
+                else:
+                    return(f"{url}: is Not reachable, status_code: {get.status_code}")
+            except requests.exceptions.RequestException as e:
+                raise SystemExit(f"{url}: is Not reachable \nErr: {e}")
+        assert not check_k8s_endpoint(f"{FRONTEND_ENDPOINT}/admin")
+    else:
         assert not check_local_docker_containers()
     yield
+
 
 @pytest.fixture(scope="session")
 def frontend_session(wait_for_healthchecks):

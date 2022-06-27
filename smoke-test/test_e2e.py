@@ -21,7 +21,7 @@ if K8S_CLUSTER_ENABLED in ['true', 'yes'] :
 
     FRONTEND_ENDPOINT = f"http://{FRONTEND_SVC}:9002"
     GMS_ENDPOINT = f"http://{GMS_SVC}:8080"
-    KAFKA_BROKER = f"{KAFKA_SVC}:8080"
+    KAFKA_BROKER = f"{KAFKA_SVC}:9092"
 
 else:
     GMS_ENDPOINT = "http://localhost:8080"
@@ -41,11 +41,24 @@ kafka_post_ingestion_wait_sec = 60
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
-    if K8S_CLUSTER_ENABLED not in ['true', 'yes'] :
-        # Simply assert that everything is healthy, but don't wait.
+    if K8S_CLUSTER_ENABLED in ['true', 'yes'] :
+        # Simply assert that k8s service is healthy, but don't wait.
+        def check_k8s_endpoint(url):
+            try:
+                get = requests.get(url)
+                if get.status_code == 200:
+                    return
+                else:
+                    return(f"{url}: is Not reachable, status_code: {get.status_code}")
+            except requests.exceptions.RequestException as e:
+                raise SystemExit(f"{url}: is Not reachable \nErr: {e}")
+        assert not check_k8s_endpoint(f"{FRONTEND_ENDPOINT}/admin")
+        assert not check_k8s_endpoint(f"{GMS_ENDPOINT}/health")
+        assert not check_k8s_endpoint(f"{KAFKA_BROKER}/health")
+        
+    else:
         assert not check_local_docker_containers()
     yield
-
 
 @pytest.mark.dependency()
 def test_healthchecks(wait_for_healthchecks):
