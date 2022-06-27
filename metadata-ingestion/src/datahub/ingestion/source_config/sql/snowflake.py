@@ -147,6 +147,10 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         default=False,
         description="If set to True then checks role grants at the beginning of the ingestion run. To be used for debugging purposes. If you think everything is working fine then set it to False. In some cases this can take long depending on how many roles you might have.",
     )
+    include_data_governance: bool = pydantic.Field(
+        default=False,
+        description="Whether entities (data-policy,user,group and role) associated with data-governance should be ingested",
+    )
 
     def get_account(self) -> str:
         assert self.account_id

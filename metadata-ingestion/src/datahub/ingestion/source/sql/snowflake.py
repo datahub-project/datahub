@@ -15,6 +15,7 @@ from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes, text
 
 import datahub.emitter.mce_builder as builder
+import datahub.ingestion.source.sql.data_governance as dg
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -72,6 +73,7 @@ class SnowflakeSource(SQLAlchemySource):
         self.report: SnowflakeReport = SnowflakeReport()
         self.config: SnowflakeConfig = config
         self.provision_role_in_progress: bool = False
+        self._db_engine_cache: dict = {}
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -81,6 +83,13 @@ class SnowflakeSource(SQLAlchemySource):
     def get_metadata_engine(
         self, database: Optional[str] = None
     ) -> sqlalchemy.engine.Engine:
+        # Check if engine is already created for given database
+        if database in self._db_engine_cache:
+            logger.debug("Returning existing engine")
+            return self._db_engine_cache[database]
+
+        logger.debug("Creating new database engine")
+
         if self.provision_role_in_progress and self.config.provision_role is not None:
             username: Optional[str] = self.config.provision_role.admin_username
             password: Optional[
@@ -95,18 +104,21 @@ class SnowflakeSource(SQLAlchemySource):
         url = self.config.get_sql_alchemy_url(
             database=database, username=username, password=password, role=role
         )
-        logger.debug(f"sql_alchemy_url={url}")
+        logger.info(f"sql_alchemy_url={url}")
+        engine = None
         if self.config.authentication_type == "OAUTH_AUTHENTICATOR":
-            return create_engine(
+            engine = create_engine(
                 url,
                 creator=self.config.get_oauth_connection,
                 **self.config.get_options(),
             )
         else:
-            return create_engine(
+            engine = create_engine(
                 url,
                 **self.config.get_options(),
             )
+        self._db_engine_cache[database] = engine
+        return engine
 
     def inspect_session_metadata(self) -> Any:
         db_engine = self.get_metadata_engine()
@@ -161,15 +173,39 @@ class SnowflakeSource(SQLAlchemySource):
                 f"{privilege} granted on {granted_on} {name}"
             )
 
-    def get_inspectors(self) -> Iterable[Inspector]:
+    def get_allowed_database(self) -> Tuple:
+        """
+        Return list of all database and allowed database
+        """
         db_listing_engine = self.get_metadata_engine(database=None)
 
+        allowed_db = []
+        dbs = []
         for db_row in db_listing_engine.execute(text("SHOW DATABASES")):
             db = db_row.name
+            dbs.append(db)
             if self.config.database_pattern.allowed(db):
+                allowed_db.append(db)
+
+        return dbs, allowed_db
+
+    def get_inspectors(self) -> Iterable[Inspector]:
+        dbs, allowed_db = self.get_allowed_database()
+
+        for db in dbs:
+            if db in allowed_db:
                 # We create a separate engine for each database in order to ensure that
                 # they are isolated from each other.
                 self.current_database = db
+                # Current data-source governance source to ingest the ResourcePrincipalPolicy
+                self.current_dg_source = dg.new_data_governance_source(
+                    engine=self.get_metadata_engine(database=db),
+                    config=dg.DataGovernanceConfig(
+                        platform=dg.DataGovernancePlatform.SNOWFLAKE,
+                        platform_instance=self.config.platform_instance,
+                        environment=self.config.env,
+                    ),
+                )
                 engine = self.get_metadata_engine(database=db)
 
                 with engine.connect() as conn:
@@ -667,6 +703,39 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             or self.config.provision_role.run_ingestion
         )
 
+    def ingest_data_policy(
+        self, dg_source: dg.IDataGovernanceAccessor, dataset_urn: str
+    ) -> List[MetadataWorkUnit]:
+        if self.config.include_data_governance is False:
+            return []
+
+        wrk_units = dg_source.generate_data_policy_work_unit(dataset_urn)
+        # Report work-units
+        for wrk_unit in wrk_units:
+            self.report.report_workunit(wrk_unit)
+        # Return DataPolicy
+        return wrk_units
+
+    def ingest_non_dataset_dg_entities(
+        self,
+    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        if self.config.include_data_governance is False:
+            return
+
+        # Ingest data-governance work-units
+        # This ingestion is independent on database instance, as we are ingesting users/groups and roles
+        dg_source = dg.new_data_governance_source(
+            engine=self.get_metadata_engine(),
+            config=dg.DataGovernanceConfig(
+                platform=dg.DataGovernancePlatform.SNOWFLAKE,
+                platform_instance=self.config.platform_instance,
+                environment=self.config.env,
+            ),
+        )
+        for wu in dg_source.generate_work_units():
+            self.report.report_workunit(wu)
+            yield wu
+
     # Override the base class method.
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         self.add_config_to_report()
@@ -678,6 +747,10 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
         self.inspect_session_metadata()
 
         self.inspect_role_grants()
+
+        for wu in self.ingest_non_dataset_dg_entities():
+            yield wu
+
         for wu in super().get_workunits():
             if (
                 self.config.include_table_lineage
@@ -687,6 +760,11 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
             ):
                 dataset_snapshot: DatasetSnapshot = wu.metadata.proposedSnapshot
                 assert dataset_snapshot
+                # Emit data-governance work units
+                for wrk_unit in self.ingest_data_policy(
+                    self.current_dg_source, dataset_snapshot.urn
+                ):
+                    yield wrk_unit
                 # Join the workunit stream from super with the lineage info using the urn.
                 lineage_info = self._get_upstream_lineage_info(dataset_snapshot.urn)
                 if lineage_info is not None:
