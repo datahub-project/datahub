@@ -108,7 +108,7 @@ project.ext.externalDependency = [
     'mockServer': 'org.mock-server:mockserver-netty:5.11.2',
     'mockServerClient': 'org.mock-server:mockserver-client-java:5.11.2',
     'mysqlConnector': 'mysql:mysql-connector-java:8.0.20',
-    'neo4jHarness': 'org.neo4j.test:neo4j-harness:3.4.11',
+    'neo4jHarness': 'org.neo4j.test:neo4j-harness:4.4.8',
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:4.4.6',
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:1.0.0',
     'opentelemetryAnnotations': 'io.opentelemetry:opentelemetry-extension-annotations:1.0.0',
