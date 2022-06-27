@@ -49,7 +49,7 @@ const customMerge = (isPrimary, key) => {
         return (a, b) => (isPrimary ? b : a);
     }
     if (key === 'testResults') {
-        return (a, b) => (isPrimary ? a : b);
+        return (_secondary, primary) => primary;
     }
     if (key === 'tags' || key === 'terms') {
         return (a, b) => {
