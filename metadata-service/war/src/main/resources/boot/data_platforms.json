@@ -499,8 +499,8 @@
     "urn": "urn:li:dataPlatform:delta-lake",
     "aspect": {
       "datasetNameDelimiter": ".",
-      "name": "superset",
-      "displayName": "Superset",
+      "name": "delta-lake",
+      "displayName": "Delta Lake",
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/deltalakelogo.png"
     }
