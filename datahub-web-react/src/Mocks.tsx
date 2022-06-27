@@ -26,6 +26,7 @@ import {
     RecommendationRenderType,
     RelationshipDirection,
     Container,
+    PlatformPrivileges,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
@@ -3289,3 +3290,17 @@ export const mocks = [
         },
     },
 ];
+
+export const platformPrivileges: PlatformPrivileges = {
+    viewAnalytics: true,
+    managePolicies: true,
+    manageIdentities: true,
+    generatePersonalAccessTokens: true,
+    manageDomains: true,
+    manageIngestion: true,
+    manageSecrets: true,
+    manageTokens: true,
+    manageTests: true,
+    manageGlossaries: true,
+    manageUserCredentials: true,
+};
