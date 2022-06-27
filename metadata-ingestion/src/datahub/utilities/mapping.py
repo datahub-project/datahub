@@ -224,7 +224,7 @@ class OperationProcessor:
 
     def sanitize_owner_ids(self, owner_id: str) -> str:
         if owner_id.__contains__("@"):
-            owner_id = owner_id[0: owner_id.index("@")]
+            owner_id = owner_id[0 : owner_id.index("@")]
         return owner_id
 
     def get_match(self, match_clause: Any, raw_props_value: Any) -> Optional[Match]:
