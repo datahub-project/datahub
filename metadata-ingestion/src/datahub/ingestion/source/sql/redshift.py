@@ -33,7 +33,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.path_spec import PathSpec
 from datahub.ingestion.source.aws.s3_util import strip_s3_prefix
 from datahub.ingestion.source.sql.postgres import PostgresConfig
