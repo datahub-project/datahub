@@ -107,7 +107,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
       UpdateNameInput input,
       QueryContext context
   ) {
-    if (AuthorizationUtils.canManageGlossaries(context)) {
+    if (AuthorizationUtils.canManageDomains(context)) {
       try {
         DomainProperties domainProperties = (DomainProperties) getAspectFromEntity(
             targetUrn.toString(), Constants.DOMAIN_PROPERTIES_ASPECT_NAME, _entityService, null);
