@@ -64,6 +64,8 @@ That's it! Now feel free to play around with DataHub!
 To start pushing your company's metadata into DataHub, take a look at the [Metadata Ingestion Framework](../metadata-ingestion/README.md).
 To add users to your deployment to share with your team check out our [Adding Users to DataHub](how/auth/add-users.md)
 
+If you want to secure DataHub considering enabling [authentication in DataHub's backend](introducing-metadata-service-authentication.md#Configuring Metadata Service Authentication), this way only authenticated & authorized users can interact with the system.
+
 ## Resetting DataHub
 
 To cleanse DataHub of all of it's state (e.g. before ingesting your own), you can use the CLI `nuke` command.
