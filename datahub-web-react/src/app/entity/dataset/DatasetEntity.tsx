@@ -18,7 +18,7 @@ import { SidebarTagsSection } from '../shared/containers/profile/sidebar/Sidebar
 import { SidebarStatsSection } from '../shared/containers/profile/sidebar/Dataset/StatsSidebarSection';
 import StatsTab from '../shared/tabs/Dataset/Stats/StatsTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
-import { capitalizeFirstLetter, capitalizeFirstLetterOnly } from '../../shared/textUtil';
+import { capitalizeFirstLetter } from '../../shared/textUtil';
 import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 import { SidebarRecommendationsSection } from '../shared/containers/profile/sidebar/Recommendations/SidebarRecommendationsSection';
@@ -282,8 +282,8 @@ export class DatasetEntity implements Entity<Dataset> {
                 platformName={data.platform.properties?.displayName || data.platform.name}
                 platformLogo={data.platform.properties?.logoUrl}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
-                platformNames={genericProperties?.siblingPlatforms?.map((platform) =>
-                    capitalizeFirstLetterOnly(platform.properties?.displayName || platform.name),
+                platformNames={genericProperties?.siblingPlatforms?.map(
+                    (platform) => platform.properties?.displayName || platform.name,
                 )}
                 platformLogos={genericProperties?.siblingPlatforms?.map((platform) => platform.properties?.logoUrl)}
                 owners={data.ownership?.owners}

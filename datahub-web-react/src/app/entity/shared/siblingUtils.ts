@@ -136,7 +136,7 @@ export function combineSiblingsInSearchResults(
         const { entity }: { entity: any } = result;
         const siblingUrns = entity?.siblings?.siblings?.map((sibling) => sibling.urn) || [];
         if (siblingUrns.length > 0) {
-            combinedResult.matchedEntities = entity.siblings.siblings.isPrimary
+            combinedResult.matchedEntities = entity.siblings.isPrimary
                 ? [entity, ...entity.siblings.siblings]
                 : [...entity.siblings.siblings, entity];
             siblingUrns.forEach((urn) => {

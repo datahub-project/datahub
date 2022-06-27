@@ -17,6 +17,13 @@ record Siblings {
       "entityTypes": [ "dataset" ]
     }
   }
+  @Searchable = {
+    "/*": {
+      "fieldName": "siblings",
+      "fieldType": "URN",
+      "queryByDefault": false,
+    }
+  }
   siblings: array[Urn]
 
   /**

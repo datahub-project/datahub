@@ -18,6 +18,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -35,6 +36,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -95,7 +102,11 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         throw new RuntimeException("Failed to parse entity urn, skipping processing.", e);
       }
 
-      if (datasetUrn.getPlatformEntity().getPlatformNameEntity().equals(DBT_PLATFORM_NAME)) {
+      // if we are seeing the key, this means the entity may have been deleted and re-ingested
+      // in this case we want to re-create its siblings aspects
+      if (event.getAspectName().equals(DATASET_KEY_ASPECT_NAME)) {
+        handleEntityKeyEvent(datasetUrn);
+      } else if (datasetUrn.getPlatformEntity().getPlatformNameEntity().equals(DBT_PLATFORM_NAME)) {
         handleDbtDatasetEvent(event, datasetUrn);
       } else {
         handleSourceDatasetEvent(event, datasetUrn);
@@ -103,7 +114,30 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     }
   }
 
-  // If th upstream is a single source system node & subtype is source, then associate the upstream as your sibling
+  private void handleEntityKeyEvent(DatasetUrn datasetUrn) {
+    Filter entitiesWithYouAsSiblingFilter = createFilterForEntitiesWithYouAsSibling(datasetUrn);
+    final SearchResult searchResult = _searchService.search(
+        "dataset",
+        "*",
+        entitiesWithYouAsSiblingFilter,
+        null,
+        0,
+        10,
+        null);
+
+    // we have a match of an entity with you as a sibling, associate yourself back
+    searchResult.getEntities().forEach(entity -> {
+      if (!entity.getEntity().equals(datasetUrn)) {
+        if (datasetUrn.getPlatformEntity().getPlatformNameEntity().equals(DBT_PLATFORM_NAME)) {
+          setSiblingsAndSoftDeleteSibling(datasetUrn, searchResult.getEntities().get(0).getEntity());
+        } else {
+          setSiblingsAndSoftDeleteSibling(searchResult.getEntities().get(0).getEntity(), datasetUrn);
+        }
+      }
+    });
+  }
+
+  // If the upstream is a single source system node & subtype is source, then associate the upstream as your sibling
   private void handleDbtDatasetEvent(MetadataChangeLog event, DatasetUrn datasetUrn) {
     // we need both UpstreamLineage & Subtypes to determine whether to associate
     UpstreamLineage upstreamLineage = null;
@@ -234,8 +268,9 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     return event.getEntityType().equals("dataset")
         && !event.getChangeType().equals(ChangeType.DELETE)
         && (
-            event.getAspectName().equals("upstreamLineage")
-                || event.getAspectName().equals("subType")
+            event.getAspectName().equals(UPSTREAM_LINEAGE_ASPECT_NAME)
+                || event.getAspectName().equals(SUB_TYPES_ASPECT_NAME)
+                || event.getAspectName().equals(DATASET_KEY_ASPECT_NAME)
           );
   }
 
@@ -299,7 +334,29 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   @SneakyThrows
   private AuditStamp getAuditStamp() {
-    AuditStamp auditStamp = null;
     return new AuditStamp().setActor(Urn.createFromString(SIBLING_ASSOCIATION_SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+  }
+
+  private Filter createFilterForEntitiesWithYouAsSibling(
+      final Urn entityUrn
+  ) {
+    final Filter filter = new Filter();
+    final ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();
+
+    final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
+    final CriterionArray andCriterion = new CriterionArray();
+
+    final Criterion urnCriterion = new Criterion();
+    urnCriterion.setField("siblings.keyword");
+    urnCriterion.setValue(entityUrn.toString());
+    urnCriterion.setCondition(Condition.EQUAL);
+    andCriterion.add(urnCriterion);
+
+    conjunction.setAnd(andCriterion);
+
+    disjunction.add(conjunction);
+
+    filter.setOr(disjunction);
+    return filter;
   }
 }

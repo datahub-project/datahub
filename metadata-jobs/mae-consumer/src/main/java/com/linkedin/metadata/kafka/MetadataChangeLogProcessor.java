@@ -33,9 +33,15 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Conditional(MetadataChangeLogProcessorCondition.class)
-@Import({UpdateIndicesHook.class, IngestionSchedulerHook.class, NotificationGeneratorHook.class,
-    EntityChangeEventGeneratorHook.class, SiblingAssociationHook.class, MetadataTestHook.class,
-    KafkaEventConsumerFactory.class})
+@Import({
+    UpdateIndicesHook.class,
+    IngestionSchedulerHook.class,
+    EntityChangeEventGeneratorHook.class,
+    KafkaEventConsumerFactory.class,
+    SiblingAssociationHook.class,
+    MetadataTestHook.class,
+    NotificationGeneratorHook.class
+})
 @EnableKafka
 public class MetadataChangeLogProcessor {
 

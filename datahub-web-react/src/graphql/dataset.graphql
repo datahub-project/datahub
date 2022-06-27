@@ -24,275 +24,280 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
 
 query getDataset($urn: String!) {
     dataset(urn: $urn) {
-        ...nonRecursiveDatasetFields
-        schemaMetadata(version: 0) {
-            ...schemaMetadataFields
-        }
-        previousSchemaMetadata: schemaMetadata(version: -1) {
-            ...schemaMetadataFields
-        }
-        editableSchemaMetadata {
-            editableSchemaFieldInfo {
-                fieldPath
-                description
-                globalTags {
-                    ...globalTagsFields
-                }
-                glossaryTerms {
-                    ...glossaryTerms
-                }
-            }
-        }
-        deprecation {
-            actor
-            deprecated
-            note
-            decommissionTime
-        }
-        globalTags {
-            ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        subTypes {
-            typeNames
-        }
-        domain {
-            ...entityDomain
-        }
-        container {
-            ...entityContainer
-        }
-        parentContainers {
-            ...parentContainersFields
-        }
-        usageStats(range: MONTH) {
-            buckets {
-                bucket
-                duration
-                resource
-                metrics {
-                    uniqueUserCount
-                    totalSqlQueries
-                    topSqlQueries
-                }
-            }
-            aggregations {
-                uniqueUserCount
-                totalSqlQueries
-                users {
-                    user {
-                        urn
-                        username
-                    }
-                    count
-                    userEmail
-                }
-                fields {
-                    fieldName
-                    count
-                }
-            }
-        }
-        datasetProfiles(limit: 1) {
-            rowCount
-            columnCount
-            timestampMillis
-            fieldProfiles {
-                fieldPath
-                uniqueCount
-                uniqueProportion
-                nullCount
-                nullProportion
-                min
-                max
-                mean
-                median
-                stdev
-                sampleValues
-            }
-        }
-        termProposals: proposals(type: TERM_ASSOCIATION) {
-            urn
-            type
-            status
-            result
-            subResourceType
-            subResource
-            params {
-                glossaryTermProposal {
-                    glossaryTerm {
-                        urn
-                        type
-                        name
-                    }
-                }
-            }
-            created {
-                time
-                actor {
-                    urn
-                    type
-                    username
-                    info {
-                        displayName
-                        firstName
-                        lastName
-                        fullName
-                    }
-                    editableInfo {
-                        pictureLink
-                    }
-                }
-            }
-            lastModified {
-                time
-                actor {
-                    urn
-                    type
-                    username
-                    info {
-                        displayName
-                        firstName
-                        lastName
-                        fullName
-                    }
-                    editableInfo {
-                        pictureLink
-                    }
-                }
-            }
-        }
-        tagProposals: proposals(type: TAG_ASSOCIATION) {
-            urn
-            type
-            status
-            result
-            subResourceType
-            subResource
-            params {
-                tagProposal {
-                    tag {
-                        urn
-                        type
-                        name
-                    }
-                }
-            }
-            created {
-                time
-                actor {
-                    urn
-                    type
-                    username
-                    info {
-                        displayName
-                        firstName
-                        lastName
-                        fullName
-                    }
-                    editableInfo {
-                        pictureLink
-                    }
-                }
-            }
-            lastModified {
-                time
-                actor {
-                    urn
-                    type
-                    username
-                    info {
-                        displayName
-                        firstName
-                        lastName
-                        fullName
-                    }
-                    editableInfo {
-                        pictureLink
-                    }
-                }
-            }
-        }
-        health {
-            status
-            message
-            causes
-        }
-        assertions(start: 0, count: 1) {
-            total
-        }
-        operations(limit: 1) {
-            timestampMillis
-            lastUpdatedTimestamp
-        }
-        upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
-            ...partialLineageResults
-        }
-        downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
-            ...partialLineageResults
-        }
-        ...viewProperties
-        constraints {
-            displayName
-            description
-            type
-            isSatisfied
-            reason
-            params {
-                hasGlossaryTermInNodeParams {
-                    nodeName
-                }
-            }
-        }
-        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
-            aspectName
-            payload
-            renderSpec {
-                displayType
-                displayName
-                key
-            }
-        }
-        status {
-            removed
-        }
-        readRuns: runs(start: 0, count: 20, direction: INCOMING) {
-            count
-            start
-            total
-        }
-        writeRuns: runs(start: 0, count: 20, direction: OUTGOING) {
-            count
-            start
-            total
-        }
-        testResults {
-            passing {
-                test {
-                    ...testFields
-                }
-                type
-            }
-            failing {
-                test {
-                    ...testFields
-                }
-                type
-            }
-        }
-        totalIncidents: incidents(start: 0, count: 1) {
-            total
-        }
+        ...nonSiblingDatasetFields
         siblings {
             isPrimary
             siblings {
                 urn
                 type
-                ...siblingFields
+                ...nonSiblingDatasetFields
             }
         }
+    }
+}
+
+fragment nonSiblingDatasetFields on Dataset {
+    ...nonRecursiveDatasetFields
+    schemaMetadata(version: 0) {
+        ...schemaMetadataFields
+    }
+    previousSchemaMetadata: schemaMetadata(version: -1) {
+        ...schemaMetadataFields
+    }
+    editableSchemaMetadata {
+        editableSchemaFieldInfo {
+            fieldPath
+            description
+            globalTags {
+                ...globalTagsFields
+            }
+            glossaryTerms {
+                ...glossaryTerms
+            }
+        }
+    }
+    deprecation {
+        actor
+        deprecated
+        note
+        decommissionTime
+    }
+    globalTags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    subTypes {
+        typeNames
+    }
+    domain {
+        ...entityDomain
+    }
+    container {
+        ...entityContainer
+    }
+    parentContainers {
+        ...parentContainersFields
+    }
+    usageStats(range: MONTH) {
+        buckets {
+            bucket
+            duration
+            resource
+            metrics {
+                uniqueUserCount
+                totalSqlQueries
+                topSqlQueries
+            }
+        }
+        aggregations {
+            uniqueUserCount
+            totalSqlQueries
+            users {
+                user {
+                    urn
+                    username
+                }
+                count
+                userEmail
+            }
+            fields {
+                fieldName
+                count
+            }
+        }
+    }
+    datasetProfiles(limit: 1) {
+        rowCount
+        columnCount
+        timestampMillis
+        fieldProfiles {
+            fieldPath
+            uniqueCount
+            uniqueProportion
+            nullCount
+            nullProportion
+            min
+            max
+            mean
+            median
+            stdev
+            sampleValues
+        }
+    }
+    health {
+        type
+        status
+        message
+        causes
+    }
+    assertions(start: 0, count: 1) {
+        total
+    }
+    operations(limit: 1) {
+        timestampMillis
+        lastUpdatedTimestamp
+    }
+    upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+        ...partialLineageResults
+    }
+    downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+        ...partialLineageResults
+    }
+    ...viewProperties
+    autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+        aspectName
+        payload
+        renderSpec {
+            displayType
+            displayName
+            key
+        }
+    }
+    status {
+        removed
+    }
+    readRuns: runs(start: 0, count: 20, direction: INCOMING) {
+        count
+        start
+        total
+    }
+    writeRuns: runs(start: 0, count: 20, direction: OUTGOING) {
+        count
+        start
+        total
+    }
+    testResults {
+        passing {
+            test {
+                ...testFields
+            }
+            type
+        }
+        failing {
+            test {
+                ...testFields
+            }
+            type
+        }
+    }
+    termProposals: proposals(type: TERM_ASSOCIATION) {
+        urn
+        type
+        status
+        result
+        subResourceType
+        subResource
+        params {
+            glossaryTermProposal {
+                glossaryTerm {
+                    urn
+                    type
+                    name
+                }
+            }
+        }
+        created {
+            time
+            actor {
+                urn
+                type
+                username
+                info {
+                    displayName
+                    firstName
+                    lastName
+                    fullName
+                }
+                editableInfo {
+                    pictureLink
+                }
+            }
+        }
+        lastModified {
+            time
+            actor {
+                urn
+                type
+                username
+                info {
+                    displayName
+                    firstName
+                    lastName
+                    fullName
+                }
+                editableInfo {
+                    pictureLink
+                }
+            }
+        }
+    }
+    tagProposals: proposals(type: TAG_ASSOCIATION) {
+        urn
+        type
+        status
+        result
+        subResourceType
+        subResource
+        params {
+            tagProposal {
+                tag {
+                    urn
+                    type
+                    name
+                }
+            }
+        }
+        created {
+            time
+            actor {
+                urn
+                type
+                username
+                info {
+                    displayName
+                    firstName
+                    lastName
+                    fullName
+                }
+                editableInfo {
+                    pictureLink
+                }
+            }
+        }
+        lastModified {
+            time
+            actor {
+                urn
+                type
+                username
+                info {
+                    displayName
+                    firstName
+                    lastName
+                    fullName
+                }
+                editableInfo {
+                    pictureLink
+                }
+            }
+        }
+    }
+    constraints {
+        displayName
+        description
+        type
+        isSatisfied
+        reason
+        params {
+            hasGlossaryTermInNodeParams {
+                nodeName
+            }
+        }
+    }
+    totalIncidents: incidents(start: 0, count: 1) {
+        total
     }
 }
 

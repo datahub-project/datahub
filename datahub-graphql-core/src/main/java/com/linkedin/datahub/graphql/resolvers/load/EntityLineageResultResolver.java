@@ -7,7 +7,6 @@ import com.linkedin.datahub.graphql.generated.LineageDirection;
 import com.linkedin.datahub.graphql.generated.LineageInput;
 import com.linkedin.datahub.graphql.generated.LineageRelationship;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
-import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -27,11 +26,9 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 @Slf4j
 public class EntityLineageResultResolver implements DataFetcher<CompletableFuture<EntityLineageResult>> {
 
-  private final GraphClient _graphClient;
   private final SiblingGraphService _siblingGraphService;
 
-  public EntityLineageResultResolver(final GraphClient graphClient, final SiblingGraphService siblingGraphService) {
-    _graphClient = graphClient;
+  public EntityLineageResultResolver(final SiblingGraphService siblingGraphService) {
     _siblingGraphService = siblingGraphService;
   }
 

@@ -5,6 +5,7 @@ import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
 import com.linkedin.datahub.upgrade.nocodecleanup.NoCodeCleanupUpgrade;
 import com.linkedin.datahub.upgrade.propagate.PropagateTerms;
 import com.linkedin.datahub.upgrade.restoreaspect.RestoreAspect;
+import com.linkedin.datahub.upgrade.removeunknownaspects.RemoveUnknownAspects;
 import com.linkedin.datahub.upgrade.restorebackup.RestoreBackup;
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
 import com.linkedin.datahub.upgrade.secret.RotateSecrets;
@@ -49,6 +50,12 @@ public class UpgradeCli implements CommandLineRunner {
   private RestoreBackup restoreBackup;
 
   @Inject
+  @Named("removeUnknownAspects")
+  private RemoveUnknownAspects removeUnknownAspects;
+
+  // Saas-only
+
+  @Inject
   @Named("restoreAspect")
   private RestoreAspect restoreAspect;
 
@@ -70,6 +77,7 @@ public class UpgradeCli implements CommandLineRunner {
     _upgradeManager.register(noCodeCleanup);
     _upgradeManager.register(restoreIndices);
     _upgradeManager.register(restoreBackup);
+    _upgradeManager.register(removeUnknownAspects);
     _upgradeManager.register(restoreAspect);
     _upgradeManager.register(propagateTerms);
     _upgradeManager.register(rotateSecrets);
