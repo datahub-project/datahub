@@ -18,6 +18,7 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.LineageDirection;
@@ -63,6 +64,7 @@ public class JavaEntityClient implements EntityClient {
     private final Clock _clock = Clock.systemUTC();
 
     private final EntityService _entityService;
+    private final DeleteEntityService _deleteEntityService;
     private final EventProducer _eventProducer;
     private final EntitySearchService _entitySearchService;
     private final SearchService _searchService;
@@ -348,6 +350,12 @@ public class JavaEntityClient implements EntityClient {
      */
     public void deleteEntity(@Nonnull final Urn urn, @Nonnull final Authentication authentication) throws RemoteInvocationException {
         _entityService.deleteUrn(urn);
+    }
+
+    @Override
+    public void deleteEntityReferences(@Nonnull Urn urn, @Nonnull Authentication authentication)
+        throws RemoteInvocationException {
+        _deleteEntityService.deleteReferencesTo(urn, false);
     }
 
     @Nonnull

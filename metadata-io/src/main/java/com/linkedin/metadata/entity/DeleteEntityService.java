@@ -220,27 +220,71 @@ public class DeleteEntityService {
                                         updatedAspect.get(), aspectSpec.getPegasusSchema(), path));
                             });
 
-                    // If there has been an update
-                    if (!updatedAspect.get().equals(aspect)) {
-                        final MetadataChangeProposal proposal = new MetadataChangeProposal();
-                        proposal.setEntityUrn(relatedUrn);
-                        proposal.setChangeType(ChangeType.UPSERT);
-                        proposal.setEntityType(relatedUrn.getEntityType());
-                        proposal.setAspectName(aspectName);
-                        proposal.setAspect(GenericRecordUtils.serializeAspect(updatedAspect.get()));
-
-                        final AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-                        final EntityService.IngestProposalResult ingestProposalResult = _entityService.ingestProposal(proposal, auditStamp);
-
-                        if (!ingestProposalResult.isDidUpdate()) {
-                            log.error("Failed to ingest aspect with references removed. Before {}, after: {}, please check MCP processor"
-                                    + " logs for more information", aspect, updatedAspect);
-                            handleError(new DeleteEntityServiceError("Failed to ingest new aspect",
-                                    DeleteEntityServiceErrorReason.MCP_PROCESSOR_FAILED,
-                                    ImmutableMap.of("proposal", proposal)));
+                    // If there has been an update, then we produce an MCE.
+                    if (!aspect.equals(updatedAspect.get())) {
+                        if (updatedAspect.get() == null) {
+                            // Then we should remove the aspect.
+                            deleteAspect(relatedUrn, aspectName, aspect);
+                        } else {
+                            // Then we should update the aspect.
+                            updateAspect(relatedUrn, aspectName, aspect, updatedAspect.get());
                         }
                     }
                 });
+    }
+
+    /**
+     * Delete an existing aspect for an urn.
+     *
+     * @param urn the urn of the entity to remove the aspect for
+     * @param aspectName the aspect to remove
+     * @param prevAspect the old value for the aspect
+     */
+    private void deleteAspect(Urn urn, String aspectName, RecordTemplate prevAspect) {
+        final MetadataChangeProposal proposal = new MetadataChangeProposal();
+        proposal.setEntityUrn(urn);
+        proposal.setChangeType(ChangeType.DELETE);
+        proposal.setEntityType(urn.getEntityType());
+        proposal.setAspectName(aspectName);
+
+        final AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+        final EntityService.IngestProposalResult ingestProposalResult = _entityService.ingestProposal(proposal, auditStamp);
+
+        if (!ingestProposalResult.isDidUpdate()) {
+            log.error("Failed to ingest aspect with references removed. Before {}, after: null, please check MCP processor"
+                + " logs for more information", prevAspect);
+            handleError(new DeleteEntityServiceError("Failed to ingest new aspect",
+                DeleteEntityServiceErrorReason.MCP_PROCESSOR_FAILED,
+                ImmutableMap.of("proposal", proposal)));
+        }
+    }
+
+    /**
+     * Update an aspect for an urn.
+     *
+     * @param urn the urn of the entity to remove the aspect for
+     * @param aspectName the aspect to remove
+     * @param prevAspect the old value for the aspect
+     * @param newAspect the new value for the aspect
+     */
+    private void updateAspect(Urn urn, String aspectName, RecordTemplate prevAspect, RecordTemplate newAspect) {
+        final MetadataChangeProposal proposal = new MetadataChangeProposal();
+        proposal.setEntityUrn(urn);
+        proposal.setChangeType(ChangeType.UPSERT);
+        proposal.setEntityType(urn.getEntityType());
+        proposal.setAspectName(aspectName);
+        proposal.setAspect(GenericRecordUtils.serializeAspect(newAspect));
+
+        final AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+        final EntityService.IngestProposalResult ingestProposalResult = _entityService.ingestProposal(proposal, auditStamp);
+
+        if (!ingestProposalResult.isDidUpdate()) {
+            log.error("Failed to ingest aspect with references removed. Before {}, after: {}, please check MCP processor"
+                + " logs for more information", prevAspect, newAspect);
+            handleError(new DeleteEntityServiceError("Failed to ingest new aspect",
+                DeleteEntityServiceErrorReason.MCP_PROCESSOR_FAILED,
+                ImmutableMap.of("proposal", proposal)));
+        }
     }
 
 

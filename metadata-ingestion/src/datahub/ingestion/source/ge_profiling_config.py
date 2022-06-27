@@ -111,7 +111,7 @@ class GEProfilingConfig(ConfigModel):
     partition_profiling_enabled: bool = Field(default=True, description="")
     bigquery_temp_table_schema: Optional[str] = Field(
         default=None,
-        description="On bigquery for profiling partitioned tables needs to create temporary views. You have to define a schema where these will be created. Views will be cleaned up after profiler runs. (Great expectation tech details about this (https://legacy.docs.greatexpectations.io/en/0.9.0/reference/integrations/bigquery.html#custom-queries-with-sql-datasource).",
+        description="On bigquery for profiling partitioned tables needs to create temporary views. You have to define a dataset where these will be created. Views will be cleaned up after profiler runs. (Great expectation tech details about this (https://legacy.docs.greatexpectations.io/en/0.9.0/reference/integrations/bigquery.html#custom-queries-with-sql-datasource).",
     )
     partition_datetime: Optional[datetime.datetime] = Field(
         default=None,
