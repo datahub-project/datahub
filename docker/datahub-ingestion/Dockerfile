@@ -1,23 +1,11 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM acryldata/datahub-ingestion-base as pip-cache
-
-FROM python:3.8 as base
-COPY --from=pip-cache /root/.cache/pip /root/.cache/pip
+FROM acryldata/datahub-ingestion-base as base
 # ENV DOCKERIZE_VERSION v0.6.1
 # RUN apk --no-cache add curl tar \
 #     && curl https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-runner/9.4.20.v20190813/jetty-runner-9.4.20.v20190813.jar --output jetty-runner.jar \
 #     && curl -L https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
-RUN apt-get update && apt-get install -y \
-        jq \
-        librdkafka-dev \
-        python3-ldap \
-        libldap2-dev \
-        libsasl2-dev \
-        libsasl2-modules \
-        ldap-utils \
-    && python -m pip install --upgrade pip wheel setuptools==57.5.0
 
 
 FROM openjdk:8 as prod-build
