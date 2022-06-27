@@ -494,5 +494,15 @@
       "displayName": "N/A",
       "type": "OTHERS"
     }
+  },
+  {
+    "urn": "urn:li:dataPlatform:delta-lake",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "superset",
+      "displayName": "Superset",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/deltalakelogo.png"
+    }
   }
 ]
