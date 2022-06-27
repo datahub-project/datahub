@@ -48,7 +48,7 @@ const customMerge = (isPrimary, key) => {
     if (key === 'platform') {
         return (a, b) => (isPrimary ? b : a);
     }
-    if (key === 'tags' || key === 'terms') {
+    if (key === 'tags' || key === 'terms' || key === 'assertions') {
         return (a, b) => {
             return merge(a, b, {
                 customMerge: customMerge.bind({}, isPrimary),
