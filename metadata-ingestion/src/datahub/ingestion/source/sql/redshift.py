@@ -18,6 +18,7 @@ from sqlalchemy_redshift.dialect import RedshiftDialect, RelationKey
 from sqllineage.runner import LineageRunner
 
 import datahub.emitter.mce_builder as builder
+import datahub.ingestion.source.sql.data_governance as dg
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter import mce_builder
@@ -126,6 +127,12 @@ class RedshiftConfig(
     include_table_lineage: Optional[bool] = Field(
         default=True, description="Whether table lineage should be ingested."
     )
+
+    include_data_governance: Optional[bool] = Field(
+        default=False,
+        description="Whether entities (data-policies,users,groups, roles and their privileges) associated with data-governance should be ingested",
+    )
+
     include_copy_lineage: Optional[bool] = Field(
         default=True,
         description="Whether lineage should be collected from copy commands",
@@ -544,12 +551,45 @@ class RedshiftSource(SQLAlchemySource):
         for db_row in db_engine.execute("select version()"):
             self.report.saas_version = db_row[0]
 
+    def ingest_data_governance_work_units(
+        self, dg_source: dg.IDataGovernanceAccessor
+    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        if self.config.include_data_governance is False:
+            return
+
+        for wrk_unit in dg_source.generate_work_units():
+            self.report.report_workunit(wrk_unit)
+            yield wrk_unit
+
+    def ingest_data_policy(
+        self, dg_source: dg.IDataGovernanceAccessor, dataset_urn: str
+    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        if self.config.include_data_governance is False:
+            return
+
+        # Ingest ResourcePrincipal data-policies for given dataset
+        for wrk_unit in dg_source.generate_data_policy_work_unit(dataset_urn):
+            self.report.report_workunit(wrk_unit)
+            yield wrk_unit
+
     def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         try:
             self.inspect_version()
         except Exception as e:
             self.report.report_failure("version", f"Error: {e}")
             return
+
+        dg_source = dg.new_data_governance_source(
+            engine=self.get_metadata_engine(),
+            config=dg.DataGovernanceConfig(
+                platform=dg.DataGovernancePlatform.AWS_REDSHIFT,
+                platform_instance=self.config.platform_instance,
+                environment=self.config.env,
+            ),
+        )
+
+        for wrk_unit in self.ingest_data_governance_work_units(dg_source):
+            yield wrk_unit
 
         for wu in super().get_workunits():
             yield wu
@@ -563,6 +603,10 @@ class RedshiftSource(SQLAlchemySource):
 
                 dataset_snapshot: DatasetSnapshotClass = wu.metadata.proposedSnapshot
                 assert dataset_snapshot
+                for wrk_unit in self.ingest_data_policy(
+                    dg_source, dataset_snapshot.urn
+                ):
+                    yield wrk_unit
 
                 if self.config.include_table_lineage:
                     lineage_mcp, lineage_properties_aspect = self.get_lineage_mcp(
