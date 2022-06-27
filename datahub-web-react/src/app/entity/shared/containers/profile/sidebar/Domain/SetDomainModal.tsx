@@ -6,7 +6,7 @@ import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/searc
 import { EntityType, SearchResult } from '../../../../../../../types.generated';
 import { useSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { useEntityData } from '../../../../EntityContext';
+import { useMutationUrn } from '../../../../EntityContext';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
 
 type Props = {
@@ -40,7 +40,7 @@ type SelectedDomain = {
 
 export const SetDomainModal = ({ visible, onClose, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const { urn } = useEntityData();
+    const urn = useMutationUrn();
     const [selectedDomain, setSelectedDomain] = useState<SelectedDomain | undefined>(undefined);
     const [domainSearch, { data: domainSearchData }] = useGetSearchResultsLazyQuery();
     const domainSearchResults = domainSearchData?.search?.searchResults || [];
