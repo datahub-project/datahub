@@ -2,8 +2,6 @@ package io.datahubproject.openapi.util;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
-import com.datahub.authentication.Authentication;
-import com.datahub.authentication.AuthenticationContext;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -16,6 +14,7 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.ValidationException;
@@ -249,15 +248,11 @@ public class MappingUtil {
 
   public static Pair<String, Boolean> ingestProposal(MetadataChangeProposal metadataChangeProposal, EntityService entityService,
       ObjectMapper objectMapper) {
-
+    // TODO: Use the actor present in the IC.
     Timer.Context context = MetricUtils.timer("postEntity").time();
-    Authentication authentication = AuthenticationContext.getAuthentication();
-    String actorUrnStr = authentication.getActor().toUrnStr();
-    // Getting actor from AuthenticationContext
-    log.debug(String.format("Retrieving AuthenticationContext for Actor with : %s", actorUrnStr));
     final com.linkedin.common.AuditStamp auditStamp =
         new com.linkedin.common.AuditStamp().setTime(System.currentTimeMillis())
-            .setActor(UrnUtils.getUrn(actorUrnStr));
+            .setActor(UrnUtils.getUrn(Constants.UNKNOWN_ACTOR));
     io.datahubproject.openapi.generated.KafkaAuditHeader auditHeader = metadataChangeProposal.getAuditHeader();
 
     com.linkedin.mxe.MetadataChangeProposal serviceProposal =
