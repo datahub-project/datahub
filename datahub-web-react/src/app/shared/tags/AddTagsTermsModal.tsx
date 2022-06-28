@@ -178,9 +178,6 @@ export default function AddTagsTermsModal({
 
     // When a Tag or term search result is selected, add the urn to the Urns
     const onSelectValue = (urn: string) => {
-        if (inputEl && inputEl.current) {
-            (inputEl.current as any).blur();
-        }
         if (urn === CREATE_TAG_VALUE) {
             setShowCreateModal(true);
             return;
@@ -203,6 +200,9 @@ export default function AddTagsTermsModal({
                 ),
             },
         ]);
+        if (inputEl && inputEl.current) {
+            (inputEl.current as any).blur();
+        }
     };
 
     // When a Tag or term search result is deselected, remove the urn from the Owners
