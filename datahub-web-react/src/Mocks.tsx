@@ -3314,4 +3314,7 @@ export const platformPrivileges: PlatformPrivileges = {
     manageTests: true,
     manageGlossaries: true,
     manageUserCredentials: true,
+    manageTags: true,
+    createTags: true,
+    createDomains: true,
 };
