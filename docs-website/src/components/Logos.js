@@ -67,6 +67,11 @@ const companiesByIndustry = [
         size: "small",
       },
       {
+        name: "N26",
+        imageUrl: "/img/logos/companies/n26.svg",
+        size: "large",
+      },
+      {
         name: "BankSalad",
         imageUrl: "/img/logos/companies/banksalad.png",
         size: "large",
@@ -114,6 +119,11 @@ const companiesByIndustry = [
         name: "Wolt",
         imageUrl: "/img/logos/companies/wolt.png",
         size: "large",
+      },
+      {
+        name: "Showroomprive.com",
+        imageUrl: "/img/logos/companies/showroomprive.png",
+        size: "default",
       },
     ],
   },

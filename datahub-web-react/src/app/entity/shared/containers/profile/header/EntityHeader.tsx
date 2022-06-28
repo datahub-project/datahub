@@ -100,11 +100,13 @@ const TopButtonsWrapper = styled.div`
     margin-bottom: 8px;
 `;
 
-function getCanEditName(entityType: EntityType, privileges?: PlatformPrivileges) {
+export function getCanEditName(entityType: EntityType, privileges?: PlatformPrivileges) {
     switch (entityType) {
         case EntityType.GlossaryTerm:
         case EntityType.GlossaryNode:
             return privileges?.manageGlossaries;
+        case EntityType.Domain:
+            return privileges?.manageDomains;
         default:
             return false;
     }
