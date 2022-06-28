@@ -1,6 +1,5 @@
 import logging
 import os
-from typing import Iterable, Optional
 
 S3_PREFIXES = ["s3://", "s3n://", "s3a://"]
 
