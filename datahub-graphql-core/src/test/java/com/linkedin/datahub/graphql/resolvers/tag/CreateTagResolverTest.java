@@ -1,14 +1,14 @@
-package com.linkedin.datahub.graphql.resolvers.domain;
+package com.linkedin.datahub.graphql.resolvers.tag;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.CreateDomainInput;
-import com.linkedin.domain.DomainProperties;
+import com.linkedin.datahub.graphql.generated.CreateTagInput;
+import com.linkedin.tag.TagProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.key.DomainKey;
+import com.linkedin.metadata.key.TagKey;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
@@ -20,9 +20,9 @@ import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.testng.Assert.*;
 
 
-public class CreateDomainResolverTest {
+public class CreateTagResolverTest {
 
-  private static final CreateDomainInput TEST_INPUT = new CreateDomainInput(
+  private static final CreateTagInput TEST_INPUT = new CreateTagInput(
       "test-id",
       "test-name",
       "test-description"
@@ -36,7 +36,7 @@ public class CreateDomainResolverTest {
         .thenReturn(new EntityService.IngestProposalResult(UrnUtils.getUrn(
             String.format("urn:li:tag:%s",
                 TEST_INPUT.getId())), true));
-    CreateDomainResolver resolver = new CreateDomainResolver(mockService);
+    CreateTagResolver resolver = new CreateTagResolver(mockService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -46,15 +46,15 @@ public class CreateDomainResolverTest {
 
     resolver.get(mockEnv).get();
 
-    final DomainKey key = new DomainKey();
-    key.setId("test-id");
+    final TagKey key = new TagKey();
+    key.setName("test-id");
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
-    proposal.setEntityType(Constants.DOMAIN_ENTITY_NAME);
-    DomainProperties props = new DomainProperties();
+    proposal.setEntityType(Constants.TAG_ENTITY_NAME);
+    TagProperties props = new TagProperties();
     props.setDescription("test-description");
     props.setName("test-name");
-    proposal.setAspectName(Constants.DOMAIN_PROPERTIES_ASPECT_NAME);
+    proposal.setAspectName(Constants.TAG_PROPERTIES_ASPECT_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(props));
     proposal.setChangeType(ChangeType.UPSERT);
 
@@ -69,7 +69,7 @@ public class CreateDomainResolverTest {
   public void testGetUnauthorized() throws Exception {
     // Create resolver
     EntityService mockService = Mockito.mock(EntityService.class);
-    CreateDomainResolver resolver = new CreateDomainResolver(mockService);
+    CreateTagResolver resolver = new CreateTagResolver(mockService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -90,7 +90,7 @@ public class CreateDomainResolverTest {
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
         Mockito.any(),
         Mockito.any(AuditStamp.class));
-    CreateDomainResolver resolver = new CreateDomainResolver(mockService);
+    CreateTagResolver resolver = new CreateTagResolver(mockService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
