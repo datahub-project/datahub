@@ -98,6 +98,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private EntityService _entityService;
 
   @Inject
+  @Named("deleteEntityService")
+  private DeleteEntityService _deleteEntityService;
+
+  @Inject
   @Named("searchService")
   private SearchService _searchService;
 
@@ -120,10 +124,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Inject
   @Named("graphService")
   private GraphService _graphService;
-
-  @Inject
-  @Named("deleteEntityService")
-  private DeleteEntityService _deleteEntityService;
 
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
