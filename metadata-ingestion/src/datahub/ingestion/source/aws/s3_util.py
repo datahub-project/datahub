@@ -8,8 +8,6 @@ from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
 
 S3_PREFIXES = ["s3://", "s3n://", "s3a://"]
-logging.getLogger("py4j").setLevel(logging.ERROR)
-logger: logging.Logger = logging.getLogger(__name__)
 
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
