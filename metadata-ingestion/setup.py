@@ -260,8 +260,9 @@ plugins: Dict[str, Set[str]] = {
         "sqllineage==1.3.5",
     },
     "sagemaker": aws_common,
-    "snowflake": snowflake_common,
+    "snowflake": snowflake_common | aws_common,
     "snowflake-usage": snowflake_common
+    | aws_common
     | usage_common
     | {
         "more-itertools>=8.12.0",
@@ -454,7 +455,7 @@ if is_py37_or_newer:
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
     "datahub.ingestion.source.plugins": [
-	 "csv-enricher = datahub.ingestion.source.csv_enricher:CSVEnricherSource",
+        "csv-enricher = datahub.ingestion.source.csv_enricher:CSVEnricherSource",
         "file = datahub.ingestion.source.file:GenericFileSource",
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
