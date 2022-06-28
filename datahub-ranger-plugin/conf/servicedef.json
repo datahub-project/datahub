@@ -26,7 +26,7 @@
       "validationMessage": "",
       "uiHint": "",
       "label": "platform",
-      "description": "This resource is added to simulate datahub platform policy"
+      "description": "This resource is added to simulate DataHub platform policy"
     },
     {
       "itemId": 2,
@@ -47,7 +47,7 @@
       "validationMessage": "",
       "uiHint": "",
       "label": "dataset",
-      "description": "Datahub dataset resource"
+      "description": "DataHub dataset resource"
     },
     {
       "itemId": 3,
@@ -68,7 +68,7 @@
       "validationMessage": "",
       "uiHint": "",
       "label": "dashboard",
-      "description": "Datahub dashboard resource"
+      "description": "DataHub dashboard resource"
     },
     {
       "itemId": 4,
@@ -89,7 +89,7 @@
       "validationMessage": "",
       "uiHint": "",
       "label": "chart",
-      "description": "Datahub chart resource"
+      "description": "DataHub chart resource"
     },
     {
       "itemId": 5,
@@ -110,7 +110,7 @@
       "validationMessage": "",
       "uiHint": "",
       "label": "dataFlow",
-      "description": "Datahub dataFlow resource"
+      "description": "DataHub dataFlow resource"
     },
     {
       "itemId": 6,
@@ -131,7 +131,7 @@
       "validationMessage": "",
       "uiHint": "",
       "label": "dataJob",
-      "description": "Datahub dataJob resource"
+      "description": "DataHub dataJob resource"
     },
     {
       "itemId": 7,
@@ -152,7 +152,7 @@
       "validationMessage": "",
       "uiHint": "",
       "label": "tag",
-      "description": "Datahub tag resource"
+      "description": "DataHub tag resource"
     },
     {
       "itemId": 8,
@@ -173,7 +173,7 @@
       "validationMessage": "",
       "uiHint": "",
       "label": "container",
-      "description": "Datahub container resource"
+      "description": "DataHub container resource"
     },
     {
       "itemId": 9,
@@ -194,7 +194,7 @@
       "validationMessage": "",
       "uiHint": "",
       "label": "domain",
-      "description": "Datahub domain resource"
+      "description": "DataHub domain resource"
     },
     {
       "itemId": 10,
@@ -215,7 +215,7 @@
       "validationMessage": "",
       "uiHint": "",
       "label": "glossaryTerm",
-      "description": "Datahub glossaryTerm resource"
+      "description": "DataHub glossaryTerm resource"
     },
     {
       "itemId": 11,
@@ -236,7 +236,7 @@
       "validationMessage": "",
       "uiHint": "",
       "label": "corpGroup",
-      "description": "Datahub corpGroup resource"
+      "description": "DataHub corpGroup resource"
     },
     {
       "itemId": 12,
@@ -257,7 +257,7 @@
       "validationMessage": "",
       "uiHint": "",
       "label": "corpUser",
-      "description": "Datahub corpUser resource"
+      "description": "DataHub corpUser resource"
     },
     {
       "itemId": 13,
@@ -278,7 +278,7 @@
       "validationMessage": "",
       "uiHint": "",
       "label": "notebook",
-      "description": "Datahub notebook resource"
+      "description": "DataHub notebook resource"
     }
 
   ],

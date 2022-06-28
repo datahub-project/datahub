@@ -12,7 +12,7 @@ public class AuthorizerConfiguration {
   /**
    * Whether to enable this authorizer
    */
-  private boolean enabled = false;
+  private Boolean enabled = false;
   /**
    * A fully-qualified class name for the {@link Authorizer} implementation to be registered.
    */
@@ -21,4 +21,5 @@ public class AuthorizerConfiguration {
    * A set of authorizer-specific configurations passed through during "init" of the authorizer.
    */
   private Map<String, Object> configs;
+
 }

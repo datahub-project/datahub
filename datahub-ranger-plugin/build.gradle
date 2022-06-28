@@ -5,7 +5,6 @@ apply plugin: 'java'
 apply plugin: 'signing'
 apply plugin: 'maven-publish'
 apply plugin: 'io.codearte.nexus-staging'
-//apply plugin: 'com.github.johnrengelman.shadow'
 
 
 
@@ -86,10 +85,10 @@ publishing {
         mavenJava(MavenPublication) {
             from components.java
             pom {
-                name = 'Datahub Apache Ranger Plugin'
+                name = 'DataHub Apache Ranger Plugin'
                 group = 'io.acryl'
                 artifactId = 'datahub-ranger-plugin'
-                description = 'Datahub Apache Ranger plugin for authorization of datahub resources'
+                description = 'DataHub Apache Ranger plugin for authorization of DataHub resources'
                 url = 'https://datahubproject.io'
                 scm {
                     connection = 'scm:git:git://github.com/datahub-project/datahub.git'
@@ -107,7 +106,7 @@ publishing {
                 developers {
                     developer {
                         id = 'datahub'
-                        name = 'Datahub'
+                        name = 'DataHub'
                         email = 'datahub@acryl.io'
                     }
                 }

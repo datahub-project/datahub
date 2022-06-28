@@ -50,6 +50,7 @@ public class RangerAuthorizer implements Authorizer {
     String userIdentifier = UrnUtils.getUrn(request.getActorUrn()).getId();
 
     Set<String> roles = this.dataHubRangerClient.getUserRoles(userIdentifier);
+    // getUserGroups is internally calling two API to get group information of Actor
     Set<String> groups = this.dataHubRangerClient.getUserGroups(userIdentifier);
 
     // set ResourceSpec default to "platform"

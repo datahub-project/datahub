@@ -64,6 +64,7 @@ public class DataHubRangerClient {
     try {
 
       UserByName userByName = this.rangerRestClientWrapper.getUserByName(userIdentifier);
+      // userByName.id is (integer) apache ranger user identifier
       groups = this.rangerRestClientWrapper.getUserById(userByName.getId()).getGroupNameList();
 
       log.debug(StringUtils.format("User %s groups %s", userIdentifier, groups.toString()));
