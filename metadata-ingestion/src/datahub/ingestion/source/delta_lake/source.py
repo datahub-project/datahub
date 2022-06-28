@@ -1,5 +1,7 @@
 import logging
 import os
+import time
+from datetime import datetime
 from typing import Callable, Iterable, List
 
 from deltalake import DeltaTable
@@ -8,6 +10,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, WorkUnit
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -41,8 +44,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
     DatasetPropertiesClass,
     NullTypeClass,
+    OperationClass,
+    OperationTypeClass,
     OtherSchemaClass,
 )
 from datahub.telemetry import telemetry
@@ -53,6 +59,19 @@ logger: logging.Logger = logging.getLogger(__name__)
 config_options_to_report = [
     "platform",
 ]
+
+OPERATION_STATEMENT_TYPES = {
+    "INSERT": OperationTypeClass.INSERT,
+    "UPDATE": OperationTypeClass.UPDATE,
+    "DELETE": OperationTypeClass.DELETE,
+    "MERGE": OperationTypeClass.UPDATE,
+    "CREATE": OperationTypeClass.CREATE,
+    "CREATE_TABLE_AS_SELECT": OperationTypeClass.CREATE,
+    "CREATE_SCHEMA": OperationTypeClass.CREATE,
+    "DROP_TABLE": OperationTypeClass.DROP,
+    "REPLACE TABLE AS SELECT": OperationTypeClass.UPDATE,
+    "COPY INTO": OperationTypeClass.UPDATE,
+}
 
 
 @platform_name("Delta Lake", id="delta-lake")
@@ -122,6 +141,99 @@ class DeltaLakeSource(Source):
 
         return fields
 
+    def _create_operation_aspect_wu(
+        self, delta_table: DeltaTable, dataset_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        for hist in delta_table.history():
+
+            # History schema picked up from https://docs.delta.io/latest/delta-utility.html#retrieve-delta-table-history
+            reported_time: int = int(time.time() * 1000)
+            last_updated_timestamp: int = hist["timestamp"]
+            statement_type = OPERATION_STATEMENT_TYPES.get(
+                hist.get("operation"), OperationTypeClass.CUSTOM
+            )
+            custom_type = hist.get("operation")
+            operation_custom_properties = dict()
+            operation_custom_properties.update(
+                {}
+                if hist.get("isBlindAppend") is None
+                else {"isBlindAppend": str(hist["isBlindAppend"])}
+            )
+            operation_custom_properties.update(
+                {} if hist.get("version") is None else {"version": str(hist["version"])}
+            )
+            operation_custom_properties.update(
+                {} if hist.get("userId") is None else {"userId": str(hist["userId"])}
+            )
+            operation_custom_properties.update(
+                {}
+                if hist.get("userName") is None
+                else {"userName": str(hist["userName"])}
+            )
+            operation_custom_properties.update(
+                {} if hist.get("job") is None else {"job": str(hist["job"])}
+            )
+            operation_custom_properties.update(
+                {}
+                if hist.get("notebook") is None
+                else {"notebook": str(hist["notebook"])}
+            )
+            operation_custom_properties.update(
+                {}
+                if hist.get("clusterId") is None
+                else {"clusterId": str(hist["clusterId"])}
+            )
+            operation_custom_properties.update(
+                {}
+                if hist.get("readVersion") is None
+                else {"readVersion": str(hist["readVersion"])}
+            )
+            operation_custom_properties.update(
+                {}
+                if hist.get("isolationLevel") is None
+                else {"isolationLevel": str(hist["isolationLevel"])}
+            )
+            operation_custom_properties.update(
+                {}
+                if hist.get("userMetadata") is None
+                else {"userMetadata": str(hist["userMetadata"])}
+            )
+
+            if hist.get("operationMetrics") is not None:
+                for key in hist["operationMetrics"]:
+                    operation_custom_properties["operationMetrics_" + key] = str(
+                        hist["operationMetrics"][key]
+                    )
+            if hist.get("operationParameters") is not None:
+                for key in hist["operationParameters"]:
+                    operation_custom_properties["operationParameters_" + key] = str(
+                        hist["operationParameters"][key]
+                    )
+
+            operation_aspect = OperationClass(
+                timestampMillis=reported_time,
+                lastUpdatedTimestamp=last_updated_timestamp,
+                operationType=statement_type,
+                customOperationType=custom_type
+                if statement_type == OperationTypeClass.CUSTOM
+                else None,
+                customProperties=operation_custom_properties,
+            )
+
+            mcp = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                aspectName="operation",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspect=operation_aspect,
+            )
+            operational_wu = MetadataWorkUnit(
+                id=f"{datetime.fromtimestamp(last_updated_timestamp / 1000).isoformat()}-operation-aspect-{dataset_urn}",
+                mcp=mcp,
+            )
+            self.report.report_workunit(operational_wu)
+            yield operational_wu
+
     def ingest_table(
         self, delta_table: DeltaTable, path: str
     ) -> Iterable[MetadataWorkUnit]:
@@ -164,11 +276,6 @@ class DeltaLakeSource(Source):
             "version": str(delta_table.version()),
             "location": self.source_config.get_complete_path(),
         }
-        customProperties.update(delta_table.history()[-1])
-        customProperties["version_creation_time"] = customProperties["timestamp"]
-        del customProperties["timestamp"]
-        for key in customProperties.keys():
-            customProperties[key] = str(customProperties[key])
 
         dataset_properties = DatasetPropertiesClass(
             description=delta_table.metadata().description,
@@ -220,6 +327,8 @@ class DeltaLakeSource(Source):
         for wu in container_wus:
             self.report.report_workunit(wu)
             yield wu
+
+        yield from self._create_operation_aspect_wu(delta_table, dataset_urn)
 
     def process_folder(
         self, path: str, get_folders: Callable[[str], Iterable[str]]
