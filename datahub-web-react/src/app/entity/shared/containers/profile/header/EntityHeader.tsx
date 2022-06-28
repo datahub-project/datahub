@@ -100,11 +100,13 @@ const TopButtonsWrapper = styled.div`
     margin-bottom: 8px;
 `;
 
-function getCanEditName(entityType: EntityType, privileges?: PlatformPrivileges) {
+export function getCanEditName(entityType: EntityType, privileges?: PlatformPrivileges) {
     switch (entityType) {
         case EntityType.GlossaryTerm:
         case EntityType.GlossaryNode:
             return privileges?.manageGlossaries;
+        case EntityType.Domain:
+            return privileges?.manageDomains;
         default:
             return false;
     }
@@ -192,12 +194,13 @@ export const EntityHeader = ({ refreshBrowser, headerDropdownItems, isNameEditab
                             </DeprecatedContainer>
                         </Popover>
                     )}
-                    {entityData?.health && (
+                    {entityData?.health?.map((health) => (
                         <EntityHealthStatus
-                            status={entityData?.health.status}
-                            message={entityData?.health?.message || undefined}
+                            type={health.type}
+                            status={health.status}
+                            message={health.message || undefined}
                         />
-                    )}
+                    ))}
                 </TitleWrapper>
                 <EntityCount entityCount={entityCount} />
             </MainHeaderContent>

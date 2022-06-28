@@ -6,9 +6,9 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
-import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
+import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
@@ -24,12 +24,6 @@ import io.ebean.RawSqlBuilder;
 import io.ebean.Transaction;
 import io.ebean.TxScope;
 import io.ebean.annotation.TxIsolation;
-import lombok.extern.slf4j.Slf4j;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import javax.persistence.RollbackException;
-import javax.persistence.Table;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -41,8 +35,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import javax.persistence.RollbackException;
+import javax.persistence.Table;
+import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
+import static com.linkedin.metadata.Constants.*;
 
 @Slf4j
 public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
@@ -233,7 +232,6 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  @Nullable
   public void deleteAspect(@Nonnull final EntityAspect aspect) {
     validateConnection();
     EbeanAspectV2 ebeanAspect = EbeanAspectV2.fromEntityAspect(aspect);
@@ -241,7 +239,6 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  @Nullable
   public int deleteUrn(@Nonnull final String urn) {
     validateConnection();
     return _server.createQuery(EbeanAspectV2.class).where().eq(EbeanAspectV2.URN_COLUMN, urn).delete();

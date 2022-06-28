@@ -58,6 +58,7 @@ public class LineageSearchService {
    * @param direction Direction of the relationship
    * @param entities list of entities to search (If empty, searches across all entities)
    * @param input the search input text
+   * @param maxHops the maximum number of hops away to search for. If null, defaults to 1000
    * @param inputFilters the request map with fields and values as filters to be applied to search hits
    * @param sortCriterion {@link SortCriterion} to be applied to search results
    * @param from index to start the search from
@@ -67,12 +68,13 @@ public class LineageSearchService {
   @Nonnull
   @WithSpan
   public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
-      @Nonnull List<String> entities, @Nullable String input, @Nullable Filter inputFilters,
+      @Nonnull List<String> entities, @Nullable String input, @Nullable Integer maxHops, @Nullable Filter inputFilters,
       @Nullable SortCriterion sortCriterion, int from, int size) {
     // Cache multihop result for faster performance
     EntityLineageResult lineageResult = cache.get(Pair.of(sourceUrn, direction), EntityLineageResult.class);
     if (lineageResult == null) {
-      lineageResult = _graphService.getLineage(sourceUrn, direction, 0, MAX_RELATIONSHIPS, 1000);
+      maxHops = maxHops != null ? maxHops : 1000;
+      lineageResult = _graphService.getLineage(sourceUrn, direction, 0, MAX_RELATIONSHIPS, maxHops);
     }
 
     // Filter hopped result based on the set of entities to return and inputFilters before sending to search

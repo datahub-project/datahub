@@ -26,6 +26,7 @@ import {
     RecommendationRenderType,
     RelationshipDirection,
     Container,
+    PlatformPrivileges,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
@@ -207,7 +208,7 @@ export const dataset1 = {
     container: null,
     upstream: null,
     downstream: null,
-    health: null,
+    health: [],
     assertions: null,
     deprecation: null,
     testResults: null,
@@ -288,7 +289,7 @@ export const dataset2 = {
     container: null,
     upstream: null,
     downstream: null,
-    health: null,
+    health: [],
     assertions: null,
     status: null,
     deprecation: null,
@@ -498,12 +499,13 @@ export const dataset3 = {
     container: null,
     lineage: null,
     relationships: null,
-    health: null,
+    health: [],
     assertions: null,
     status: null,
     readRuns: null,
     writeRuns: null,
     testResults: null,
+    siblings: null,
 } as Dataset;
 
 export const dataset4 = {
@@ -3288,3 +3290,17 @@ export const mocks = [
         },
     },
 ];
+
+export const platformPrivileges: PlatformPrivileges = {
+    viewAnalytics: true,
+    managePolicies: true,
+    manageIdentities: true,
+    generatePersonalAccessTokens: true,
+    manageDomains: true,
+    manageIngestion: true,
+    manageSecrets: true,
+    manageTokens: true,
+    manageTests: true,
+    manageGlossaries: true,
+    manageUserCredentials: true,
+};

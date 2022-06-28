@@ -68,7 +68,7 @@ kafka_common = {
     # At the same time, we use Kafka's AvroSerializer, which internally relies on
     # fastavro for serialization. We do not use confluent_kafka[avro], since it
     # is incompatible with its own dep on avro-python3.
-    "confluent_kafka>=1.5.0",
+    "confluent_kafka>=1.5.0,<1.9.0",
     "fastavro>=1.2.0",
 }
 
@@ -164,6 +164,11 @@ s3_base = {
     "wcmatch",
 }
 
+delta_lake = {
+    *s3_base,
+    "deltalake",
+}
+
 usage_common = {
     "sqlparse",
 }
@@ -196,6 +201,7 @@ plugins: Dict[str, Set[str]] = {
     "datahub-business-glossary": set(),
     "data-lake": {*data_lake_base, *data_lake_profiling},
     "s3": {*s3_base, *data_lake_profiling},
+    "delta-lake": {*data_lake_profiling, *delta_lake},
     "dbt": {"requests"} | aws_common,
     "druid": sql_common | {"pydruid>=0.6.2"},
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
@@ -322,7 +328,6 @@ base_dev_requirements = {
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "pytest-docker>=0.10.3,<0.12",
-    "tox",
     "deepdiff",
     "requests-mock",
     "freezegun",
@@ -352,6 +357,7 @@ base_dev_requirements = {
             "redshift",
             "redshift-usage",
             "data-lake",
+            "delta-lake",
             "s3",
             "tableau",
             "trino",
@@ -450,6 +456,7 @@ if is_py37_or_newer:
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
     "datahub.ingestion.source.plugins": [
+	 "csv-enricher = datahub.ingestion.source.csv_enricher:CSVEnricherSource",
         "file = datahub.ingestion.source.file:GenericFileSource",
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
@@ -459,6 +466,7 @@ entry_points = {
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "data-lake = datahub.ingestion.source.data_lake:DataLakeSource",
+        "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
