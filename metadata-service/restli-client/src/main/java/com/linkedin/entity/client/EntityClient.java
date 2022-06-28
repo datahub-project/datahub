@@ -230,6 +230,12 @@ public interface EntityClient {
       throws RemoteInvocationException;
 
   /**
+   * Delete all references to an entity with a particular urn.
+   */
+  public void deleteEntityReferences(@Nonnull final Urn urn, @Nonnull final Authentication authentication)
+      throws RemoteInvocationException;
+
+  /**
    * Filters entities based on a particular Filter and Sort criterion
    *
    * @param entity filter entity

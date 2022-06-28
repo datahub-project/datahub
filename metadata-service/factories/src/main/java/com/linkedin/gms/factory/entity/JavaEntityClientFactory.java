@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.entity;
 
 import com.linkedin.entity.client.JavaEntityClient;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
+import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -21,6 +22,10 @@ public class JavaEntityClientFactory {
   @Autowired
   @Qualifier("entityService")
   private EntityService _entityService;
+
+  @Autowired
+  @Qualifier("deleteEntityService")
+  private DeleteEntityService _deleteEntityService;
 
   @Autowired
   @Qualifier("searchService")
@@ -46,6 +51,7 @@ public class JavaEntityClientFactory {
   public JavaEntityClient getJavaEntityClient() {
     return new JavaEntityClient(
         _entityService,
+        _deleteEntityService,
         _eventProducer,
         _entitySearchService,
         _searchService,
