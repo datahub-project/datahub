@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -32,7 +31,7 @@ public class DeleteDomainResolver implements DataFetcher<CompletableFuture<Boole
     final Urn urn = Urn.createFromString(domainUrn);
     return CompletableFuture.supplyAsync(() -> {
 
-      if (AuthorizationUtils.canManageDomains(context) || AuthorizationUtils.canDeleteEntity(UrnUtils.getUrn(domainUrn), context)) {
+      if (AuthorizationUtils.canManageDomains(context) || AuthorizationUtils.canDeleteEntity(urn, context)) {
         try {
           _entityClient.deleteEntity(urn, context.getAuthentication());
 
