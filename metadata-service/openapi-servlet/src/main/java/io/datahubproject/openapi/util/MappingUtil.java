@@ -246,13 +246,13 @@ public class MappingUtil {
     }
   }
 
-  public static Pair<String, Boolean> ingestProposal(MetadataChangeProposal metadataChangeProposal, EntityService entityService,
+  public static Pair<String, Boolean> ingestProposal(MetadataChangeProposal metadataChangeProposal, String actorUrn, EntityService entityService,
       ObjectMapper objectMapper) {
     // TODO: Use the actor present in the IC.
     Timer.Context context = MetricUtils.timer("postEntity").time();
     final com.linkedin.common.AuditStamp auditStamp =
         new com.linkedin.common.AuditStamp().setTime(System.currentTimeMillis())
-            .setActor(UrnUtils.getUrn(Constants.UNKNOWN_ACTOR));
+            .setActor(UrnUtils.getUrn(actorUrn));
     io.datahubproject.openapi.generated.KafkaAuditHeader auditHeader = metadataChangeProposal.getAuditHeader();
 
     com.linkedin.mxe.MetadataChangeProposal serviceProposal =
