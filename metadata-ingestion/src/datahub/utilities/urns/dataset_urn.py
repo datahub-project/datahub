@@ -1,4 +1,4 @@
-from typing import List, Set
+from typing import List, Optional, Set
 
 from datahub.metadata.schema_classes import FabricTypeClass
 from datahub.utilities.urns.data_platform_urn import DataPlatformUrn
@@ -55,13 +55,25 @@ class DatasetUrn(Urn):
 
     @classmethod
     def create_from_ids(
-        cls, platform_id: str, table_name: str, env: str
+        cls,
+        platform_id: str,
+        table_name: str,
+        env: str,
+        platform_instance: Optional[str] = None,
     ) -> "DatasetUrn":
-        entity_id: List[str] = [
-            str(DataPlatformUrn.create_from_id(platform_id)),
-            table_name,
-            env,
-        ]
+        entity_id: List[str]
+        if platform_instance:
+            entity_id = [
+                str(DataPlatformUrn.create_from_id(platform_id)),
+                f"{platform_instance}.{table_name}",
+                env,
+            ]
+        else:
+            entity_id = [
+                str(DataPlatformUrn.create_from_id(platform_id)),
+                table_name,
+                env,
+            ]
         return cls(DatasetUrn.ENTITY_TYPE, entity_id)
 
     @staticmethod
@@ -87,3 +99,20 @@ class DatasetUrn(Urn):
             raise InvalidUrnError(
                 f"Invalid env:{env}. Allowed evn are {DatasetUrn.VALID_FABRIC_SET}"
             )
+
+    """A helper function to extract simple . path notation from the v2 field path"""
+
+    @staticmethod
+    def _get_simple_field_path_from_v2_field_path(field_path: str) -> str:
+        if field_path.startswith("[version=2.0]"):
+            # this is a v2 field path
+            tokens = [
+                t
+                for t in field_path.split(".")
+                if not (t.startswith("[") or t.endswith("]"))
+            ]
+            path = ".".join(tokens)
+            return path
+        else:
+            # not a v2, we assume this is a simple path
+            return field_path

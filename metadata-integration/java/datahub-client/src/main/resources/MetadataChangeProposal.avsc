@@ -1,0 +1,164 @@
+{
+  "type" : "record",
+  "name" : "MetadataChangeProposal",
+  "namespace" : "com.linkedin.pegasus2avro.mxe",
+  "doc" : "Kafka event for proposing a metadata change for an entity. A corresponding MetadataChangeLog is emitted when the change is accepted and committed, otherwise a FailedMetadataChangeProposal will be emitted instead.",
+  "fields" : [ {
+    "name" : "auditHeader",
+    "type" : [ "null", {
+      "type" : "record",
+      "name" : "KafkaAuditHeader",
+      "namespace" : "com.linkedin.events",
+      "doc" : "This header records information about the context of an event as it is emitted into kafka and is intended to be used by the kafka audit application.  For more information see go/kafkaauditheader",
+      "fields" : [ {
+        "name" : "time",
+        "type" : "long",
+        "doc" : "The time at which the event was emitted into kafka.",
+        "compliance" : [ {
+          "policy" : "EVENT_TIME"
+        } ]
+      }, {
+        "name" : "server",
+        "type" : "string",
+        "doc" : "The fully qualified name of the host from which the event is being emitted.",
+        "compliance" : "NONE"
+      }, {
+        "name" : "instance",
+        "type" : [ "null", "string" ],
+        "doc" : "The instance on the server from which the event is being emitted. e.g. i001",
+        "default" : null,
+        "compliance" : "NONE"
+      }, {
+        "name" : "appName",
+        "type" : "string",
+        "doc" : "The name of the application from which the event is being emitted. see go/appname",
+        "compliance" : "NONE"
+      }, {
+        "name" : "messageId",
+        "type" : {
+          "type" : "fixed",
+          "name" : "UUID",
+          "size" : 16
+        },
+        "doc" : "A unique identifier for the message",
+        "compliance" : "NONE"
+      }, {
+        "name" : "auditVersion",
+        "type" : [ "null", "int" ],
+        "doc" : "The version that is being used for auditing. In version 0, the audit trail buckets events into 10 minute audit windows based on the EventHeader timestamp. In version 1, the audit trail buckets events as follows: if the schema has an outer KafkaAuditHeader, use the outer audit header timestamp for bucketing; else if the EventHeader has an inner KafkaAuditHeader use that inner audit header's timestamp for bucketing",
+        "default" : null,
+        "compliance" : "NONE"
+      }, {
+        "name" : "fabricUrn",
+        "type" : [ "null", "string" ],
+        "doc" : "The fabricUrn of the host from which the event is being emitted. Fabric Urn in the format of urn:li:fabric:{fabric_name}. See go/fabric.",
+        "default" : null,
+        "compliance" : "NONE"
+      }, {
+        "name" : "clusterConnectionString",
+        "type" : [ "null", "string" ],
+        "doc" : "This is a String that the client uses to establish some kind of connection with the Kafka cluster. The exact format of it depends on specific versions of clients and brokers. This information could potentially identify the fabric and cluster with which the client is producing to or consuming from.",
+        "default" : null,
+        "compliance" : "NONE"
+      } ]
+    } ],
+    "doc" : "Kafka audit header. Currently remains unused in the open source.",
+    "default" : null
+  }, {
+    "name" : "entityType",
+    "type" : "string",
+    "doc" : "Type of the entity being written to"
+  }, {
+    "name" : "entityUrn",
+    "type" : [ "null", "string" ],
+    "doc" : "Urn of the entity being written",
+    "default" : null,
+    "java" : {
+      "class" : "com.linkedin.pegasus2avro.common.urn.Urn"
+    }
+  }, {
+    "name" : "entityKeyAspect",
+    "type" : [ "null", {
+      "type" : "record",
+      "name" : "GenericAspect",
+      "doc" : "Generic record structure for serializing an Aspect",
+      "fields" : [ {
+        "name" : "value",
+        "type" : "bytes",
+        "doc" : "The value of the aspect, serialized as bytes."
+      }, {
+        "name" : "contentType",
+        "type" : "string",
+        "doc" : "The content type, which represents the fashion in which the aspect was serialized.\nThe only type currently supported is application/json."
+      } ]
+    } ],
+    "doc" : "Key aspect of the entity being written",
+    "default" : null
+  }, {
+    "name" : "changeType",
+    "type" : {
+      "type" : "enum",
+      "name" : "ChangeType",
+      "namespace" : "com.linkedin.pegasus2avro.events.metadata",
+      "doc" : "Descriptor for a change action",
+      "symbols" : [ "UPSERT", "CREATE", "UPDATE", "DELETE", "PATCH", "RESTATE" ],
+      "symbolDocs" : {
+        "CREATE" : "NOT SUPPORTED YET\ninsert if not exists. otherwise fail",
+        "DELETE" : "NOT SUPPORTED YET\ndelete action",
+        "PATCH" : "NOT SUPPORTED YET\npatch the changes instead of full replace",
+        "RESTATE" : "Restate an aspect, eg. in a index refresh.",
+        "UPDATE" : "NOT SUPPORTED YET\nupdate if exists. otherwise fail",
+        "UPSERT" : "insert if not exists. otherwise update"
+      }
+    },
+    "doc" : "Type of change being proposed"
+  }, {
+    "name" : "aspectName",
+    "type" : [ "null", "string" ],
+    "doc" : "Aspect of the entity being written to\nNot filling this out implies that the writer wants to affect the entire entity\nNote: This is only valid for CREATE, UPSERT, and DELETE operations.",
+    "default" : null
+  }, {
+    "name" : "aspect",
+    "type" : [ "null", "GenericAspect" ],
+    "doc" : "The value of the new aspect.",
+    "default" : null
+  }, {
+    "name" : "systemMetadata",
+    "type" : [ "null", {
+      "type" : "record",
+      "name" : "SystemMetadata",
+      "doc" : "Metadata associated with each metadata change that is processed by the system",
+      "fields" : [ {
+        "name" : "lastObserved",
+        "type" : [ "long", "null" ],
+        "doc" : "The timestamp the metadata was observed at",
+        "default" : 0
+      }, {
+        "name" : "runId",
+        "type" : [ "string", "null" ],
+        "doc" : "The run id that produced the metadata. Populated in case of batch-ingestion.",
+        "default" : "no-run-id-provided"
+      }, {
+        "name" : "registryName",
+        "type" : [ "null", "string" ],
+        "doc" : "The model registry name that was used to process this event",
+        "default" : null
+      }, {
+        "name" : "registryVersion",
+        "type" : [ "null", "string" ],
+        "doc" : "The model registry version that was used to process this event",
+        "default" : null
+      }, {
+        "name" : "properties",
+        "type" : [ "null", {
+          "type" : "map",
+          "values" : "string"
+        } ],
+        "doc" : "Additional properties",
+        "default" : null
+      } ]
+    } ],
+    "doc" : "A string->string map of custom properties that one might want to attach to an event",
+    "default" : null
+  } ]
+}

@@ -83,5 +83,6 @@ export const datasetEntity = ({
         previousSchemaMetadata: null,
         __typename: 'Dataset',
         subTypes: null,
+        health: [],
     };
 };

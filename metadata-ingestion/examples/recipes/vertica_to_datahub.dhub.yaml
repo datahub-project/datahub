@@ -1,0 +1,16 @@
+# see https://datahubproject.io/docs/metadata-ingestion/source_docs/vertica for complete documentation
+# TODO: create vertica doc page
+source:
+  type: "vertica"
+  config:
+    host_port: localhost:5433
+    database: database_name
+    username: username
+    password: password
+    include_views: true
+
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

@@ -64,14 +64,14 @@ describe('mutations', () => {
 
     cy.focused().type('CypressTerm');
 
-    cy.get('.ant-select-item-option-content').within(() => cy.contains('CypressNode.CypressTerm').click({force: true}));
+    cy.get('.ant-select-item-option-content').within(() => cy.contains('CypressTerm').click({force: true}));
 
     cy.get('[data-testid="add-tag-term-from-modal-btn"]').click({force: true});
     cy.get('[data-testid="add-tag-term-from-modal-btn"]').should('not.exist');
 
     cy.contains('CypressTerm');
 
-    cy.get('a[href="/glossary/urn:li:glossaryTerm:CypressNode.CypressTerm"]').within(() => cy.get('span[aria-label=close]').click());
+    cy.get('a[href="/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressTerm"]').within(() => cy.get('span[aria-label=close]').click());
     cy.contains('Yes').click();
 
     cy.contains('CypressTerm').should('not.exist');
@@ -87,14 +87,14 @@ describe('mutations', () => {
 
     cy.focused().type('CypressTerm');
 
-    cy.get('.ant-select-item-option-content').within(() => cy.contains('CypressNode.CypressTerm').click({force: true}));
+    cy.get('.ant-select-item-option-content').within(() => cy.contains('CypressTerm').click({force: true}));
 
     cy.get('[data-testid="add-tag-term-from-modal-btn"]').click({force: true});
     cy.get('[data-testid="add-tag-term-from-modal-btn"]').should('not.exist');
 
     cy.contains('CypressTerm');
 
-    cy.get('a[href="/glossary/urn:li:glossaryTerm:CypressNode.CypressTerm"]').within(() => cy.get('span[aria-label=close]').click());
+    cy.get('a[href="/glossaryTerm/urn:li:glossaryTerm:CypressNode.CypressTerm"]').within(() => cy.get('span[aria-label=close]').click());
     cy.contains('Yes').click();
 
     cy.contains('CypressTerm').should('not.exist');

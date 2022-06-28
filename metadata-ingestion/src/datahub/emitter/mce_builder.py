@@ -33,6 +33,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
 
@@ -67,9 +68,9 @@ def make_data_platform_urn(platform: str) -> str:
 
 
 def make_dataset_urn(platform: str, name: str, env: str = DEFAULT_ENV) -> str:
-    if DATASET_URN_TO_LOWER:
-        name = name.lower()
-    return f"urn:li:dataset:({make_data_platform_urn(platform)},{name},{env})"
+    return make_dataset_urn_with_platform_instance(
+        platform=platform, name=name, platform_instance=None, env=env
+    )
 
 
 def make_dataplatform_instance_urn(platform: str, instance: str) -> str:
@@ -82,12 +83,16 @@ def make_dataplatform_instance_urn(platform: str, instance: str) -> str:
 def make_dataset_urn_with_platform_instance(
     platform: str, name: str, platform_instance: Optional[str], env: str = DEFAULT_ENV
 ) -> str:
-    if platform_instance:
-        if DATASET_URN_TO_LOWER:
-            name = name.lower()
-        return f"urn:li:dataset:({make_data_platform_urn(platform)},{platform_instance}.{name},{env})"
-    else:
-        return make_dataset_urn(platform=platform, name=name, env=env)
+    if DATASET_URN_TO_LOWER:
+        name = name.lower()
+    return str(
+        DatasetUrn.create_from_ids(
+            platform_id=platform,
+            table_name=name,
+            env=env,
+            platform_instance=platform_instance,
+        )
+    )
 
 
 def make_schema_field_urn(parent_urn: str, field_path: str) -> str:
@@ -250,6 +255,10 @@ def make_ml_model_group_urn(platform: str, group_name: str, env: str) -> str:
 
 def is_valid_ownership_type(ownership_type: Optional[str]) -> bool:
     return ownership_type is not None and ownership_type in [
+        OwnershipTypeClass.TECHNICAL_OWNER,
+        OwnershipTypeClass.BUSINESS_OWNER,
+        OwnershipTypeClass.DATA_STEWARD,
+        OwnershipTypeClass.NONE,
         OwnershipTypeClass.DEVELOPER,
         OwnershipTypeClass.DATAOWNER,
         OwnershipTypeClass.DELEGATE,
@@ -359,7 +368,9 @@ def make_global_tag_aspect_with_tag_list(tags: List[str]) -> GlobalTagsClass:
 
 
 def make_ownership_aspect_from_urn_list(
-    owner_urns: List[str], source_type: Optional[Union[str, OwnershipSourceTypeClass]]
+    owner_urns: List[str],
+    source_type: Optional[Union[str, OwnershipSourceTypeClass]],
+    owner_type: Union[str, OwnershipTypeClass] = OwnershipTypeClass.DATAOWNER,
 ) -> OwnershipClass:
     for owner_urn in owner_urns:
         assert owner_urn.startswith("urn:li:corpuser:") or owner_urn.startswith(
@@ -372,7 +383,7 @@ def make_ownership_aspect_from_urn_list(
     owners_list = [
         OwnerClass(
             owner=owner_urn,
-            type=OwnershipTypeClass.DATAOWNER,
+            type=owner_type,
             source=ownership_source_type,
         )
         for owner_urn in owner_urns

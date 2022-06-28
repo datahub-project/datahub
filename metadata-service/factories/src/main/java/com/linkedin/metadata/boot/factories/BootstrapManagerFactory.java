@@ -11,11 +11,13 @@ import com.linkedin.metadata.boot.steps.IngestDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRootUserStep;
+import com.linkedin.metadata.boot.steps.RemoveClientIdAspectStep;
+import com.linkedin.metadata.boot.steps.RestoreGlossaryIndices;
+import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
-import io.ebean.EbeanServer;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -46,9 +48,9 @@ public class BootstrapManagerFactory {
   @Qualifier("searchDocumentTransformer")
   private SearchDocumentTransformer _searchDocumentTransformer;
 
-  @Autowired(required = false)
-  @Qualifier("ebeanServer")
-  private EbeanServer _server;
+  @Autowired
+  @Qualifier("entityAspectMigrationsDao")
+  private AspectMigrationsDao _migrationsDao;
 
   @Autowired
   @Qualifier("ingestRetentionPoliciesStep")
@@ -63,8 +65,10 @@ public class BootstrapManagerFactory {
         new IngestPoliciesStep(_entityRegistry, _entityService, _entitySearchService, _searchDocumentTransformer);
     final IngestDataPlatformsStep ingestDataPlatformsStep = new IngestDataPlatformsStep(_entityService);
     final IngestDataPlatformInstancesStep ingestDataPlatformInstancesStep =
-        new IngestDataPlatformInstancesStep(_entityService, _server);
+        new IngestDataPlatformInstancesStep(_entityService, _migrationsDao);
+    final RestoreGlossaryIndices restoreGlossaryIndicesStep = new RestoreGlossaryIndices(_entityService, _entitySearchService, _entityRegistry);
+    final RemoveClientIdAspectStep removeClientIdAspectStep = new RemoveClientIdAspectStep(_entityService);
     return new BootstrapManager(ImmutableList.of(ingestRootUserStep, ingestPoliciesStep, ingestDataPlatformsStep,
-        ingestDataPlatformInstancesStep, _ingestRetentionPoliciesStep));
+        ingestDataPlatformInstancesStep, _ingestRetentionPoliciesStep, restoreGlossaryIndicesStep, removeClientIdAspectStep));
   }
 }

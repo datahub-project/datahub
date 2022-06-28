@@ -12,6 +12,7 @@ class BigQueryReport(SQLSourceReport):
     num_total_lineage_entries: Optional[int] = None
     num_skipped_lineage_entries_missing_data: Optional[int] = None
     num_skipped_lineage_entries_not_allowed: Optional[int] = None
+    num_skipped_lineage_entries_sql_parser_failure: Optional[int] = None
     num_skipped_lineage_entries_other: Optional[int] = None
     num_total_log_entries: Optional[int] = None
     num_parsed_log_entires: Optional[int] = None
@@ -31,3 +32,4 @@ class BigQueryReport(SQLSourceReport):
     audit_start_time: Optional[str] = None
     audit_end_time: Optional[str] = None
     upstream_lineage: Dict = field(default_factory=dict)
+    partition_info: Dict[str, str] = field(default_factory=dict)

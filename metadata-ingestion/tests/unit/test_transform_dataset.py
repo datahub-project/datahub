@@ -96,7 +96,7 @@ def create_and_run_test_pipeline(
     path: str,
 ) -> str:
     with mock.patch(
-        "tests.unit.test_source.TestSource.get_workunits"
+        "tests.unit.test_source.FakeSource.get_workunits"
     ) as mock_getworkunits:
         mock_getworkunits.return_value = [
             workunit.MetadataWorkUnit(
@@ -112,7 +112,7 @@ def create_and_run_test_pipeline(
         pipeline = Pipeline.create(
             config_dict={
                 "source": {
-                    "type": "tests.unit.test_source.TestSource",
+                    "type": "tests.unit.test_source.FakeSource",
                     "config": {},
                 },
                 "transformers": transformers,
@@ -1120,7 +1120,7 @@ def test_mcp_multiple_transformers(mock_time, tmp_path):
     pipeline = Pipeline.create(
         config_dict={
             "source": {
-                "type": "tests.unit.test_source.TestSource",
+                "type": "tests.unit.test_source.FakeSource",
                 "config": {},
             },
             "transformers": [

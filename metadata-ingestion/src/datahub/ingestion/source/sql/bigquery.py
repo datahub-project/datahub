@@ -15,7 +15,9 @@ import sqlalchemy_bigquery
 from dateutil.relativedelta import relativedelta
 from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
+from ratelimiter import RateLimiter
 from sqlalchemy import create_engine, inspect
+from sqlalchemy.engine import Engine
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.emitter import mce_builder
@@ -35,6 +37,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemyConfig,
     SQLAlchemySource,
@@ -63,6 +66,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.utilities.bigquery_sql_parser import BigQuerySQLParser
+from datahub.utilities.mapping import Constants
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +140,6 @@ where
     is_partitioning_column = 'YES'
     -- Filter out special partitions (https://cloud.google.com/bigquery/docs/partitioned-tables#date_timestamp_partitioned_tables)
     and p.partition_id not in ('__NULL__', '__UNPARTITIONED__', '__STREAMING_UNPARTITIONED__')
-    and STORAGE_TIER='ACTIVE'
     and p.table_name= '{table}'
 group by
     c.table_catalog,
@@ -150,8 +153,6 @@ order by
     c.table_name,
     c.column_name
 """.strip()
-
-SHARDED_TABLE_REGEX = r"^(.+)[_](\d{4}|\d{6}|\d{8}|\d{10})$"
 
 BQ_GET_LATEST_SHARD = """
 SELECT SUBSTR(MAX(table_id), LENGTH('{table}_') + 1) as max_shard
@@ -330,10 +331,20 @@ class BigQuerySource(SQLAlchemySource):
         self.report: BigQueryReport = BigQueryReport()
         self.lineage_metadata: Optional[Dict[str, Set[str]]] = None
         self.maximum_shard_ids: Dict[str, str] = dict()
+        self.partition_info: Dict[str, str] = dict()
         atexit.register(cleanup, config)
 
-    def get_db_name(self, inspector: Inspector = None) -> str:
-        if self.config.project_id:
+    def get_db_name(
+        self, inspector: Inspector = None, for_sql_queries: bool = True
+    ) -> str:
+        """
+        for_sql_queries - Used mainly for multi-project setups with different permissions
+            - should be set to True if this is to be used to run sql queries
+            - should be set to False if this is to inspect contents and not run sql queries
+        """
+        if for_sql_queries and self.config.storage_project_id:
+            return self.config.storage_project_id
+        elif self.config.project_id:
             return self.config.project_id
         else:
             return self._get_project_id(inspector)
@@ -342,13 +353,10 @@ class BigQuerySource(SQLAlchemySource):
         if not self.config.include_table_lineage:
             return
 
-        lineage_client_project_id = self._get_lineage_client_project_id()
         if self.config.use_exported_bigquery_audit_metadata:
-            self._compute_bigquery_lineage_via_exported_bigquery_audit_metadata(
-                lineage_client_project_id
-            )
+            self._compute_bigquery_lineage_via_exported_bigquery_audit_metadata()
         else:
-            self._compute_bigquery_lineage_via_gcp_logging(lineage_client_project_id)
+            self._compute_bigquery_lineage_via_gcp_logging()
 
         if self.lineage_metadata is None:
             self.lineage_metadata = {}
@@ -359,14 +367,11 @@ class BigQuerySource(SQLAlchemySource):
         )
         logger.debug(f"lineage metadata is {self.lineage_metadata}")
 
-    def _compute_bigquery_lineage_via_gcp_logging(
-        self, lineage_client_project_id: Optional[str]
-    ) -> None:
+    def _compute_bigquery_lineage_via_gcp_logging(self) -> None:
+        project_id = self.get_db_name()
         logger.info("Populating lineage info via GCP audit logs")
         try:
-            _clients: List[GCPLoggingClient] = self._make_bigquery_client(
-                lineage_client_project_id
-            )
+            _clients: List[GCPLoggingClient] = self._make_gcp_logging_client(project_id)
             template: str = BQ_FILTER_RULE_TEMPLATE
 
             if self.config.use_v2_audit_metadata:
@@ -386,12 +391,11 @@ class BigQuerySource(SQLAlchemySource):
                 f"Error was {e}",
             )
 
-    def _compute_bigquery_lineage_via_exported_bigquery_audit_metadata(
-        self, lineage_client_project_id: Optional[str]
-    ) -> None:
+    def _compute_bigquery_lineage_via_exported_bigquery_audit_metadata(self) -> None:
+        project_id = self.get_db_name(for_sql_queries=True)
         logger.info("Populating lineage info via exported GCP audit logs")
         try:
-            _client: BigQueryClient = BigQueryClient(project=lineage_client_project_id)
+            _client: BigQueryClient = BigQueryClient(project=project_id)
             exported_bigquery_audit_metadata: Iterable[
                 BigQueryAuditMetadata
             ] = self._get_exported_bigquery_audit_metadata(_client)
@@ -408,27 +412,17 @@ class BigQuerySource(SQLAlchemySource):
                 f"Error: {e}",
             )
 
-    def _make_bigquery_client(
-        self, lineage_client_project_id: Optional[str]
+    def _make_gcp_logging_client(
+        self, project_id: Optional[str]
     ) -> List[GCPLoggingClient]:
         # See https://github.com/googleapis/google-cloud-python/issues/2674 for
         # why we disable gRPC here.
         client_options = self.config.extra_client_options.copy()
         client_options["_use_grpc"] = False
-        if lineage_client_project_id is not None:
-            return [
-                GCPLoggingClient(**client_options, project=lineage_client_project_id)
-            ]
+        if project_id is not None:
+            return [GCPLoggingClient(**client_options, project=project_id)]
         else:
             return [GCPLoggingClient(**client_options)]
-
-    def _get_lineage_client_project_id(self) -> Optional[str]:
-        project_id: Optional[str] = (
-            self.config.lineage_client_project_id
-            if self.config.lineage_client_project_id
-            else self.config.project_id
-        )
-        return project_id
 
     def _get_bigquery_log_entries(
         self,
@@ -456,9 +450,15 @@ class BigQuerySource(SQLAlchemySource):
             f"Start loading log entries from BigQuery start_time={start_time} and end_time={end_time}"
         )
         for client in clients:
-            entries = client.list_entries(
-                filter_=filter, page_size=self.config.log_page_size
-            )
+            if self.config.rate_limit:
+                with RateLimiter(max_calls=self.config.requests_per_min, period=60):
+                    entries = client.list_entries(
+                        filter_=filter, page_size=self.config.log_page_size
+                    )
+            else:
+                entries = client.list_entries(
+                    filter_=filter, page_size=self.config.log_page_size
+                )
             for entry in entries:
                 self.report.num_total_log_entries += 1
                 yield entry
@@ -519,7 +519,11 @@ class BigQuerySource(SQLAlchemySource):
                 f"Finished loading log entries from BigQueryAuditMetadata in {dataset}"
             )
 
-            yield from query_job
+            if self.config.rate_limit:
+                with RateLimiter(max_calls=self.config.requests_per_min, period=60):
+                    yield from query_job
+            else:
+                yield from query_job
 
     # Currently we only parse JobCompleted events but in future we would want to parse other
     # events to also create field level lineage.
@@ -588,6 +592,7 @@ class BigQuerySource(SQLAlchemySource):
         self.report.num_skipped_lineage_entries_missing_data = 0
         self.report.num_skipped_lineage_entries_not_allowed = 0
         self.report.num_skipped_lineage_entries_other = 0
+        self.report.num_skipped_lineage_entries_sql_parser_failure = 0
         for e in entries:
             self.report.num_total_lineage_entries += 1
             if e.destinationTable is None or not (
@@ -596,7 +601,9 @@ class BigQuerySource(SQLAlchemySource):
                 self.report.num_skipped_lineage_entries_missing_data += 1
                 continue
             # Skip if schema/table pattern don't allow the destination table
-            destination_table_str = str(e.destinationTable.remove_extras())
+            destination_table_str = str(
+                e.destinationTable.remove_extras(self.config.sharded_table_pattern)
+            )
             destination_table_str_parts = destination_table_str.split("/")
             if not self.config.schema_pattern.allowed(
                 destination_table_str_parts[3]
@@ -605,13 +612,17 @@ class BigQuerySource(SQLAlchemySource):
                 continue
             has_table = False
             for ref_table in e.referencedTables:
-                ref_table_str = str(ref_table.remove_extras())
+                ref_table_str = str(
+                    ref_table.remove_extras(self.config.sharded_table_pattern)
+                )
                 if ref_table_str != destination_table_str:
                     lineage_map[destination_table_str].add(ref_table_str)
                     has_table = True
             has_view = False
             for ref_view in e.referencedViews:
-                ref_view_str = str(ref_view.remove_extras())
+                ref_view_str = str(
+                    ref_view.remove_extras(self.config.sharded_table_pattern)
+                )
                 if ref_view_str != destination_table_str:
                     lineage_map[destination_table_str].add(ref_view_str)
                     has_view = True
@@ -619,10 +630,17 @@ class BigQuerySource(SQLAlchemySource):
                 # If there is a view being referenced then bigquery sends both the view as well as underlying table
                 # in the references. There is no distinction between direct/base objects accessed. So doing sql parsing
                 # to ensure we only use direct objects accessed for lineage
-                parser = BigQuerySQLParser(e.query)
-                referenced_objs = set(
-                    map(lambda x: x.split(".")[-1], parser.get_tables())
-                )
+                try:
+                    parser = BigQuerySQLParser(e.query)
+                    referenced_objs = set(
+                        map(lambda x: x.split(".")[-1], parser.get_tables())
+                    )
+                except Exception as ex:
+                    logger.warning(
+                        f"Sql Parser failed on query: {e.query}. It will be skipped from lineage. The error was {ex}"
+                    )
+                    self.report.num_skipped_lineage_entries_sql_parser_failure += 1
+                    continue
                 curr_lineage_str = lineage_map[destination_table_str]
                 new_lineage_str = set()
                 for lineage_str in curr_lineage_str:
@@ -634,15 +652,35 @@ class BigQuerySource(SQLAlchemySource):
                 self.report.num_skipped_lineage_entries_other += 1
         return lineage_map
 
+    def is_table_partitioned(
+        self, database: Optional[str], schema: str, table: str
+    ) -> bool:
+        project_id: str
+        if database:
+            project_id = database
+        else:
+            engine = self._get_engine(for_run_sql=False)
+            with engine.connect() as con:
+                inspector = inspect(con)
+                project_id = self.get_db_name(inspector)
+        return f"{project_id}.{schema}.{table}" in self.partition_info
+
     def get_latest_partition(
         self, schema: str, table: str
     ) -> Optional[BigQueryPartitionColumn]:
-        url = self.config.get_sql_alchemy_url()
-        engine = create_engine(url, **self.config.options)
+        logger.debug(f"get_latest_partition for {schema} and {table}")
+        engine = self._get_engine(for_run_sql=True)
         with engine.connect() as con:
             inspector = inspect(con)
+            project_id = self.get_db_name(inspector)
+            if not self.is_table_partitioned(
+                database=project_id, schema=schema, table=table
+            ):
+                return None
             sql = BQ_GET_LATEST_PARTITION_TEMPLATE.format(
-                project_id=self.get_db_name(inspector), schema=schema, table=table
+                project_id=self.get_db_name(inspector, for_sql_queries=True),
+                schema=schema,
+                table=table,
             )
             result = con.execute(sql)
             # Bigquery only supports one partition column
@@ -653,10 +691,10 @@ class BigQuerySource(SQLAlchemySource):
             return None
 
     def get_shard_from_table(self, table: str) -> Tuple[str, Optional[str]]:
-        match = re.search(SHARDED_TABLE_REGEX, table, re.IGNORECASE)
+        match = re.search(self.config.sharded_table_pattern, table, re.IGNORECASE)
         if match:
-            table_name = match.group(1)
-            shard = match.group(2)
+            table_name = match.group(2)
+            shard = match.group(3)
             return table_name, shard
         return table, None
 
@@ -666,8 +704,7 @@ class BigQuerySource(SQLAlchemySource):
         table_name, shard = self.get_shard_from_table(table)
         if shard:
             logger.debug(f"{table_name} is sharded and shard id is: {shard}")
-            url = self.config.get_sql_alchemy_url()
-            engine = create_engine(url, **self.config.options)
+            engine = self._get_engine(for_run_sql=True)
             if f"{project_id}.{schema}.{table_name}" not in self.maximum_shard_ids:
                 with engine.connect() as con:
                     sql = BQ_GET_LATEST_SHARD.format(
@@ -690,6 +727,41 @@ class BigQuerySource(SQLAlchemySource):
             )
         else:
             return True
+
+    def _get_engine(self, for_run_sql: bool) -> Engine:
+        url = self.config.get_sql_alchemy_url(for_run_sql=for_run_sql)
+        logger.debug(f"sql_alchemy_url={url}")
+        return create_engine(url, **self.config.options)
+
+    def add_information_for_schema(self, inspector: Inspector, schema: str) -> None:
+        engine = self._get_engine(for_run_sql=True)
+        project_id = self.get_db_name(inspector)
+        with engine.connect() as con:
+            inspector = inspect(con)
+            sql = f"""
+                select table_name, column_name
+                from `{project_id}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+                where is_partitioning_column = 'YES';
+            """
+            result = con.execute(sql)
+            for row in result.fetchall():
+                table = row[0]
+                partition_column = row[1]
+                self.partition_info[f"{project_id}.{schema}.{table}"] = partition_column
+        self.report.partition_info = self.partition_info
+
+    def get_extra_tags(
+        self, inspector: Inspector, schema: str, table: str
+    ) -> Dict[str, List[str]]:
+        extra_tags: Dict[str, List[str]] = {}
+        project_id = self.get_db_name(inspector)
+
+        partition_lookup_key = f"{project_id}.{schema}.{table}"
+        if partition_lookup_key in self.partition_info:
+            extra_tags[self.partition_info[partition_lookup_key]] = [
+                Constants.TAG_PARTITION_KEY
+            ]
+        return extra_tags
 
     def generate_partition_profiler_query(
         self, schema: str, table: str, partition_datetime: Optional[datetime.datetime]
@@ -747,14 +819,36 @@ WHERE
                 return shard, None
         return None, None
 
+    def get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
+        logger.debug("Getting profiler instance from bigquery")
+        engine = self._get_engine(for_run_sql=True)
+        with engine.connect() as conn:
+            inspector = inspect(conn)
+
+        return DatahubGEProfiler(
+            conn=inspector.bind,
+            report=self.report,
+            config=self.config.profiling,
+            platform=self.platform,
+        )
+
+    def get_profile_args(self) -> Dict:
+        return {"temp_table_db": self.config.project_id}
+
     def is_dataset_eligible_for_profiling(
-        self, dataset_name: str, sql_config: SQLAlchemyConfig
+        self,
+        dataset_name: str,
+        sql_config: SQLAlchemyConfig,
+        inspector: Inspector,
+        profile_candidates: Optional[List[str]],
     ) -> bool:
         """
         Method overrides default profiling filter which checks profiling eligibility based on allow-deny pattern.
         This one also don't profile those sharded tables which are not the latest.
         """
-        if not super().is_dataset_eligible_for_profiling(dataset_name, sql_config):
+        if not super().is_dataset_eligible_for_profiling(
+            dataset_name, sql_config, inspector, profile_candidates
+        ):
             return False
 
         (project_id, schema, table) = dataset_name.split(".")
@@ -804,6 +898,7 @@ WHERE
                     isinstance(wu, SqlWorkUnit)
                     and isinstance(wu.metadata, MetadataChangeEvent)
                     and isinstance(wu.metadata.proposedSnapshot, DatasetSnapshot)
+                    and self.config.include_table_lineage
                 ):
                     lineage_mcp = self.get_lineage_mcp(wu.metadata.proposedSnapshot.urn)
                     if lineage_mcp is not None:
@@ -897,7 +992,7 @@ WHERE
         custom_sql: Optional[str] = None,
     ) -> dict:
         return dict(
-            schema=self.config.project_id,
+            schema=self.get_db_name(for_sql_queries=True),
             table=f"{schema}.{table}",
             partition=partition,
             custom_sql=custom_sql,
@@ -917,7 +1012,7 @@ WHERE
             BigQueryTableRef.from_spec_obj(
                 {"projectId": project_id, "datasetId": schema, "tableId": table}
             )
-            .remove_extras()
+            .remove_extras(self.config.sharded_table_pattern)
             .table
         )
         return f"{project_id}.{schema}.{trimmed_table_name}"

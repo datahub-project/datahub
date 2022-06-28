@@ -24,7 +24,16 @@ jar -tvf $jarFile |\
       grep -v "xml-header-style.xml" |\
       grep -v "license.header" |\
       grep -v "module-info.class" |\
-      grep -v "client.properties"
+      grep -v "com/google/" |\
+      grep -v "org/codehaus/" |\
+      grep -v "client.properties" |\
+      grep -v "kafka" |\
+      grep -v "win/" |\
+      grep -v "include/" |\
+      grep -v "linux/" |\
+      grep -v "darwin" |\
+      grep -v "MetadataChangeProposal.avsc" |\
+      grep -v "aix"
 
 if [ $? -ne 0 ]; then
   echo "✅ No unexpected class paths found in ${jarFile}"

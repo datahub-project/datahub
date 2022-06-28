@@ -14,7 +14,7 @@ const DescriptionTypography = styled(Typography.Paragraph)`
 `;
 
 const SidebarLinkList = styled.div`
-    margin-left: -15px;
+    margin: 0 0 10px -15px;
     min-width: 0;
 `;
 
@@ -32,17 +32,29 @@ const LinkButton = styled(Button)`
         overflow: hidden;
         white-space: nowrap;
         text-overflow: ellipsis;
-        line-height: 1;
     }
 `;
 
-export const SidebarAboutSection = () => {
+const SourceButton = styled(LinkButton)`
+    padding: 0;
+    margin-top: -5px;
+`;
+
+interface Props {
+    hideLinksButton?: boolean;
+}
+
+export const SidebarAboutSection = ({ properties }: { properties?: Props }) => {
+    const hideLinksButton = properties?.hideLinksButton;
     const { entityData } = useEntityData();
     const refetch = useRefetch();
     const routeToTab = useRouteToTab();
 
     const description = entityData?.editableProperties?.description || entityData?.properties?.description;
     const links = entityData?.institutionalMemory?.elements || [];
+
+    const sourceUrl = entityData?.properties?.sourceUrl;
+    const sourceRef = entityData?.properties?.sourceRef;
 
     const isUntouched = !description && !(links?.length > 0);
 
@@ -72,7 +84,7 @@ export const SidebarAboutSection = () => {
                     >
                         <EditOutlined /> Add Documentation
                     </SpacedButton>
-                    <AddLinkModal refetch={refetch} />
+                    {!hideLinksButton && <AddLinkModal refetch={refetch} />}
                 </>
             )}
             {description && (
@@ -103,12 +115,31 @@ export const SidebarAboutSection = () => {
                             {link.description || link.label}
                         </LinkButton>
                     ))}
-                    <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />
+                    {!hideLinksButton && <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />}
                 </SidebarLinkList>
             ) : (
                 <SidebarLinkList>
-                    {!isUntouched && <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />}
+                    {!isUntouched && !hideLinksButton && (
+                        <AddLinkModal buttonProps={{ type: 'text' }} refetch={refetch} />
+                    )}
                 </SidebarLinkList>
+            )}
+            {sourceRef && (
+                <>
+                    <SidebarHeader title="Source" />
+                    <Typography.Paragraph>
+                        {sourceUrl ? (
+                            <SourceButton type="link" href={sourceUrl} target="_blank" rel="noreferrer">
+                                <LinkOutlined />
+                                {sourceRef}
+                            </SourceButton>
+                        ) : (
+                            {
+                                sourceRef,
+                            }
+                        )}
+                    </Typography.Paragraph>
+                </>
             )}
         </div>
     );

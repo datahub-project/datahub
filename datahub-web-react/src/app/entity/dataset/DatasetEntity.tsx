@@ -26,6 +26,7 @@ import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { ValidationsTab } from '../shared/tabs/Dataset/Validations/ValidationsTab';
 import { OperationsTab } from './profile/OperationsTab';
+import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -83,7 +84,7 @@ export class DatasetEntity implements Entity<Dataset> {
             useEntityQuery={useGetDatasetQuery}
             useUpdateQuery={useUpdateDatasetMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            showDeprecateOption
+            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
             tabs={[
                 {
                     name: 'Schema',
@@ -146,7 +147,9 @@ export class DatasetEntity implements Entity<Dataset> {
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, dataset: GetDatasetQuery) => {
-                            return (dataset?.dataset?.assertions?.total || 0) > 0;
+                            return (
+                                (dataset?.dataset?.assertions?.total || 0) > 0 || dataset?.dataset?.testResults !== null
+                            );
                         },
                     },
                 },
@@ -246,6 +249,7 @@ export class DatasetEntity implements Entity<Dataset> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Dataset;
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 urn={data.urn}
@@ -255,6 +259,10 @@ export class DatasetEntity implements Entity<Dataset> {
                 platformName={data.platform.properties?.displayName || data.platform.name}
                 platformLogo={data.platform.properties?.logoUrl}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
+                platformNames={genericProperties?.siblingPlatforms?.map(
+                    (platform) => platform.properties?.displayName || platform.name,
+                )}
+                platformLogos={genericProperties?.siblingPlatforms?.map((platform) => platform.properties?.logoUrl)}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 domain={data.domain}

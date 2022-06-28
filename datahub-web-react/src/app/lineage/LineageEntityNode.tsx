@@ -1,15 +1,16 @@
-import React, { useContext, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { Group } from '@vx/group';
 import { LinkHorizontal } from '@vx/shape';
 import styled from 'styled-components';
 
 import { useEntityRegistry } from '../useEntityRegistry';
 import { IconStyleType } from '../entity/Entity';
-import { NodeData, Direction, VizNode, EntitySelectParams } from './types';
+import { NodeData, Direction, VizNode, EntitySelectParams, EntityAndType } from './types';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { capitalizeFirstLetter } from '../shared/textUtil';
 import { nodeHeightFromTitleLength } from './utils/nodeHeightFromTitleLength';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
+import { useGetEntityLineageLazyQuery } from '../../graphql/lineage.generated';
 
 const CLICK_DELAY_THRESHOLD = 1000;
 const DRAG_DISTANCE_THRESHOLD = 20;
@@ -81,13 +82,24 @@ export default function LineageEntityNode({
     onEntityCenter: (EntitySelectParams) => void;
     onHover: (EntitySelectParams) => void;
     onDrag: (params: EntitySelectParams, event: React.MouseEvent) => void;
-    onExpandClick: (LineageExpandParams) => void;
+    onExpandClick: (data: EntityAndType) => void;
     direction: Direction;
     nodesToRenderByUrn: Record<string, VizNode>;
 }) {
     const { expandTitles } = useContext(LineageExplorerContext);
     const [isExpanding, setIsExpanding] = useState(false);
     const [expandHover, setExpandHover] = useState(false);
+    const [getAsyncEntityLineage, { data: asyncLineageData }] = useGetEntityLineageLazyQuery();
+
+    useEffect(() => {
+        if (asyncLineageData && asyncLineageData.entity) {
+            const entityAndType = {
+                type: asyncLineageData.entity.type,
+                entity: { ...asyncLineageData.entity },
+            } as EntityAndType;
+            onExpandClick(entityAndType);
+        }
+    }, [asyncLineageData, onExpandClick]);
 
     const entityRegistry = useEntityRegistry();
     const unexploredHiddenChildren =
@@ -103,6 +115,13 @@ export default function LineageEntityNode({
         }),
         [],
     );
+
+    let platformDisplayText = capitalizeFirstLetter(node.data.platform);
+    if (node.data.siblingPlatforms) {
+        platformDisplayText = node.data.siblingPlatforms
+            .map((platform) => platform.properties?.displayName || platform.name)
+            .join(' & ');
+    }
 
     const nodeHeight = nodeHeightFromTitleLength(expandTitles ? node.data.expandedName || node.data.name : undefined);
 
@@ -139,7 +158,10 @@ export default function LineageEntityNode({
                     <Group
                         onClick={() => {
                             setIsExpanding(true);
-                            onExpandClick({ urn: node.data.urn, type: node.data.type, direction });
+                            if (node.data.urn && node.data.type) {
+                                // getAsyncEntity(node.data.urn, node.data.type);
+                                getAsyncEntityLineage({ variables: { urn: node.data.urn } });
+                            }
                         }}
                         onMouseOver={() => {
                             setExpandHover(true);
@@ -227,23 +249,42 @@ export default function LineageEntityNode({
                     // eslint-disable-next-line react/style-prop-object
                     style={{ filter: isSelected ? 'url(#shadow1-selected)' : 'url(#shadow1)' }}
                 />
-                {node.data.icon ? (
+                {node.data.siblingPlatforms && (
+                    <svg x={iconX} y={iconY - 5}>
+                        <image
+                            // preserveAspectRatio="none"
+                            y={0}
+                            height={iconHeight * (3 / 4)}
+                            width={iconWidth * (3 / 4)}
+                            href={node.data.siblingPlatforms[0].properties?.logoUrl || ''}
+                            clipPath="url(#clipPolygonTop)"
+                        />
+                        <image
+                            // preserveAspectRatio="none"
+                            y={25}
+                            height={iconHeight * (3 / 4)}
+                            width={iconWidth * (3 / 4)}
+                            clipPath="url(#clipPolygon)"
+                            href={node.data.siblingPlatforms[1].properties?.logoUrl || ''}
+                        />
+                    </svg>
+                )}
+                {!node.data.siblingPlatforms && node.data.icon && (
                     <image href={node.data.icon} height={iconHeight} width={iconWidth} x={iconX} y={iconY} />
-                ) : (
-                    node.data.type && (
-                        <svg
-                            viewBox="64 64 896 896"
-                            focusable="false"
-                            x={iconX}
-                            y={iconY}
-                            height={iconHeight}
-                            width={iconWidth}
-                            fill="currentColor"
-                            aria-hidden="true"
-                        >
-                            {entityRegistry.getIcon(node.data.type, 16, IconStyleType.SVG)}
-                        </svg>
-                    )
+                )}
+                {!node.data.icon && !node.data.siblingPlatforms && node.data.type && (
+                    <svg
+                        viewBox="64 64 896 896"
+                        focusable="false"
+                        x={iconX}
+                        y={iconY}
+                        height={iconHeight}
+                        width={iconWidth}
+                        fill="currentColor"
+                        aria-hidden="true"
+                    >
+                        {entityRegistry.getIcon(node.data.type, 16, IconStyleType.SVG)}
+                    </svg>
                 )}
                 <Group>
                     <UnselectableText
@@ -255,7 +296,7 @@ export default function LineageEntityNode({
                         textAnchor="start"
                         fill="#8C8C8C"
                     >
-                        <tspan>{truncate(capitalizeFirstLetter(node.data.platform), 16)}</tspan>
+                        <tspan>{truncate(platformDisplayText, 16)}</tspan>
                         <tspan dx=".25em" dy="2px" fill="#dadada" fontSize={12} fontWeight="normal">
                             {' '}
                             |{' '}

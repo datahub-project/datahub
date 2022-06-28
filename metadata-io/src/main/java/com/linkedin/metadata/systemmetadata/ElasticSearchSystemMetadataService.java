@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
 import java.io.IOException;
@@ -100,7 +101,8 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
     // searchBy findByParams
     // If status.removed -> false (from removed to not removed) --> get soft deleted entities.
     // If status.removed -> true (from not removed to removed) --> do not get soft deleted entities.
-    final List<AspectRowSummary> aspectList = findByParams(ImmutableMap.of("urn", urn), !removed);
+    final List<AspectRowSummary> aspectList =
+        findByParams(ImmutableMap.of("urn", urn), !removed, 0, ESUtils.MAX_RESULT_SIZE);
     // for each -> toDocId and set removed to true for all
     aspectList.forEach(aspect -> {
       final String docId = toDocId(aspect.getUrn(), aspect.getAspectName());
@@ -123,18 +125,19 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   }
 
   @Override
-  public List<AspectRowSummary> findByRunId(String runId, boolean includeSoftDeleted) {
-    return findByParams(Collections.singletonMap(FIELD_RUNID, runId), includeSoftDeleted);
+  public List<AspectRowSummary> findByRunId(String runId, boolean includeSoftDeleted, int from, int size) {
+    return findByParams(Collections.singletonMap(FIELD_RUNID, runId), includeSoftDeleted, from, size);
   }
 
   @Override
-  public List<AspectRowSummary> findByUrn(String urn, boolean includeSoftDeleted) {
-    return findByParams(Collections.singletonMap(FIELD_URN, urn), includeSoftDeleted);
+  public List<AspectRowSummary> findByUrn(String urn, boolean includeSoftDeleted, int from, int size) {
+    return findByParams(Collections.singletonMap(FIELD_URN, urn), includeSoftDeleted, from, size);
   }
 
   @Override
-  public List<AspectRowSummary> findByParams(Map<String, String> systemMetaParams, boolean includeSoftDeleted) {
-    SearchResponse searchResponse = _esDAO.findByParams(systemMetaParams, includeSoftDeleted);
+  public List<AspectRowSummary> findByParams(Map<String, String> systemMetaParams, boolean includeSoftDeleted, int from,
+      int size) {
+    SearchResponse searchResponse = _esDAO.findByParams(systemMetaParams, includeSoftDeleted, from, size);
     if (searchResponse != null) {
       SearchHits hits = searchResponse.getHits();
       List<AspectRowSummary> summaries = Arrays.stream(hits.getHits()).map(hit -> {
@@ -159,11 +162,12 @@ public class ElasticSearchSystemMetadataService implements SystemMetadataService
   }
 
   @Override
-  public List<AspectRowSummary> findByRegistry(String registryName, String registryVersion, boolean includeSoftDeleted) {
+  public List<AspectRowSummary> findByRegistry(String registryName, String registryVersion, boolean includeSoftDeleted,
+      int from, int size) {
     Map<String, String> registryParams = new HashMap<>();
     registryParams.put(FIELD_REGISTRY_NAME, registryName);
     registryParams.put(FIELD_REGISTRY_VERSION, registryVersion);
-    return findByParams(registryParams, includeSoftDeleted);
+    return findByParams(registryParams, includeSoftDeleted, from, size);
   }
 
   @Override

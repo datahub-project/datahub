@@ -20,7 +20,7 @@ pip install --upgrade pip wheel setuptools
 pip install -r requirements.txt
 
 echo "DATAHUB_VERSION = $DATAHUB_VERSION"
-datahub docker quickstart --quickstart-compose-file ../docker/quickstart/docker-compose-without-neo4j.quickstart.yml --dump-logs-on-failure
+DATAHUB_TELEMETRY_ENABLED=false datahub docker quickstart --quickstart-compose-file ../docker/quickstart/docker-compose-without-neo4j.quickstart.yml --dump-logs-on-failure
 
 (cd tests/cypress ; yarn install)
 
