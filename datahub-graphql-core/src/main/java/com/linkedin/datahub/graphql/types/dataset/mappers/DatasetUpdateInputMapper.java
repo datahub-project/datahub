@@ -99,7 +99,7 @@ public class DatasetUpdateInputMapper implements InputModelMapper<DatasetUpdateI
 
     if (datasetUpdateInput.getEditableProperties() != null) {
       final EditableDatasetProperties editableDatasetProperties = new EditableDatasetProperties();
-      editableDatasetProperties.setDescription(datasetUpdateInput.getEditableProperties().getDescription()); // clean description
+      editableDatasetProperties.setDescription(datasetUpdateInput.getEditableProperties().getDescription());
       editableDatasetProperties.setLastModified(auditStamp);
       editableDatasetProperties.setCreated(auditStamp);
       proposals.add(updateMappingHelper.aspectToProposal(editableDatasetProperties, EDITABLE_DATASET_PROPERTIES_ASPECT_NAME));

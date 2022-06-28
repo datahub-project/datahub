@@ -53,7 +53,7 @@ public class DescriptionUtils {
               resourceUrn.toString(), EDITABLE_SCHEMA_METADATA, entityService, new EditableSchemaMetadata());
       EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, fieldPath);
 
-      editableFieldInfo.setDescription(newDescription); //clean
+      editableFieldInfo.setDescription(newDescription);
 
       persistAspect(resourceUrn, EDITABLE_SCHEMA_METADATA, editableSchemaMetadata, actor, entityService);
   }
