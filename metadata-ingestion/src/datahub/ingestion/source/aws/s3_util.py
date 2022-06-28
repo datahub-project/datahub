@@ -7,6 +7,7 @@ S3_PREFIXES = ["s3://", "s3n://", "s3a://"]
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
+
 def is_s3_uri(uri: str) -> bool:
     return any(uri.startswith(prefix) for prefix in S3_PREFIXES)
 
