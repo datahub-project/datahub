@@ -18,6 +18,7 @@ import com.linkedin.entity.EntitiesDoAutocompleteRequestBuilder;
 import com.linkedin.entity.EntitiesDoBatchGetTotalEntityCountRequestBuilder;
 import com.linkedin.entity.EntitiesDoBatchIngestRequestBuilder;
 import com.linkedin.entity.EntitiesDoBrowseRequestBuilder;
+import com.linkedin.entity.EntitiesDoDeleteReferencesRequestBuilder;
 import com.linkedin.entity.EntitiesDoDeleteRequestBuilder;
 import com.linkedin.entity.EntitiesDoFilterRequestBuilder;
 import com.linkedin.entity.EntitiesDoGetBrowsePathsRequestBuilder;
@@ -484,6 +485,16 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   public void deleteEntity(@Nonnull final Urn urn, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
     EntitiesDoDeleteRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionDelete().urnParam(urn.toString());
+    sendClientRequest(requestBuilder, authentication);
+  }
+
+  /**
+   * Delete all references to a particular entity.
+   */
+  @Override
+  public void deleteEntityReferences(@Nonnull Urn urn, @Nonnull Authentication authentication)
+      throws RemoteInvocationException {
+    EntitiesDoDeleteReferencesRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionDeleteReferences().urnParam(urn.toString());
     sendClientRequest(requestBuilder, authentication);
   }
 

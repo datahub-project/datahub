@@ -152,6 +152,33 @@ query getBrowseResults($input: BrowseInput!) {
                     ...entityDomain
                 }
             }
+            ... on DataJob {
+                urn
+                type
+                dataFlow {
+                    ...nonRecursiveDataFlowFields
+                }
+                jobId
+                ownership {
+                    ...ownershipFields
+                }
+                properties {
+                    name
+                    description
+                }
+                globalTags {
+                    ...globalTagsFields
+                }
+                glossaryTerms {
+                    ...glossaryTerms
+                }
+                editableProperties {
+                    description
+                }
+                domain {
+                    ...entityDomain
+                }
+            }
             ... on MLFeatureTable {
                 urn
                 type
