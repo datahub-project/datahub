@@ -54,7 +54,6 @@ def wait_for_healthchecks():
                 raise SystemExit(f"{url}: is Not reachable \nErr: {e}")
         assert not check_k8s_endpoint(f"{FRONTEND_ENDPOINT}/admin")
         assert not check_k8s_endpoint(f"{GMS_ENDPOINT}/health")
-        assert not check_k8s_endpoint(f"{KAFKA_BROKER}/health")
         
     else:
         assert not check_local_docker_containers()
