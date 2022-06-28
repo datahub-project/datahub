@@ -4,6 +4,7 @@ import com.datahub.authorization.ResourceSpec;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.container.Container;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.urn.GlossaryNodeUrn;
@@ -18,10 +19,11 @@ import com.linkedin.datahub.graphql.generated.Constraint;
 import com.linkedin.datahub.graphql.generated.ConstraintParams;
 import com.linkedin.datahub.graphql.generated.ConstraintType;
 import com.linkedin.datahub.graphql.generated.GlossaryTermInNodeConstraintParams;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
-import com.linkedin.metadata.aspect.Aspect;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.policy.DataHubResourceFilter;
@@ -32,10 +34,12 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
+@Slf4j
 public class ConstraintUtils {
   public static final String GLOSSARY_TERMS_ASPECT = "glossaryTerms";
   public static final String GLOSSARY_TERM_INFO_ASPECT = "glossaryTermInfo";
@@ -150,15 +154,63 @@ public class ConstraintUtils {
         .orElse(Pair.of(false, ""));
   }
 
+  private static GlossaryTermInfo getGlossaryTermInfo(
+      final Urn glossaryTermUrn,
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final Authentication authentication
+      ) {
+    try {
+      EntityResponse entityResponse = entityClient.getV2(
+          GLOSSARY_TERM_ENTITY_NAME,
+          glossaryTermUrn,
+          ImmutableSet.of(GLOSSARY_TERM_INFO_ASPECT_NAME),
+          authentication
+      );
+
+      if (entityResponse != null && entityResponse.hasAspects() && entityResponse.getAspects().containsKey(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME)) {
+        return new GlossaryTermInfo(entityResponse.getAspects().get(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME).getValue().data());
+      } else {
+        return null;
+      }
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to retrieve Glossary Term Info", e);
+    }
+  }
+
+  private static GlossaryNodeInfo getGlossaryNodeInfo(
+      final Urn glossaryNodeUrn,
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final Authentication authentication
+  ) {
+    try {
+      EntityResponse entityResponse = entityClient.getV2(
+          GLOSSARY_NODE_ENTITY_NAME,
+          glossaryNodeUrn,
+          ImmutableSet.of(GLOSSARY_NODE_INFO_ASPECT_NAME),
+          authentication
+      );
+
+      if (entityResponse != null && entityResponse.hasAspects() && entityResponse.getAspects().containsKey(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME)) {
+        return new GlossaryNodeInfo(entityResponse.getAspects().get(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME).getValue().data());
+      } else {
+        return null;
+      }
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to retrieve Glossary Node Info", e);
+    }
+  }
+
   private static boolean isGlossaryNodeInTermsAncestry(
       @Nonnull final Urn candidateTerm,
       @Nonnull final Urn requiredNode,
       @Nonnull final EntityClient entityClient,
       @Nonnull final Authentication authentication
   ) {
-    try {
-      Aspect aspect = entityClient.getAspect(candidateTerm.toString(), GLOSSARY_TERM_INFO_ASPECT, 0L, authentication).getAspect();
-      GlossaryTermInfo candidateInfo = aspect.getGlossaryTermInfo();
+      GlossaryTermInfo candidateInfo = getGlossaryTermInfo(candidateTerm, entityClient, authentication);
+      if (candidateInfo == null) {
+        return false;
+      }
+
       GlossaryNodeUrn candidateParentNode = candidateInfo.getParentNode();
       if (candidateParentNode == null) {
         return false;
@@ -173,9 +225,6 @@ public class ConstraintUtils {
           entityClient,
           authentication
       );
-    } catch (RemoteInvocationException e) {
-      return false;
-    }
   }
 
   private static boolean isGlossaryNodeInNodesAncestry(
@@ -184,9 +233,11 @@ public class ConstraintUtils {
       final @Nonnull EntityClient entityClient,
       final @Nonnull Authentication authentication
   ) {
-    try {
-      Aspect aspect = entityClient.getAspect(candidateNode.toString(), GLOSSARY_NODE_INFO_ASPECT, 0L, authentication).getAspect();
-      GlossaryNodeInfo candidateInfo = aspect.getGlossaryNodeInfo();
+      GlossaryNodeInfo candidateInfo = getGlossaryNodeInfo(candidateNode, entityClient, authentication);
+      if (candidateInfo == null) {
+        return false;
+      }
+
       GlossaryNodeUrn candidateParentNode = candidateInfo.getParentNode();
 
       if (candidateParentNode == null) {
@@ -196,9 +247,6 @@ public class ConstraintUtils {
         return true;
       }
       return isGlossaryNodeInNodesAncestry(candidateParentNode, requiredParentNode, entityClient, authentication);
-    } catch (RemoteInvocationException e) {
-      return false;
-    }
   }
 
   public static Constraint mapConstraintInfoToConstraint(@Nonnull String urn, @Nonnull ResourceSpec spec,
