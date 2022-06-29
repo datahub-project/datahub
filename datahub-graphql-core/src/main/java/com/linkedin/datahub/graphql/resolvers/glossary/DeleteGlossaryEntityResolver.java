@@ -6,11 +6,14 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
+import lombok.extern.slf4j.Slf4j;
 
 
+@Slf4j
 public class DeleteGlossaryEntityResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityClient _entityClient;
@@ -34,6 +37,16 @@ public class DeleteGlossaryEntityResolver implements DataFetcher<CompletableFutu
 
         try {
           _entityClient.deleteEntity(entityUrn, context.getAuthentication());
+
+          // Asynchronously Delete all references to the entity (to return quickly)
+          CompletableFuture.runAsync(() -> {
+            try {
+              _entityClient.deleteEntityReferences(entityUrn, context.getAuthentication());
+            } catch (RemoteInvocationException e) {
+              log.error(String.format("Caught exception while attempting to clear all entity references for glossary entity with urn %s", entityUrn), e);
+            }
+          });
+
           return true;
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to perform delete against glossary entity with urn %s", entityUrn), e);

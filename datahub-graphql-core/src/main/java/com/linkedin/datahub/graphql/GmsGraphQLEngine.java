@@ -84,6 +84,7 @@ import com.linkedin.datahub.graphql.resolvers.container.ParentContainersResolver
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetHealthResolver;
 import com.linkedin.datahub.graphql.resolvers.deprecation.UpdateDeprecationResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.CreateDomainResolver;
+import com.linkedin.datahub.graphql.resolvers.domain.DeleteDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.DomainEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.ListDomainsResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.SetDomainResolver;
@@ -153,6 +154,8 @@ import com.linkedin.datahub.graphql.resolvers.search.AutoCompleteResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchAcrossLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.search.SearchResolver;
+import com.linkedin.datahub.graphql.resolvers.tag.CreateTagResolver;
+import com.linkedin.datahub.graphql.resolvers.tag.DeleteTagResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.SetTagColorResolver;
 import com.linkedin.datahub.graphql.resolvers.test.CreateTestResolver;
 import com.linkedin.datahub.graphql.resolvers.test.DeleteTestResolver;
@@ -672,8 +675,10 @@ public class GmsGraphQLEngine {
     private void configureMutationResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Mutation", typeWiring -> typeWiring
             .dataFetcher("updateDataset", new MutableTypeResolver<>(datasetType))
+            .dataFetcher("createTag", new CreateTagResolver(entityService))
             .dataFetcher("updateTag", new MutableTypeResolver<>(tagType))
             .dataFetcher("setTagColor", new SetTagColorResolver(entityClient, entityService))
+            .dataFetcher("deleteTag", new DeleteTagResolver(entityClient))
             .dataFetcher("updateChart", new MutableTypeResolver<>(chartType))
             .dataFetcher("updateDashboard", new MutableTypeResolver<>(dashboardType))
             .dataFetcher("updateNotebook", new MutableTypeResolver<>(notebookType))
@@ -702,7 +707,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("removeUser", new RemoveUserResolver(this.entityClient))
             .dataFetcher("removeGroup", new RemoveGroupResolver(this.entityClient))
             .dataFetcher("updateUserStatus", new UpdateUserStatusResolver(this.entityClient))
-            .dataFetcher("createDomain", new CreateDomainResolver(this.entityClient))
+            .dataFetcher("createDomain", new CreateDomainResolver(this.entityService))
+            .dataFetcher("deleteDomain", new DeleteDomainResolver(entityClient))
             .dataFetcher("setDomain", new SetDomainResolver(this.entityClient, this.entityService))
             .dataFetcher("updateDeprecation", new UpdateDeprecationResolver(this.entityClient, this.entityService))
             .dataFetcher("unsetDomain", new UnsetDomainResolver(this.entityClient, this.entityService))

@@ -18,6 +18,7 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.LineageDirection;
@@ -63,6 +64,7 @@ public class JavaEntityClient implements EntityClient {
     private final Clock _clock = Clock.systemUTC();
 
     private final EntityService _entityService;
+    private final DeleteEntityService _deleteEntityService;
     private final EventProducer _eventProducer;
     private final EntitySearchService _entitySearchService;
     private final SearchService _searchService;
@@ -350,6 +352,12 @@ public class JavaEntityClient implements EntityClient {
         _entityService.deleteUrn(urn);
     }
 
+    @Override
+    public void deleteEntityReferences(@Nonnull Urn urn, @Nonnull Authentication authentication)
+        throws RemoteInvocationException {
+        _deleteEntityService.deleteReferencesTo(urn, false);
+    }
+
     @Nonnull
     @Override
     public SearchResult filter(@Nonnull String entity, @Nonnull Filter filter, @Nullable SortCriterion sortCriterion,
@@ -454,5 +462,10 @@ public class JavaEntityClient implements EntityClient {
         @Nonnull PlatformEvent event,
         @Nonnull Authentication authentication) throws Exception {
         _eventProducer.producePlatformEvent(name, key, event);
+    }
+
+    @Override
+    public Boolean exists(Urn urn, @Nonnull Authentication authentication) throws RemoteInvocationException {
+        return _entityService.exists(urn);
     }
 }
