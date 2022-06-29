@@ -1,24 +1,21 @@
 import time
-import urllib
-from typing import Any, Dict, Optional, cast
 
 import pytest
 import requests
-
 from datahub.cli.docker import check_local_docker_containers
-from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.state.checkpoint import Checkpoint
-from tests.utils import ingest_file_via_rest
+
+from tests.utils import get_frontend_url, ingest_file_via_rest
 
 bootstrap_small = "test_resources/bootstrap_single.json"
 bootstrap_small_2 = "test_resources/bootstrap_single2.json"
-FRONTEND_ENDPOINT = "http://localhost:9002"
+
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
     # Simply assert that everything is healthy, but don't wait.
     assert not check_local_docker_containers()
     yield
+
 
 @pytest.fixture(scope="session")
 def frontend_session(wait_for_healthchecks):
@@ -28,19 +25,18 @@ def frontend_session(wait_for_healthchecks):
         "Content-Type": "application/json",
     }
     data = '{"username":"datahub", "password":"datahub"}'
-    response = session.post(
-        f"{FRONTEND_ENDPOINT}/logIn", headers=headers, data=data
-    )
+    response = session.post(f"{get_frontend_url()}/logIn", headers=headers, data=data)
     response.raise_for_status()
 
     yield session
 
+
 def test_ingestion_via_rest_rapid(frontend_session, wait_for_healthchecks):
     ingest_file_via_rest(bootstrap_small)
     ingest_file_via_rest(bootstrap_small_2)
-    urn = f"urn:li:dataset:(urn:li:dataPlatform:testPlatform,testDataset,PROD)"
+    urn = "urn:li:dataset:(urn:li:dataPlatform:testPlatform,testDataset,PROD)"
     json = {
-            "query": """query getDataset($urn: String!) {\n
+        "query": """query getDataset($urn: String!) {\n
                 dataset(urn: $urn) {\n
                     urn\n
                     name\n
@@ -70,15 +66,11 @@ def test_ingestion_via_rest_rapid(frontend_session, wait_for_healthchecks):
                     }\n
                 }\n
             }""",
-            "variables": {
-                "urn": urn
-            }
-        }
+        "variables": {"urn": urn},
+    }
     #
     time.sleep(2)
-    response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
