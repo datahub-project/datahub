@@ -46,7 +46,6 @@ export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, gl
             ? TermRelationshipType.HasA
             : TermRelationshipType.IsA;
 
-    console.log('relationshipType:: ', glossaryRelatedTermType);
     return (
         <>
             {contentLoading ? (
