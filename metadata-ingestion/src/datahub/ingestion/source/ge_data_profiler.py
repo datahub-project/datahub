@@ -874,6 +874,7 @@ class DatahubGEProfiler:
 
             if self.config.bigquery_temp_table_schema:
                 num_parts = self.config.bigquery_temp_table_schema.split(".")
+                # If we only have 1 part that means the project_id is missing from the table name and we add it
                 if len(num_parts) == 1:
                     bigquery_temp_table = f"{temp_table_db}.{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
                 elif len(num_parts) == 2:
@@ -984,6 +985,8 @@ class DatahubGEProfiler:
                 logger.error(
                     f"Unexpected {pretty_name} while profiling. Should have 3 parts but has {len(name_parts)} parts."
                 )
+            # If we only have two parts that means the project_id is missing from the table name and we add it
+            # Temp tables has 3 parts while normal tables only has 2 parts
             if len(str(batch._table).split(".")) == 2:
                 batch._table = sa.text(f"{name_parts[0]}.{str(batch._table)}")
                 logger.debug(f"Setting table name to be {batch._table}")
