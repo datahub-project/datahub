@@ -59,11 +59,9 @@ export function AdminHeaderLinks(props: Props) {
     return (
         <LinksWrapper areLinksHidden={areLinksHidden}>
             {showASD && (
-                <AdminLink>
-                    <Link to="/">
-                        <Button type="text">Go to Advanced Search and Dashboards</Button>
-                    </Link>
-                </AdminLink>
+                <a href="/">
+                    <Button type="text">Go to Advanced Search and Dashboards</Button>
+                </a>
             )}
             {showAnalytics && (
                 <AdminLink>
