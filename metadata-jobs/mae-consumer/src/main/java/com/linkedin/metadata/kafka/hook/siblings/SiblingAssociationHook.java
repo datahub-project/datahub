@@ -19,7 +19,6 @@ import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
-import com.linkedin.gms.factory.search.SearchServiceFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.EntitySpec;
@@ -60,7 +59,7 @@ import static com.linkedin.metadata.Constants.*;
 @Slf4j
 @Component
 @Singleton
-@Import({EntityRegistryFactory.class, RestliEntityClientFactory.class, EntitySearchServiceFactory.class, SystemAuthenticationFactory.class, })
+@Import({EntityRegistryFactory.class, RestliEntityClientFactory.class, EntitySearchServiceFactory.class, SystemAuthenticationFactory.class})
 public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   public static final String SIBLING_ASSOCIATION_SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system_sibling_hook";
