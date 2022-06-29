@@ -19,7 +19,6 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
-import io.ebean.EbeanServer;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -58,10 +57,6 @@ public class BootstrapManagerFactory {
   @Qualifier("ingestRetentionPoliciesStep")
   private IngestRetentionPoliciesStep _ingestRetentionPoliciesStep;
 
-  @Autowired
-  @Qualifier("ebeanServer")
-  private EbeanServer _ebeanServer;
-
   @Bean(name = "bootstrapManager")
   @Scope("singleton")
   @Nonnull
@@ -74,7 +69,7 @@ public class BootstrapManagerFactory {
         new IngestDataPlatformInstancesStep(_entityService, _migrationsDao);
     final RestoreGlossaryIndices restoreGlossaryIndicesStep = new RestoreGlossaryIndices(_entityService, _entitySearchService, _entityRegistry);
     final RestoreDbtSiblingsIndices
-        restoreDbtSiblingsIndices = new RestoreDbtSiblingsIndices(_entityService, _ebeanServer, _entityRegistry);
+        restoreDbtSiblingsIndices = new RestoreDbtSiblingsIndices(_entityService, _entityRegistry);
     final RemoveClientIdAspectStep removeClientIdAspectStep = new RemoveClientIdAspectStep(_entityService);
     return new BootstrapManager(ImmutableList.of(ingestRootUserStep, ingestPoliciesStep, ingestDataPlatformsStep,
         ingestDataPlatformInstancesStep, _ingestRetentionPoliciesStep, restoreGlossaryIndicesStep, removeClientIdAspectStep, restoreDbtSiblingsIndices));
