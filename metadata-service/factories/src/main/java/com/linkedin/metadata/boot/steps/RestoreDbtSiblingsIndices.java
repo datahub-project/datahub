@@ -36,7 +36,7 @@ import static com.linkedin.metadata.Constants.*;
 public class RestoreDbtSiblingsIndices implements BootstrapStep {
   private static final String VERSION = "0";
   private static final String UPGRADE_ID = "restore-dbt-siblings-indices";
-  private static final Urn GLOSSARY_UPGRADE_URN =
+  private static final Urn SIBLING_UPGRADE_URN =
       EntityKeyUtils.convertEntityKeyToUrn(new DataHubUpgradeKey().setId(UPGRADE_ID), Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
   private static final Integer BATCH_SIZE = 1000;
   private static final Integer SLEEP_SECONDS = 120;
@@ -64,8 +64,7 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
     Thread.sleep(SLEEP_SECONDS * 1000);
 
     EntityResponse response = _entityService.getEntityV2(
-        Constants.DATA_HUB_UPGRADE_ENTITY_NAME,
-        GLOSSARY_UPGRADE_URN,
+        Constants.DATA_HUB_UPGRADE_ENTITY_NAME, SIBLING_UPGRADE_URN,
         Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)
     );
     if (response != null && response.getAspects().containsKey(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)) {
@@ -155,7 +154,7 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
 
   private void ingestUpgradeAspect(String aspectName, RecordTemplate aspect, AuditStamp auditStamp) {
     final MetadataChangeProposal upgradeProposal = new MetadataChangeProposal();
-    upgradeProposal.setEntityUrn(GLOSSARY_UPGRADE_URN);
+    upgradeProposal.setEntityUrn(SIBLING_UPGRADE_URN);
     upgradeProposal.setEntityType(Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
     upgradeProposal.setAspectName(aspectName);
     upgradeProposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
