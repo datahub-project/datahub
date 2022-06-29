@@ -206,11 +206,17 @@ You'll need to ingest some metadata of the following form to see it inside the D
 }
 ```
 
-## The datahub page just keeps refreshing after enabling OIDC
-It could be due to the cookie returned from Pac4j was more than 4096 bytes.
-One possible solution is to use Play Cache to store these data instead. 
-To enable Play Cache, you can set your env variable "PAC4J_SESSIONSTORE_PROVIDER" as "PlayCacheSessionStore"
+## I've configured OIDC, but I cannot login. I get continuously redirected. What do I do? 
 
-However, there is downside for using Play Cache. This means that datahub frontend container will no longer remain as a stateless service.
+Sorry to hear that!
+
+This phenomena may be due to the size of a Cookie DataHub uses to authenticate its users. If it's too large ( > 4096), then you'll see this behavior. The cookie embeds an encoded version of the information returned by your OIDC Identity Provider - if they return a lot of information, this can be the root cause.
+
+One solution is to use Play Cache to persist this session information for a user. This means the attributes about the user (and their session info) will be stored in an in-memory store in the `datahub-frontend` service, instead of a browser-side cookie.
+
+To configure the Play Cache session store, you can set the env variable "PAC4J_SESSIONSTORE_PROVIDER" as "PlayCacheSessionStore" for the `datahub-frontend` container. 
+
+Do note that there are downsides to using the Play Cache. Specifically, it will make `datahub-frontend` a stateful server. If you have multiple instances of `datahub-frontend` deployed, you'll need to ensure that the same user is deterministically routed to the same service container (since the sessions are stored in memory). If you're using a single instance of `datahub-frontend` (the default), then things should "just work". 
+
 For more details, please refer to https://github.com/datahub-project/datahub/pull/5114
 
