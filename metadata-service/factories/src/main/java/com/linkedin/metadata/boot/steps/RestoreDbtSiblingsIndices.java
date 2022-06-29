@@ -20,6 +20,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.upgrade.DataHubUpgradeRequest;
 import com.linkedin.upgrade.DataHubUpgradeResult;
+import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -78,42 +79,51 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
 
     log.info("Bootstrapping sibling aspects");
 
-    final int rowCount = _entityService.listUrns(DATASET_ENTITY_NAME, 0, 10).getTotal();
+    try {
+      final int rowCount = _entityService.listUrns(DATASET_ENTITY_NAME, 0, 10).getTotal();
 
-    log.info("Found {} dataset entities to attempt to bootstrap", rowCount);
+      log.info("Found {} dataset entities to attempt to bootstrap", rowCount);
 
-    final AspectSpec datasetAspectSpec =
-        _entityRegistry.getEntitySpec(Constants.DATASET_ENTITY_NAME).getAspectSpec(Constants.UPSTREAM_LINEAGE_ASPECT_NAME);
-    final AuditStamp auditStamp = new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+      final AspectSpec datasetAspectSpec =
+          _entityRegistry.getEntitySpec(Constants.DATASET_ENTITY_NAME).getAspectSpec(Constants.UPSTREAM_LINEAGE_ASPECT_NAME);
+      final AuditStamp auditStamp = new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
 
-    final DataHubUpgradeRequest upgradeRequest = new DataHubUpgradeRequest().setTimestampMs(System.currentTimeMillis()).setVersion(VERSION);
-    ingestUpgradeAspect(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME, upgradeRequest, auditStamp);
+      final DataHubUpgradeRequest upgradeRequest = new DataHubUpgradeRequest().setTimestampMs(System.currentTimeMillis()).setVersion(VERSION);
+      ingestUpgradeAspect(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME, upgradeRequest, auditStamp);
 
-    int indexedCount = 0;
-    while (indexedCount < rowCount) {
-      getAndRestoreUpstreamLineageIndices(indexedCount, auditStamp, datasetAspectSpec);
-      indexedCount += BATCH_SIZE;
+      int indexedCount = 0;
+      while (indexedCount < rowCount) {
+        getAndRestoreUpstreamLineageIndices(indexedCount, auditStamp, datasetAspectSpec);
+        indexedCount += BATCH_SIZE;
+      }
+
+      final DataHubUpgradeResult upgradeResult = new DataHubUpgradeResult().setTimestampMs(System.currentTimeMillis());
+      ingestUpgradeAspect(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, upgradeResult, auditStamp);
+
+      log.info("Successfully restored sibling aspects");
+    } catch (Exception e) {
+      log.error("Error when running the RestoreDbtSiblingsIndices Bootstrap Step", e);
+      _entityService.deleteUrn(SIBLING_UPGRADE_URN);
+      throw new RuntimeException("Error when running the RestoreDbtSiblingsIndices Bootstrap Step", e);
     }
-
-    final DataHubUpgradeResult upgradeResult = new DataHubUpgradeResult().setTimestampMs(System.currentTimeMillis());
-    ingestUpgradeAspect(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME, upgradeResult, auditStamp);
-
-    log.info("Successfully restored sibling aspects");
   }
 
-  private int getAndRestoreUpstreamLineageIndices(int start, AuditStamp auditStamp, AspectSpec upstreamAspectSpec) throws Exception {
+  private void getAndRestoreUpstreamLineageIndices(int start, AuditStamp auditStamp, AspectSpec upstreamAspectSpec) {
     ListUrnsResult datasetUrnsResult = _entityService.listUrns(DATASET_ENTITY_NAME, start, BATCH_SIZE);
     List<Urn> datasetUrns = datasetUrnsResult.getEntities();
     log.info("Re-indexing upstreamLineage aspect from {} with batch size {}", start, BATCH_SIZE);
 
     if (datasetUrns.size() == 0) {
-      return 0;
+      return;
     }
-    final Map<Urn, EntityResponse> upstreamLineageResponse = _entityService.getEntitiesV2(
-        DATASET_ENTITY_NAME,
-        new HashSet<>(datasetUrns),
-        Collections.singleton(UPSTREAM_LINEAGE_ASPECT_NAME)
-    );
+
+   final Map<Urn, EntityResponse> upstreamLineageResponse;
+    try {
+      upstreamLineageResponse =
+          _entityService.getEntitiesV2(DATASET_ENTITY_NAME, new HashSet<>(datasetUrns), Collections.singleton(UPSTREAM_LINEAGE_ASPECT_NAME));
+    } catch (URISyntaxException e) {
+      throw new RuntimeException(String.format("Error fetching upstream lineage history: %s", e.toString()));
+    }
 
     //  Loop over datasets and produce changelog
     for (Urn datasetUrn : datasetUrns) {
@@ -139,8 +149,6 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
           auditStamp,
           ChangeType.RESTATE);
     }
-
-    return datasetUrnsResult.getTotal();
   }
 
   private UpstreamLineage getUpstreamLineage(EntityResponse entityResponse) {
