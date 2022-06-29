@@ -414,16 +414,17 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                         </Button>
                     </div>
                     <div>
-                        <AddOwnersModal
-                            hideOwnerType
-                            visible={showAddModal}
-                            refetch={refetch}
-                            onCloseModal={() => {
-                                setShowAddModal(false);
-                            }}
-                            urn={urn}
-                            type={EntityType.Tag}
-                        />
+                        {showAddModal && (
+                            <AddOwnersModal
+                                hideOwnerType
+                                refetch={refetch}
+                                onCloseModal={() => {
+                                    setShowAddModal(false);
+                                }}
+                                urn={urn}
+                                type={EntityType.Tag}
+                            />
+                        )}
                     </div>
                 </div>
             </DetailsLayout>
