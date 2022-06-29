@@ -11,11 +11,10 @@ from datahub.ingestion.run.pipeline import Pipeline
 from tests.utils import (
     get_frontend_url,
     get_gms_url,
+    get_kafka_broker_url,
     get_sleep_info,
     ingest_file_via_rest,
 )
-
-KAFKA_BROKER = "localhost:9092"
 
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
 usage_sample_data = (
@@ -139,7 +138,7 @@ def test_ingestion_via_kafka(wait_for_healthchecks):
                 "type": "datahub-kafka",
                 "config": {
                     "connection": {
-                        "bootstrap": KAFKA_BROKER,
+                        "bootstrap": get_kafka_broker_url(),
                     }
                 },
             },

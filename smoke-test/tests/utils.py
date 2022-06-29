@@ -15,6 +15,10 @@ def get_frontend_url():
     return os.getenv("DATAHUB_FRONTEND_URL") or "http://localhost:9002"
 
 
+def get_kafka_broker_url():
+    return os.getenv("DATAHUB_KAFKA_URL") or "localhost:9092"
+
+
 def get_sleep_info():
     return (
         os.environ.get("DATAHUB_TEST_SLEEP_BETWEEN") or 60,
