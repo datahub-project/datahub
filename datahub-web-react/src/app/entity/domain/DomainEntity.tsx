@@ -65,6 +65,7 @@ export class DomainEntity implements Entity<Domain> {
             useUpdateQuery={undefined}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             headerDropdownItems={new Set([EntityMenuItems.COPY_URL])}
+            isNameEditable
             tabs={[
                 {
                     name: 'Entities',

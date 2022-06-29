@@ -32,17 +32,18 @@ export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
                     <PlusOutlined /> Add Owners
                 </Button>
             </div>
-            <AddOwnersModal
-                urn={mutationUrn}
-                defaultOwnerType={properties?.defaultOwnerType}
-                hideOwnerType={properties?.hideOwnerType || false}
-                type={entityType}
-                visible={showAddModal}
-                refetch={refetch}
-                onCloseModal={() => {
-                    setShowAddModal(false);
-                }}
-            />
+            {showAddModal && (
+                <AddOwnersModal
+                    urn={mutationUrn}
+                    defaultOwnerType={properties?.defaultOwnerType}
+                    hideOwnerType={properties?.hideOwnerType || false}
+                    type={entityType}
+                    refetch={refetch}
+                    onCloseModal={() => {
+                        setShowAddModal(false);
+                    }}
+                />
+            )}
         </div>
     );
 };
