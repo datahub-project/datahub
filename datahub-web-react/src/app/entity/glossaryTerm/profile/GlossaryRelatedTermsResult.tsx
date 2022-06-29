@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { TermRelationshipType } from '../../../../types.generated';
 import { Message } from '../../../shared/Message';
+import { EmptyTab } from '../../shared/components/styled/EmptyTab';
 import { ANTD_GRAY } from '../../shared/constants';
 import AddRelatedTermsModal from './AddRelatedTermsModal';
 import RelatedTerm from './RelatedTerm';
@@ -45,6 +46,7 @@ export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, gl
             ? TermRelationshipType.HasA
             : TermRelationshipType.IsA;
 
+    console.log('relationshipType:: ', glossaryRelatedTermType);
     return (
         <>
             {contentLoading ? (
@@ -62,6 +64,9 @@ export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, gl
                     {glossaryRelatedTermUrns.map((urn) => (
                         <RelatedTerm key={urn} urn={urn} relationshipType={relationshipType} />
                     ))}
+                    {glossaryRelatedTermUrns.length === 0 && (
+                        <EmptyTab tab={glossaryRelatedTermType.toLocaleLowerCase()} />
+                    )}
                 </ListContainer>
             )}
             {isShowingAddModal && (

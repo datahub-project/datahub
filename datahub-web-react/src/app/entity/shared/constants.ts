@@ -47,4 +47,12 @@ export const EMPTY_MESSAGES = {
         title: 'No domain set',
         description: 'Group related entities based on your organizational structure using by adding them to a Domain.',
     },
+    contains: {
+        title: 'No contain yet',
+        description: 'Share your knowledge by adding contain.',
+    },
+    inherits: {
+        title: 'No inherit yet',
+        description: 'Share your knowledge by adding inherit.',
+    },
 };
