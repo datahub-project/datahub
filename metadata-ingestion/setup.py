@@ -171,7 +171,7 @@ iceberg_common = {
     "azure-identity==1.10.0",
 }
 
-s3_base = {*data_lake_base, "moto[s3]", path_spec_common}
+s3_base = {*data_lake_base, "moto[s3]", *path_spec_common}
 
 delta_lake = {
     *s3_base,
@@ -259,11 +259,8 @@ plugins: Dict[str, Set[str]] = {
     | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
     "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.5"},
-    "redshift": sql_common
-    | redshift_common,
-    "redshift-usage": sql_common
-    | usage_common
-    | redshift_common,
+    "redshift": sql_common | redshift_common,
+    "redshift-usage": sql_common | usage_common | redshift_common,
     "sagemaker": aws_common,
     "snowflake": snowflake_common,
     "snowflake-usage": snowflake_common
