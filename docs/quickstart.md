@@ -30,15 +30,22 @@ To deploy a new instance of DataHub, perform the following steps.
 
 :::
 
-4. To deploy DataHub, run the following CLI command from your terminal
+4. To deploy a DataHub instance locally, run the following CLI command from your terminal
 
    ```
    datahub docker quickstart
    ```
 
+   This will deploy a DataHub instance using [docker-compose](https://docs.docker.com/compose/).
+
    Upon completion of this step, you should be able to navigate to the DataHub UI
    at [http://localhost:9002](http://localhost:9002) in your browser. You can sign in using `datahub` as both the
    username and password.
+
+   If you would like to modify/configure the DataHub installation in some way, please download the [docker-compose.yaml](https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml) used by the cli tool, modify it as necessary and deploy DataHub by passing the downloaded docker-compose file:
+   ```
+   datahub docker quickstart --quickstart-compose-file <path to compose file>
+   ```
 
 5. To ingest the sample metadata, run the following CLI command from your terminal
 
@@ -53,8 +60,27 @@ using the `--token <token>` parameter in the command.
 
 :::
 
-That's it! To start pushing your company's metadata into DataHub, take a look at
-the [Metadata Ingestion Framework](../metadata-ingestion/README.md).
+That's it! Now feel free to play around with DataHub!
+
+## Next Steps
+
+### Ingest Metadata
+
+To start pushing your company's metadata into DataHub, take a look at the [Metadata Ingestion Framework](../metadata-ingestion/README.md).
+
+### Invite Users
+
+To add users to your deployment to share with your team check out our [Adding Users to DataHub](./how/auth/add-users.md)
+
+### Enable Authentication 
+
+To enable SSO, check out [Configuring OIDC Authentication](./how/auth/sso/configure-oidc-react.md) or [Configuring JaaS Authentication](./how/auth/jaas.md). 
+
+To enable backend Authentication, check out [authentication in DataHub's backend](./introducing-metadata-service-authentication.md#Configuring Metadata Service Authentication). 
+
+### Move to Production
+
+We recommend deploying DataHub to production using Kubernetes. We provide helpful [Helm Charts](https://artifacthub.io/packages/helm/datahub/datahub) to help you quickly get up and running. Check out [Deploying DataHub to Kubernetes](./deploy/kubernetes.md) for a step-by-step walkthrough. 
 
 ## Resetting DataHub
 

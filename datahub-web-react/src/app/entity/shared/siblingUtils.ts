@@ -43,20 +43,20 @@ const combineMerge = (target, source, options) => {
 
 const customMerge = (isPrimary, key) => {
     if (key === 'upstream' || key === 'downstream') {
-        return (a, _) => a;
+        return (_secondary, primary) => primary;
     }
     if (key === 'platform') {
-        return (a, b) => (isPrimary ? b : a);
+        return (secondary, primary) => (isPrimary ? primary : secondary);
     }
-    if (key === 'tags' || key === 'terms') {
-        return (a, b) => {
-            return merge(a, b, {
+    if (key === 'tags' || key === 'terms' || key === 'assertions') {
+        return (secondary, primary) => {
+            return merge(secondary, primary, {
                 customMerge: customMerge.bind({}, isPrimary),
             });
         };
     }
-    return (a, b) => {
-        return merge(a, b, {
+    return (secondary, primary) => {
+        return merge(secondary, primary, {
             arrayMerge: combineMerge,
             customMerge: customMerge.bind({}, isPrimary),
         });
@@ -99,6 +99,9 @@ export const combineEntityDataWithSiblings = <T>(baseEntity: T): T => {
             }),
         extractedBaseEntity,
     ) as T;
+
+    // Force the urn of the combined entity to the current entity urn.
+    combinedBaseEntity.urn = extractedBaseEntity.urn;
 
     return { [baseEntityKey]: combinedBaseEntity } as unknown as T;
 };

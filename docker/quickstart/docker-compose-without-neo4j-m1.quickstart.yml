@@ -23,7 +23,9 @@ services:
     depends_on:
       - datahub-gms
     environment:
+      - DATAHUB_GMS_HOST=datahub-gms
       - GMS_HOST=datahub-gms
+      - DATAHUB_GMS_PORT=8080
       - GMS_PORT=8080
       - KAFKA_BOOTSTRAP_SERVER=broker:29092
       - SCHEMA_REGISTRY_URL=http://schema-registry:8081

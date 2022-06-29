@@ -2,10 +2,12 @@ from typing import Any, Dict
 
 from datahub.metadata.com.linkedin.pegasus2avro.common import GlobalTags
 from datahub.metadata.schema_classes import (
+    GlobalTagsClass,
     GlossaryTermsClass,
     OwnerClass,
     OwnershipClass,
     OwnershipSourceTypeClass,
+    OwnershipTypeClass,
 )
 from datahub.utilities.mapping import OperationProcessor
 
@@ -144,3 +146,88 @@ def test_operation_processor_no_email_strip_source_type_not_null():
     new_owner: OwnerClass = ownership_aspect.owners[0]
     assert new_owner.owner == "urn:li:corpuser:test_user@abc.com"
     assert new_owner.source and new_owner.source.type == "SERVICE"
+
+
+def test_operation_processor_advanced_matching_owners():
+    raw_props = {
+        "user_owner": "@test_user@abc.com",
+    }
+    processor = OperationProcessor(
+        operation_defs={
+            "user_owner": {
+                "match": "^@(.*)",
+                "operation": "add_owner",
+                "config": {"owner_type": "group"},
+            },
+        },
+        owner_source_type="SOURCE_CONTROL",
+    )
+    aspect_map = processor.process(raw_props)
+    assert "add_owner" in aspect_map
+
+    ownership_aspect: OwnershipClass = aspect_map["add_owner"]
+    assert len(ownership_aspect.owners) == 1
+    new_owner: OwnerClass = ownership_aspect.owners[0]
+    assert new_owner.owner == "urn:li:corpGroup:test_user@abc.com"
+    assert new_owner.source and new_owner.source.type == "SOURCE_CONTROL"
+
+
+def test_operation_processor_ownership_category():
+    raw_props = {"user_owner": "@test_user", "business_owner": "alice"}
+    processor = OperationProcessor(
+        operation_defs={
+            "user_owner": {
+                "match": "^@(.*)",
+                "operation": "add_owner",
+                "config": {
+                    "owner_type": "group",
+                    "owner_category": OwnershipTypeClass.DATA_STEWARD,
+                },
+            },
+            "business_owner": {
+                "match": ".*",
+                "operation": "add_owner",
+                "config": {
+                    "owner_type": "user",
+                    "owner_category": OwnershipTypeClass.BUSINESS_OWNER,
+                },
+            },
+        },
+        owner_source_type="SOURCE_CONTROL",
+    )
+    aspect_map = processor.process(raw_props)
+    assert "add_owner" in aspect_map
+
+    ownership_aspect: OwnershipClass = aspect_map["add_owner"]
+    assert len(ownership_aspect.owners) == 2
+    new_owner: OwnerClass = ownership_aspect.owners[0]
+    assert new_owner.owner == "urn:li:corpGroup:test_user"
+    assert new_owner.source and new_owner.source.type == "SOURCE_CONTROL"
+    assert new_owner.type and new_owner.type == OwnershipTypeClass.DATA_STEWARD
+
+    new_owner = ownership_aspect.owners[1]
+    assert new_owner.owner == "urn:li:corpuser:alice"
+    assert new_owner.source and new_owner.source.type == "SOURCE_CONTROL"
+    assert new_owner.type and new_owner.type == OwnershipTypeClass.BUSINESS_OWNER
+
+
+def test_operation_processor_advanced_matching_tags():
+    raw_props = {
+        "case": "PLT-4567",
+    }
+    processor = OperationProcessor(
+        operation_defs={
+            "case": {
+                "match": "^PLT-(.*)",
+                "operation": "add_tag",
+                "config": {"tag": "case_{{ $match }}"},
+            },
+        },
+        owner_source_type="SOURCE_CONTROL",
+    )
+    aspect_map = processor.process(raw_props)
+    assert "add_tag" in aspect_map
+
+    tag_aspect: GlobalTagsClass = aspect_map["add_tag"]
+    assert len(tag_aspect.tags) == 1
+    assert tag_aspect.tags[0].tag == "urn:li:tag:case_4567"

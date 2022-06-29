@@ -263,6 +263,33 @@ class DBTConfig(StatefulIngestionConfigBase):
             )
         return aws_connection
 
+    @validator("meta_mapping")
+    def meta_mapping_validator(
+        cls, meta_mapping: Dict[str, Any], values: Dict, **kwargs: Any
+    ) -> Dict[str, Any]:
+        for k, v in meta_mapping.items():
+            if "match" not in v:
+                raise ValueError(
+                    f"meta_mapping section {k} doesn't have a match clause."
+                )
+            if "operation" not in v:
+                raise ValueError(
+                    f"meta_mapping section {k} doesn't have an operation clause."
+                )
+            if v["operation"] == "add_owner":
+                owner_category = v["config"].get("owner_category")
+                if owner_category:
+                    allowed_categories = [
+                        value
+                        for name, value in vars(OwnershipTypeClass).items()
+                        if not name.startswith("_")
+                    ]
+                    if (owner_category.upper()) not in allowed_categories:
+                        raise ValueError(
+                            f"Owner category {owner_category} is not one of {allowed_categories}"
+                        )
+        return meta_mapping
+
 
 @dataclass
 class DBTColumn:
@@ -283,6 +310,7 @@ class DBTNode:
     database: Optional[str]
     schema: str
     name: str  # name, identifier
+    alias: Optional[str]  # alias if present
     comment: str
     description: str
     raw_sql: Optional[str]
@@ -363,7 +391,11 @@ def extract_dbt_entities(
         if "identifier" in manifest_node and use_identifiers:
             name = manifest_node["identifier"]
 
-        if manifest_node.get("alias") is not None:
+        if (
+            manifest_node.get("alias") is not None
+            and manifest_node.get("resource_type")
+            != "test"  # tests have non-human-friendly aliases, so we don't want to use it for tests
+        ):
             name = manifest_node["alias"]
 
         if not node_name_pattern.allowed(key):
@@ -417,6 +449,7 @@ def extract_dbt_entities(
             database=manifest_node["database"],
             schema=manifest_node["schema"],
             name=name,
+            alias=manifest_node.get("alias"),
             dbt_file_path=manifest_node["original_file_path"],
             node_type=manifest_node["resource_type"],
             max_loaded_at=sources_by_id.get(key, {}).get("max_loaded_at"),
@@ -1092,14 +1125,6 @@ class DBTSource(StatefulIngestionSourceBase):
         def string_map(input_map: Dict[str, Any]) -> Dict[str, str]:
             return {k: str(v) for k, v in input_map.items()}
 
-        if self.config.test_results_path:
-            yield from DBTTest.load_test_results(
-                self.config,
-                self.load_file_as_json(self.config.test_results_path),
-                test_nodes,
-                manifest_nodes,
-            )
-
         for node in test_nodes:
             node_datahub_urn = mce_builder.make_assertion_urn(
                 mce_builder.datahub_guid(
@@ -1250,7 +1275,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 node_datahub_urn = get_urn_from_dbtNode(
                     node.database,
                     node.schema,
-                    node.name,
+                    node.alias or node.name,  # previous code used the alias
                     mce_platform,
                     self.config.env,
                     self.config.platform_instance
@@ -1269,6 +1294,14 @@ class DBTSource(StatefulIngestionSourceBase):
                 )
                 self.report.report_workunit(soft_delete_wu)
                 yield soft_delete_wu
+
+        if self.config.test_results_path:
+            yield from DBTTest.load_test_results(
+                self.config,
+                self.load_file_as_json(self.config.test_results_path),
+                test_nodes,
+                manifest_nodes,
+            )
 
     # create workunits from dbt nodes
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -1393,7 +1426,6 @@ class DBTSource(StatefulIngestionSourceBase):
             "SOURCE_CONTROL",
             self.config.strip_user_ids_from_email,
         )
-
         for node in dbt_nodes:
             node_datahub_urn = get_urn_from_dbtNode(
                 node.database,
@@ -1644,7 +1676,10 @@ class DBTSource(StatefulIngestionSourceBase):
         self, node: DBTNode, meta_owner_aspects: Any
     ) -> List[OwnerClass]:
         owner_list: List[OwnerClass] = []
-        if node.owner:
+        if meta_owner_aspects and self.config.enable_meta_mapping:
+            # we disregard owners generated from node.owner because that is also coming from the meta section
+            owner_list = meta_owner_aspects.owners
+        elif node.owner:
             owner: str = node.owner
             if self.compiled_owner_extraction_pattern:
                 match: Optional[Any] = re.match(
@@ -1665,9 +1700,6 @@ class DBTSource(StatefulIngestionSourceBase):
                     type=OwnershipTypeClass.DATAOWNER,
                 )
             )
-
-        if meta_owner_aspects and self.config.enable_meta_mapping:
-            owner_list.extend(meta_owner_aspects.owners)
 
         owner_list = sorted(owner_list, key=lambda x: x.owner)
         return owner_list
