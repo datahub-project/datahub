@@ -1,0 +1,4 @@
+{"commitInfo":{"timestamp":1655831865396,"operation":"WRITE","operationParameters":{},"isolationLevel":"Serializable","isBlindAppend":true,"operationMetrics":{},"engineInfo":"local Delta-Standalone/0.4.0"}}
+{"protocol":{"minReaderVersion":1,"minWriterVersion":2}}
+{"metaData":{"id":"3775a0fd-4f58-4dea-b71a-e3fedb10f5b4","name":"test-table-inner","description":"test delta table basic with table name at inner location","format":{"provider":"parquet","options":{}},"schemaString":"{\"type\":\"struct\",\"fields\":[{\"name\":\"foo\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}},{\"name\":\"bar\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}},{\"name\":\"zip\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}]}","partitionColumns":["foo","bar"],"configuration":{},"createdTime":1655831864836}}
+{"add":{"path":"0","partitionValues":{"bar":"0","foo":"0"},"size":100,"modificationTime":1655831865289,"dataChange":true,"tags":{"someTagKey":"someTagVal"}}}
