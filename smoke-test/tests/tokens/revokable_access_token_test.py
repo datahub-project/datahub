@@ -201,6 +201,48 @@ def test_admin_can_create_and_revoke_tokens_for_other_user(wait_for_healthchecks
 def test_non_admin_can_create_list_revoke_tokens(wait_for_healthchecks):
     user_session = loginAs("user", "user")
 
+    list_policies_json = {
+        "query": """query listPolicies($input: ListPoliciesInput!) {\n
+            listPolicies(input: $input) {\n
+                start\n
+                count\n
+                total\n
+                policies {\n
+                    urn\n
+                    type\n
+                    name\n
+                    description\n
+                    state\n
+                    resources {\n
+                      type\n
+                      allResources\n
+                      resources\n
+                    }\n
+                    privileges\n
+                    actors {\n
+                      users\n
+                      groups\n
+                      allUsers\n
+                      allGroups\n
+                      resourceOwners\n
+                    }\n
+                    editable\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+            "input": {
+                "start": "0",
+                "count": "20",
+            }
+        },
+    }
+    response = user_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=list_policies_json)
+    response.raise_for_status()
+    res_data = response.json()
+    print("list policies")
+    print(res_data)
+
     json = {
         "query": """query me {\n
             me {\n
@@ -276,6 +318,48 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] is not None
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
+
+    list_policies_json = {
+        "query": """query listPolicies($input: ListPoliciesInput!) {\n
+            listPolicies(input: $input) {\n
+                start\n
+                count\n
+                total\n
+                policies {\n
+                    urn\n
+                    type\n
+                    name\n
+                    description\n
+                    state\n
+                    resources {\n
+                      type\n
+                      allResources\n
+                      resources\n
+                    }\n
+                    privileges\n
+                    actors {\n
+                      users\n
+                      groups\n
+                      allUsers\n
+                      allGroups\n
+                      resourceOwners\n
+                    }\n
+                    editable\n
+                }\n
+            }\n
+        }""",
+        "variables": {
+            "input": {
+                "start": "0",
+                "count": "20",
+            }
+        },
+    }
+    response = admin_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=list_policies_json)
+    response.raise_for_status()
+    res_data = response.json()
+    print("list policies")
+    print(res_data)
 
     # Normal user should be able to generate token for himself.
     admin_session.cookies.clear()
