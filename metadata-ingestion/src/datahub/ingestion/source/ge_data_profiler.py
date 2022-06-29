@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tupl
 
 from great_expectations import __version__ as ge_version
 
+from datahub.configuration.common import ConfigurationError
 from datahub.telemetry import stats, telemetry
 
 # Fun compatibility hack! GE version 0.13.44 broke compatibility with SQLAlchemy 1.3.24.
@@ -872,7 +873,16 @@ class DatahubGEProfiler:
                     ge_config["schema"] = temp_table_db
 
             if self.config.bigquery_temp_table_schema:
-                bigquery_temp_table = f"{temp_table_db}.{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
+                num_parts = self.config.bigquery_temp_table_schema.split(".")
+                # If we only have 1 part that means the project_id is missing from the table name and we add it
+                if len(num_parts) == 1:
+                    bigquery_temp_table = f"{temp_table_db}.{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
+                elif len(num_parts) == 2:
+                    bigquery_temp_table = f"{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
+                else:
+                    raise ConfigurationError(
+                        f"bigquery_temp_table_schema should be either project.dataset or dataset format but it was: {self.config.bigquery_temp_table_schema}"
+                    )
             else:
                 assert table
                 table_parts = table.split(".")
@@ -970,12 +980,15 @@ class DatahubGEProfiler:
         if platform is not None and platform == "bigquery":
             # This is done as GE makes the name as DATASET.TABLE
             # but we want it to be PROJECT.DATASET.TABLE instead for multi-project setups
-            logger.debug(f"Setting table name to be {pretty_name}")
-            batch._table = sa.text(pretty_name)
             name_parts = pretty_name.split(".")
             if len(name_parts) != 3:
                 logger.error(
                     f"Unexpected {pretty_name} while profiling. Should have 3 parts but has {len(name_parts)} parts."
                 )
+            # If we only have two parts that means the project_id is missing from the table name and we add it
+            # Temp tables has 3 parts while normal tables only has 2 parts
+            if len(str(batch._table).split(".")) == 2:
+                batch._table = sa.text(f"{name_parts[0]}.{str(batch._table)}")
+                logger.debug(f"Setting table name to be {batch._table}")
 
         return batch
