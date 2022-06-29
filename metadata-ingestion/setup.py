@@ -158,11 +158,12 @@ iceberg_common = {
     "azure-identity==1.10.0",
 }
 
-s3_base = {
-    *data_lake_base,
-    "moto[s3]",
+path_spec_common = {
+    "parse>=1.19.0",
     "wcmatch",
 }
+
+s3_base = {*data_lake_base, "moto[s3]", path_spec_common}
 
 delta_lake = {
     *s3_base,
@@ -172,6 +173,7 @@ delta_lake = {
 usage_common = {
     "sqlparse",
 }
+
 
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
@@ -255,8 +257,7 @@ plugins: Dict[str, Set[str]] = {
         "psycopg2-binary",
         "GeoAlchemy2",
         "sqllineage==1.3.5",
-        "parse>=1.19.0",
-        "wcmatch",
+        path_spec_common,
     },
     "redshift-usage": sql_common
     | usage_common
@@ -265,8 +266,7 @@ plugins: Dict[str, Set[str]] = {
         "psycopg2-binary",
         "GeoAlchemy2",
         "sqllineage==1.3.5",
-        "parse>=1.19.0",
-        "wcmatch",
+        path_spec_common,
     },
     "sagemaker": aws_common,
     "snowflake": snowflake_common,
