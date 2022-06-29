@@ -88,7 +88,7 @@ kafka_protobuf = (
 
 sql_common = {
     # Required for all SQL sources.
-    "sqlalchemy==1.3.24",
+    "sqlalchemy>=1.3.24,<2.0.0",
     # Required for SQL profiling.
     "great-expectations>=0.14.11,<0.15.3",
     # datahub does not depend on Jinja2 directly but great expectations does. With Jinja2 3.1.0 GE 0.14.11 is breaking
@@ -107,6 +107,11 @@ aws_common = {
     "botocore!=1.23.0",
 }
 
+path_spec_common = {
+    "parse>=1.19.0",
+    "wcmatch",
+}
+
 looker_common = {
     # Looker Python SDK
     "looker-sdk==22.2.1"
@@ -119,6 +124,14 @@ bigquery_common = {
     "more-itertools>=8.12.0",
     # we do not use protobuf directly but newer version caused bigquery connector to fail
     "protobuf<=3.20.1",
+}
+
+redshift_common = {
+    "sqlalchemy-redshift",
+    "psycopg2-binary",
+    "GeoAlchemy2",
+    "sqllineage==1.3.5",
+    *path_spec_common,
 }
 
 snowflake_common = {
@@ -158,11 +171,7 @@ iceberg_common = {
     "azure-identity==1.10.0",
 }
 
-s3_base = {
-    *data_lake_base,
-    "moto[s3]",
-    "wcmatch",
-}
+s3_base = {*data_lake_base, "moto[s3]", *path_spec_common}
 
 delta_lake = {
     *s3_base,
@@ -172,6 +181,7 @@ delta_lake = {
 usage_common = {
     "sqlparse",
 }
+
 
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
@@ -249,16 +259,8 @@ plugins: Dict[str, Set[str]] = {
     | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
     "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.5"},
-    "redshift": sql_common
-    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.5"},
-    "redshift-usage": sql_common
-    | usage_common
-    | {
-        "sqlalchemy-redshift",
-        "psycopg2-binary",
-        "GeoAlchemy2",
-        "sqllineage==1.3.5",
-    },
+    "redshift": sql_common | redshift_common,
+    "redshift-usage": sql_common | usage_common | redshift_common,
     "sagemaker": aws_common,
     "snowflake": snowflake_common,
     "snowflake-usage": snowflake_common
@@ -454,7 +456,7 @@ if is_py37_or_newer:
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
     "datahub.ingestion.source.plugins": [
-	 "csv-enricher = datahub.ingestion.source.csv_enricher:CSVEnricherSource",
+        "csv-enricher = datahub.ingestion.source.csv_enricher:CSVEnricherSource",
         "file = datahub.ingestion.source.file:GenericFileSource",
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
