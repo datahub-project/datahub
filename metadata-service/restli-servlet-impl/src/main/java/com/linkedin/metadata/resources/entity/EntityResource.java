@@ -4,7 +4,6 @@ import com.codahale.metrics.MetricRegistry;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
@@ -491,7 +490,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Action(name = ACTION_EXISTS)
   @Nonnull
   @WithSpan
-  public Task<Boolean> exists(@ActionParam(PARAM_URN) @Nonnull String urn) {
-    return RestliUtil.toTask(() -> _entityService.exists(UrnUtils.getUrn(urn)));
+  public Task<Boolean> exists(@ActionParam(PARAM_URN) @Nonnull String urnStr) throws URISyntaxException {
+    log.info("EXISTS for {}", urnStr);
+    Urn urn = Urn.createFromString(urnStr);
+    return RestliUtil.toTask(() -> _entityService.exists(urn),
+        MetricRegistry.name(this.getClass(), "exists"));
   }
 }
