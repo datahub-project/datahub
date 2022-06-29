@@ -107,6 +107,11 @@ aws_common = {
     "botocore!=1.23.0",
 }
 
+path_spec_common = {
+    "parse>=1.19.0",
+    "wcmatch",
+}
+
 looker_common = {
     # Looker Python SDK
     "looker-sdk==22.2.1"
@@ -119,6 +124,14 @@ bigquery_common = {
     "more-itertools>=8.12.0",
     # we do not use protobuf directly but newer version caused bigquery connector to fail
     "protobuf<=3.20.1",
+}
+
+redshift_common = {
+    "sqlalchemy-redshift",
+    "psycopg2-binary",
+    "GeoAlchemy2",
+    "sqllineage==1.3.5",
+    *path_spec_common,
 }
 
 snowflake_common = {
@@ -156,11 +169,6 @@ iceberg_common = {
     # Iceberg Python SDK
     "acryl-iceberg-legacy==0.0.4",
     "azure-identity==1.10.0",
-}
-
-path_spec_common = {
-    "parse>=1.19.0",
-    "wcmatch",
 }
 
 s3_base = {*data_lake_base, "moto[s3]", path_spec_common}
@@ -252,22 +260,10 @@ plugins: Dict[str, Set[str]] = {
     "pulsar": {"requests"},
     "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.5"},
     "redshift": sql_common
-    | {
-        "sqlalchemy-redshift",
-        "psycopg2-binary",
-        "GeoAlchemy2",
-        "sqllineage==1.3.5",
-        path_spec_common,
-    },
+    | redshift_common,
     "redshift-usage": sql_common
     | usage_common
-    | {
-        "sqlalchemy-redshift",
-        "psycopg2-binary",
-        "GeoAlchemy2",
-        "sqllineage==1.3.5",
-        path_spec_common,
-    },
+    | redshift_common,
     "sagemaker": aws_common,
     "snowflake": snowflake_common,
     "snowflake-usage": snowflake_common
