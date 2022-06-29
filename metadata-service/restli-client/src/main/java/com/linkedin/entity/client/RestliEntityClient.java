@@ -20,6 +20,7 @@ import com.linkedin.entity.EntitiesDoBatchIngestRequestBuilder;
 import com.linkedin.entity.EntitiesDoBrowseRequestBuilder;
 import com.linkedin.entity.EntitiesDoDeleteReferencesRequestBuilder;
 import com.linkedin.entity.EntitiesDoDeleteRequestBuilder;
+import com.linkedin.entity.EntitiesDoExistsRequestBuilder;
 import com.linkedin.entity.EntitiesDoFilterRequestBuilder;
 import com.linkedin.entity.EntitiesDoGetBrowsePathsRequestBuilder;
 import com.linkedin.entity.EntitiesDoIngestRequestBuilder;
@@ -661,5 +662,12 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.keyParam(key);
     }
     sendClientRequest(requestBuilder, authentication);
+  }
+
+  @Override
+  public Boolean exists(Urn urn, @Nonnull Authentication authentication) throws RemoteInvocationException {
+    final EntitiesDoExistsRequestBuilder requestBuilder =
+        ENTITIES_REQUEST_BUILDERS.actionExists().urnParam(urn.toString());
+    return sendClientRequest(requestBuilder, authentication).getEntity();
   }
 }

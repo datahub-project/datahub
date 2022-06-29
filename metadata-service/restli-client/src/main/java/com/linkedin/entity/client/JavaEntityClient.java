@@ -463,4 +463,9 @@ public class JavaEntityClient implements EntityClient {
         @Nonnull Authentication authentication) throws Exception {
         _eventProducer.producePlatformEvent(name, key, event);
     }
+
+    @Override
+    public Boolean exists(Urn urn, @Nonnull Authentication authentication) throws RemoteInvocationException {
+        return _entityService.exists(urn);
+    }
 }
