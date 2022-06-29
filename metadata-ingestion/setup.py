@@ -88,7 +88,7 @@ kafka_protobuf = (
 
 sql_common = {
     # Required for all SQL sources.
-    "sqlalchemy==1.3.24",
+    "sqlalchemy>=1.3.24,<2.0.0",
     # Required for SQL profiling.
     "great-expectations>=0.14.11,<0.15.3",
     # datahub does not depend on Jinja2 directly but great expectations does. With Jinja2 3.1.0 GE 0.14.11 is breaking
@@ -250,7 +250,14 @@ plugins: Dict[str, Set[str]] = {
     "pulsar": {"requests"},
     "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.5"},
     "redshift": sql_common
-    | {"sqlalchemy-redshift", "psycopg2-binary", "GeoAlchemy2", "sqllineage==1.3.5"},
+    | {
+        "sqlalchemy-redshift",
+        "psycopg2-binary",
+        "GeoAlchemy2",
+        "sqllineage==1.3.5",
+        "parse>=1.19.0",
+        "wcmatch",
+    },
     "redshift-usage": sql_common
     | usage_common
     | {
@@ -258,6 +265,8 @@ plugins: Dict[str, Set[str]] = {
         "psycopg2-binary",
         "GeoAlchemy2",
         "sqllineage==1.3.5",
+        "parse>=1.19.0",
+        "wcmatch",
     },
     "sagemaker": aws_common,
     "snowflake": snowflake_common,
@@ -454,7 +463,7 @@ if is_py37_or_newer:
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
     "datahub.ingestion.source.plugins": [
-	 "csv-enricher = datahub.ingestion.source.csv_enricher:CSVEnricherSource",
+        "csv-enricher = datahub.ingestion.source.csv_enricher:CSVEnricherSource",
         "file = datahub.ingestion.source.file:GenericFileSource",
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
