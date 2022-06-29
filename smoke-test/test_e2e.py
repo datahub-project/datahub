@@ -170,7 +170,7 @@ def test_run_ingestion(wait_for_healthchecks):
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_gms_get_user():
-    username = "ASEEM"
+    username = "jdoe"
     urn = f"urn:li:corpuser:{username}"
     _ensure_user_present(urn=urn)
 
