@@ -297,5 +297,5 @@ public interface EntityClient {
   public void producePlatformEvent(@Nonnull String name, @Nullable String key, @Nonnull PlatformEvent event,
       @Nonnull Authentication authentication) throws Exception;
 
-  Boolean exists(Urn urn, @Nonnull Authentication authentication) throws Exception;
+  Boolean exists(Urn urn, @Nonnull Authentication authentication) throws RemoteInvocationException;
 }

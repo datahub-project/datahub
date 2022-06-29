@@ -250,7 +250,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         newSiblingsUrnArray.stream().filter(urn -> {
           try {
             return _entityClient.exists(urn, _systemAuthentication);
-          } catch (Exception e) {
+          } catch (RemoteInvocationException e) {
             log.error("Error while checking existence of {}: {}", urn.toString(), e.toString());
             throw new RuntimeException("Error checking existence. Skipping processing.", e);
           }
@@ -392,7 +392,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
       } else {
         return null;
       }
-    } catch (Exception e) {
+    } catch (RemoteInvocationException | URISyntaxException e) {
       throw new RuntimeException("Failed to retrieve Subtypes", e);
     }
   }
@@ -413,7 +413,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
       } else {
         return null;
       }
-    } catch (Exception e) {
+    } catch (RemoteInvocationException | URISyntaxException e) {
       throw new RuntimeException("Failed to retrieve UpstreamLineage", e);
     }
   }
@@ -434,7 +434,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
       } else {
         return null;
       }
-    } catch (Exception e) {
+    } catch (RemoteInvocationException | URISyntaxException e) {
       throw new RuntimeException("Failed to retrieve UpstreamLineage", e);
     }
   }

@@ -465,7 +465,7 @@ public class JavaEntityClient implements EntityClient {
     }
 
     @Override
-    public Boolean exists(Urn urn, @Nonnull Authentication authentication) throws Exception {
+    public Boolean exists(Urn urn, @Nonnull Authentication authentication) throws RemoteInvocationException {
         return _entityService.exists(urn);
     }
 }

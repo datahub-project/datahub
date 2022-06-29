@@ -665,7 +665,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   }
 
   @Override
-  public Boolean exists(Urn urn, @Nonnull Authentication authentication) throws Exception {
+  public Boolean exists(Urn urn, @Nonnull Authentication authentication) throws RemoteInvocationException {
     final EntitiesDoExistsRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS.actionExists().urnParam(urn.toString());
     return sendClientRequest(requestBuilder, authentication).getEntity();
