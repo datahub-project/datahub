@@ -119,7 +119,7 @@ function PlatformContentView(props: Props) {
     return (
         <PlatformContentWrapper>
             {typeIcon && <LogoIcon>{typeIcon}</LogoIcon>}
-            <PlatformText>{entityType}</PlatformText>
+            <PlatformText>{entityType && entityType.charAt(0).toUpperCase() + entityType.slice(1)}</PlatformText>
             {(!!platformName || !!instanceId || !!parentContainers?.length) && <PlatformDivider />}
             {platformName && (
                 <LogoIcon>
