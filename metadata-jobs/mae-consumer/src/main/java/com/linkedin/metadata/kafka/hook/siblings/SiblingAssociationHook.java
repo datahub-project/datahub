@@ -18,13 +18,14 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.gms.factory.search.SearchServiceFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
@@ -59,7 +60,7 @@ import static com.linkedin.metadata.Constants.*;
 @Slf4j
 @Component
 @Singleton
-@Import({EntityRegistryFactory.class, RestliEntityClientFactory.class, SearchServiceFactory.class, SystemAuthenticationFactory.class})
+@Import({EntityRegistryFactory.class, RestliEntityClientFactory.class, EntitySearchServiceFactory.class, SystemAuthenticationFactory.class, })
 public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   public static final String SIBLING_ASSOCIATION_SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system_sibling_hook";
@@ -68,14 +69,14 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   private final EntityRegistry _entityRegistry;
   private final RestliEntityClient _entityClient;
-  private final SearchService _searchService;
+  private final EntitySearchService _searchService;
   private final Authentication _systemAuthentication;
 
   @Autowired
   public SiblingAssociationHook(
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final RestliEntityClient entityClient,
-      @Nonnull final SearchService searchService,
+      @Nonnull final EntitySearchService searchService,
       @Nonnull final Authentication systemAuthentication
   ) {
     _entityRegistry = entityRegistry;
@@ -132,8 +133,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         entitiesWithYouAsSiblingFilter,
         null,
         0,
-        10,
-        null);
+        10);
 
     // we have a match of an entity with you as a sibling, associate yourself back
     searchResult.getEntities().forEach(entity -> {
