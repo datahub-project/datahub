@@ -6,6 +6,7 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import { Container } from '../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../constants';
 import ContainerLink from './ContainerLink';
+import { capitalizeFirstLetter } from '../../../../../../shared/textUtil';
 
 const LogoIcon = styled.span`
     display: flex;
@@ -119,7 +120,7 @@ function PlatformContentView(props: Props) {
     return (
         <PlatformContentWrapper>
             {typeIcon && <LogoIcon>{typeIcon}</LogoIcon>}
-            <PlatformText>{entityType}</PlatformText>
+            <PlatformText>{capitalizeFirstLetter(entityType)}</PlatformText>
             {(!!platformName || !!instanceId || !!parentContainers?.length) && <PlatformDivider />}
             {platformName && (
                 <LogoIcon>
