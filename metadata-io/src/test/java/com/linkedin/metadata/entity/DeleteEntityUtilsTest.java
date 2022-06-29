@@ -73,18 +73,12 @@ public class DeleteEntityUtilsTest extends TestCase {
         + "}");
 
     final DataSchema schema = pdlSchemaParser.lookupName("simple_record");
-    final Aspect updatedAspect = DeleteEntityUtils.getAspectWithReferenceRemoved("hello", aspect, schema,
-        new PathSpec("key_a"));
-
-    assertTrue(updatedAspect.data().containsKey("key_a"));
-    assertEquals("hello", updatedAspect.data().get("key_a"));
-    assertTrue(updatedAspect.data().containsKey("key_b"));
-    assertEquals("world", updatedAspect.data().get("key_b"));
-    assertEquals(aspect, updatedAspect);
+    assertNull(DeleteEntityUtils.getAspectWithReferenceRemoved("hello", aspect, schema,
+        new PathSpec("key_a")));
   }
 
   /**
-   * Tests that Aspect Processor does not delete a non-optional value from a record referenced by another record.
+   * Tests that Aspect Processor deletes a required value from a record referenced by another record.
    */
   @Test
   public void testNestedFieldRemoval() {
@@ -98,15 +92,14 @@ public class DeleteEntityUtilsTest extends TestCase {
         + "}");
 
     pdlSchemaParser.parse("record complex_record {\n"
-        + "key_c: simple_record\n"
+        + "key_c: optional simple_record\n"
         + "}");
 
     final DataSchema schema = pdlSchemaParser.lookupName("complex_record");
     final Aspect updatedAspect = DeleteEntityUtils.getAspectWithReferenceRemoved("hello", aspect, schema,
         new PathSpec("key_c", "key_a"));
 
-    assertTrue(updatedAspect.data().containsKey("key_c"));
-    assertEquals(aspect.data().get("key_c"), updatedAspect.data().get("key_c"));
+    assertFalse(updatedAspect.data().containsKey("key_c"));
   }
 
   /**
