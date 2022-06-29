@@ -365,6 +365,12 @@ public class JavaEntityClient implements EntityClient {
         return _entitySearchService.filter(entity, filter, sortCriterion, start, count);
     }
 
+    @Nonnull
+    @Override
+    public boolean exists(@Nonnull Urn urn, @Nonnull final Authentication authentication) throws RemoteInvocationException {
+        return _entityService.exists(urn);
+    }
+
     @SneakyThrows
     @Override
     public VersionedAspect getAspect(@Nonnull String urn, @Nonnull String aspect, @Nonnull Long version,
