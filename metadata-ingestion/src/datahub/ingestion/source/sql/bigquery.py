@@ -163,7 +163,7 @@ WHERE table_id LIKE '{table}%'
 BQ_GET_LATEST_DATE_TABLE = """
 SELECT MAX(table_name) as max_shard
 FROM `{project_id}.{schema}.INFORMATION_SCHEMA.TABLES`
-where REGEXP_CONTAINS(table_name, r'^\d{{{date_length}}}$')
+where REGEXP_CONTAINS(table_name, r'^\\d{{{date_length}}}$')
 """.strip()
 
 # The existing implementation of this method can be found here:
