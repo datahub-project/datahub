@@ -19,11 +19,10 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.s3_boto_utils import get_s3_tags, list_folders_path
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_key_prefix,
-    get_s3_tags,
-    list_folders_path,
     strip_s3_prefix,
 )
 from datahub.ingestion.source.data_lake.data_lake_utils import ContainerWUCreator
