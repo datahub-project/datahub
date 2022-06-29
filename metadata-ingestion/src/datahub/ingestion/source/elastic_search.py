@@ -8,7 +8,6 @@ from hashlib import md5
 from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type
 
 from elasticsearch import Elasticsearch
-
 from pydantic import validator
 from pydantic.fields import Field
 
@@ -416,12 +415,14 @@ class ElasticsearchSource(Source):
         # 4. Construct and emit properties if needed
         properties: Dict[str, str] = {}
         # add number_of_shards, provided_name, number_of_replicas, uuid
-        properties.update({k: v for (k, v) in index_properties.items() if k in [
-            "number_of_shards",
-            "provided_name",
-            "number_of_replicas",
-            "uuid"
-        ]})
+        properties.update(
+            {
+                k: v
+                for (k, v) in index_properties.items()
+                if k
+                in ["number_of_shards", "provided_name", "number_of_replicas", "uuid"]
+            }
+        )
         index_aliases = raw_index_metadata.get("aliases", {}).keys()
         aliases: Dict[str, str] = {"aliases": ",".join(index_aliases)}
         # add creation_date, version
@@ -440,15 +441,17 @@ class ElasticsearchSource(Source):
         all_count = stats_index["_all"]["total"]["docs"]["count"]
         all_totalSize = stats_index["_all"]["total"]["store"]["size_in_bytes"]
 
-        properties.update({
-            "creation_date": creation_date_transform,
-            "version": str(data_version),
-            "successful_shards": str(successful_shards),
-            "primaries_count": str(primaries_count),
-            "primaries_totalSize": str(primaries_totalSize),
-            "all_count": str(all_count),
-            "all_totalSize": str(all_totalSize),
-        })
+        properties.update(
+            {
+                "creation_date": creation_date_transform,
+                "version": str(data_version),
+                "successful_shards": str(successful_shards),
+                "primaries_count": str(primaries_count),
+                "primaries_totalSize": str(primaries_totalSize),
+                "all_count": str(all_count),
+                "all_totalSize": str(all_totalSize),
+            }
+        )
 
         yield MetadataChangeProposalWrapper(
             entityType="dataset",
