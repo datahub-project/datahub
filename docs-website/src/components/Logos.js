@@ -138,7 +138,7 @@ const companiesByIndustry = [
       {
         name: "Digital Turbine",
         imageUrl: "/img/logos/companies/digitalturbine.svg",
-        size: "large",
+        size: "defualt",
       },
       {
         name: "Viasat",
