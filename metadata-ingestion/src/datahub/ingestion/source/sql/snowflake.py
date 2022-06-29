@@ -104,7 +104,7 @@ class SnowflakeSource(SQLAlchemySource):
         url = self.config.get_sql_alchemy_url(
             database=database, username=username, password=password, role=role
         )
-        logger.info(f"sql_alchemy_url={url}")
+        logger.debug(f"sql_alchemy_url={url}")
         engine = None
         if self.config.authentication_type == "OAUTH_AUTHENTICATOR":
             engine = create_engine(
