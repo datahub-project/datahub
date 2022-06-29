@@ -8,7 +8,6 @@ import com.linkedin.common.CorpRoleUrn
 @Aspect = {
   "name": "corpRoleInfo"
 }
-@Aspect.EntityUrns = [ "com.linkedin.common.CorpRoleUrn" ]
 record CorpRoleInfo {
 
   /**

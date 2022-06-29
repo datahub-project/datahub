@@ -2,7 +2,6 @@ namespace com.linkedin.datapolicy
 
 import com.linkedin.common.Urn
 
-
 /**
  * Properties associated with a DataPolicy
  */
@@ -10,7 +9,6 @@ import com.linkedin.common.Urn
    "name": "dataPolicyInfo"
 }
 
-@Aspect.EntityUrns = [ "com.linkedin.common.DataPolicyUrn" ]
 record DataPolicyInfo {
   type: DataPolicyType
 
