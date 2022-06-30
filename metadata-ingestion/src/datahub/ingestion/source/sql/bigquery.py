@@ -160,6 +160,11 @@ FROM `{project_id}.{schema}.__TABLES_SUMMARY__`
 WHERE table_id LIKE '{table}%'
 """.strip()
 
+BQ_GET_LATEST_DATE_TABLE = """
+SELECT MAX(table_name) as max_shard
+FROM `{project_id}.{schema}.INFORMATION_SCHEMA.TABLES`
+where REGEXP_CONTAINS(table_name, r'^\\d{{{date_length}}}$')
+""".strip()
 
 # The existing implementation of this method can be found here:
 # https://github.com/googleapis/python-bigquery-sqlalchemy/blob/main/sqlalchemy_bigquery/base.py#L1018-L1025.
@@ -707,11 +712,16 @@ class BigQuerySource(SQLAlchemySource):
             engine = self._get_engine(for_run_sql=True)
             if f"{project_id}.{schema}.{table_name}" not in self.maximum_shard_ids:
                 with engine.connect() as con:
-                    sql = BQ_GET_LATEST_SHARD.format(
-                        project_id=project_id,
-                        schema=schema,
-                        table=table_name,
-                    )
+                    if table_name is not None:
+                        sql = BQ_GET_LATEST_SHARD.format(
+                            project_id=project_id,
+                            schema=schema,
+                            table=table_name,
+                        )
+                    else:
+                        sql = BQ_GET_LATEST_DATE_TABLE.format(
+                            project_id=project_id, schema=schema, date_length=len(shard)
+                        )
 
                     result = con.execute(sql)
                     for row in result:

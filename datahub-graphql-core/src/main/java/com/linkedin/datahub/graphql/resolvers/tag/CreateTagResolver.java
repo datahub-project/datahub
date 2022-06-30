@@ -5,9 +5,9 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateTagInput;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.TagKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -20,7 +20,6 @@ import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 /**
@@ -30,7 +29,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 @RequiredArgsConstructor
 public class CreateTagResolver implements DataFetcher<CompletableFuture<String>> {
 
-  private final EntityService _entityService;
+  private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<String> get(DataFetchingEnvironment environment) throws Exception {
@@ -52,7 +51,7 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
         final String id = input.getId() != null ? input.getId() : UUID.randomUUID().toString();
         key.setName(id);
 
-        if (_entityService.exists(EntityKeyUtils.convertEntityKeyToUrn(key, Constants.TAG_ENTITY_NAME))) {
+        if (_entityClient.exists(EntityKeyUtils.convertEntityKeyToUrn(key, Constants.TAG_ENTITY_NAME), context.getAuthentication())) {
           throw new IllegalArgumentException("This Tag already exists!");
         }
 
@@ -63,7 +62,7 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
         proposal.setAspectName(Constants.TAG_PROPERTIES_ASPECT_NAME);
         proposal.setAspect(GenericRecordUtils.serializeAspect(mapTagProperties(input)));
         proposal.setChangeType(ChangeType.UPSERT);
-        return _entityService.ingestProposal(proposal, createAuditStamp(context)).getUrn().toString();
+        return _entityClient.ingestProposal(proposal, context.getAuthentication());
       } catch (Exception e) {
         log.error("Failed to create Domain with id: {}, name: {}: {}", input.getId(), input.getName(), e.getMessage());
         throw new RuntimeException(String.format("Failed to create Domain with id: %s, name: %s", input.getId(), input.getName()), e);

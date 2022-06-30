@@ -8,6 +8,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.TestKey;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.test.TestInfo;
@@ -34,32 +35,37 @@ public class CreateTestResolver implements DataFetcher<CompletableFuture<String>
   @Override
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
+    final CreateTestInput input = bindArgument(environment.getArgument("input"), CreateTestInput.class);
 
     return CompletableFuture.supplyAsync(() -> {
 
       if (canManageTests(context)) {
 
-        final CreateTestInput input = bindArgument(environment.getArgument("input"), CreateTestInput.class);
-        final MetadataChangeProposal proposal = new MetadataChangeProposal();
-
-        // Create new test
-        // Since we are creating a new Test, we need to generate a unique UUID.
-        final UUID uuid = UUID.randomUUID();
-        final String uuidStr = input.getId() == null ? uuid.toString() : input.getId();
-
-        // Create the Ingestion source key
-        final TestKey key = new TestKey();
-        key.setId(uuidStr);
-        proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
-
-        // Create the Test info.
-        final TestInfo info = mapCreateTestInput(input);
-        proposal.setEntityType(Constants.TEST_ENTITY_NAME);
-        proposal.setAspectName(Constants.TEST_INFO_ASPECT_NAME);
-        proposal.setAspect(GenericRecordUtils.serializeAspect(info));
-        proposal.setChangeType(ChangeType.UPSERT);
-
         try {
+
+          final MetadataChangeProposal proposal = new MetadataChangeProposal();
+
+          // Create new test
+          // Since we are creating a new Test, we need to generate a unique UUID.
+          final UUID uuid = UUID.randomUUID();
+          final String uuidStr = input.getId() == null ? uuid.toString() : input.getId();
+
+          // Create the Ingestion source key
+          final TestKey key = new TestKey();
+          key.setId(uuidStr);
+          proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
+
+          if (_entityClient.exists(EntityKeyUtils.convertEntityKeyToUrn(key, Constants.TEST_ENTITY_NAME), context.getAuthentication())) {
+            throw new IllegalArgumentException("This Test already exists!");
+          }
+
+          // Create the Test info.
+          final TestInfo info = mapCreateTestInput(input);
+          proposal.setEntityType(Constants.TEST_ENTITY_NAME);
+          proposal.setAspectName(Constants.TEST_INFO_ASPECT_NAME);
+          proposal.setAspect(GenericRecordUtils.serializeAspect(info));
+          proposal.setChangeType(ChangeType.UPSERT);
+
           return _entityClient.ingestProposal(proposal, context.getAuthentication());
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to perform update against Test with urn %s", input.toString()), e);
