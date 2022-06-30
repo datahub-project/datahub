@@ -340,7 +340,7 @@ class BigQuerySource(SQLAlchemySource):
         atexit.register(cleanup, config)
 
     def get_multiproject_project_id(
-        self, inspector: Optional[Inspector] = None, for_sql_queries: bool = False
+        self, inspector: Optional[Inspector] = None
     ) -> Optional[str]:
         """
         for_sql_queries - Used mainly for multi-project setups with different permissions
@@ -348,7 +348,7 @@ class BigQuerySource(SQLAlchemySource):
             - should be set to False if this is to inspect contents and not run sql queries
         """
 
-        if for_sql_queries and self.config.storage_project_id:
+        if self.config.storage_project_id:
             return self.config.storage_project_id
         elif self.config.project_id:
             return self.config.project_id
@@ -404,7 +404,7 @@ class BigQuerySource(SQLAlchemySource):
             )
 
     def _compute_bigquery_lineage_via_exported_bigquery_audit_metadata(self) -> None:
-        project_id = self.get_multiproject_project_id(for_sql_queries=True)
+        project_id = self.get_multiproject_project_id()
         logger.info("Populating lineage info via exported GCP audit logs")
         try:
             _client: BigQueryClient = BigQueryClient(project=project_id)
@@ -692,12 +692,12 @@ class BigQuerySource(SQLAlchemySource):
             ):
                 return None
             project_id = self.get_multiproject_project_id(
-                inspector=inspector, for_sql_queries=True
+                inspector=inspector
             )
             assert project_id
             sql = BQ_GET_LATEST_PARTITION_TEMPLATE.format(
                 project_id=self.get_multiproject_project_id(
-                    inspector=inspector, for_sql_queries=True
+                    inspector=inspector
                 ),
                 schema=schema,
                 table=table,
@@ -1020,7 +1020,7 @@ WHERE
         custom_sql: Optional[str] = None,
     ) -> dict:
         project_id = self.get_multiproject_project_id(
-            inspector=inspector, for_sql_queries=True
+            inspector=inspector
         )
         assert project_id
         return dict(
