@@ -51,7 +51,11 @@ from datahub.ingestion.source.looker_common import (
     LookerExplore,
     LookerUtil,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps, Status
+from datahub.metadata.com.linkedin.pegasus2avro.common import (
+    AuditStamp,
+    ChangeAuditStamps,
+    Status,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     ChartSnapshot,
     DashboardSnapshot,
@@ -303,6 +307,8 @@ class LookerDashboard:
     strip_user_ids_from_email: Optional[bool] = True
     last_updated_at: Optional[datetime.datetime] = None
     last_updated_by: Optional[LookerUser] = None
+    deleted_at: Optional[datetime.datetime] = None
+    deleted_by: Optional[LookerUser] = None
 
     def url(self, base_url):
         # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
@@ -462,6 +468,7 @@ class LookerDashboardSource(Source):
             )
             for exp in explores:
                 self.explore_set.add((element.query.model, exp))
+
             return LookerDashboardElement(
                 id=element.id,
                 title=element.title if element.title is not None else "",
@@ -762,6 +769,12 @@ class LookerDashboardSource(Source):
             change_audit_stamp.created.time = round(
                 looker_dashboard.created_at.timestamp() * 1000
             )
+        if looker_dashboard.owner is not None:
+            owner_urn = looker_dashboard.owner._get_urn(
+                self.source_config.strip_user_ids_from_email
+            )
+            if owner_urn:
+                change_audit_stamp.created.actor = owner_urn
         if looker_dashboard.last_updated_at is not None:
             change_audit_stamp.lastModified.time = round(
                 looker_dashboard.last_updated_at.timestamp() * 1000
@@ -772,12 +785,20 @@ class LookerDashboardSource(Source):
             )
             if updated_by_urn:
                 change_audit_stamp.lastModified.actor = updated_by_urn
-        if looker_dashboard.owner is not None:
-            owner_urn = looker_dashboard.owner._get_urn(
+        if (
+            looker_dashboard.is_deleted
+            and looker_dashboard.deleted_by is not None
+            and looker_dashboard.deleted_at is not None
+        ):
+            deleter_urn = looker_dashboard.deleted_by._get_urn(
                 self.source_config.strip_user_ids_from_email
             )
-            if owner_urn:
-                change_audit_stamp.created.actor = owner_urn
+            if deleter_urn:
+                change_audit_stamp.deleted = AuditStamp(
+                    actor=deleter_urn,
+                    time=round(looker_dashboard.deleted_at.timestamp() * 1000),
+                )
+
         return change_audit_stamp
 
     folder_path_cache: Dict[str, str] = {}
@@ -828,41 +849,6 @@ class LookerDashboardSource(Source):
         if dashboard.id is None or dashboard.title is None:
             raise ValueError("Both dashboard ID and title are None")
 
-        dashboard_owner = (
-            self.user_registry.get_by_id(
-                dashboard.user_id,
-                self.source_config.transport_options.get_transport_options()
-                if self.source_config.transport_options is not None
-                else None,
-            )
-            if self.source_config.extract_owners and dashboard.user_id is not None
-            else None
-        )
-
-        if dashboard_owner is not None and self.source_config.extract_owners:
-            # Keep track of how many user ids we were able to resolve
-            self.resolved_user_ids += 1
-            if dashboard_owner.email is None:
-                self.email_ids_missing += 1
-
-        dashboard_updated_by = (
-            self.user_registry.get_by_id(
-                dashboard.last_updater_id,
-                self.source_config.transport_options.get_transport_options()
-                if self.source_config.transport_options is not None
-                else None,
-            )
-            if self.source_config.extract_owners
-            and dashboard.last_updater_id is not None
-            else None
-        )
-
-        if dashboard_updated_by is not None and self.source_config.extract_owners:
-            # Keep track of how many user ids we were able to resolve
-            self.resolved_user_ids += 1
-            if dashboard_updated_by.email is None:
-                self.email_ids_missing += 1
-
         looker_dashboard = LookerDashboard(
             id=dashboard.id,
             title=dashboard.title,
@@ -870,14 +856,36 @@ class LookerDashboardSource(Source):
             dashboard_elements=dashboard_elements,
             created_at=dashboard.created_at,
             is_deleted=dashboard.deleted if dashboard.deleted is not None else False,
-            is_hidden=dashboard.deleted if dashboard.deleted is not None else False,
+            is_hidden=dashboard.hidden if dashboard.hidden is not None else False,
             folder_path=dashboard_folder_path,
-            owner=dashboard_owner,
+            owner=self._get_looker_user(dashboard.user_id),
             strip_user_ids_from_email=self.source_config.strip_user_ids_from_email,
             last_updated_at=dashboard.updated_at,
-            last_updated_by=dashboard_updated_by,
+            last_updated_by=self._get_looker_user(dashboard.last_updater_id),
+            deleted_at=dashboard.deleted_at,
+            deleted_by=self._get_looker_user(dashboard.deleter_id),
         )
         return looker_dashboard
+
+    def _get_looker_user(self, user_id: Optional[int]) -> Optional[LookerUser]:
+        user = (
+            self.user_registry.get_by_id(
+                user_id,
+                self.source_config.transport_options.get_transport_options()
+                if self.source_config.transport_options is not None
+                else None,
+            )
+            if self.source_config.extract_owners and user_id is not None
+            else None
+        )
+
+        if user is not None and self.source_config.extract_owners:
+            # Keep track of how many user ids we were able to resolve
+            self.resolved_user_ids += 1
+            if user.email is None:
+                self.email_ids_missing += 1
+
+        return user
 
     def process_dashboard(
         self, dashboard_id: str
@@ -895,12 +903,15 @@ class LookerDashboardSource(Source):
                 "dashboard_elements",
                 "dashboard_filters",
                 "deleted",
+                "hidden",
                 "description",
                 "folder",
                 "user_id",
                 "created_at",
                 "updated_at",
                 "last_updater_id",
+                "deleted_at",
+                "deleter_id",
             ]
             dashboard_object: Dashboard = self.client.dashboard(
                 dashboard_id=dashboard_id,
