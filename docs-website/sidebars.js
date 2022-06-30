@@ -273,36 +273,65 @@ module.exports = {
         ],
       },
     ],
-    "Authorization & Authentication": [
+    Authentication: [
       {
         type: "doc",
-        id: "docs/auth/README",
+        id: "docs/authentication/README",
         label: "Introduction",
       },
       {
         type: "doc",
-        id: "docs/auth/introducing-metadata-service-authentication",
-        label: "GMS Authentication",
-      },
-      {
-        type: "doc",
-        id: "docs/auth/concepts",
+        id: "docs/authentication/concepts",
         label: "Concepts",
       },
       {
+        "Frontend Authentication": [
+          "docs/authentication/guides/jaas",
+          {
+            "OIDC Authentication": [
+              "docs/authentication/guides/sso/configure-oidc-react",
+              "docs/authentication/guides/sso/configure-oidc-react-google",
+              "docs/authentication/guides/sso/configure-oidc-react-okta",
+              "docs/authentication/guides/sso/configure-oidc-react-azure",
+            ],
+          },
+          "docs/authentication/guides/add-users",
+        ],
+      },
+      {
         type: "doc",
-        id: "docs/auth/personal-access-tokens",
+        id: "docs/authentication/frontend-authentication",
+        label: "Frontend Authentication",
+      },
+      {
+        type: "doc",
+        id: "docs/authentication/introducing-metadata-service-authentication",
+        label: "Metadata Service Authentication",
+      },
+      {
+        type: "doc",
+        id: "docs/authentication/personal-access-tokens",
         label: "Personal Access Tokens",
       },
     ],
+    Authorization: [
+      {
+        type: "doc",
+        id: "docs/authorization/README",
+        label: "Introduction",
+      },
+      {
+        type: "doc",
+        id: "docs/authorization/policies",
+        label: "Access Policies",
+      },
+    ],
     "Usage Guides": [
-      "docs/policies",
       "docs/domains",
       "docs/ui-ingestion",
       "docs/tags",
       "docs/schema-history",
       "docs/how/search",
-      "docs/how/auth/add-users",
       "docs/how/ui-tabs-guide",
       "docs/how/business-glossary-guide",
     ],
@@ -319,15 +348,6 @@ module.exports = {
       //"docs/how/build-metadata-service",
       //"docs/how/graph-onboarding",
       //"docs/demo/graph-onboarding",
-      {
-        Authentication: [
-          "docs/how/auth/jaas",
-          "docs/how/auth/sso/configure-oidc-react",
-          "docs/how/auth/sso/configure-oidc-react-google",
-          "docs/how/auth/sso/configure-oidc-react-okta",
-          "docs/how/auth/sso/configure-oidc-react-azure",
-        ],
-      },
       "docs/what/mxe",
       "docs/how/restore-indices",
       "docs/dev-guides/timeline",

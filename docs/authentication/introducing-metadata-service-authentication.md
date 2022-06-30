@@ -19,7 +19,7 @@ when a user navigated to `http://localhost:9002/`:
 
   b. If cookie was present + valid, redirect to the home page
 
-  c. If cookie was invalid, redirect to either a) the DataHub login screen (for [JAAS authentication](../../how/auth/jaas.md) or b) a [configured OIDC Identity Provider](../../how/auth/sso/configure-oidc-react.md) to perform authentication.
+  c. If cookie was invalid, redirect to either a) the DataHub login screen (for [JAAS authentication](guides/jaas.md) or b) a [configured OIDC Identity Provider](guides/sso/configure-oidc-react.md) to perform authentication.
 
 Once authentication had succeeded at the frontend proxy layer, a stateless (token-based) session cookie (PLAY_SESSION) would be set in the users browser.
 All subsequent requests, including the GraphQL requests issued by the React UI, would be authenticated using this session cookie. Once a request had made it beyond
@@ -70,7 +70,7 @@ contains a valid Access Token for the Metadata Service. When browsing the UI, th
 to authenticate each request.
 
 For users who want to access the Metadata Service programmatically, i.e. for running ingestion, the current recommendation is to generate
-a **Personal Access Token** (described above) from the root "datahub" user account, and using this token when configuring your [Ingestion Recipes](../../../metadata-ingestion/README.md#recipes). 
+a **Personal Access Token** (described above) from the root "datahub" user account, and using this token when configuring your [Ingestion Recipes](../../metadata-ingestion/README.md#recipes). 
 To configure the token for use in ingestion, simply populate the "token" configuration for the `datahub-rest` sink:
 
 ```
@@ -171,7 +171,7 @@ to the **DataHub Frontend Proxy**, as routing to Metadata Service endpoints is c
 This recommendation is in effort to minimize the exposed surface area of DataHub to make securing, operating, maintaining, and developing
 the platform simpler.
 
-In practice, this will require migrating Metadata [Ingestion Recipes](../../../metadata-ingestion/README.md#recipes) use the `datahub-rest` sink to pointing at a slightly different
+In practice, this will require migrating Metadata [Ingestion Recipes](../../metadata-ingestion/README.md#recipes) use the `datahub-rest` sink to pointing at a slightly different
 host + path.
 
 Example recipe that proxies through DataHub Frontend 

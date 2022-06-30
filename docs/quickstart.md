@@ -70,11 +70,11 @@ To start pushing your company's metadata into DataHub, take a look at the [Metad
 
 ### Invite Users
 
-To add users to your deployment to share with your team check out our [Adding Users to DataHub](./how/auth/add-users.md)
+To add users to your deployment to share with your team check out our [Adding Users to DataHub](authentication/guides/add-users.md)
 
 ### Enable Authentication 
 
-To enable SSO, check out [Configuring OIDC Authentication](./how/auth/sso/configure-oidc-react.md) or [Configuring JaaS Authentication](./how/auth/jaas.md). 
+To enable SSO, check out [Configuring OIDC Authentication](authentication/guides/sso/configure-oidc-react.md) or [Configuring JaaS Authentication](authentication/guides/jaas.md). 
 
 To enable backend Authentication, check out [authentication in DataHub's backend](./introducing-metadata-service-authentication.md#Configuring Metadata Service Authentication). 
 
