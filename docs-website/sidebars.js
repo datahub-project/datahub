@@ -300,11 +300,6 @@ module.exports = {
       },
       {
         type: "doc",
-        id: "docs/authentication/frontend-authentication",
-        label: "Frontend Authentication",
-      },
-      {
-        type: "doc",
         id: "docs/authentication/introducing-metadata-service-authentication",
         label: "Metadata Service Authentication",
       },
