@@ -1,4 +1,4 @@
-# Authorization
+# Overview
 
 Authorization specifies _what_ accesses an _authenticated_ user has within a system.
 This section is all about how DataHub authorizes a given user/service that wants to interact with the system.

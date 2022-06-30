@@ -1,4 +1,4 @@
-# Authentication
+# Overview
 
 Authentication is the process of verifying the identity of a user or service. In DataHub this can be split into 2 main components:
  - How to login into DataHub.

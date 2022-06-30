@@ -277,7 +277,7 @@ module.exports = {
       {
         type: "doc",
         id: "docs/authentication/README",
-        label: "Introduction",
+        label: "Overview",
       },
       {
         type: "doc",
