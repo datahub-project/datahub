@@ -170,8 +170,8 @@ def main(**kwargs):
                     line_wrap=MAX_CONTENT_WIDTH,
                     truncate_vals=10 * MAX_CONTENT_WIDTH,
                     suppressed_vars=[
-                        r"password",
-                        r".*secret",
+                        r".*password.*",
+                        r".*secret.*",
                         r".*key.*",
                         r".*access.*",
                         # needed because sometimes secrets are in url
