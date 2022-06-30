@@ -5,7 +5,7 @@ import styled from 'styled-components/macro';
 import moment from 'moment';
 import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
 import { ANTD_GRAY } from '../../../constants';
-import { useEntityData } from '../../../EntityContext';
+import { useEntityData, useRefetch } from '../../../EntityContext';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { EntityHealthStatus } from './EntityHealthStatus';
 import { getLocaleTimezone } from '../../../../../shared/time/timeUtils';
@@ -120,6 +120,7 @@ type Props = {
 
 export const EntityHeader = ({ refreshBrowser, headerDropdownItems, isNameEditable }: Props) => {
     const { urn, entityType, entityData } = useEntityData();
+    const refetch = useRefetch();
     const me = useGetAuthenticatedUser();
     const [copiedUrn, setCopiedUrn] = useState(false);
     const basePlatformName = getPlatformName(entityData);
@@ -209,7 +210,11 @@ export const EntityHeader = ({ refreshBrowser, headerDropdownItems, isNameEditab
                     <CopyUrn urn={urn} isActive={copiedUrn} onClick={() => setCopiedUrn(true)} />
                     {headerDropdownItems && (
                         <EntityDropdown
+                            urn={urn}
+                            entityType={entityType}
+                            entityData={entityData}
                             menuItems={headerDropdownItems}
+                            refetchForEntity={refetch}
                             refreshBrowser={refreshBrowser}
                             platformPrivileges={me?.platformPrivileges as PlatformPrivileges}
                         />

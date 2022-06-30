@@ -514,6 +514,14 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     return sendClientRequest(requestBuilder, authentication).getEntity();
   }
 
+  @Nonnull
+  @Override
+  public boolean exists(@Nonnull Urn urn, @Nonnull final Authentication authentication) throws RemoteInvocationException {
+    EntitiesDoExistsRequestBuilder requestBuilder = ENTITIES_REQUEST_BUILDERS.actionExists()
+        .urnParam(urn.toString());
+    return sendClientRequest(requestBuilder, authentication).getEntity();
+  }
+
   /**
    * Gets aspect at version for an entity
    *
@@ -662,12 +670,5 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.keyParam(key);
     }
     sendClientRequest(requestBuilder, authentication);
-  }
-
-  @Override
-  public Boolean exists(Urn urn, @Nonnull Authentication authentication) throws RemoteInvocationException {
-    final EntitiesDoExistsRequestBuilder requestBuilder =
-        ENTITIES_REQUEST_BUILDERS.actionExists().urnParam(urn.toString());
-    return sendClientRequest(requestBuilder, authentication).getEntity();
   }
 }
