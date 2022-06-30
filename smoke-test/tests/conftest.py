@@ -4,7 +4,7 @@ import pytest
 import requests
 from datahub.cli.docker import check_local_docker_containers
 
-from tests.utils import get_frontend_url
+from tests.utils import get_frontend_url, get_gms_url, check_k8s_endpoint
 
 # Disable telemetry
 os.putenv("DATAHUB_TELEMETRY_ENABLED", "false")

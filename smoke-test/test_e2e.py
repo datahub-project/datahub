@@ -2,6 +2,7 @@ import time
 import urllib
 from contextlib import contextmanager
 from typing import Optional
+from os import getenv
 
 import pytest
 import requests
@@ -14,6 +15,7 @@ from tests.utils import (
     get_kafka_broker_url,
     get_sleep_info,
     ingest_file_via_rest,
+    check_k8s_endpoint
 )
 
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
@@ -29,7 +31,7 @@ kafka_post_ingestion_wait_sec = 60
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
-    K8S_CLUSTER_ENABLED = os.getenv('K8S_CLUSTER_ENABLED','false').lower()
+    K8S_CLUSTER_ENABLED = getenv('K8S_CLUSTER_ENABLED','false').lower()
     if K8S_CLUSTER_ENABLED in ['true', 'yes'] :
         # Simply assert that kubernetes endpoints are healthy, but don't wait.
         assert not check_k8s_endpoint(f"{get_frontend_url()}/admin")
