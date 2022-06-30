@@ -352,11 +352,11 @@ class BigQuerySource(SQLAlchemySource):
             return self.config.storage_project_id
         elif self.config.project_id:
             return self.config.project_id
-
-        if inspector:
-            return self._get_project_id(inspector)
         else:
-            return None
+            if inspector:
+                return self._get_project_id(inspector)
+            else:
+                return None
 
     def get_db_name(self, inspector: Inspector) -> str:
         return self._get_project_id(inspector)
@@ -691,10 +691,14 @@ class BigQuerySource(SQLAlchemySource):
                 database=project_id, schema=schema, table=table
             ):
                 return None
-            project_id = self.get_multiproject_project_id(inspector=inspector)
+            project_id = self.get_multiproject_project_id(
+                inspector=inspector
+            )
             assert project_id
             sql = BQ_GET_LATEST_PARTITION_TEMPLATE.format(
-                project_id=self.get_multiproject_project_id(inspector=inspector),
+                project_id=self.get_multiproject_project_id(
+                    inspector=inspector
+                ),
                 schema=schema,
                 table=table,
             )
@@ -1015,7 +1019,9 @@ WHERE
         partition: Optional[str],
         custom_sql: Optional[str] = None,
     ) -> dict:
-        project_id = self.get_multiproject_project_id(inspector=inspector)
+        project_id = self.get_multiproject_project_id(
+            inspector=inspector
+        )
         assert project_id
         return dict(
             schema=project_id,
