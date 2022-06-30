@@ -691,14 +691,10 @@ class BigQuerySource(SQLAlchemySource):
                 database=project_id, schema=schema, table=table
             ):
                 return None
-            project_id = self.get_multiproject_project_id(
-                inspector=inspector
-            )
+            project_id = self.get_multiproject_project_id(inspector=inspector)
             assert project_id
             sql = BQ_GET_LATEST_PARTITION_TEMPLATE.format(
-                project_id=self.get_multiproject_project_id(
-                    inspector=inspector
-                ),
+                project_id=self.get_multiproject_project_id(inspector=inspector),
                 schema=schema,
                 table=table,
             )
@@ -1019,9 +1015,7 @@ WHERE
         partition: Optional[str],
         custom_sql: Optional[str] = None,
     ) -> dict:
-        project_id = self.get_multiproject_project_id(
-            inspector=inspector
-        )
+        project_id = self.get_multiproject_project_id(inspector=inspector)
         assert project_id
         return dict(
             schema=project_id,
