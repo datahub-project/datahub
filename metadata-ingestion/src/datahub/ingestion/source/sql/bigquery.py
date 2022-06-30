@@ -339,20 +339,27 @@ class BigQuerySource(SQLAlchemySource):
         self.partition_info: Dict[str, str] = dict()
         atexit.register(cleanup, config)
 
-    def get_db_name(
-        self, inspector: Inspector = None, for_sql_queries: bool = True
-    ) -> str:
+    def get_multiproject_project_id(
+        self, inspector: Optional[Inspector] = None, for_sql_queries: bool = False
+    ) -> Optional[str]:
         """
         for_sql_queries - Used mainly for multi-project setups with different permissions
             - should be set to True if this is to be used to run sql queries
             - should be set to False if this is to inspect contents and not run sql queries
         """
+
         if for_sql_queries and self.config.storage_project_id:
             return self.config.storage_project_id
         elif self.config.project_id:
             return self.config.project_id
-        else:
+
+        if inspector:
             return self._get_project_id(inspector)
+        else:
+            return None
+
+    def get_db_name(self, inspector: Inspector) -> str:
+        return self._get_project_id(inspector)
 
     def _compute_big_query_lineage(self) -> None:
         if not self.config.include_table_lineage:
@@ -373,7 +380,7 @@ class BigQuerySource(SQLAlchemySource):
         logger.debug(f"lineage metadata is {self.lineage_metadata}")
 
     def _compute_bigquery_lineage_via_gcp_logging(self) -> None:
-        project_id = self.get_db_name()
+        project_id = self.get_multiproject_project_id()
         logger.info("Populating lineage info via GCP audit logs")
         try:
             _clients: List[GCPLoggingClient] = self._make_gcp_logging_client(project_id)
@@ -397,7 +404,7 @@ class BigQuerySource(SQLAlchemySource):
             )
 
     def _compute_bigquery_lineage_via_exported_bigquery_audit_metadata(self) -> None:
-        project_id = self.get_db_name(for_sql_queries=True)
+        project_id = self.get_multiproject_project_id(for_sql_queries=True)
         logger.info("Populating lineage info via exported GCP audit logs")
         try:
             _client: BigQueryClient = BigQueryClient(project=project_id)
@@ -667,7 +674,8 @@ class BigQuerySource(SQLAlchemySource):
             engine = self._get_engine(for_run_sql=False)
             with engine.connect() as con:
                 inspector = inspect(con)
-                project_id = self.get_db_name(inspector)
+                project_id = self.get_multiproject_project_id(inspector=inspector)
+                assert project_id
         return f"{project_id}.{schema}.{table}" in self.partition_info
 
     def get_latest_partition(
@@ -677,13 +685,20 @@ class BigQuerySource(SQLAlchemySource):
         engine = self._get_engine(for_run_sql=True)
         with engine.connect() as con:
             inspector = inspect(con)
-            project_id = self.get_db_name(inspector)
+            project_id = self.get_multiproject_project_id(inspector=inspector)
+            assert project_id
             if not self.is_table_partitioned(
                 database=project_id, schema=schema, table=table
             ):
                 return None
+            project_id = self.get_multiproject_project_id(
+                inspector=inspector, for_sql_queries=True
+            )
+            assert project_id
             sql = BQ_GET_LATEST_PARTITION_TEMPLATE.format(
-                project_id=self.get_db_name(inspector, for_sql_queries=True),
+                project_id=self.get_multiproject_project_id(
+                    inspector=inspector, for_sql_queries=True
+                ),
                 schema=schema,
                 table=table,
             )
@@ -745,7 +760,8 @@ class BigQuerySource(SQLAlchemySource):
 
     def add_information_for_schema(self, inspector: Inspector, schema: str) -> None:
         engine = self._get_engine(for_run_sql=True)
-        project_id = self.get_db_name(inspector)
+        project_id = self.get_multiproject_project_id(inspector=inspector)
+        assert project_id
         with engine.connect() as con:
             inspector = inspect(con)
             sql = f"""
@@ -764,7 +780,8 @@ class BigQuerySource(SQLAlchemySource):
         self, inspector: Inspector, schema: str, table: str
     ) -> Dict[str, List[str]]:
         extra_tags: Dict[str, List[str]] = {}
-        project_id = self.get_db_name(inspector)
+        project_id = self.get_multiproject_project_id(inspector=inspector)
+        assert project_id
 
         partition_lookup_key = f"{project_id}.{schema}.{table}"
         if partition_lookup_key in self.partition_info:
@@ -996,13 +1013,18 @@ WHERE
 
     def prepare_profiler_args(
         self,
+        inspector: Inspector,
         schema: str,
         table: str,
         partition: Optional[str],
         custom_sql: Optional[str] = None,
     ) -> dict:
+        project_id = self.get_multiproject_project_id(
+            inspector=inspector, for_sql_queries=True
+        )
+        assert project_id
         return dict(
-            schema=self.get_db_name(for_sql_queries=True),
+            schema=project_id,
             table=f"{schema}.{table}",
             partition=partition,
             custom_sql=custom_sql,

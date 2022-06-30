@@ -1436,6 +1436,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             yield GEProfilerRequest(
                 pretty_name=dataset_name,
                 batch_kwargs=self.prepare_profiler_args(
+                    inspector=inspector,
                     schema=schema,
                     table=table,
                     partition=partition,
@@ -1478,6 +1479,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
     def prepare_profiler_args(
         self,
+        inspector: Inspector,
         schema: str,
         table: str,
         partition: Optional[str],
