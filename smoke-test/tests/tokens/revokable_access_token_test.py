@@ -63,9 +63,10 @@ def custom_user_setup():
 
   sign_up_response = admin_session.post(f"{get_frontend_url()}/signUp", json=sign_up_json)
   sign_up_response.raise_for_status()
-  sleep(5)
   assert sign_up_response
   assert "error" not in sign_up_response
+  # Sleep for eventual consistency
+  sleep(3)
 
   # signUp will override the session cookie to the new user to be signed up.
   admin_session.cookies.clear()
@@ -84,6 +85,8 @@ def custom_user_setup():
   assert res_data
   assert res_data['data']
   assert res_data['data']['removeUser'] == True
+  # Sleep for eventual consistency
+  sleep(3)
 
   # Make user created user is not there.
   res_data = listUsers(admin_session)
@@ -110,6 +113,8 @@ def access_token_setup():
     for metadata in res_data["data"]["listAccessTokens"]["tokens"]:
         revokeAccessToken(admin_session, metadata["id"])
 
+    # Sleep for eventual consistency
+    sleep(3)
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_admin_can_create_list_and_revoke_tokens(wait_for_healthchecks):
@@ -130,6 +135,8 @@ def test_admin_can_create_list_and_revoke_tokens(wait_for_healthchecks):
     assert res_data["data"]["createAccessToken"]["accessToken"]
     assert res_data["data"]["createAccessToken"]["metadata"]["actorUrn"] == "urn:li:corpuser:datahub"
     admin_tokenId = res_data["data"]["createAccessToken"]["metadata"]["id"]
+    # Sleep for eventual consistency
+    sleep(3)
 
     # Using a super account, list the previously created token.
     res_data = listAccessTokens(admin_session)
@@ -146,6 +153,8 @@ def test_admin_can_create_list_and_revoke_tokens(wait_for_healthchecks):
     assert res_data["data"]
     assert res_data["data"]["revokeAccessToken"]
     assert res_data["data"]["revokeAccessToken"] == True
+    # Sleep for eventual consistency
+    sleep(3)
 
     # Using a super account, there should be no tokens
     res_data = listAccessTokens(admin_session)
@@ -173,6 +182,8 @@ def test_admin_can_create_and_revoke_tokens_for_other_user(wait_for_healthchecks
     assert res_data["data"]["createAccessToken"]["accessToken"]
     assert res_data["data"]["createAccessToken"]["metadata"]["actorUrn"] == "urn:li:corpuser:user"
     user_tokenId = res_data["data"]["createAccessToken"]["metadata"]["id"]
+    # Sleep for eventual consistency
+    sleep(3)
 
     # Using a super account, list the previously created tokens.
     res_data = listAccessTokens(admin_session)
@@ -189,6 +200,8 @@ def test_admin_can_create_and_revoke_tokens_for_other_user(wait_for_healthchecks
     assert res_data["data"]
     assert res_data["data"]["revokeAccessToken"]
     assert res_data["data"]["revokeAccessToken"] == True
+    # Sleep for eventual consistency
+    sleep(3)
 
     # Using a super account, there should be no tokens
     res_data = listAccessTokens(admin_session)
@@ -209,6 +222,8 @@ def test_non_admin_can_create_list_revoke_tokens(wait_for_healthchecks):
     assert res_data["data"]["createAccessToken"]["accessToken"]
     assert res_data["data"]["createAccessToken"]["metadata"]["actorUrn"] == "urn:li:corpuser:user"
     user_tokenId = res_data["data"]["createAccessToken"]["metadata"]["id"]
+    # Sleep for eventual consistency
+    sleep(3)
 
     # User should be able to list his own token
     res_data = listAccessTokens(user_session, [{"field": "ownerUrn","value": "urn:li:corpuser:user"}])
@@ -226,6 +241,8 @@ def test_non_admin_can_create_list_revoke_tokens(wait_for_healthchecks):
     assert res_data["data"]
     assert res_data["data"]["revokeAccessToken"]
     assert res_data["data"]["revokeAccessToken"] == True
+    # Sleep for eventual consistency
+    sleep(3)
 
     # Using a normal account, check that all its tokens where removed.
     res_data = listAccessTokens(user_session, [{"field": "ownerUrn","value": "urn:li:corpuser:user"}])
@@ -245,6 +262,8 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     assert res_data["data"]["listAccessTokens"]["total"] is not None
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
 
+    admin_session.cookies.clear()
+    user_session = loginAs("user", "user")
     res_data = generateAccessToken_v2(user_session, "urn:li:corpuser:user")
     assert res_data
     assert res_data["data"]
@@ -253,6 +272,8 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     assert res_data["data"]["createAccessToken"]["metadata"]["actorUrn"] == "urn:li:corpuser:user"
     assert res_data["data"]["createAccessToken"]["metadata"]["ownerUrn"] == "urn:li:corpuser:user"
     user_tokenId = res_data["data"]["createAccessToken"]["metadata"]["id"]
+    # Sleep for eventual consistency
+    sleep(3)
 
     # Admin should be able to list other tokens
     user_session.cookies.clear()
@@ -274,6 +295,8 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     assert res_data["data"]
     assert res_data["data"]["revokeAccessToken"]
     assert res_data["data"]["revokeAccessToken"] == True
+    # Sleep for eventual consistency
+    sleep(3)
 
     # Using a normal account, check that all its tokens where removed.
     user_session.cookies.clear()
@@ -300,25 +323,6 @@ def test_non_admin_can_not_generate_tokens_for_others(wait_for_healthchecks):
     assert res_data
     assert res_data["errors"]
     assert res_data["errors"][0]["message"] == "Unauthorized to perform this action. Please contact your DataHub administrator."
-
-
-def generateAccessToken_v1(session, actorUrn):
-    # Create new token
-    json = {
-        "query": """query getAccessToken($input: GetAccessTokenInput!) {\n
-            getAccessToken(input: $input) {\n
-              accessToken\n
-            }\n
-        }""",
-        "variables": {
-            "input": {"type": "PERSONAL", "actorUrn": actorUrn, "duration": "ONE_HOUR"}
-        },
-    }
-
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    return response.json()
-
 
 def generateAccessToken_v2(session, actorUrn):
     # Create new token
@@ -347,8 +351,6 @@ def generateAccessToken_v2(session, actorUrn):
 
     response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
-    sleep(2)
-
     return response.json()
 
 
@@ -395,7 +397,6 @@ def revokeAccessToken(session, tokenId):
 
     response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
-    sleep(5)
 
     return response.json()
 
@@ -427,7 +428,7 @@ def removeUser(session, urn):
     response = session.post(
         f"{get_frontend_url()}/api/v2/graphql", json=json
     )
-    sleep(5)
+
     response.raise_for_status()
     return response.json()
 
@@ -458,6 +459,6 @@ def listUsers(session):
     response = session.post(
         f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
     )
-    sleep(5)
+
     response.raise_for_status()
     return response.json()

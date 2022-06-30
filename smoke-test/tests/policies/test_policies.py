@@ -34,7 +34,7 @@ def frontend_session(wait_for_healthchecks):
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 @pytest.fixture(scope='class', autouse=True)
-def frontend_list_policies(frontend_session):
+def test_frontend_list_policies(frontend_session):
     """Fixture to execute setup before and tear down after all tests are run"""
     res_data = listPolicies(frontend_session)
 
@@ -69,42 +69,8 @@ def frontend_list_policies(frontend_session):
     )
     assert len(list(result)) == 0
 
-
 @pytest.mark.dependency(depends=["test_healthchecks"])
-def test_frontend_update_policy(frontend_session):
-
-    json = {
-        "query": """mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {\n
-            updatePolicy(urn: $urn, input: $input) }""",
-        "variables": {
-            "urn": "urn:li:dataHubPolicy:7",
-            "input": {
-                "type": "PLATFORM",
-                "state": "INACTIVE",
-                "name": "All Users - All Platform Privileges",
-                "description": "My Metadaata Policy",
-                "privileges": ["MANAGE_POLICIES"],
-                "actors": {
-                    "users": ["urn:li:corpuser:datahub"],
-                    "resourceOwners": False,
-                    "allUsers": False,
-                    "allGroups": False,
-                },
-            },
-        },
-    }
-
-    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["updatePolicy"]
-    assert res_data["data"]["updatePolicy"] == "urn:li:dataHubPolicy:7"
-
-@pytest.mark.dependency(depends=["test_healthchecks"])
-def test_frontend_create_delete_policy(frontend_session):
+def test_frontend_policy_operations(frontend_session):
 
     json = {
         "query": """mutation createPolicy($input: PolicyUpdateInput!) {\n
@@ -140,19 +106,57 @@ def test_frontend_create_delete_policy(frontend_session):
     # Sleep for eventual consistency
     time.sleep(3)
 
+    update_json = {
+        "query": """mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {\n
+            updatePolicy(urn: $urn, input: $input) }""",
+        "variables": {
+            "urn": new_urn,
+            "input": {
+                "type": "METADATA",
+                "state": "ACTIVE",
+                "name": "Test Metadata Policy",
+                "description": "Updated Metadaata Policy",
+                "privileges": ["EDIT_ENTITY_TAGS", "EDIT_ENTITY_GLOSSARY_TERMS"],
+                "actors": {
+                    "resourceOwners": False,
+                    "allUsers": True,
+                    "allGroups": False,
+                },
+            },
+        },
+    }
+
+    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=update_json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    # Check updated was submitted successfully
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["updatePolicy"]
+    assert res_data["data"]["updatePolicy"] == new_urn
+
+    # Sleep for eventual consistency
+    time.sleep(3)
+
     res_data = listPolicies(frontend_session)
 
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["listPolicies"]
 
-    # Verify that the URN appears in the list
-    result = filter(
+    # Verify that the updated policy appears in the list and has the appropriate changes
+    result = list(filter(
         lambda x: x["urn"] == new_urn, res_data["data"]["listPolicies"]["policies"]
-    )
-    assert len(list(result)) == 1
+    ))
+    print(result)
 
-    # Now test that policy can be deleted
+    assert len(result) == 1
+    assert result[0]["description"] == "Updated Metadaata Policy"
+    assert result[0]["privileges"] == ["EDIT_ENTITY_TAGS", "EDIT_ENTITY_GLOSSARY_TERMS"]
+    assert result[0]["actors"]["allUsers"] == True
+
+    # Now test that the policy can be deleted
     json = {
         "query": """mutation deletePolicy($urn: String!) {\n
             deletePolicy(urn: $urn) }""",
