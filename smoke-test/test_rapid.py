@@ -12,8 +12,14 @@ bootstrap_small_2 = "test_resources/bootstrap_single2.json"
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
-    # Simply assert that everything is healthy, but don't wait.
-    assert not check_local_docker_containers()
+    K8S_CLUSTER_ENABLED = os.getenv('K8S_CLUSTER_ENABLED','false').lower()
+    if K8S_CLUSTER_ENABLED in ['true', 'yes'] :
+        # Simply assert that kubernetes endpoints are healthy, but don't wait.
+        assert not check_k8s_endpoint(f"{get_frontend_url()}/admin")
+        assert not check_k8s_endpoint(f"{get_gms_url()}/health")
+    else:    
+        # Simply assert that docker is healthy, but don't wait.
+        assert not check_local_docker_containers()
     yield
 
 

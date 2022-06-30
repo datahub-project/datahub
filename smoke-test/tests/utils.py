@@ -25,6 +25,15 @@ def get_sleep_info():
         os.environ.get("DATAHUB_TEST_SLEEP_TIMES") or 5,
     )
 
+def check_k8s_endpoint(url):
+    try:
+        get = requests.get(url)
+        if get.status_code == 200:
+            return
+        else:
+            return(f"{url}: is Not reachable, status_code: {get.status_code}")
+    except requests.exceptions.RequestException as e:
+        raise SystemExit(f"{url}: is Not reachable \nErr: {e}")
 
 def ingest_file_via_rest(filename: str) -> Any:
     pipeline = Pipeline.create(
