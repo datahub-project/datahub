@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import * as QueryString from 'query-string';
 import { useHistory, useLocation, useParams } from 'react-router';
 import { Alert } from 'antd';
@@ -39,13 +39,15 @@ export const SearchPage = () => {
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
         .map((filter) => filter.value.toUpperCase() as EntityType);
 
+    const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
+
     const { data, loading, error } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
                 types: entityFilters,
                 query,
-                start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
-                count: SearchCfg.RESULTS_PER_PAGE,
+                start: (page - 1) * numResultsPerPage,
+                count: numResultsPerPage,
                 filters: filtersWithoutEntities,
             },
         },
@@ -118,6 +120,8 @@ export const SearchPage = () => {
                 loading={loading}
                 onChangeFilters={onChangeFilters}
                 onChangePage={onChangePage}
+                numResultsPerPage={numResultsPerPage}
+                setNumResultsPerPage={setNumResultsPerPage}
             />
         </SearchablePage>
     );

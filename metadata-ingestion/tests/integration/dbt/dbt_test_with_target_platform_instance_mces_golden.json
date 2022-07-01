@@ -27,6 +27,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "owner": "@alice2",
                             "business_owner": "jdoe.last@gmail.com",
                             "data_governance.team_owner": "Finance",
                             "has_pii": "True",
@@ -75,7 +76,8 @@
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
                         "tags": [
                             {
-                                "tag": "urn:li:tag:dbt:test_tag"
+                                "tag": "urn:li:tag:dbt:test_tag",
+                                "context": null
                             }
                         ]
                     }
@@ -969,7 +971,8 @@
                                 "globalTags": {
                                     "tags": [
                                         {
-                                            "tag": "urn:li:tag:dbt:column_tag"
+                                            "tag": "urn:li:tag:dbt:column_tag",
+                                            "context": null
                                         }
                                     ]
                                 },

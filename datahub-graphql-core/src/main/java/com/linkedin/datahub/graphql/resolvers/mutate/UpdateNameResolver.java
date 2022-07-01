@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateNameInput;
+import com.linkedin.domain.DomainProperties;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.metadata.Constants;
@@ -44,6 +45,8 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
           return updateGlossaryTermName(targetUrn, input, environment.getContext());
         case Constants.GLOSSARY_NODE_ENTITY_NAME:
           return updateGlossaryNodeName(targetUrn, input, environment.getContext());
+        case Constants.DOMAIN_ENTITY_NAME:
+          return updateDomainName(targetUrn, input, environment.getContext());
         default:
           throw new RuntimeException(
               String.format("Failed to update name. Unsupported resource type %s provided.", targetUrn));
@@ -90,6 +93,30 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
         glossaryNodeInfo.setName(input.getName());
         Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
         persistAspect(targetUrn, Constants.GLOSSARY_NODE_INFO_ASPECT_NAME, glossaryNodeInfo, actor, _entityService);
+
+        return true;
+      } catch (Exception e) {
+        throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
+      }
+    }
+    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+  }
+
+  private Boolean updateDomainName(
+      Urn targetUrn,
+      UpdateNameInput input,
+      QueryContext context
+  ) {
+    if (AuthorizationUtils.canManageDomains(context)) {
+      try {
+        DomainProperties domainProperties = (DomainProperties) getAspectFromEntity(
+            targetUrn.toString(), Constants.DOMAIN_PROPERTIES_ASPECT_NAME, _entityService, null);
+        if (domainProperties == null) {
+          throw new IllegalArgumentException("Domain does not exist");
+        }
+        domainProperties.setName(input.getName());
+        Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+        persistAspect(targetUrn, Constants.DOMAIN_PROPERTIES_ASPECT_NAME, domainProperties, actor, _entityService);
 
         return true;
       } catch (Exception e) {

@@ -211,9 +211,24 @@ type Mutation {
     updateDataJob(urn: String!, input: DataJobUpdateInput!): DataJob
 
     """
+    Create a new tag. Requires the 'Manage Tags' or 'Create Tags' Platform Privilege. If a Tag with the provided ID already exists,
+    it will be overwritten.
+    """
+    createTag(
+      "Inputs required to create a new Tag."
+      input: CreateTagInput!): String
+
+    """
     Update the information about a particular Entity Tag
     """
     updateTag(urn: String!, input: TagUpdateInput!): Tag
+
+    """
+    Delete a Tag
+    """
+    deleteTag(
+      "The urn of the Tag to delete"
+      urn: String!): Boolean
 
     """
     Set the hex color associated with an existing Tag
@@ -326,10 +341,18 @@ type Mutation {
     createGroup(input: CreateGroupInput!): String
 
     """
-    Create a new Domain. Returns the urn of the newly created Domain. Requires the Manage Domains privilege. If a domain with the provided ID already exists,
+    Create a new Domain. Returns the urn of the newly created Domain. Requires the 'Create Domains' or 'Manage Domains' Platform Privilege. If a Domain with the provided ID already exists,
     it will be overwritten.
     """
     createDomain(input: CreateDomainInput!): String
+
+    """
+    Delete a Domain
+    """
+    deleteDomain(
+      "The urn of the Domain to delete"
+      urn: String!): Boolean
+
 
     """
     Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully added, or already exists. Requires the Edit Domains privilege for the Entity.
@@ -3613,6 +3636,26 @@ input TagUpdateInput {
     Ownership metadata of the tag
     """
     ownership: OwnershipUpdate
+}
+
+"""
+Input required to create a new Tag
+"""
+input CreateTagInput {
+  """
+  Optional! A custom id to use as the primary key identifier for the Tag. If not provided, a random UUID will be generated as the id.
+  """
+  id: String
+
+  """
+  Display name for the Tag
+  """
+  name: String!
+
+  """
+  Optional description for the Tag
+  """
+  description: String
 }
 
 """

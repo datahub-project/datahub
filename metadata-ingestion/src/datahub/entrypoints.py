@@ -169,6 +169,17 @@ def main(**kwargs):
                     exc,
                     line_wrap=MAX_CONTENT_WIDTH,
                     truncate_vals=10 * MAX_CONTENT_WIDTH,
+                    suppressed_vars=[
+                        r".*password.*",
+                        r".*secret.*",
+                        r".*key.*",
+                        r".*access.*",
+                        # needed because sometimes secrets are in url
+                        r".*url.*",
+                        # needed because sqlalchemy uses it underneath
+                        # and passes all params
+                        r".*cparams.*",
+                    ],
                     suppressed_paths=[r"lib/python.*/site-packages/click/"],
                     **kwargs,
                 )

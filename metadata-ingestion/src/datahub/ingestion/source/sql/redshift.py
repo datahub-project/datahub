@@ -18,6 +18,7 @@ from sqlalchemy_redshift.dialect import RedshiftDialect, RelationKey
 from sqllineage.runner import LineageRunner
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration import ConfigModel
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter import mce_builder
@@ -32,6 +33,8 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.path_spec import PathSpec
+from datahub.ingestion.source.aws.s3_util import strip_s3_prefix
 from datahub.ingestion.source.sql.postgres import PostgresConfig
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
@@ -101,8 +104,31 @@ class LineageItem:
             self.dataset_lineage_type = DatasetLineageTypeClass.TRANSFORMED
 
 
+class S3LineageProviderConfig(ConfigModel):
+    """
+    Any source that produces s3 lineage from/to Datasets should inherit this class.
+    """
+
+    path_specs: List[PathSpec] = Field(
+        description="List of PathSpec. See below the details about PathSpec"
+    )
+
+
+class DatasetS3LineageProviderConfigBase(ConfigModel):
+    """
+    Any source that produces s3 lineage from/to Datasets should inherit this class.
+    """
+
+    s3_lineage_config: Optional[S3LineageProviderConfig] = Field(
+        default=None, description="Common config for S3 lineage generation"
+    )
+
+
 class RedshiftConfig(
-    PostgresConfig, BaseTimeWindowConfig, DatasetLineageProviderConfigBase
+    PostgresConfig,
+    BaseTimeWindowConfig,
+    DatasetLineageProviderConfigBase,
+    DatasetS3LineageProviderConfigBase,
 ):
     # Although Amazon Redshift is compatible with Postgres's wire format,
     # we actually want to use the sqlalchemy-redshift package and dialect
@@ -672,6 +698,14 @@ class RedshiftSource(SQLAlchemySource):
             db_name = db_alias
         return db_name
 
+    def _get_s3_path(self, path: str) -> str:
+        if self.config.s3_lineage_config:
+            for path_spec in self.config.s3_lineage_config.path_specs:
+                if path_spec.allowed(path):
+                    table_name, table_path = path_spec.extract_table_name_and_path(path)
+                    return table_path
+        return path
+
     def _populate_lineage_map(
         self, query: str, lineage_type: LineageCollectorType
     ) -> None:
@@ -747,6 +781,7 @@ class RedshiftSource(SQLAlchemySource):
                                 f"Only s3 source supported with copy. The source was: {path}.",
                             )
                             continue
+                        path = strip_s3_prefix(self._get_s3_path(path))
                     else:
                         platform = LineageDatasetPlatform.REDSHIFT
                         path = f'{db_name}.{db_row["source_schema"]}.{db_row["source_table"]}'
