@@ -342,12 +342,6 @@ class BigQuerySource(SQLAlchemySource):
     def get_multiproject_project_id(
         self, inspector: Optional[Inspector] = None
     ) -> Optional[str]:
-        """
-        for_sql_queries - Used mainly for multi-project setups with different permissions
-            - should be set to True if this is to be used to run sql queries
-            - should be set to False if this is to inspect contents and not run sql queries
-        """
-
         if self.config.storage_project_id:
             return self.config.storage_project_id
         elif self.config.project_id:
@@ -671,7 +665,7 @@ class BigQuerySource(SQLAlchemySource):
         if database:
             project_id = database
         else:
-            engine = self._get_engine(for_run_sql=False)
+            engine = self._get_engine(run_on_compute=True)
             with engine.connect() as con:
                 inspector = inspect(con)
                 project_id = self.get_multiproject_project_id(inspector=inspector)
@@ -682,7 +676,7 @@ class BigQuerySource(SQLAlchemySource):
         self, schema: str, table: str
     ) -> Optional[BigQueryPartitionColumn]:
         logger.debug(f"get_latest_partition for {schema} and {table}")
-        engine = self._get_engine(for_run_sql=True)
+        engine = self._get_engine(run_on_compute=True)
         with engine.connect() as con:
             inspector = inspect(con)
             project_id = self.get_multiproject_project_id(inspector=inspector)
@@ -691,14 +685,10 @@ class BigQuerySource(SQLAlchemySource):
                 database=project_id, schema=schema, table=table
             ):
                 return None
-            project_id = self.get_multiproject_project_id(
-                inspector=inspector
-            )
+            project_id = self.get_multiproject_project_id(inspector=inspector)
             assert project_id
             sql = BQ_GET_LATEST_PARTITION_TEMPLATE.format(
-                project_id=self.get_multiproject_project_id(
-                    inspector=inspector
-                ),
+                project_id=self.get_multiproject_project_id(inspector=inspector),
                 schema=schema,
                 table=table,
             )
@@ -724,7 +714,7 @@ class BigQuerySource(SQLAlchemySource):
         table_name, shard = self.get_shard_from_table(table)
         if shard:
             logger.debug(f"{table_name} is sharded and shard id is: {shard}")
-            engine = self._get_engine(for_run_sql=True)
+            engine = self._get_engine(run_on_compute=True)
             if f"{project_id}.{schema}.{table_name}" not in self.maximum_shard_ids:
                 with engine.connect() as con:
                     if table_name is not None:
@@ -753,13 +743,13 @@ class BigQuerySource(SQLAlchemySource):
         else:
             return True
 
-    def _get_engine(self, for_run_sql: bool) -> Engine:
-        url = self.config.get_sql_alchemy_url(for_run_sql=for_run_sql)
+    def _get_engine(self, run_on_compute: bool = True) -> Engine:
+        url = self.config.get_sql_alchemy_url(run_on_compute=run_on_compute)
         logger.debug(f"sql_alchemy_url={url}")
         return create_engine(url, **self.config.options)
 
     def add_information_for_schema(self, inspector: Inspector, schema: str) -> None:
-        engine = self._get_engine(for_run_sql=True)
+        engine = self._get_engine(run_on_compute=True)
         project_id = self.get_multiproject_project_id(inspector=inspector)
         assert project_id
         with engine.connect() as con:
@@ -848,7 +838,7 @@ WHERE
 
     def get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
         logger.debug("Getting profiler instance from bigquery")
-        engine = self._get_engine(for_run_sql=True)
+        engine = self._get_engine(run_on_compute=True)
         with engine.connect() as conn:
             inspector = inspect(conn)
 
@@ -1019,9 +1009,7 @@ WHERE
         partition: Optional[str],
         custom_sql: Optional[str] = None,
     ) -> dict:
-        project_id = self.get_multiproject_project_id(
-            inspector=inspector
-        )
+        project_id = self._get_project_id(inspector=inspector)
         assert project_id
         return dict(
             schema=project_id,
