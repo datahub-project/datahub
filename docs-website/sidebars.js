@@ -61,6 +61,54 @@ module.exports = {
       "releases",
     ],
     "Getting Started": ["docs/quickstart", "docs/debugging"],
+    Authentication: [
+      {
+        type: "doc",
+        id: "docs/authentication/README",
+        label: "Overview",
+      },
+      {
+        type: "doc",
+        id: "docs/authentication/concepts",
+        label: "Concepts",
+      },
+      {
+        "Frontend Authentication": [
+          "docs/authentication/guides/jaas",
+          {
+            "OIDC Authentication": [
+              "docs/authentication/guides/sso/configure-oidc-react",
+              "docs/authentication/guides/sso/configure-oidc-react-google",
+              "docs/authentication/guides/sso/configure-oidc-react-okta",
+              "docs/authentication/guides/sso/configure-oidc-react-azure",
+            ],
+          },
+          "docs/authentication/guides/add-users",
+        ],
+      },
+      {
+        type: "doc",
+        id: "docs/authentication/introducing-metadata-service-authentication",
+        label: "Metadata Service Authentication",
+      },
+      {
+        type: "doc",
+        id: "docs/authentication/personal-access-tokens",
+        label: "Personal Access Tokens",
+      },
+    ],
+    Authorization: [
+      {
+        type: "doc",
+        id: "docs/authorization/README",
+        label: "Overview",
+      },
+      {
+        type: "doc",
+        id: "docs/authorization/policies",
+        label: "Access Policies",
+      },
+    ],
     Ingestion: [
       // add a custom label since the default is 'Metadata Ingestion'
       // note that we also have to add the path to this file in sidebarsjs_hardcoded_titles in generateDocsDir.ts
@@ -271,54 +319,6 @@ module.exports = {
             dirName: "docs/actions/guides",
           },
         ],
-      },
-    ],
-    Authentication: [
-      {
-        type: "doc",
-        id: "docs/authentication/README",
-        label: "Overview",
-      },
-      {
-        type: "doc",
-        id: "docs/authentication/concepts",
-        label: "Concepts",
-      },
-      {
-        "Frontend Authentication": [
-          "docs/authentication/guides/jaas",
-          {
-            "OIDC Authentication": [
-              "docs/authentication/guides/sso/configure-oidc-react",
-              "docs/authentication/guides/sso/configure-oidc-react-google",
-              "docs/authentication/guides/sso/configure-oidc-react-okta",
-              "docs/authentication/guides/sso/configure-oidc-react-azure",
-            ],
-          },
-          "docs/authentication/guides/add-users",
-        ],
-      },
-      {
-        type: "doc",
-        id: "docs/authentication/introducing-metadata-service-authentication",
-        label: "Metadata Service Authentication",
-      },
-      {
-        type: "doc",
-        id: "docs/authentication/personal-access-tokens",
-        label: "Personal Access Tokens",
-      },
-    ],
-    Authorization: [
-      {
-        type: "doc",
-        id: "docs/authorization/README",
-        label: "Overview",
-      },
-      {
-        type: "doc",
-        id: "docs/authorization/policies",
-        label: "Access Policies",
       },
     ],
     "Usage Guides": [
