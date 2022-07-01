@@ -330,7 +330,12 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                 </div>
                 <ActionButtons>
                     <CopyUrn urn={urn} isActive={copiedUrn} onClick={() => setCopiedUrn(true)} />
-                    <EntityDropdown menuItems={new Set([EntityMenuItems.COPY_URL])} />
+                    <EntityDropdown
+                        urn={urn}
+                        entityType={EntityType.Tag}
+                        entityData={data?.tag}
+                        menuItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.DELETE])}
+                    />
                 </ActionButtons>
                 {displayColorPicker && (
                     <ColorPickerPopOver ref={colorPickerRef}>

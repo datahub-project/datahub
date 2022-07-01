@@ -34,6 +34,7 @@ public class DeleteDomainResolver implements DataFetcher<CompletableFuture<Boole
       if (AuthorizationUtils.canManageDomains(context) || AuthorizationUtils.canDeleteEntity(urn, context)) {
         try {
           _entityClient.deleteEntity(urn, context.getAuthentication());
+          log.info(String.format("I've successfully deleted the entity %s with urn", domainUrn));
 
           // Asynchronously Delete all references to the entity (to return quickly)
           CompletableFuture.runAsync(() -> {

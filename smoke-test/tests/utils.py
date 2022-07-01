@@ -1,12 +1,30 @@
 import json
+import os
+from typing import Any
 
 import requests
-from typing import Any
 from datahub.cli import cli_utils
 from datahub.ingestion.run.pipeline import Pipeline
 
-GMS_ENDPOINT = "http://localhost:8080"
-FRONTEND_ENDPOINT = "http://localhost:9002"
+
+def get_gms_url():
+    return os.getenv("DATAHUB_GMS_URL") or "http://localhost:8080"
+
+
+def get_frontend_url():
+    return os.getenv("DATAHUB_FRONTEND_URL") or "http://localhost:9002"
+
+
+def get_kafka_broker_url():
+    return os.getenv("DATAHUB_KAFKA_URL") or "localhost:9092"
+
+
+def get_sleep_info():
+    return (
+        os.environ.get("DATAHUB_TEST_SLEEP_BETWEEN") or 60,
+        os.environ.get("DATAHUB_TEST_SLEEP_TIMES") or 5,
+    )
+
 
 def ingest_file_via_rest(filename: str) -> Any:
     pipeline = Pipeline.create(
@@ -17,7 +35,7 @@ def ingest_file_via_rest(filename: str) -> Any:
             },
             "sink": {
                 "type": "datahub-rest",
-                "config": {"server": GMS_ENDPOINT},
+                "config": {"server": get_gms_url()},
             },
         }
     )
@@ -39,19 +57,19 @@ def delete_urns_from_file(filename: str) -> None:
     with open(filename) as f:
         d = json.load(f)
         for entry in d:
-            is_mcp = 'entityUrn' in entry
+            is_mcp = "entityUrn" in entry
             urn = None
             # Kill Snapshot
             if is_mcp:
-              urn = entry['entityUrn']
+                urn = entry["entityUrn"]
             else:
-              snapshot_union = entry['proposedSnapshot']
-              snapshot = list(snapshot_union.values())[0]
-              urn = snapshot['urn']
+                snapshot_union = entry["proposedSnapshot"]
+                snapshot = list(snapshot_union.values())[0]
+                urn = snapshot["urn"]
             payload_obj = {"urn": urn}
 
             cli_utils.post_delete_endpoint_with_session_and_url(
                 session,
-                GMS_ENDPOINT + "/entities?action=delete",
+                get_gms_url() + "/entities?action=delete",
                 payload_obj,
             )
