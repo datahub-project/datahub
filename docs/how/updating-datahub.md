@@ -5,6 +5,16 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ## Next
 
 ### Breaking Changes
+
+### Potential Downtime
+
+### Deprecations
+
+### Other notable Changes
+
+## `v0.8.40`
+
+### Breaking Changes
 - #5240 `lineage_client_project_id` in `bigquery` source is removed. Use `storage_project_id` instead.
 
 ### Potential Downtime
