@@ -62,7 +62,7 @@ export class GroupEntity implements Entity<CorpGroup> {
     };
 
     displayName = (data: CorpGroup) => {
-        return data.properties?.displayName || data.info?.displayName || data.name || data.urn;
+        return data.properties?.displayName || data.info?.displayName || data.name;
     };
 
     getGenericEntityProperties = (group: CorpGroup) => {

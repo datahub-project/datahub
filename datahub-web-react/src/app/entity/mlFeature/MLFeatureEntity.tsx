@@ -150,7 +150,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
     };
 
     displayName = (data: MlFeature) => {
-        return data.name || data.urn;
+        return data.name;
     };
 
     getGenericEntityProperties = (mlFeature: MlFeature) => {

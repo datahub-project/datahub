@@ -148,7 +148,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
     };
 
     displayName = (data: MlPrimaryKey) => {
-        return data.name || data.urn;
+        return data.name;
     };
 
     getGenericEntityProperties = (mlPrimaryKey: MlPrimaryKey) => {

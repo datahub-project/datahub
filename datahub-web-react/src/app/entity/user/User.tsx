@@ -67,8 +67,7 @@ export class UserEntity implements Entity<CorpUser> {
             data.properties?.fullName ||
             data.info?.displayName || // Deprecated info field
             data.info?.fullName || // Deprecated info field
-            data.username ||
-            data.urn
+            data.username
         );
     };
 

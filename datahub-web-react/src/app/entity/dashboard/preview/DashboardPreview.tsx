@@ -13,7 +13,6 @@ import {
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { capitalizeFirstLetter } from '../../../shared/textUtil';
-import { IconStyleType } from '../../Entity';
 
 export const DashboardPreview = ({
     urn,
@@ -55,7 +54,6 @@ export const DashboardPreview = ({
             name={name || ''}
             description={description || ''}
             type="Dashboard"
-            typeIcon={entityRegistry.getIcon(EntityType.Dashboard, 14, IconStyleType.ACCENT)}
             logoUrl={logoUrl || ''}
             platformInstanceId={platformInstanceId}
             platform={capitalizedPlatform}

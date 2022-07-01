@@ -118,7 +118,7 @@ export class DomainEntity implements Entity<Domain> {
     };
 
     displayName = (data: Domain) => {
-        return data?.properties?.name || data?.id || data.urn;
+        return data?.properties?.name || data?.id;
     };
 
     getOverridePropertiesFromEntity = (data: Domain) => {

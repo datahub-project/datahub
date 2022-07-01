@@ -3,7 +3,6 @@ import { BookOutlined } from '@ant-design/icons';
 import { EntityType, Owner } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../Entity';
 
 export const Preview = ({
     urn,
@@ -25,7 +24,6 @@ export const Preview = ({
             owners={owners}
             logoComponent={<BookOutlined style={{ fontSize: '20px' }} />}
             type="Glossary Term"
-            typeIcon={entityRegistry.getIcon(EntityType.GlossaryTerm, 14, IconStyleType.ACCENT)}
         />
     );
 };

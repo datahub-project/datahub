@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { ConsoleSqlOutlined } from '@ant-design/icons';
-import { DataJob, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
+import { DataJob, EntityType, OwnershipType, PlatformType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
@@ -14,6 +14,7 @@ import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Owners
 import { GenericEntityProperties } from '../shared/types';
 import { DataJobFlowTab } from '../shared/tabs/Entity/DataJobFlowTab';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { capitalizeFirstLetter } from '../../shared/textUtil';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { RunsTab } from './tabs/RunsTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
@@ -123,23 +124,36 @@ export class DataJobEntity implements Entity<DataJob> {
 
     getOverridePropertiesFromEntity = (dataJob?: DataJob | null): GenericEntityProperties => {
         // TODO: Get rid of this once we have correctly formed platform coming back.
+        const tool = dataJob?.dataFlow?.orchestrator || '';
         const name = dataJob?.properties?.name;
         const externalUrl = dataJob?.properties?.externalUrl;
         return {
             name,
             externalUrl,
-            platform: dataJob?.dataFlow?.platform,
+            platform: {
+                urn: `urn:li:dataPlatform:(${tool})`,
+                type: EntityType.DataPlatform,
+                name: tool,
+                properties: {
+                    logoUrl: dataJob?.dataFlow?.platform?.properties?.logoUrl || '',
+                    displayName: capitalizeFirstLetter(tool),
+                    type: PlatformType.Others,
+                    datasetNameDelimiter: '.',
+                },
+            },
         };
     };
 
     renderPreview = (_: PreviewType, data: DataJob) => {
-        const platformName = data.dataFlow?.platform.properties?.displayName || data.dataFlow?.platform.name;
+        const platformName = data.dataFlow
+            ? data.dataFlow?.orchestrator.charAt(0).toUpperCase() + data.dataFlow?.orchestrator.slice(1)
+            : '';
         return (
             <Preview
                 urn={data.urn}
                 name={data.properties?.name || ''}
                 description={data.editableProperties?.description || data.properties?.description}
-                platformName={platformName || ''}
+                platformName={platformName}
                 platformLogo={data?.dataFlow?.platform?.properties?.logoUrl || ''}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags || null}
@@ -150,13 +164,15 @@ export class DataJobEntity implements Entity<DataJob> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as DataJob;
-        const platformName = data.dataFlow?.platform.properties?.displayName || data.dataFlow?.platform.name;
+        const platformName = data.dataFlow
+            ? data.dataFlow?.orchestrator.charAt(0).toUpperCase() + data.dataFlow?.orchestrator.slice(1)
+            : '';
         return (
             <Preview
                 urn={data.urn}
                 name={data.properties?.name || ''}
                 description={data.editableProperties?.description || data.properties?.description}
-                platformName={platformName || ''}
+                platformName={platformName}
                 platformLogo={data?.dataFlow?.platform?.properties?.logoUrl || ''}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={data.ownership?.owners}
@@ -173,7 +189,7 @@ export class DataJobEntity implements Entity<DataJob> {
             name: entity?.properties?.name || '',
             type: EntityType.DataJob,
             icon: entity?.dataFlow?.platform?.properties?.logoUrl || '',
-            platform: entity.dataFlow?.platform.properties?.displayName || entity.dataFlow?.platform.name || '',
+            platform: entity?.dataFlow?.orchestrator || '',
         };
     };
 
