@@ -27,9 +27,7 @@
                         "qualifiedName": null,
                         "description": null,
                         "uri": null,
-                        "tags": [
-                            "dbt:test_tag"
-                        ]
+                        "tags": []
                     }
                 },
                 {

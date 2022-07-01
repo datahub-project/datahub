@@ -46,9 +46,7 @@
                         "qualifiedName": null,
                         "description": "",
                         "uri": null,
-                        "tags": [
-                            "dbt:test_tag"
-                        ]
+                        "tags": []
                     }
                 },
                 {

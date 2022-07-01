@@ -1597,7 +1597,7 @@ class DBTSource(StatefulIngestionSourceBase):
         dbt_properties = DatasetPropertiesClass(
             description=description,
             customProperties=custom_props,
-            tags=node.tags,
+            tags=[],
             name=node.name,
         )
         return dbt_properties
