@@ -5,7 +5,6 @@ import { EntityType } from '../../types.generated';
 import { BrowsableEntityPage } from '../browse/BrowsableEntityPage';
 import LineageExplorer from '../lineage/LineageExplorer';
 import useIsLineageMode from '../lineage/utils/useIsLineageMode';
-import { SearchablePage } from '../search/SearchablePage';
 import { useEntityRegistry } from '../useEntityRegistry';
 import analytics, { EventType } from '../analytics';
 import { decodeUrn } from './shared/utils';
@@ -32,7 +31,6 @@ export const EntityPage = ({ entityType }: Props) => {
     const entity = entityRegistry.getEntity(entityType);
     const isBrowsable = entity.isBrowseEnabled();
     const isLineageSupported = entity.isLineageEnabled();
-    const ContainerPage = isBrowsable || isLineageSupported ? BrowsableEntityPage : SearchablePage;
     const isLineageMode = useIsLineageMode();
     const authenticatedUserUrn = useGetAuthenticatedUserUrn();
     const { loading, error, data } = useGetGrantedPrivilegesQuery({
@@ -74,8 +72,8 @@ export const EntityPage = ({ entityType }: Props) => {
             {error && <Alert type="error" message={error?.message || `Failed to fetch privileges for user`} />}
             {data && !canViewEntityPage && <UnauthorizedPage />}
             {canViewEntityPage &&
-                ((showNewPage && <SearchablePage>{entityRegistry.renderProfile(entityType, urn)}</SearchablePage>) || (
-                    <ContainerPage
+                ((showNewPage && <>{entityRegistry.renderProfile(entityType, urn)}</>) || (
+                    <BrowsableEntityPage
                         isBrowsable={isBrowsable}
                         urn={urn}
                         type={entityType}
@@ -86,7 +84,7 @@ export const EntityPage = ({ entityType }: Props) => {
                         ) : (
                             entityRegistry.renderProfile(entityType, urn)
                         )}
-                    </ContainerPage>
+                    </BrowsableEntityPage>
                 ))}
         </>
     );
