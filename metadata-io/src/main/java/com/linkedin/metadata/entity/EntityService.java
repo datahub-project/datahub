@@ -722,6 +722,17 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     return updatedValue;
   }
 
+  /**
+   * Ingest a new {@link MetadataChangeProposal}. Note that this method does NOT include any additional aspects or do any
+   * enrichment, instead it changes only those which are provided inside the metadata change proposal.
+   *
+   * Do not use this method directly for creating new entities, as it DOES NOT create an Entity Key aspect in the DB. Instead,
+   * use an Entity Client.
+   *
+   * @param metadataChangeProposal the proposal to ingest
+   * @param auditStamp an audit stamp representing the time and actor proposing the change
+   * @return an {@link IngestProposalResult} containing the results
+   */
   public IngestProposalResult ingestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal,
       AuditStamp auditStamp) {
 
@@ -1035,10 +1046,10 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
   }
 
   /**
-  Returns true if entityType should have some aspect as per its definition
+    Returns true if entityType should have some aspect as per its definition
     but aspects given does not have that aspect
    */
-  private boolean isAspectProvided(String entityType, String aspectName, Set<String> aspects) {
+  private boolean isAspectMissing(String entityType, String aspectName, Set<String> aspects) {
     return _entityRegistry.getEntitySpec(entityType).getAspectSpecMap().containsKey(aspectName)
         && !aspects.contains(aspectName);
   }
@@ -1049,17 +1060,17 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     Set<String> aspectsToGet = new HashSet<>();
     String entityType = urnToEntityName(urn);
 
-    boolean shouldCheckBrowsePath = isAspectProvided(entityType, BROWSE_PATHS, includedAspects);
+    boolean shouldCheckBrowsePath = isAspectMissing(entityType, BROWSE_PATHS, includedAspects);
     if (shouldCheckBrowsePath) {
       aspectsToGet.add(BROWSE_PATHS);
     }
 
-    boolean shouldCheckDataPlatform = isAspectProvided(entityType, DATA_PLATFORM_INSTANCE, includedAspects);
+    boolean shouldCheckDataPlatform = isAspectMissing(entityType, DATA_PLATFORM_INSTANCE, includedAspects);
     if (shouldCheckDataPlatform) {
       aspectsToGet.add(DATA_PLATFORM_INSTANCE);
     }
 
-    boolean shouldHaveStatusSet = isAspectProvided(entityType, STATUS, includedAspects);
+    boolean shouldHaveStatusSet = isAspectMissing(entityType, STATUS, includedAspects);
     if (shouldHaveStatusSet) {
       aspectsToGet.add(STATUS);
     }

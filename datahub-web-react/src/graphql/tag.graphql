@@ -4,9 +4,9 @@ query getTag($urn: String!) {
         name
         description
         properties {
-          name
-          description
-          colorHex
+            name
+            description
+            colorHex
         }
         ownership {
             ...ownershipFields
@@ -23,4 +23,8 @@ mutation updateTag($urn: String!, $input: TagUpdateInput!) {
             ...ownershipFields
         }
     }
+}
+
+mutation deleteTag($urn: String!) {
+    deleteTag(urn: $urn)
 }

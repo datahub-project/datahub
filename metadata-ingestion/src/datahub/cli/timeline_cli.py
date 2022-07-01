@@ -114,7 +114,7 @@ def get_timeline(
     required=True,
     multiple=True,
     type=str,
-    help="One of tag, glossary_term, technical_schema, documentation, ownership",
+    help="One of tag, glossary_term, technical_schema, documentation, owner",
 )
 @click.option(
     "--start",
@@ -148,7 +148,7 @@ def timeline(
 
     all_categories = [
         "TAG",
-        "OWNERSHIP",
+        "OWNER",
         "GLOSSARY_TERM",
         "TECHNICAL_SCHEMA",
         "DOCUMENTATION",
