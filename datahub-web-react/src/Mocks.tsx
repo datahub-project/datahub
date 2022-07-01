@@ -1118,7 +1118,15 @@ export const dataFlow1 = {
         ],
     },
     platform: {
-        ...dataPlatform,
+        urn: 'urn:li:dataPlatform:airflow',
+        name: 'Airflow',
+        type: EntityType.DataPlatform,
+        properties: {
+            displayName: 'Airflow',
+            type: PlatformType.FileSystem,
+            datasetNameDelimiter: '.',
+            logoUrl: '',
+        },
     },
     domain: null,
     deprecation: null,
