@@ -1150,7 +1150,7 @@ def test_update_corp_group_properties(frontend_session):
     # Reset the editable properties
     json = {
         "query": """mutation updateCorpGroupProperties($urn: String!, $input: CorpGroupUpdateInput!) {\n
-            updateCorpGroupProperties(urn: $urn, input: $input) }""",
+            updateCorpGroupProperties(urn: $urn, input: $input) { urn } }""",
         "variables": {
             "urn": group_urn,
             "input": {"description": "", "slack": "", "email": ""},
