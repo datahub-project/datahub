@@ -330,7 +330,12 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                 </div>
                 <ActionButtons>
                     <CopyUrn urn={urn} isActive={copiedUrn} onClick={() => setCopiedUrn(true)} />
-                    <EntityDropdown menuItems={new Set([EntityMenuItems.COPY_URL])} />
+                    <EntityDropdown
+                        urn={urn}
+                        entityType={EntityType.Tag}
+                        entityData={data?.tag}
+                        menuItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.DELETE])}
+                    />
                 </ActionButtons>
                 {displayColorPicker && (
                     <ColorPickerPopOver ref={colorPickerRef}>
@@ -414,16 +419,17 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                         </Button>
                     </div>
                     <div>
-                        <AddOwnersModal
-                            hideOwnerType
-                            visible={showAddModal}
-                            refetch={refetch}
-                            onCloseModal={() => {
-                                setShowAddModal(false);
-                            }}
-                            urn={urn}
-                            type={EntityType.Tag}
-                        />
+                        {showAddModal && (
+                            <AddOwnersModal
+                                hideOwnerType
+                                refetch={refetch}
+                                onCloseModal={() => {
+                                    setShowAddModal(false);
+                                }}
+                                urn={urn}
+                                type={EntityType.Tag}
+                            />
+                        )}
                     </div>
                 </div>
             </DetailsLayout>

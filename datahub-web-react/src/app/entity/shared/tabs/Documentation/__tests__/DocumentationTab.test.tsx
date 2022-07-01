@@ -1,5 +1,6 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { render } from '@testing-library/react';
+import DOMPurify from 'dompurify';
 import React from 'react';
 import { mocks } from '../../../../../../Mocks';
 import { EntityType } from '../../../../../../types.generated';
@@ -60,5 +61,29 @@ describe('SchemaDescriptionField', () => {
         );
         expect(getByText('Edited description')).toBeInTheDocument();
         expect(queryByText('This is a description')).not.toBeInTheDocument();
+    });
+});
+
+describe('markdown sanitization', () => {
+    it('should remove malicious tags like <script> from text', () => {
+        const text = 'Testing this out<script>console.log("testing")</script>';
+        const sanitizedText = DOMPurify.sanitize(text);
+
+        expect(sanitizedText).toBe('Testing this out');
+    });
+
+    it('should allow acceptable html', () => {
+        const text = '<strong>Testing</strong> this <p>out</p> <span>for</span> <div>safety</div>';
+        const sanitizedText = DOMPurify.sanitize(text);
+
+        expect(sanitizedText).toBe(text);
+    });
+
+    it('should allow acceptable markdown', () => {
+        const text =
+            '~~Testing~~ **this** *out* \n\n> for\n\n- safety\n\n1. ordered list\n\n[ test link](https://www.google.com/)\n';
+        const sanitizedText = DOMPurify.sanitize(text);
+
+        expect(sanitizedText).toBe(text);
     });
 });

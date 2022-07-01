@@ -263,6 +263,33 @@ class DBTConfig(StatefulIngestionConfigBase):
             )
         return aws_connection
 
+    @validator("meta_mapping")
+    def meta_mapping_validator(
+        cls, meta_mapping: Dict[str, Any], values: Dict, **kwargs: Any
+    ) -> Dict[str, Any]:
+        for k, v in meta_mapping.items():
+            if "match" not in v:
+                raise ValueError(
+                    f"meta_mapping section {k} doesn't have a match clause."
+                )
+            if "operation" not in v:
+                raise ValueError(
+                    f"meta_mapping section {k} doesn't have an operation clause."
+                )
+            if v["operation"] == "add_owner":
+                owner_category = v["config"].get("owner_category")
+                if owner_category:
+                    allowed_categories = [
+                        value
+                        for name, value in vars(OwnershipTypeClass).items()
+                        if not name.startswith("_")
+                    ]
+                    if (owner_category.upper()) not in allowed_categories:
+                        raise ValueError(
+                            f"Owner category {owner_category} is not one of {allowed_categories}"
+                        )
+        return meta_mapping
+
 
 @dataclass
 class DBTColumn:
@@ -1098,14 +1125,6 @@ class DBTSource(StatefulIngestionSourceBase):
         def string_map(input_map: Dict[str, Any]) -> Dict[str, str]:
             return {k: str(v) for k, v in input_map.items()}
 
-        if self.config.test_results_path:
-            yield from DBTTest.load_test_results(
-                self.config,
-                self.load_file_as_json(self.config.test_results_path),
-                test_nodes,
-                manifest_nodes,
-            )
-
         for node in test_nodes:
             node_datahub_urn = mce_builder.make_assertion_urn(
                 mce_builder.datahub_guid(
@@ -1276,6 +1295,14 @@ class DBTSource(StatefulIngestionSourceBase):
                 self.report.report_workunit(soft_delete_wu)
                 yield soft_delete_wu
 
+        if self.config.test_results_path:
+            yield from DBTTest.load_test_results(
+                self.config,
+                self.load_file_as_json(self.config.test_results_path),
+                test_nodes,
+                manifest_nodes,
+            )
+
     # create workunits from dbt nodes
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         if self.config.write_semantics == "PATCH" and not self.ctx.graph:
@@ -1399,7 +1426,6 @@ class DBTSource(StatefulIngestionSourceBase):
             "SOURCE_CONTROL",
             self.config.strip_user_ids_from_email,
         )
-
         for node in dbt_nodes:
             node_datahub_urn = get_urn_from_dbtNode(
                 node.database,
@@ -1650,7 +1676,10 @@ class DBTSource(StatefulIngestionSourceBase):
         self, node: DBTNode, meta_owner_aspects: Any
     ) -> List[OwnerClass]:
         owner_list: List[OwnerClass] = []
-        if node.owner:
+        if meta_owner_aspects and self.config.enable_meta_mapping:
+            # we disregard owners generated from node.owner because that is also coming from the meta section
+            owner_list = meta_owner_aspects.owners
+        elif node.owner:
             owner: str = node.owner
             if self.compiled_owner_extraction_pattern:
                 match: Optional[Any] = re.match(
@@ -1671,9 +1700,6 @@ class DBTSource(StatefulIngestionSourceBase):
                     type=OwnershipTypeClass.DATAOWNER,
                 )
             )
-
-        if meta_owner_aspects and self.config.enable_meta_mapping:
-            owner_list.extend(meta_owner_aspects.owners)
 
         owner_list = sorted(owner_list, key=lambda x: x.owner)
         return owner_list

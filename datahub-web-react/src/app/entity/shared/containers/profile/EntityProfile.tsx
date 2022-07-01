@@ -90,7 +90,8 @@ const HeaderAndTabsFlex = styled.div`
 const Sidebar = styled.div<{ $width: number }>`
     max-height: 100%;
     overflow: auto;
-    flex-basis: ${(props) => props.$width}px;
+    width: ${(props) => props.$width}px;
+    min-width: ${(props) => props.$width}px;
     padding-left: 20px;
     padding-right: 20px;
 `;
@@ -117,7 +118,6 @@ const defaultSidebarSection = {
     visible: (_, _1) => true,
 };
 
-const INITIAL_SIDEBAR_WIDTH = 400;
 const MAX_SIDEBAR_WIDTH = 800;
 const MIN_SIDEBAR_WIDTH = 200;
 
@@ -147,7 +147,7 @@ export const EntityProfile = <T, U>({
         display: { ...defaultSidebarSection, ...sidebarSection.display },
     }));
 
-    const [sidebarWidth, setSidebarWidth] = useState(INITIAL_SIDEBAR_WIDTH);
+    const [sidebarWidth, setSidebarWidth] = useState(window.innerWidth * 0.25);
     const [browserWidth, setBrowserWith] = useState(window.innerWidth * 0.2);
     const [shouldUpdateBrowser, setShouldUpdateBrowser] = useState(false);
 

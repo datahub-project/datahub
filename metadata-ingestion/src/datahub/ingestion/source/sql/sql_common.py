@@ -289,7 +289,9 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
 
 class BasicSQLAlchemyConfig(SQLAlchemyConfig):
     username: Optional[str] = Field(default=None, description="username")
-    password: Optional[pydantic.SecretStr] = Field(default=None, description="password")
+    password: Optional[pydantic.SecretStr] = Field(
+        default=None, exclude=True, description="password"
+    )
     host_port: str = Field(description="host URL")
     database: Optional[str] = Field(default=None, description="database (catalog)")
     database_alias: Optional[str] = Field(
@@ -711,7 +713,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             profiler = None
             profile_requests: List["GEProfilerRequest"] = []
             if sql_config.profiling.enabled:
-                profiler = self._get_profiler_instance(inspector)
+                profiler = self.get_profiler_instance(inspector)
 
             db_name = self.get_db_name(inspector)
             yield from self.gen_database_containers(db_name)
@@ -1307,7 +1309,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             self.report.report_workunit(wu)
             yield wu
 
-    def _get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
+    def get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
         from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 
         return DatahubGEProfiler(
@@ -1316,6 +1318,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             config=self.config.profiling,
             platform=self.platform,
         )
+
+    def get_profile_args(self) -> Dict:
+        """Passed down to GE profiler"""
+        return {}
 
     # Override if needed
     def generate_partition_profiler_query(
@@ -1424,9 +1430,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 continue
 
             self.report.report_entity_profiled(dataset_name)
+            logger.debug(
+                f"Preparing profiling request for {schema}, {table}, {partition}"
+            )
             yield GEProfilerRequest(
                 pretty_name=dataset_name,
                 batch_kwargs=self.prepare_profiler_args(
+                    inspector=inspector,
                     schema=schema,
                     table=table,
                     partition=partition,
@@ -1441,7 +1451,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         platform: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         for request, profile in profiler.generate_profiles(
-            profile_requests, self.config.profiling.max_workers, platform=platform
+            profile_requests,
+            self.config.profiling.max_workers,
+            platform=platform,
+            profiler_args=self.get_profile_args(),
         ):
             if profile is None:
                 continue
@@ -1466,6 +1479,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
     def prepare_profiler_args(
         self,
+        inspector: Inspector,
         schema: str,
         table: str,
         partition: Optional[str],

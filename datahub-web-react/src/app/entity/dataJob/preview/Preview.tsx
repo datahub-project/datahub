@@ -3,6 +3,7 @@ import { Domain, EntityType, GlobalTags, Owner, SearchInsight } from '../../../.
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { capitalizeFirstLetter } from '../../../shared/textUtil';
+import { IconStyleType } from '../../Entity';
 
 export const Preview = ({
     urn,
@@ -37,6 +38,7 @@ export const Preview = ({
             name={name}
             description={description || ''}
             type="Data Task"
+            typeIcon={entityRegistry.getIcon(EntityType.DataJob, 14, IconStyleType.ACCENT)}
             platform={capitalizedPlatform}
             logoUrl={platformLogo || ''}
             platformInstanceId={platformInstanceId}

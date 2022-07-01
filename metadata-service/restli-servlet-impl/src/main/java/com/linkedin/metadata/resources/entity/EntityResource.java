@@ -85,10 +85,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String ACTION_BATCH_INGEST = "batchIngest";
   private static final String ACTION_LIST_URNS = "listUrns";
   private static final String ACTION_FILTER = "filter";
+  private static final String ACTION_EXISTS = "exists";
+
   private static final String PARAM_ENTITY = "entity";
   private static final String PARAM_ENTITIES = "entities";
   private static final String PARAM_COUNT = "count";
   private static final String PARAM_VALUE = "value";
+  private static final String PARAM_URN = "urn";
   private static final String SYSTEM_METADATA = "systemMetadata";
 
   private final Clock _clock = Clock.systemUTC();
@@ -96,6 +99,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Inject
   @Named("entityService")
   private EntityService _entityService;
+
+  @Inject
+  @Named("deleteEntityService")
+  private DeleteEntityService _deleteEntityService;
 
   @Inject
   @Named("searchService")
@@ -120,10 +127,6 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Inject
   @Named("graphService")
   private GraphService _graphService;
-
-  @Inject
-  @Named("deleteEntityService")
-  private DeleteEntityService _deleteEntityService;
 
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
@@ -345,7 +348,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   }
 
   /*
-  Used to delete all data related to a filter criteria based on registryId, runId etc.
+   Used to delete all data related to a filter criteria based on registryId, runId etc.
    */
   @Action(name = "deleteAll")
   @Nonnull
@@ -483,5 +486,15 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     log.info("FILTER RESULTS for {} with filter {}", entityName, filter);
     return RestliUtil.toTask(() -> _entitySearchService.filter(entityName, filter, sortCriterion, start, count),
         MetricRegistry.name(this.getClass(), "search"));
+  }
+
+  @Action(name = ACTION_EXISTS)
+  @Nonnull
+  @WithSpan
+  public Task<Boolean> exists(@ActionParam(PARAM_URN) @Nonnull String urnStr) throws URISyntaxException {
+    log.info("EXISTS for {}", urnStr);
+    Urn urn = Urn.createFromString(urnStr);
+    return RestliUtil.toTask(() -> _entityService.exists(urn),
+        MetricRegistry.name(this.getClass(), "exists"));
   }
 }

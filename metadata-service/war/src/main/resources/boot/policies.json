@@ -23,6 +23,7 @@
         "MANAGE_TESTS",
         "MANAGE_GLOSSARIES",
         "MANAGE_USER_CREDENTIALS",
+        "MANAGE_TAGS",
         "MANAGE_GLOBAL_SETTINGS"
       ],
       "displayName":"Root User - All Platform Privileges",
@@ -90,6 +91,7 @@
         "MANAGE_DOMAINS",
         "MANAGE_TESTS",
         "MANAGE_GLOSSARIES",
+        "MANAGE_TAGS",
         "VIEW_METADATA_PROPOSALS",
         "MANAGE_DOMAINS",
         "MANAGE_ACCESS_TOKENS"
