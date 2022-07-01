@@ -54,39 +54,37 @@ function BusinessGlossaryPage() {
 
     return (
         <>
-            <>
-                <GlossaryWrapper>
-                    <BrowserWrapper width={browserWidth}>
-                        <GlossarySearch />
-                        <GlossaryBrowser rootNodes={nodes} rootTerms={terms} />
-                    </BrowserWrapper>
-                    <ProfileSidebarResizer
-                        setSidePanelWidth={(width) =>
-                            setBrowserWidth(Math.min(Math.max(width, MIN_BROWSWER_WIDTH), MAX_BROWSER_WIDTH))
-                        }
-                        initialSize={browserWidth}
-                        isSidebarOnLeft
-                    />
-                    <MainContentWrapper>
-                        <GlossaryEntitiesPath />
-                        <HeaderWrapper>
-                            <Typography.Title level={3}>Glossary</Typography.Title>
-                            <div>
-                                <Button type="text" onClick={() => setIsCreateTermModalVisible(true)}>
-                                    <PlusOutlined /> Add Term
-                                </Button>
-                                <Button type="text" onClick={() => setIsCreateNodeModalVisible(true)}>
-                                    <PlusOutlined /> Add Term Group
-                                </Button>
-                            </div>
-                        </HeaderWrapper>
-                        {hasTermsOrNodes && <GlossaryEntitiesList nodes={nodes || []} terms={terms || []} />}
-                        {!hasTermsOrNodes && (
-                            <EmptyGlossarySection refetchForTerms={refetchForTerms} refetchForNodes={refetchForNodes} />
-                        )}
-                    </MainContentWrapper>
-                </GlossaryWrapper>
-            </>
+            <GlossaryWrapper>
+                <BrowserWrapper width={browserWidth}>
+                    <GlossarySearch />
+                    <GlossaryBrowser rootNodes={nodes} rootTerms={terms} />
+                </BrowserWrapper>
+                <ProfileSidebarResizer
+                    setSidePanelWidth={(width) =>
+                        setBrowserWidth(Math.min(Math.max(width, MIN_BROWSWER_WIDTH), MAX_BROWSER_WIDTH))
+                    }
+                    initialSize={browserWidth}
+                    isSidebarOnLeft
+                />
+                <MainContentWrapper>
+                    <GlossaryEntitiesPath />
+                    <HeaderWrapper>
+                        <Typography.Title level={3}>Glossary</Typography.Title>
+                        <div>
+                            <Button type="text" onClick={() => setIsCreateTermModalVisible(true)}>
+                                <PlusOutlined /> Add Term
+                            </Button>
+                            <Button type="text" onClick={() => setIsCreateNodeModalVisible(true)}>
+                                <PlusOutlined /> Add Term Group
+                            </Button>
+                        </div>
+                    </HeaderWrapper>
+                    {hasTermsOrNodes && <GlossaryEntitiesList nodes={nodes || []} terms={terms || []} />}
+                    {!hasTermsOrNodes && (
+                        <EmptyGlossarySection refetchForTerms={refetchForTerms} refetchForNodes={refetchForNodes} />
+                    )}
+                </MainContentWrapper>
+            </GlossaryWrapper>
             {isCreateTermModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={EntityType.GlossaryTerm}

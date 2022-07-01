@@ -23,18 +23,16 @@ const ListContainer = styled.div``;
 
 export const ManageDomainsPage = () => {
     return (
-        <>
-            <PageContainer>
-                <PageHeaderContainer>
-                    <PageTitle level={3}>Domains</PageTitle>
-                    <Typography.Paragraph type="secondary">
-                        View your DataHub Domains. Take administrative actions.
-                    </Typography.Paragraph>
-                </PageHeaderContainer>
-                <ListContainer>
-                    <DomainsList />
-                </ListContainer>
-            </PageContainer>
-        </>
+        <PageContainer>
+            <PageHeaderContainer>
+                <PageTitle level={3}>Domains</PageTitle>
+                <Typography.Paragraph type="secondary">
+                    View your DataHub Domains. Take administrative actions.
+                </Typography.Paragraph>
+            </PageHeaderContainer>
+            <ListContainer>
+                <DomainsList />
+            </ListContainer>
+        </PageContainer>
     );
 };

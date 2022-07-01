@@ -21,13 +21,11 @@ const styles = {
 };
 
 interface Props extends React.PropsWithChildren<any> {
-    initialQuery?: string;
     onSearch?: (query: string, type?: EntityType) => void;
     onAutoComplete?: (query: string) => void;
 }
 
 const defaultProps = {
-    initialQuery: '',
     onSearch: undefined,
     onAutoComplete: undefined,
 };
@@ -35,7 +33,7 @@ const defaultProps = {
 /**
  * A page that includes a sticky search header (nav bar)
  */
-export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, children }: Props) => {
+export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) => {
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const currentQuery: string = decodeURIComponent(params.query ? (params.query as string) : '');
@@ -79,16 +77,16 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
 
     // Load correct autocomplete results on initial page load.
     useEffect(() => {
-        if (initialQuery && initialQuery.trim() !== '') {
+        if (currentQuery && currentQuery.trim() !== '') {
             getAutoCompleteResults({
                 variables: {
                     input: {
-                        query: initialQuery,
+                        query: currentQuery,
                     },
                 },
             });
         }
-    }, [initialQuery, getAutoCompleteResults]);
+    }, [currentQuery, getAutoCompleteResults]);
 
     return (
         <>
