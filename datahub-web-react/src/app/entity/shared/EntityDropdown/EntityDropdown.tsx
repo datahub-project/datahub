@@ -24,7 +24,6 @@ import { AddIncidentModal } from '../tabs/Incident/components/AddIncidentModal';
 import { getEntityPath } from '../containers/profile/utils';
 import useDeleteEntity from './useDeleteEntity';
 import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
-import { PageRoutes } from '../../../../conf/Global';
 
 export enum EntityMenuItems {
     COPY_URL,
@@ -245,7 +244,7 @@ function EntityDropdown(props: Props) {
             {isMoveModalVisible && (
                 <MoveGlossaryEntityModal onClose={() => setIsMoveModalVisible(false)} refetchData={refreshBrowser} />
             )}
-            {hasBeenDeleted && <Redirect to={`${PageRoutes.GLOSSARY}`} />}
+            {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
             {/* acryl-main only */}
             {isRaiseIncidentModalVisible && (
                 <AddIncidentModal
@@ -259,7 +258,6 @@ function EntityDropdown(props: Props) {
                     }
                 />
             )}
-            {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
         </>
     );
 }

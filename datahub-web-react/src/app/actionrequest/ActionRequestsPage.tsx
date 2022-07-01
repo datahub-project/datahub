@@ -2,7 +2,6 @@ import { Tabs, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { ActionRequestAssignee, AssigneeType, CorpGroup } from '../../types.generated';
-import { SearchablePage } from '../search/SearchablePage';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { ActionRequestsGroupTab } from './ActionRequestsGroupTab';
 
@@ -93,25 +92,19 @@ export const ActionRequestsPage = () => {
     );
 
     return (
-        <SearchablePage>
-            <PageContainer>
-                <PageHeaderContainer>
-                    <PageTitle level={2}>My Requests</PageTitle>
-                    <Typography.Paragraph type="secondary">
-                        The inbox for requests assigned to you or a group you are a part of.
-                    </Typography.Paragraph>
-                </PageHeaderContainer>
-                <StyledTabs
-                    activeKey={actionRequestGroupName}
-                    size="large"
-                    onTabClick={(tab: string) => onClickTab(tab)}
-                >
-                    {actionRequestGroups.map((group) => (
-                        <Tab key={group.name} tab={group.name} />
-                    ))}
-                </StyledTabs>
-                {activeActionRequestGroupTabView}
-            </PageContainer>
-        </SearchablePage>
+        <PageContainer>
+            <PageHeaderContainer>
+                <PageTitle level={2}>My Requests</PageTitle>
+                <Typography.Paragraph type="secondary">
+                    The inbox for requests assigned to you or a group you are a part of.
+                </Typography.Paragraph>
+            </PageHeaderContainer>
+            <StyledTabs activeKey={actionRequestGroupName} size="large" onTabClick={(tab: string) => onClickTab(tab)}>
+                {actionRequestGroups.map((group) => (
+                    <Tab key={group.name} tab={group.name} />
+                ))}
+            </StyledTabs>
+            {activeActionRequestGroupTabView}
+        </PageContainer>
     );
 };
