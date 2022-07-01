@@ -12,7 +12,6 @@ import styled from 'styled-components';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { ManageIdentities } from '../identity/ManageIdentities';
 import { ManagePolicies } from '../policy/ManagePolicies';
-import { SearchablePage } from '../search/SearchablePage';
 import { useAppConfig } from '../useAppConfig';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { AccessTokens } from './AccessTokens';
@@ -94,71 +93,68 @@ export const SettingsPage = () => {
     const showGlobalSettings = (me && me.platformPrivileges.manageGlobalSettings) || false;
 
     return (
-        <SearchablePage>
-            <PageContainer>
-                <SettingsBarContainer>
-                    <SettingsBarHeader>
-                        <PageTitle level={3}>Settings</PageTitle>
-                        <Typography.Paragraph type="secondary">Manage your DataHub settings.</Typography.Paragraph>
-                    </SettingsBarHeader>
-                    <ThinDivider />
-                    <Menu
-                        selectable={false}
-                        mode="inline"
-                        style={{ width: 256, marginTop: 8 }}
-                        selectedKeys={[activePath]}
-                        onClick={(newPath) => {
-                            history.push(`${url}/${newPath.key}`);
-                        }}
-                    >
-                        <Menu.ItemGroup title="Developer">
-                            <Menu.Item key="tokens">
-                                <SafetyCertificateOutlined />
-                                <ItemTitle>Access Tokens</ItemTitle>
-                            </Menu.Item>
+        <PageContainer>
+            <SettingsBarContainer>
+                <SettingsBarHeader>
+                    <PageTitle level={3}>Settings</PageTitle>
+                    <Typography.Paragraph type="secondary">Manage your DataHub settings.</Typography.Paragraph>
+                </SettingsBarHeader>
+                <ThinDivider />
+                <Menu
+                    selectable={false}
+                    mode="inline"
+                    style={{ width: 256, marginTop: 8 }}
+                    selectedKeys={[activePath]}
+                    onClick={(newPath) => {
+                        history.push(`${url}/${newPath.key}`);
+                    }}
+                >
+                    <Menu.ItemGroup title="Developer">
+                        <Menu.Item key="tokens">
+                            <SafetyCertificateOutlined />
+                            <ItemTitle>Access Tokens</ItemTitle>
+                        </Menu.Item>
+                    </Menu.ItemGroup>
+                    {(showPolicies || showUsersGroups) && (
+                        <Menu.ItemGroup title="Access">
+                            {showPolicies && (
+                                <Menu.Item key="identities">
+                                    <UsergroupAddOutlined />
+                                    <ItemTitle>Users & Groups</ItemTitle>
+                                </Menu.Item>
+                            )}
+                            {showUsersGroups && (
+                                <Menu.Item key="policies">
+                                    <BankOutlined />
+                                    <ItemTitle>Privileges</ItemTitle>
+                                </Menu.Item>
+                            )}
                         </Menu.ItemGroup>
-                        {(showPolicies || showUsersGroups) && (
-                            <Menu.ItemGroup title="Access">
-                                {showPolicies && (
-                                    <Menu.Item key="identities">
-                                        <UsergroupAddOutlined />
-                                        <ItemTitle>Users & Groups</ItemTitle>
-                                    </Menu.Item>
-                                )}
-                                {showUsersGroups && (
-                                    <Menu.Item key="policies">
-                                        <BankOutlined />
-                                        <ItemTitle>Privileges</ItemTitle>
-                                    </Menu.Item>
-                                )}
+                    )}
+                    {
+                        /* acryl-main only */ showGlobalSettings && (
+                            <Menu.ItemGroup title="Platform">
+                                <Menu.Item key="integrations">
+                                    <AppstoreOutlined />
+                                    <ItemTitle>Integrations</ItemTitle>
+                                </Menu.Item>
+                                <Menu.Item key="notifications">
+                                    <BellOutlined />
+                                    <ItemTitle>Notifications</ItemTitle>
+                                </Menu.Item>
                             </Menu.ItemGroup>
-                        )}
-
-                        {
-                            /* acryl-main only */ showGlobalSettings && (
-                                <Menu.ItemGroup title="Platform">
-                                    <Menu.Item key="integrations">
-                                        <AppstoreOutlined />
-                                        <ItemTitle>Integrations</ItemTitle>
-                                    </Menu.Item>
-                                    <Menu.Item key="notifications">
-                                        <BellOutlined />
-                                        <ItemTitle>Notifications</ItemTitle>
-                                    </Menu.Item>
-                                </Menu.ItemGroup>
-                            )
-                        }
-                    </Menu>
-                </SettingsBarContainer>
-                <Switch>
-                    <Route exact path={path}>
-                        <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${DEFAULT_PATH.path}`} />
-                    </Route>
-                    {PATHS.map((p) => (
-                        <Route path={`${path}/${p.path.replace('/', '')}`} render={() => p.content} key={p.path} />
-                    ))}
-                </Switch>
-            </PageContainer>
-        </SearchablePage>
+                        )
+                    }
+                </Menu>
+            </SettingsBarContainer>
+            <Switch>
+                <Route exact path={path}>
+                    <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${DEFAULT_PATH.path}`} />
+                </Route>
+                {PATHS.map((p) => (
+                    <Route path={`${path}/${p.path.replace('/', '')}`} render={() => p.content} key={p.path} />
+                ))}
+            </Switch>
+        </PageContainer>
     );
 };

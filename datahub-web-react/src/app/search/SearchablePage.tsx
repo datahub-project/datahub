@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
-import { useHistory } from 'react-router';
+import { useHistory, useLocation } from 'react-router';
+import * as QueryString from 'query-string';
 import { useTheme } from 'styled-components';
-
 import { SearchHeader } from './SearchHeader';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { EntityType } from '../../types.generated';
@@ -21,13 +21,11 @@ const styles = {
 };
 
 interface Props extends React.PropsWithChildren<any> {
-    initialQuery?: string;
     onSearch?: (query: string, type?: EntityType) => void;
     onAutoComplete?: (query: string) => void;
 }
 
 const defaultProps = {
-    initialQuery: '',
     onSearch: undefined,
     onAutoComplete: undefined,
 };
@@ -35,7 +33,11 @@ const defaultProps = {
 /**
  * A page that includes a sticky search header (nav bar)
  */
-export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, children }: Props) => {
+export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) => {
+    const location = useLocation();
+    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+    const currentQuery: string = decodeURIComponent(params.query ? (params.query as string) : '');
+
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
@@ -75,21 +77,21 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
 
     // Load correct autocomplete results on initial page load.
     useEffect(() => {
-        if (initialQuery && initialQuery.trim() !== '') {
+        if (currentQuery && currentQuery.trim() !== '') {
             getAutoCompleteResults({
                 variables: {
                     input: {
-                        query: initialQuery,
+                        query: currentQuery,
                     },
                 },
             });
         }
-    }, [initialQuery, getAutoCompleteResults]);
+    }, [currentQuery, getAutoCompleteResults]);
 
     return (
         <>
             <SearchHeader
-                initialQuery={initialQuery as string}
+                initialQuery={currentQuery as string}
                 placeholderText={themeConfig.content.search.searchbarMessage}
                 suggestions={
                     (suggestionsData &&
