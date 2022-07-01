@@ -675,7 +675,7 @@ public class GmsGraphQLEngine {
     private void configureMutationResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Mutation", typeWiring -> typeWiring
             .dataFetcher("updateDataset", new MutableTypeResolver<>(datasetType))
-            .dataFetcher("createTag", new CreateTagResolver(entityService))
+            .dataFetcher("createTag", new CreateTagResolver(this.entityClient))
             .dataFetcher("updateTag", new MutableTypeResolver<>(tagType))
             .dataFetcher("setTagColor", new SetTagColorResolver(entityClient, entityService))
             .dataFetcher("deleteTag", new DeleteTagResolver(entityClient))
@@ -707,7 +707,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("removeUser", new RemoveUserResolver(this.entityClient))
             .dataFetcher("removeGroup", new RemoveGroupResolver(this.entityClient))
             .dataFetcher("updateUserStatus", new UpdateUserStatusResolver(this.entityClient))
-            .dataFetcher("createDomain", new CreateDomainResolver(this.entityService))
+            .dataFetcher("createDomain", new CreateDomainResolver(this.entityClient))
             .dataFetcher("deleteDomain", new DeleteDomainResolver(entityClient))
             .dataFetcher("setDomain", new SetDomainResolver(this.entityClient, this.entityService))
             .dataFetcher("updateDeprecation", new UpdateDeprecationResolver(this.entityClient, this.entityService))

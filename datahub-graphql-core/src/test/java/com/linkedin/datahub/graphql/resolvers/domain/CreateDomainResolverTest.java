@@ -1,16 +1,16 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
-import com.linkedin.common.AuditStamp;
-import com.linkedin.common.urn.UrnUtils;
+import com.datahub.authentication.Authentication;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CreateDomainInput;
 import com.linkedin.domain.DomainProperties;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.DomainKey;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -31,12 +31,8 @@ public class CreateDomainResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
     // Create resolver
-    EntityService mockService = Mockito.mock(EntityService.class);
-    Mockito.when(mockService.ingestProposal(Mockito.any(MetadataChangeProposal.class), Mockito.any(AuditStamp.class)))
-        .thenReturn(new EntityService.IngestProposalResult(UrnUtils.getUrn(
-            String.format("urn:li:tag:%s",
-                TEST_INPUT.getId())), true));
-    CreateDomainResolver resolver = new CreateDomainResolver(mockService);
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    CreateDomainResolver resolver = new CreateDomainResolver(mockClient);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -59,17 +55,17 @@ public class CreateDomainResolverTest {
     proposal.setChangeType(ChangeType.UPSERT);
 
     // Not ideal to match against "any", but we don't know the auto-generated execution request id
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
+    Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
         Mockito.eq(proposal),
-        Mockito.any(AuditStamp.class)
+        Mockito.any(Authentication.class)
     );
   }
 
   @Test
   public void testGetUnauthorized() throws Exception {
     // Create resolver
-    EntityService mockService = Mockito.mock(EntityService.class);
-    CreateDomainResolver resolver = new CreateDomainResolver(mockService);
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    CreateDomainResolver resolver = new CreateDomainResolver(mockClient);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -78,19 +74,19 @@ public class CreateDomainResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
+    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(
         Mockito.any(),
-        Mockito.any(AuditStamp.class));
+        Mockito.any(Authentication.class));
   }
 
   @Test
   public void testGetEntityClientException() throws Exception {
     // Create resolver
-    EntityService mockService = Mockito.mock(EntityService.class);
-    Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.doThrow(RemoteInvocationException.class).when(mockClient).ingestProposal(
         Mockito.any(),
-        Mockito.any(AuditStamp.class));
-    CreateDomainResolver resolver = new CreateDomainResolver(mockService);
+        Mockito.any(Authentication.class));
+    CreateDomainResolver resolver = new CreateDomainResolver(mockClient);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);

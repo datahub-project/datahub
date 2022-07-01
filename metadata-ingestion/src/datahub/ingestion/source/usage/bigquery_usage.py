@@ -281,14 +281,16 @@ class BigQueryTableRef:
             if matches:
                 table_name = matches.group(1)
         if matches:
-            logger.debug(
-                f"Found sharded table {self.table}. Using {table_name} as the table name."
-            )
             if not table_name:
                 logger.debug(
                     f"Using dataset id {self.dataset} as table name because table only contains date value {self.table}"
                 )
                 table_name = self.dataset
+
+            logger.debug(
+                f"Found sharded table {self.table}. Using {table_name} as the table name."
+            )
+
             return BigQueryTableRef(self.project, self.dataset, table_name)
 
         # Handle table snapshots.
