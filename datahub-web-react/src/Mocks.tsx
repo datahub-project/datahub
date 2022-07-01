@@ -1754,7 +1754,7 @@ export const mocks = [
             variables: {
                 input: {
                     query: 't',
-                    limit: 30,
+                    limit: 10,
                 },
             },
         },
@@ -3235,7 +3235,7 @@ export const mocks = [
                     types: [],
                     query: '*',
                     start: 0,
-                    count: 20,
+                    count: 6,
                     filters: [],
                 },
             },
