@@ -100,6 +100,7 @@ class BigQueryConfig(BigQueryBaseConfig, BaseTimeWindowConfig, SQLAlchemyConfig)
         if (
             values.get("storage_project_id")
             and profiling is not None
+            and profiling.enabled
             and not profiling.bigquery_temp_table_schema
         ):
             raise ConfigurationError(
