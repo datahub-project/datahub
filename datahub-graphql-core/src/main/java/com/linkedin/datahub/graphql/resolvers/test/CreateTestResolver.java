@@ -9,6 +9,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.TestKey;
 import com.linkedin.metadata.test.TestEngine;
+import com.linkedin.metadata.test.definition.ValidationResult;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -62,12 +63,26 @@ public class CreateTestResolver implements DataFetcher<CompletableFuture<String>
 
           // Create the Test info.
           final TestInfo info = mapCreateTestInput(input);
+
+          // Validate test info
+          ValidationResult validationResult = _testEngine.validateJson(info.getDefinition().getJson());
+          if (!validationResult.isValid()) {
+            throw new RuntimeException(
+                "Failed to validate test definition: \n" + String.join("\n", validationResult.getMessages()));
+          }
+
           proposal.setEntityType(Constants.TEST_ENTITY_NAME);
           proposal.setAspectName(Constants.TEST_INFO_ASPECT_NAME);
           proposal.setAspect(GenericRecordUtils.serializeAspect(info));
           proposal.setChangeType(ChangeType.UPSERT);
 
-          String ingestResult = _entityClient.ingestProposal(proposal, context.getAuthentication());
+          String ingestResult;
+          try {
+            ingestResult = _entityClient.ingestProposal(proposal, context.getAuthentication());
+          } catch (Exception e) {
+            throw new RuntimeException(String.format("Failed to create test with urn %s", input.toString()), e);
+          }
+
           _testEngine.invalidateCache();
           return ingestResult;
 
