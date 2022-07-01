@@ -34,6 +34,12 @@ const DownArrow = styled(CaretDownOutlined)`
     color: ${ANTD_GRAY[7]};
 `;
 
+const DropdownWrapper = styled.div`
+    align-items: center;
+    cursor: pointer;
+    display: flex;
+`;
+
 interface Props {
     urn: string;
     pictureLink?: string;
@@ -102,12 +108,12 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
     );
 
     return (
-        <>
-            <CustomAvatar photoUrl={_pictureLink} style={{ marginRight: 4 }} name={name} />
-            <Dropdown overlay={menu} trigger={['click']}>
+        <Dropdown overlay={menu} trigger={['click']}>
+            <DropdownWrapper>
+                <CustomAvatar photoUrl={_pictureLink} style={{ marginRight: 4 }} name={name} />
                 <DownArrow />
-            </Dropdown>
-        </>
+            </DropdownWrapper>
+        </Dropdown>
     );
 };
 
