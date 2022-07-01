@@ -3337,4 +3337,6 @@ export const platformPrivileges: PlatformPrivileges = {
     manageTags: true,
     createTags: true,
     createDomains: true,
+    manageGlobalSettings: true,
+    viewMetadataProposals: true,
 };

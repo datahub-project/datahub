@@ -24,6 +24,7 @@ import { AddIncidentModal } from '../tabs/Incident/components/AddIncidentModal';
 import { getEntityPath } from '../containers/profile/utils';
 import useDeleteEntity from './useDeleteEntity';
 import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
+import { PageRoutes } from '../../../../conf/Global';
 
 export enum EntityMenuItems {
     COPY_URL,
@@ -252,7 +253,7 @@ function EntityDropdown(props: Props) {
                     onClose={() => setIsRaiseIncidentModalVisible(false)}
                     refetch={
                         (() => {
-                            refetch();
+                            refetchForEntity?.();
                             history.push(`${getEntityPath(entityType, urn, entityRegistry, false, 'Incidents')}`);
                         }) as any
                     }
