@@ -110,7 +110,7 @@ def _ensure_dataset_present(
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_ingestion_via_rest(wait_for_healthchecks):
     ingest_file_via_rest(bootstrap_sample_data)
-    _ensure_user_present(urn="urn:li:corpuser:datahub", sleep_between=10, sleep_times=6)
+    _ensure_user_present(urn="urn:li:corpuser:datahub")
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
@@ -140,7 +140,7 @@ def test_ingestion_via_kafka(wait_for_healthchecks):
     pipeline.run()
     pipeline.raise_from_status()
     _ensure_dataset_present(
-        "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact.us_border_wait_timesß,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,bigquery-public-data.covid19_geotab_mobility_impact.us_border_wait_times,PROD)"
     )
 
     # Since Kafka emission is asynchronous, we must wait a little bit so that
