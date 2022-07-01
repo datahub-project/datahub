@@ -2,7 +2,6 @@ import React from 'react';
 import Cookies from 'js-cookie';
 import { Menu, Dropdown } from 'antd';
 import { CaretDownOutlined } from '@ant-design/icons';
-import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 import { EntityType } from '../../types.generated';
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -14,6 +13,9 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 import { useAppConfig } from '../useAppConfig';
 
 const MenuItem = styled(Menu.Item)`
+    display: flex;
+    justify-content: start;
+    align-items: center;
     && {
         margin-top: 2px;
     }
@@ -30,10 +32,6 @@ const DownArrow = styled(CaretDownOutlined)`
     vertical-align: -1px;
     font-size: 10px;
     color: ${ANTD_GRAY[7]};
-`;
-
-const StyledLink = styled(Link)`
-    white-space: nowrap;
 `;
 
 interface Props {
@@ -57,8 +55,23 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
     };
     const version = config?.appVersion;
     const menu = (
-        <Menu>
-            {version && <MenuItem key="version">{version}</MenuItem>}
+        <Menu style={{ width: '120px' }}>
+            {version && (
+                <MenuItem key="version" disabled style={{ color: '#8C8C8C' }}>
+                    {version}
+                </MenuItem>
+            )}
+            <Menu.Divider />
+            <MenuItem key="profile">
+                <a
+                    href={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${_urn}`}
+                    rel="noopener noreferrer"
+                    tabIndex={0}
+                >
+                    Your Profile
+                </a>
+            </MenuItem>
+            <Menu.Divider />
             {themeConfig.content.menu.items.map((value) => {
                 return (
                     <MenuItem key={value.label}>
@@ -79,21 +92,22 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
             <MenuItem key="openapiLink">
                 <a href="/openapi/swagger-ui/index.html">OpenAPI</a>
             </MenuItem>
+            <Menu.Divider />
             <MenuItem danger key="logout" tabIndex={0}>
                 <a href="/" onClick={handleLogout}>
-                    Logout
+                    Sign Out
                 </a>
             </MenuItem>
         </Menu>
     );
 
     return (
-        <Dropdown overlay={menu}>
-            <StyledLink to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${_urn}`}>
-                <CustomAvatar photoUrl={_pictureLink} style={{ marginRight: 4 }} name={name} />
+        <>
+            <CustomAvatar photoUrl={_pictureLink} style={{ marginRight: 4 }} name={name} />
+            <Dropdown overlay={menu} trigger={['click']}>
                 <DownArrow />
-            </StyledLink>
-        </Dropdown>
+            </Dropdown>
+        </>
     );
 };
 

@@ -18,7 +18,7 @@ DataHub supports Tags, Glossary Terms, & Domains as distinct types of Metadata t
 ## Creating a Domain
 
 To create a Domain, first navigate to the **Domains** tab in the top-right menu of DataHub. Users must have the Platform Privilege
-called `Manage Domains` to view this tab, which can be granted by creating a new Platform [Policy](./policies.md).
+called `Manage Domains` to view this tab, which can be granted by creating a new Platform [Policy](authorization/policies.md).
 
 ![](./imgs/domains-tab.png)
 
@@ -57,7 +57,7 @@ see a 'Domain' section. Click 'Set Domain', and then search for the Domain you'd
 To remove an asset from a Domain, click the 'x' icon on the Domain tag. 
 
 > Notice: Adding or removing an asset from a Domain requires the `Edit Domain` Metadata Privilege, which can be granted
-> by a [Policy](./policies.md).
+> by a [Policy](authorization/policies.md).
 
 
 ## Searching by Domain
