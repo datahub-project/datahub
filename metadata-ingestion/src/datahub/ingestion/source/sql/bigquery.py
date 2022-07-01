@@ -353,7 +353,7 @@ class BigQuerySource(SQLAlchemySource):
                 return None
 
     def get_db_name(self, inspector: Inspector) -> str:
-        return self._get_project_id(inspector)
+        return self.get_multiproject_project_id(inspector)
 
     def _compute_big_query_lineage(self) -> None:
         if not self.config.include_table_lineage:
