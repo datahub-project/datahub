@@ -14,6 +14,7 @@ from tests.utils import (
     get_frontend_url,
     get_gms_url,
     get_kafka_broker_url,
+    get_kafka_schema_registry,
     get_sleep_info,
     ingest_file_via_rest,
 )
@@ -130,6 +131,7 @@ def test_ingestion_via_kafka(wait_for_healthchecks):
                 "config": {
                     "connection": {
                         "bootstrap": get_kafka_broker_url(),
+                        "schema_registry_url": get_kafka_schema_registry(),
                     }
                 },
             },
