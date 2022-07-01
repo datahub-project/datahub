@@ -143,6 +143,7 @@ export const HomePageHeader = () => {
                 variables: {
                     input: {
                         query,
+                        limit: 10,
                     },
                 },
             });
@@ -156,7 +157,7 @@ export const HomePageHeader = () => {
                 types: [],
                 query: '*',
                 start: 0,
-                count: 3,
+                count: 6,
                 filters: [],
             },
         },

@@ -18,6 +18,10 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 import { RunsTab } from './tabs/RunsTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 
+const getDataJobPlatformName = (data: DataJob): string => {
+    return data.dataFlow?.platform.properties?.displayName || data.dataFlow?.platform.name || '';
+};
+
 /**
  * Definition of the DataHub DataJob entity.
  */
@@ -133,13 +137,12 @@ export class DataJobEntity implements Entity<DataJob> {
     };
 
     renderPreview = (_: PreviewType, data: DataJob) => {
-        const platformName = data.dataFlow?.platform.properties?.displayName || data.dataFlow?.platform.name;
         return (
             <Preview
                 urn={data.urn}
                 name={data.properties?.name || ''}
                 description={data.editableProperties?.description || data.properties?.description}
-                platformName={platformName || ''}
+                platformName={getDataJobPlatformName(data)}
                 platformLogo={data?.dataFlow?.platform?.properties?.logoUrl || ''}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags || null}
@@ -150,13 +153,12 @@ export class DataJobEntity implements Entity<DataJob> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as DataJob;
-        const platformName = data.dataFlow?.platform.properties?.displayName || data.dataFlow?.platform.name;
         return (
             <Preview
                 urn={data.urn}
                 name={data.properties?.name || ''}
                 description={data.editableProperties?.description || data.properties?.description}
-                platformName={platformName || ''}
+                platformName={getDataJobPlatformName(data)}
                 platformLogo={data?.dataFlow?.platform?.properties?.logoUrl || ''}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={data.ownership?.owners}
@@ -173,7 +175,7 @@ export class DataJobEntity implements Entity<DataJob> {
             name: entity?.properties?.name || '',
             type: EntityType.DataJob,
             icon: entity?.dataFlow?.platform?.properties?.logoUrl || '',
-            platform: entity.dataFlow?.platform.properties?.displayName || entity.dataFlow?.platform.name || '',
+            platform: getDataJobPlatformName(entity),
         };
     };
 
