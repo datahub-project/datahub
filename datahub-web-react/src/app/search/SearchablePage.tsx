@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
-import { useHistory } from 'react-router';
+import { useHistory, useLocation } from 'react-router';
+import * as QueryString from 'query-string';
 import { useTheme } from 'styled-components';
-
 import { SearchHeader } from './SearchHeader';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { EntityType } from '../../types.generated';
@@ -36,6 +36,10 @@ const defaultProps = {
  * A page that includes a sticky search header (nav bar)
  */
 export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, children }: Props) => {
+    const location = useLocation();
+    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+    const currentQuery: string = decodeURIComponent(params.query ? (params.query as string) : '');
+
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
@@ -89,7 +93,7 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
     return (
         <>
             <SearchHeader
-                initialQuery={initialQuery as string}
+                initialQuery={currentQuery as string}
                 placeholderText={themeConfig.content.search.searchbarMessage}
                 suggestions={
                     (suggestionsData &&

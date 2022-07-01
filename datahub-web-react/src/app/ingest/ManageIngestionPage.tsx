@@ -1,7 +1,6 @@
 import { Tabs, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { SearchablePage } from '../search/SearchablePage';
 import { IngestionSourceList } from './source/IngestionSourceList';
 import { SecretsList } from './secret/SecretsList';
 
@@ -51,7 +50,7 @@ export const ManageIngestionPage = () => {
     };
 
     return (
-        <SearchablePage>
+        <>
             <PageContainer>
                 <PageHeaderContainer>
                     <PageTitle level={3}>Manage Ingestion</PageTitle>
@@ -67,6 +66,6 @@ export const ManageIngestionPage = () => {
                     {selectedTab === TabType.Sources ? <IngestionSourceList /> : <SecretsList />}
                 </ListContainer>
             </PageContainer>
-        </SearchablePage>
+        </>
     );
 };

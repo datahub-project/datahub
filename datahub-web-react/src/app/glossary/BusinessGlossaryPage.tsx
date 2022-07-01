@@ -5,7 +5,6 @@ import styled from 'styled-components/macro';
 
 import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '../../graphql/glossary.generated';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
-import { SearchablePage } from '../search/SearchablePage';
 import GlossaryEntitiesPath from './GlossaryEntitiesPath';
 import GlossaryEntitiesList from './GlossaryEntitiesList';
 import GlossaryBrowser from './GlossaryBrowser/GlossaryBrowser';
@@ -55,7 +54,7 @@ function BusinessGlossaryPage() {
 
     return (
         <>
-            <SearchablePage>
+            <>
                 <GlossaryWrapper>
                     <BrowserWrapper width={browserWidth}>
                         <GlossarySearch />
@@ -87,7 +86,7 @@ function BusinessGlossaryPage() {
                         )}
                     </MainContentWrapper>
                 </GlossaryWrapper>
-            </SearchablePage>
+            </>
             {isCreateTermModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={EntityType.GlossaryTerm}

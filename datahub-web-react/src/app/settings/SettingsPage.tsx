@@ -6,7 +6,6 @@ import styled from 'styled-components';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { ManageIdentities } from '../identity/ManageIdentities';
 import { ManagePolicies } from '../policy/ManagePolicies';
-import { SearchablePage } from '../search/SearchablePage';
 import { useAppConfig } from '../useAppConfig';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { AccessTokens } from './AccessTokens';
@@ -78,7 +77,7 @@ export const SettingsPage = () => {
     const showUsersGroups = (isIdentityManagementEnabled && me && me.platformPrivileges.manageIdentities) || false;
 
     return (
-        <SearchablePage>
+        <>
             <PageContainer>
                 <SettingsBarContainer>
                     <SettingsBarHeader>
@@ -128,6 +127,6 @@ export const SettingsPage = () => {
                     ))}
                 </Switch>
             </PageContainer>
-        </SearchablePage>
+        </>
     );
 };
