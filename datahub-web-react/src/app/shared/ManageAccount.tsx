@@ -14,7 +14,7 @@ import { useAppConfig } from '../useAppConfig';
 
 const MenuItem = styled(Menu.Item)`
     display: flex;
-    justify-content: center;
+    justify-content: start;
     align-items: center;
     && {
         margin-top: 2px;
@@ -55,9 +55,9 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
     };
     const version = config?.appVersion;
     const menu = (
-        <Menu style={{ width: '100px' }}>
+        <Menu style={{ width: '120px' }}>
             {version && (
-                <MenuItem key="version" disabled style={{ color: 'rgba(0, 0, 0, 0.85)' }}>
+                <MenuItem key="version" disabled>
                     {version}
                 </MenuItem>
             )}
@@ -68,7 +68,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
                     rel="noopener noreferrer"
                     tabIndex={0}
                 >
-                    Profile
+                    Your Profile
                 </a>
             </MenuItem>
             <Menu.Divider />
@@ -95,7 +95,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
             <Menu.Divider />
             <MenuItem danger key="logout" tabIndex={0}>
                 <a href="/" onClick={handleLogout}>
-                    Logout
+                    Sign Out
                 </a>
             </MenuItem>
         </Menu>
