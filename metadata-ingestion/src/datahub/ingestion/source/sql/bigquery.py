@@ -340,9 +340,9 @@ class BigQuerySource(SQLAlchemySource):
         atexit.register(cleanup, config)
 
     def get_multiproject_project_id(
-        self, inspector: Optional[Inspector] = None
+        self, inspector: Optional[Inspector] = None, run_on_compute: bool = False
     ) -> Optional[str]:
-        if self.config.storage_project_id:
+        if self.config.storage_project_id and (not run_on_compute):
             return self.config.storage_project_id
         elif self.config.project_id:
             return self.config.project_id
@@ -401,7 +401,7 @@ class BigQuerySource(SQLAlchemySource):
             )
 
     def _compute_bigquery_lineage_via_exported_bigquery_audit_metadata(self) -> None:
-        project_id = self.get_multiproject_project_id()
+        project_id = self.get_multiproject_project_id(run_on_compute=True)
         logger.info("Populating lineage info via exported GCP audit logs")
         try:
             _client: BigQueryClient = BigQueryClient(project=project_id)

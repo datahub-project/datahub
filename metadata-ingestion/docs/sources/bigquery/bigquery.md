@@ -113,6 +113,8 @@ The GCP roles with which this setup has been tested are as follows
    - BigQuery Data Editor
    - BigQuery Job User
 
+If you are using `use_exported_bigquery_audit_metadata = True` and `use_v2_audit_metadata = False` then make sure you prefix the datasets in `bigquery_audit_metadata_datasets` with storage project id.
+
 :::note
 
 Bigquery usage has not been modified and tested with multi-project setting. Only `bigquery` plugin works with multi-project setup currently.

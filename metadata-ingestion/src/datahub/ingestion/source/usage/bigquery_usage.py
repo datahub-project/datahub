@@ -451,7 +451,7 @@ class QueryEvent:
     timestamp: datetime
     actor_email: str
     query: str
-    statementType: str
+    statementType: Optional[str] = None
 
     job_name: Optional[str] = None
     destinationTable: Optional[BigQueryTableRef] = None
@@ -503,7 +503,7 @@ class QueryEvent:
             if "queryOutputRowCount" in job["jobStatistics"]
             and job["jobStatistics"]["queryOutputRowCount"]
             else None,
-            statementType=job_query_conf["statementType"],
+            statementType=job_query_conf.get("statementType"),
         )
         # destinationTable
         raw_dest_table = job_query_conf.get("destinationTable")
@@ -580,7 +580,7 @@ class QueryEvent:
             numAffectedRows=int(query_stats["outputRowCount"])
             if query_stats.get("outputRowCount")
             else None,
-            statementType=query_config["statementType"],
+            statementType=query_config.get("statementType"),
         )
         # jobName
         query_event.job_name = job.get("jobName")
@@ -642,7 +642,7 @@ class QueryEvent:
             numAffectedRows=int(query_stats["outputRowCount"])
             if "outputRowCount" in query_stats and query_stats["outputRowCount"]
             else None,
-            statementType=query_config["statementType"],
+            statementType=query_config.get("statementType"),
         )
         query_event.job_name = job.get("jobName")
         # destinationTable
