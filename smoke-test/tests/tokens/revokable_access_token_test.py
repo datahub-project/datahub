@@ -3,10 +3,9 @@ import pytest
 import requests
 from time import sleep
 
-from tests.utils import ingest_file_via_rest
 from datahub.cli.docker import check_local_docker_containers
 from datahub.cli.ingest_cli import get_session_and_host
-from tests.utils import get_frontend_url, ingest_file_via_rest
+from tests.utils import get_frontend_url
 
 # Disable telemetry
 os.putenv("DATAHUB_TELEMETRY_ENABLED", "false")
@@ -457,7 +456,7 @@ def listUsers(session):
     }
 
     response = session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
+        f"{get_frontend_url()}/api/v2/graphql", json=json
     )
 
     response.raise_for_status()

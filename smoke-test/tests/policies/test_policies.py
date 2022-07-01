@@ -1,7 +1,7 @@
 import time
 import pytest
 import requests
-from tests.utils import FRONTEND_ENDPOINT
+from tests.utils import get_frontend_url
 from datahub.cli.docker import check_local_docker_containers
 
 TEST_POLICY_NAME = "Updated Platform Policy"
@@ -27,7 +27,7 @@ def frontend_session(wait_for_healthchecks):
         "Content-Type": "application/json",
     }
     data = '{"username":"datahub", "password":"datahub"}'
-    response = session.post(f"{FRONTEND_ENDPOINT}/logIn", headers=headers, data=data)
+    response = session.post(f"{get_frontend_url()}/logIn", headers=headers, data=data)
     response.raise_for_status()
 
     yield session
@@ -93,7 +93,7 @@ def test_frontend_policy_operations(frontend_session):
         },
     }
 
-    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
@@ -126,7 +126,7 @@ def test_frontend_policy_operations(frontend_session):
         },
     }
 
-    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=update_json)
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=update_json)
     response.raise_for_status()
     res_data = response.json()
 
@@ -163,7 +163,7 @@ def test_frontend_policy_operations(frontend_session):
         "variables": {"urn": new_urn},
     }
 
-    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
@@ -217,7 +217,7 @@ def listPolicies(session):
             }
         },
     }
-    response = session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
+    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
 
     return response.json()
