@@ -45,7 +45,8 @@ const getSchemaAggregationText = (
             );
         }
         default:
-            throw new Error(`Unsupported schema aggregation assertion ${aggregation} provided.`);
+            console.error(`Unsupported schema aggregation assertion ${aggregation} provided.`);
+            return <Typography.Text>Dataset columns are</Typography.Text>;
     }
 };
 
@@ -62,7 +63,8 @@ const getRowsAggregationText = (aggregation: AssertionStdAggregation | undefined
         case AssertionStdAggregation.Native:
             return <Typography.Text>Dataset rows are</Typography.Text>;
         default:
-            throw new Error(`Unsupported Dataset Rows Aggregation ${aggregation} provided`);
+            console.error(`Unsupported Dataset Rows Aggregation ${aggregation} provided`);
+            return <Typography.Text>Dataset rows are</Typography.Text>;
     }
 };
 
@@ -179,7 +181,8 @@ const getAggregationText = (
         case DatasetAssertionScope.DatasetColumn:
             return getColumnAggregationText(aggregation, fields?.length === 1 ? fields[0] : undefined);
         default:
-            throw new Error(`Unsupported Dataset Assertion scope ${scope} provided`);
+            console.error(`Unsupported Dataset Assertion scope ${scope} provided`);
+            return 'Dataset is';
     }
 };
 
