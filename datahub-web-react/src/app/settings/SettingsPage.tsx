@@ -17,7 +17,7 @@ const PageContainer = styled.div`
 
 const SettingsBarContainer = styled.div`
     padding-top: 20px;
-    height: 100vh;
+    min-height: 100vh;
     border-right: 1px solid ${ANTD_GRAY[5]};
 `;
 
