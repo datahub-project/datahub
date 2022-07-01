@@ -661,7 +661,7 @@ class BigQuerySource(SQLAlchemySource):
     def is_table_partitioned(
         self, database: Optional[str], schema: str, table: str
     ) -> bool:
-        project_id: str
+        project_id: Optional[str]
         if database:
             project_id = database
         else:
