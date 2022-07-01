@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Any
+from typing import Any, Tuple
 
 import requests
 from datahub.cli import cli_utils
@@ -19,11 +19,12 @@ def get_kafka_broker_url():
     return os.getenv("DATAHUB_KAFKA_URL") or "localhost:9092"
 
 
-def get_sleep_info():
+def get_sleep_info() -> Tuple[int, int]:
     return (
-        os.environ.get("DATAHUB_TEST_SLEEP_BETWEEN") or 60,
-        os.environ.get("DATAHUB_TEST_SLEEP_TIMES") or 5,
+        int(os.getenv("DATAHUB_TEST_SLEEP_BETWEEN", 60)),
+        int(os.getenv("DATAHUB_TEST_SLEEP_TIMES", 5)),
     )
+
 
 def check_k8s_endpoint(url):
     try:
@@ -31,9 +32,10 @@ def check_k8s_endpoint(url):
         if get.status_code == 200:
             return
         else:
-            return(f"{url}: is Not reachable, status_code: {get.status_code}")
+            return f"{url}: is Not reachable, status_code: {get.status_code}"
     except requests.exceptions.RequestException as e:
         raise SystemExit(f"{url}: is Not reachable \nErr: {e}")
+
 
 def ingest_file_via_rest(filename: str) -> Any:
     pipeline = Pipeline.create(
