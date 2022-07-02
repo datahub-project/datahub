@@ -1,9 +1,8 @@
 import pytest
 import time
-from tests.utils import FRONTEND_ENDPOINT
-from tests.utils import GMS_ENDPOINT
-from tests.utils import ingest_file_via_rest
-from tests.utils import delete_urns_from_file
+
+from tests.utils import delete_urns_from_file, get_frontend_url, get_gms_url, ingest_file_via_rest
+
 
 @pytest.fixture(scope="module", autouse=False)
 def ingest_cleanup_data(request):
@@ -64,7 +63,7 @@ def test_list_dataset_incidents(frontend_session, ingest_cleanup_data):
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=list_dataset_incidents_json
+        f"{get_frontend_url()}/api/v2/graphql", json=list_dataset_incidents_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -119,7 +118,7 @@ def test_raise_resolve_incident(frontend_session, ingest_cleanup_data):
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=raise_incident_json
+        f"{get_frontend_url()}/api/v2/graphql", json=raise_incident_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -146,7 +145,7 @@ def test_raise_resolve_incident(frontend_session, ingest_cleanup_data):
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=update_incident_status
+        f"{get_frontend_url()}/api/v2/graphql", json=update_incident_status
     )
     response.raise_for_status()
     res_data = response.json()
@@ -197,7 +196,7 @@ def test_raise_resolve_incident(frontend_session, ingest_cleanup_data):
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=list_dataset_incidents_json
+        f"{get_frontend_url()}/api/v2/graphql", json=list_dataset_incidents_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -222,7 +221,7 @@ def test_raise_resolve_incident(frontend_session, ingest_cleanup_data):
 
     # Cleanup: Delete the incident
     response = frontend_session.post(
-        f"{GMS_ENDPOINT}/entities?action=delete", json=delete_json
+        f"{get_gms_url()}/entities?action=delete", json=delete_json
     )
 
     response.raise_for_status()
