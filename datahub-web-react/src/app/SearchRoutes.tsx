@@ -12,7 +12,6 @@ import { ManageDomainsPage } from './domain/ManageDomainsPage';
 import { ManageIngestionPage } from './ingest/ManageIngestionPage';
 import BusinessGlossaryPage from './glossary/BusinessGlossaryPage';
 import { SettingsPage } from './settings/SettingsPage';
-import { ActionRequestsPage } from './actionrequest/ActionRequestsPage';
 
 /**
  * Container for all searchable page routes
@@ -38,7 +37,6 @@ export const SearchRoutes = (): JSX.Element => {
                 <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
                 <Route path={PageRoutes.SETTINGS} render={() => <SettingsPage />} />
                 <Route path={PageRoutes.GLOSSARY} render={() => <BusinessGlossaryPage />} />
-                <Route path={PageRoutes.ACTION_REQUESTS} render={() => <ActionRequestsPage />} />
                 <Route component={NoPageFound} />
             </Switch>
         </SearchablePage>
