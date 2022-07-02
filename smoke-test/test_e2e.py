@@ -48,7 +48,7 @@ def frontend_session(wait_for_healthchecks):
         "Content-Type": "application/json",
     }
     data = '{"username":"admin", "password":"mypass"}'
-    response = session.post(f"{get_frontend_url(}/logIn", headers=headers, data=data)
+    response = session.post(f"{get_frontend_url()}/logIn", headers=headers, data=data)
     response.raise_for_status()
 
     yield session
