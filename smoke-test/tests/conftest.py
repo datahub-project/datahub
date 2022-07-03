@@ -26,7 +26,7 @@ def frontend_session(wait_for_healthchecks):
     }
     data = '{"username":"admin", "password":"mypass"}'
     response = session.post(
-        f"{FRONTEND_ENDPOINT}/logIn", headers=headers, data=data
+        f"{get_frontend_url()}/logIn", headers=headers, data=data
     )
     response.raise_for_status()
 
