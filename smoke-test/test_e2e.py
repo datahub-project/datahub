@@ -1561,7 +1561,7 @@ def test_native_user_endpoints(frontend_session):
     }
 
     root_login_data = '{"username":"admin", "password":"mypass"}'
-    frontend_session.post(f"{get_frontend_url(}/logIn", headers=headers, data=root_login_data)
+    frontend_session.post(f"{get_frontend_url()}/logIn", headers=headers, data=root_login_data)
 
     # Test creating the password reset token
     create_reset_token_json = {
