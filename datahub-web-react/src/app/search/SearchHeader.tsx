@@ -11,6 +11,7 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 import { HeaderLinks } from '../shared/admin/HeaderLinks';
 import { useAppConfig } from '../useAppConfig';
 import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
+import { CIPBetaText } from '../shared/CIPShared';
 
 const { Header } = Layout;
 
@@ -43,6 +44,8 @@ const LogoSearchContainer = styled.div`
 const NavGroup = styled.div`
     display: flex;
     align-items: center;
+    flex-flow: row wrap;
+    align-contenxt: space-between;
     justify-content: flex-end;
     min-width: 200px;
 `;
@@ -77,10 +80,10 @@ export const SearchHeader = ({
 }: Props) => {
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
     const themeConfig = useTheme();
-    const appConfig = useAppConfig();
 
     return (
         <Header style={styles.header as any}>
+            <CIPBetaText>BETA</CIPBetaText>
             <LogoSearchContainer>
                 <Link to="/data-catalogue">
                     <LogoImage src={themeConfig.assets.logoUrl} preview={false} />
