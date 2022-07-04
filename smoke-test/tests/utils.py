@@ -19,7 +19,7 @@ def get_kafka_broker_url():
     return os.getenv("DATAHUB_KAFKA_URL") or "localhost:9092"
 
 def get_kafka_schema_registry():
-    return os.getenv("DATAHUB_KAFKA_SCHEMA_REGISTRY") or "localhost:8081"
+    return os.getenv("DATAHUB_KAFKA_SCHEMA_REGISTRY_URL") or "http://localhost:8081"
 
 def get_mysql_url():
     return os.getenv("DATAHUB_MYSQL_URL") or "localhost:3306"
