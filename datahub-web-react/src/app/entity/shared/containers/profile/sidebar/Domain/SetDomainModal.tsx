@@ -1,36 +1,20 @@
-import { Button, Form, message, Modal, Select, Tag } from 'antd';
 import React, { useRef, useState } from 'react';
+import { Button, Form, message, Modal, Select, Tag } from 'antd';
 import styled from 'styled-components';
-import { Link } from 'react-router-dom';
+
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
-import { EntityType, SearchResult } from '../../../../../../../types.generated';
+import { Entity, EntityType } from '../../../../../../../types.generated';
 import { useSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { useEntityData } from '../../../../EntityContext';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
+import { useGetRecommendations } from '../../../../../../shared/recommendation';
+import { DomainLabel } from '../../../../../../shared/DomainLabel';
 
 type Props = {
-    visible: boolean;
-    onClose: () => void;
+    onCloseModal: () => void;
     refetch?: () => Promise<any>;
 };
-
-const SearchResultContainer = styled.div`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px;
-`;
-
-const SearchResultContent = styled.div`
-    display: flex;
-    justify-content: start;
-    align-items: center;
-`;
-
-const SearchResultDisplayName = styled.div`
-    margin-left: 12px;
-`;
 
 type SelectedDomain = {
     displayName: string;
@@ -38,15 +22,82 @@ type SelectedDomain = {
     urn: string;
 };
 
-export const SetDomainModal = ({ visible, onClose, refetch }: Props) => {
+const StyleTag = styled(Tag)`
+    padding: 0px 7px;
+    margin-right: 3px;
+    display: flex;
+    justify-content: start;
+    align-items: center;
+`;
+
+export const SetDomainModal = ({ onCloseModal, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
     const { urn } = useEntityData();
+    const [inputValue, setInputValue] = useState('');
     const [selectedDomain, setSelectedDomain] = useState<SelectedDomain | undefined>(undefined);
     const [domainSearch, { data: domainSearchData }] = useGetSearchResultsLazyQuery();
-    const domainSearchResults = domainSearchData?.search?.searchResults || [];
+    const domainSearchResults =
+        domainSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
     const [setDomainMutation] = useSetDomainMutation();
-
+    const [recommendedData] = useGetRecommendations([EntityType.Domain]);
     const inputEl = useRef(null);
+
+    const onModalClose = () => {
+        setInputValue('');
+        setSelectedDomain(undefined);
+        onCloseModal();
+    };
+
+    const handleSearch = (text: string) => {
+        if (text.length > 2) {
+            domainSearch({
+                variables: {
+                    input: {
+                        type: EntityType.Domain,
+                        query: text,
+                        start: 0,
+                        count: 5,
+                    },
+                },
+            });
+        }
+    };
+
+    // Renders a search result in the select dropdown.
+    const renderSearchResult = (entity: Entity) => {
+        const displayName = entityRegistry.getDisplayName(entity.type, entity);
+        return (
+            <Select.Option value={entity.urn} key={entity.urn}>
+                <DomainLabel name={displayName} />
+            </Select.Option>
+        );
+    };
+
+    const domainResult = !inputValue || inputValue.length === 0 ? recommendedData : domainSearchResults;
+
+    const domainSearchOptions = domainResult?.map((result) => {
+        return renderSearchResult(result);
+    });
+
+    const onSelectDomain = (newUrn: string) => {
+        if (inputEl && inputEl.current) {
+            (inputEl.current as any).blur();
+        }
+        const filteredDomains = domainResult?.filter((entity) => entity.urn === newUrn).map((entity) => entity) || [];
+        if (filteredDomains.length) {
+            const domain = filteredDomains[0];
+            setSelectedDomain({
+                displayName: entityRegistry.getDisplayName(EntityType.Domain, domain),
+                type: EntityType.Domain,
+                urn: newUrn,
+            });
+        }
+    };
+
+    const onDeselectDomain = () => {
+        setInputValue('');
+        setSelectedDomain(undefined);
+    };
 
     const onOk = async () => {
         if (!selectedDomain) {
@@ -68,75 +119,42 @@ export const SetDomainModal = ({ visible, onClose, refetch }: Props) => {
         }
         setSelectedDomain(undefined);
         refetch?.();
-        onClose();
+        onModalClose();
     };
 
-    const onSelectDomain = (newUrn: string) => {
-        if (inputEl && inputEl.current) {
-            (inputEl.current as any).blur();
-        }
-        const filteredDomains =
-            domainSearchResults?.filter((result) => result.entity.urn === newUrn).map((result) => result.entity) || [];
-        if (filteredDomains.length) {
-            const domain = filteredDomains[0];
-            setSelectedDomain({
-                displayName: entityRegistry.getDisplayName(EntityType.Domain, domain),
-                type: EntityType.Domain,
-                urn: newUrn,
-            });
-        }
-    };
-
-    const handleSearch = (text: string) => {
-        if (text.length > 2) {
-            domainSearch({
-                variables: {
-                    input: {
-                        type: EntityType.Domain,
-                        query: text,
-                        start: 0,
-                        count: 5,
-                    },
-                },
-            });
-        }
-    };
+    const selectValue = (selectedDomain && [selectedDomain?.displayName]) || undefined;
 
     // Handle the Enter press
     useEnterKeyListener({
         querySelectorToExecuteClick: '#setDomainButton',
     });
 
-    const renderSearchResult = (result: SearchResult) => {
-        const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
+    const tagRender = (props) => {
+        // eslint-disable-next-line react/prop-types
+        const { label, closable, onClose } = props;
+        const onPreventMouseDown = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+        };
         return (
-            <SearchResultContainer>
-                <SearchResultContent>
-                    <SearchResultDisplayName>
-                        <div>{displayName}</div>
-                    </SearchResultDisplayName>
-                </SearchResultContent>
-                <Link
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    to={() => `/${entityRegistry.getPathName(result.entity.type)}/${result.entity.urn}`}
-                >
-                    View
-                </Link>{' '}
-            </SearchResultContainer>
+            <StyleTag onMouseDown={onPreventMouseDown} closable={closable} onClose={onClose}>
+                {label}
+            </StyleTag>
         );
     };
 
-    const selectValue = (selectedDomain && [selectedDomain?.displayName]) || [];
+    function handleBlur() {
+        setInputValue('');
+    }
 
     return (
         <Modal
             title="Set Domain"
-            visible={visible}
-            onCancel={onClose}
+            visible
+            onCancel={onModalClose}
             footer={
                 <>
-                    <Button onClick={onClose} type="text">
+                    <Button onClick={onModalClose} type="text">
                         Cancel
                     </Button>
                     <Button id="setDomainButton" disabled={selectedDomain === undefined} onClick={onOk}>
@@ -149,21 +167,26 @@ export const SetDomainModal = ({ visible, onClose, refetch }: Props) => {
                 <Form.Item>
                     <Select
                         autoFocus
-                        value={selectValue}
+                        defaultOpen
+                        filterOption={false}
+                        showSearch
                         mode="multiple"
-                        ref={inputEl}
+                        defaultActiveFirstOption={false}
                         placeholder="Search for Domains..."
                         onSelect={(domainUrn: any) => onSelectDomain(domainUrn)}
-                        onDeselect={() => setSelectedDomain(undefined)}
-                        onSearch={handleSearch}
-                        filterOption={false}
-                        tagRender={(tagProps) => <Tag>{tagProps.value}</Tag>}
+                        onDeselect={onDeselectDomain}
+                        onSearch={(value: string) => {
+                            // eslint-disable-next-line react/prop-types
+                            handleSearch(value.trim());
+                            // eslint-disable-next-line react/prop-types
+                            setInputValue(value.trim());
+                        }}
+                        ref={inputEl}
+                        value={selectValue}
+                        tagRender={tagRender}
+                        onBlur={handleBlur}
                     >
-                        {domainSearchResults.map((result) => {
-                            return (
-                                <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
-                            );
-                        })}
+                        {domainSearchOptions}
                     </Select>
                 </Form.Item>
             </Form>

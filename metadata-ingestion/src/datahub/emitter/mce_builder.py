@@ -368,7 +368,9 @@ def make_global_tag_aspect_with_tag_list(tags: List[str]) -> GlobalTagsClass:
 
 
 def make_ownership_aspect_from_urn_list(
-    owner_urns: List[str], source_type: Optional[Union[str, OwnershipSourceTypeClass]]
+    owner_urns: List[str],
+    source_type: Optional[Union[str, OwnershipSourceTypeClass]],
+    owner_type: Union[str, OwnershipTypeClass] = OwnershipTypeClass.DATAOWNER,
 ) -> OwnershipClass:
     for owner_urn in owner_urns:
         assert owner_urn.startswith("urn:li:corpuser:") or owner_urn.startswith(
@@ -381,7 +383,7 @@ def make_ownership_aspect_from_urn_list(
     owners_list = [
         OwnerClass(
             owner=owner_urn,
-            type=OwnershipTypeClass.DATAOWNER,
+            type=owner_type,
             source=ownership_source_type,
         )
         for owner_urn in owner_urns

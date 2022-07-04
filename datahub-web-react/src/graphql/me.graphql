@@ -42,6 +42,9 @@ query getMe {
             manageTests
             manageGlossaries
             manageUserCredentials
+            manageTags
+            createDomains
+            createTags
             manageGlobalSettings
         }
     }

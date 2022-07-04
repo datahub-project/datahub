@@ -15,16 +15,15 @@ import { Redirect, useHistory } from 'react-router';
 import { EntityType, PlatformPrivileges } from '../../../../types.generated';
 import CreateGlossaryEntityModal from './CreateGlossaryEntityModal';
 import { AddDeprecationDetailsModal } from './AddDeprecationDetailsModal';
-import { useEntityData, useRefetch } from '../EntityContext';
 import { useUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
 import MoveGlossaryEntityModal from './MoveGlossaryEntityModal';
-import useDeleteGlossaryEntity from './useDeleteGlossaryEntity';
-import { PageRoutes } from '../../../../conf/Global';
 import { ANTD_GRAY } from '../constants';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useGetAuthenticatedUser } from '../../../useGetAuthenticatedUser';
 import { AddIncidentModal } from '../tabs/Incident/components/AddIncidentModal';
 import { getEntityPath } from '../containers/profile/utils';
+import useDeleteEntity from './useDeleteEntity';
+import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
 
 export enum EntityMenuItems {
     COPY_URL,
@@ -37,11 +36,11 @@ export enum EntityMenuItems {
     RAISE_INCIDENT,
 }
 
-const MenuIcon = styled(MoreOutlined)`
+const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 25px;
+    font-size: ${(props) => props.fontSize || '24'}px;
     height: 32px;
     margin-left: 5px;
 `;
@@ -64,24 +63,40 @@ const StyledMenuItem = styled(Menu.Item)<{ disabled: boolean }>`
 `;
 
 interface Props {
+    urn: string;
+    entityType: EntityType;
+    entityData?: any;
     menuItems: Set<EntityMenuItems>;
     platformPrivileges?: PlatformPrivileges;
+    size?: number;
+    refetchForEntity?: () => void;
     refetchForTerms?: () => void;
     refetchForNodes?: () => void;
     refreshBrowser?: () => void;
+    onDeleteEntity?: () => void;
 }
 
 function EntityDropdown(props: Props) {
     const history = useHistory();
 
-    const { menuItems, platformPrivileges, refetchForTerms, refetchForNodes, refreshBrowser } = props;
+    const {
+        urn,
+        entityData,
+        entityType,
+        menuItems,
+        platformPrivileges,
+        refetchForEntity,
+        refetchForTerms,
+        refetchForNodes,
+        refreshBrowser,
+        onDeleteEntity: onDelete,
+        size,
+    } = props;
 
     const entityRegistry = useEntityRegistry();
-    const { urn, entityData, entityType } = useEntityData();
-    const refetch = useRefetch();
     const me = useGetAuthenticatedUser(!!platformPrivileges);
     const [updateDeprecation] = useUpdateDeprecationMutation();
-    const { onDeleteEntity, hasBeenDeleted } = useDeleteGlossaryEntity();
+    const { onDeleteEntity, hasBeenDeleted } = useDeleteEntity(urn, entityType, entityData, onDelete);
 
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
@@ -111,7 +126,7 @@ function EntityDropdown(props: Props) {
                 message.error({ content: `Failed to update Deprecation: \n ${e.message || ''}`, duration: 2 });
             }
         }
-        refetch?.();
+        refetchForEntity?.();
     };
 
     const canManageGlossaries = platformPrivileges
@@ -119,6 +134,11 @@ function EntityDropdown(props: Props) {
         : me?.platformPrivileges.manageGlossaries;
     const pageUrl = window.location.href;
     const isDeleteDisabled = !!entityData?.children?.count;
+
+    /**
+     * A default path to redirect to if the entity is deleted.
+     */
+    const deleteRedirectPath = getEntityProfileDeleteRedirectPath(entityType);
 
     return (
         <>
@@ -197,7 +217,7 @@ function EntityDropdown(props: Props) {
                 }
                 trigger={['click']}
             >
-                <MenuIcon />
+                <MenuIcon fontSize={size} />
             </Dropdown>
             {isCreateTermModalVisible && (
                 <CreateGlossaryEntityModal
@@ -218,13 +238,13 @@ function EntityDropdown(props: Props) {
                     visible={isDeprecationModalVisible}
                     urn={urn}
                     onClose={() => setIsDeprecationModalVisible(false)}
-                    refetch={refetch}
+                    refetch={refetchForEntity}
                 />
             )}
             {isMoveModalVisible && (
                 <MoveGlossaryEntityModal onClose={() => setIsMoveModalVisible(false)} refetchData={refreshBrowser} />
             )}
-            {hasBeenDeleted && <Redirect to={`${PageRoutes.GLOSSARY}`} />}
+            {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
             {/* acryl-main only */}
             {isRaiseIncidentModalVisible && (
                 <AddIncidentModal
@@ -232,7 +252,7 @@ function EntityDropdown(props: Props) {
                     onClose={() => setIsRaiseIncidentModalVisible(false)}
                     refetch={
                         (() => {
-                            refetch();
+                            refetchForEntity?.();
                             history.push(`${getEntityPath(entityType, urn, entityRegistry, false, 'Incidents')}`);
                         }) as any
                     }

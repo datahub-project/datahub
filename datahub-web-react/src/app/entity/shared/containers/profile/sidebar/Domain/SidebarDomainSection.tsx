@@ -73,13 +73,14 @@ export const SidebarDomainSection = () => {
                     </>
                 )}
             </div>
-            <SetDomainModal
-                visible={showModal}
-                refetch={refetch}
-                onClose={() => {
-                    setShowModal(false);
-                }}
-            />
+            {showModal && (
+                <SetDomainModal
+                    refetch={refetch}
+                    onCloseModal={() => {
+                        setShowModal(false);
+                    }}
+                />
+            )}
         </div>
     );
 };

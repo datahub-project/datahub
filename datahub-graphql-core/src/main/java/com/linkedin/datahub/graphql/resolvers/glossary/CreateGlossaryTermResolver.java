@@ -11,6 +11,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.GlossaryTermKey;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
@@ -43,6 +44,10 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
 
           final String id = input.getId() != null ? input.getId() : UUID.randomUUID().toString();
           key.setName(id);
+
+          if (_entityClient.exists(EntityKeyUtils.convertEntityKeyToUrn(key, Constants.GLOSSARY_TERM_ENTITY_NAME), context.getAuthentication())) {
+            throw new IllegalArgumentException("This Glossary Term already exists!");
+          }
 
           final MetadataChangeProposal proposal = new MetadataChangeProposal();
           proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));

@@ -1,10 +1,9 @@
-import pytest
-import time
-import requests
-from tests.utils import FRONTEND_ENDPOINT
 from time import sleep
-from tests.utils import ingest_file_via_rest
-from datahub.cli.ingest_cli import get_session_and_host
+
+import pytest
+import requests
+from tests.utils import get_frontend_url, ingest_file_via_rest
+
 
 @pytest.fixture(autouse=True)
 def test_setup():
@@ -28,7 +27,8 @@ def test_setup():
     # Clean up
     res_data = listAccessTokens(admin_session)
     for metadata in res_data["data"]["listAccessTokens"]["tokens"]:
-      revokeAccessToken(admin_session, metadata["id"])
+        revokeAccessToken(admin_session, metadata["id"])
+
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_admin_can_create_list_and_revoke_tokens():
@@ -47,7 +47,10 @@ def test_admin_can_create_list_and_revoke_tokens():
     assert res_data["data"]
     assert res_data["data"]["createAccessToken"]
     assert res_data["data"]["createAccessToken"]["accessToken"]
-    assert res_data["data"]["createAccessToken"]["metadata"]["actorUrn"] == "urn:li:corpuser:datahub"
+    assert (
+        res_data["data"]["createAccessToken"]["metadata"]["actorUrn"]
+        == "urn:li:corpuser:datahub"
+    )
     admin_tokenId = res_data["data"]["createAccessToken"]["metadata"]["id"]
 
     # Using a super account, list the previously created token.
@@ -56,8 +59,14 @@ def test_admin_can_create_list_and_revoke_tokens():
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] is not None
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 1
-    assert res_data["data"]["listAccessTokens"]["tokens"][1]["actorUrn"] == "urn:li:corpuser:datahub"
-    assert res_data["data"]["listAccessTokens"]["tokens"][1]["ownerUrn"] == "urn:li:corpuser:datahub"
+    assert (
+        res_data["data"]["listAccessTokens"]["tokens"][1]["actorUrn"]
+        == "urn:li:corpuser:datahub"
+    )
+    assert (
+        res_data["data"]["listAccessTokens"]["tokens"][1]["ownerUrn"]
+        == "urn:li:corpuser:datahub"
+    )
 
     # Check that the super account can revoke tokens that it created
     res_data = revokeAccessToken(admin_session, admin_tokenId)
@@ -72,6 +81,7 @@ def test_admin_can_create_list_and_revoke_tokens():
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] is not None
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
+
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_admin_can_create_and_revoke_tokens_for_other_user():
@@ -90,7 +100,10 @@ def test_admin_can_create_and_revoke_tokens_for_other_user():
     assert res_data["data"]
     assert res_data["data"]["createAccessToken"]
     assert res_data["data"]["createAccessToken"]["accessToken"]
-    assert res_data["data"]["createAccessToken"]["metadata"]["actorUrn"] == "urn:li:corpuser:user"
+    assert (
+        res_data["data"]["createAccessToken"]["metadata"]["actorUrn"]
+        == "urn:li:corpuser:user"
+    )
     user_tokenId = res_data["data"]["createAccessToken"]["metadata"]["id"]
 
     # Using a super account, list the previously created tokens.
@@ -99,8 +112,14 @@ def test_admin_can_create_and_revoke_tokens_for_other_user():
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] is not None
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 1
-    assert res_data["data"]["listAccessTokens"]["tokens"][0]["actorUrn"] == "urn:li:corpuser:user"
-    assert res_data["data"]["listAccessTokens"]["tokens"][0]["ownerUrn"] == "urn:li:corpuser:datahub"
+    assert (
+        res_data["data"]["listAccessTokens"]["tokens"][0]["actorUrn"]
+        == "urn:li:corpuser:user"
+    )
+    assert (
+        res_data["data"]["listAccessTokens"]["tokens"][0]["ownerUrn"]
+        == "urn:li:corpuser:datahub"
+    )
 
     # Check that the super account can revoke tokens that it created for another user
     res_data = revokeAccessToken(admin_session, user_tokenId)
@@ -115,6 +134,8 @@ def test_admin_can_create_and_revoke_tokens_for_other_user():
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] is not None
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
+
+
 """
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_non_admin_can_create_list_revoke_tokens():
@@ -215,8 +236,10 @@ def test_non_admin_can_not_generate_tokens_for_others():
     assert res_data["errors"]
     assert res_data["errors"][0]["message"] == "Unauthorized to perform this action. Please contact your DataHub administrator."
 """
+
+
 def generateAccessToken_v1(session, actorUrn):
- # Create new token
+    # Create new token
     json = {
         "query": """query getAccessToken($input: GetAccessTokenInput!) {\n
             getAccessToken(input: $input) {\n
@@ -224,22 +247,17 @@ def generateAccessToken_v1(session, actorUrn):
             }\n
         }""",
         "variables": {
-          "input": {
-              "type": "PERSONAL",
-              "actorUrn": actorUrn,
-              "duration": "ONE_HOUR"
-          }
-        }
+            "input": {"type": "PERSONAL", "actorUrn": actorUrn, "duration": "ONE_HOUR"}
+        },
     }
 
-    response = session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
     return response.json()
 
+
 def generateAccessToken_v2(session, actorUrn):
- # Create new token
+    # Create new token
     json = {
         "query": """mutation createAccessToken($input: CreateAccessTokenInput!) {\n
             createAccessToken(input: $input) {\n
@@ -254,32 +272,31 @@ def generateAccessToken_v2(session, actorUrn):
             }\n
         }""",
         "variables": {
-          "input": {
-              "type": "PERSONAL",
-              "actorUrn": actorUrn,
-              "duration": "ONE_HOUR",
-              "name": "my token"
-          }
-        }
+            "input": {
+                "type": "PERSONAL",
+                "actorUrn": actorUrn,
+                "duration": "ONE_HOUR",
+                "name": "my token",
+            }
+        },
     }
 
-    response = session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
 
     sleep(5)
     return response.json()
 
+
 def listAccessTokens(session, filters=[]):
     # Get count of existing tokens
     input = {
-      "start": "0",
-      "count": "20",
+        "start": "0",
+        "count": "20",
     }
 
     if filters:
-      input['filters'] = filters
+        input["filters"] = filters
 
     json = {
         "query": """query listAccessTokens($input: ListAccessTokenInput!) {\n
@@ -295,16 +312,13 @@ def listAccessTokens(session, filters=[]):
               }\n
             }\n
         }""",
-        "variables": {
-          "input": input
-        }
+        "variables": {"input": input},
     }
 
-    response = session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
     return response.json()
+
 
 def revokeAccessToken(session, tokenId):
     # Revoke token
@@ -312,17 +326,14 @@ def revokeAccessToken(session, tokenId):
         "query": """mutation revokeAccessToken($tokenId: String!) {\n
             revokeAccessToken(tokenId: $tokenId)
         }""",
-        "variables": {
-          "tokenId": tokenId
-        }
+        "variables": {"tokenId": tokenId},
     }
 
-    response = session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json
-    )
+    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     sleep(5)
     response.raise_for_status()
     return response.json()
+
 
 def loginAs(username, password):
     session = requests.Session()
@@ -330,10 +341,8 @@ def loginAs(username, password):
     headers = {
         "Content-Type": "application/json",
     }
-    data = '{"username":"' + username +'", "password":"' + password + '"}'
-    response = session.post(
-        f"{FRONTEND_ENDPOINT}/logIn", headers=headers, data=data
-    )
+    data = '{"username":"' + username + '", "password":"' + password + '"}'
+    response = session.post(f"{get_frontend_url()}/logIn", headers=headers, data=data)
     response.raise_for_status()
 
     return session

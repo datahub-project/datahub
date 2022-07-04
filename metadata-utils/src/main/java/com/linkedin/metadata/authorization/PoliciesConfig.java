@@ -88,6 +88,21 @@ public class PoliciesConfig {
       Privilege.of("MANAGE_USER_CREDENTIALS", "Manage User Credentials",
           "Manage credentials for native DataHub users, including inviting new users and resetting passwords");
 
+  public static final Privilege MANAGE_TAGS_PRIVILEGE = Privilege.of(
+      "MANAGE_TAGS",
+      "Manage Tags",
+      "Create and remove Tags.");
+
+  public static final Privilege CREATE_TAGS_PRIVILEGE = Privilege.of(
+      "CREATE_TAGS",
+      "Create Tags",
+      "Create new Tags.");
+
+  public static final Privilege CREATE_DOMAINS_PRIVILEGE = Privilege.of(
+      "CREATE_DOMAINS",
+      "Create Domains",
+      "Create new Domains.");
+
   public static final Privilege MANAGE_GLOBAL_SETTINGS = Privilege.of(
       "MANAGE_GLOBAL_SETTINGS",
       "Manage Platform Settings",
@@ -107,6 +122,9 @@ public class PoliciesConfig {
       MANAGE_TESTS_PRIVILEGE,
       MANAGE_GLOSSARIES_PRIVILEGE,
       MANAGE_USER_CREDENTIALS_PRIVILEGE,
+      MANAGE_TAGS_PRIVILEGE,
+      CREATE_TAGS_PRIVILEGE,
+      CREATE_DOMAINS_PRIVILEGE,
       MANAGE_GLOBAL_SETTINGS
   );
 
@@ -196,6 +214,11 @@ public class PoliciesConfig {
       "EDIT_ENTITY",
       "Edit All",
       "The ability to edit any information about an entity. Super user privileges.");
+
+  public static final Privilege DELETE_ENTITY_PRIVILEGE = Privilege.of(
+      "DELETE_ENTITY",
+      "Delete",
+      "The ability to delete the delete this entity.");
 
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES = ImmutableList.of(
       VIEW_ENTITY_PAGE_PRIVILEGE,
@@ -357,7 +380,7 @@ public class PoliciesConfig {
       "Tags",
       "Tags indexed by DataHub",
       ImmutableList.of(VIEW_ENTITY_PAGE_PRIVILEGE, EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_TAG_COLOR_PRIVILEGE,
-          EDIT_ENTITY_DOCS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
+          EDIT_ENTITY_DOCS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE, DELETE_ENTITY_PRIVILEGE)
   );
 
   // Container Privileges
@@ -374,7 +397,7 @@ public class PoliciesConfig {
       "Domains",
       "Domains created on DataHub",
       ImmutableList.of(VIEW_ENTITY_PAGE_PRIVILEGE, EDIT_ENTITY_OWNERS_PRIVILEGE, EDIT_ENTITY_DOCS_PRIVILEGE,
-          EDIT_ENTITY_DOC_LINKS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE)
+          EDIT_ENTITY_DOC_LINKS_PRIVILEGE, EDIT_ENTITY_PRIVILEGE, DELETE_ENTITY_PRIVILEGE)
   );
 
   // Glossary Term Privileges

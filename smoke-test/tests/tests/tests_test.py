@@ -1,8 +1,7 @@
 import pytest
-import time
-from tests.utils import FRONTEND_ENDPOINT
-from tests.utils import ingest_file_via_rest
-from tests.utils import delete_urns_from_file
+
+from tests.utils import delete_urns_from_file, get_frontend_url, ingest_file_via_rest
+
 
 @pytest.fixture(scope="module", autouse=True)
 def ingest_cleanup_data(request):
@@ -12,10 +11,12 @@ def ingest_cleanup_data(request):
     print("removing test data")
     delete_urns_from_file("tests/tests/data.json")
 
+
 @pytest.mark.dependency()
 def test_healthchecks(wait_for_healthchecks):
     # Call to wait_for_healthchecks fixture will do the actual functionality.
     pass
+
 
 test_id = "test id"
 test_name = "test name"
@@ -24,6 +25,7 @@ test_description = "test description"
 test_definition_json = "{\"on\":{\"types\":[\"dataset\"]},\"rules\":{\"or\":[{" \
                        "\"query\":\"editableDatasetProperties.description\",\"operation\":\"exists\"}," \
                        "{\"query\":\"datasetProperties.description\",\"operation\":\"exists\"}]}} "
+
 
 def create_test(frontend_session):
 
@@ -46,7 +48,7 @@ def create_test(frontend_session):
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=create_test_json
+        f"{get_frontend_url()}/api/v2/graphql", json=create_test_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -58,23 +60,23 @@ def create_test(frontend_session):
 
     return res_data["data"]["createTest"]
 
+
 def delete_test(frontend_session, test_urn):
     delete_test_json = {
         "query": """mutation deleteTest($urn: String!) {\n
             deleteTest(urn: $urn)
         }""",
-        "variables": {
-          "urn": test_urn
-        }
+        "variables": {"urn": test_urn},
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=delete_test_json
+        f"{get_frontend_url()}/api/v2/graphql", json=delete_test_json
     )
     response.raise_for_status()
 
+
 @pytest.mark.dependency(depends=["test_healthchecks"])
-def test_create_test(frontend_session,wait_for_healthchecks):
+def test_create_test(frontend_session, wait_for_healthchecks):
 
     test_urn = create_test(frontend_session)
 
@@ -91,12 +93,10 @@ def test_create_test(frontend_session,wait_for_healthchecks):
               }\n
             }
         }""",
-        "variables": {
-          "urn": test_urn
-        }
+        "variables": {"urn": test_urn},
     }
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=get_test_json
+        f"{get_frontend_url()}/api/v2/graphql", json=get_test_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -119,7 +119,7 @@ def test_create_test(frontend_session,wait_for_healthchecks):
 
     # Ensure the test no longer exists
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=get_test_json
+        f"{get_frontend_url()}/api/v2/graphql", json=get_test_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -129,7 +129,7 @@ def test_create_test(frontend_session,wait_for_healthchecks):
 
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_create_test"])
-def test_update_test(frontend_session,wait_for_healthchecks):
+def test_update_test(frontend_session, wait_for_healthchecks):
     test_urn = create_test(frontend_session)
     test_name = "new name"
     test_category = "new category"
@@ -155,7 +155,7 @@ def test_update_test(frontend_session,wait_for_healthchecks):
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=update_test_json
+        f"{get_frontend_url()}/api/v2/graphql", json=update_test_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -178,12 +178,10 @@ def test_update_test(frontend_session,wait_for_healthchecks):
               }\n
             }
         }""",
-        "variables": {
-          "urn": test_urn
-        }
+        "variables": {"urn": test_urn},
     }
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=get_test_json
+        f"{get_frontend_url()}/api/v2/graphql", json=get_test_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -203,10 +201,11 @@ def test_update_test(frontend_session,wait_for_healthchecks):
 
     delete_test(frontend_session, test_urn)
 
+
 @pytest.mark.dependency(depends=["test_healthchecks", "test_update_test"])
-def test_list_tests(frontend_session,wait_for_healthchecks):
-  list_tests_json = {
-      "query": """query listTests($input: ListTestsInput!) {\n
+def test_list_tests(frontend_session, wait_for_healthchecks):
+    list_tests_json = {
+        "query": """query listTests($input: ListTestsInput!) {\n
           listTests(input: $input) {\n
             start\n
             count\n
@@ -216,30 +215,27 @@ def test_list_tests(frontend_session,wait_for_healthchecks):
             }\n
           }\n
       }""",
-      "variables": {
-        "input": {
-            "start": "0",
-            "count": "20"
-        }
-      }
-  }
+        "variables": {"input": {"start": "0", "count": "20"}},
+    }
 
-  response = frontend_session.post(
-      f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=list_tests_json
-  )
-  response.raise_for_status()
-  res_data = response.json()
+    response = frontend_session.post(
+        f"{get_frontend_url()}/api/v2/graphql", json=list_tests_json
+    )
+    response.raise_for_status()
+    res_data = response.json()
 
-  assert res_data
-  assert res_data["data"]
-  assert res_data["data"]["listTests"]["total"] >= 2
-  assert len(res_data["data"]["listTests"]["tests"]) >= 2
-  assert "errors" not in res_data
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["listTests"]["total"] >= 2
+    assert len(res_data["data"]["listTests"]["tests"]) >= 2
+    assert "errors" not in res_data
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
-def test_get_test_results(frontend_session,wait_for_healthchecks):
-    urn = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-tests-sample,PROD)" # Test urn
+def test_get_test_results(frontend_session, wait_for_healthchecks):
+    urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,test-tests-sample,PROD)"  # Test urn
+    )
     json = {
         "query": """query getDataset($urn: String!) {\n
             dataset(urn: $urn) {\n
@@ -260,9 +256,9 @@ def test_get_test_results(frontend_session,wait_for_healthchecks):
                 }\n
             }\n
         }""",
-        "variables": {"urn": urn },
+        "variables": {"urn": urn},
     }
-    response = frontend_session.post(f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=json)
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
     res_data = response.json()
 
@@ -271,20 +267,6 @@ def test_get_test_results(frontend_session,wait_for_healthchecks):
     assert res_data["data"]["dataset"]
     assert res_data["data"]["dataset"]["urn"] == urn
     assert res_data["data"]["dataset"]["testResults"] == {
-      "failing": [
-        {
-          "test": {
-            "urn": "urn:li:test:test-1"
-          },
-          "type": "FAILURE"
-        }
-      ],
-      "passing": [
-        {
-          "test": {
-            "urn": "urn:li:test:test-2"
-          },
-          "type": "SUCCESS"
-        }
-      ]
+        "failing": [{"test": {"urn": "urn:li:test:test-1"}, "type": "FAILURE"}],
+        "passing": [{"test": {"urn": "urn:li:test:test-2"}, "type": "SUCCESS"}],
     }
