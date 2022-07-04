@@ -72,7 +72,7 @@ class SnowflakeSource(SQLAlchemySource):
         self.report: SnowflakeReport = SnowflakeReport()
         self.config: SnowflakeConfig = config
         self.provision_role_in_progress: bool = False
-        self.profile_candidates: Dict[str, Set[str]] = {}
+        self.profile_candidates: Dict[str, List[str]] = {}
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -755,8 +755,10 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
         return True
 
     def generate_profile_candidates(
-        self, inspector: Inspector, threshold_time: datetime, schema: str
-    ) -> List[str]:
+        self, inspector: Inspector, threshold_time: Optional[datetime], schema: str
+    ) -> Optional[List[str]]:
+        if threshold_time is None:
+            return None
         db_name = self.current_database
         if (
             self.profile_candidates is not None

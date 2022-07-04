@@ -1336,7 +1336,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
     # Override if needed
     def generate_profile_candidates(
-        self, inspector: Inspector, threshold_time: datetime.datetime, schema: str
+        self,
+        inspector: Inspector,
+        threshold_time: Optional[datetime.datetime],
+        schema: str,
     ) -> Optional[List[str]]:
         raise NotImplementedError()
 

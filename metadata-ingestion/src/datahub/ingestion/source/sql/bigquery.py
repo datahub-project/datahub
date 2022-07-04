@@ -434,8 +434,11 @@ class BigQuerySource(SQLAlchemySource):
             return [GCPLoggingClient(**client_options)]
 
     def generate_profile_candidates(
-        self, inspector: Inspector, threshold_time: datetime, schema: str
-    ) -> List[str]:
+        self,
+        inspector: Inspector,
+        threshold_time: Optional[datetime.datetime],
+        schema: str,
+    ) -> Optional[List[str]]:
         row_condition = (
             f"row_count<{self.config.profiling.profile_table_row_limit} and "
             if self.config.profiling.profile_table_row_limit
@@ -453,9 +456,10 @@ class BigQuerySource(SQLAlchemySource):
         )
         c = f"{row_condition}{size_condition}{time_condition}"
         profile_clause = c if c == "" else f" WHERE {c}"[:-4]
-        project_id = self.get_db_name(inspector, True)
+        if profile_clause == "":
+            return None
+        project_id = self.get_db_name(inspector)
         _client: BigQueryClient = BigQueryClient(project=project_id)
-        print("!!!!!!!!!!!!!!! ", profile_clause)
         query = (
             f"SELECT "
             f"table_id, "
