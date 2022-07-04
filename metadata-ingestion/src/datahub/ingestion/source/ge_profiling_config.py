@@ -89,6 +89,16 @@ class GEProfilingConfig(ConfigModel):
         description="Profile table only if it has been updated since these many number of days. `None` implies profile all tables. Only Snowflake supports this.",
     )
 
+    profile_table_size_limit: Optional[int] = Field(
+        default=1,
+        description="Profile tables only if their size is less then specified GBs. If set to None, no limit on the size of tables to profile. Supported only in `BigQuery`",
+    )
+
+    profile_table_row_limit: Optional[int] = Field(
+        default=50000,
+        description="Profile tables only if their row count is less then specified count. If set to None, no limit on the row count of tables to profile. Supported only in `BigQuery`",
+    )
+
     # The default of (5 * cpu_count) is adopted from the default max_workers
     # parameter of ThreadPoolExecutor. Given that profiling is often an I/O-bound
     # task, it may make sense to increase this default value in the future.
