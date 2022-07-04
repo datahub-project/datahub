@@ -11,6 +11,11 @@ RUN apk --no-cache --update-cache --available upgrade \
 
 FROM --platform=$BUILDPLATFORM node:16.13.0-alpine3.14 AS prod-build
 
+# Add the kinit command to support Kerberos
+RUN apk update
+RUN apk add krb5 \
+    && apk add krb5-server
+
 # Upgrade Alpine and base packages
 RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add perl openjdk8
