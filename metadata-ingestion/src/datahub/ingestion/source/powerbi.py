@@ -13,15 +13,23 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 from xmlrpc.client import Boolean
 
 import msal
+import pydantic
 import requests
 from orderedset import OrderedSet
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import ConfigurationError
 from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.decorators import platform_name
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -102,38 +110,39 @@ class Constant:
 
 @dataclass
 class CapabilitiesOverride:
-    extractOwnership: bool = True
+    extractOwnership: bool = pydantic.Field(
+        default=True,
+        description="Enable / Disable ingestion of user information for dashboard owner",
+    )
 
 
 class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     # Organsation Identifier
-    tenant_id: str
+    tenant_id: str = pydantic.Field(description="PowerBI tenant identifier")
     # PowerBi workspace identifier
-    workspace_id: str
+    workspace_id: str = pydantic.Field(description="PowerBI workspace identifier")
     # Dataset type mapping
-    dataset_type_mapping: Dict[str, str]
+    dataset_type_mapping: Dict[str, str] = pydantic.Field(
+        description="Mapping of PowerBI datasource type to DataHub supported data-sources. See Quickstart Recipe for mapping"
+    )
     # Azure app client identifier
-    client_id: str
+    client_id: str = pydantic.Field(description="Azure app client identifier")
     # Azure app client secret
-    client_secret: str
+    client_secret: str = pydantic.Field(description="Azure app client secret")
     # timeout for meta-data scanning
-    scan_timeout: int = 60
+    scan_timeout: int = pydantic.Field(
+        default=60, description="timeout for PowerBI metadata scanning"
+    )
     # Enable/Disable extracting ownership information of Dashboard
     override: CapabilitiesOverride = CapabilitiesOverride(extractOwnership=True)
-    scope: str = "https://analysis.windows.net/powerbi/api/.default"
-    base_url: str = "https://api.powerbi.com/v1.0/myorg/groups"
-    admin_base_url = "https://api.powerbi.com/v1.0/myorg/admin"
-    authority = "https://login.microsoftonline.com/"
-
-    def get_authority_url(self):
-        return "{}{}".format(self.authority, self.tenant_id)
 
 
 class PowerBiDashboardSourceConfig(PowerBiAPIConfig):
     platform_name: str = "powerbi"
     platform_urn: str = builder.make_data_platform_urn(platform=platform_name)
-    dashboard_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    # Not supporting the pattern
+    # dashboard_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    # chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
 
 class PowerBiAPI:
@@ -149,6 +158,11 @@ class PowerBiAPI:
         Constant.SCAN_RESULT_GET: "{POWERBI_ADMIN_BASE_URL}/workspaces/scanResult/{SCAN_ID}",
         Constant.SCAN_CREATE: "{POWERBI_ADMIN_BASE_URL}/workspaces/getInfo",
     }
+
+    SCOPE: str = "https://analysis.windows.net/powerbi/api/.default"
+    BASE_URL: str = "https://api.powerbi.com/v1.0/myorg/groups"
+    ADMIN_BASE_URL: str = "https://api.powerbi.com/v1.0/myorg/admin"
+    AUTHORITY: str = "https://login.microsoftonline.com/"
 
     @dataclass
     class Workspace:
@@ -313,13 +327,16 @@ class PowerBiAPI:
         self.__msal_client = msal.ConfidentialClientApplication(
             self.__config.client_id,
             client_credential=self.__config.client_secret,
-            authority=self.__config.authority + self.__config.tenant_id,
+            authority=PowerBiAPI.AUTHORITY + self.__config.tenant_id,
         )
 
         # Test connection by generating a access token
-        LOGGER.info("Trying to connect to {}".format(self.__config.get_authority_url()))
+        LOGGER.info("Trying to connect to {}".format(self.__get_authority_url()))
         self.get_access_token()
-        LOGGER.info("Able to connect to {}".format(self.__config.get_authority_url()))
+        LOGGER.info("Able to connect to {}".format(self.__get_authority_url()))
+
+    def __get_authority_url(self):
+        return "{}{}".format(PowerBiAPI.AUTHORITY, self.__config.tenant_id)
 
     def __get_users(self, workspace_id: str, entity: str, id: str) -> List[User]:
         """
@@ -335,7 +352,7 @@ class PowerBiAPI:
         user_list_endpoint: str = PowerBiAPI.API_ENDPOINTS[Constant.ENTITY_USER_LIST]
         # Replace place holders
         user_list_endpoint = user_list_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=self.__config.admin_base_url,
+            POWERBI_ADMIN_BASE_URL=PowerBiAPI.ADMIN_BASE_URL,
             ENTITY=entity,
             ENTITY_ID=id,
         )
@@ -388,7 +405,7 @@ class PowerBiAPI:
         report_get_endpoint: str = PowerBiAPI.API_ENDPOINTS[Constant.REPORT_GET]
         # Replace place holders
         report_get_endpoint = report_get_endpoint.format(
-            POWERBI_BASE_URL=self.__config.base_url,
+            POWERBI_BASE_URL=PowerBiAPI.BASE_URL,
             WORKSPACE_ID=workspace_id,
             REPORT_ID=report_id,
         )
@@ -427,7 +444,7 @@ class PowerBiAPI:
         LOGGER.info("Generating PowerBi access token")
 
         auth_response = self.__msal_client.acquire_token_for_client(
-            scopes=[self.__config.scope]
+            scopes=[PowerBiAPI.SCOPE]
         )
 
         if not auth_response.get("access_token"):
@@ -463,7 +480,7 @@ class PowerBiAPI:
         dashboard_list_endpoint: str = PowerBiAPI.API_ENDPOINTS[Constant.DASHBOARD_LIST]
         # Replace place holders
         dashboard_list_endpoint = dashboard_list_endpoint.format(
-            POWERBI_BASE_URL=self.__config.base_url, WORKSPACE_ID=workspace.id
+            POWERBI_BASE_URL=PowerBiAPI.BASE_URL, WORKSPACE_ID=workspace.id
         )
         # Hit PowerBi
         LOGGER.info("Request to URL={}".format(dashboard_list_endpoint))
@@ -514,7 +531,7 @@ class PowerBiAPI:
         dataset_get_endpoint: str = PowerBiAPI.API_ENDPOINTS[Constant.DATASET_GET]
         # Replace place holders
         dataset_get_endpoint = dataset_get_endpoint.format(
-            POWERBI_BASE_URL=self.__config.base_url,
+            POWERBI_BASE_URL=PowerBiAPI.BASE_URL,
             WORKSPACE_ID=workspace_id,
             DATASET_ID=dataset_id,
         )
@@ -555,7 +572,7 @@ class PowerBiAPI:
         datasource_get_endpoint: str = PowerBiAPI.API_ENDPOINTS[Constant.DATASOURCE_GET]
         # Replace place holders
         datasource_get_endpoint = datasource_get_endpoint.format(
-            POWERBI_BASE_URL=self.__config.base_url,
+            POWERBI_BASE_URL=PowerBiAPI.BASE_URL,
             WORKSPACE_ID=dataset.workspace_id,
             DATASET_ID=dataset.id,
         )
@@ -677,7 +694,7 @@ class PowerBiAPI:
         tile_list_endpoint: str = PowerBiAPI.API_ENDPOINTS[Constant.TILE_LIST]
         # Replace place holders
         tile_list_endpoint = tile_list_endpoint.format(
-            POWERBI_BASE_URL=self.__config.base_url,
+            POWERBI_BASE_URL=PowerBiAPI.BASE_URL,
             WORKSPACE_ID=dashboard.workspace_id,
             DASHBOARD_ID=dashboard.id,
         )
@@ -718,7 +735,7 @@ class PowerBiAPI:
         """
         scan_create_endpoint = PowerBiAPI.API_ENDPOINTS[Constant.SCAN_CREATE]
         scan_create_endpoint = scan_create_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=self.__config.admin_base_url
+            POWERBI_ADMIN_BASE_URL=PowerBiAPI.ADMIN_BASE_URL
         )
 
         def create_scan_job():
@@ -770,7 +787,7 @@ class PowerBiAPI:
             LOGGER.info("Max trial {}".format(max_trial))
             scan_get_endpoint = PowerBiAPI.API_ENDPOINTS[Constant.SCAN_GET]
             scan_get_endpoint = scan_get_endpoint.format(
-                POWERBI_ADMIN_BASE_URL=self.__config.admin_base_url, SCAN_ID=scan_id
+                POWERBI_ADMIN_BASE_URL=PowerBiAPI.ADMIN_BASE_URL, SCAN_ID=scan_id
             )
 
             LOGGER.info("Hitting URL={}".format(scan_get_endpoint))
@@ -813,7 +830,7 @@ class PowerBiAPI:
                 Constant.SCAN_RESULT_GET
             ]
             scan_result_get_endpoint = scan_result_get_endpoint.format(
-                POWERBI_ADMIN_BASE_URL=self.__config.admin_base_url, SCAN_ID=scan_id
+                POWERBI_ADMIN_BASE_URL=PowerBiAPI.ADMIN_BASE_URL, SCAN_ID=scan_id
             )
 
             LOGGER.info("Hittin URL={}".format(scan_result_get_endpoint))
@@ -1361,10 +1378,17 @@ class PowerBiDashboardSourceReport(SourceReport):
     def report_charts_dropped(self, view: str) -> None:
         self.filtered_charts.append(view)
 
-@platform_name("powerbi")
+
+@platform_name("PowerBI")
+@config_class(PowerBiDashboardSourceConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.OWNERSHIP, "Optionally enabled via configuration")
 class PowerBiDashboardSource(Source):
     """
-    Datahub PowerBi plugin main class. This class extends Source to become PowerBi data ingestion source for Datahub
+    This plugin extracts the following:
+    - Power BI dashboards, tiles and datasets
+    - Names, descriptions and URLs of dashboard and tile
+    - Owners of dashboards
     """
 
     source_config: PowerBiDashboardSourceConfig
