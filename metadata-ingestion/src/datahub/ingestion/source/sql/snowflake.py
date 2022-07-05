@@ -760,14 +760,13 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
         if threshold_time is None:
             return None
         db_name = self.current_database
-        if (
-            self.profile_candidates is not None
-            and self.profile_candidates.get(db_name) is not None
-        ):
+        if self.profile_candidates.get(db_name) is not None:
+            #  snowflake profile candidates are available at database level,
+            #  no need to regenerate for every schema
             return self.profile_candidates[db_name]
         self.report.profile_if_updated_since = threshold_time
         _profile_candidates = []
-
+        logger.debug(f"Generating profiling candidates for db {db_name}")
         db_rows = inspector.engine.execute(
             text(
                 """
@@ -788,7 +787,7 @@ where last_altered >= to_timestamp_ltz({timestamp}, 3) and table_type= 'BASE TAB
                     inspector=inspector,
                 ).lower()
             )
-        logger.debug(f"Generating profiling candidates for db {db_name}")
+
         self.report.profile_candidates[db_name] = _profile_candidates
         self.profile_candidates[db_name] = _profile_candidates
         return _profile_candidates
