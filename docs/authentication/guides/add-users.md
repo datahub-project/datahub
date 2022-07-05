@@ -182,7 +182,7 @@ Setting up SSO via OpenID Connect means that users will be able to login to Data
 and more. 
 
 This option is recommended for production deployments of DataHub. For detailed information about configuring DataHub to use OIDC to
-perform authentication, check out [OIDC Authentication](./sso/configure-oidc-react.md). 
+perform authentication, check out [OIDC Authentication](sso/configure-oidc-react.md). 
 
 ## URNs
 
@@ -193,7 +193,7 @@ when a user logs into DataHub via OIDC is used to construct a unique identifier 
 urn:li:corpuser:<extracted-username>
 ```
 
-For information about configuring which OIDC claim should be used as the username for Datahub, check out the [OIDC Authentication](./sso/configure-oidc-react.md) doc.
+For information about configuring which OIDC claim should be used as the username for Datahub, check out the [OIDC Authentication](sso/configure-oidc-react.md) doc.
 
 
 ## FAQ

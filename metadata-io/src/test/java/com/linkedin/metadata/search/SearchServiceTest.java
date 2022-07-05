@@ -9,6 +9,10 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.ElasticTestUtils;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
+import com.linkedin.metadata.search.aggregator.AllEntitiesSearchAggregator;
+import com.linkedin.metadata.search.cache.CachingAllEntitiesSearchAggregator;
+import com.linkedin.metadata.search.cache.EntityDocCountCache;
+import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchServiceTest;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
@@ -65,8 +69,24 @@ public class SearchServiceTest {
   }
 
   private void resetSearchService() {
-    _searchService =
-        new SearchService(_entityRegistry, _elasticSearchService, new SimpleRanker(), _cacheManager, 100, true);
+    CachingEntitySearchService cachingEntitySearchService = new CachingEntitySearchService(
+        _cacheManager,
+        _elasticSearchService,
+        100,
+        true);
+    _searchService = new SearchService(
+      new EntityDocCountCache(_entityRegistry, _elasticSearchService),
+      cachingEntitySearchService,
+      new CachingAllEntitiesSearchAggregator(
+          _cacheManager,
+          new AllEntitiesSearchAggregator(
+              _entityRegistry,
+              _elasticSearchService,
+              cachingEntitySearchService,
+              new SimpleRanker()),
+          100,
+          true),
+      new SimpleRanker());
   }
 
   @BeforeMethod
