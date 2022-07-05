@@ -281,14 +281,16 @@ class BigQueryTableRef:
             if matches:
                 table_name = matches.group(1)
         if matches:
-            logger.debug(
-                f"Found sharded table {self.table}. Using {table_name} as the table name."
-            )
             if not table_name:
                 logger.debug(
                     f"Using dataset id {self.dataset} as table name because table only contains date value {self.table}"
                 )
                 table_name = self.dataset
+
+            logger.debug(
+                f"Found sharded table {self.table}. Using {table_name} as the table name."
+            )
+
             return BigQueryTableRef(self.project, self.dataset, table_name)
 
         # Handle table snapshots.
@@ -501,7 +503,7 @@ class QueryEvent:
             if "queryOutputRowCount" in job["jobStatistics"]
             and job["jobStatistics"]["queryOutputRowCount"]
             else None,
-            statementType=job_query_conf["statementType"],
+            statementType=job_query_conf.get("statementType", "UNKNOWN"),
         )
         # destinationTable
         raw_dest_table = job_query_conf.get("destinationTable")
@@ -578,7 +580,7 @@ class QueryEvent:
             numAffectedRows=int(query_stats["outputRowCount"])
             if query_stats.get("outputRowCount")
             else None,
-            statementType=query_config["statementType"],
+            statementType=query_config.get("statementType", "UNKNOWN"),
         )
         # jobName
         query_event.job_name = job.get("jobName")
@@ -640,7 +642,7 @@ class QueryEvent:
             numAffectedRows=int(query_stats["outputRowCount"])
             if "outputRowCount" in query_stats and query_stats["outputRowCount"]
             else None,
-            statementType=query_config["statementType"],
+            statementType=query_config.get("statementType", "UNKNOWN"),
         )
         query_event.job_name = job.get("jobName")
         # destinationTable

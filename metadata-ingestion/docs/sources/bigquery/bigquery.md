@@ -89,5 +89,37 @@ Due to performance reasons, we only profile the latest partition for Partitioned
 You can set partition explicitly with `partition.partition_datetime` property if you want. (partition will be applied to all partitioned tables)
 :::
 
+### Working with multi-project GCP setups
+
+Sometimes you may have multiple GCP project with one only giving you view access rights and other project where you have view/modify rights. To deal with such setups you can use the `storage_project_id` setting. An example recipe looks like this
+
+```yaml
+source:
+  type: "bigquery"
+  config:
+    project_id: compute-project-id # With view as well as modify rights
+    storage_project_id: acryl-staging # with view only rights
+    ...rest of fields
+```
+
+The GCP roles with which this setup has been tested are as follows
+- Storage Project
+   - BigQuery Data Viewer
+   - BigQuery Metadata Viewer
+   - Logs Viewer
+   - Private Logs Viewer
+- Compute Project
+   - BigQuery Admin
+   - BigQuery Data Editor
+   - BigQuery Job User
+
+If you are using `use_exported_bigquery_audit_metadata = True` and `use_v2_audit_metadata = False` then make sure you prefix the datasets in `bigquery_audit_metadata_datasets` with storage project id.
+
+:::note
+
+Bigquery usage has not been modified and tested with multi-project setting. Only `bigquery` plugin works with multi-project setup currently.
+
+:::note
+
 ### Caveats
 - For Materialized views lineage is dependent on logs being retained. If your GCP logging is retained for 30 days (default) and 30 days have passed since the creation of the materialized view we won't be able to get lineage for them.

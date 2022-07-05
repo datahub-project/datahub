@@ -1,4 +1,4 @@
-# OIDC Authentication
+# Overview
 
 The DataHub React application supports OIDC authentication built on top of the [Pac4j Play](https://github.com/pac4j/play-pac4j) library.
 This enables operators of DataHub to integrate with 3rd party identity providers like Okta, Google, Keycloak, & more to authenticate their users.
@@ -188,5 +188,4 @@ A brief summary of the steps that occur when the user navigates to the React app
 Even if OIDC is configured the root user can still login without OIDC by going
 to `/login` URL endpoint. It is recommended that you don't use the default
 credentials by mounting a different file in the front end container. To do this
-please see [jaas](https://datahubproject.io/docs/how/auth/jaas/#mount-a-custom-userprops-file-docker-compose) -
-"Mount a custom user.props file".
+please see how to mount a custom user.props file for a JAAS authenticated deployment.
