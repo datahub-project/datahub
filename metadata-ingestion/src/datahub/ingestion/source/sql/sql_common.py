@@ -1380,7 +1380,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     threshold_time = datetime.datetime.now(
                         datetime.timezone.utc
                     ) - datetime.timedelta(
-                        sql_config.profiling.profile_if_updated_since_days  # type:ignore
+                        sql_config.profiling.profile_if_updated_since_days
                     )
                 profile_candidates = self.generate_profile_candidates(
                     inspector, threshold_time, schema

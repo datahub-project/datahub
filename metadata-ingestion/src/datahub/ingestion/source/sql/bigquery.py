@@ -469,7 +469,7 @@ class BigQuerySource(SQLAlchemySource):
             f"FROM {schema}.__TABLES__"
             f"{profile_clause}"
         )
-        print("!!!!!!!!!!!!!! ", query)
+        logger.debug(f"Profiling via {query}")
         query_job = _client.query(query)
         _profile_candidates = []
         for row in query_job:
