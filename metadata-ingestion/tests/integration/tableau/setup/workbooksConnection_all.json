@@ -1524,6 +1524,24 @@
                                 },
                                 {
                                     "__typename": "ColumnField",
+                                    "id": "xxxdc8ee-30e5-644b-cf76-48a3dea79cda",
+                                    "name": null,
+                                    "description": null,
+                                    "isHidden": false,
+                                    "folderName": null,                                    
+                                    "dataCategory": "NOMINAL",
+                                    "role": "DIMENSION",
+                                    "dataType": "STRING",
+                                    "defaultFormat": null,
+                                    "aggregation": null,
+                                    "columns": [
+                                        {
+                                            "table": {}
+                                        }
+                                    ]
+                                },
+                                {
+                                    "__typename": "ColumnField",
                                     "id": "277dc8ee-30e5-644b-cf76-48a3dea79cda",
                                     "name": "Name",
                                     "description": null,
