@@ -15,10 +15,11 @@ import analytics, { EventType } from '../analytics';
 import useFilters from './utils/useFilters';
 import { PageRoutes } from '../../conf/Global';
 
+// CIP - change margin for our custom header
 const styles = {
     children: {
         flex: '1',
-        marginTop: 60,
+        marginTop: 100,
         display: 'flex',
         flexDirection: 'column' as const,
         maxHeight: 'calc(100vh - 60px)',
