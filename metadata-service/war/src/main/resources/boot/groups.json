@@ -1,0 +1,42 @@
+[
+  {
+    "urn": "urn:li:corpgroup:organization-admins",
+    "info": {
+      "displayName": "Organization Admins",
+      "description": "Organization Admins have ALL privileges.",
+      "admins": [],
+      "members": [],
+      "groups": []
+    }
+  },
+  {
+    "urn": "urn:li:corpgroup:metadata-stewards",
+    "info": {
+      "displayName": "Metadata Stewards",
+      "description": "Metadata Stewards have all metadata privileges, and can also manage ingestion and view analytics",
+      "admins": [],
+      "members": [],
+      "groups": []
+    }
+  },
+  {
+    "urn": "urn:li:corpgroup:metadata-readers",
+    "info": {
+      "displayName": "Metadata Readers",
+      "description": "Metadata Readers can read metadata, but cannot modify metadata by default.",
+      "admins": [],
+      "members": [],
+      "groups": []
+    }
+  },
+  {
+    "urn": "urn:li:corpgroup:access-admins",
+    "info": {
+      "displayName": "Access Admins",
+      "description": "Access Admins can manage users, groups and security features.",
+      "admins": [],
+      "members": [],
+      "groups": []
+    }
+  }
+]

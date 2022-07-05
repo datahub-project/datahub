@@ -108,6 +108,11 @@ module.exports = {
         id: "docs/authorization/policies",
         label: "Access Policies",
       },
+      {
+        type: "doc",
+        id: "docs/authorization/groups",
+        label: "Authorization for Groups",
+      },
     ],
     Ingestion: [
       // add a custom label since the default is 'Metadata Ingestion'
