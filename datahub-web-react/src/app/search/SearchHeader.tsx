@@ -9,13 +9,12 @@ import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
 import EntityRegistry from '../entity/EntityRegistry';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { AdminHeaderLinks } from '../shared/admin/AdminHeaderLinks';
-import { CIPBetaText } from '../shared/CIPShared';
+import { CIPBanner, FixedCIPHeader } from '../shared/CIPShared';
 
 const { Header } = Layout;
 
 const styles = {
     header: {
-        position: 'fixed',
         zIndex: 10,
         width: '100%',
         lineHeight: '20px',
@@ -80,28 +79,30 @@ export const SearchHeader = ({
     const themeConfig = useTheme();
 
     return (
-        <Header style={styles.header as any}>
-            <CIPBetaText>BETA</CIPBetaText>
-            <LogoSearchContainer>
-                <Link to="/data-catalogue">
-                    <LogoImage src={themeConfig.assets.logoUrl} preview={false} />
-                </Link>
-                <SearchBar
-                    initialQuery={initialQuery}
-                    placeholderText={placeholderText}
-                    suggestions={suggestions}
-                    onSearch={onSearch}
-                    onQueryChange={onQueryChange}
-                    entityRegistry={entityRegistry}
-                    setIsSearchBarFocused={setIsSearchBarFocused}
-                    fixAutoComplete
-                />
-            </LogoSearchContainer>
-            <NavGroup>
-                <AdminHeaderLinks areLinksHidden={isSearchBarFocused} />
-                <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
-            </NavGroup>
-        </Header>
+        <FixedCIPHeader>
+            <CIPBanner />
+            <Header style={styles.header as any}>
+                <LogoSearchContainer>
+                    <Link to="/data-catalogue">
+                        <LogoImage src={themeConfig.assets.logoUrl} preview={false} />
+                    </Link>
+                    <SearchBar
+                        initialQuery={initialQuery}
+                        placeholderText={placeholderText}
+                        suggestions={suggestions}
+                        onSearch={onSearch}
+                        onQueryChange={onQueryChange}
+                        entityRegistry={entityRegistry}
+                        setIsSearchBarFocused={setIsSearchBarFocused}
+                        fixAutoComplete
+                    />
+                </LogoSearchContainer>
+                <NavGroup>
+                    <AdminHeaderLinks areLinksHidden={isSearchBarFocused} />
+                    <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
+                </NavGroup>
+            </Header>
+        </FixedCIPHeader>
     );
 };
 

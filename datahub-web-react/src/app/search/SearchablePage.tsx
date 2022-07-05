@@ -10,10 +10,11 @@ import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import analytics, { EventType } from '../analytics';
 
+// CIP - change margin for our custom header
 const styles = {
     children: {
         flex: '1',
-        marginTop: 60,
+        marginTop: 100,
         display: 'flex',
         flexDirection: 'column' as const,
         maxHeight: 'calc(100vh - 60px)',

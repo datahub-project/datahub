@@ -1,19 +1,31 @@
+import * as React from 'react';
+import { PhaseBanner } from 'govuk-react';
 import styled from 'styled-components';
+import { ANTD_GRAY } from '../entity/shared/constants';
 
-export const CIPBetaHomeContainer = styled.div`
-    display: flex;
+export const FixedCIPHeader = styled.header`
+    position: fixed;
+    z-index: 10;
+    width: 100%;
+    borderbottom: 1px solid ${ANTD_GRAY[4.5]};
+    background: white;
 `;
 
-export const CIPBetaText = styled.strong`
-    margin-right: 10px;
-    padding-right: 8px;
-    padding-left: 8px;
-    padding-top: 0px;
-    color: #fff;
-    background-color: #1d70b8;
-    outline-offset: -2px;
-    font-size: 18px;
-    font-family: GDS Transport, arial, sans-serif;
-    height: 28px;
-    line-height: 28px;
+const CIPBannerBoundary = styled.div`
+    width: 100%;
+    padding-left: 5px;
+    padding-right: 5px;
 `;
+
+export const CIPBanner = () => {
+    return (
+        <>
+            <CIPBannerBoundary>
+                <PhaseBanner level="beta">
+                    This is a new service – your
+                    <a href="mailto: cipsupport@hmrc.gov.uk"> feedback</a> will help us to improve it.
+                </PhaseBanner>
+            </CIPBannerBoundary>
+        </>
+    );
+};
