@@ -292,7 +292,7 @@ typing-inspect==0.7.1
 typing_extensions==4.2.0
 tzdata==2022.1
 tzlocal==4.2
-ujson==5.3.0
+ujson==5.4.0
 unicodecsv==0.14.1
 urllib3==1.26.9
 uvicorn==0.17.6
