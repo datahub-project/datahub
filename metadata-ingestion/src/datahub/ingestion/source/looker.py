@@ -162,8 +162,8 @@ class LookerDashboardSourceConfig(LookerAPIConfig, LookerCommonConfig):
     @validator("external_base_url", pre=True, always=True)
     def external_url_defaults_to_api_config_base_url(
         cls, v: Optional[str], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
-    ) -> str:
-        return v or values["base_url"]
+    ) -> Optional[str]:
+        return v or values.get("base_url")
 
     @validator("platform_instance")
     def platform_instance_not_supported(cls, v: str) -> str:
