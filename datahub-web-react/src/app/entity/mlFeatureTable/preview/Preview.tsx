@@ -28,6 +28,7 @@ export const Preview = ({
             name={name}
             description={description || ''}
             type={entityRegistry.getEntityName(EntityType.MlfeatureTable)}
+            typeIcon={entityRegistry.getIcon(EntityType.MlfeatureTable, 14, IconStyleType.ACCENT)}
             owners={owners}
             logoUrl={logoUrl || undefined}
             platform={platformName || ''}

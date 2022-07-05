@@ -34,6 +34,7 @@ import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
@@ -65,11 +66,12 @@ public class JavaEntityClient implements EntityClient {
 
     private final EntityService _entityService;
     private final DeleteEntityService _deleteEntityService;
-    private final EventProducer _eventProducer;
     private final EntitySearchService _entitySearchService;
+    private final CachingEntitySearchService _cachingEntitySearchService;
     private final SearchService _searchService;
-    private final TimeseriesAspectService _timeseriesAspectService;
     private final LineageSearchService _lineageSearchService;
+    private final TimeseriesAspectService _timeseriesAspectService;
+    private final EventProducer _eventProducer;
 
     @Nullable
     public EntityResponse getV2(
@@ -119,10 +121,11 @@ public class JavaEntityClient implements EntityClient {
     }
 
     /**
-     * Gets browse snapshot of a given path
+     * Gets autocomplete results
      *
+     * @param entityType the type of entity to autocomplete against
      * @param query search query
-     * @param field field of the dataset
+     * @param field field of the dataset to autocomplete against
      * @param requestFilters autocomplete filters
      * @param limit max number of autocomplete results
      * @throws RemoteInvocationException
@@ -135,12 +138,13 @@ public class JavaEntityClient implements EntityClient {
         @Nonnull int limit,
         @Nullable String field,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
-      return _entitySearchService.autoComplete(entityType, query, field, newFilter(requestFilters), limit);
+      return _cachingEntitySearchService.autoComplete(entityType, query, field, newFilter(requestFilters), limit, null);
     }
 
-    /**;
+    /**
      * Gets autocomplete results
      *
+     * @param entityType the type of entity to autocomplete against
      * @param query search query
      * @param requestFilters autocomplete filters
      * @param limit max number of autocomplete results
@@ -153,7 +157,7 @@ public class JavaEntityClient implements EntityClient {
         @Nonnull Map<String, String> requestFilters,
         @Nonnull int limit,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        return _entitySearchService.autoComplete(entityType, query, "", newFilter(requestFilters), limit);
+        return _cachingEntitySearchService.autoComplete(entityType, query, "", newFilter(requestFilters), limit, null);
     }
 
     /**
@@ -210,7 +214,6 @@ public class JavaEntityClient implements EntityClient {
         AuditStamp auditStamp = new AuditStamp();
         auditStamp.setActor(Urn.createFromString(authentication.getActor().toUrnStr()));
         auditStamp.setTime(Clock.systemUTC().millis());
-
       _entityService.ingestEntities(entities.stream().collect(Collectors.toList()), auditStamp, ImmutableList.of());
     }
 
@@ -238,6 +241,8 @@ public class JavaEntityClient implements EntityClient {
     }
 
     /**
+     * Deprecated! Use 'filter' or 'search' instead.
+     *
      * Filters for entities matching to a given query and filters
      *
      * @param requestFilters search filters
@@ -246,6 +251,7 @@ public class JavaEntityClient implements EntityClient {
      * @return a set of list results
      * @throws RemoteInvocationException
      */
+    @Deprecated
     @Nonnull
     public ListResult list(
         @Nonnull String entity,

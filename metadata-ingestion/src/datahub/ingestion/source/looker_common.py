@@ -494,20 +494,23 @@ class LookerExplore:
         return field_match.findall(sql_fragment)
 
     @classmethod
-    def __from_dict(cls, model_name: str, dict: Dict) -> "LookerExplore":
+    def from_dict(cls, model_name: str, dict: Dict) -> "LookerExplore":
+        view_names = set()
+        joins = None
+        # always add the explore's name or the name from the from clause as the view on which this explore is built
+        view_names.add(dict.get("from", dict.get("name")))
+
         if dict.get("joins", {}) != {}:
+            # additionally for join-based explores, pull in the linked views
             assert "joins" in dict
-            view_names = set()
             for join in dict["joins"]:
+                join_from = join.get("from")
+                view_names.add(join_from or join["name"])
                 sql_on = join.get("sql_on", None)
                 if sql_on is not None:
                     fields = cls._get_fields_from_sql_equality(sql_on)
                     joins = fields
-                    for f in fields:
-                        view_names.add(LookerUtil._extract_view_from_field(f))
-        else:
-            # non-join explore, get view_name from `from` field if possible, default to explore name
-            view_names = set(dict.get("from", dict.get("name")))
+
         return LookerExplore(
             model_name=model_name,
             name=dict["name"],

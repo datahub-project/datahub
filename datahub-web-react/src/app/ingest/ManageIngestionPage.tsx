@@ -1,7 +1,6 @@
 import { Tabs, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { SearchablePage } from '../search/SearchablePage';
 import { IngestionSourceList } from './source/IngestionSourceList';
 import { SecretsList } from './secret/SecretsList';
 
@@ -51,22 +50,18 @@ export const ManageIngestionPage = () => {
     };
 
     return (
-        <SearchablePage>
-            <PageContainer>
-                <PageHeaderContainer>
-                    <PageTitle level={3}>Manage Ingestion</PageTitle>
-                    <Typography.Paragraph type="secondary">
-                        Create, schedule, and run DataHub ingestion pipelines.
-                    </Typography.Paragraph>
-                </PageHeaderContainer>
-                <StyledTabs activeKey={selectedTab} size="large" onTabClick={(tab: string) => onClickTab(tab)}>
-                    <Tab key={TabType.Sources} tab={TabType.Sources} />
-                    <Tab key={TabType.Secrets} tab={TabType.Secrets} />
-                </StyledTabs>
-                <ListContainer>
-                    {selectedTab === TabType.Sources ? <IngestionSourceList /> : <SecretsList />}
-                </ListContainer>
-            </PageContainer>
-        </SearchablePage>
+        <PageContainer>
+            <PageHeaderContainer>
+                <PageTitle level={3}>Manage Ingestion</PageTitle>
+                <Typography.Paragraph type="secondary">
+                    Create, schedule, and run DataHub ingestion pipelines.
+                </Typography.Paragraph>
+            </PageHeaderContainer>
+            <StyledTabs activeKey={selectedTab} size="large" onTabClick={(tab: string) => onClickTab(tab)}>
+                <Tab key={TabType.Sources} tab={TabType.Sources} />
+                <Tab key={TabType.Secrets} tab={TabType.Secrets} />
+            </StyledTabs>
+            <ListContainer>{selectedTab === TabType.Sources ? <IngestionSourceList /> : <SecretsList />}</ListContainer>
+        </PageContainer>
     );
 };
