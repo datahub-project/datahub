@@ -19,5 +19,4 @@ public class Constants {
     public static final String TESTS_SCHEMA_FILE = "tests.graphql";
     public static final String BROWSE_PATH_DELIMITER = "/";
     public static final String VERSION_STAMP_FIELD_NAME = "versionStamp";
-    public static final String SYSTEM_METADATA_FIELD_NAME = "systemMetadata";
 }

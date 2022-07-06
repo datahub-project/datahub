@@ -64,9 +64,4 @@ record SchemaMetadata includes SchemaMetadataKey, ChangeAuditStamps {
    * List of foreign key constraints for the schema
    */
   foreignKeys: optional array[ForeignKeyConstraint]
-
-  /**
-   * The system metadata for this aspect
-   */
-  systemMetadata: optional SystemMetadata
 }
