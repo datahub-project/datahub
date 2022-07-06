@@ -1,3 +1,4 @@
+import { ClockCircleOutlined } from '@ant-design/icons';
 import { Popover, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
@@ -18,6 +19,10 @@ const TimeStampWrapper = styled.div`
     margin-bottom: 5px;
 `;
 
+const StyledClockIcon = styled(ClockCircleOutlined)`
+    margin-right: 5px;
+`;
+
 interface Props {
     lastUpdated?: number | null;
     lastObserved?: number | null;
@@ -33,17 +38,24 @@ function SchemaTimeStamps(props: Props) {
             content={
                 <>
                     {lastObserved && (
-                        <TimeStampWrapper>
-                            Last observed by DataHub on {toLocalDateTimeString(lastObserved)}.
-                        </TimeStampWrapper>
+                        <TimeStampWrapper>Last observed on {toLocalDateTimeString(lastObserved)}.</TimeStampWrapper>
                     )}
-                    {lastUpdated && <div>First reported to DataHub on {toLocalDateTimeString(lastUpdated)}.</div>}
+                    {lastUpdated && <div>First reported on {toLocalDateTimeString(lastUpdated)}.</div>}
                 </>
             }
         >
             <CurrentVersionTimestampText>
-                {lastObserved && <span>Last observed {toRelativeTimeString(lastObserved)}</span>}
-                {!lastObserved && lastUpdated && <span>Reported {toRelativeTimeString(lastUpdated)}</span>}
+                {lastObserved && (
+                    <span>
+                        <StyledClockIcon /> Last observed {toRelativeTimeString(lastObserved)}
+                    </span>
+                )}
+                {!lastObserved && lastUpdated && (
+                    <span>
+                        <StyledClockIcon />
+                        Reported {toRelativeTimeString(lastUpdated)}
+                    </span>
+                )}
             </CurrentVersionTimestampText>
         </Popover>
     );
