@@ -21,6 +21,9 @@ public class SchemaMapper implements ModelMapper<SchemaMetadata, Schema> {
         if (input.getDataset() != null) {
             result.setDatasetUrn(input.getDataset().toString());
         }
+        if (input.hasSystemMetadata() && input.getSystemMetadata().hasLastObserved()) {
+            result.setLastObserved(input.getSystemMetadata().getLastObserved());
+        }
         result.setName(input.getSchemaName());
         result.setPlatformUrn(input.getPlatform().toString());
         result.setVersion(input.getVersion());

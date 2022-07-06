@@ -1522,6 +1522,12 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       //    since nowhere else is using it should be safe for now at least
       envelopedAspect.setType(AspectType.VERSIONED);
       envelopedAspect.setValue(aspect);
+
+      if (currAspectEntry.getSystemMetadata() != null) {
+        final SystemMetadata systemMetadata = RecordUtils.toRecordTemplate(SystemMetadata.class, currAspectEntry.getSystemMetadata());
+        envelopedAspect.setSystemMetadata(systemMetadata);
+      }
+
       envelopedAspect.setCreated(new AuditStamp()
           .setActor(UrnUtils.getUrn(currAspectEntry.getCreatedBy()))
           .setTime(currAspectEntry.getCreatedOn().getTime())

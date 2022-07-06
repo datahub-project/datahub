@@ -2690,6 +2690,11 @@
         },
         "doc" : "List of foreign key constraints for the schema",
         "optional" : true
+      }, {
+        "name" : "systemMetadata",
+        "type" : "com.linkedin.mxe.SystemMetadata",
+        "doc" : "The system metadata for this aspect",
+        "optional" : true
       } ],
       "Aspect" : {
         "name" : "schemaMetadata"
