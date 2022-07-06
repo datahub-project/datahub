@@ -110,12 +110,8 @@ class LookerExploreNamingConfig(ConfigModel):
     def init_naming_pattern(cls, v):
         if isinstance(v, NamingPattern):
             return v
-        else:
-            assert isinstance(v, str), "pattern must be a string"
-            naming_pattern = NamingPattern(
-                allowed_vars=naming_pattern_variables, pattern=v
-            )
-            return naming_pattern
+        assert isinstance(v, str), "pattern must be a string"
+        return NamingPattern(allowed_vars=naming_pattern_variables, pattern=v)
 
     @validator("explore_naming_pattern", "explore_browse_pattern", always=True)
     def validate_naming_pattern(cls, v):
@@ -143,12 +139,8 @@ class LookerViewNamingConfig(ConfigModel):
     def init_naming_pattern(cls, v):
         if isinstance(v, NamingPattern):
             return v
-        else:
-            assert isinstance(v, str), "pattern must be a string"
-            naming_pattern = NamingPattern(
-                allowed_vars=naming_pattern_variables, pattern=v
-            )
-            return naming_pattern
+        assert isinstance(v, str), "pattern must be a string"
+        return NamingPattern(allowed_vars=naming_pattern_variables, pattern=v)
 
     @validator("view_naming_pattern", "view_browse_pattern", always=True)
     def validate_naming_pattern(cls, v):
@@ -314,8 +306,7 @@ class LookerUtil:
         assert (
             field.count(".") == 1
         ), f"Error: A field must be prefixed by a view name, field is: {field}"
-        view_name = field.split(".")[0]
-        return view_name
+        return field.split(".")[0]
 
     @staticmethod
     def _get_field_type(
@@ -336,8 +327,7 @@ class LookerUtil:
             )
             type_class = NullTypeClass
 
-        data_type = SchemaFieldDataType(type=type_class())
-        return data_type
+        return SchemaFieldDataType(type=type_class())
 
     @staticmethod
     def _get_schema(
@@ -346,7 +336,7 @@ class LookerUtil:
         view_fields: List[ViewField],
         reporter: SourceReport,
     ) -> Optional[SchemaMetadataClass]:
-        if view_fields == []:
+        if not view_fields:
             return None
         fields, primary_keys = LookerUtil._get_fields_and_primary_keys(
             view_fields=view_fields, reporter=reporter
@@ -636,16 +626,13 @@ class LookerExplore:
                 source_file=explore.source_file,
             )
         except SDKError as e:
-            logger.warn(
-                "Failed to extract explore {} from model {}.".format(
-                    explore_name, model
-                )
+            logger.warning(
+                f"Failed to extract explore {explore_name} from model {model}."
             )
             logger.debug(
-                "Failed to extract explore {} from model {} with {}".format(
-                    explore_name, model, e
-                )
+                f"Failed to extract explore {explore_name} from model {model} with {e}"
             )
+
         except AssertionError:
             reporter.report_warning(
                 key="chart-",
@@ -696,7 +683,7 @@ class LookerExplore:
         # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
         m = re.match("^(.*):([0-9]+)$", base_url)
         if m is not None:
-            base_url = m.group(1)
+            base_url = m[1]
         return f"{base_url}/explore/{self.model_name}/{self.name}"
 
     def _to_metadata_events(  # noqa: C901

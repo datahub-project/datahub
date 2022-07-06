@@ -1,4 +1,5 @@
 import concurrent.futures
+import contextlib
 import functools
 import logging
 from dataclasses import dataclass
@@ -111,13 +112,10 @@ class DatahubRestSink(Sink):
                 else:
                     # trim exception stacktraces when reporting warnings
                     if "stackTrace" in e.info:
-                        try:
+                        with contextlib.suppress(Exception):
                             e.info["stackTrace"] = "\n".join(
-                                e.info["stackTrace"].split("\n")[0:2]
+                                e.info["stackTrace"].split("\n")[:2]
                             )
-                        except Exception:
-                            # ignore failures in trimming
-                            pass
                     record = record_envelope.record
                     if isinstance(record, MetadataChangeProposalWrapper):
                         # include information about the entity that failed
