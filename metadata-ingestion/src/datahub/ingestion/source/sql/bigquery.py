@@ -460,7 +460,6 @@ class BigQuerySource(SQLAlchemySource):
             return None
         project_id = self.get_db_name(inspector)
         _client: BigQueryClient = BigQueryClient(project=project_id)
-
         # Reading all tables' metadata to report
         base_query = (
             f"SELECT "
