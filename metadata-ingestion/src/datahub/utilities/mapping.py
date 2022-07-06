@@ -232,8 +232,8 @@ class OperationProcessor:
         if type(raw_props_value) not in Constants.OPERAND_DATATYPE_SUPPORTED or type(
             raw_props_value
         ) != type(match_clause):
-            return False
+            return None
         elif type(raw_props_value) == str:
-            return bool(re.match(match_clause, raw_props_value))
+            return re.match(match_clause, raw_props_value)
         else:
-            return match_clause == raw_props_value
+            return re.match(str(match_clause), str(raw_props_value))
