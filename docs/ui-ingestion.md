@@ -12,7 +12,7 @@ This document will describe the steps required to configure, schedule, and execu
 ### Prerequisites
 
 To view & manage UI-based metadata ingestion, you must have the `Manage Metadata Ingestion` & `Manage Secrets`
- privileges assigned to your account. These can be granted by a [Platform Policy](./policies.md).
+ privileges assigned to your account. These can be granted by a [Platform Policy](authorization/policies.md).
 
 ![](./imgs/ingestion-privileges.png)
 
@@ -112,7 +112,7 @@ _Referencing DataHub Secrets from a Recipe definition_
 When the Ingestion Source with this Recipe executes, DataHub will attempt to 'resolve' Secrets found within the YAML. If a secret can be resolved, the reference is substituted for its decrypted value prior to execution.
 Secret values are not persisted to disk beyond execution time, and are never transmitted outside DataHub.
 
-> **Attention**: Any DataHub users who have been granted the `Manage Secrets` [Platform Privilege](./policies.md) will be able to retrieve plaintext secret values using the GraphQL API. 
+> **Attention**: Any DataHub users who have been granted the `Manage Secrets` [Platform Privilege](authorization/policies.md) will be able to retrieve plaintext secret values using the GraphQL API. 
 
 
 #### Step 3: Schedule Execution 
@@ -191,7 +191,7 @@ A variety of things can cause an ingestion run to fail. Common reasons for failu
    failures, metadata ingestion will fail. Ensure that the network where DataHub is deployed has access to the data source which
    you are trying to reach. 
    
-4. **Authentication**: If you've enabled [Metadata Service Authentication](https://datahubproject.io/docs/introducing-metadata-service-authentication/), you'll need to provide a Personal Access Token 
+4. **Authentication**: If you've enabled [Metadata Service Authentication](authentication/introducing-metadata-service-authentication.md), you'll need to provide a Personal Access Token 
     in your Recipe Configuration. To so this, set the 'token' field of the sink configuration to contain a Personal Access Token:
    ![](./imgs/ingestion-with-token.png)
 

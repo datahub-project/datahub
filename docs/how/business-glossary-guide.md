@@ -19,7 +19,7 @@ For Glossary Terms, you are also able to establish relationships between differe
 
 ## Getting to your Glossary
 
-In order to view a Business Glossary, users must have the Platform Privilege called `Manage Glossaries` which can be granted by creating a new Platform [Policy](../policies.md).
+In order to view a Business Glossary, users must have the Platform Privilege called `Manage Glossaries` which can be granted by creating a new Platform [Policy](../authorization/policies.md).
 
 Once granted this privilege, you can access your Glossary by clicking the dropdown at the top of the page called **Govern** and then click **Glossary**:
 

@@ -29,6 +29,7 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
             id="1",
             title="foo",
             created_at=datetime.utcfromtimestamp(time.time()),
+            updated_at=datetime.utcfromtimestamp(time.time()),
             description="lorem ipsum",
             dashboard_elements=[
                 DashboardElement(
@@ -87,6 +88,7 @@ def test_looker_ingest_joins(pytestconfig, tmp_path, mock_time):
             id="1",
             title="foo",
             created_at=datetime.utcfromtimestamp(time.time()),
+            updated_at=datetime.utcfromtimestamp(time.time()),
             description="lorem ipsum",
             dashboard_elements=[
                 DashboardElement(
@@ -145,6 +147,7 @@ def test_looker_ingest_unaliased_joins(pytestconfig, tmp_path, mock_time):
             id="1",
             title="foo",
             created_at=datetime.utcfromtimestamp(time.time()),
+            updated_at=datetime.utcfromtimestamp(time.time()),
             description="lorem ipsum",
             dashboard_elements=[
                 DashboardElement(
@@ -294,6 +297,7 @@ def test_looker_ingest_allow_pattern(pytestconfig, tmp_path, mock_time):
             id="1",
             title="foo",
             created_at=datetime.utcfromtimestamp(time.time()),
+            updated_at=datetime.utcfromtimestamp(time.time()),
             description="lorem ipsum",
             dashboard_elements=[
                 DashboardElement(

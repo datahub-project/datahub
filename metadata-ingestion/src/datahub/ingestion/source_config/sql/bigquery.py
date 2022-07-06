@@ -75,8 +75,8 @@ class BigQueryConfig(BigQueryBaseConfig, BaseTimeWindowConfig, SQLAlchemyConfig)
             )
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
 
-    def get_sql_alchemy_url(self, for_run_sql: bool = False) -> str:
-        if (not for_run_sql) and self.storage_project_id:
+    def get_sql_alchemy_url(self, run_on_compute: bool = False) -> str:
+        if self.storage_project_id and not run_on_compute:
             return f"{self.scheme}://{self.storage_project_id}"
         if self.project_id:
             return f"{self.scheme}://{self.project_id}"
@@ -100,6 +100,7 @@ class BigQueryConfig(BigQueryBaseConfig, BaseTimeWindowConfig, SQLAlchemyConfig)
         if (
             values.get("storage_project_id")
             and profiling is not None
+            and profiling.enabled
             and not profiling.bigquery_temp_table_schema
         ):
             raise ConfigurationError(
