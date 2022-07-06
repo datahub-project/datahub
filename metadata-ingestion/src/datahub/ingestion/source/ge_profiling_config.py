@@ -77,7 +77,7 @@ class GEProfilingConfig(ConfigModel):
 
     allow_deny_patterns: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for filtering of tables or table columns to profile.",
+        description="Internal Config do not use directly. Use `profile_pattern.allow` and `profile_pattern.deny` instead. Internal regex patterns to which `profile_pattern` is assigned. For filtering of tables or table columns to profile.",
     )
     max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = Field(
         default=None,
