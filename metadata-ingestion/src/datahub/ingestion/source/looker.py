@@ -220,11 +220,11 @@ class LookerDashboardElement:
         # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
         m = re.match("^(.*):([0-9]+)$", base_url)
         if m is not None:
-            base_url = m.group(1)
+            base_url = m[1]
         if self.look_id is not None:
-            return base_url + "/looks/" + self.look_id
+            return f"{base_url}/looks/{self.look_id}"
         else:
-            return base_url + "/x/" + self.query_slug
+            return f"{base_url}/x/{self.query_slug}"
 
     def get_urn_element_id(self):
         # A dashboard element can use a look or just a raw query against an explore
@@ -274,23 +274,22 @@ class LookerUserRegistry:
     def get_by_id(
         self, id: int, transport_options: Optional[TransportOptions]
     ) -> Optional[LookerUser]:
-        logger.debug("Will get user {}".format(id))
+        logger.debug(f"Will get user {id}")
         if id in self.user_map:
             return self.user_map[id]
-        else:
-            try:
-                raw_user: User = self.client.user(
-                    id,
-                    fields=self.fields,
-                    transport_options=transport_options,
-                )
-                looker_user = LookerUser._from_user(raw_user)
-                self.user_map[id] = looker_user
-                return looker_user
-            except SDKError as e:
-                logger.warn("Could not find user with id {}".format(id))
-                logger.warn("Failure was {}".format(e))
-                return None
+        try:
+            raw_user: User = self.client.user(
+                id,
+                fields=self.fields,
+                transport_options=transport_options,
+            )
+            looker_user = LookerUser._from_user(raw_user)
+            self.user_map[id] = looker_user
+            return looker_user
+        except SDKError as e:
+            logger.warning(f"Could not find user with id {id}")
+            logger.warning(f"Failure was {e}")
+            return None
 
 
 @dataclass
@@ -314,8 +313,8 @@ class LookerDashboard:
         # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
         m = re.match("^(.*):([0-9]+)$", base_url)
         if m is not None:
-            base_url = m.group(1)
-        return base_url + "/dashboards/" + self.id
+            base_url = m[1]
+        return f"{base_url}/dashboards/{self.id}"
 
     def get_urn_dashboard_id(self):
         return f"dashboards.{self.id}"
@@ -358,8 +357,7 @@ class LookerDashboardSource(Source):
         assert (
             field.count(".") == 1
         ), f"Error: A field must be prefixed by a view name, field is: {field}"
-        view_name = field.split(".")[0]
-        return view_name
+        return field.split(".")[0]
 
     def _get_views_from_fields(self, fields: List[str]) -> List[str]:
         field_set = set(fields)
@@ -457,12 +455,9 @@ class LookerDashboardSource(Source):
             raise ValueError("Element ID can't be None")
 
         if element.query is not None:
-            explores = []
             fields = self._get_fields_from_query(element.query)
-            if element.query.view is not None:
-                # Get the explore from the view directly
-                explores = [element.query.view]
-
+            # Get the explore from the view directly
+            explores = [element.query.view] if element.query.view is not None else []
             logger.debug(
                 "Element {}: Explores added: {}".format(element.title, explores)
             )
@@ -1019,7 +1014,7 @@ class LookerDashboardSource(Source):
                     else False,
                 )
             else:
-                raise Exception("Unexpected type of event {}".format(event))
+                raise Exception(f"Unexpected type of event {event}")
 
             self.reporter.report_workunit(workunit)
             yield workunit

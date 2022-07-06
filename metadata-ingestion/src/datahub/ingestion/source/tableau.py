@@ -423,22 +423,20 @@ class TableauSource(Source):
 
             table_path = None
             if project and datasource.get("name"):
-                table_name = table.get("name") if table.get("name") else table["id"]
+                table_name = table.get("name") or table["id"]
                 table_path = f"{project.replace('/', REPLACE_SLASH_CHAR)}/{datasource['name']}/{table_name}"
 
             self.upstream_tables[table_urn] = (
                 table.get("columns", []),
                 table_path,
-                table.get("isEmbedded") if table.get("isEmbedded") else False,
+                table.get("isEmbedded") or False,
             )
 
         return upstream_tables
 
     def emit_custom_sql_datasources(self) -> Iterable[MetadataWorkUnit]:
-        count_on_query = self.config.page_size
-        custom_sql_filter = "idWithin: {}".format(
-            json.dumps(self.custom_sql_ids_being_used)
-        )
+        count_on_query = len(self.custom_sql_ids_being_used)
+        custom_sql_filter = f"idWithin: {json.dumps(self.custom_sql_ids_being_used)}"
         custom_sql_connection, total_count, has_next_page = self.get_connection_object(
             custom_sql_graphql_query, "customSQLTablesConnection", custom_sql_filter
         )
@@ -516,7 +514,7 @@ class TableauSource(Source):
                     dataset_snapshot.aspects.append(schema_metadata)
 
                 # Browse path
-                csql_name = csql.get("name") if csql.get("name") else csql_id
+                csql_name = csql.get("name") or csql_id
 
                 if project and datasource_name:
                     browse_paths = BrowsePathsClass(
@@ -633,7 +631,6 @@ class TableauSource(Source):
         self, datasource_fields: List[dict]
     ) -> Optional[SchemaMetadata]:
         fields = []
-        schema_metadata = None
         for field in datasource_fields:
             # check datasource - custom sql relations from a field being referenced
             self._track_custom_sql_ids(field)
@@ -662,8 +659,8 @@ class TableauSource(Source):
             )
             fields.append(schema_field)
 
-        if fields:
-            schema_metadata = SchemaMetadata(
+        return (
+            SchemaMetadata(
                 schemaName="test",
                 platform=f"urn:li:dataPlatform:{self.platform}",
                 version=0,
@@ -671,8 +668,9 @@ class TableauSource(Source):
                 hash="",
                 platformSchema=OtherSchema(rawSchema=""),
             )
-
-        return schema_metadata
+            if fields
+            else None
+        )
 
     def get_metadata_change_event(
         self, snap_shot: Union["DatasetSnapshot", "DashboardSnapshot", "ChartSnapshot"]
@@ -727,9 +725,7 @@ class TableauSource(Source):
             aspects=[],
         )
 
-        datasource_name = (
-            datasource.get("name") if datasource.get("name") else datasource_id
-        )
+        datasource_name = datasource.get("name") or datasource_id
         if is_embedded_ds and workbook and workbook.get("name"):
             datasource_name = f"{workbook['name']}/{datasource_name}"
         # Browse path
@@ -809,10 +805,8 @@ class TableauSource(Source):
             )
 
     def emit_published_datasources(self) -> Iterable[MetadataWorkUnit]:
-        count_on_query = self.config.page_size
-        datasource_filter = "idWithin: {}".format(
-            json.dumps(self.datasource_ids_being_used)
-        )
+        count_on_query = len(self.datasource_ids_being_used)
+        datasource_filter = f"idWithin: {json.dumps(self.datasource_ids_being_used)}"
         (
             published_datasource_conn,
             total_count,
@@ -965,7 +959,7 @@ class TableauSource(Source):
             chart_snapshot.aspects.append(chart_info)
 
             if workbook.get("projectName") and workbook.get("name"):
-                sheet_name = sheet.get("name") if sheet.get("name") else sheet["id"]
+                sheet_name = sheet.get("name") or sheet["id"]
                 # Browse path
                 browse_path = BrowsePathsClass(
                     paths=[
@@ -1082,7 +1076,7 @@ class TableauSource(Source):
             dashboard_snapshot.aspects.append(dashboard_info_class)
 
             if workbook.get("projectName") and workbook.get("name"):
-                dashboard_name = title if title else dashboard["id"]
+                dashboard_name = title or dashboard["id"]
                 # browse path
                 browse_paths = BrowsePathsClass(
                     paths=[
@@ -1136,7 +1130,7 @@ class TableauSource(Source):
     def _extract_schema_from_fullName(self, fullName: str) -> str:
         # fullName is observed to be in format [schemaName].[tableName]
         # OR simply tableName OR [tableName]
-        if fullName.startswith("[") and fullName.find("].[") >= 0:
+        if fullName.startswith("[") and "].[" in fullName:
             return fullName[1 : fullName.index("]")]
         return ""
 

@@ -82,7 +82,7 @@ class PulsarSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
     )
     exclude_individual_partitions: bool = Field(
         default=True,
-        description="Extract each individual partitioned topic. e.g. when turned off a topic with 100 partitions will result in 100 Datesets.",
+        description="Extract each individual partitioned topic. e.g. when turned off a topic with 100 partitions will result in 100 Datasets.",
     )
 
     tenants: List[str] = Field(
