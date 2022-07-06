@@ -1336,7 +1336,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
     # Override if needed
     def generate_profile_candidates(
-        self, inspector: Inspector, threshold_time: datetime.datetime
+        self,
+        inspector: Inspector,
+        threshold_time: Optional[datetime.datetime],
+        schema: str,
     ) -> Optional[List[str]]:
         raise NotImplementedError()
 
@@ -1366,15 +1369,21 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
         tables_seen: Set[str] = set()
         profile_candidates = None  # Default value if profile candidates not available.
-        if sql_config.profiling.profile_if_updated_since_days is not None:
+        if (
+            sql_config.profiling.profile_if_updated_since_days is not None
+            or sql_config.profiling.profile_table_size_limit is not None
+            or sql_config.profiling.profile_table_row_limit is None
+        ):
             try:
-                threshold_time: datetime.datetime = datetime.datetime.now(
-                    datetime.timezone.utc
-                ) - datetime.timedelta(
-                    sql_config.profiling.profile_if_updated_since_days  # type:ignore
-                )
+                threshold_time: Optional[datetime.datetime] = None
+                if sql_config.profiling.profile_if_updated_since_days is not None:
+                    threshold_time = datetime.datetime.now(
+                        datetime.timezone.utc
+                    ) - datetime.timedelta(
+                        sql_config.profiling.profile_if_updated_since_days
+                    )
                 profile_candidates = self.generate_profile_candidates(
-                    inspector, threshold_time
+                    inspector, threshold_time, schema
                 )
             except NotImplementedError:
                 logger.debug("Source does not support generating profile candidates.")
