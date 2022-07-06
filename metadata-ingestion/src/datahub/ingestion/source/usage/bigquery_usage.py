@@ -322,7 +322,7 @@ AggregatedDataset = GenericAggregatedDataset[BigQueryTableRef]
 
 def _table_ref_to_urn(ref: BigQueryTableRef, env: str) -> str:
     return builder.make_dataset_urn(
-        "bigquery", f"{ref.project}.{ref.dataset}.{ref.table}", env
+        "bigquery", f"{ref.project}.{ref.dataset}.{ref.table.rstrip('_*')}", env
     )
 
 
