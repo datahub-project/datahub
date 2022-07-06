@@ -48,11 +48,11 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
 
     int weeklyActiveUsers =
         _analyticsService.getHighlights(_analyticsService.getUsageIndexName(), Optional.of(dateRange),
-            ImmutableMap.of(), ImmutableMap.of(), Optional.of("browserId"));
+            ImmutableMap.of(), ImmutableMap.of(), Optional.of("actorUrn.keyword"));
 
     int weeklyActiveUsersLastWeek =
         _analyticsService.getHighlights(_analyticsService.getUsageIndexName(), Optional.of(dateRangeLastWeek),
-            ImmutableMap.of(), ImmutableMap.of(), Optional.of("browserId"));
+            ImmutableMap.of(), ImmutableMap.of(), Optional.of("actorUrn.keyword"));
 
     String bodyText = "";
     if (weeklyActiveUsersLastWeek > 0) {
