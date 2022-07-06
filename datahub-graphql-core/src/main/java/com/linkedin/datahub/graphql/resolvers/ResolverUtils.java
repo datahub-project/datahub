@@ -56,6 +56,14 @@ public class ResolverUtils {
         return ((QueryContext) environment.getContext()).getAuthentication();
     }
 
+    /**
+     * @apiNote DO NOT use this method if the facet filters do not include `.keyword` suffix to ensure
+     * that it is matched against a keyword filter in ElasticSearch.
+     *
+     * @param facetFilterInputs The list of facet filters inputs
+     * @param validFacetFields  The set of valid fields against which to filter for.
+     * @return A map of filter definitions to be used in ElasticSearch.
+     */
     @Nonnull
     public static Map<String, String> buildFacetFilters(@Nullable List<FacetFilterInput> facetFilterInputs,
                                                         @Nonnull Set<String> validFacetFields) {

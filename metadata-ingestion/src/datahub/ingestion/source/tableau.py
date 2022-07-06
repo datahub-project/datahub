@@ -330,7 +330,7 @@ class TableauSource(Source):
                 yield from self.emit_sheets_as_charts(workbook)
                 yield from self.emit_dashboards(workbook)
                 yield from self.emit_embedded_datasource(workbook)
-                yield from self.emit_upstream_tables()
+            yield from self.emit_upstream_tables()
 
     def _track_custom_sql_ids(self, field: dict) -> None:
         # Tableau shows custom sql datasource as a table in ColumnField.
@@ -551,28 +551,31 @@ class TableauSource(Source):
     def get_schema_metadata_for_custom_sql(
         self, columns: List[dict]
     ) -> Optional[SchemaMetadata]:
+        fields = []
         schema_metadata = None
         for field in columns:
             # Datasource fields
-            fields = []
+
+            if field.get("name") is None:
+                continue
             nativeDataType = field.get("remoteType", "UNKNOWN")
             TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
             schema_field = SchemaField(
-                fieldPath=field.get("name", ""),
+                fieldPath=field["name"],
                 type=SchemaFieldDataType(type=TypeClass()),
                 nativeDataType=nativeDataType,
                 description=field.get("description", ""),
             )
             fields.append(schema_field)
 
-            schema_metadata = SchemaMetadata(
-                schemaName="test",
-                platform=f"urn:li:dataPlatform:{self.platform}",
-                version=0,
-                fields=fields,
-                hash="",
-                platformSchema=OtherSchema(rawSchema=""),
-            )
+        schema_metadata = SchemaMetadata(
+            schemaName="test",
+            platform=f"urn:li:dataPlatform:{self.platform}",
+            version=0,
+            fields=fields,
+            hash="",
+            platformSchema=OtherSchema(rawSchema=""),
+        )
         return schema_metadata
 
     def _create_lineage_from_csql_datasource(
@@ -634,6 +637,8 @@ class TableauSource(Source):
         for field in datasource_fields:
             # check datasource - custom sql relations from a field being referenced
             self._track_custom_sql_ids(field)
+            if field.get("name") is None:
+                continue
 
             nativeDataType = field.get("dataType", "UNKNOWN")
             TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
@@ -865,6 +870,8 @@ class TableauSource(Source):
             if columns:
                 fields = []
                 for field in columns:
+                    if field.get("name") is None:
+                        continue
                     nativeDataType = field.get("remoteType", "UNKNOWN")
                     TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
 

@@ -1,4 +1,5 @@
 import merge from 'deepmerge';
+import { unionBy } from 'lodash';
 import { Entity, MatchedField, Maybe, SiblingProperties } from '../../../types.generated';
 
 function cleanHelper(obj, visited) {
@@ -41,6 +42,31 @@ const combineMerge = (target, source, options) => {
     return destination;
 };
 
+const mergeTags = (destinationArray, sourceArray, _options) => {
+    return unionBy(destinationArray, sourceArray, 'tag.urn');
+};
+
+const mergeTerms = (destinationArray, sourceArray, _options) => {
+    return unionBy(destinationArray, sourceArray, 'term.urn');
+};
+
+const mergeAssertions = (destinationArray, sourceArray, _options) => {
+    return unionBy(destinationArray, sourceArray, 'urn');
+};
+
+function getArrayMergeFunction(key) {
+    switch (key) {
+        case 'tags':
+            return mergeTags;
+        case 'terms':
+            return mergeTerms;
+        case 'assertions':
+            return mergeAssertions;
+        default:
+            return undefined;
+    }
+}
+
 const customMerge = (isPrimary, key) => {
     if (key === 'upstream' || key === 'downstream') {
         return (_secondary, primary) => primary;
@@ -51,6 +77,7 @@ const customMerge = (isPrimary, key) => {
     if (key === 'tags' || key === 'terms' || key === 'assertions') {
         return (secondary, primary) => {
             return merge(secondary, primary, {
+                arrayMerge: getArrayMergeFunction(key),
                 customMerge: customMerge.bind({}, isPrimary),
             });
         };

@@ -10,7 +10,7 @@ The figure below describes all the options possible for connecting your favorite
 
 ## Metadata Change Proposal: The Center Piece 
 
-The center piece for ingestion is are [Metadata Change Proposals] which represent requests to make a metadata change to an organization's Metadata Graph. 
+The center piece for ingestion are [Metadata Change Proposals] which represent requests to make a metadata change to an organization's Metadata Graph. 
 Metadata Change Proposals can be sent over Kafka, for highly scalable async publishing from source systems. They can also be sent directly to the HTTP endpoint exposed by the DataHub service tier to get synchronous success / failure responses. 
 
 ## Pull-based Integration
