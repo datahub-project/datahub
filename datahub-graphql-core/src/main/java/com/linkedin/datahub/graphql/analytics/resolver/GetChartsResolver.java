@@ -75,7 +75,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
 
     final List<NamedLine> wauTimeseries =
         _analyticsService.getTimeseriesChart(_analyticsService.getUsageIndexName(), twoMonthsDateRange, weeklyInterval,
-            Optional.empty(), ImmutableMap.of(), Collections.emptyMap(), Optional.of("browserId"));
+            Optional.empty(), ImmutableMap.of(), Collections.emptyMap(), Optional.of("actorUrn.keyword"));
     charts.add(TimeSeriesChart.builder()
         .setTitle(wauTitle)
         .setDateRange(twoMonthsDateRange)
