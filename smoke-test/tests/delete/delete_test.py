@@ -7,15 +7,21 @@ from datahub.cli.docker import check_local_docker_containers
 from datahub.cli.cli_utils import guess_entity_type, post_entity, get_aspects_for_entity
 from datahub.cli.ingest_cli import get_session_and_host
 from datahub.cli.delete_cli import guess_entity_type, delete_one_urn_cmd, delete_references
-from tests.utils import ingest_file_via_rest, delete_urns_from_file
+from tests.utils import ingest_file_via_rest, delete_urns_from_file, check_k8s_endpoint, get_frontend_url, get_gms_url
 
 # Disable telemetry
 os.putenv("DATAHUB_TELEMETRY_ENABLED", "false")
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
-    # Simply assert that everything is healthy, but don't wait.
-    assert not check_local_docker_containers()
+    K8S_CLUSTER_ENABLED = os.getenv("K8S_CLUSTER_ENABLED", "false").lower()
+    if K8S_CLUSTER_ENABLED in ["true", "yes"]:
+        # Simply assert that kubernetes endpoints are healthy, but don't wait.
+        assert not check_k8s_endpoint(f"{get_frontend_url()}/admin")
+        assert not check_k8s_endpoint(f"{get_gms_url()}/health")
+    else:
+        # Simply assert that docker is healthy, but don't wait.
+        assert not check_local_docker_containers()
     yield
 
 @pytest.mark.dependency()

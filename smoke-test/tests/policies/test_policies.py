@@ -1,17 +1,22 @@
 import time
 import pytest
 import requests
-from tests.utils import get_frontend_url
+from os import getenv
+from tests.utils import get_frontend_url, check_k8s_endpoint
 from datahub.cli.docker import check_local_docker_containers
 
 TEST_POLICY_NAME = "Updated Platform Policy"
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
-    # Simply assert that everything is healthy, but don't wait.
-    assert not check_local_docker_containers()
+    K8S_CLUSTER_ENABLED = getenv("K8S_CLUSTER_ENABLED", "false").lower()
+    if K8S_CLUSTER_ENABLED in ["true", "yes"]:
+        # Simply assert that kubernetes endpoints are healthy, but don't wait.
+        assert not check_k8s_endpoint(f"{get_frontend_url()}/admin")
+    else:
+        # Simply assert that docker is healthy, but don't wait.
+        assert not check_local_docker_containers()
     yield
-
 
 @pytest.mark.dependency()
 def test_healthchecks(wait_for_healthchecks):
