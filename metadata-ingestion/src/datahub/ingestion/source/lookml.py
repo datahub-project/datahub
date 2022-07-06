@@ -27,6 +27,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.source.looker_common import (
     LookerCommonConfig,
+    LookerExplore,
     LookerUtil,
     LookerViewId,
     ViewField,
@@ -176,6 +177,10 @@ class LookMLSourceConfig(LookerCommonConfig):
     max_file_snippet_length: int = Field(
         512000,  # 512KB should be plenty
         description="When extracting the view definition from a lookml file, the maximum number of characters to extract.",
+    )
+    emit_reachable_views_only: bool = Field(
+        False,
+        description="When enabled, only views that are reachable from explores defined in the model files are emitted",
     )
 
     @validator("platform_instance")
@@ -341,7 +346,9 @@ class LookerModel:
                     or included_file.endswith(".dashboard.lookml")
                     or included_file.endswith(".dashboard.lkml")
                 ):
-                    logger.debug(f"include '{inc}' is a dashboard, skipping it")
+                    logger.debug(
+                        f"include '{included_file}' is a dashboard, skipping it"
+                    )
                     continue
 
                 logger.debug(
@@ -1081,9 +1088,10 @@ class LookMLSource(Source):
             str(self.source_config.base_folder), self.reporter
         )
 
-        # some views can be mentioned by multiple 'include' statements, so this set is used to prevent
-        # creating duplicate MCE messages
-        processed_view_files: Set[str] = set()
+        # some views can be mentioned by multiple 'include' statements and can be included via different connections.
+        # So this set is used to prevent creating duplicate events
+        processed_view_map: Dict[str, Set[str]] = {}
+        view_connection_map: Dict[str, Tuple[str, str]] = {}
 
         # The ** means "this directory and all subdirectories", and hence should
         # include all the files we want.
@@ -1119,20 +1127,43 @@ class LookMLSource(Source):
                 self.reporter.report_models_dropped(model_name)
                 continue
 
+            explore_reachable_views = set()
+            for explore_dict in model.explores:
+                explore: LookerExplore = LookerExplore.from_dict(
+                    model_name, explore_dict
+                )
+                if explore.upstream_views:
+                    for view_name in explore.upstream_views:
+                        explore_reachable_views.add(view_name)
+
+            processed_view_files = processed_view_map.get(model.connection)
+            if processed_view_files is None:
+                processed_view_map[model.connection] = set()
+                processed_view_files = processed_view_map[model.connection]
+
             project_name = self.get_project_name(model_name)
+            logger.debug(f"Model: {model_name}; Includes: {model.resolved_includes}")
 
             for include in model.resolved_includes:
                 logger.debug(f"Considering {include} for model {model_name}")
                 if include in processed_view_files:
                     logger.debug(f"view '{include}' already processed, skipping it")
                     continue
-
                 logger.debug(f"Attempting to load view file: {include}")
                 looker_viewfile = viewfile_loader.load_viewfile(
                     include, connectionDefinition, self.reporter
                 )
                 if looker_viewfile is not None:
                     for raw_view in looker_viewfile.views:
+                        if (
+                            self.source_config.emit_reachable_views_only
+                            and raw_view["name"] not in explore_reachable_views
+                        ):
+                            logger.debug(
+                                f"view {raw_view['name']} is not reachable from an explore, skipping.."
+                            )
+                            continue
+
                         self.reporter.report_views_scanned()
                         try:
                             maybe_looker_view = LookerView.from_looker_dict(
@@ -1157,24 +1188,49 @@ class LookMLSource(Source):
                             if self.source_config.view_pattern.allowed(
                                 maybe_looker_view.id.view_name
                             ):
-                                mce = self._build_dataset_mce(maybe_looker_view)
-                                workunit = MetadataWorkUnit(
-                                    id=f"lookml-view-{maybe_looker_view.id}",
-                                    mce=mce,
+                                view_connection_mapping = view_connection_map.get(
+                                    maybe_looker_view.id.view_name
                                 )
-                                self.reporter.report_workunit(workunit)
-                                processed_view_files.add(include)
-                                yield workunit
-
-                                for mcp in self._build_dataset_mcps(maybe_looker_view):
-                                    # We want to treat mcp aspects as optional, so allowing failures in this aspect to be treated as warnings rather than failures
+                                if not view_connection_mapping:
+                                    view_connection_map[
+                                        maybe_looker_view.id.view_name
+                                    ] = (model_name, model.connection)
+                                    # first time we are discovering this view
+                                    mce = self._build_dataset_mce(maybe_looker_view)
                                     workunit = MetadataWorkUnit(
-                                        id=f"lookml-view-{mcp.aspectName}-{maybe_looker_view.id}",
-                                        mcp=mcp,
-                                        treat_errors_as_warnings=True,
+                                        id=f"lookml-view-{maybe_looker_view.id}",
+                                        mce=mce,
                                     )
+                                    processed_view_files.add(include)
                                     self.reporter.report_workunit(workunit)
                                     yield workunit
+                                    for mcp in self._build_dataset_mcps(
+                                        maybe_looker_view
+                                    ):
+                                        # We want to treat mcp aspects as optional, so allowing failures in this aspect to be treated as warnings rather than failures
+                                        workunit = MetadataWorkUnit(
+                                            id=f"lookml-view-{mcp.aspectName}-{maybe_looker_view.id}",
+                                            mcp=mcp,
+                                            treat_errors_as_warnings=True,
+                                        )
+                                        self.reporter.report_workunit(workunit)
+                                        yield workunit
+                                else:
+                                    (
+                                        prev_model_name,
+                                        prev_model_connection,
+                                    ) = view_connection_mapping
+                                    if prev_model_connection != model.connection:
+                                        # this view has previously been discovered and emitted using a different connection
+                                        logger.warning(
+                                            f"view {maybe_looker_view.id.view_name} from model {model_name}, connection {model.connection} was previously processed via model {prev_model_name}, connection {prev_model_connection} and will likely lead to incorrect lineage to the underlying tables"
+                                        )
+                                        if (
+                                            not self.source_config.emit_reachable_views_only
+                                        ):
+                                            logger.warning(
+                                                "Consider enabling the `emit_reachable_views_only` flag to handle this case."
+                                            )
                             else:
                                 self.reporter.report_views_dropped(
                                     str(maybe_looker_view.id)
