@@ -96,6 +96,16 @@ const user2 = {
         teams: [],
         skills: [],
     },
+    groups: {
+        relationships: [
+            {
+                entity: {
+                    urn: 'urn:li:corpgroup:group1',
+                    name: 'group1',
+                },
+            },
+        ],
+    },
     globalTags: {
         tags: [
             {
@@ -3110,6 +3120,7 @@ export const mocks = [
                     platformPrivileges: {
                         viewAnalytics: true,
                         managePolicies: true,
+                        viewMetadataProposals: true,
                         manageIdentities: true,
                         manageDomains: true,
                         manageTags: true,
@@ -3122,6 +3133,7 @@ export const mocks = [
                         manageSecrets: true,
                         manageIngestion: true,
                         generatePersonalAccessTokens: true,
+                        manageGlobalSettings: true,
                     },
                 },
             },
