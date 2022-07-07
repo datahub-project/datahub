@@ -14,6 +14,7 @@ We'll break down configuration of the DataHub Apache Ranger Plugin into two part
 > Disclaimer: All configurations shown in this documented were tested against [Privacera Platform](https://privacera.com/) v6.3.0.1.
 
 # Prerequisites 
+- User identifier present in CorpRole URN should be the name of the AD/LDAP user. For example in URN **urn:li:corpuser:datahub**, the **datahub** should present as name of user in AD/LDAP  
 - Apache Ranger and DataHub are configured for authentication via same IDP (either LDAP + JaaS or OIDC SSO)
 - Apache Ranger service available via HTTP
 - Basic authentication is enabled on Apache Ranger Service
