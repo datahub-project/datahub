@@ -24,6 +24,7 @@ services:
     depends_on:
       - zookeeper
     ports:
+      - "29092:29092"
       - ${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}:9092
     volumes:
       - broker:/var/lib/kafka/data/

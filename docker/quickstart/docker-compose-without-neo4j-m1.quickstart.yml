@@ -17,6 +17,7 @@ services:
     hostname: broker
     image: kymeric/cp-kafka:latest
     ports:
+    - "29092:29092"
     - ${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}:9092
   datahub-actions:
     depends_on:
