@@ -11,6 +11,7 @@ import time
 from typing import List, NoReturn, Optional
 
 import click
+import pydantic
 import requests
 
 from datahub.cli.docker_check import (
@@ -166,6 +167,41 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
     default=None,
     help="If set, forces docker-compose to use that graph service implementation",
 )
+@click.option(
+    "--mysql-port",
+    type=pydantic.PositiveInt,
+    is_flag=False,
+    default=None,
+    help="If there is an existing mysql instance running on port 3306, set this to a free port to avoid port conflicts on startup",
+)
+@click.option(
+    "--zk-port",
+    type=str,
+    is_flag=False,
+    default=None,
+    help="If there is an existing zookeeper instance running on port 2181, set this to a free port to avoid port conflicts on startup",
+)
+@click.option(
+    "--kafka-broker-port",
+    type=str,
+    is_flag=False,
+    default=None,
+    help="If there is an existing Kafka broker running on port 9092, set this to a free port to avoid port conflicts on startup",
+)
+@click.option(
+    "--schema-registry-port",
+    type=str,
+    is_flag=False,
+    default=None,
+    help="If there is an existing process running on port 8081, set this to a free port to avoid port conflicts with Kafka schema registry on startup",
+)
+@click.option(
+    "--elastic-port",
+    type=str,
+    is_flag=False,
+    default=None,
+    help="If there is an existing Elasticsearch instance running on port 9092, set this to a free port to avoid port conflicts on startup",
+)
 @upgrade.check_upgrade
 @telemetry.with_telemetry
 def quickstart(
@@ -174,6 +210,11 @@ def quickstart(
     quickstart_compose_file: List[pathlib.Path],
     dump_logs_on_failure: bool,
     graph_service_impl: Optional[str],
+    mysql_port: Optional[pydantic.PositiveInt],
+    zk_port: Optional[str],
+    kafka_broker_port: Optional[str],
+    schema_registry_port: Optional[str],
+    elastic_port: Optional[str],
 ) -> None:
     """Start an instance of DataHub locally using docker-compose.
 
@@ -223,6 +264,20 @@ def quickstart(
     # set version
     if version is not None:
         os.environ["DATAHUB_VERSION"] = version
+    if mysql_port is not None:
+        os.environ["DATAHUB_MAPPED_MYSQL_PORT"] = str(mysql_port)
+
+    if zk_port is not None:
+        os.environ["DATAHUB_MAPPED_ZK_PORT"] = str(zk_port)
+
+    if kafka_broker_port is not None:
+        os.environ["DATAHUB_MAPPED_KAFKA_BROKER_PORT"] = str(kafka_broker_port)
+
+    if schema_registry_port is not None:
+        os.environ["DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT"] = str(schema_registry_port)
+
+    if elastic_port is not None:
+        os.environ["DATAHUB_MAPPED_ELASTIC_PORT"] = str(elastic_port)        
 
     base_command: List[str] = [
         "docker-compose",
