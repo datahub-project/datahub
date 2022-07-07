@@ -101,13 +101,13 @@ export const SettingsPage = () => {
                     </Menu.ItemGroup>
                     {(showPolicies || showUsersGroups) && (
                         <Menu.ItemGroup title="Access">
-                            {showPolicies && (
+                            {showUsersGroups && (
                                 <Menu.Item key="identities">
                                     <UsergroupAddOutlined />
                                     <ItemTitle>Users & Groups</ItemTitle>
                                 </Menu.Item>
                             )}
-                            {showUsersGroups && (
+                            {showPolicies && (
                                 <Menu.Item key="policies">
                                     <BankOutlined />
                                     <ItemTitle>Privileges</ItemTitle>
