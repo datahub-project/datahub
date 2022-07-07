@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import multiprocessing
 import re
@@ -9,11 +10,8 @@ from typing import List, Optional, Tuple, Type
 
 from datahub.utilities.sql_lineage_parser_impl import SqlLineageSQLParserImpl
 
-try:
+with contextlib.suppress(ImportError):
     from sql_metadata import Parser as MetadataSQLParser
-except ImportError:
-    pass
-
 logger = logging.getLogger(__name__)
 
 

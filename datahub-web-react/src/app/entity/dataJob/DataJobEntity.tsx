@@ -18,8 +18,8 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 import { RunsTab } from './tabs/RunsTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 
-const getDataJobPlatformName = (data: DataJob): string => {
-    return data.dataFlow?.platform.properties?.displayName || data.dataFlow?.platform.name || '';
+const getDataJobPlatformName = (data?: DataJob): string => {
+    return data?.dataFlow?.platform?.properties?.displayName || data?.dataFlow?.platform?.name || '';
 };
 
 /**
