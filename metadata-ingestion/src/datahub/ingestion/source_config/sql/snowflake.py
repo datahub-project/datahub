@@ -90,7 +90,7 @@ class SnowflakeProvisionRoleConfig(ConfigModel):
     @pydantic.validator("admin_username", always=True)
     def username_not_empty(cls, v, values, **kwargs):
         v_str: str = str(v)
-        if v_str.strip() == "":
+        if not v_str.strip():
             raise ValueError("username is empty")
         return v
 
@@ -180,60 +180,55 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                 f"unsupported authenticator type '{v}' was provided,"
                 f" use one of {list(VALID_AUTH_TYPES.keys())}"
             )
-        else:
-            if v == "KEY_PAIR_AUTHENTICATOR":
-                # If we are using key pair auth, we need the private key path and password to be set
-                if values.get("private_key_path") is None:
+        if v == "KEY_PAIR_AUTHENTICATOR":
+            # If we are using key pair auth, we need the private key path and password to be set
+            if values.get("private_key_path") is None:
+                raise ValueError(
+                    f"'private_key_path' was none "
+                    f"but should be set when using {v} authentication"
+                )
+        elif v == "OAUTH_AUTHENTICATOR":
+            if values.get("oauth_config") is None:
+                raise ValueError(
+                    f"'oauth_config' is none but should be set when using {v} authentication"
+                )
+            if values.get("oauth_config").provider is None:
+                raise ValueError(
+                    f"'oauth_config.provider' is none "
+                    f"but should be set when using {v} authentication"
+                )
+            if values.get("oauth_config").client_id is None:
+                raise ValueError(
+                    f"'oauth_config.client_id' is none "
+                    f"but should be set when using {v} authentication"
+                )
+            if values.get("oauth_config").scopes is None:
+                raise ValueError(
+                    f"'oauth_config.scopes' was none "
+                    f"but should be set when using {v} authentication"
+                )
+            if values.get("oauth_config").authority_url is None:
+                raise ValueError(
+                    f"'oauth_config.authority_url' was none "
+                    f"but should be set when using {v} authentication"
+                )
+            if values.get("oauth_config").use_certificate is True:
+                if values.get("oauth_config").base64_encoded_oauth_private_key is None:
                     raise ValueError(
-                        f"'private_key_path' was none "
-                        f"but should be set when using {v} authentication"
+                        "'base64_encoded_oauth_private_key' was none "
+                        "but should be set when using certificate for oauth_config"
                     )
-            elif v == "OAUTH_AUTHENTICATOR":
-                if values.get("oauth_config") is None:
+                if values.get("oauth").base64_encoded_oauth_public_key is None:
                     raise ValueError(
-                        f"'oauth_config' is none but should be set when using {v} authentication"
+                        "'base64_encoded_oauth_public_key' was none"
+                        "but should be set when using use_certificate true for oauth_config"
                     )
-                if values.get("oauth_config").provider is None:
-                    raise ValueError(
-                        f"'oauth_config.provider' is none "
-                        f"but should be set when using {v} authentication"
-                    )
-                if values.get("oauth_config").client_id is None:
-                    raise ValueError(
-                        f"'oauth_config.client_id' is none "
-                        f"but should be set when using {v} authentication"
-                    )
-                if values.get("oauth_config").scopes is None:
-                    raise ValueError(
-                        f"'oauth_config.scopes' was none "
-                        f"but should be set when using {v} authentication"
-                    )
-                if values.get("oauth_config").authority_url is None:
-                    raise ValueError(
-                        f"'oauth_config.authority_url' was none "
-                        f"but should be set when using {v} authentication"
-                    )
-                if values.get("oauth_config").use_certificate is True:
-                    if (
-                        values.get("oauth_config").base64_encoded_oauth_private_key
-                        is None
-                    ):
-                        raise ValueError(
-                            "'base64_encoded_oauth_private_key' was none "
-                            "but should be set when using certificate for oauth_config"
-                        )
-                    if values.get("oauth").base64_encoded_oauth_public_key is None:
-                        raise ValueError(
-                            "'base64_encoded_oauth_public_key' was none"
-                            "but should be set when using use_certificate true for oauth_config"
-                        )
-                else:
-                    if values.get("oauth_config").client_secret is None:
-                        raise ValueError(
-                            "'oauth_config.client_secret' was none "
-                            "but should be set when using use_certificate false for oauth_config"
-                        )
-            logger.info(f"using authenticator type '{v}'")
+            elif values.get("oauth_config").client_secret is None:
+                raise ValueError(
+                    "'oauth_config.client_secret' was none "
+                    "but should be set when using use_certificate false for oauth_config"
+                )
+        logger.info(f"using authenticator type '{v}'")
         return v
 
     @pydantic.validator("include_view_lineage")

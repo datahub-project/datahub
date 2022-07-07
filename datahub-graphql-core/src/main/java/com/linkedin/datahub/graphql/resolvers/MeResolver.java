@@ -5,6 +5,7 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.AuthenticatedUser;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.PlatformPrivileges;
@@ -65,6 +66,9 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
         platformPrivileges.setManageTests(canManageTests(context));
         platformPrivileges.setManageGlossaries(canManageGlossaries(context));
         platformPrivileges.setManageUserCredentials(canManageUserCredentials(context));
+        platformPrivileges.setCreateDomains(AuthorizationUtils.canCreateDomains(context));
+        platformPrivileges.setCreateTags(AuthorizationUtils.canCreateTags(context));
+        platformPrivileges.setManageTags(AuthorizationUtils.canManageTags(context));
 
         // Construct and return authenticated user object.
         final AuthenticatedUser authUser = new AuthenticatedUser();

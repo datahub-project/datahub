@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
-import { Typography } from 'antd';
+import { Button, Typography } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
+
 import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '../../graphql/glossary.generated';
 import TabToolbar from '../entity/shared/components/styled/TabToolbar';
-import { SearchablePage } from '../search/SearchablePage';
-import EntityDropdown, { EntityMenuItems } from '../entity/shared/EntityDropdown/EntityDropdown';
 import GlossaryEntitiesPath from './GlossaryEntitiesPath';
 import GlossaryEntitiesList from './GlossaryEntitiesList';
 import GlossaryBrowser from './GlossaryBrowser/GlossaryBrowser';
 import GlossarySearch from './GlossarySearch';
 import { ProfileSidebarResizer } from '../entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
+import EmptyGlossarySection from './EmptyGlossarySection';
+import CreateGlossaryEntityModal from '../entity/shared/EntityDropdown/CreateGlossaryEntityModal';
+import { EntityType } from '../../types.generated';
 
 export const HeaderWrapper = styled(TabToolbar)`
     padding: 15px 45px 10px 24px;
@@ -44,8 +47,13 @@ function BusinessGlossaryPage() {
     const terms = termsData?.getRootGlossaryTerms?.terms;
     const nodes = nodesData?.getRootGlossaryNodes?.nodes;
 
+    const hasTermsOrNodes = !!nodes?.length || !!terms?.length;
+
+    const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
+    const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
+
     return (
-        <SearchablePage>
+        <>
             <GlossaryWrapper>
                 <BrowserWrapper width={browserWidth}>
                     <GlossarySearch />
@@ -62,16 +70,36 @@ function BusinessGlossaryPage() {
                     <GlossaryEntitiesPath />
                     <HeaderWrapper>
                         <Typography.Title level={3}>Glossary</Typography.Title>
-                        <EntityDropdown
-                            menuItems={new Set([EntityMenuItems.ADD_TERM_GROUP, EntityMenuItems.ADD_TERM])}
-                            refetchForTerms={refetchForTerms}
-                            refetchForNodes={refetchForNodes}
-                        />
+                        <div>
+                            <Button type="text" onClick={() => setIsCreateTermModalVisible(true)}>
+                                <PlusOutlined /> Add Term
+                            </Button>
+                            <Button type="text" onClick={() => setIsCreateNodeModalVisible(true)}>
+                                <PlusOutlined /> Add Term Group
+                            </Button>
+                        </div>
                     </HeaderWrapper>
-                    <GlossaryEntitiesList nodes={nodes || []} terms={terms || []} />
+                    {hasTermsOrNodes && <GlossaryEntitiesList nodes={nodes || []} terms={terms || []} />}
+                    {!hasTermsOrNodes && (
+                        <EmptyGlossarySection refetchForTerms={refetchForTerms} refetchForNodes={refetchForNodes} />
+                    )}
                 </MainContentWrapper>
             </GlossaryWrapper>
-        </SearchablePage>
+            {isCreateTermModalVisible && (
+                <CreateGlossaryEntityModal
+                    entityType={EntityType.GlossaryTerm}
+                    onClose={() => setIsCreateTermModalVisible(false)}
+                    refetchData={refetchForTerms}
+                />
+            )}
+            {isCreateNodeModalVisible && (
+                <CreateGlossaryEntityModal
+                    entityType={EntityType.GlossaryNode}
+                    onClose={() => setIsCreateNodeModalVisible(false)}
+                    refetchData={refetchForNodes}
+                />
+            )}
+        </>
     );
 }
 

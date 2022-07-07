@@ -114,7 +114,7 @@ class BigQueryUsageConfig(BigQueryBaseConfig, DatasetSourceConfigBase, BaseUsage
 
     credential: Optional[BigQueryCredential] = pydantic.Field(
         default=None,
-        description="Bigquery credential. Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set. See this example recipe for details",
+        description="Bigquery credential. Required if GOOGLE_APPLICATION_CREDENTIALS environment variable is not set. See this example recipe for details",
     )
     _credentials_path: Optional[str] = pydantic.PrivateAttr(None)
     temp_table_dataset_prefix: str = pydantic.Field(

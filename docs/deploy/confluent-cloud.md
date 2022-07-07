@@ -135,7 +135,7 @@ credentialsAndCertsSecrets:
 
 
 springKafkaConfigurationOverrides:
-      security.protocol: SASL
+      security.protocol: SASL_SSL
       sasl.mechanism: PLAIN
       client.dns.lookup: use_all_dns_ips
       basic.auth.credentials.source: USER_INFO

@@ -24,6 +24,7 @@ import { EntityMenuItems } from '../../EntityDropdown/EntityDropdown';
 import GlossaryBrowser from '../../../../glossary/GlossaryBrowser/GlossaryBrowser';
 import GlossarySearch from '../../../../glossary/GlossarySearch';
 import { BrowserWrapper, MAX_BROWSER_WIDTH, MIN_BROWSWER_WIDTH } from '../../../../glossary/BusinessGlossaryPage';
+import { combineEntityDataWithSiblings } from '../../siblingUtils';
 
 type Props<T, U> = {
     urn: string;
@@ -89,7 +90,8 @@ const HeaderAndTabsFlex = styled.div`
 const Sidebar = styled.div<{ $width: number }>`
     max-height: 100%;
     overflow: auto;
-    flex-basis: ${(props) => props.$width}px;
+    width: ${(props) => props.$width}px;
+    min-width: ${(props) => props.$width}px;
     padding-left: 20px;
     padding-right: 20px;
 `;
@@ -116,7 +118,6 @@ const defaultSidebarSection = {
     visible: (_, _1) => true,
 };
 
-const INITIAL_SIDEBAR_WIDTH = 400;
 const MAX_SIDEBAR_WIDTH = 800;
 const MIN_SIDEBAR_WIDTH = 200;
 
@@ -146,7 +147,7 @@ export const EntityProfile = <T, U>({
         display: { ...defaultSidebarSection, ...sidebarSection.display },
     }));
 
-    const [sidebarWidth, setSidebarWidth] = useState(INITIAL_SIDEBAR_WIDTH);
+    const [sidebarWidth, setSidebarWidth] = useState(window.innerWidth * 0.25);
     const [browserWidth, setBrowserWith] = useState(window.innerWidth * 0.2);
     const [shouldUpdateBrowser, setShouldUpdateBrowser] = useState(false);
 
@@ -176,9 +177,16 @@ export const EntityProfile = <T, U>({
         [history, entityType, urn, entityRegistry],
     );
 
-    const { loading, error, data, refetch } = useEntityQuery({
+    const {
+        loading,
+        error,
+        data: dataNotCombinedWithSiblings,
+        refetch,
+    } = useEntityQuery({
         variables: { urn },
     });
+
+    const dataCombinedWithSiblings = combineEntityDataWithSiblings(dataNotCombinedWithSiblings);
 
     const maybeUpdateEntity = useUpdateQuery?.({
         onCompleted: () => refetch(),
@@ -189,7 +197,14 @@ export const EntityProfile = <T, U>({
     }
 
     const entityData =
-        (data && getDataForEntityType({ data: data[Object.keys(data)[0]], entityType, getOverrideProperties })) || null;
+        (dataCombinedWithSiblings &&
+            Object.keys(dataCombinedWithSiblings).length > 0 &&
+            getDataForEntityType({
+                data: dataCombinedWithSiblings[Object.keys(dataCombinedWithSiblings)[0]],
+                entityType,
+                getOverrideProperties,
+            })) ||
+        null;
 
     const lineage = entityData ? entityRegistry.getLineageVizConfig(entityType, entityData) : undefined;
 
@@ -218,7 +233,7 @@ export const EntityProfile = <T, U>({
                     urn,
                     entityType,
                     entityData,
-                    baseEntity: data,
+                    baseEntity: dataCombinedWithSiblings,
                     updateEntity,
                     routeToTab,
                     refetch,
@@ -252,7 +267,7 @@ export const EntityProfile = <T, U>({
                 urn,
                 entityType,
                 entityData,
-                baseEntity: data,
+                baseEntity: dataCombinedWithSiblings,
                 updateEntity,
                 routeToTab,
                 refetch,

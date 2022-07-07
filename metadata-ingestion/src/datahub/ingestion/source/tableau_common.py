@@ -433,8 +433,7 @@ def make_table_urn(
     # if there are more than 3 tokens, just take the final 3
     fully_qualified_table_name = ".".join(fully_qualified_table_name.split(".")[-3:])
 
-    urn = builder.make_dataset_urn(platform, fully_qualified_table_name, env)
-    return urn
+    return builder.make_dataset_urn(platform, fully_qualified_table_name, env)
 
 
 def make_description_from_params(description, formula):
@@ -451,10 +450,9 @@ def make_description_from_params(description, formula):
 
 def get_field_value_in_sheet(field, field_name):
     if field.get("__typename", "") == "DatasourceField":
-        field = field.get("remoteField") if field.get("remoteField") else {}
+        field = field.get("remoteField") or {}
 
-    field_value = field.get(field_name, "")
-    return field_value
+    return field.get(field_name, "")
 
 
 def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:
@@ -506,6 +504,4 @@ def query_metadata(server, main_query, connection_name, first, offset, qry_filte
         filter=qry_filter,
         main_query=main_query,
     )
-    query_result = server.metadata.query(query)
-
-    return query_result
+    return server.metadata.query(query)

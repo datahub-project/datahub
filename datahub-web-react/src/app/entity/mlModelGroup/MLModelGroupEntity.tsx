@@ -120,7 +120,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
     };
 
     displayName = (data: MlModelGroup) => {
-        return data.name;
+        return data.name || data.urn;
     };
 
     getGenericEntityProperties = (mlModelGroup: MlModelGroup) => {

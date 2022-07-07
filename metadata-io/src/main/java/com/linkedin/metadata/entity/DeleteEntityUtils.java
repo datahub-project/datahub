@@ -50,6 +50,10 @@ public class DeleteEntityUtils {
     try {
       final DataMap copy = aspect.copy().data();
       final DataComplex newValue = removeValueBasedOnPath(value, schema, copy, aspectPath.getPathComponents(), 0);
+      if (newValue == null) {
+        // If the new value is null, we should remove the aspect.
+        return null;
+      }
       return new Aspect((DataMap) newValue);
     } catch (CloneNotSupportedException e) {
       return new Aspect();
@@ -105,7 +109,8 @@ public class DeleteEntityUtils {
       if (valueExistsInRecord) {
         if (canDelete) {
           record.remove(pathComponents.get(index));
-        } else if (record.size() == 1) {
+        } else {
+          // If the field is required, then we need to remove the entire record (if possible)
           return null;
         }
       } else {
@@ -126,6 +131,10 @@ public class DeleteEntityUtils {
             record.remove(key);
           } else if (record.size() == 1) {
             return null;
+          } else {
+            // Not optional and not the only field, then this is a bad delete. Need to throw.
+            throw new UnsupportedOperationException(
+                String.format("Delete failed! Failed to field with name %s from DataMap. The field is required!", key));
           }
         } else {
           record.put(key, result);

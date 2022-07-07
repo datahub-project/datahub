@@ -16,7 +16,7 @@ from requests.models import Response
 from requests.sessions import Session
 
 from datahub.emitter.mce_builder import Aspect
-from datahub.emitter.rest_emitter import _make_curl_command
+from datahub.emitter.request_helper import _make_curl_command
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import (
     AssertionRunEventClass,
@@ -71,6 +71,8 @@ ENV_METADATA_PROTOCOL = "DATAHUB_GMS_PROTOCOL"
 ENV_METADATA_HOST_DEPRECATED = "GMS_HOST"
 ENV_METADATA_PORT_DEPRECATED = "GMS_PORT"
 ENV_METADATA_TOKEN = "DATAHUB_GMS_TOKEN"
+ENV_DATAHUB_SYSTEM_CLIENT_ID = "DATAHUB_SYSTEM_CLIENT_ID"
+ENV_DATAHUB_SYSTEM_CLIENT_SECRET = "DATAHUB_SYSTEM_CLIENT_SECRET"
 
 config_override: Dict = {}
 
@@ -135,7 +137,7 @@ def get_details_from_config():
             gms_token = gms_config.token
             return gms_host, gms_token
         except yaml.YAMLError as exc:
-            click.secho(f"{DATAHUB_CONFIG_PATH} malformatted, error: {exc}", bold=True)
+            click.secho(f"{DATAHUB_CONFIG_PATH} malformed, error: {exc}", bold=True)
     return None, None
 
 
@@ -168,6 +170,14 @@ def first_non_null(ls: List[Optional[str]]) -> Optional[str]:
 def guess_entity_type(urn: str) -> str:
     assert urn.startswith("urn:li:"), "urns must start with urn:li:"
     return urn.split(":")[2]
+
+
+def get_system_auth() -> Optional[str]:
+    system_client_id = os.environ.get(ENV_DATAHUB_SYSTEM_CLIENT_ID)
+    system_client_secret = os.environ.get(ENV_DATAHUB_SYSTEM_CLIENT_SECRET)
+    if system_client_id is not None and system_client_secret is not None:
+        return f"Basic {system_client_id}:{system_client_secret}"
+    return None
 
 
 def get_url_and_token():
@@ -217,13 +227,13 @@ def get_session_and_host():
 
 def test_connection():
     (session, host) = get_session_and_host()
-    url = host + "/config"
+    url = f"{host}/config"
     response = session.get(url)
     response.raise_for_status()
 
 
 def test_connectivity_complain_exit(operation_name: str) -> None:
-    """Test connectivty to metadata-service, log operation name and exit"""
+    """Test connectivity to metadata-service, log operation name and exit"""
     # First test connectivity
     try:
         test_connection()
@@ -320,10 +330,7 @@ def post_delete_references_endpoint(
     path: str,
     cached_session_host: Optional[Tuple[Session, str]] = None,
 ) -> Tuple[int, List[Dict]]:
-    if not cached_session_host:
-        session, gms_host = get_session_and_host()
-    else:
-        session, gms_host = cached_session_host
+    session, gms_host = cached_session_host or get_session_and_host()
     url = gms_host + path
 
     payload = json.dumps(payload_obj)
@@ -339,10 +346,7 @@ def post_delete_endpoint(
     path: str,
     cached_session_host: Optional[Tuple[Session, str]] = None,
 ) -> typing.Tuple[str, int]:
-    if not cached_session_host:
-        session, gms_host = get_session_and_host()
-    else:
-        session, gms_host = cached_session_host
+    session, gms_host = cached_session_host or get_session_and_host()
     url = gms_host + path
 
     return post_delete_endpoint_with_session_and_url(session, url, payload_obj)
@@ -392,9 +396,7 @@ def get_urns_by_filter(
                 "condition": "EQUAL",
             }
         )
-    if platform is not None and (
-        entity_type_lower == "chart" or entity_type_lower == "dashboard"
-    ):
+    if platform is not None and entity_type_lower in {"chart", "dashboard"}:
         filter_criteria.append(
             {
                 "field": "tool",
@@ -502,10 +504,7 @@ def batch_get_ids(
     session, gms_host = get_session_and_host()
     endpoint: str = "/entitiesV2"
     url = gms_host + endpoint
-    ids_to_get = []
-    for id in ids:
-        ids_to_get.append(Urn.url_encode(id))
-
+    ids_to_get = [Urn.url_encode(id) for id in ids]
     response = session.get(
         f"{url}?ids=List({','.join(ids_to_get)})",
     )
@@ -562,11 +561,7 @@ def get_entity(
     aspect: Optional[List] = None,
     cached_session_host: Optional[Tuple[Session, str]] = None,
 ) -> Dict:
-    if not cached_session_host:
-        session, gms_host = get_session_and_host()
-    else:
-        session, gms_host = cached_session_host
-
+    session, gms_host = cached_session_host or get_session_and_host()
     if urn.startswith("urn%3A"):
         # we assume the urn is already encoded
         encoded_urn: str = urn
@@ -579,7 +574,7 @@ def get_entity(
     endpoint: str = f"/entitiesV2/{encoded_urn}"
 
     if aspect and len(aspect):
-        endpoint = endpoint + "?aspects=List(" + ",".join(aspect) + ")"
+        endpoint = f"{endpoint}?aspects=List(" + ",".join(aspect) + ")"
 
     response = session.get(gms_host + endpoint)
     response.raise_for_status()
@@ -592,12 +587,8 @@ def post_entity(
     aspect_name: str,
     aspect_value: Dict,
     cached_session_host: Optional[Tuple[Session, str]] = None,
-) -> Dict:
-    if not cached_session_host:
-        session, gms_host = get_session_and_host()
-    else:
-        session, gms_host = cached_session_host
-
+) -> int:
+    session, gms_host = cached_session_host or get_session_and_host()
     endpoint: str = "/aspects/?action=ingestProposal"
 
     proposal = {
@@ -694,10 +685,7 @@ def get_latest_timeseries_aspect_values(
     timeseries_aspect_name: str,
     cached_session_host: Optional[Tuple[Session, str]],
 ) -> Dict:
-    if not cached_session_host:
-        session, gms_host = get_session_and_host()
-    else:
-        session, gms_host = cached_session_host
+    session, gms_host = cached_session_host or get_session_and_host()
     query_body = {
         "urn": entity_urn,
         "entity": guess_entity_type(entity_urn),
@@ -748,14 +736,9 @@ def get_aspects_for_entity(
                 aspect_value["aspect"]["value"] = json.loads(
                     aspect_value["aspect"]["value"]
                 )
-                aspect_list.update(
-                    # Follow the convention used for non-timeseries aspects.
-                    {
-                        aspect_cls.RECORD_SCHEMA.fullname.replace(
-                            "pegasus2avro.", ""
-                        ): aspect_value
-                    }
-                )
+                aspect_list[
+                    aspect_cls.RECORD_SCHEMA.fullname.replace("pegasus2avro.", "")
+                ] = aspect_value
 
     aspect_map: Dict[str, Union[dict, DictWrapper]] = {}
     for a in aspect_list.values():
@@ -779,4 +762,4 @@ def get_aspects_for_entity(
     if aspects:
         return {k: v for (k, v) in aspect_map.items() if k in aspects}
     else:
-        return {k: v for (k, v) in aspect_map.items()}
+        return dict(aspect_map)

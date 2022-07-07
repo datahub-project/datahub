@@ -50,6 +50,7 @@ export const DomainsList = () => {
 
     const [page, setPage] = useState(1);
     const [isCreatingDomain, setIsCreatingDomain] = useState(false);
+    const [removedUrns, setRemovedUrns] = useState<string[]>([]);
 
     const pageSize = DEFAULT_PAGE_SIZE;
     const start = (page - 1) * pageSize;
@@ -70,13 +71,20 @@ export const DomainsList = () => {
     const domains = (data?.listDomains?.domains || []).sort(
         (a, b) => (b.entities?.total || 0) - (a.entities?.total || 0),
     );
+    const filteredDomains = domains.filter((domain) => !removedUrns.includes(domain.urn));
 
     const onChangePage = (newPage: number) => {
         setPage(newPage);
     };
 
-    // TODO: Handle robust deleting of domains.
-
+    const handleDelete = (urn: string) => {
+        // Hack to deal with eventual consistency.
+        const newRemovedUrns = [...removedUrns, urn];
+        setRemovedUrns(newRemovedUrns);
+        setTimeout(function () {
+            refetch?.();
+        }, 3000);
+    };
     return (
         <>
             {!data && loading && <Message type="loading" content="Loading domains..." />}
@@ -110,8 +118,10 @@ export const DomainsList = () => {
                     locale={{
                         emptyText: <Empty description="No Domains!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
-                    dataSource={domains}
-                    renderItem={(item: any) => <DomainListItem domain={item as Domain} />}
+                    dataSource={filteredDomains}
+                    renderItem={(item: any) => (
+                        <DomainListItem domain={item as Domain} onDelete={() => handleDelete(item.urn)} />
+                    )}
                 />
                 <DomainsPaginationContainer>
                     <PaginationInfo>
@@ -130,16 +140,17 @@ export const DomainsList = () => {
                     />
                     <span />
                 </DomainsPaginationContainer>
-                <CreateDomainModal
-                    visible={isCreatingDomain}
-                    onClose={() => setIsCreatingDomain(false)}
-                    onCreate={() => {
-                        // Hack to deal with eventual consistency.
-                        setTimeout(function () {
-                            refetch?.();
-                        }, 2000);
-                    }}
-                />
+                {isCreatingDomain && (
+                    <CreateDomainModal
+                        onClose={() => setIsCreatingDomain(false)}
+                        onCreate={() => {
+                            // Hack to deal with eventual consistency.
+                            setTimeout(function () {
+                                refetch?.();
+                            }, 2000);
+                        }}
+                    />
+                )}
             </DomainsContainer>
         </>
     );

@@ -18,11 +18,11 @@ class BigQueryConfig(BigQueryBaseConfig, BaseTimeWindowConfig, SQLAlchemyConfig)
     scheme: str = "bigquery"
     project_id: Optional[str] = pydantic.Field(
         default=None,
-        description="Project ID to ingest from. If not specified, will infer from environment.",
+        description="Project ID where you have rights to run queries and create tables. If `storage_project_id` is not specified then it is assumed this is the same project where data is stored. If not specified, will infer from environment.",
     )
-    lineage_client_project_id: Optional[str] = pydantic.Field(
+    storage_project_id: Optional[str] = pydantic.Field(
         default=None,
-        description="If you want to use a different ProjectId for the lineage collection you can set it here.",
+        description="If your data is stored in a different project where you don't have rights to run jobs and create tables then specify this field. The same service account must have read rights in this GCP project and write rights in `project_id`.",
     )
     log_page_size: pydantic.PositiveInt = pydantic.Field(
         default=1000,
@@ -57,10 +57,6 @@ class BigQueryConfig(BigQueryBaseConfig, BaseTimeWindowConfig, SQLAlchemyConfig)
         description="Whether to read date sharded tables or time partitioned tables when extracting usage from exported audit logs.",
     )
     _credentials_path: Optional[str] = pydantic.PrivateAttr(None)
-    temp_table_dataset_prefix: str = pydantic.Field(
-        default="_",
-        description="If you are creating temp tables in a dataset with a particular prefix you can use this config to set the prefix for the dataset. This is to support workflows from before bigquery's introduction of temp tables. By default we use `_` because of datasets that begin with an underscore are hidden by default https://cloud.google.com/bigquery/docs/datasets#dataset-naming.",
-    )
     use_v2_audit_metadata: Optional[bool] = pydantic.Field(
         default=False, description="Whether to ingest logs using the v2 format."
     )
@@ -79,7 +75,9 @@ class BigQueryConfig(BigQueryBaseConfig, BaseTimeWindowConfig, SQLAlchemyConfig)
             )
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
 
-    def get_sql_alchemy_url(self):
+    def get_sql_alchemy_url(self, run_on_compute: bool = False) -> str:
+        if self.storage_project_id and not run_on_compute:
+            return f"{self.scheme}://{self.storage_project_id}"
         if self.project_id:
             return f"{self.scheme}://{self.project_id}"
         # When project_id is not set, we will attempt to detect the project ID
@@ -98,6 +96,16 @@ class BigQueryConfig(BigQueryBaseConfig, BaseTimeWindowConfig, SQLAlchemyConfig)
     def validate_that_bigquery_audit_metadata_datasets_is_correctly_configured(
         cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:
+        profiling = values.get("profiling")
+        if (
+            values.get("storage_project_id")
+            and profiling is not None
+            and profiling.enabled
+            and not profiling.bigquery_temp_table_schema
+        ):
+            raise ConfigurationError(
+                "If storage project is being used with profiling then bigquery_temp_table_schema needs to be set to a dataset in the compute project"
+            )
         if (
             values.get("use_exported_bigquery_audit_metadata")
             and not values.get("use_v2_audit_metadata")

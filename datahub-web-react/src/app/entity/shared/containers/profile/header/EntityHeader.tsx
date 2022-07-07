@@ -5,7 +5,7 @@ import styled from 'styled-components/macro';
 import moment from 'moment';
 import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
 import { ANTD_GRAY } from '../../../constants';
-import { useEntityData } from '../../../EntityContext';
+import { useEntityData, useRefetch } from '../../../EntityContext';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { EntityHealthStatus } from './EntityHealthStatus';
 import { getLocaleTimezone } from '../../../../../shared/time/timeUtils';
@@ -100,11 +100,13 @@ const TopButtonsWrapper = styled.div`
     margin-bottom: 8px;
 `;
 
-function getCanEditName(entityType: EntityType, privileges?: PlatformPrivileges) {
+export function getCanEditName(entityType: EntityType, privileges?: PlatformPrivileges) {
     switch (entityType) {
         case EntityType.GlossaryTerm:
         case EntityType.GlossaryNode:
             return privileges?.manageGlossaries;
+        case EntityType.Domain:
+            return privileges?.manageDomains;
         default:
             return false;
     }
@@ -118,6 +120,7 @@ type Props = {
 
 export const EntityHeader = ({ refreshBrowser, headerDropdownItems, isNameEditable }: Props) => {
     const { urn, entityType, entityData } = useEntityData();
+    const refetch = useRefetch();
     const me = useGetAuthenticatedUser();
     const [copiedUrn, setCopiedUrn] = useState(false);
     const basePlatformName = getPlatformName(entityData);
@@ -192,12 +195,13 @@ export const EntityHeader = ({ refreshBrowser, headerDropdownItems, isNameEditab
                             </DeprecatedContainer>
                         </Popover>
                     )}
-                    {entityData?.health && (
+                    {entityData?.health?.map((health) => (
                         <EntityHealthStatus
-                            status={entityData?.health.status}
-                            message={entityData?.health?.message || undefined}
+                            type={health.type}
+                            status={health.status}
+                            message={health.message || undefined}
                         />
-                    )}
+                    ))}
                 </TitleWrapper>
                 <EntityCount entityCount={entityCount} />
             </MainHeaderContent>
@@ -206,7 +210,11 @@ export const EntityHeader = ({ refreshBrowser, headerDropdownItems, isNameEditab
                     <CopyUrn urn={urn} isActive={copiedUrn} onClick={() => setCopiedUrn(true)} />
                     {headerDropdownItems && (
                         <EntityDropdown
+                            urn={urn}
+                            entityType={entityType}
+                            entityData={entityData}
                             menuItems={headerDropdownItems}
+                            refetchForEntity={refetch}
                             refreshBrowser={refreshBrowser}
                             platformPrivileges={me?.platformPrivileges as PlatformPrivileges}
                         />
