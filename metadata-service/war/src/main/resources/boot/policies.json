@@ -79,7 +79,8 @@
       "actors":{
         "resourceOwners":false,
         "allUsers":true,
-        "allGroups":false
+        "allGroups":false,
+        "users":[]
       },
       "privileges":[
         "MANAGE_POLICIES",

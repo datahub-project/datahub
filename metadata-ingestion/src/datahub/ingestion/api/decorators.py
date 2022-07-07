@@ -37,8 +37,9 @@ def platform_name(
         setattr(
             cls,
             "get_platform_id",
-            lambda: id if id else platform_name.lower().replace(" ", "-"),
+            lambda: id or platform_name.lower().replace(" ", "-"),
         )
+
         return cls
 
     if id and " " in id:
@@ -56,7 +57,7 @@ class SupportStatus(Enum):
     """
     INCUBATING = auto()
     """
-    Incubating Sources are ready for DataHub Community adoption but have not been tested for a wide variety of edge-cases. We eagerly solicit feedback from the Community to streghten the connector; minor version changes may arise in future releases.
+    Incubating Sources are ready for DataHub Community adoption but have not been tested for a wide variety of edge-cases. We eagerly solicit feedback from the Community to strengthen the connector; minor version changes may arise in future releases.
     """
     TESTING = auto()
     """

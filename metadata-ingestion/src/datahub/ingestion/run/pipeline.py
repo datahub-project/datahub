@@ -54,11 +54,10 @@ class PipelineConfig(ConfigModel):
         cls, v: Optional[str], values: Dict[str, Any], **kwargs: Any
     ) -> str:
         if v == "__DEFAULT_RUN_ID":
-            if "source" in values:
-                if hasattr(values["source"], "type"):
-                    source_type = values["source"].type
-                    current_time = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
-                    return f"{source_type}-{current_time}"
+            if "source" in values and hasattr(values["source"], "type"):
+                source_type = values["source"].type
+                current_time = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
+                return f"{source_type}-{current_time}"
 
             return str(uuid.uuid1())  # default run_id if we cannot infer a source type
         else:
@@ -88,12 +87,11 @@ class PipelineConfig(ConfigModel):
     def datahub_api_should_use_rest_sink_as_default(
         cls, v: Optional[DatahubClientConfig], values: Dict[str, Any], **kwargs: Any
     ) -> Optional[DatahubClientConfig]:
-        if v is None:
-            if "sink" in values and hasattr(values["sink"], "type"):
-                sink_type = values["sink"].type
-                if sink_type == "datahub-rest":
-                    sink_config = values["sink"].config
-                    v = DatahubClientConfig.parse_obj(sink_config)
+        if v is None and "sink" in values and hasattr(values["sink"], "type"):
+            sink_type = values["sink"].type
+            if sink_type == "datahub-rest":
+                sink_config = values["sink"].config
+                v = DatahubClientConfig.parse_obj(sink_config)
         return v
 
 
@@ -268,11 +266,10 @@ class Pipeline:
             if self.source.get_report().failures or self.sink.get_report().failures
             else False
         )
-        has_warnings: bool = (
-            True
-            if self.source.get_report().warnings or self.sink.get_report().warnings
-            else False
+        has_warnings: bool = bool(
+            self.source.get_report().warnings or self.sink.get_report().warnings
         )
+
         for name, committable in self.ctx.get_committables():
             commit_policy: CommitPolicy = committable.commit_policy
 
