@@ -2,12 +2,12 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:ce3ec88954ddedc8d52e77b781796705",
+    "entityUrn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"clickhouse\", \"instance\": \"PROD\", \"database\": \"clickhousedb\"}, \"name\": \"clickhousedb\"}",
+        "value": "{\"customProperties\": {\"platform\": \"clickhouse\", \"instance\": \"clickhousetestserver\", \"database\": \"clickhousedb\"}, \"name\": \"clickhousedb\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -21,7 +21,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:ce3ec88954ddedc8d52e77b781796705",
+    "entityUrn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -40,7 +40,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:ce3ec88954ddedc8d52e77b781796705",
+    "entityUrn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -59,12 +59,12 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:b5516ae0d599854f2e77449449825f76",
+    "entityUrn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"clickhouse\", \"instance\": \"PROD\", \"database\": \"clickhousedb\", \"schema\": \"db1\"}, \"name\": \"db1\"}",
+        "value": "{\"customProperties\": {\"platform\": \"clickhouse\", \"instance\": \"clickhousetestserver\", \"database\": \"clickhousedb\", \"schema\": \"db1\"}, \"name\": \"db1\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -78,7 +78,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:b5516ae0d599854f2e77449449825f76",
+    "entityUrn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -97,7 +97,7 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:b5516ae0d599854f2e77449449825f76",
+    "entityUrn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -116,12 +116,12 @@
 {
     "auditHeader": null,
     "entityType": "container",
-    "entityUrn": "urn:li:container:b5516ae0d599854f2e77449449825f76",
+    "entityUrn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:ce3ec88954ddedc8d52e77b781796705\"}",
+        "value": "{\"container\": \"urn:li:container:ab016b94aa0d75c5b9205c33260e989c\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -140,7 +140,7 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:b5516ae0d599854f2e77449449825f76\"}",
+        "value": "{\"container\": \"urn:li:container:1154d1da73a95376c9f33f47694cf1de\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -190,14 +190,14 @@
                             "primary_key": "col_Int64",
                             "sampling_key": "",
                             "storage_policy": "default",
-                            "metadata_modification_time": "2022-07-07 10:37:12",
+                            "metadata_modification_time": "2022-07-07 13:13:26",
                             "total_rows": "10",
                             "total_bytes": "671",
-                            "data_paths": "['/var/lib/clickhouse/store/09f/09ff3c8b-e6fe-4bd9-a034-8d8b4a3c0e3c/']",
-                            "metadata_path": "/var/lib/clickhouse/store/fd4/fd4361eb-a648-4995-9e4d-b9e4a6f7acc5/mv_target_table.sql"
+                            "data_paths": "['/var/lib/clickhouse/store/7d2/7d234769-6d11-49c3-a147-dcb77a9e21c6/']",
+                            "metadata_path": "/var/lib/clickhouse/store/106/1066edfa-1cc6-4629-a05a-a7d161d7ffae/mv_target_table.sql"
                         },
                         "externalUrl": null,
-                        "name": null,
+                        "name": "mv_target_table",
                         "qualifiedName": null,
                         "description": "This is target table for materialized view",
                         "uri": null,
@@ -234,6 +234,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -244,6 +246,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -251,6 +254,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -261,6 +266,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -268,6 +274,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -278,6 +286,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -285,6 +294,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -295,6 +306,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -302,6 +314,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -312,6 +326,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -354,12 +369,31 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:b5516ae0d599854f2e77449449825f76\"}",
+        "value": "{\"container\": \"urn:li:container:1154d1da73a95376c9f33f47694cf1de\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -390,14 +424,14 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "default",
-                            "metadata_modification_time": "2022-07-07 10:37:12",
+                            "metadata_modification_time": "2022-07-07 13:13:26",
                             "total_rows": "0",
                             "total_bytes": "0",
-                            "data_paths": "['/var/lib/clickhouse/store/120/120d8edd-d1d7-4df8-b69c-521b0288afa7/']",
-                            "metadata_path": "/var/lib/clickhouse/store/fd4/fd4361eb-a648-4995-9e4d-b9e4a6f7acc5/test_data_types.sql"
+                            "data_paths": "['/var/lib/clickhouse/store/e36/e36e760c-8b30-453a-ba10-bd9a9c433e41/']",
+                            "metadata_path": "/var/lib/clickhouse/store/106/1066edfa-1cc6-4629-a05a-a7d161d7ffae/test_data_types.sql"
                         },
                         "externalUrl": null,
-                        "name": null,
+                        "name": "test_data_types",
                         "qualifiedName": null,
                         "description": "This table has basic types",
                         "uri": null,
@@ -434,6 +468,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.ArrayType": {
@@ -446,6 +482,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -453,6 +490,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "https://github.com/ClickHouse/ClickHouse/pull/31072",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.BooleanType": {}
@@ -463,6 +502,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -470,6 +510,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
@@ -480,6 +522,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -487,6 +530,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "this type was added in ClickHouse v21.9",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
@@ -497,6 +542,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -504,6 +550,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -514,6 +562,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -521,6 +570,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NullType": {}
@@ -531,6 +582,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -538,6 +590,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -548,6 +602,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -555,6 +610,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -565,6 +622,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -572,6 +630,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NullType": {}
@@ -582,6 +642,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -589,6 +650,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -599,6 +662,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -606,6 +670,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -616,6 +682,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -623,6 +690,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -633,6 +702,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -640,6 +710,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -650,6 +722,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -657,6 +730,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -667,6 +742,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -674,6 +750,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.EnumType": {}
@@ -684,6 +762,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -691,6 +770,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.EnumType": {}
@@ -701,6 +782,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -708,6 +790,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.EnumType": {}
@@ -718,6 +802,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -725,6 +810,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -735,6 +822,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -742,6 +830,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -752,6 +842,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -759,6 +850,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -769,6 +862,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -776,6 +870,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -786,6 +882,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -793,6 +890,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -803,6 +902,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -810,6 +910,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -820,6 +922,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -827,6 +930,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -837,6 +942,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -844,6 +950,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -854,6 +962,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -861,6 +970,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -871,6 +982,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -878,6 +990,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -888,6 +1002,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -895,6 +1010,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -905,6 +1022,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -912,6 +1030,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.MapType": {
@@ -925,6 +1045,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -932,6 +1053,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -942,6 +1065,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -949,6 +1073,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.UnionType": {
@@ -961,6 +1087,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -968,6 +1095,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -978,6 +1107,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -985,6 +1115,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -995,6 +1127,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1002,6 +1135,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1012,6 +1147,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1019,6 +1155,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1029,6 +1167,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1036,6 +1175,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1046,6 +1187,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1053,6 +1195,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1063,6 +1207,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1070,6 +1215,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1080,6 +1227,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -1122,12 +1270,31 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_dict,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:b5516ae0d599854f2e77449449825f76\"}",
+        "value": "{\"container\": \"urn:li:container:1154d1da73a95376c9f33f47694cf1de\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1177,14 +1344,14 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2022-07-07 10:37:12",
+                            "metadata_modification_time": "2022-07-07 13:13:26",
                             "total_rows": "None",
                             "total_bytes": "None",
                             "data_paths": "[]",
-                            "metadata_path": "/var/lib/clickhouse/store/fd4/fd4361eb-a648-4995-9e4d-b9e4a6f7acc5/test_dict.sql"
+                            "metadata_path": "/var/lib/clickhouse/store/106/1066edfa-1cc6-4629-a05a-a7d161d7ffae/test_dict.sql"
                         },
                         "externalUrl": null,
-                        "name": null,
+                        "name": "test_dict",
                         "qualifiedName": null,
                         "description": "",
                         "uri": null,
@@ -1221,6 +1388,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1231,6 +1400,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1238,6 +1408,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1248,6 +1420,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -1290,12 +1463,31 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_dict,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:b5516ae0d599854f2e77449449825f76\"}",
+        "value": "{\"container\": \"urn:li:container:1154d1da73a95376c9f33f47694cf1de\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1326,14 +1518,14 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "default",
-                            "metadata_modification_time": "2022-07-07 10:37:12",
+                            "metadata_modification_time": "2022-07-07 13:13:26",
                             "total_rows": "0",
                             "total_bytes": "0",
-                            "data_paths": "['/var/lib/clickhouse/store/63e/63e5c84e-0077-47ae-b513-1b7494f0c219/']",
-                            "metadata_path": "/var/lib/clickhouse/store/fd4/fd4361eb-a648-4995-9e4d-b9e4a6f7acc5/test_nested_data_types.sql"
+                            "data_paths": "['/var/lib/clickhouse/store/724/7243afe9-24e1-4cb4-b269-cbcb6b7a7676/']",
+                            "metadata_path": "/var/lib/clickhouse/store/106/1066edfa-1cc6-4629-a05a-a7d161d7ffae/test_nested_data_types.sql"
                         },
                         "externalUrl": null,
-                        "name": null,
+                        "name": "test_nested_data_types",
                         "qualifiedName": null,
                         "description": "This table has nested types",
                         "uri": null,
@@ -1370,6 +1562,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "this is a comment",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.ArrayType": {
@@ -1382,6 +1576,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1389,6 +1584,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1399,6 +1596,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1406,6 +1604,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NullType": {}
@@ -1416,6 +1616,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1423,6 +1624,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NullType": {}
@@ -1433,6 +1636,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1440,6 +1644,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.ArrayType": {
@@ -1452,6 +1658,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1459,6 +1666,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.ArrayType": {
@@ -1471,6 +1680,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1478,6 +1688,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.ArrayType": {
@@ -1490,6 +1702,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1497,6 +1710,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1507,6 +1722,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1514,6 +1730,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.ArrayType": {
@@ -1526,6 +1744,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1533,6 +1752,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1543,6 +1764,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -1585,12 +1807,31 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"table\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_with_target_table,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:b5516ae0d599854f2e77449449825f76\"}",
+        "value": "{\"container\": \"urn:li:container:1154d1da73a95376c9f33f47694cf1de\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1640,16 +1881,16 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2022-07-07 10:37:12",
+                            "metadata_modification_time": "2022-07-07 13:13:26",
                             "total_rows": "None",
                             "total_bytes": "None",
-                            "data_paths": "['/var/lib/clickhouse/store/09f/09ff3c8b-e6fe-4bd9-a034-8d8b4a3c0e3c/']",
-                            "metadata_path": "/var/lib/clickhouse/store/fd4/fd4361eb-a648-4995-9e4d-b9e4a6f7acc5/mv_with_target_table.sql",
+                            "data_paths": "['/var/lib/clickhouse/store/7d2/7d234769-6d11-49c3-a147-dcb77a9e21c6/']",
+                            "metadata_path": "/var/lib/clickhouse/store/106/1066edfa-1cc6-4629-a05a-a7d161d7ffae/mv_with_target_table.sql",
                             "view_definition": "",
                             "is_view": "True"
                         },
                         "externalUrl": null,
-                        "name": null,
+                        "name": "mv_with_target_table",
                         "qualifiedName": null,
                         "description": "",
                         "uri": null,
@@ -1686,6 +1927,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
@@ -1696,6 +1939,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1703,6 +1947,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1713,6 +1959,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1720,6 +1967,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1730,6 +1979,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1737,6 +1987,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1747,6 +1999,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1754,6 +2007,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1764,6 +2019,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -1806,12 +2062,50 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_with_target_table,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"view\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_with_target_table,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "value": "{\"materialized\": false, \"viewLogic\": \"\", \"viewLanguage\": \"SQL\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:b5516ae0d599854f2e77449449825f76\"}",
+        "value": "{\"container\": \"urn:li:container:1154d1da73a95376c9f33f47694cf1de\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -1861,16 +2155,16 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2022-07-07 10:37:12",
+                            "metadata_modification_time": "2022-07-07 13:13:26",
                             "total_rows": "None",
                             "total_bytes": "None",
-                            "data_paths": "['/var/lib/clickhouse/store/534/534e16ff-320b-432b-ad25-f5b37797bc57/']",
-                            "metadata_path": "/var/lib/clickhouse/store/fd4/fd4361eb-a648-4995-9e4d-b9e4a6f7acc5/mv_without_target_table.sql",
+                            "data_paths": "['/var/lib/clickhouse/store/6ba/6bac78bd-ac3b-47fb-aaa9-702f1d2f239b/']",
+                            "metadata_path": "/var/lib/clickhouse/store/106/1066edfa-1cc6-4629-a05a-a7d161d7ffae/mv_without_target_table.sql",
                             "view_definition": "",
                             "is_view": "True"
                         },
                         "externalUrl": null,
-                        "name": null,
+                        "name": "mv_without_target_table",
                         "qualifiedName": null,
                         "description": "",
                         "uri": null,
@@ -1907,6 +2201,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.ArrayType": {
@@ -1919,6 +2215,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1926,6 +2223,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1936,6 +2235,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1943,6 +2243,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -1953,6 +2255,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1960,6 +2263,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.ArrayType": {
@@ -1972,6 +2277,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             },
                             {
@@ -1979,6 +2285,8 @@
                                 "jsonPath": null,
                                 "nullable": true,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -1989,6 +2297,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -2031,12 +2340,50 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"view\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "value": "{\"materialized\": false, \"viewLogic\": \"\", \"viewLanguage\": \"SQL\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_view,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:b5516ae0d599854f2e77449449825f76\"}",
+        "value": "{\"container\": \"urn:li:container:1154d1da73a95376c9f33f47694cf1de\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -2086,16 +2433,16 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2022-07-07 10:37:12",
+                            "metadata_modification_time": "2022-07-07 13:13:26",
                             "total_rows": "None",
                             "total_bytes": "None",
                             "data_paths": "[]",
-                            "metadata_path": "/var/lib/clickhouse/store/fd4/fd4361eb-a648-4995-9e4d-b9e4a6f7acc5/test_view.sql",
+                            "metadata_path": "/var/lib/clickhouse/store/106/1066edfa-1cc6-4629-a05a-a7d161d7ffae/test_view.sql",
                             "view_definition": "",
                             "is_view": "True"
                         },
                         "externalUrl": null,
-                        "name": null,
+                        "name": "test_view",
                         "qualifiedName": null,
                         "description": "",
                         "uri": null,
@@ -2132,6 +2479,8 @@
                                 "jsonPath": null,
                                 "nullable": false,
                                 "description": "",
+                                "created": null,
+                                "lastModified": null,
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -2142,6 +2491,7 @@
                                 "globalTags": null,
                                 "glossaryTerms": null,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": null,
                                 "jsonProps": null
                             }
                         ],
@@ -2171,6 +2521,44 @@
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "value": "{\"platform\": \"urn:li:dataPlatform:clickhouse\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_view,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"view\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_view,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "value": "{\"materialized\": false, \"viewLogic\": \"\", \"viewLanguage\": \"SQL\"}",
         "contentType": "application/json"
     },
     "systemMetadata": {
