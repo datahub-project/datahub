@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { Affix } from 'antd';
-import { SearchablePage } from '../search/SearchablePage';
 import { LegacyBrowsePath } from './LegacyBrowsePath';
 import { useGetBrowsePathsQuery } from '../../graphql/browse.generated';
 import { EntityType } from '../../types.generated';
@@ -26,7 +25,7 @@ export const BrowsableEntityPage = ({
     const { data } = useGetBrowsePathsQuery({ variables: { input: { urn: _urn, type: _type } } });
 
     return (
-        <SearchablePage>
+        <>
             {data && data.browsePaths && data.browsePaths.length > 0 && (
                 <Affix offsetTop={60}>
                     <LegacyBrowsePath
@@ -39,6 +38,6 @@ export const BrowsableEntityPage = ({
                 </Affix>
             )}
             {_children}
-        </SearchablePage>
+        </>
     );
 };

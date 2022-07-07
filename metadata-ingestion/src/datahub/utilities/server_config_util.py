@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 from datahub.telemetry.telemetry import set_telemetry_enable
 
 # Only to be written to for logging server related information
-global_debug: Dict[str, Any] = dict()
+global_debug: Dict[str, Any] = {}
 
 
 def set_gms_config(config: Dict) -> Any:
