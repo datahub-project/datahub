@@ -67,11 +67,14 @@ public class BootstrapManagerFactory {
     final IngestDataPlatformsStep ingestDataPlatformsStep = new IngestDataPlatformsStep(_entityService);
     final IngestDataPlatformInstancesStep ingestDataPlatformInstancesStep =
         new IngestDataPlatformInstancesStep(_entityService, _migrationsDao);
-    final RestoreGlossaryIndices restoreGlossaryIndicesStep = new RestoreGlossaryIndices(_entityService, _entitySearchService, _entityRegistry);
-    final RestoreDbtSiblingsIndices
-        restoreDbtSiblingsIndices = new RestoreDbtSiblingsIndices(_entityService, _entityRegistry);
+    final RestoreGlossaryIndices restoreGlossaryIndicesStep =
+        new RestoreGlossaryIndices(_entityService, _entitySearchService, _entityRegistry);
+    final RestoreDbtSiblingsIndices restoreDbtSiblingsIndices =
+        new RestoreDbtSiblingsIndices(_entityService, _entityRegistry);
     final RemoveClientIdAspectStep removeClientIdAspectStep = new RemoveClientIdAspectStep(_entityService);
-    return new BootstrapManager(ImmutableList.of(ingestRootUserStep, ingestPoliciesStep, ingestDataPlatformsStep,
-        ingestDataPlatformInstancesStep, _ingestRetentionPoliciesStep, restoreGlossaryIndicesStep, removeClientIdAspectStep, restoreDbtSiblingsIndices));
+    return new BootstrapManager(
+        ImmutableList.of(ingestRootUserStep, ingestPoliciesStep, ingestDataPlatformsStep,
+            ingestDataPlatformInstancesStep, _ingestRetentionPoliciesStep, restoreGlossaryIndicesStep,
+            removeClientIdAspectStep, restoreDbtSiblingsIndices));
   }
 }

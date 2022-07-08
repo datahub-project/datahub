@@ -2132,6 +2132,11 @@ type Schema {
     The time at which the schema metadata information was created
     """
     createdAt: Long
+
+    """
+    The time at which the schema metadata information was last ingested
+    """
+    lastObserved: Long
 }
 
 """
