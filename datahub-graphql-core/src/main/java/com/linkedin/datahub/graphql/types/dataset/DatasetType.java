@@ -202,7 +202,7 @@ public class DatasetType implements SearchableEntityType<Dataset, String>, Brows
                 datasetProposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(urn)));
                 return datasetProposals;
             }
-            throw new AuthorizationException("Unauthorized to perform this action. Please contact your Datahub administator.");
+            throw new AuthorizationException("Unauthorized to perform this action. Please contact your Datahub administrator.");
         }).flatMap(Collection::stream).collect(Collectors.toList());
 
         try {
