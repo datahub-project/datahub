@@ -1,7 +1,9 @@
 package com.linkedin.datahub.graphql.types;
 
 import com.linkedin.datahub.graphql.QueryContext;
+
 import javax.annotation.Nonnull;
+import java.util.List;
 
 /**
  * Graph type that can be updated.
@@ -35,7 +37,7 @@ public interface MutableType<I, T> {
     * @param input input type
     * @param context the {@link QueryContext} corresponding to the request.
     */
-   default <T> T batchUpdate(@Nonnull final I[] input, @Nonnull final QueryContext context) throws Exception {
+   default <T> List<T> batchUpdate(@Nonnull final String[] urns, @Nonnull final I[] input, @Nonnull final QueryContext context) throws Exception {
        throw new UnsupportedOperationException(this.getClass().getName() + " does not implement batchUpdate method");
    }
 }
