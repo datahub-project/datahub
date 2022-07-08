@@ -42,7 +42,7 @@ authorization:
 
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
-  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.38}'
+  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.38.2}'
 
 telemetry:
   enabledCli: ${CLI_TELEMETRY_ENABLED:true}
@@ -145,7 +145,7 @@ elasticsearch:
     prefix: ${INDEX_PREFIX:}
     numShards: ${ELASTICSEARCH_NUM_SHARDS_PER_INDEX:1}
     numReplicas: ${ELASTICSEARCH_NUM_REPLICAS_PER_INDEX:1}
-    numRetries: ${ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES :3}
+    numRetries: ${ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES:3}
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
     mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:#{null}}
 
@@ -183,3 +183,6 @@ springdoc:
 
 metadataTests:
   enabled: ${METADATA_TESTS_ENABLED:true}
+
+siblings:
+  enabled: ${ENABLE_SIBLING_HOOK:true} # enable to turn on automatic sibling associations for dbt

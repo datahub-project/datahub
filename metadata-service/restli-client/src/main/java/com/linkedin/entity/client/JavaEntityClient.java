@@ -18,6 +18,7 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.LineageDirection;
@@ -63,6 +64,7 @@ public class JavaEntityClient implements EntityClient {
     private final Clock _clock = Clock.systemUTC();
 
     private final EntityService _entityService;
+    private final DeleteEntityService _deleteEntityService;
     private final EventProducer _eventProducer;
     private final EntitySearchService _entitySearchService;
     private final SearchService _searchService;
@@ -305,10 +307,10 @@ public class JavaEntityClient implements EntityClient {
     @Nonnull
     @Override
     public LineageSearchResult searchAcrossLineage(@Nonnull Urn sourceUrn, @Nonnull LineageDirection direction,
-        @Nonnull List<String> entities, @Nullable String input, @Nullable Filter filter,
+        @Nonnull List<String> entities, @Nullable String input, @Nullable Integer maxHops, @Nullable Filter filter,
         @Nullable SortCriterion sortCriterion, int start, int count, @Nonnull final Authentication authentication)
         throws RemoteInvocationException {
-        return _lineageSearchService.searchAcrossLineage(sourceUrn, direction, entities, input, filter,
+        return _lineageSearchService.searchAcrossLineage(sourceUrn, direction, entities, input, maxHops, filter,
             sortCriterion, start, count);
     }
 
@@ -350,11 +352,23 @@ public class JavaEntityClient implements EntityClient {
         _entityService.deleteUrn(urn);
     }
 
+    @Override
+    public void deleteEntityReferences(@Nonnull Urn urn, @Nonnull Authentication authentication)
+        throws RemoteInvocationException {
+        _deleteEntityService.deleteReferencesTo(urn, false);
+    }
+
     @Nonnull
     @Override
     public SearchResult filter(@Nonnull String entity, @Nonnull Filter filter, @Nullable SortCriterion sortCriterion,
         int start, int count, @Nonnull final Authentication authentication) throws RemoteInvocationException {
         return _entitySearchService.filter(entity, filter, sortCriterion, start, count);
+    }
+
+    @Nonnull
+    @Override
+    public boolean exists(@Nonnull Urn urn, @Nonnull final Authentication authentication) throws RemoteInvocationException {
+        return _entityService.exists(urn);
     }
 
     @SneakyThrows

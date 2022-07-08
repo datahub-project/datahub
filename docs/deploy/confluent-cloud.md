@@ -2,24 +2,26 @@
 
 DataHub provides the ability to easily leverage Confluent Cloud as your Kafka provider. To do so, you'll need to configure DataHub to talk to a broker and schema registry hosted by Confluent.
 
-Doing this is a matter of configuring the Kafka Producer and Consumers used by DataHub correctly. There are 2 places where Kafka configuration should be provided: the metadata server (GMS) and the frontend server (datahub-frontend). Follow the steps below to configure these components for your deployment.
+Doing this is a matter of configuring the Kafka Producer and Consumers used by DataHub correctly. There are 2 places where Kafka configuration should be provided: the metadata service (GMS) and the frontend server (datahub-frontend). Follow the steps below to configure these components for your deployment.
 
 ## **Step 1: Create topics in Confluent Control Center**
 
 First, you'll need to create following new topics in the [Confluent Control Center](https://docs.confluent.io/platform/current/control-center/index.html). By default they have the following names:
 
-1. **MetadataChangeEvent_v4**: Metadata change proposal messages
-2. **MetadataAuditEvent_v4**: Metadata change log messages 
-3. **FailedMetadataChangeEvent_v4**: Failed to process #1 event
-4. **DataHubUsageEvent_v1**: User behavior tracking event for UI
-5. **MetadataChangeProposal_v1** 
-6. **FailedMetadataChangeProposal_v1**
-7. **MetadataChangeLog_Versioned_v1**
-8. **MetadataChangeLog_Timeseries_v1**
+1. **MetadataChangeProposal_v1** 
+2. **FailedMetadataChangeProposal_v1**
+3. **MetadataChangeLog_Versioned_v1**
+4. **MetadataChangeLog_Timeseries_v1**
+5. **DataHubUsageEvent_v1**: User behavior tracking event for UI
+6. (Deprecated) **MetadataChangeEvent_v4**: Metadata change proposal messages
+7. (Deprecated) **MetadataAuditEvent_v4**: Metadata change log messages
+8. (Deprecated) **FailedMetadataChangeEvent_v4**: Failed to process #1 event
 
-The last 4 are exaplined in [MCP/MCL](../advanced/mcp-mcl.md)
+The first five are the most important, and are explained in more depth in [MCP/MCL](../advanced/mcp-mcl.md). The final topics are
+those which are deprecated but still used under certain circumstances. It is likely that in the future they will be completely 
+decommissioned. 
 
-To do so, navigate to your **Cluster** and click "Create Topic". Feel free to tweak the default topic configurations to
+To create the topics, navigate to your **Cluster** and click "Create Topic". Feel free to tweak the default topic configurations to
 match your preferences.
 
 ![CreateTopic](../imgs/confluent-create-topic.png)
@@ -59,13 +61,14 @@ KAFKA_PROPERTIES_BASIC_AUTH_CREDENTIALS_SOURCE=USER_INFO
 KAFKA_PROPERTIES_BASIC_AUTH_USER_INFO=P2ETAN5QR2LCWL14:RTjqw7AfETDl0RZo/7R0123LhPYs2TGjFKmvMWUFnlJ3uKubFbB1Sfs7aOjjNi1m23
 ```
 
-Note that this step is only required if DATAHUB_ANALYTICS_ENABLED is not set to false.
+Note that this step is only required if `DATAHUB_ANALYTICS_ENABLED` environment variable is not explicitly set to false for the datahub-frontend
+container. 
 
 If you're deploying with Docker Compose, you do not need to deploy the Zookeeper, Kafka Broker, or Schema Registry containers that ship by default.
 
 ### Helm
 
-If you're deploying to K8s using Helm, you can simply change the `datahub-helm` values.yml to point to Confluent Cloud and disable some default containers:
+If you're deploying on K8s using Helm, you can simply change the **datahub-helm** `values.yml` to point to Confluent Cloud and disable some default containers:
 
 First, disable the `cp-schema-registry` service:
 
@@ -106,7 +109,7 @@ automatically populate with your new secrets:
 You'll need to copy the values of `sasl.jaas.config` and `basic.auth.user.info`
 for the next step.
 
-The next step is to create K8s secrets containing the config values you've just generated. Specifically, you'll run the following commands:
+The next step is to create K8s secrets containing the config values you've just generated. Specifically, you can run the following commands:
 
 ```shell
 kubectl create secret generic confluent-secrets --from-literal=sasl_jaas_config="<your-sasl.jaas.config>"
@@ -120,7 +123,7 @@ kubectl create secret generic confluent-secrets --from-literal=sasl_jaas_config=
 kubectl create secret generic confluent-secrets --from-literal=basic_auth_user_info="P2ETAN5QR2LCWL14:RTjqw7AfETDl0RZo/7R0123LhPYs2TGjFKmvMWUFnlJ3uKubFbB1Sfs7aOjjNi1m23"
 ```
 
-Finally, we'll configure our containers to pick up the Confluent Kafka Configs by changing two config blocks in our values.yaml file. You
+Finally, we'll configure our containers to pick up the Confluent Kafka Configs by changing two config blocks in our `values.yaml` file. You
 should see these blocks commented at the bottom of the template. You'll want to uncomment them and set them to the following values: 
 
 ```
@@ -143,6 +146,6 @@ Then simply apply the updated `values.yaml` to your K8s cluster via `kubectl app
 ## Contribution
 Accepting contributions for a setup script compatible with Confluent Cloud!
 
-Currently the kafka-setup-job container we ship with is only compatible with a distribution of Kafka wherein ZooKeeper
+The kafka-setup-job container we ship with is only compatible with a distribution of Kafka wherein ZooKeeper
 is exposed and available. A version of the job using the [Confluent CLI](https://docs.confluent.io/confluent-cli/current/command-reference/kafka/topic/confluent_kafka_topic_create.html) 
 would be very useful for the broader community. 

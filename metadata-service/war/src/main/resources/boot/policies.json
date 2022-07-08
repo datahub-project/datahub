@@ -21,7 +21,8 @@
         "MANAGE_DOMAINS",
         "MANAGE_TESTS",
         "MANAGE_GLOSSARIES",
-        "MANAGE_USER_CREDENTIALS"
+        "MANAGE_USER_CREDENTIALS",
+        "MANAGE_TAGS"
       ],
       "displayName":"Root User - All Platform Privileges",
       "description":"Grants full platform privileges to root datahub super user.",
@@ -84,7 +85,8 @@
         "GENERATE_PERSONAL_ACCESS_TOKENS",
         "MANAGE_DOMAINS",
         "MANAGE_TESTS",
-        "MANAGE_GLOSSARIES"
+        "MANAGE_GLOSSARIES",
+        "MANAGE_TAGS"
       ],
       "displayName":"All Users - All Platform Privileges",
       "description":"Grants full platform privileges to ALL users of DataHub. Change this policy to alter that behavior.",

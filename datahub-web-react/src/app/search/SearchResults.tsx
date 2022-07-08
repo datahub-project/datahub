@@ -24,6 +24,8 @@ import { SearchResultsRecommendations } from './SearchResultsRecommendations';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { SearchResultsInterface } from '../entity/shared/components/styled/search/types';
 import SearchExtendedMenu from '../entity/shared/components/styled/search/SearchExtendedMenu';
+import { CombinedSearchResult, combineSiblingsInSearchResults } from '../entity/shared/siblingUtils';
+import { CompactEntityNameList } from '../recommendations/renderer/component/CompactEntityNameList';
 
 const ResultList = styled(List)`
     &&& {
@@ -109,6 +111,10 @@ const SearchMenuContainer = styled.div`
     margin-right: 10px;
 `;
 
+const SiblingResultContainer = styled.div`
+    margin-top: 6px;
+`;
+
 interface Props {
     query: string;
     page: number;
@@ -131,6 +137,8 @@ interface Props {
     }) => Promise<SearchResultsInterface | null | undefined>;
     entityFilters: EntityType[];
     filtersWithoutEntities: FacetFilterInput[];
+    numResultsPerPage: number;
+    setNumResultsPerPage: (numResults: number) => void;
 }
 
 export const SearchResults = ({
@@ -145,6 +153,8 @@ export const SearchResults = ({
     callSearchOnVariables,
     entityFilters,
     filtersWithoutEntities,
+    numResultsPerPage,
+    setNumResultsPerPage,
 }: Props) => {
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
@@ -169,7 +179,13 @@ export const SearchResults = ({
         onChangeFilters(newFilters);
     };
 
+    const updateNumResults = (_currentNum: number, newNum: number) => {
+        setNumResultsPerPage(newNum);
+    };
+
     const history = useHistory();
+
+    const combinedSiblingSearchResults = combineSiblingsInSearchResults(searchResponse?.searchResults);
 
     return (
         <>
@@ -207,8 +223,8 @@ export const SearchResults = ({
                         </PaginationInfoContainer>
                         {!loading && (
                             <>
-                                <ResultList<React.FC<ListProps<SearchResult>>>
-                                    dataSource={searchResponse?.searchResults}
+                                <ResultList<React.FC<ListProps<CombinedSearchResult>>>
+                                    dataSource={combinedSiblingSearchResults}
                                     split={false}
                                     locale={{
                                         emptyText: (
@@ -232,9 +248,16 @@ export const SearchResults = ({
                                             <List.Item
                                                 style={{ padding: 0 }}
                                                 onClick={() => onResultClick(item, index)}
+                                                // class name for counting in test purposes only
+                                                className="test-search-result"
                                             >
                                                 {entityRegistry.renderSearchResult(item.entity.type, item)}
                                             </List.Item>
+                                            {item.matchedEntities && item.matchedEntities.length > 0 && (
+                                                <SiblingResultContainer className="test-search-result-sibling-section">
+                                                    <CompactEntityNameList entities={item.matchedEntities} />
+                                                </SiblingResultContainer>
+                                            )}
                                             <ThinDivider />
                                         </>
                                     )}
@@ -242,11 +265,13 @@ export const SearchResults = ({
                                 <PaginationControlContainer>
                                     <Pagination
                                         current={page}
-                                        pageSize={SearchCfg.RESULTS_PER_PAGE}
+                                        pageSize={numResultsPerPage}
                                         total={totalResults}
                                         showLessItems
                                         onChange={onChangePage}
-                                        showSizeChanger={false}
+                                        showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
+                                        onShowSizeChange={updateNumResults}
+                                        pageSizeOptions={['10', '20', '50']}
                                     />
                                 </PaginationControlContainer>
                                 {authenticatedUserUrn && (

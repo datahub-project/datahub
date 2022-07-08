@@ -27,6 +27,8 @@ services:
     environment:
     - GMS_HOST=datahub-gms
     - GMS_PORT=8080
+    - DATAHUB_GMS_HOST=datahub-gms
+    - DATAHUB_GMS_PORT=8080
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - SCHEMA_REGISTRY_URL=http://schema-registry:8081
     - METADATA_AUDIT_EVENT_NAME=MetadataAuditEvent_v4
@@ -88,7 +90,7 @@ services:
     - MCE_CONSUMER_ENABLED=true
     - PE_CONSUMER_ENABLED=true
     - UI_INGESTION_ENABLED=true
-    - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.38
+    - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.38.2
     hostname: datahub-gms
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
     ports:

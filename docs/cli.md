@@ -129,7 +129,10 @@ datahub check plugins
 ## Environment variables supported
 The env variables take precedence over what is in the DataHub CLI config created through `init` command. The list of supported environment variables are as follows
 - `DATAHUB_SKIP_CONFIG` (default `false`) - Set to `true` to skip creating the configuration file.
-- `DATAHUB_GMS_HOST` (default `http://localhost:8080`) - Set to a URL of GMS instance.
+- `DATAHUB_GMS_URL` (default `http://localhost:8080`) - Set to a URL of GMS instance
+- `DATAHUB_GMS_HOST` (default `localhost`) - Set to a host of GMS instance. Prefer using `DATAHUB_GMS_URL` to set the URL.
+- `DATAHUB_GMS_PORT` (default `8080`) - Set to a port of GMS instance. Prefer using `DATAHUB_GMS_URL` to set the URL.
+- `DATAHUB_GMS_PROTOCOL` (default `http`) - Set to a protocol like `http` or `https`. Prefer using `DATAHUB_GMS_URL` to set the URL.
 - `DATAHUB_GMS_TOKEN` (default `None`) - Used for communicating with DataHub Cloud.
 - `DATAHUB_TELEMETRY_ENABLED` (default `true`) - Set to `false` to disable telemetry. If CLI is being run in an environment with no access to public internet then this should be disabled.
 - `DATAHUB_TELEMETRY_TIMEOUT` (default `10`) - Set to a custom integer value to specify timeout in secs when sending telemetry.
@@ -139,7 +142,7 @@ The env variables take precedence over what is in the DataHub CLI config created
 
 ```shell
 DATAHUB_SKIP_CONFIG=false
-DATAHUB_GMS_HOST=http://localhost:8080
+DATAHUB_GMS_URL=http://localhost:8080
 DATAHUB_GMS_TOKEN=
 DATAHUB_TELEMETRY_ENABLED=true
 DATAHUB_TELEMETRY_TIMEOUT=10
