@@ -24,7 +24,7 @@ def is_mysql_up(container_name: str, port: int) -> bool:
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration_batch_1
+@pytest.mark.slow_integration
 def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka-connect"
     test_resources_dir_kafka = pytestconfig.rootpath / "tests/integration/kafka"
