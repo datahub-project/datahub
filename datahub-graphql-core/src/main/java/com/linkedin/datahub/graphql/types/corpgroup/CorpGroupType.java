@@ -62,7 +62,9 @@ public class CorpGroupType implements SearchableEntityType<CorpGroup, String>, M
     }
 
     @Override
-    public Class<CorpGroupUpdateInput[]> arrayInputClass() { return CorpGroupUpdateInput[].class; }
+    public Class<CorpGroupUpdateInput[]> arrayInputClass() {
+        return CorpGroupUpdateInput[].class;
+    }
 
     @Override
     public EntityType type() {
