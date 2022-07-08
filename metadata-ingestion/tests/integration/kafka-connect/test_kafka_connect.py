@@ -1,3 +1,4 @@
+import subprocess
 import time
 
 import pytest
@@ -11,8 +12,19 @@ from tests.test_helpers.docker_helpers import wait_for_port
 FROZEN_TIME = "2021-10-25 13:00:00"
 
 
+def is_mysql_up(container_name: str, port: int) -> bool:
+    """A cheap way to figure out if mysql is responsive on a container"""
+
+    cmd = f"docker logs {container_name} 2>&1 | grep '/var/run/mysqld/mysqld.sock' | grep {port}"
+    ret = subprocess.run(
+        cmd,
+        shell=True,
+    )
+    return ret.returncode == 0
+
+
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration
+@pytest.mark.integration_batch_1
 def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/kafka-connect"
     test_resources_dir_kafka = pytestconfig.rootpath / "tests/integration/kafka"
@@ -24,6 +36,13 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
         str(test_resources_dir / "docker-compose.override.yml"),
     ]
     with docker_compose_runner(docker_compose_file, "kafka-connect") as docker_services:
+        wait_for_port(
+            docker_services,
+            "test_mysql",
+            3306,
+            timeout=120,
+            checker=lambda: is_mysql_up("test_mysql", 3306),
+        )
         wait_for_port(docker_services, "test_broker", 59092, timeout=120)
         wait_for_port(docker_services, "test_connect", 58083, timeout=120)
         docker_services.wait_until_responsive(

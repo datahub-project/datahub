@@ -1,0 +1,135 @@
+[
+{
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {\"platform\": \"vertica\", \"instance\": \"PROD\", \"database\": \"vmart\"}, \"name\": \"vmart\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1649409653057,
+        "runId": "vertica-2022_04_08-09_20_48",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:vertica\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1649409653060,
+        "runId": "vertica-2022_04_08-09_20_48",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"Database\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1649409653064,
+        "runId": "vertica-2022_04_08-09_20_48",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "value": "{\"customProperties\": {\"platform\": \"vertica\", \"instance\": \"PROD\", \"database\": \"vmart\", \"schema\": \"public\"}, \"name\": \"public\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1649409653169,
+        "runId": "vertica-2022_04_08-09_20_48",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:vertica\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1649409653177,
+        "runId": "vertica-2022_04_08-09_20_48",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "value": "{\"typeNames\": [\"Schema\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1649409653183,
+        "runId": "vertica-2022_04_08-09_20_48",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "value": "{\"container\": \"urn:li:container:343f520ad0fb3259b298736800bb1385\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1649409653184,
+        "runId": "vertica-2022_04_08-09_20_48",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+}
+]

@@ -1,9 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import * as QueryString from 'query-string';
 import { useHistory, useLocation, useParams } from 'react-router';
 import { Alert } from 'antd';
-
-import { SearchablePage } from './SearchablePage';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { FacetFilterInput, EntityType } from '../../types.generated';
 import useFilters from './utils/useFilters';
@@ -39,13 +37,15 @@ export const SearchPage = () => {
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
         .map((filter) => filter.value.toUpperCase() as EntityType);
 
+    const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
+
     const { data, loading, error } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
                 types: entityFilters,
                 query,
-                start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
-                count: SearchCfg.RESULTS_PER_PAGE,
+                start: (page - 1) * numResultsPerPage,
+                count: numResultsPerPage,
                 filters: filtersWithoutEntities,
             },
         },
@@ -79,20 +79,6 @@ export const SearchPage = () => {
         }
     }, [query, data, loading]);
 
-    const onSearch = (q: string, type?: EntityType) => {
-        if (q.trim().length === 0) {
-            return;
-        }
-        analytics.event({
-            type: EventType.SearchEvent,
-            query: q,
-            entityTypeFilter: activeType,
-            pageNumber: 1,
-            originPath: window.location.pathname,
-        });
-        navigateToSearchUrl({ type: type || activeType, query: q, page: 1, history });
-    };
-
     const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
         navigateToSearchUrl({ type: activeType, query, page: 1, filters: newFilters, history });
     };
@@ -102,7 +88,7 @@ export const SearchPage = () => {
     };
 
     return (
-        <SearchablePage initialQuery={query} onSearch={onSearch}>
+        <>
             {!loading && error && (
                 <Alert type="error" message={error?.message || `Search failed to load for query ${query}`} />
             )}
@@ -118,7 +104,9 @@ export const SearchPage = () => {
                 loading={loading}
                 onChangeFilters={onChangeFilters}
                 onChangePage={onChangePage}
+                numResultsPerPage={numResultsPerPage}
+                setNumResultsPerPage={setNumResultsPerPage}
             />
-        </SearchablePage>
+        </>
     );
 };

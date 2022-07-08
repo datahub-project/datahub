@@ -35,17 +35,21 @@ public class AppStartEvent extends LineageEvent {
     this.pipelineConfig = pipelineConfig;
   }
 
+  public DataFlowUrn getFlowUrn() {
+    return LineageUtils.flowUrn(getMaster(), getAppName());
+  }
+  
   @Override
   public List<MetadataChangeProposalWrapper> asMetadataEvents() {
-    DataFlowUrn flowUrn = LineageUtils.flowUrn(getMaster(), getAppName());
     ArrayList<MetadataChangeProposalWrapper> mcps = new ArrayList<MetadataChangeProposalWrapper>();
 
     if (this.pipelineConfig.hasPath(PLATFORM_INSTANCE_KEY)) {
       try {
-        DataPlatformInstance dpi = new DataPlatformInstance().setPlatform(new DataPlatformUrn(PLATFORM_SPARK)).setInstance(
-            LineageUtils.dataPlatformInstanceUrn(PLATFORM_SPARK, this.pipelineConfig.getString(PLATFORM_INSTANCE_KEY)));
+        DataPlatformInstance dpi = new DataPlatformInstance().setPlatform(new DataPlatformUrn(PLATFORM_SPARK))
+            .setInstance(LineageUtils.dataPlatformInstanceUrn(PLATFORM_SPARK,
+                this.pipelineConfig.getString(PLATFORM_INSTANCE_KEY)));
         mcps.add(MetadataChangeProposalWrapper
-            .create(b -> b.entityType("dataFlow").entityUrn(flowUrn).upsert().aspect(dpi)));
+            .create(b -> b.entityType("dataFlow").entityUrn(getFlowUrn()).upsert().aspect(dpi)));
       } catch (URISyntaxException e) {
         // log error, but don't impact thread
         StringWriter s = new StringWriter();
@@ -57,7 +61,7 @@ public class AppStartEvent extends LineageEvent {
     }
     DataFlowInfo flowInfo = new DataFlowInfo().setName(getAppName()).setCustomProperties(customProps());
     mcps.add(MetadataChangeProposalWrapper
-        .create(b -> b.entityType("dataFlow").entityUrn(flowUrn).upsert().aspect(flowInfo)));
+        .create(b -> b.entityType("dataFlow").entityUrn(getFlowUrn()).upsert().aspect(flowInfo)));
     return mcps;
   }
 

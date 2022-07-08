@@ -2826,6 +2826,13 @@
   resolved "https://registry.yarnpkg.com/@types/diff/-/diff-5.0.0.tgz#eb71e94feae62548282c4889308a3dfb57e36020"
   integrity sha512-jrm2K65CokCCX4NmowtA+MfXyuprZC13jbRuwprs6/04z/EcFg/MCwYdsHn+zgV4CQBiATiI7AEq7y1sZCtWKA==
 
+"@types/dompurify@^2.3.3":
+  version "2.3.3"
+  resolved "https://registry.yarnpkg.com/@types/dompurify/-/dompurify-2.3.3.tgz#c24c92f698f77ed9cc9d9fa7888f90cf2bfaa23f"
+  integrity sha512-nnVQSgRVuZ/843oAfhA25eRSNzUFcBPk/LOiw5gm8mD9/X7CNcbRkQu/OsjCewO8+VIYfPxUnXvPEVGenw14+w==
+  dependencies:
+    "@types/trusted-types" "*"
+
 "@types/eslint@^7.2.6":
   version "7.2.11"
   resolved "https://registry.yarnpkg.com/@types/eslint/-/eslint-7.2.11.tgz#180b58f5bb7d7376e39d22496e2b08901aa52fd2"
@@ -3130,6 +3137,11 @@
   integrity sha512-ggn3ws+yRbOHog9GxnXiEZ/35Mow6YtPZpd7Z5mKDeZS/o7zx3yAle0ov/wjhVB5QT4N2Dt+GNoGCdqkBGCajQ==
   dependencies:
     "@types/jest" "*"
+
+"@types/trusted-types@*":
+  version "2.0.2"
+  resolved "https://registry.yarnpkg.com/@types/trusted-types/-/trusted-types-2.0.2.tgz#fc25ad9943bcac11cceb8168db4f275e0e72e756"
+  integrity sha512-F5DIZ36YVLE+PN+Zwws4kJogq47hNgX3Nx6WyDJ3kcplxyke3XIzB8uK5n/Lpm1HBsbGzd6nmGehL8cPekP+Tg==
 
 "@types/uglify-js@*":
   version "3.13.0"
@@ -6910,6 +6922,11 @@ domhandler@^2.3.0:
   dependencies:
     domelementtype "1"
 
+dompurify@^2.3.8:
+  version "2.3.8"
+  resolved "https://registry.yarnpkg.com/dompurify/-/dompurify-2.3.8.tgz#224fe9ae57d7ebd9a1ae1ac18c1c1ca3f532226f"
+  integrity sha512-eVhaWoVibIzqdGYjwsBWodIQIaXFSB+cKDf4cfxLMsK0xiud6SE+/WCVx/Xw/UwQsa4cS3T2eITcdtmTg2UKcw==
+
 domutils@^1.5.1, domutils@^1.7.0:
   version "1.7.0"
   resolved "https://registry.yarnpkg.com/domutils/-/domutils-1.7.0.tgz#56ea341e834e06e6748af7a1cb25da67ea9f8c2a"
@@ -7550,9 +7567,9 @@ events@^3.0.0:
   integrity sha512-mQw+2fkQbALzQ7V0MY0IqdnXNOeTtP4r0lN9z7AAawCXgqea7bDii20AYrIBrFd/Hx0M2Ocz6S111CaFkUcb0Q==
 
 eventsource@^1.0.7:
-  version "1.1.0"
-  resolved "https://registry.yarnpkg.com/eventsource/-/eventsource-1.1.0.tgz#00e8ca7c92109e94b0ddf32dac677d841028cfaf"
-  integrity sha512-VSJjT5oCNrFvCS6igjzPAt5hBzQ2qPBFIbJ03zLI9SE0mxwZpMw6BfJrbFHm1a141AavMEB8JHmBhWAd66PfCg==
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/eventsource/-/eventsource-1.1.1.tgz#4544a35a57d7120fba4fa4c86cb4023b2c09df2f"
+  integrity sha512-qV5ZC0h7jYIAOhArFJgSfdyz6rALJyb270714o7ZtNnw2WSJ+eexhKtE0O8LYPRsHZHf2osHKZBxGPvm3kPkCA==
   dependencies:
     original "^1.0.0"
 
@@ -10749,7 +10766,7 @@ lodash.camelcase@^4.3.0:
 lodash.clonedeep@^4.5.0:
   version "4.5.0"
   resolved "https://registry.yarnpkg.com/lodash.clonedeep/-/lodash.clonedeep-4.5.0.tgz#e23f3f9c4f8fbdde872529c1071857a086e5ccef"
-  integrity sha1-4j8/nE+Pvd6HJSnBBxhXoIblzO8=
+  integrity sha512-H5ZhCF25riFd9uB5UCkVKo61m3S/xZk1x4wA6yp/L3RFP6Z/eHH1ymQcGLo7J3GMPfm0V/7m1tryHuGVxpqEBQ==
 
 lodash.compact@^3.0.1:
   version "3.0.1"
@@ -11574,6 +11591,11 @@ moment-timezone@^0.5.34:
   version "2.29.1"
   resolved "https://registry.yarnpkg.com/moment/-/moment-2.29.1.tgz#b2be769fa31940be9eeea6469c075e35006fa3d3"
   integrity sha512-kHmoybcPV8Sqy59DwNDY3Jefr64lK/by/da0ViFcuA4DH0vQg5Q6Ze5VimxkfQNSC+Mls/Kx53s7TjP1RhFEDQ==
+
+monaco-editor@^0.28.1:
+  version "0.28.1"
+  resolved "https://registry.yarnpkg.com/monaco-editor/-/monaco-editor-0.28.1.tgz#732788ff2172d59e6d436b206da8cac715413940"
+  integrity sha512-P1vPqxB4B1ZFzTeR1ScggSp9/5NoQrLCq88fnlNUsuRAP1usEBN4TIpI2lw0AYIZNVIanHk0qwjze2uJwGOHUw==
 
 monaco-yaml@^3.2.1:
   version "3.2.1"
@@ -16576,7 +16598,15 @@ url-parse-lax@^3.0.0:
   dependencies:
     prepend-http "^2.0.0"
 
-url-parse@^1.4.3, url-parse@^1.5.1:
+url-parse@^1.4.3:
+  version "1.5.10"
+  resolved "https://registry.yarnpkg.com/url-parse/-/url-parse-1.5.10.tgz#9d3c2f736c1d75dd3bd2be507dcc111f1e2ea9c1"
+  integrity sha512-WypcfiRhfeUP9vvF0j6rw0J3hrWrw6iZv3+22h6iRMJ/8z1Tj6XfLP4DsUix5MhMPnXpiHDoKyoZ/bdCkwBCiQ==
+  dependencies:
+    querystringify "^2.1.1"
+    requires-port "^1.0.0"
+
+url-parse@^1.5.1:
   version "1.5.1"
   resolved "https://registry.yarnpkg.com/url-parse/-/url-parse-1.5.1.tgz#d5fa9890af8a5e1f274a2c98376510f6425f6e3b"
   integrity sha512-HOfCOUJt7iSYzEx/UqgtwKRMC6EU91NFhsCHMv9oM03VJcVo2Qrp8T8kI9D7amFf1cu+/3CEhgb3rF9zL7k85Q==

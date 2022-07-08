@@ -7,7 +7,7 @@ import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociation;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
@@ -19,7 +19,7 @@ import java.util.Comparator;
 import java.util.List;
 import javax.annotation.Nonnull;
 
-import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 
 
 public class GlobalTagsDiffer implements AspectDiffer<GlobalTags> {
@@ -115,15 +115,15 @@ public class GlobalTagsDiffer implements AspectDiffer<GlobalTags> {
     globalTags.setTags(new TagAssociationArray(tags));
   }
 
-  private static GlobalTags getGlobalTagsFromAspect(EbeanAspectV2 ebeanAspectV2) {
-    if (ebeanAspectV2 != null && ebeanAspectV2.getMetadata() != null) {
-      return RecordUtils.toRecordTemplate(GlobalTags.class, ebeanAspectV2.getMetadata());
+  private static GlobalTags getGlobalTagsFromAspect(EntityAspect entityAspect) {
+    if (entityAspect != null && entityAspect.getMetadata() != null) {
+      return RecordUtils.toRecordTemplate(GlobalTags.class, entityAspect.getMetadata());
     }
     return null;
   }
 
   @Override
-  public ChangeTransaction getSemanticDiff(EbeanAspectV2 previousValue, EbeanAspectV2 currentValue,
+  public ChangeTransaction getSemanticDiff(EntityAspect previousValue, EntityAspect currentValue,
       ChangeCategory element, JsonPatch rawDiff, boolean rawDiffsRequested) {
     if (!previousValue.getAspect().equals(GLOBAL_TAGS_ASPECT_NAME) || !currentValue.getAspect()
         .equals(GLOBAL_TAGS_ASPECT_NAME)) {

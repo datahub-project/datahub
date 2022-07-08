@@ -11,13 +11,16 @@ import { useGetTagQuery } from '../../graphql/tag.generated';
 import { EntityType, FacetMetadata, Maybe, Scalars } from '../../types.generated';
 import { ExpandedOwner } from '../entity/shared/components/styled/ExpandedOwner';
 import { EMPTY_MESSAGES } from '../entity/shared/constants';
-import { AddOwnerModal } from '../entity/shared/containers/profile/sidebar/Ownership/AddOwnerModal';
 import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { useUpdateDescriptionMutation, useSetTagColorMutation } from '../../graphql/mutations.generated';
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import analytics, { EventType, EntityActionType } from '../analytics';
 import { GetSearchResultsParams, SearchResultInterface } from '../entity/shared/components/styled/search/types';
+import { AddOwnersModal } from '../entity/shared/containers/profile/sidebar/Ownership/AddOwnersModal';
+import CopyUrn from './CopyUrn';
+import EntityDropdown from '../entity/shared/EntityDropdown';
+import { EntityMenuItems } from '../entity/shared/EntityDropdown/EntityDropdown';
 
 function useWrappedSearchResults(params: GetSearchResultsParams) {
     const { data, loading, error } = useGetSearchResultsForMultipleQuery(params);
@@ -146,6 +149,16 @@ const TagName = styled.div`
     justify-content: left;
 `;
 
+const ActionButtons = styled.div`
+    display: flex;
+`;
+
+const TagHeader = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: top;
+`;
+
 const { Paragraph } = Typography;
 
 type Props = {
@@ -180,6 +193,7 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
     const [colorValue, setColorValue] = useState('');
     const ownersEmpty = !data?.tag?.ownership?.owners?.length;
     const [showAddModal, setShowAddModal] = useState(false);
+    const [copiedUrn, setCopiedUrn] = useState(false);
 
     useEffect(() => {
         setUpdatedDescription(description);
@@ -302,22 +316,33 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
     return (
         <>
             {/* Tag Title */}
-            <div>
-                <TitleLabel>Tag</TitleLabel>
-                <TagName>
-                    <ColorPicker>
-                        <ColorPickerButton style={{ backgroundColor: colorValue }} onClick={handlePickerClick} />
-                    </ColorPicker>
-                    <TitleText>
-                        {(data?.tag && entityRegistry.getDisplayName(EntityType.Tag, data?.tag)) || ''}
-                    </TitleText>
-                </TagName>
+            <TagHeader>
+                <div>
+                    <TitleLabel>Tag</TitleLabel>
+                    <TagName>
+                        <ColorPicker>
+                            <ColorPickerButton style={{ backgroundColor: colorValue }} onClick={handlePickerClick} />
+                        </ColorPicker>
+                        <TitleText>
+                            {(data?.tag && entityRegistry.getDisplayName(EntityType.Tag, data?.tag)) || ''}
+                        </TitleText>
+                    </TagName>
+                </div>
+                <ActionButtons>
+                    <CopyUrn urn={urn} isActive={copiedUrn} onClick={() => setCopiedUrn(true)} />
+                    <EntityDropdown
+                        urn={urn}
+                        entityType={EntityType.Tag}
+                        entityData={data?.tag}
+                        menuItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.DELETE])}
+                    />
+                </ActionButtons>
                 {displayColorPicker && (
                     <ColorPickerPopOver ref={colorPickerRef}>
                         <ChromePicker color={colorValue} onChange={handleColorChange} />
                     </ColorPickerPopOver>
                 )}
-            </div>
+            </TagHeader>
             <Divider />
             {/* Tag Description */}
             <DescriptionLabel>About</DescriptionLabel>
@@ -387,23 +412,24 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                         <Button type={ownersEmpty ? 'default' : 'text'} onClick={() => setShowAddModal(true)}>
                             <PlusOutlined />
                             {ownersEmpty ? (
-                                <OwnerButtonEmptyTitle>Add Owner</OwnerButtonEmptyTitle>
+                                <OwnerButtonEmptyTitle>Add Owners</OwnerButtonEmptyTitle>
                             ) : (
-                                <OwnerButtonTitle>Add Owner</OwnerButtonTitle>
+                                <OwnerButtonTitle>Add Owners</OwnerButtonTitle>
                             )}
                         </Button>
                     </div>
                     <div>
-                        <AddOwnerModal
-                            hideOwnerType
-                            visible={showAddModal}
-                            refetch={refetch}
-                            onClose={() => {
-                                setShowAddModal(false);
-                            }}
-                            urn={urn}
-                            type={EntityType.Tag}
-                        />
+                        {showAddModal && (
+                            <AddOwnersModal
+                                hideOwnerType
+                                refetch={refetch}
+                                onCloseModal={() => {
+                                    setShowAddModal(false);
+                                }}
+                                urn={urn}
+                                type={EntityType.Tag}
+                            />
+                        )}
                     </div>
                 </div>
             </DetailsLayout>

@@ -93,12 +93,53 @@
             "name" : "created",
             "type" : "com.linkedin.common.AuditStamp",
             "doc" : "The audit stamp detailing who the aspect was created by and when\n"
+          }, {
+            "name" : "systemMetadata",
+            "type" : {
+              "type" : "record",
+              "name" : "SystemMetadata",
+              "namespace" : "com.linkedin.mxe",
+              "doc" : "Metadata associated with each metadata change that is processed by the system",
+              "fields" : [ {
+                "name" : "lastObserved",
+                "type" : "long",
+                "doc" : "The timestamp the metadata was observed at",
+                "default" : 0,
+                "optional" : true
+              }, {
+                "name" : "runId",
+                "type" : "string",
+                "doc" : "The run id that produced the metadata. Populated in case of batch-ingestion.",
+                "default" : "no-run-id-provided",
+                "optional" : true
+              }, {
+                "name" : "registryName",
+                "type" : "string",
+                "doc" : "The model registry name that was used to process this event",
+                "optional" : true
+              }, {
+                "name" : "registryVersion",
+                "type" : "string",
+                "doc" : "The model registry version that was used to process this event",
+                "optional" : true
+              }, {
+                "name" : "properties",
+                "type" : {
+                  "type" : "map",
+                  "values" : "string"
+                },
+                "doc" : "Additional properties",
+                "optional" : true
+              } ]
+            },
+            "doc" : "The system metadata for this aspect\n",
+            "optional" : true
           } ]
         }
       },
       "doc" : "A map of aspect name to aspect\n"
     } ]
-  }, "com.linkedin.entity.EnvelopedAspect" ],
+  }, "com.linkedin.entity.EnvelopedAspect", "com.linkedin.mxe.SystemMetadata" ],
   "schema" : {
     "name" : "entitiesV2",
     "namespace" : "com.linkedin.entity",

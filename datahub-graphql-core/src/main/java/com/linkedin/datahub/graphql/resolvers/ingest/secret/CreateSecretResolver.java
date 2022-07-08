@@ -10,6 +10,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DataHubSecretKey;
 import com.linkedin.metadata.secret.SecretService;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.secret.DataHubSecretValue;
@@ -38,34 +39,36 @@ public class CreateSecretResolver implements DataFetcher<CompletableFuture<Strin
   @Override
   public CompletableFuture<String> get(final DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
+    final CreateSecretInput input = bindArgument(environment.getArgument("input"), CreateSecretInput.class);
 
     return CompletableFuture.supplyAsync(() -> {
 
       if (IngestionAuthUtils.canManageSecrets(context)) {
 
-        final CreateSecretInput input = bindArgument(environment.getArgument("input"), CreateSecretInput.class);
-
-        final MetadataChangeProposal proposal = new MetadataChangeProposal();
-
-        // Create the Ingestion source key --> use the display name as a unique id to ensure it's not duplicated.
-        final DataHubSecretKey key = new DataHubSecretKey();
-        key.setId(input.getName());
-        proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
-
-        // Create the secret value.
-        final DataHubSecretValue value = new DataHubSecretValue();
-        value.setName(input.getName());
-        value.setValue(_secretService.encrypt(input.getValue()));
-        value.setDescription(input.getDescription(), SetMode.IGNORE_NULL);
-
-        proposal.setEntityType(Constants.SECRETS_ENTITY_NAME);
-        proposal.setAspectName(Constants.SECRET_VALUE_ASPECT_NAME);
-        proposal.setAspect(GenericRecordUtils.serializeAspect(value));
-        proposal.setChangeType(ChangeType.UPSERT);
-
-        System.out.println(String.format("About to ingest %s", proposal));
-
         try {
+
+          final MetadataChangeProposal proposal = new MetadataChangeProposal();
+
+          // Create the Ingestion source key --> use the display name as a unique id to ensure it's not duplicated.
+          final DataHubSecretKey key = new DataHubSecretKey();
+          key.setId(input.getName());
+          proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
+
+          if (_entityClient.exists(EntityKeyUtils.convertEntityKeyToUrn(key, Constants.SECRETS_ENTITY_NAME), context.getAuthentication())) {
+            throw new IllegalArgumentException("This Secret already exists!");
+          }
+
+          // Create the secret value.
+          final DataHubSecretValue value = new DataHubSecretValue();
+          value.setName(input.getName());
+          value.setValue(_secretService.encrypt(input.getValue()));
+          value.setDescription(input.getDescription(), SetMode.IGNORE_NULL);
+
+          proposal.setEntityType(Constants.SECRETS_ENTITY_NAME);
+          proposal.setAspectName(Constants.SECRET_VALUE_ASPECT_NAME);
+          proposal.setAspect(GenericRecordUtils.serializeAspect(value));
+          proposal.setChangeType(ChangeType.UPSERT);
+
           return _entityClient.ingestProposal(proposal, context.getAuthentication());
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to create new secret with name %s", input.getName()), e);

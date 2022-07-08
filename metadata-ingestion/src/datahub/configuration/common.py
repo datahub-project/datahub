@@ -39,10 +39,7 @@ class OperationalError(PipelineExecutionError):
 
     def __init__(self, message: str, info: dict = None):
         self.message = message
-        if info:
-            self.info = info
-        else:
-            self.info = {}
+        self.info = info or {}
 
 
 class ConfigurationError(MetaError):
@@ -75,6 +72,34 @@ class ConfigurationMechanism(ABC):
         pass
 
 
+class OauthConfiguration(ConfigModel):
+    provider: Optional[str] = Field(
+        description="Identity provider for oauth, e.g- microsoft"
+    )
+    client_id: Optional[str] = Field(
+        description="client id of your registered application"
+    )
+    scopes: Optional[List[str]] = Field(
+        description="scopes required to connect to snowflake"
+    )
+    use_certificate: Optional[str] = Field(
+        description="Do you want to use certificate and private key to authenticate using oauth",
+        default=False,
+    )
+    client_secret: Optional[str] = Field(
+        description="client secret of the application if use_certificate = false"
+    )
+    authority_url: Optional[str] = Field(
+        description="Authority url of your identity provider"
+    )
+    encoded_oauth_public_key: Optional[str] = Field(
+        description="base64 encoded certificate content if use_certificate = true"
+    )
+    encoded_oauth_private_key: Optional[str] = Field(
+        description="base64 encoded private key content if use_certificate = true"
+    )
+
+
 class AllowDenyPattern(ConfigModel):
     """A class to store allow deny regexes"""
 
@@ -100,10 +125,7 @@ class AllowDenyPattern(ConfigModel):
 
     @property
     def regex_flags(self) -> int:
-        if self.ignoreCase:
-            return re.IGNORECASE
-        else:
-            return 0
+        return re.IGNORECASE if self.ignoreCase else 0
 
     @classmethod
     def allow_all(cls) -> "AllowDenyPattern":
@@ -114,11 +136,10 @@ class AllowDenyPattern(ConfigModel):
             if re.match(deny_pattern, string, self.regex_flags):
                 return False
 
-        for allow_pattern in self.allow:
-            if re.match(allow_pattern, string, self.regex_flags):
-                return True
-
-        return False
+        return any(
+            re.match(allow_pattern, string, self.regex_flags)
+            for allow_pattern in self.allow
+        )
 
     def is_fully_specified_allow_list(self) -> bool:
         """
@@ -127,10 +148,9 @@ class AllowDenyPattern(ConfigModel):
         pattern into a 'search for the ones that are allowed' pattern, which can be
         much more efficient in some cases.
         """
-        for allow_pattern in self.allow:
-            if not self.alphabet_pattern.match(allow_pattern):
-                return False
-        return True
+        return all(
+            self.alphabet_pattern.match(allow_pattern) for allow_pattern in self.allow
+        )
 
     def get_allowed_list(self) -> List[str]:
         """Return the list of allowed strings as a list, after taking into account deny patterns, if possible"""
@@ -153,16 +173,12 @@ class KeyValuePattern(ConfigModel):
         return KeyValuePattern()
 
     def value(self, string: str) -> List[str]:
-        for key in self.rules.keys():
-            if re.match(key, string):
-                return self.rules[key]
-        return []
+        return next(
+            (self.rules[key] for key in self.rules.keys() if re.match(key, string)), []
+        )
 
     def matched(self, string: str) -> bool:
-        for key in self.rules.keys():
-            if re.match(key, string):
-                return True
-        return False
+        return any(re.match(key, string) for key in self.rules.keys())
 
     def is_fully_specified_key(self) -> bool:
         """
@@ -171,10 +187,7 @@ class KeyValuePattern(ConfigModel):
         pattern into a 'search for the ones that are allowed' pattern, which can be
         much more efficient in some cases.
         """
-        for key in self.rules.keys():
-            if not self.alphabet_pattern.match(key):
-                return True
-        return False
+        return any(not self.alphabet_pattern.match(key) for key in self.rules.keys())
 
     def get(self) -> Dict[str, List[str]]:
         """Return the list of allowed strings as a list, after taking into account deny patterns, if possible"""

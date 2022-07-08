@@ -13,7 +13,7 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 
 # make sure that mock_time is excluded here because it messes with feast
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration
+@pytest.mark.integration_batch_1
 def test_feast_ingest(docker_compose_runner, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/feast-legacy"
 

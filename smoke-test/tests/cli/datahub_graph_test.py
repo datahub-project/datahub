@@ -1,14 +1,7 @@
-import time
-
 import pytest
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from datahub.metadata.schema_classes import SchemaMetadataClass, KafkaSchemaClass
-from tests.utils import (
-    FRONTEND_ENDPOINT,
-    GMS_ENDPOINT,
-    delete_urns_from_file,
-    ingest_file_via_rest,
-)
+from datahub.metadata.schema_classes import KafkaSchemaClass, SchemaMetadataClass
+from tests.utils import delete_urns_from_file, ingest_file_via_rest
 
 
 @pytest.fixture(scope="module", autouse=False)
@@ -38,5 +31,7 @@ def test_get_aspect_v2(frontend_session, ingest_cleanup_data):
     assert schema_metadata.platform == "urn:li:dataPlatform:kafka"
     assert isinstance(schema_metadata.platformSchema, KafkaSchemaClass)
     k_schema: KafkaSchemaClass = schema_metadata.platformSchema
-    assert k_schema.documentSchema == "{\"type\":\"record\",\"name\":\"SampleKafkaSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Kafka dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
-
+    assert (
+        k_schema.documentSchema
+        == '{"type":"record","name":"SampleKafkaSchema","namespace":"com.linkedin.dataset","doc":"Sample Kafka dataset","fields":[{"name":"field_foo","type":["string"]},{"name":"field_bar","type":["boolean"]}]}'
+    )

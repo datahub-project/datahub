@@ -34,23 +34,35 @@ dependencies {
   implementation externalDependency.graphqlJava
   implementation externalDependency.antlr4Runtime
   implementation externalDependency.antlr4
+  implementation externalDependency.akkaHttp
 
   implementation externalDependency.jerseyCore
   implementation externalDependency.jerseyGuava
 
-  implementation externalDependency.pac4j
+  implementation(externalDependency.pac4j) {
+    exclude group: "net.minidev", module: "json-smart"
+    exclude group: "com.nimbusds", module: "nimbus-jose-jwt"
+  }
+  implementation "com.nimbusds:nimbus-jose-jwt:7.9"
+  implementation externalDependency.jsonSmart
   implementation externalDependency.playPac4j
   implementation externalDependency.shiroCore
   implementation externalDependency.playCache
   implementation externalDependency.playWs
+  implementation externalDependency.playServer
+  implementation externalDependency.playAkkaHttpServer
   implementation externalDependency.kafkaClients
+  implementation externalDependency.awsMskIamAuth
 
   testImplementation externalDependency.mockito
   testImplementation externalDependency.playTest
+  testCompile externalDependency.testng
 
   compileOnly externalDependency.lombok
   runtime externalDependency.guice
-  runtime externalDependency.playDocs
+  runtime (externalDependency.playDocs) {
+    exclude group: 'com.typesafe.akka', module: 'akka-http-core_2.12'
+  }
   runtime externalDependency.playGuice
   runtime externalDependency.logbackClassic
 

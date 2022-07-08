@@ -78,6 +78,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:hana",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "hana",
+      "displayName": "SAP HANA",
+      "type": "RELATIONAL_DB",
+      "logoUrl": "/assets/platforms/hanalogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:hive",
     "aspect": {
       "datasetNameDelimiter": ".",
@@ -85,6 +95,16 @@
       "displayName": "Hive",
       "type": "FILE_SYSTEM",
       "logoUrl": "/assets/platforms/hivelogo.png"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:iceberg",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "iceberg",
+      "displayName": "Iceberg",
+      "type": "FILE_SYSTEM",
+      "logoUrl": "/assets/platforms/iceberglogo.png"
     }
   },
   {
@@ -467,12 +487,32 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:salesforce",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "salesforce",
+      "displayName": "Salesforce",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/logo-salesforce.svg"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:unknown",
     "aspect": {
       "datasetNameDelimiter": ".",
       "name": "Unknown Platform",
       "displayName": "N/A",
       "type": "OTHERS"
+    }
+  },
+  {
+    "urn": "urn:li:dataPlatform:delta-lake",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "delta-lake",
+      "displayName": "Delta Lake",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/deltalakelogo.png"
     }
   }
 ]

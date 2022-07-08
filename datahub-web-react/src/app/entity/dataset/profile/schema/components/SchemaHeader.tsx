@@ -10,6 +10,7 @@ import { toRelativeTimeString } from '../../../../../shared/time/timeUtils';
 import { SchemaViewType } from '../utils/types';
 import { ANTD_GRAY } from '../../../../shared/constants';
 import { navigateToVersionedDatasetUrl } from '../../../../shared/tabs/Dataset/Schema/utils/navigateToVersionedDatasetUrl';
+import SchemaTimeStamps from './SchemaTimeStamps';
 
 const SchemaHeaderContainer = styled.div`
     display: flex;
@@ -99,16 +100,6 @@ const BlameRadioButton = styled(Radio.Button)`
     }
 `;
 
-const CurrentVersionTimestampText = styled(Typography.Text)`
-    &&& {
-        line-height: 22px;
-        margin-top: 10px;
-        margin-right: 10px;
-        color: ${ANTD_GRAY[7]};
-        min-width: 220px;
-    }
-`;
-
 const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
     &&& {
         margin-top: 12px;
@@ -134,7 +125,8 @@ type Props = {
     hasKeySchema: boolean;
     showKeySchema: boolean;
     setShowKeySchema: (show: boolean) => void;
-    lastUpdatedTimeString: string;
+    lastUpdated?: number | null;
+    lastObserved?: number | null;
     selectedVersion: string;
     versionList: Array<SemanticVersionStruct>;
     schemaView: SchemaViewType;
@@ -152,7 +144,8 @@ export default function SchemaHeader({
     hasKeySchema,
     showKeySchema,
     setShowKeySchema,
-    lastUpdatedTimeString,
+    lastUpdated,
+    lastObserved,
     selectedVersion,
     versionList,
     schemaView,
@@ -233,7 +226,7 @@ export default function SchemaHeader({
                         ))}
                 </LeftButtonsGroup>
                 <RightButtonsGroup>
-                    <CurrentVersionTimestampText>{lastUpdatedTimeString}</CurrentVersionTimestampText>
+                    <SchemaTimeStamps lastObserved={lastObserved} lastUpdated={lastUpdated} />
                     <BlameRadio value={schemaView} onChange={onSchemaViewToggle}>
                         <BlameRadioButton value={SchemaViewType.NORMAL} data-testid="schema-normal-button">
                             Normal

@@ -1,0 +1,9 @@
+---
+source:
+  type: okta
+  config:
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

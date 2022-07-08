@@ -19,6 +19,7 @@ from datahub.cli.docker_check import (
 )
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
+from datahub.upgrade import upgrade
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,7 @@ def docker_check_impl() -> None:
 
 
 @docker.command()
+@upgrade.check_upgrade
 @telemetry.with_telemetry
 def check() -> None:
     """Check that the Docker containers are healthy"""
@@ -164,6 +166,7 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
     default=None,
     help="If set, forces docker-compose to use that graph service implementation",
 )
+@upgrade.check_upgrade
 @telemetry.with_telemetry
 def quickstart(
     version: str,
@@ -324,8 +327,15 @@ def quickstart(
     type=click.Path(exists=True, dir_okay=False),
     help=f"The MCE json file to ingest. Defaults to downloading {BOOTSTRAP_MCES_FILE} from GitHub",
 )
+@click.option(
+    "--token",
+    type=str,
+    is_flag=False,
+    default=None,
+    help="The token to be used when ingesting, used when datahub is deployed with METADATA_SERVICE_AUTH_ENABLED=true",
+)
 @telemetry.with_telemetry
-def ingest_sample_data(path: Optional[str]) -> None:
+def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
     """Ingest sample data into a running DataHub instance."""
 
     if path is None:
@@ -350,20 +360,23 @@ def ingest_sample_data(path: Optional[str]) -> None:
 
     # Run ingestion.
     click.echo("Starting ingestion...")
-    pipeline = Pipeline.create(
-        {
-            "source": {
-                "type": "file",
-                "config": {
-                    "filename": path,
-                },
+    recipe: dict = {
+        "source": {
+            "type": "file",
+            "config": {
+                "filename": path,
             },
-            "sink": {
-                "type": "datahub-rest",
-                "config": {"server": "http://localhost:8080"},
-            },
-        }
-    )
+        },
+        "sink": {
+            "type": "datahub-rest",
+            "config": {"server": "http://localhost:8080"},
+        },
+    }
+
+    if token is not None:
+        recipe["sink"]["config"]["token"] = token
+
+    pipeline = Pipeline.create(recipe)
     pipeline.run()
     ret = pipeline.pretty_print_summary()
     sys.exit(ret)
