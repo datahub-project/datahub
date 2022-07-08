@@ -35,11 +35,7 @@ export type DatasetEntityArg = {
     path: string;
 };
 
-export const datasetEntity = ({
-    platform,
-    origin,
-    path,
-}: DatasetEntityArg): Dataset & { previousSchemaMetadata: any } => {
+export const datasetEntity = ({ platform, origin, path }: DatasetEntityArg): Dataset => {
     const name = `${path}.${faker.company.bsNoun()}_${faker.company.bsNoun()}`;
     const description = `${faker.commerce.productDescription()}`;
     const datahubUser = findUserByUsername('datahub');
@@ -80,7 +76,6 @@ export const datasetEntity = ({
         usageStats: null,
         glossaryTerms: null,
         schemaMetadata: null,
-        previousSchemaMetadata: null,
         __typename: 'Dataset',
         subTypes: null,
         health: [],
