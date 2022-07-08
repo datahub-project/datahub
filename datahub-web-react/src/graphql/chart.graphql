@@ -56,9 +56,6 @@ query getChart($urn: String!) {
         dashboards: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 100 }) {
             ...fullRelationshipResults
         }
-        container {
-            ...entityContainer
-        }
         parentContainers {
             ...parentContainersFields
         }

@@ -41,9 +41,6 @@ fragment nonSiblingDatasetFields on Dataset {
     schemaMetadata(version: 0) {
         ...schemaMetadataFields
     }
-    previousSchemaMetadata: schemaMetadata(version: -1) {
-        ...schemaMetadataFields
-    }
     editableSchemaMetadata {
         editableSchemaFieldInfo {
             fieldPath
@@ -73,9 +70,6 @@ fragment nonSiblingDatasetFields on Dataset {
     }
     domain {
         ...entityDomain
-    }
-    container {
-        ...entityContainer
     }
     parentContainers {
         ...parentContainersFields
