@@ -40,7 +40,7 @@ def test_kafka_connect_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
             docker_services,
             "test_mysql",
             3306,
-            timeout=120,
+            timeout=1000,
             checker=lambda: is_mysql_up("test_mysql", 3306),
         )
         wait_for_port(docker_services, "test_broker", 59092, timeout=120)
