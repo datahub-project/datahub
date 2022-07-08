@@ -16,14 +16,14 @@ on:
     types: [published, edited]
 
 env:
-  DATAHUB_GMS_IMAGE: 'linkedin/datahub-gms'
-  DATAHUB_FRONTEND_IMAGE: 'linkedin/datahub-frontend-react'
-  DATAHUB_MAE_CONSUMER_IMAGE: 'linkedin/datahub-mae-consumer'
-  DATAHUB_MCE_CONSUMER_IMAGE: 'linkedin/datahub-mce-consumer'
-  DATAHUB_KAFKA_SETUP_IMAGE: 'linkedin/datahub-kafka-setup'
-  DATAHUB_ELASTIC_SETUP_IMAGE: 'linkedin/datahub-elasticsearch-setup'
-  DATAHUB_MYSQL_SETUP_IMAGE: 'acryldata/datahub-mysql-setup'
-  DATAHUB_UPGRADE_IMAGE: 'acryldata/datahub-upgrade'
+  DATAHUB_GMS_IMAGE: 'heruko/datahub-gms'
+  DATAHUB_FRONTEND_IMAGE: 'heruko/datahub-frontend-react'
+  DATAHUB_MAE_CONSUMER_IMAGE: 'heruko/datahub-mae-consumer'
+  DATAHUB_MCE_CONSUMER_IMAGE: 'heruko/datahub-mce-consumer'
+  DATAHUB_KAFKA_SETUP_IMAGE: 'heruko/datahub-kafka-setup'
+  DATAHUB_ELASTIC_SETUP_IMAGE: 'heruko/datahub-elasticsearch-setup'
+  DATAHUB_MYSQL_SETUP_IMAGE: 'heruko/datahub-mysql-setup'
+  DATAHUB_UPGRADE_IMAGE: 'heruko/datahub-upgrade'
   
 
 jobs:
