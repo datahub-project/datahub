@@ -1,5 +1,11 @@
 import { GenericEntityProperties } from './types';
 
+export function dictToQueryStringParams(params: Record<string, string | boolean>) {
+    return Object.keys(params)
+        .map((key) => `${key}=${params[key]}`)
+        .join('&');
+}
+
 export function urlEncodeUrn(urn: string) {
     return (
         urn &&

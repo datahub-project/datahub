@@ -308,7 +308,7 @@ export const SearchBar = ({
                         );
                     } else {
                         // Navigate directly to the entity profile.
-                        history.push(getEntityPath(option.type, value, entityRegistry, false));
+                        history.push(getEntityPath(option.type, value, entityRegistry, false, false));
                     }
                 }}
                 onSearch={(value: string) => onQueryChange(value)}

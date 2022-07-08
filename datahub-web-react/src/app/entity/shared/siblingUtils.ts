@@ -1,5 +1,7 @@
 import merge from 'deepmerge';
 import { unionBy } from 'lodash';
+import { useLocation } from 'react-router-dom';
+import * as QueryString from 'query-string';
 import { Entity, MatchedField, Maybe, SiblingProperties } from '../../../types.generated';
 
 function cleanHelper(obj, visited) {
@@ -174,4 +176,14 @@ export function combineSiblingsInSearchResults(
     });
 
     return combinedResults;
+}
+// used to determine whether sibling entities should be shown merged or not
+export const HIDE_SIBLINGS_URL_PARAM = 'hide_siblings';
+
+// used to determine whether sibling entities should be shown merged or not
+export default function useIsHideSiblingMode() {
+    const location = useLocation();
+    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+
+    return params[HIDE_SIBLINGS_URL_PARAM] === 'true';
 }
