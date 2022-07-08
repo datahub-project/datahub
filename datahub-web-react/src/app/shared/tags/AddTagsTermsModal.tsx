@@ -168,7 +168,7 @@ export default function AddTagsTermsModal({
         querySelectorToExecuteClick: '#addTagButton',
     });
 
-    if (showCreateModal && isValidInput) {
+    if (showCreateModal) {
         return (
             <CreateTagModal
                 visible={visible}

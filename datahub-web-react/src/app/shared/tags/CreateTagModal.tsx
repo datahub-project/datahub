@@ -57,15 +57,21 @@ export default function CreateTagModal({
                             subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
                         },
                     },
-                }).finally(() => {
-                    // and finally close the modal
-                    setDisableCreate(false);
-                    onClose();
-                });
+                })
+                    .catch((e) => {
+                        message.destroy();
+                        message.error({ content: `Failed to add tag: \n ${e.message || ''}`, duration: 3 });
+                        onClose();
+                    })
+                    .finally(() => {
+                        // and finally close the modal
+                        setDisableCreate(false);
+                        onClose();
+                    });
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to create & add tag: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `Failed to create tag: \n ${e.message || ''}`, duration: 3 });
                 onClose();
             });
     };
