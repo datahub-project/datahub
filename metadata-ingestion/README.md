@@ -54,7 +54,7 @@ Make sure yaml plugin is installed for your editor:
 :::
 
 Since `acryl-datahub` version `>=0.8.33.2`, the default sink is assumed to be a DataHub REST endpoint:
-- Hosted at "http://localhost:8080" or the environment variable `${DATAHUB_GMS_HOST}` if present
+- Hosted at "http://localhost:8080" or the environment variable `${DATAHUB_GMS_URL}` if present
 - With an empty auth token or the environment variable `${DATAHUB_GMS_TOKEN}` if present. 
 
 Here's a simple recipe that pulls metadata from MSSQL (source) and puts it into the default sink (datahub rest).
@@ -79,7 +79,7 @@ datahub ingest -c recipe.dhub.yaml
 
 or if you want to override the default endpoints, you can provide the environment variables as part of the command like below:
 ```shell
-DATAHUB_GMS_HOST="https://my-datahub-server:8080" DATAHUB_GMS_TOKEN="my-datahub-token" datahub ingest -c recipe.dhub.yaml
+DATAHUB_GMS_URL="https://my-datahub-server:8080" DATAHUB_GMS_TOKEN="my-datahub-token" datahub ingest -c recipe.dhub.yaml
 ```
 
 A number of recipes are included in the [examples/recipes](./examples/recipes) directory. For full info and context on each source and sink, see the pages described in the [table of plugins](../docs/cli.md#installing-plugins).

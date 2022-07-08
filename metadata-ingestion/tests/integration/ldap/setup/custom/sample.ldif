@@ -35,6 +35,8 @@ cn: simpons-group
 gidnumber: 500
 objectclass: posixGroup
 objectclass: top
+memberUid: hsimpson
+memberUid: lsimpson
 
 # Entry 4: ou=people,dc=example,dc=org
 dn: ou=people,dc=example,dc=org

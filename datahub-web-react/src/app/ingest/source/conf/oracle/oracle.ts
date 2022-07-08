@@ -1,8 +1,6 @@
 import { SourceConfig } from '../types';
 import oracleLogo from '../../../../../images/oraclelogo.png';
 
-const baseUrl = window.location.origin;
-
 const placeholderRecipe = `\
 source: 
     type: oracle
@@ -18,12 +16,7 @@ source:
 
         # Optional service name
         # service_name: # Your service name, e.g. svc # omit database if using this option
-sink: 
-    type: datahub-rest
-    config: 
-        server: "${baseUrl}/api/gms"
-        # Add a secret in secrets Tab
-        token: "\${GMS_TOKEN}"`;
+`;
 
 const oracleConfig: SourceConfig = {
     type: 'oracle',

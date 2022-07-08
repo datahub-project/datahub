@@ -104,7 +104,7 @@ def retrieve_versions(  # noqa: C901
     if not server:
         try:
             # let's get the server from the cli config
-            host, token = cli_utils.get_host_and_token()
+            host, token = cli_utils.get_url_and_token()
             server = DataHubGraph(DatahubClientConfig(server=host, token=token))
         except Exception as e:
             log.debug("Failed to get a valid server", e)
