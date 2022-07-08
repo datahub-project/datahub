@@ -22,6 +22,7 @@ from datahub.metadata.schema_classes import (
     CorpGroupSnapshotClass,
     CorpUserInfoClass,
     CorpUserSnapshotClass,
+    GroupMembershipClass,
 )
 
 # default mapping for attrs
@@ -42,6 +43,7 @@ user_attrs_map["departmentId"] = "departmentNumber"
 user_attrs_map["title"] = "title"
 user_attrs_map["departmentName"] = "departmentNumber"
 user_attrs_map["countryCode"] = "countryCode"
+user_attrs_map["memberOf"] = "memberOf"
 
 # group related attrs
 group_attrs_map["urn"] = "cn"
@@ -338,6 +340,15 @@ class LDAPSource(Source):
             else None
         )
         manager_urn = f"urn:li:corpuser:{manager_ldap}" if manager_ldap else None
+        if self.config.user_attrs_map["memberOf"] in attrs:
+            groups = list(
+                map(
+                    lambda group: f"urn:li:corpGroup:{strip_ldap_group_cn(group)}",
+                    attrs[self.config.user_attrs_map["memberOf"]],
+                )
+            )
+        else:
+            groups = []
 
         return MetadataChangeEvent(
             proposedSnapshot=CorpUserSnapshotClass(
@@ -355,7 +366,8 @@ class LDAPSource(Source):
                         countryCode=country_code,
                         title=title,
                         managerUrn=manager_urn,
-                    )
+                    ),
+                    GroupMembershipClass(groups=groups),
                 ],
             )
         )
@@ -422,3 +434,9 @@ def strip_ldap_info(input_clean: bytes) -> str:
     """Converts a b'uid=username,ou=Groups,dc=internal,dc=machines'
     format to username"""
     return input_clean.decode().split(",")[0].lstrip("uid=")
+
+
+def strip_ldap_group_cn(input_clean: bytes) -> str:
+    """Converts a b'CN=group_name,OU=Groups,DC=internal,DC=machines'
+    format to username"""
+    return input_clean.decode().split(",")[0].lstrip("CN=")

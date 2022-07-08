@@ -80,7 +80,7 @@ def map_snapshot(table: OrientRecord) -> MetadataWorkUnit:
         customProperties=table.oRecordData.get("customFields"),
     )
 
-    browse_paths = BrowsePathsClass([f"/prod/{platform}/{'/'.join(parents)}/{name}"])
+    browse_paths = BrowsePathsClass([f"/prod/{platform}/{'/'.join(parents).lower()}/{name}"])
 
     columns = json.loads(table.columns)
     schema = SchemaMetadataClass(
@@ -93,7 +93,7 @@ def map_snapshot(table: OrientRecord) -> MetadataWorkUnit:
     )
 
     snapshot = DatasetSnapshot(
-        urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{'.'.join(parents)}.{name},PROD)",
+        urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{'.'.join(parents).lower()}.{name},PROD)",
         aspects=[properties, browse_paths, schema],
     )
 

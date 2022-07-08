@@ -461,6 +461,7 @@ entry_points = {
         "csv-enricher = datahub.ingestion.source.csv_enricher:CSVEnricherSource",
         "file = datahub.ingestion.source.file:GenericFileSource",
         "data-catalog = datahub.ingestion.source.data_catalog:DataCatalogSource",
+        "ib-redash-lineages = datahub.ingestion.source.ib_redash_lineages:IBRedashLineagesSource",
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
