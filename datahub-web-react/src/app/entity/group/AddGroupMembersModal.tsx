@@ -107,7 +107,6 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
 
     const onAdd = async () => {
         const selectedMemberUrns = selectedMembers.map((selectedMember) => selectedMember.value);
-        console.log('selectedMemberUrns:: ', selectedMemberUrns);
         if (selectedMembers.length === 0) {
             return;
         }

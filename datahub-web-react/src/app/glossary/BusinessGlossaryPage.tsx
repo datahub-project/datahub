@@ -84,7 +84,7 @@ function BusinessGlossaryPage() {
                         </div>
                     </HeaderWrapper>
                     {hasTermsOrNodes && <GlossaryEntitiesList nodes={nodes || []} terms={terms || []} />}
-                    {!hasTermsOrNodes && (
+                    {!(termsLoading || nodesLoading) && !hasTermsOrNodes && (
                         <EmptyGlossarySection refetchForTerms={refetchForTerms} refetchForNodes={refetchForNodes} />
                     )}
                 </MainContentWrapper>
