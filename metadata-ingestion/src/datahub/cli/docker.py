@@ -204,7 +204,7 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
 )
 @upgrade.check_upgrade
 @telemetry.with_telemetry
-def quickstart(
+def quickstart(  # noqa: C901
     version: str,
     build_locally: bool,
     quickstart_compose_file: List[pathlib.Path],
@@ -277,7 +277,7 @@ def quickstart(
         os.environ["DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT"] = str(schema_registry_port)
 
     if elastic_port is not None:
-        os.environ["DATAHUB_MAPPED_ELASTIC_PORT"] = str(elastic_port)        
+        os.environ["DATAHUB_MAPPED_ELASTIC_PORT"] = str(elastic_port)
 
     base_command: List[str] = [
         "docker-compose",
