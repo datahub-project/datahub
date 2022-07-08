@@ -11,6 +11,7 @@ import {
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
+import useTagsAndTermsRenderer from '../../shared/tabs/Dataset/Schema/utils/useTagsAndTermsRenderer';
 
 export const Preview = ({
     urn,
@@ -62,6 +63,7 @@ export const Preview = ({
             entityCount={entityCount}
             domain={domain || undefined}
             parentContainers={parentContainers}
+            tags={}
         />
     );
 };
