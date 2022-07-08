@@ -144,7 +144,7 @@ class DeltaLakeSource(Source):
     def _create_operation_aspect_wu(
         self, delta_table: DeltaTable, dataset_urn: str
     ) -> Iterable[MetadataWorkUnit]:
-        for hist in delta_table.history():
+        for hist in delta_table.history(self.source_config.version_history_limit):
 
             # History schema picked up from https://docs.delta.io/latest/delta-utility.html#retrieve-delta-table-history
             reported_time: int = int(time.time() * 1000)
