@@ -160,3 +160,6 @@ class DatahubRestSink(Sink):
 
     def __repr__(self) -> str:
         return self.emitter.__repr__()
+
+    def configured(self) -> str:
+        return self.__repr__()

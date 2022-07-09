@@ -152,7 +152,7 @@ class Pipeline:
             sink_config = self.config.sink.dict().get("config") or {}
             self.sink: Sink = sink_class.create(sink_config, self.ctx)
             logger.debug(f"Sink type:{self.config.sink.type},{sink_class} configured")
-            logger.info(f"Sink configured successfully. {self.sink}")
+            logger.info(f"Sink configured successfully. {self.sink.configured()}")
         except Exception as e:
             self.pipeline_init_failures = f"Failed to configure sink due to \n\t{e}"
             logger.error(e)
