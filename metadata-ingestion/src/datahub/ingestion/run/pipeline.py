@@ -138,23 +138,62 @@ class Pipeline:
             dry_run=dry_run,
             preview_mode=preview_mode,
         )
+        self.pipeline_init_failures = None
 
         sink_type = self.config.sink.type
-        sink_class = sink_registry.get(sink_type)
-        sink_config = self.config.sink.dict().get("config") or {}
-        self.sink: Sink = sink_class.create(sink_config, self.ctx)
-        logger.debug(f"Sink type:{self.config.sink.type},{sink_class} configured")
+        try:
+            sink_class = sink_registry.get(sink_type)
+        except Exception as e:
+            self.pipeline_init_failures = f"Failed to create sink due to \n\t{e}"
+            logger.error(e)
+            return
 
-        source_type = self.config.source.type
-        source_class = source_registry.get(source_type)
-        self.source: Source = source_class.create(
-            self.config.source.dict().get("config", {}), self.ctx
-        )
-        logger.debug(f"Source type:{source_type},{source_class} configured")
+        try:
+            sink_config = self.config.sink.dict().get("config") or {}
+            self.sink: Sink = sink_class.create(sink_config, self.ctx)
+            logger.debug(f"Sink type:{self.config.sink.type},{sink_class} configured")
+            logger.info(f"Sink configured successfully. {self.sink}")
+        except Exception as e:
+            self.pipeline_init_failures = f"Failed to configure sink due to \n\t{e}"
+            logger.error(e)
+            return
 
-        self.extractor_class = extractor_registry.get(self.config.source.extractor)
+        try:
+            source_type = self.config.source.type
+            source_class = source_registry.get(source_type)
+        except Exception as e:
+            self.pipeline_init_failures = f"Failed to create source due to \n\t{e}"
+            logger.error(e)
+            return
 
-        self._configure_transforms()
+        try:
+            self.source: Source = source_class.create(
+                self.config.source.dict().get("config", {}), self.ctx
+            )
+            logger.debug(f"Source type:{source_type},{source_class} configured")
+        except Exception as e:
+            self.pipeline_init_failures = (
+                f"Failed to configure source ({source_type}) due to \n\t{e}"
+            )
+            logger.error(e)
+            return
+
+        try:
+            self.extractor_class = extractor_registry.get(self.config.source.extractor)
+        except Exception as e:
+            self.pipeline_init_failures = f"Failed to configure extractor ({self.config.source.extractor}) due to \n\t{e}"
+            logger.error(e)
+            return
+
+        try:
+            self._configure_transforms()
+        except ValueError as e:
+            self.pipeline_init_failures = (
+                f"Failed to configure transformers due to \n\t{e}"
+            )
+            logger.error(e)
+            return
+
         self._configure_reporting()
 
     def _configure_transforms(self) -> None:
@@ -209,6 +248,10 @@ class Pipeline:
     def run(self) -> None:
 
         callback = LoggingCallback()
+        if self.pipeline_init_failures:
+            # no point continuing, return early
+            return
+
         extractor: Extractor = self.extractor_class()
         for wu in itertools.islice(
             self.source.get_workunits(),
@@ -310,18 +353,18 @@ class Pipeline:
             )
 
     def log_ingestion_stats(self) -> None:
-
-        telemetry.telemetry_instance.ping(
-            "ingest_stats",
-            {
-                "source_type": self.config.source.type,
-                "sink_type": self.config.sink.type,
-                "records_written": stats.discretize(
-                    self.sink.get_report().records_written
-                ),
-            },
-            self.ctx.graph,
-        )
+        if not self.pipeline_init_failures:
+            telemetry.telemetry_instance.ping(
+                "ingest_stats",
+                {
+                    "source_type": self.config.source.type,
+                    "sink_type": self.config.sink.type,
+                    "records_written": stats.discretize(
+                        self.sink.get_report().records_written
+                    ),
+                },
+                self.ctx.graph,
+            )
 
     def _count_all_vals(self, d: Dict[str, List]) -> int:
         result = 0
@@ -331,6 +374,9 @@ class Pipeline:
 
     def pretty_print_summary(self, warnings_as_failure: bool = False) -> int:
         click.echo()
+        if self.pipeline_init_failures:
+            click.secho(f"{self.pipeline_init_failures}", fg="red")
+            return 1
         click.secho(f"Source ({self.config.source.type}) report:", bold=True)
         click.echo(self.source.get_report().as_string())
         click.secho(f"Sink ({self.config.sink.type}) report:", bold=True)
