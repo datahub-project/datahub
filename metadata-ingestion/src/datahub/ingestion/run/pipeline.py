@@ -120,6 +120,11 @@ class Pipeline:
     sink: Sink
     transformers: List[Transformer]
 
+    def _record_initialization_failure(self, e: Exception, msg: str) -> None:
+        self.pipeline_init_exception: Optional[Exception] = e
+        self.pipeline_init_failures: Optional[str] = f"{msg} due to {e}"
+        logger.error(e)
+
     def __init__(
         self,
         config: PipelineConfig,
@@ -139,13 +144,13 @@ class Pipeline:
             preview_mode=preview_mode,
         )
         self.pipeline_init_failures = None
+        self.pipeline_init_exception = None
 
         sink_type = self.config.sink.type
         try:
             sink_class = sink_registry.get(sink_type)
         except Exception as e:
-            self.pipeline_init_failures = f"Failed to create sink due to \n\t{e}"
-            logger.error(e)
+            self._record_initialization_failure(e, "Failed to create a sink")
             return
 
         try:
@@ -154,16 +159,16 @@ class Pipeline:
             logger.debug(f"Sink type:{self.config.sink.type},{sink_class} configured")
             logger.info(f"Sink configured successfully. {self.sink.configured()}")
         except Exception as e:
-            self.pipeline_init_failures = f"Failed to configure sink due to \n\t{e}"
-            logger.error(e)
+            self._record_initialization_failure(
+                e, f"Failed to configure sink ({sink_type})"
+            )
             return
 
         try:
             source_type = self.config.source.type
             source_class = source_registry.get(source_type)
         except Exception as e:
-            self.pipeline_init_failures = f"Failed to create source due to \n\t{e}"
-            logger.error(e)
+            self._record_initialization_failure(e, "Failed to create source")
             return
 
         try:
@@ -172,26 +177,23 @@ class Pipeline:
             )
             logger.debug(f"Source type:{source_type},{source_class} configured")
         except Exception as e:
-            self.pipeline_init_failures = (
-                f"Failed to configure source ({source_type}) due to \n\t{e}"
+            self._record_initialization_failure(
+                e, f"Failed to configure source ({source_type})"
             )
-            logger.error(e)
             return
 
         try:
             self.extractor_class = extractor_registry.get(self.config.source.extractor)
         except Exception as e:
-            self.pipeline_init_failures = f"Failed to configure extractor ({self.config.source.extractor}) due to \n\t{e}"
-            logger.error(e)
+            self._record_initialization_failure(
+                e, f"Failed to configure extractor ({self.config.source.extractor})"
+            )
             return
 
         try:
             self._configure_transforms()
         except ValueError as e:
-            self.pipeline_init_failures = (
-                f"Failed to configure transformers due to \n\t{e}"
-            )
-            logger.error(e)
+            self._record_initialization_failure(e, f"Failed to configure transformers")
             return
 
         self._configure_reporting()
@@ -339,6 +341,9 @@ class Pipeline:
                 logger.info(f"Successfully committed changes for {name}.")
 
     def raise_from_status(self, raise_warnings: bool = False) -> None:
+        if self.pipeline_init_exception:
+            raise self.pipeline_init_exception
+
         if self.source.get_report().failures:
             raise PipelineExecutionError(
                 "Source reported errors", self.source.get_report()
