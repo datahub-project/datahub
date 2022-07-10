@@ -193,7 +193,7 @@ class Pipeline:
         try:
             self._configure_transforms()
         except ValueError as e:
-            self._record_initialization_failure(e, f"Failed to configure transformers")
+            self._record_initialization_failure(e, "Failed to configure transformers")
             return
 
         self._configure_reporting()
