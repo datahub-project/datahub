@@ -197,7 +197,7 @@ class DataHubGraph(DatahubRestEmitter):
             aspect_type=GlossaryTermsClass,
         )
 
-    def get_domains(self, entity_urn: str) -> Optional[DomainsClass]:
+    def get_domain(self, entity_urn: str) -> Optional[DomainsClass]:
         return self.get_aspect_v2(
             entity_urn=entity_urn,
             aspect="domains",

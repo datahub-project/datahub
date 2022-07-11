@@ -42,6 +42,7 @@ EDITABLE_DATASET_PROPERTIES_ASPECT_NAME = "editableDatasetProperties"
 ACTOR = "urn:li:corpuser:ingestion"
 DOMAIN_ASPECT_NAME = "domains"
 
+
 def get_audit_stamp() -> AuditStampClass:
     now = int(time.time() * 1000)
     return AuditStampClass(now, ACTOR)
@@ -163,7 +164,7 @@ class CSVEnricherSource(Source):
         )
         terms_wu: MetadataWorkUnit = MetadataWorkUnit(
             id=f"{entity_urn}-{GLOSSARY_TERMS_ASPECT_NAME}",
-            mcp=terms_mcpw,glossaryTerm
+            mcp=terms_mcpw,
         )
         return terms_wu
 
@@ -261,7 +262,7 @@ class CSVEnricherSource(Source):
         self,
         entity_urn: str,
         entity_type: str,
-        domain: Optional[DomainsClass],
+        domain: Optional[str],
     ) -> Optional[MetadataWorkUnit]:
         # Check if there is a domain to add. If not, return None.
         if not domain:
@@ -274,7 +275,7 @@ class CSVEnricherSource(Source):
 
         if not current_domain:
             # If we want to overwrite or there is no existing domain, create a new object
-            current_domain = DomainsClass(domain, get_audit_stamp())
+            current_domain = DomainsClass([domain])
 
         domain_mcpw: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
             entityType=entity_type,
@@ -415,7 +416,6 @@ class CSVEnricherSource(Source):
             GlossaryTermAssociationClass
         ] = sub_resource_row.term_associations
         tag_associations: List[TagAssociationClass] = sub_resource_row.tag_associations
-        domain: Optional[str] = sub_resource_row.domain
         description: Optional[str] = sub_resource_row.description
         has_terms: bool = len(term_associations) > 0
         has_tags: bool = len(tag_associations) > 0
@@ -636,12 +636,8 @@ class CSVEnricherSource(Source):
                     row, is_resource_row
                 )
 
-                domains: List[DomainsClass] = self.maybe_extract_domain(
-                    row, is_resource_row
-                )
-
                 # Does this make sense?
-                domain: Optional[DomainsClass] = (
+                domain: Optional[str] = (
                     row["domain"]
                     if row["domain"] and entity_type == DATASET_ENTITY_TYPE
                     else None
@@ -683,7 +679,7 @@ class CSVEnricherSource(Source):
                             term_associations=term_associations,
                             tag_associations=tag_associations,
                             description=description,
-                            domain=domain
+                            domain=domain,
                         )
                     )
 
