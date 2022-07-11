@@ -92,6 +92,7 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.telemetry import telemetry
+from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
 
 if TYPE_CHECKING:
@@ -241,23 +242,23 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
     # them out afterwards via the table_pattern.
     schema_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for schemas to filter in ingestion.",
+        description="Regex patterns for schemas to filter in ingestion. Specify regex to only match the schema name. e.g. to match all tables in schema analytics, use the regex 'analytics'",
     )
     table_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for tables to filter in ingestion.",
+        description="Regex patterns for tables to filter in ingestion. Specify regex to match the entire table name in database.schema.table format. e.g. to match all tables starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
     )
     view_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for views to filter in ingestion.",
+        description="Regex patterns for views to filter in ingestion. Note: Defaults to table_pattern if not specified. Specify regex to match the entire view name in database.schema.view format. e.g. to match all views starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
     )
     profile_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for profiles to filter in ingestion, allowed by the `table_pattern`.",
+        description="Regex patterns to filter tables for profiling during ingestion. Allowed by the `table_pattern`.",
     )
     domain: Dict[str, AllowDenyPattern] = Field(
         default=dict(),
-        description=' regex patterns for tables/schemas to descide domain_key domain key (domain_key can be any string like "sales".) There can be multiple domain key specified.',
+        description='Attach domains to databases, schemas or tables during ingestion using regex patterns. Domain key can be a guid like *urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba* or a string like "Marketing".) If you provide strings, then datahub will attempt to resolve this name to a guid, and will error out if this fails. There can be multiple domain keys specified.',
     )
 
     include_views: Optional[bool] = Field(
@@ -272,6 +273,17 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
     profiling: GEProfilingConfig = GEProfilingConfig()
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[SQLAlchemyStatefulIngestionConfig] = None
+
+    @pydantic.root_validator(pre=True)
+    def view_pattern_is_table_pattern_unless_specified(
+        cls, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        view_pattern = values.get("view_pattern")
+        table_pattern = values.get("table_pattern")
+        if table_pattern and not view_pattern:
+            logger.info(f"Applying table_pattern {table_pattern} to view_pattern.")
+            values["view_pattern"] = table_pattern
+        return values
 
     @pydantic.root_validator()
     def ensure_profiling_pattern_is_passed_to_profiling(
@@ -496,6 +508,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     config_flag: config.profiling.dict().get(config_flag)
                     for config_flag in profiling_flags_to_report
                 },
+            )
+        if self.config.domain:
+            self.domain_registry = DomainRegistry(
+                cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
             )
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
@@ -809,7 +825,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
         for domain, pattern in self.config.domain.items():
             if pattern.allowed(dataset_name):
-                domain_urn = make_domain_urn(domain)
+                domain_urn = make_domain_urn(
+                    self.domain_registry.get_domain_urn(domain)
+                )
 
         return domain_urn
 
@@ -857,7 +875,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     continue
 
                 self.report.report_entity_scanned(dataset_name, ent_type="table")
-
                 if not sql_config.table_pattern.allowed(dataset_name):
                     self.report.report_dropped(dataset_name)
                     continue

@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from json.decoder import JSONDecodeError
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, Iterable, List, Optional, Type
 
 from avro.schema import RecordSchema
 from deprecated import deprecated
@@ -287,3 +287,84 @@ class DataHubGraph(DatahubRestEmitter):
                     f"Failed to find {aspect_type} in response {aspect_json}"
                 )
         return None
+
+    def _get_search_endpoint(self):
+        return f"{self.config.server}/entities?action=search"
+
+    def get_domain_urn_by_name(self, domain_name: str) -> Optional[str]:
+        """Retrieve a domain urn based on its name. Returns None if there is no match found"""
+
+        filters = []
+        filter_criteria = [
+            {
+                "field": "name",
+                "value": domain_name,
+                "condition": "EQUAL",
+            }
+        ]
+
+        filters.append({"and": filter_criteria})
+        search_body = {
+            "input": "*",
+            "entity": "domain",
+            "start": 0,
+            "count": 10,
+            "filter": {"or": filters},
+        }
+        results: Dict = self._post_generic(self._get_search_endpoint(), search_body)
+        num_entities = results.get("value", {}).get("numEntities", 0)
+        if num_entities > 1:
+            logger.warning(
+                f"Got {num_entities} results for domain name {domain_name}. Will return the first match."
+            )
+        entities_yielded: int = 0
+        entities = []
+        for x in results["value"]["entities"]:
+            entities_yielded += 1
+            logger.debug(f"yielding {x['entity']}")
+            entities.append(x["entity"])
+        return entities[0] if entities_yielded else None
+
+    def get_container_urns_by_filter(
+        self,
+        env: Optional[str] = None,
+        search_query: str = "*",
+    ) -> Iterable[str]:
+        """Return container urns that match based on query"""
+        url = self._get_search_endpoint()
+
+        container_filters = []
+        for container_subtype in ["Database", "Schema", "Project", "Dataset"]:
+            filter_criteria = []
+
+            filter_criteria.append(
+                {
+                    "field": "customProperties",
+                    "value": f"instance={env}",
+                    "condition": "EQUAL",
+                }
+            )
+
+            filter_criteria.append(
+                {
+                    "field": "typeNames",
+                    "value": container_subtype,
+                    "condition": "EQUAL",
+                }
+            )
+            container_filters.append({"and": filter_criteria})
+        search_body = {
+            "input": search_query,
+            "entity": "container",
+            "start": 0,
+            "count": 10000,
+            "filter": {"or": container_filters},
+        }
+        results: Dict = self._post_generic(url, search_body)
+        num_entities = results["value"]["numEntities"]
+        logger.debug(f"Matched {num_entities} containers")
+        entities_yielded: int = 0
+        for x in results["value"]["entities"]:
+            entities_yielded += 1
+            logger.debug(f"yielding {x['entity']}")
+            yield x["entity"]
