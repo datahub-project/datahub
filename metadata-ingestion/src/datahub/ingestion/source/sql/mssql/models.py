@@ -64,7 +64,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         default=False, description="Include ingest of MSSQL Jobs"
     )
     include_descriptions: bool = Field(
-        default=False, description="Include table descriptions information."
+        default=True, description="Include table descriptions information."
     )
     use_odbc: bool = Field(
         default=False,
