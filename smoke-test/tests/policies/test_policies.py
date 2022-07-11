@@ -26,7 +26,7 @@ def frontend_session(wait_for_healthchecks):
     headers = {
         "Content-Type": "application/json",
     }
-    data = '{"username":"datahub", "password":"datahub"}'
+    data = '{"username":"admin", "password":"mypass"}'
     response = session.post(f"{get_frontend_url()}/logIn", headers=headers, data=data)
     response.raise_for_status()
 
@@ -84,7 +84,7 @@ def test_frontend_policy_operations(frontend_session):
                 "resources": {"type": "dataset", "allResources": True},
                 "privileges": ["EDIT_ENTITY_TAGS"],
                 "actors": {
-                    "users": ["urn:li:corpuser:datahub"],
+                    "users": ["urn:li:corpuser:admin"],
                     "resourceOwners": False,
                     "allUsers": False,
                     "allGroups": False,
