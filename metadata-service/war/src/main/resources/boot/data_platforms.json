@@ -515,7 +515,7 @@
       "logoUrl": "/assets/platforms/deltalakelogo.png"
     }
   },
-    {
+  {
     "urn": "urn:li:dataPlatform:powerbi-report-server",
     "aspect": {
       "datasetNameDelimiter": ".",
@@ -524,5 +524,5 @@
       "type": "OTHERS",
       "logoUrl": "/assets/platforms/powerbireportserverlogo.png"
     }
-  },
+  }
 ]
