@@ -186,6 +186,7 @@ def test_get_resource_description_work_unit_produced():
     )
     assert maybe_description_wu
 
+
 def test_get_resource_description_no_description():
     source = create_mocked_csv_enricher_source()
     new_domain = None
