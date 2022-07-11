@@ -11,6 +11,7 @@ query getVersionedDataset($urn: String!, $versionStamp: String) {
                 recursive
                 isPartOfKey
             }
+            lastObserved
         }
         editableSchemaMetadata {
             editableSchemaFieldInfo {

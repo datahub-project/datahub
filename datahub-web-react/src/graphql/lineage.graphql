@@ -2,7 +2,39 @@ fragment lineageNodeProperties on EntityWithRelationships {
     urn
     type
     ... on DataJob {
-        ...dataJobFields
+        urn
+        type
+        dataFlow {
+            ...nonRecursiveDataFlowFields
+        }
+        jobId
+        ownership {
+            ...ownershipFields
+        }
+        properties {
+            name
+            description
+            externalUrl
+            customProperties {
+                key
+                value
+            }
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        domain {
+            ...entityDomain
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
         editableProperties {
             description
         }
@@ -42,12 +74,51 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
     }
     ... on Dashboard {
-        ...dashboardFields
-        editableProperties {
+        urn
+        type
+        tool
+        dashboardId
+        properties {
+            name
             description
+            externalUrl
+            lastRefreshed
+            created {
+                time
+            }
+            lastModified {
+                time
+            }
+        }
+        ownership {
+            ...ownershipFields
+        }
+        globalTags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
         }
         platform {
             ...platformFields
+        }
+        domain {
+            ...entityDomain
+        }
+        parentContainers {
+            ...parentContainersFields
+        }
+        status {
+            removed
+        }
+        deprecation {
+            ...deprecationFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        editableProperties {
+            description
         }
         status {
             removed

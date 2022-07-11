@@ -479,7 +479,6 @@ export const dataset3 = {
         primaryKeys: [],
         foreignKeys: [],
     },
-    previousSchemaMetadata: null,
     editableSchemaMetadata: null,
     deprecation: null,
     usageStats: null,
