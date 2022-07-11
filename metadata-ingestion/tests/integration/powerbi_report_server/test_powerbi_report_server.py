@@ -7,7 +7,8 @@ from freezegun import freeze_time
 from datahub.ingestion.run.pipeline import Pipeline
 
 from datahub.ingestion.source.powerbi_report_server.report_server_domain import (
-    PowerBiReport, Report,
+    PowerBiReport,
+    Report,
 )
 from tests.test_helpers import mce_helpers
 
@@ -69,10 +70,8 @@ def test_powerbi_report_server_ingest(pytestconfig, tmp_path, mock_time):
                 DataSources=[],
                 HasSharedDataSets=False,
                 HasParameters=False,
-            )
-
+            ),
         ]
-
 
         test_resources_dir = (
             pytestconfig.rootpath / "tests/integration/powerbi_report_server"
