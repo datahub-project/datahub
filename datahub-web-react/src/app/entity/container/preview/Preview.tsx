@@ -7,6 +7,7 @@ import {
     SubTypes,
     Domain,
     ParentContainersResult,
+    GlobalTags,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -20,6 +21,7 @@ export const Preview = ({
     platformInstanceId,
     description,
     owners,
+    tags,
     insights,
     subTypes,
     logoComponent,
@@ -35,6 +37,7 @@ export const Preview = ({
     platformInstanceId?: string;
     description?: string | null;
     owners?: Array<Owner> | null;
+    tags?: GlobalTags | null;
     insights?: Array<SearchInsight> | null;
     subTypes?: SubTypes | null;
     logoComponent?: JSX.Element;
@@ -62,6 +65,7 @@ export const Preview = ({
             entityCount={entityCount}
             domain={domain || undefined}
             parentContainers={parentContainers}
+            tags={tags || undefined}
         />
     );
 };

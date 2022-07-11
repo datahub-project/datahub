@@ -68,7 +68,6 @@ export const GroupList = () => {
         // Hack to deal with eventual consistency.
         const newRemovedUrns = [...removedUrns, urn];
         setRemovedUrns(newRemovedUrns);
-        console.log(newRemovedUrns);
         setTimeout(function () {
             refetch?.();
         }, 3000);
