@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union, cast
 
 from airflow.configuration import conf
 
@@ -87,6 +87,27 @@ class AirflowGenerator:
                 if subdag_task_id in upstream_task._downstream_task_ids:
                     upstream_subdag_triggers.append(upstream_task_urn)
 
+        # If the operator is an ExternalTaskSensor then we set the remote task as upstream.
+        # It is possible to tie an external sensor to DAG if external_task_id is omitted but currently we can't tie
+        # jobflow to anothet jobflow.
+        external_task_upstreams = []
+        if task.task_type == "ExternalTaskSensor":
+            from airflow.sensors.external_task_sensor import ExternalTaskSensor
+
+            task = cast(ExternalTaskSensor, task)
+            if hasattr(task, "external_task_id") and task.external_task_id is not None:
+                external_task_upstreams = [
+                    DataJobUrn.create_from_ids(
+                        job_id=task.external_task_id,
+                        data_flow_urn=str(
+                            DataFlowUrn.create_from_ids(
+                                orchestrator=flow_urn.get_orchestrator_name(),
+                                flow_id=task.external_dag_id,
+                                env=flow_urn.get_env(),
+                            )
+                        ),
+                    )
+                ]
         # exclude subdag operator tasks since these are not emitted, resulting in empty metadata
         upstream_tasks = (
             [
@@ -96,6 +117,7 @@ class AirflowGenerator:
             ]
             + upstream_subdag_task_urns
             + upstream_subdag_triggers
+            + external_task_upstreams
         )
         return upstream_tasks
 
