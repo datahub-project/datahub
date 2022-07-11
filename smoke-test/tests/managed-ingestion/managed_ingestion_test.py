@@ -167,7 +167,7 @@ def test_create_list_get_remove_secret(frontend_session):
     assert len(secret_value_arr) == 0
 
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+@pytest.mark.dependency(depends=["test_healthchecks"])
 def test_create_list_get_remove_ingestion_source(frontend_session):
 
     # Get count of existing ingestion sources
@@ -350,7 +350,6 @@ def test_create_list_get_remove_ingestion_source(frontend_session):
 @pytest.mark.dependency(
     depends=[
         "test_healthchecks",
-        "test_run_ingestion",
         "test_create_list_get_remove_ingestion_source",
     ]
 )

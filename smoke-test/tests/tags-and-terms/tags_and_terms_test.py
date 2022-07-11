@@ -1,5 +1,5 @@
 import pytest
-from tests.utils import delete_urns_from_file, get_frontend_url, ingest_file_via_rest
+from tests.utils import delete_urns_from_file, get_frontend_url, ingest_file_via_rest, wait_for_healthcheck_util
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -11,7 +11,19 @@ def ingest_cleanup_data(request):
     delete_urns_from_file("tests/tags-and-terms/data.json")
 
 
-@pytest.mark.dependency(depends=["ingest_cleanup_data"])
+@pytest.fixture(scope="session")
+def wait_for_healthchecks():
+    wait_for_healthcheck_util()
+    yield
+
+
+@pytest.mark.dependency()
+def test_healthchecks(wait_for_healthchecks):
+    # Call to wait_for_healthchecks fixture will do the actual functionality.
+    pass
+
+
+@pytest.mark.dependency(depends=["test_healthchecks"])
 def test_add_tag(frontend_session, wait_for_healthchecks):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = "test-tags-terms-sample-kafka"
