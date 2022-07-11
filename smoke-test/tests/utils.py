@@ -18,23 +18,32 @@ def get_frontend_url():
 def get_kafka_broker_url():
     return os.getenv("DATAHUB_KAFKA_URL") or "localhost:9092"
 
+
 def get_kafka_schema_registry():
     return os.getenv("DATAHUB_KAFKA_SCHEMA_REGISTRY_URL") or "http://localhost:8081"
+
 
 def get_mysql_url():
     return os.getenv("DATAHUB_MYSQL_URL") or "localhost:3306"
 
+
 def get_mysql_username():
     return os.getenv("DATAHUB_MYSQL_USERNAME") or "datahub"
 
+
 def get_mysql_password():
     return os.getenv("DATAHUB_MYSQL_PASSWORD") or "datahub"
+
 
 def get_sleep_info() -> Tuple[int, int]:
     return (
         int(os.getenv("DATAHUB_TEST_SLEEP_BETWEEN", 60)),
         int(os.getenv("DATAHUB_TEST_SLEEP_TIMES", 5)),
     )
+
+
+def is_k8s_enabled():
+    return os.getenv("K8S_CLUSTER_ENABLED", "false").lower() in ["true", "yes"]
 
 
 def check_k8s_endpoint(url):

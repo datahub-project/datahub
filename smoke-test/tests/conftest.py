@@ -4,7 +4,7 @@ import pytest
 import requests
 from datahub.cli.docker import check_local_docker_containers
 
-from tests.utils import get_frontend_url, get_gms_url, check_k8s_endpoint
+from tests.utils import get_frontend_url, get_gms_url, check_k8s_endpoint, is_k8s_enabled
 
 # Disable telemetry
 os.putenv("DATAHUB_TELEMETRY_ENABLED", "false")
@@ -12,12 +12,11 @@ os.putenv("DATAHUB_TELEMETRY_ENABLED", "false")
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
-    K8S_CLUSTER_ENABLED = os.getenv('K8S_CLUSTER_ENABLED','false').lower()
-    if K8S_CLUSTER_ENABLED in ['true', 'yes'] :
+    if is_k8s_enabled():
         # Simply assert that kubernetes endpoints are healthy, but don't wait.
         assert not check_k8s_endpoint(f"{get_frontend_url()}/admin")
         assert not check_k8s_endpoint(f"{get_gms_url()}/health")
-    else:    
+    else:
         # Simply assert that docker is healthy, but don't wait.
         assert not check_local_docker_containers()
     yield

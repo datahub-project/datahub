@@ -24,8 +24,7 @@ from datahub.metadata.schema_classes import (
     PartitionSpecClass,
     PartitionTypeClass,
 )
-from tests.utils import delete_urns_from_file, get_gms_url, ingest_file_via_rest, check_k8s_endpoint
-from os import getenv
+from tests.utils import delete_urns_from_file, get_gms_url, ingest_file_via_rest, check_k8s_endpoint, is_k8s_enabled
 
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
@@ -234,15 +233,15 @@ def generate_test_data(tmp_path_factory):
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks(generate_test_data):
-    K8S_CLUSTER_ENABLED = getenv('K8S_CLUSTER_ENABLED','false').lower()
-    if K8S_CLUSTER_ENABLED in ['true', 'yes'] :
+    if is_k8s_enabled():
         # Simply assert that kubernetes endpoints are healthy, but don't wait.
-#        assert not check_k8s_endpoint(f"{get_frontend_url()}/admin")
+        # assert not check_k8s_endpoint(f"{get_frontend_url()}/admin")
         assert not check_k8s_endpoint(f"{get_gms_url()}/health")
     else:    
         # Simply assert that docker is healthy, but don't wait.
         assert not check_local_docker_containers()
     yield
+
 
 @pytest.mark.dependency()
 def test_healthchecks(wait_for_healthchecks):
