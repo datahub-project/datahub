@@ -21,10 +21,10 @@ gms_endpoint = "http://localhost:8080"
 graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
 
 # Query multiple aspects from entity
-result = graph.get_entity_v2(
+result = graph.get_aspects_for_entity(
     entity_urn=dataset_urn,
-    aspects_list=["status", "dataPlatformInstance", "datasetKey"],
-    aspect_type_list=[StatusClass, DataPlatformInstanceClass, DatasetKeyClass],
+    aspects=["status", "dataPlatformInstance", "datasetKey"],
+    aspect_types=[StatusClass, DataPlatformInstanceClass, DatasetKeyClass],
 )
 
 # result are typed according to their class if exist

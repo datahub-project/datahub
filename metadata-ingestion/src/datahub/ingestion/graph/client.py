@@ -288,24 +288,30 @@ class DataHubGraph(DatahubRestEmitter):
                 )
         return None
 
-    def get_entity_v2(
+    def get_aspects_for_entity(
         self,
         entity_urn: str,
-        aspect_type_list: List[Type[Aspect]],
-        aspects_list: List[str],
+        aspects: List[str],
+        aspect_types: List[Type[Aspect]],
     ) -> Optional[Dict[str, Optional[Aspect]]]:
         """
-        Get aspects for an entity.
+        Get multiple aspects for an entity. To get a single aspect for an entity, use the `get_aspect_v2` method.
+        Warning: Do not use this method to determine if an entity exists!
+        This method will always return an entity, even if it doesn't exist. This is an issue with how DataHub server
+        responds to these calls, and will be fixed automatically when the server-side issue is fixed.
 
         :param str entity_urn: The urn of the entity
         :param List[Type[Aspect]] aspect_type_list: List of aspect type classes being requested (e.g. [datahub.metadata.schema_classes.DatasetProperties])
         :param List[str] aspects_list: List of aspect names being requested (e.g. [schemaMetadata, datasetProperties])
-        :return: the Aspect as a dictionary if present, None if no aspect was found (HTTP status 404)
+        :return: Optionally, a map of aspect_name to aspect_value as a dictionary if present, aspect_value will be set to None if that aspect was not found. Returns None on HTTP status 404.
         :rtype: Optional[Dict[str, Optional[Aspect]]]
         :raises HttpError: if the HTTP response is not a 200 or a 404
         """
-        aspects = ",".join(aspects_list)
-        url: str = f"{self._gms_server}/entitiesV2/{Urn.url_encode(entity_urn)}?aspects=List({aspects})"
+        assert len(aspects) == len(
+            aspect_types
+        ), f"number of aspects requested ({len(aspects)}) should be the same as number of aspect types provided ({len(aspect_types)})"
+        aspects_list = ",".join(aspects)
+        url: str = f"{self._gms_server}/entitiesV2/{Urn.url_encode(entity_urn)}?aspects=List({aspects_list})"
 
         response = self._session.get(url)
         if response.status_code == 404:
@@ -315,7 +321,7 @@ class DataHubGraph(DatahubRestEmitter):
         response_json = response.json()
 
         result: Dict[str, Optional[Aspect]] = {}
-        for aspect_type in aspect_type_list:
+        for aspect_type in aspect_types:
             record_schema: RecordSchema = aspect_type.__getattribute__(
                 aspect_type, "RECORD_SCHEMA"
             )
