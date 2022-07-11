@@ -120,7 +120,7 @@ class CSVEnricherSource(Source):
                 "Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe."
             )
 
-      def get_resource_glossary_terms_work_unit(
+    def get_resource_glossary_terms_work_unit(
         self,
         entity_urn: str,
         entity_type: str,
