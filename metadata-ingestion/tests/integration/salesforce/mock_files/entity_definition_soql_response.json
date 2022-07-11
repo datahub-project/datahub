@@ -1,0 +1,2151 @@
+{
+    "size": 153,
+    "totalSize": 153,
+    "done": true,
+    "queryLocator": null,
+    "entityTypeName": "EntityDefinition",
+    "records": [
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Contract"
+            },
+            "DurableId": "Contract",
+            "QualifiedApiName": "Contract",
+            "DeveloperName": "Contract",
+            "Label": "Contract",
+            "PluralLabel": "Contracts",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Order"
+            },
+            "DurableId": "Order",
+            "QualifiedApiName": "Order",
+            "DeveloperName": "Order",
+            "Label": "Order",
+            "PluralLabel": "Orders",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/OrderItem"
+            },
+            "DurableId": "OrderItem",
+            "QualifiedApiName": "OrderItem",
+            "DeveloperName": "OrderItem",
+            "Label": "Order Product",
+            "PluralLabel": "Order Products",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Campaign"
+            },
+            "DurableId": "Campaign",
+            "QualifiedApiName": "Campaign",
+            "DeveloperName": "Campaign",
+            "Label": "Campaign",
+            "PluralLabel": "Campaigns",
+            "InternalSharingModel": "FullAccess",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/CampaignMember"
+            },
+            "DurableId": "CampaignMember",
+            "QualifiedApiName": "CampaignMember",
+            "DeveloperName": "CampaignMember",
+            "Label": "Campaign Member",
+            "PluralLabel": "Campaign Members",
+            "InternalSharingModel": "ControlledByCampaign",
+            "ExternalSharingModel": "ControlledByCampaign",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Account"
+            },
+            "DurableId": "Account",
+            "QualifiedApiName": "Account",
+            "DeveloperName": "Account",
+            "Label": "Account",
+            "PluralLabel": "Accounts",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Contact"
+            },
+            "DurableId": "Contact",
+            "QualifiedApiName": "Contact",
+            "DeveloperName": "Contact",
+            "Label": "Contact",
+            "PluralLabel": "Contacts",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Lead"
+            },
+            "DurableId": "Lead",
+            "QualifiedApiName": "Lead",
+            "DeveloperName": "Lead",
+            "Label": "Lead",
+            "PluralLabel": "Leads",
+            "InternalSharingModel": "ReadWriteTransfer",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Opportunity"
+            },
+            "DurableId": "Opportunity",
+            "QualifiedApiName": "Opportunity",
+            "DeveloperName": "Opportunity",
+            "Label": "Opportunity",
+            "PluralLabel": "Opportunities",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/OpportunityContactRole"
+            },
+            "DurableId": "OpportunityContactRole",
+            "QualifiedApiName": "OpportunityContactRole",
+            "DeveloperName": "OpportunityContactRole",
+            "Label": "Opportunity Contact Role",
+            "PluralLabel": "Opportunity Contact Role",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/OpportunityLineItem"
+            },
+            "DurableId": "OpportunityLineItem",
+            "QualifiedApiName": "OpportunityLineItem",
+            "DeveloperName": "OpportunityLineItem",
+            "Label": "Opportunity Product",
+            "PluralLabel": "Opportunity Product",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/PricebookEntry"
+            },
+            "DurableId": "PricebookEntry",
+            "QualifiedApiName": "PricebookEntry",
+            "DeveloperName": "PricebookEntry",
+            "Label": "Price Book Entry",
+            "PluralLabel": "Price Book Entries",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Product2"
+            },
+            "DurableId": "Product2",
+            "QualifiedApiName": "Product2",
+            "DeveloperName": "Product2",
+            "Label": "Product",
+            "PluralLabel": "Products",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Asset"
+            },
+            "DurableId": "Asset",
+            "QualifiedApiName": "Asset",
+            "DeveloperName": "Asset",
+            "Label": "Asset",
+            "PluralLabel": "Assets",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Case"
+            },
+            "DurableId": "Case",
+            "QualifiedApiName": "Case",
+            "DeveloperName": "Case",
+            "Label": "Case",
+            "PluralLabel": "Cases",
+            "InternalSharingModel": "ReadWriteTransfer",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Solution"
+            },
+            "DurableId": "Solution",
+            "QualifiedApiName": "Solution",
+            "DeveloperName": "Solution",
+            "Label": "Solution",
+            "PluralLabel": "Solutions",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ContentVersion"
+            },
+            "DurableId": "ContentVersion",
+            "QualifiedApiName": "ContentVersion",
+            "DeveloperName": "ContentVersion",
+            "Label": "Content Version",
+            "PluralLabel": "Content Versions",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Task"
+            },
+            "DurableId": "Task",
+            "QualifiedApiName": "Task",
+            "DeveloperName": "Task",
+            "Label": "Task",
+            "PluralLabel": "Tasks",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Event"
+            },
+            "DurableId": "Event",
+            "QualifiedApiName": "Event",
+            "DeveloperName": "Event",
+            "Label": "Event",
+            "PluralLabel": "Events",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/User"
+            },
+            "DurableId": "User",
+            "QualifiedApiName": "User",
+            "DeveloperName": "User",
+            "Label": "User",
+            "PluralLabel": "Users",
+            "InternalSharingModel": "Read",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/EmailMessage"
+            },
+            "DurableId": "EmailMessage",
+            "QualifiedApiName": "EmailMessage",
+            "DeveloperName": "EmailMessage",
+            "Label": "Email Message",
+            "PluralLabel": "Email Messages",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/VoiceCall"
+            },
+            "DurableId": "VoiceCall",
+            "QualifiedApiName": "VoiceCall",
+            "DeveloperName": "VoiceCall",
+            "Label": "Voice Call",
+            "PluralLabel": "Voice Calls",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Individual"
+            },
+            "DurableId": "Individual",
+            "QualifiedApiName": "Individual",
+            "DeveloperName": "Individual",
+            "Label": "Individual",
+            "PluralLabel": "Individuals",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Invoice"
+            },
+            "DurableId": "Invoice",
+            "QualifiedApiName": "Invoice",
+            "DeveloperName": "Invoice",
+            "Label": "Invoice",
+            "PluralLabel": "Invoices",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Payment"
+            },
+            "DurableId": "Payment",
+            "QualifiedApiName": "Payment",
+            "DeveloperName": "Payment",
+            "Label": "Payment",
+            "PluralLabel": "Payments",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Pricebook2"
+            },
+            "DurableId": "Pricebook2",
+            "QualifiedApiName": "Pricebook2",
+            "DeveloperName": "Pricebook2",
+            "Label": "Price Book",
+            "PluralLabel": "Price Books",
+            "InternalSharingModel": "ReadSelect",
+            "ExternalSharingModel": "ReadSelect",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Idea"
+            },
+            "DurableId": "Idea",
+            "QualifiedApiName": "Idea",
+            "DeveloperName": "Idea",
+            "Label": "Idea",
+            "PluralLabel": "Ideas",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Macro"
+            },
+            "DurableId": "Macro",
+            "QualifiedApiName": "Macro",
+            "DeveloperName": "Macro",
+            "Label": "Macro",
+            "PluralLabel": "Macros",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/WorkOrder"
+            },
+            "DurableId": "WorkOrder",
+            "QualifiedApiName": "WorkOrder",
+            "DeveloperName": "WorkOrder",
+            "Label": "Work Order",
+            "PluralLabel": "Work Orders",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/WorkOrderLineItem"
+            },
+            "DurableId": "WorkOrderLineItem",
+            "QualifiedApiName": "WorkOrderLineItem",
+            "DeveloperName": "WorkOrderLineItem",
+            "Label": "Work Order Line Item",
+            "PluralLabel": "Work Order Line Items",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ServiceAppointment"
+            },
+            "DurableId": "ServiceAppointment",
+            "QualifiedApiName": "ServiceAppointment",
+            "DeveloperName": "ServiceAppointment",
+            "Label": "Service Appointment",
+            "PluralLabel": "Service Appointments",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/WorkType"
+            },
+            "DurableId": "WorkType",
+            "QualifiedApiName": "WorkType",
+            "DeveloperName": "WorkType",
+            "Label": "Work Type",
+            "PluralLabel": "Work Types",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ServiceResource"
+            },
+            "DurableId": "ServiceResource",
+            "QualifiedApiName": "ServiceResource",
+            "DeveloperName": "ServiceResource",
+            "Label": "Service Resource",
+            "PluralLabel": "Service Resources",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ServiceTerritory"
+            },
+            "DurableId": "ServiceTerritory",
+            "QualifiedApiName": "ServiceTerritory",
+            "DeveloperName": "ServiceTerritory",
+            "Label": "Service Territory",
+            "PluralLabel": "Service Territories",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ServiceTerritoryMember"
+            },
+            "DurableId": "ServiceTerritoryMember",
+            "QualifiedApiName": "ServiceTerritoryMember",
+            "DeveloperName": "ServiceTerritoryMember",
+            "Label": "Service Territory Member",
+            "PluralLabel": "Service Territory Members",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ServiceResourceSkill"
+            },
+            "DurableId": "ServiceResourceSkill",
+            "QualifiedApiName": "ServiceResourceSkill",
+            "DeveloperName": "ServiceResourceSkill",
+            "Label": "Service Resource Skill",
+            "PluralLabel": "Service Resource Skills",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/SkillRequirement"
+            },
+            "DurableId": "SkillRequirement",
+            "QualifiedApiName": "SkillRequirement",
+            "DeveloperName": "SkillRequirement",
+            "Label": "Skill Requirement",
+            "PluralLabel": "Skill Requirements",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/AssignedResource"
+            },
+            "DurableId": "AssignedResource",
+            "QualifiedApiName": "AssignedResource",
+            "DeveloperName": "AssignedResource",
+            "Label": "Assigned Resource",
+            "PluralLabel": "Assigned Resources",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/OperatingHours"
+            },
+            "DurableId": "OperatingHours",
+            "QualifiedApiName": "OperatingHours",
+            "DeveloperName": "OperatingHours",
+            "Label": "Operating Hours",
+            "PluralLabel": "Operating Hours",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ResourceAbsence"
+            },
+            "DurableId": "ResourceAbsence",
+            "QualifiedApiName": "ResourceAbsence",
+            "DeveloperName": "ResourceAbsence",
+            "Label": "Resource Absence",
+            "PluralLabel": "Resource Absences",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/TimeSlot"
+            },
+            "DurableId": "TimeSlot",
+            "QualifiedApiName": "TimeSlot",
+            "DeveloperName": "TimeSlot",
+            "Label": "Time Slot",
+            "PluralLabel": "Time Slots",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ResourcePreference"
+            },
+            "DurableId": "ResourcePreference",
+            "QualifiedApiName": "ResourcePreference",
+            "DeveloperName": "ResourcePreference",
+            "Label": "Resource Preference",
+            "PluralLabel": "Resource Preferences",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Entitlement"
+            },
+            "DurableId": "Entitlement",
+            "QualifiedApiName": "Entitlement",
+            "DeveloperName": "Entitlement",
+            "Label": "Entitlement",
+            "PluralLabel": "Entitlements",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/EntityMilestone"
+            },
+            "DurableId": "EntityMilestone",
+            "QualifiedApiName": "EntityMilestone",
+            "DeveloperName": "EntityMilestone",
+            "Label": "Object Milestone",
+            "PluralLabel": "Object Milestones",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ServiceContract"
+            },
+            "DurableId": "ServiceContract",
+            "QualifiedApiName": "ServiceContract",
+            "DeveloperName": "ServiceContract",
+            "Label": "Service Contract",
+            "PluralLabel": "Service Contracts",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ContractLineItem"
+            },
+            "DurableId": "ContractLineItem",
+            "QualifiedApiName": "ContractLineItem",
+            "DeveloperName": "ContractLineItem",
+            "Label": "Contract Line Item",
+            "PluralLabel": "Contract Line Items",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Location"
+            },
+            "DurableId": "Location",
+            "QualifiedApiName": "Location",
+            "DeveloperName": "Location",
+            "Label": "Location",
+            "PluralLabel": "Locations",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/AssociatedLocation"
+            },
+            "DurableId": "AssociatedLocation",
+            "QualifiedApiName": "AssociatedLocation",
+            "DeveloperName": "AssociatedLocation",
+            "Label": "Associated Location",
+            "PluralLabel": "Associated Locations",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/DandBCompany"
+            },
+            "DurableId": "DandBCompany",
+            "QualifiedApiName": "DandBCompany",
+            "DeveloperName": "DandBCompany",
+            "Label": "D&B Company",
+            "PluralLabel": "D&B Companies",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/AccountCleanInfo"
+            },
+            "DurableId": "AccountCleanInfo",
+            "QualifiedApiName": "AccountCleanInfo",
+            "DeveloperName": "AccountCleanInfo",
+            "Label": "Account Clean Info",
+            "PluralLabel": "Account Clean Info",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ContactCleanInfo"
+            },
+            "DurableId": "ContactCleanInfo",
+            "QualifiedApiName": "ContactCleanInfo",
+            "DeveloperName": "ContactCleanInfo",
+            "Label": "Contact Clean Info",
+            "PluralLabel": "Contact Clean Info",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/LeadCleanInfo"
+            },
+            "DurableId": "LeadCleanInfo",
+            "QualifiedApiName": "LeadCleanInfo",
+            "DeveloperName": "LeadCleanInfo",
+            "Label": "Lead Clean Info",
+            "PluralLabel": "Lead Clean Info",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/QuickText"
+            },
+            "DurableId": "QuickText",
+            "QualifiedApiName": "QuickText",
+            "DeveloperName": "QuickText",
+            "Label": "Quick Text",
+            "PluralLabel": "Quick Text",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/SocialPersona"
+            },
+            "DurableId": "SocialPersona",
+            "QualifiedApiName": "SocialPersona",
+            "DeveloperName": "SocialPersona",
+            "Label": "Social Persona",
+            "PluralLabel": "Social Personas",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/UserProvisioningRequest"
+            },
+            "DurableId": "UserProvisioningRequest",
+            "QualifiedApiName": "UserProvisioningRequest",
+            "DeveloperName": "UserProvisioningRequest",
+            "Label": "User Provisioning Request",
+            "PluralLabel": "User Provisioning Requests",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/DuplicateRecordSet"
+            },
+            "DurableId": "DuplicateRecordSet",
+            "QualifiedApiName": "DuplicateRecordSet",
+            "DeveloperName": "DuplicateRecordSet",
+            "Label": "Duplicate Record Set",
+            "PluralLabel": "Duplicate Record Sets",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/DuplicateRecordItem"
+            },
+            "DurableId": "DuplicateRecordItem",
+            "QualifiedApiName": "DuplicateRecordItem",
+            "DeveloperName": "DuplicateRecordItem",
+            "Label": "Duplicate Record Item",
+            "PluralLabel": "Duplicate Record Items",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/AssetRelationship"
+            },
+            "DurableId": "AssetRelationship",
+            "QualifiedApiName": "AssetRelationship",
+            "DeveloperName": "AssetRelationship",
+            "Label": "Asset Relationship",
+            "PluralLabel": "Asset Relationships",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/MessagingEndUser"
+            },
+            "DurableId": "MessagingEndUser",
+            "QualifiedApiName": "MessagingEndUser",
+            "DeveloperName": "MessagingEndUser",
+            "Label": "Messaging User",
+            "PluralLabel": "Messaging Users",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ScorecardMetric"
+            },
+            "DurableId": "ScorecardMetric",
+            "QualifiedApiName": "ScorecardMetric",
+            "DeveloperName": "ScorecardMetric",
+            "Label": "Scorecard Metric",
+            "PluralLabel": "Scorecard Metrics",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Scorecard"
+            },
+            "DurableId": "Scorecard",
+            "QualifiedApiName": "Scorecard",
+            "DeveloperName": "Scorecard",
+            "Label": "Scorecard",
+            "PluralLabel": "Scorecards",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/MessagingSession"
+            },
+            "DurableId": "MessagingSession",
+            "QualifiedApiName": "MessagingSession",
+            "DeveloperName": "MessagingSession",
+            "Label": "Messaging Session",
+            "PluralLabel": "Messaging Sessions",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ReturnOrder"
+            },
+            "DurableId": "ReturnOrder",
+            "QualifiedApiName": "ReturnOrder",
+            "DeveloperName": "ReturnOrder",
+            "Label": "Return Order",
+            "PluralLabel": "Return Orders",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ScorecardAssociation"
+            },
+            "DurableId": "ScorecardAssociation",
+            "QualifiedApiName": "ScorecardAssociation",
+            "DeveloperName": "ScorecardAssociation",
+            "Label": "Scorecard Association",
+            "PluralLabel": "Scorecard Associations",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/RecordAction"
+            },
+            "DurableId": "RecordAction",
+            "QualifiedApiName": "RecordAction",
+            "DeveloperName": "RecordAction",
+            "Label": "RecordAction",
+            "PluralLabel": "RecordActions",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ReturnOrderLineItem"
+            },
+            "DurableId": "ReturnOrderLineItem",
+            "QualifiedApiName": "ReturnOrderLineItem",
+            "DeveloperName": "ReturnOrderLineItem",
+            "Label": "Return Order Line Item",
+            "PluralLabel": "Return Order Line Items",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ContactRequest"
+            },
+            "DurableId": "ContactRequest",
+            "QualifiedApiName": "ContactRequest",
+            "DeveloperName": "ContactRequest",
+            "Label": "Contact Request",
+            "PluralLabel": "Contact Requests",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ContactPointAddress"
+            },
+            "DurableId": "ContactPointAddress",
+            "QualifiedApiName": "ContactPointAddress",
+            "DeveloperName": "ContactPointAddress",
+            "Label": "Contact Point Address",
+            "PluralLabel": "Contact Point Addresses",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ContactPointEmail"
+            },
+            "DurableId": "ContactPointEmail",
+            "QualifiedApiName": "ContactPointEmail",
+            "DeveloperName": "ContactPointEmail",
+            "Label": "Contact Point Email",
+            "PluralLabel": "Contact Point Emails",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ContactPointPhone"
+            },
+            "DurableId": "ContactPointPhone",
+            "QualifiedApiName": "ContactPointPhone",
+            "DeveloperName": "ContactPointPhone",
+            "Label": "Contact Point Phone",
+            "PluralLabel": "Contact Point Phones",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/WorkTypeGroup"
+            },
+            "DurableId": "WorkTypeGroup",
+            "QualifiedApiName": "WorkTypeGroup",
+            "DeveloperName": "WorkTypeGroup",
+            "Label": "Work Type Group",
+            "PluralLabel": "Work Type Groups",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ConsumptionSchedule"
+            },
+            "DurableId": "ConsumptionSchedule",
+            "QualifiedApiName": "ConsumptionSchedule",
+            "DeveloperName": "ConsumptionSchedule",
+            "Label": "Consumption Schedule",
+            "PluralLabel": "Consumption Schedules",
+            "InternalSharingModel": "Read",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ConsumptionRate"
+            },
+            "DurableId": "ConsumptionRate",
+            "QualifiedApiName": "ConsumptionRate",
+            "DeveloperName": "ConsumptionRate",
+            "Label": "Consumption Rate",
+            "PluralLabel": "Consumption Rates",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ProductConsumptionSchedule"
+            },
+            "DurableId": "ProductConsumptionSchedule",
+            "QualifiedApiName": "ProductConsumptionSchedule",
+            "DeveloperName": "ProductConsumptionSchedule",
+            "Label": "Product Consumption Schedule",
+            "PluralLabel": "Product Consumption Schedules",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ServiceTerritoryWorkType"
+            },
+            "DurableId": "ServiceTerritoryWorkType",
+            "QualifiedApiName": "ServiceTerritoryWorkType",
+            "DeveloperName": "ServiceTerritoryWorkType",
+            "Label": "Service Territory Work Type",
+            "PluralLabel": "Service Territory Work Types",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/PaymentGroup"
+            },
+            "DurableId": "PaymentGroup",
+            "QualifiedApiName": "PaymentGroup",
+            "DeveloperName": "PaymentGroup",
+            "Label": "Payment Group",
+            "PluralLabel": "Payment Groups",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/CardPaymentMethod"
+            },
+            "DurableId": "CardPaymentMethod",
+            "QualifiedApiName": "CardPaymentMethod",
+            "DeveloperName": "CardPaymentMethod",
+            "Label": "Card Payment Method",
+            "PluralLabel": "Card Payment Methods",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ContactPointConsent"
+            },
+            "DurableId": "ContactPointConsent",
+            "QualifiedApiName": "ContactPointConsent",
+            "DeveloperName": "ContactPointConsent",
+            "Label": "Contact Point Consent",
+            "PluralLabel": "Contact Point Consents",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ContactPointTypeConsent"
+            },
+            "DurableId": "ContactPointTypeConsent",
+            "QualifiedApiName": "ContactPointTypeConsent",
+            "DeveloperName": "ContactPointTypeConsent",
+            "Label": "Contact Point Type Consent",
+            "PluralLabel": "Contact Point Type Consents",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/DataUseLegalBasis"
+            },
+            "DurableId": "DataUseLegalBasis",
+            "QualifiedApiName": "DataUseLegalBasis",
+            "DeveloperName": "DataUseLegalBasis",
+            "Label": "Data Use Legal Basis",
+            "PluralLabel": "Data Use Legal Bases",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/DataUsePurpose"
+            },
+            "DurableId": "DataUsePurpose",
+            "QualifiedApiName": "DataUsePurpose",
+            "DeveloperName": "DataUsePurpose",
+            "Label": "Data Use Purpose",
+            "PluralLabel": "Data Use Purposes",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Image"
+            },
+            "DurableId": "Image",
+            "QualifiedApiName": "Image",
+            "DeveloperName": "Image",
+            "Label": "Image",
+            "PluralLabel": "Images",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/PaymentAuthorization"
+            },
+            "DurableId": "PaymentAuthorization",
+            "QualifiedApiName": "PaymentAuthorization",
+            "DeveloperName": "PaymentAuthorization",
+            "Label": "Payment Authorization",
+            "PluralLabel": "Payment Authorizations",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Recommendation"
+            },
+            "DurableId": "Recommendation",
+            "QualifiedApiName": "Recommendation",
+            "DeveloperName": "Recommendation",
+            "Label": "Recommendation",
+            "PluralLabel": "Recommendations",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/WebStore"
+            },
+            "DurableId": "WebStore",
+            "QualifiedApiName": "WebStore",
+            "DeveloperName": "WebStore",
+            "Label": "Store",
+            "PluralLabel": "Stores",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/WorkTypeGroupMember"
+            },
+            "DurableId": "WorkTypeGroupMember",
+            "QualifiedApiName": "WorkTypeGroupMember",
+            "DeveloperName": "WorkTypeGroupMember",
+            "Label": "Work Type Group Member",
+            "PluralLabel": "Work Type Group Members",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/AuthorizationForm"
+            },
+            "DurableId": "AuthorizationForm",
+            "QualifiedApiName": "AuthorizationForm",
+            "DeveloperName": "AuthorizationForm",
+            "Label": "Authorization Form",
+            "PluralLabel": "Authorization Forms",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/AuthorizationFormConsent"
+            },
+            "DurableId": "AuthorizationFormConsent",
+            "QualifiedApiName": "AuthorizationFormConsent",
+            "DeveloperName": "AuthorizationFormConsent",
+            "Label": "Authorization Form Consent",
+            "PluralLabel": "Authorization Form Consents",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/AuthorizationFormDataUse"
+            },
+            "DurableId": "AuthorizationFormDataUse",
+            "QualifiedApiName": "AuthorizationFormDataUse",
+            "DeveloperName": "AuthorizationFormDataUse",
+            "Label": "Authorization Form Data Use",
+            "PluralLabel": "Authorization Form Data Uses",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/AuthorizationFormText"
+            },
+            "DurableId": "AuthorizationFormText",
+            "QualifiedApiName": "AuthorizationFormText",
+            "DeveloperName": "AuthorizationFormText",
+            "Label": "Authorization Form Text",
+            "PluralLabel": "Authorization Form Texts",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/CartDeliveryGroup"
+            },
+            "DurableId": "CartDeliveryGroup",
+            "QualifiedApiName": "CartDeliveryGroup",
+            "DeveloperName": "CartDeliveryGroup",
+            "Label": "Cart Delivery Group",
+            "PluralLabel": "Cart Delivery Groups",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/CartItem"
+            },
+            "DurableId": "CartItem",
+            "QualifiedApiName": "CartItem",
+            "DeveloperName": "CartItem",
+            "Label": "Cart Item",
+            "PluralLabel": "Cart Items",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/InvoiceLine"
+            },
+            "DurableId": "InvoiceLine",
+            "QualifiedApiName": "InvoiceLine",
+            "DeveloperName": "InvoiceLine",
+            "Label": "Invoice Line",
+            "PluralLabel": "Invoice Lines",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/PaymentGateway"
+            },
+            "DurableId": "PaymentGateway",
+            "QualifiedApiName": "PaymentGateway",
+            "DeveloperName": "PaymentGateway",
+            "Label": "Payment Gateway",
+            "PluralLabel": "Payment Gateways",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/PaymentLineInvoice"
+            },
+            "DurableId": "PaymentLineInvoice",
+            "QualifiedApiName": "PaymentLineInvoice",
+            "DeveloperName": "PaymentLineInvoice",
+            "Label": "Payment Line Invoice",
+            "PluralLabel": "Payment Line Invoices",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/PaymentMethod"
+            },
+            "DurableId": "PaymentMethod",
+            "QualifiedApiName": "PaymentMethod",
+            "DeveloperName": "PaymentMethod",
+            "Label": "Payment Method",
+            "PluralLabel": "Payment Methods",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Refund"
+            },
+            "DurableId": "Refund",
+            "QualifiedApiName": "Refund",
+            "DeveloperName": "Refund",
+            "Label": "Refund",
+            "PluralLabel": "Refunds",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Shift"
+            },
+            "DurableId": "Shift",
+            "QualifiedApiName": "Shift",
+            "DeveloperName": "Shift",
+            "Label": "Shift",
+            "PluralLabel": "Shifts",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/WebCart"
+            },
+            "DurableId": "WebCart",
+            "QualifiedApiName": "WebCart",
+            "DeveloperName": "WebCart",
+            "Label": "Cart",
+            "PluralLabel": "Carts",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/AssetStatePeriod"
+            },
+            "DurableId": "AssetStatePeriod",
+            "QualifiedApiName": "AssetStatePeriod",
+            "DeveloperName": "AssetStatePeriod",
+            "Label": "Asset State Period",
+            "PluralLabel": "Asset State Periods",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/CreditMemo"
+            },
+            "DurableId": "CreditMemo",
+            "QualifiedApiName": "CreditMemo",
+            "DeveloperName": "CreditMemo",
+            "Label": "Credit Memo",
+            "PluralLabel": "Credit Memos",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/CreditMemoLine"
+            },
+            "DurableId": "CreditMemoLine",
+            "QualifiedApiName": "CreditMemoLine",
+            "DeveloperName": "CreditMemoLine",
+            "Label": "Credit Memo Line",
+            "PluralLabel": "Credit Memo Lines",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/RefundLinePayment"
+            },
+            "DurableId": "RefundLinePayment",
+            "QualifiedApiName": "RefundLinePayment",
+            "DeveloperName": "RefundLinePayment",
+            "Label": "Refund Line Payment",
+            "PluralLabel": "Refund Line Payments",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/AssetAction"
+            },
+            "DurableId": "AssetAction",
+            "QualifiedApiName": "AssetAction",
+            "DeveloperName": "AssetAction",
+            "Label": "Asset Action",
+            "PluralLabel": "Asset Actions",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/AssetActionSource"
+            },
+            "DurableId": "AssetActionSource",
+            "QualifiedApiName": "AssetActionSource",
+            "DeveloperName": "AssetActionSource",
+            "Label": "Asset Action Source",
+            "PluralLabel": "Asset Action Sources",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/CartTax"
+            },
+            "DurableId": "CartTax",
+            "QualifiedApiName": "CartTax",
+            "DeveloperName": "CartTax",
+            "Label": "Cart Tax",
+            "PluralLabel": "Cart Taxes",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/CommSubscription"
+            },
+            "DurableId": "CommSubscription",
+            "QualifiedApiName": "CommSubscription",
+            "DeveloperName": "CommSubscription",
+            "Label": "Communication Subscription",
+            "PluralLabel": "Communication Subscriptions",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/CommSubscriptionChannelType"
+            },
+            "DurableId": "CommSubscriptionChannelType",
+            "QualifiedApiName": "CommSubscriptionChannelType",
+            "DeveloperName": "CommSubscriptionChannelType",
+            "Label": "Communication Subscription Channel Type",
+            "PluralLabel": "Communication Subscription Channel Types",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/CommSubscriptionConsent"
+            },
+            "DurableId": "CommSubscriptionConsent",
+            "QualifiedApiName": "CommSubscriptionConsent",
+            "DeveloperName": "CommSubscriptionConsent",
+            "Label": "Communication Subscription Consent",
+            "PluralLabel": "Communication Subscription Consents",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/CommSubscriptionTiming"
+            },
+            "DurableId": "CommSubscriptionTiming",
+            "QualifiedApiName": "CommSubscriptionTiming",
+            "DeveloperName": "CommSubscriptionTiming",
+            "Label": "Communication Subscription Timing",
+            "PluralLabel": "Communication Subscription Timings",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/CredentialStuffingEventStore"
+            },
+            "DurableId": "CredentialStuffingEventStore",
+            "QualifiedApiName": "CredentialStuffingEventStore",
+            "DeveloperName": "CredentialStuffingEventStore",
+            "Label": "Credential Stuffing Event Store",
+            "PluralLabel": "Credential Stuffing Event Stores",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/CreditMemoInvApplication"
+            },
+            "DurableId": "CreditMemoInvApplication",
+            "QualifiedApiName": "CreditMemoInvApplication",
+            "DeveloperName": "CreditMemoInvApplication",
+            "Label": "Credit Memo Invoice Application",
+            "PluralLabel": "Credit Memo Invoice Applications",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/DigitalWallet"
+            },
+            "DurableId": "DigitalWallet",
+            "QualifiedApiName": "DigitalWallet",
+            "DeveloperName": "DigitalWallet",
+            "Label": "Digital Wallet",
+            "PluralLabel": "Digital Wallets",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/EngagementChannelType"
+            },
+            "DurableId": "EngagementChannelType",
+            "QualifiedApiName": "EngagementChannelType",
+            "DeveloperName": "EngagementChannelType",
+            "Label": "Engagement Channel Type",
+            "PluralLabel": "Engagement Channel Types",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/FinanceBalanceSnapshot"
+            },
+            "DurableId": "FinanceBalanceSnapshot",
+            "QualifiedApiName": "FinanceBalanceSnapshot",
+            "DeveloperName": "FinanceBalanceSnapshot",
+            "Label": "Finance Balance Snapshot",
+            "PluralLabel": "Finance Balance Snapshots",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/FinanceTransaction"
+            },
+            "DurableId": "FinanceTransaction",
+            "QualifiedApiName": "FinanceTransaction",
+            "DeveloperName": "FinanceTransaction",
+            "Label": "Finance Transaction",
+            "PluralLabel": "Finance Transactions",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/LegalEntity"
+            },
+            "DurableId": "LegalEntity",
+            "QualifiedApiName": "LegalEntity",
+            "DeveloperName": "LegalEntity",
+            "Label": "Legal Entity",
+            "PluralLabel": "Legal Entities",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/PartyConsent"
+            },
+            "DurableId": "PartyConsent",
+            "QualifiedApiName": "PartyConsent",
+            "DeveloperName": "PartyConsent",
+            "Label": "Party Consent",
+            "PluralLabel": "Party Consents",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ReportAnomalyEventStore"
+            },
+            "DurableId": "ReportAnomalyEventStore",
+            "QualifiedApiName": "ReportAnomalyEventStore",
+            "DeveloperName": "ReportAnomalyEventStore",
+            "Label": "Report Anomaly Event Store",
+            "PluralLabel": "Report Anomaly Event Stores",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/SessionHijackingEventStore"
+            },
+            "DurableId": "SessionHijackingEventStore",
+            "QualifiedApiName": "SessionHijackingEventStore",
+            "DeveloperName": "SessionHijackingEventStore",
+            "Label": "Session Hijacking Event Store",
+            "PluralLabel": "Session Hijacking Event Stores",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/WorkPlan"
+            },
+            "DurableId": "WorkPlan",
+            "QualifiedApiName": "WorkPlan",
+            "DeveloperName": "WorkPlan",
+            "Label": "Work Plan",
+            "PluralLabel": "Work Plans",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/WorkPlanTemplate"
+            },
+            "DurableId": "WorkPlanTemplate",
+            "QualifiedApiName": "WorkPlanTemplate",
+            "DeveloperName": "WorkPlanTemplate",
+            "Label": "Work Plan Template",
+            "PluralLabel": "Work Plan Templates",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/WorkPlanTemplateEntry"
+            },
+            "DurableId": "WorkPlanTemplateEntry",
+            "QualifiedApiName": "WorkPlanTemplateEntry",
+            "DeveloperName": "WorkPlanTemplateEntry",
+            "Label": "Work Plan Template Entry",
+            "PluralLabel": "Work Plan Template Entries",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/WorkStep"
+            },
+            "DurableId": "WorkStep",
+            "QualifiedApiName": "WorkStep",
+            "DeveloperName": "WorkStep",
+            "Label": "Work Step",
+            "PluralLabel": "Work Steps",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/WorkStepTemplate"
+            },
+            "DurableId": "WorkStepTemplate",
+            "QualifiedApiName": "WorkStepTemplate",
+            "DeveloperName": "WorkStepTemplate",
+            "Label": "Work Step Template",
+            "PluralLabel": "Work Step Templates",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ApiAnomalyEventStore"
+            },
+            "DurableId": "ApiAnomalyEventStore",
+            "QualifiedApiName": "ApiAnomalyEventStore",
+            "DeveloperName": "ApiAnomalyEventStore",
+            "Label": "API Anomaly Event Store",
+            "PluralLabel": "API Anomaly Event Stores",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/LocWaitlistMsgTemplate"
+            },
+            "DurableId": "LocWaitlistMsgTemplate",
+            "QualifiedApiName": "LocWaitlistMsgTemplate",
+            "DeveloperName": "LocWaitlistMsgTemplate",
+            "Label": "Queue Messaging Template",
+            "PluralLabel": "Queue Messaging Template",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/LocationGroup"
+            },
+            "DurableId": "LocationGroup",
+            "QualifiedApiName": "LocationGroup",
+            "DeveloperName": "LocationGroup",
+            "Label": "Location Group",
+            "PluralLabel": "Location Groups",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/LocationGroupAssignment"
+            },
+            "DurableId": "LocationGroupAssignment",
+            "QualifiedApiName": "LocationGroupAssignment",
+            "DeveloperName": "LocationGroupAssignment",
+            "Label": "Location Group Assignment",
+            "PluralLabel": "Location Group Assignments",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/LocationWaitlist"
+            },
+            "DurableId": "LocationWaitlist",
+            "QualifiedApiName": "LocationWaitlist",
+            "DeveloperName": "LocationWaitlist",
+            "Label": "Queue",
+            "PluralLabel": "Queues",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/LocationWaitlistedParty"
+            },
+            "DurableId": "LocationWaitlistedParty",
+            "QualifiedApiName": "LocationWaitlistedParty",
+            "DeveloperName": "LocationWaitlistedParty",
+            "Label": "Queued Party",
+            "PluralLabel": "Queued Parties",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/OperatingHoursHoliday"
+            },
+            "DurableId": "OperatingHoursHoliday",
+            "QualifiedApiName": "OperatingHoursHoliday",
+            "DeveloperName": "OperatingHoursHoliday",
+            "Label": "Operating Hours Holiday",
+            "PluralLabel": "Operating Hours Holidays",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ProcessException"
+            },
+            "DurableId": "ProcessException",
+            "QualifiedApiName": "ProcessException",
+            "DeveloperName": "ProcessException",
+            "Label": "Process Exception",
+            "PluralLabel": "Process Exceptions",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ReturnOrderItemAdjustment"
+            },
+            "DurableId": "ReturnOrderItemAdjustment",
+            "QualifiedApiName": "ReturnOrderItemAdjustment",
+            "DeveloperName": "ReturnOrderItemAdjustment",
+            "Label": "Return Order Item Adjustment",
+            "PluralLabel": "Return Order Item Adjustments",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ReturnOrderItemTax"
+            },
+            "DurableId": "ReturnOrderItemTax",
+            "QualifiedApiName": "ReturnOrderItemTax",
+            "DeveloperName": "ReturnOrderItemTax",
+            "Label": "Return Order Item Tax",
+            "PluralLabel": "Return Order Item Taxes",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/AlternativePaymentMethod"
+            },
+            "DurableId": "AlternativePaymentMethod",
+            "QualifiedApiName": "AlternativePaymentMethod",
+            "DeveloperName": "AlternativePaymentMethod",
+            "Label": "Alternative Payment Method",
+            "PluralLabel": "Alternative Payment Methods",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/PaymentAuthAdjustment"
+            },
+            "DurableId": "PaymentAuthAdjustment",
+            "QualifiedApiName": "PaymentAuthAdjustment",
+            "DeveloperName": "PaymentAuthAdjustment",
+            "Label": "Payment Authorization Adjustment",
+            "PluralLabel": "Payment Authorization Adjustments",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/AppointmentTopicTimeSlot"
+            },
+            "DurableId": "AppointmentTopicTimeSlot",
+            "QualifiedApiName": "AppointmentTopicTimeSlot",
+            "DeveloperName": "AppointmentTopicTimeSlot",
+            "Label": "Appointment Topic Time Slot",
+            "PluralLabel": "Appointment Topic Time Slots",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "ReadWrite",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/BusinessBrand"
+            },
+            "DurableId": "BusinessBrand",
+            "QualifiedApiName": "BusinessBrand",
+            "DeveloperName": "BusinessBrand",
+            "Label": "Business Brand",
+            "PluralLabel": "Business Brands",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/CaseRelatedIssue"
+            },
+            "DurableId": "CaseRelatedIssue",
+            "QualifiedApiName": "CaseRelatedIssue",
+            "DeveloperName": "CaseRelatedIssue",
+            "Label": "Case Related Issue",
+            "PluralLabel": "Case Related Issues",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ChangeRequest"
+            },
+            "DurableId": "ChangeRequest",
+            "QualifiedApiName": "ChangeRequest",
+            "DeveloperName": "ChangeRequest",
+            "Label": "Change Request",
+            "PluralLabel": "Change Requests",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ChangeRequestRelatedIssue"
+            },
+            "DurableId": "ChangeRequestRelatedIssue",
+            "QualifiedApiName": "ChangeRequestRelatedIssue",
+            "DeveloperName": "ChangeRequestRelatedIssue",
+            "Label": "Change Request Related Issue",
+            "PluralLabel": "Change Request Related Issues",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Customer"
+            },
+            "DurableId": "Customer",
+            "QualifiedApiName": "Customer",
+            "DeveloperName": "Customer",
+            "Label": "Customer",
+            "PluralLabel": "Customers",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Incident"
+            },
+            "DurableId": "Incident",
+            "QualifiedApiName": "Incident",
+            "DeveloperName": "Incident",
+            "Label": "Incident",
+            "PluralLabel": "Incidents",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Problem"
+            },
+            "DurableId": "Problem",
+            "QualifiedApiName": "Problem",
+            "DeveloperName": "Problem",
+            "Label": "Problem",
+            "PluralLabel": "Problems",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ProblemIncident"
+            },
+            "DurableId": "ProblemIncident",
+            "QualifiedApiName": "ProblemIncident",
+            "DeveloperName": "ProblemIncident",
+            "Label": "Related Problem and Incident",
+            "PluralLabel": "Related Problems and Incidents",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Seller"
+            },
+            "DurableId": "Seller",
+            "QualifiedApiName": "Seller",
+            "DeveloperName": "Seller",
+            "Label": "Seller",
+            "PluralLabel": "Sellers",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ChangeRequestRelatedItem"
+            },
+            "DurableId": "ChangeRequestRelatedItem",
+            "QualifiedApiName": "ChangeRequestRelatedItem",
+            "DeveloperName": "ChangeRequestRelatedItem",
+            "Label": "Change Request Related Item",
+            "PluralLabel": "Change Request Related Items",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/IncidentRelatedItem"
+            },
+            "DurableId": "IncidentRelatedItem",
+            "QualifiedApiName": "IncidentRelatedItem",
+            "DeveloperName": "IncidentRelatedItem",
+            "Label": "Incident Related Item",
+            "PluralLabel": "Incident Related Items",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/ProblemRelatedItem"
+            },
+            "DurableId": "ProblemRelatedItem",
+            "QualifiedApiName": "ProblemRelatedItem",
+            "DeveloperName": "ProblemRelatedItem",
+            "Label": "Problem Related Item",
+            "PluralLabel": "Problem Related Items",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/WebCartAdjustmentBasis"
+            },
+            "DurableId": "WebCartAdjustmentBasis",
+            "QualifiedApiName": "WebCartAdjustmentBasis",
+            "DeveloperName": "WebCartAdjustmentBasis",
+            "Label": "Cart Adjustment Basis",
+            "PluralLabel": "Cart Adjustment Bases",
+            "InternalSharingModel": "ControlledByParent",
+            "ExternalSharingModel": "ControlledByParent",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/Activity"
+            },
+            "DurableId": "Activity",
+            "QualifiedApiName": "Activity",
+            "DeveloperName": "Activity",
+            "Label": "Activity",
+            "PluralLabel": "Activities",
+            "InternalSharingModel": "Private",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": null
+        },
+        {
+            "attributes": {
+                "type": "EntityDefinition",
+                "url": "/services/data/v54.0/tooling/sobjects/EntityDefinition/01I5i000000Y6fp"
+            },
+            "DurableId": "01I5i000000Y6fp",
+            "QualifiedApiName": "Property__c",
+            "DeveloperName": "Property",
+            "Label": "Property",
+            "PluralLabel": "Properties",
+            "InternalSharingModel": "ReadWrite",
+            "ExternalSharingModel": "Private",
+            "DeploymentStatus": "Deployed"
+        }
+    ]
+}

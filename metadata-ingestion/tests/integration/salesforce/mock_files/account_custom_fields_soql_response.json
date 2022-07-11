@@ -1,0 +1,177 @@
+{
+    "size": 7,
+    "totalSize": 7,
+    "done": true,
+    "queryLocator": null,
+    "entityTypeName": "CustomField",
+    "records": [
+        {
+            "attributes": {
+                "type": "CustomField",
+                "url": "/services/data/v54.0/tooling/sobjects/CustomField/00N5i000004FO8LEAW"
+            },
+            "DeveloperName": "CustomerPriority",
+            "CreatedDate": "2022-05-02T03:22:17.000+0000",
+            "CreatedBy": {
+                "attributes": {
+                    "type": "User",
+                    "url": "/services/data/v54.0/tooling/sobjects/User/0055i000001Vi2IAAS"
+                },
+                "Username": "user@mydomain.com"
+            },
+            "InlineHelpText": null,
+            "LastModifiedDate": "2022-05-02T03:22:17.000+0000",
+            "LastModifiedBy": {
+                "attributes": {
+                    "type": "User",
+                    "url": "/services/data/v54.0/tooling/sobjects/User/0055i000001Vi2IAAS"
+                },
+                "Username": "user@mydomain.com"
+            }
+        },
+        {
+            "attributes": {
+                "type": "CustomField",
+                "url": "/services/data/v54.0/tooling/sobjects/CustomField/00N5i000004FO8NEAW"
+            },
+            "DeveloperName": "SLA",
+            "CreatedDate": "2022-05-02T03:22:17.000+0000",
+            "CreatedBy": {
+                "attributes": {
+                    "type": "User",
+                    "url": "/services/data/v54.0/tooling/sobjects/User/0055i000001Vi2IAAS"
+                },
+                "Username": "user@mydomain.com"
+            },
+            "InlineHelpText": null,
+            "LastModifiedDate": "2022-05-02T03:22:17.000+0000",
+            "LastModifiedBy": {
+                "attributes": {
+                    "type": "User",
+                    "url": "/services/data/v54.0/tooling/sobjects/User/0055i000001Vi2IAAS"
+                },
+                "Username": "user@mydomain.com"
+            }
+        },
+        {
+            "attributes": {
+                "type": "CustomField",
+                "url": "/services/data/v54.0/tooling/sobjects/CustomField/00N5i000004FO8KEAW"
+            },
+            "DeveloperName": "Active",
+            "CreatedDate": "2022-05-02T03:22:17.000+0000",
+            "CreatedBy": {
+                "attributes": {
+                    "type": "User",
+                    "url": "/services/data/v54.0/tooling/sobjects/User/0055i000001Vi2IAAS"
+                },
+                "Username": "user@mydomain.com"
+            },
+            "InlineHelpText": null,
+            "LastModifiedDate": "2022-05-02T03:22:17.000+0000",
+            "LastModifiedBy": {
+                "attributes": {
+                    "type": "User",
+                    "url": "/services/data/v54.0/tooling/sobjects/User/0055i000001Vi2IAAS"
+                },
+                "Username": "user@mydomain.com"
+            }
+        },
+        {
+            "attributes": {
+                "type": "CustomField",
+                "url": "/services/data/v54.0/tooling/sobjects/CustomField/00N5i000004FO8MEAW"
+            },
+            "DeveloperName": "NumberofLocations",
+            "CreatedDate": "2022-05-02T03:22:17.000+0000",
+            "CreatedBy": {
+                "attributes": {
+                    "type": "User",
+                    "url": "/services/data/v54.0/tooling/sobjects/User/0055i000001Vi2IAAS"
+                },
+                "Username": "user@mydomain.com"
+            },
+            "InlineHelpText": null,
+            "LastModifiedDate": "2022-05-02T03:22:17.000+0000",
+            "LastModifiedBy": {
+                "attributes": {
+                    "type": "User",
+                    "url": "/services/data/v54.0/tooling/sobjects/User/0055i000001Vi2IAAS"
+                },
+                "Username": "user@mydomain.com"
+            }
+        },
+        {
+            "attributes": {
+                "type": "CustomField",
+                "url": "/services/data/v54.0/tooling/sobjects/CustomField/00N5i000004FO8QEAW"
+            },
+            "DeveloperName": "UpsellOpportunity",
+            "CreatedDate": "2022-05-02T03:22:17.000+0000",
+            "CreatedBy": {
+                "attributes": {
+                    "type": "User",
+                    "url": "/services/data/v54.0/tooling/sobjects/User/0055i000001Vi2IAAS"
+                },
+                "Username": "user@mydomain.com"
+            },
+            "InlineHelpText": null,
+            "LastModifiedDate": "2022-05-02T03:22:17.000+0000",
+            "LastModifiedBy": {
+                "attributes": {
+                    "type": "User",
+                    "url": "/services/data/v54.0/tooling/sobjects/User/0055i000001Vi2IAAS"
+                },
+                "Username": "user@mydomain.com"
+            }
+        },
+        {
+            "attributes": {
+                "type": "CustomField",
+                "url": "/services/data/v54.0/tooling/sobjects/CustomField/00N5i000004FO8PEAW"
+            },
+            "DeveloperName": "SLASerialNumber",
+            "CreatedDate": "2022-05-02T03:22:17.000+0000",
+            "CreatedBy": {
+                "attributes": {
+                    "type": "User",
+                    "url": "/services/data/v54.0/tooling/sobjects/User/0055i000001Vi2IAAS"
+                },
+                "Username": "user@mydomain.com"
+            },
+            "InlineHelpText": null,
+            "LastModifiedDate": "2022-05-02T03:22:17.000+0000",
+            "LastModifiedBy": {
+                "attributes": {
+                    "type": "User",
+                    "url": "/services/data/v54.0/tooling/sobjects/User/0055i000001Vi2IAAS"
+                },
+                "Username": "user@mydomain.com"
+            }
+        },
+        {
+            "attributes": {
+                "type": "CustomField",
+                "url": "/services/data/v54.0/tooling/sobjects/CustomField/00N5i000004FO8OEAW"
+            },
+            "DeveloperName": "SLAExpirationDate",
+            "CreatedDate": "2022-05-02T03:22:17.000+0000",
+            "CreatedBy": {
+                "attributes": {
+                    "type": "User",
+                    "url": "/services/data/v54.0/tooling/sobjects/User/0055i000001Vi2IAAS"
+                },
+                "Username": "user@mydomain.com"
+            },
+            "InlineHelpText": null,
+            "LastModifiedDate": "2022-05-02T03:22:17.000+0000",
+            "LastModifiedBy": {
+                "attributes": {
+                    "type": "User",
+                    "url": "/services/data/v54.0/tooling/sobjects/User/0055i000001Vi2IAAS"
+                },
+                "Username": "user@mydomain.com"
+            }
+        }
+    ]
+}

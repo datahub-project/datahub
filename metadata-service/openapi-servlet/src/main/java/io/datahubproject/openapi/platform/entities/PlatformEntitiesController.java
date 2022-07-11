@@ -1,5 +1,7 @@
 package io.datahubproject.openapi.platform.entities;
 
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.util.Pair;
@@ -44,8 +46,11 @@ public class PlatformEntitiesController {
       @RequestBody @Nonnull List<MetadataChangeProposal> metadataChangeProposals) {
     log.info("INGEST PROPOSAL proposal: {}", metadataChangeProposals);
 
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    String actorUrnStr = authentication.getActor().toUrnStr();
+
     List<Pair<String, Boolean>> responses = metadataChangeProposals.stream()
-        .map(proposal -> MappingUtil.ingestProposal(proposal, _entityService, _objectMapper))
+        .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService, _objectMapper))
         .collect(Collectors.toList());
     if (responses.stream().anyMatch(Pair::getSecond)) {
       return ResponseEntity.status(HttpStatus.CREATED)

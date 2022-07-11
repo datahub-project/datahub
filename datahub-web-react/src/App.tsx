@@ -49,7 +49,7 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
     if (graphQLErrors && graphQLErrors.length) {
         const firstError = graphQLErrors[0];
         const { extensions } = firstError;
-        console.log(firstError);
+        console.error(firstError);
         const errorCode = extensions && (extensions.code as number);
         // Fallback in case the calling component does not handle.
         message.error(`${firstError.message} (code ${errorCode})`, 3);

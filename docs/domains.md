@@ -47,8 +47,11 @@ By default, you don't need to worry about this. DataHub will auto-generate an un
 Once you've chosen a name and a description, click 'Create' to create the new Domain. 
 
 
-## Assigning an Asset to a Domain 
+## Assigning an Asset to a Domain
 
+You can assign assets to Domain using the UI or programmatically using the API or during ingestion. 
+
+### UI-Based Assignment
 To assign an asset to a Domain, simply navigate to the asset's profile page. At the bottom left-side menu bar, you'll 
 see a 'Domain' section. Click 'Set Domain', and then search for the Domain you'd like to add to. When you're done, click 'Add'.
 
@@ -58,6 +61,45 @@ To remove an asset from a Domain, click the 'x' icon on the Domain tag.
 
 > Notice: Adding or removing an asset from a Domain requires the `Edit Domain` Metadata Privilege, which can be granted
 > by a [Policy](authorization/policies.md).
+
+### Ingestion-time Assignment
+All SQL-based ingestion sources support assigning domains during ingestion using the `domain` configuration. Consult your source's configuration details page (e.g. [Snowflake](./generated/ingestion/sources/snowflake.md)), to verify that it supports the Domain capability.
+
+:::note
+
+Assignment of domains during ingestion will overwrite domains that you have assigned in the UI. A single table can only belong to one domain.
+
+:::
+
+
+Here is a quick example of a snowflake ingestion recipe that has been enhanced to attach the **Analytics** domain to all tables in the **long_tail_companions** database in the **analytics** schema, and the **Finance** domain to all tables in the **long_tail_companions** database in the **ecommerce** schema.
+
+```yaml
+source:
+  type: snowflake
+  config:
+    username: ${SNOW_USER}
+    password: ${SNOW_PASS}
+    account_id: 
+    warehouse: COMPUTE_WH
+    role: accountadmin
+    database_pattern:
+      allow:
+        - "long_tail_companions"
+    schema_pattern:
+      deny:
+        - information_schema
+    profiling:
+      enabled: False
+    domain:
+      Analytics:
+        allow:
+          - "long_tail_companions.analytics.*"
+      Finance:
+        allow:
+          - "long_tail_companions.ecommerce.*"
+```
+
 
 
 ## Searching by Domain

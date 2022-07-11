@@ -6,8 +6,12 @@ from freezegun import freeze_time
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.usage.bigquery_usage import (
     BQ_AUDIT_V1,
+    BigQueryTableRef,
     BigQueryUsageConfig,
     BigQueryUsageSource,
+)
+from datahub.ingestion.source_config.bigquery import (
+    _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
 )
 
 FROZEN_TIME = "2021-07-20 00:00:00"
@@ -164,3 +168,29 @@ timestamp < "2021-07-21T00:15:00Z\""""  # noqa: W293
     source = BigQueryUsageSource.create(config, PipelineContext(run_id="bq-usage-test"))
     filter: str = source._generate_filter(BQ_AUDIT_V1)
     assert filter == expected_filter
+
+
+def test_bigquery_ref_extra_removal():
+    table_ref = BigQueryTableRef("project-1234", "dataset-4567", "foo_*")
+    new_table_ref = table_ref.remove_extras(_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX)
+    assert new_table_ref.table == "foo"
+    assert new_table_ref.project == table_ref.project
+    assert new_table_ref.dataset == table_ref.dataset
+
+    table_ref = BigQueryTableRef("project-1234", "dataset-4567", "foo_2022")
+    new_table_ref = table_ref.remove_extras(_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX)
+    assert new_table_ref.table == "foo"
+    assert new_table_ref.project == table_ref.project
+    assert new_table_ref.dataset == table_ref.dataset
+
+    table_ref = BigQueryTableRef("project-1234", "dataset-4567", "foo_20222110")
+    new_table_ref = table_ref.remove_extras(_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX)
+    assert new_table_ref.table == "foo"
+    assert new_table_ref.project == table_ref.project
+    assert new_table_ref.dataset == table_ref.dataset
+
+    table_ref = BigQueryTableRef("project-1234", "dataset-4567", "foo")
+    new_table_ref = table_ref.remove_extras(_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX)
+    assert new_table_ref.table == "foo"
+    assert new_table_ref.project == table_ref.project
+    assert new_table_ref.dataset == table_ref.dataset

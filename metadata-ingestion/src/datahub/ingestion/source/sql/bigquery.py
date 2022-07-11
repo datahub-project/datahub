@@ -433,6 +433,83 @@ class BigQuerySource(SQLAlchemySource):
         else:
             return [GCPLoggingClient(**client_options)]
 
+    def generate_profile_candidates(
+        self,
+        inspector: Inspector,
+        threshold_time: Optional[datetime.datetime],
+        schema: str,
+    ) -> Optional[List[str]]:
+        row_condition = (
+            f"row_count<{self.config.profiling.profile_table_row_limit} and "
+            if self.config.profiling.profile_table_row_limit
+            else ""
+        )
+        size_condition = (
+            f"ROUND(size_bytes/POW(10,9),2)<{self.config.profiling.profile_table_size_limit} and "
+            if self.config.profiling.profile_table_size_limit
+            else ""
+        )
+        time_condition = (
+            f"last_modified_time>={round(threshold_time.timestamp() * 1000)} and "
+            if threshold_time
+            else ""
+        )
+        c = f"{row_condition}{size_condition}{time_condition}"
+        profile_clause = c if c == "" else f" WHERE {c}"[:-4]
+        if profile_clause == "":
+            return None
+        project_id = self.get_db_name(inspector)
+        _client: BigQueryClient = BigQueryClient(project=project_id)
+        # Reading all tables' metadata to report
+        base_query = (
+            f"SELECT "
+            f"table_id, "
+            f"size_bytes, "
+            f"last_modified_time, "
+            f"row_count, "
+            f"FROM {schema}.__TABLES__"
+        )
+        all_tables = _client.query(base_query)
+        report_tables: List[str] = [
+            "table_id, size_bytes, last_modified_time, row_count"
+        ]
+        for table_row in all_tables:
+            report_tables.append(
+                f"{table_row.table_id}, {table_row.size_bytes}, {table_row.last_modified_time}, {table_row.row_count}"
+            )
+        report_key = f"{self._get_project_id(inspector)}.{schema}"
+        self.report.table_metadata[report_key] = report_tables
+        self.report.profile_table_selection_criteria[report_key] = (
+            "no constraint" if profile_clause == "" else profile_clause.lstrip(" WHERE")
+        )
+
+        # reading filtered tables. TODO: remove this call and apply local filtering on above query results.
+        query = (
+            f"SELECT "
+            f"table_id, "
+            f"size_bytes, "
+            f"last_modified_time, "
+            f"row_count, "
+            f"FROM {schema}.__TABLES__"
+            f"{profile_clause}"
+        )
+        logger.debug(f"Profiling via {query}")
+        query_job = _client.query(query)
+        _profile_candidates = []
+        for row in query_job:
+            _profile_candidates.append(
+                self.get_identifier(
+                    schema=schema,
+                    entity=row.table_id,
+                    inspector=inspector,
+                )
+            )
+        logger.debug(
+            f"Generated profiling candidates for {schema}: {_profile_candidates}"
+        )
+        self.report.selected_profile_tables[report_key] = _profile_candidates
+        return _profile_candidates
+
     def _get_bigquery_log_entries(
         self,
         clients: List[GCPLoggingClient],

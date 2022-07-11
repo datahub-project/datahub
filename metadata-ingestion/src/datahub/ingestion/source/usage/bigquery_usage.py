@@ -273,6 +273,14 @@ class BigQueryTableRef:
         # Handle partitioned and sharded tables.
         table_name: Optional[str] = None
 
+        # if table name ends in _* then we strip it as that represents a query on a sharded table
+        if self.table.endswith("_*"):
+            table_name = self.table[:-2]
+            logger.debug(
+                f"Found query on sharded table {self.table}. Using {table_name} as the table name."
+            )
+            return BigQueryTableRef(self.project, self.dataset, table_name)
+
         matches = re.match(sharded_table_regex, self.table)
         if matches:
             table_name = matches.group(2)

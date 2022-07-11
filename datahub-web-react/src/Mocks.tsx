@@ -89,6 +89,23 @@ const user2 = {
     editableInfo: {
         pictureLink: null,
     },
+    editableProperties: {
+        displayName: 'Test',
+        title: 'test',
+        pictureLink: null,
+        teams: [],
+        skills: [],
+    },
+    groups: {
+        relationships: [
+            {
+                entity: {
+                    urn: 'urn:li:corpgroup:group1',
+                    name: 'group1',
+                },
+            },
+        ],
+    },
     globalTags: {
         tags: [
             {
@@ -462,7 +479,6 @@ export const dataset3 = {
         primaryKeys: [],
         foreignKeys: [],
     },
-    previousSchemaMetadata: null,
     editableSchemaMetadata: null,
     deprecation: null,
     usageStats: null,
@@ -3103,6 +3119,7 @@ export const mocks = [
                     platformPrivileges: {
                         viewAnalytics: true,
                         managePolicies: true,
+                        viewMetadataProposals: true,
                         manageIdentities: true,
                         manageDomains: true,
                         manageTags: true,
@@ -3115,6 +3132,7 @@ export const mocks = [
                         manageSecrets: true,
                         manageIngestion: true,
                         generatePersonalAccessTokens: true,
+                        manageGlobalSettings: true,
                     },
                 },
             },

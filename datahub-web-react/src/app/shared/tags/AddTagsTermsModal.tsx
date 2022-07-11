@@ -15,6 +15,7 @@ import ClickOutside from '../ClickOutside';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { useGetRecommendations } from '../recommendation';
 import { useProposeTagMutation, useProposeTermMutation } from '../../../graphql/proposals.generated';
+import { FORBIDDEN_URN_CHARS_REGEX } from '../../entity/shared/utils';
 
 type AddTagsModalProps = {
     visible: boolean;
@@ -59,6 +60,10 @@ export const BrowserWrapper = styled.div<{ isHidden: boolean }>`
 `;
 
 const CREATE_TAG_VALUE = '____reserved____.createTagValue';
+
+const isValidTagName = (tagName: string) => {
+    return tagName && tagName.length > 0 && !FORBIDDEN_URN_CHARS_REGEX.test(tagName);
+};
 
 export default function AddTagsTermsModal({
     visible,
@@ -136,7 +141,7 @@ export default function AddTagsTermsModal({
         return displayName.toLowerCase() === inputValue.toLowerCase();
     });
 
-    if (!inputExistsInTagSearch && inputValue.length > 0 && type === EntityType.Tag && urns.length === 0) {
+    if (!inputExistsInTagSearch && isValidTagName(inputValue) && type === EntityType.Tag && urns.length === 0) {
         tagSearchOptions?.push(
             <Select.Option value={CREATE_TAG_VALUE} key={CREATE_TAG_VALUE}>
                 <Typography.Link> Create {inputValue}</Typography.Link>
@@ -184,7 +189,9 @@ export default function AddTagsTermsModal({
     // When a Tag or term search result is selected, add the urn to the Urns
     const onSelectValue = (urn: string) => {
         if (urn === CREATE_TAG_VALUE) {
-            setShowCreateModal(true);
+            if (isValidTagName(inputValue)) {
+                setShowCreateModal(true);
+            }
             return;
         }
         const newUrns = [...(urns || []), urn];
