@@ -10,6 +10,7 @@ import com.linkedin.common.Status;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.JacksonDataTemplateCodec;
@@ -20,6 +21,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
@@ -34,8 +36,6 @@ import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
-import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -45,11 +45,6 @@ import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;
 import com.linkedin.retention.VersionBasedRetention;
 import com.linkedin.util.Pair;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
-import org.testng.annotations.Test;
-
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -57,16 +52,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import javax.annotation.Nonnull;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
+import org.testng.annotations.Test;
 
-import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static com.linkedin.metadata.Constants.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
 
 /**
  * A class to test {@link EntityService}
@@ -88,7 +81,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     protected T_AD _aspectDao;
     protected T_RS _retentionService;
 
-    protected static final AuditStamp TEST_AUDIT_STAMP = createTestAuditStamp();
+    protected static final AuditStamp TEST_AUDIT_STAMP = AspectGenerationUtils.createAuditStamp();
     protected final EntityRegistry _snapshotEntityRegistry = new TestEntityRegistry();
     protected final EntityRegistry _configEntityRegistry =
         new ConfigEntityRegistry(Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
@@ -114,12 +107,10 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     @Test
     public void testIngestGetEntity() throws Exception {
         // Test Writing a CorpUser Entity
-        Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
+        Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:test");
         com.linkedin.entity.Entity writeEntity = createCorpUserEntity(entityUrn, "tester@test.com");
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
+        SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
 
         // 1. Ingest Entity
         _entityService.ingestEntity(writeEntity, TEST_AUDIT_STAMP, metadata1);
@@ -153,12 +144,10 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     @Test
     public void testAddKey() throws Exception {
         // Test Writing a CorpUser Key
-        Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
+        Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:test");
         com.linkedin.entity.Entity writeEntity = createCorpUserEntity(entityUrn, "tester@test.com");
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
+        SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
 
         // 1. Ingest Entity
         _entityService.ingestEntity(writeEntity, TEST_AUDIT_STAMP, metadata1);
@@ -192,19 +181,14 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     @Test
     public void testIngestGetEntities() throws Exception {
         // Test Writing a CorpUser Entity
-        Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:tester1");
+        Urn entityUrn1 = UrnUtils.getUrn("urn:li:corpuser:tester1");
         com.linkedin.entity.Entity writeEntity1 = createCorpUserEntity(entityUrn1, "tester@test.com");
 
-        Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:tester2");
+        Urn entityUrn2 = UrnUtils.getUrn("urn:li:corpuser:tester2");
         com.linkedin.entity.Entity writeEntity2 = createCorpUserEntity(entityUrn2, "tester2@test.com");
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
-
-        SystemMetadata metadata2 = new SystemMetadata();
-        metadata2.setLastObserved(1625792690);
-        metadata2.setRunId("run-123");
+        SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
+        SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1625792690, "run-123");
 
         // 1. Ingest Entities
         _entityService.ingestEntities(ImmutableList.of(writeEntity1, writeEntity2), TEST_AUDIT_STAMP,
@@ -271,19 +255,14 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     @Test
     public void testIngestGetEntitiesV2() throws Exception {
         // Test Writing a CorpUser Entity
-        Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:tester1");
+        Urn entityUrn1 = UrnUtils.getUrn("urn:li:corpuser:tester1");
         com.linkedin.entity.Entity writeEntity1 = createCorpUserEntity(entityUrn1, "tester@test.com");
 
-        Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:tester2");
+        Urn entityUrn2 = UrnUtils.getUrn("urn:li:corpuser:tester2");
         com.linkedin.entity.Entity writeEntity2 = createCorpUserEntity(entityUrn2, "tester2@test.com");
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
-
-        SystemMetadata metadata2 = new SystemMetadata();
-        metadata2.setLastObserved(1625792690);
-        metadata2.setRunId("run-123");
+        SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
+        SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1625792690, "run-123");
 
         String aspectName = "corpUserInfo";
         String keyName = "corpUserKey";
@@ -342,21 +321,16 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     @Test
     public void testIngestGetEntitiesVersionedV2() throws Exception {
         // Test Writing a CorpUser Entity
-        Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:tester1");
+        Urn entityUrn1 = UrnUtils.getUrn("urn:li:corpuser:tester1");
         VersionedUrn versionedUrn1 = new VersionedUrn().setUrn(entityUrn1).setVersionStamp("corpUserInfo:0");
         com.linkedin.entity.Entity writeEntity1 = createCorpUserEntity(entityUrn1, "tester@test.com");
 
-        Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:tester2");
+        Urn entityUrn2 = UrnUtils.getUrn("urn:li:corpuser:tester2");
         VersionedUrn versionedUrn2 = new VersionedUrn().setUrn(entityUrn2);
         com.linkedin.entity.Entity writeEntity2 = createCorpUserEntity(entityUrn2, "tester2@test.com");
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
-
-        SystemMetadata metadata2 = new SystemMetadata();
-        metadata2.setLastObserved(1625792690);
-        metadata2.setRunId("run-123");
+        SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
+        SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1625792690, "run-123");
 
         String aspectName = "corpUserInfo";
         String keyName = "corpUserKey";
@@ -415,21 +389,19 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     @Test
     public void testIngestAspectsGetLatestAspects() throws Exception {
 
-        Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
+        Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:test");
 
         List<Pair<String, RecordTemplate>> pairToIngest = new ArrayList<>();
 
         Status writeAspect1 = new Status().setRemoved(false);
-        String aspectName1 = getAspectName(writeAspect1);
+        String aspectName1 = AspectGenerationUtils.getAspectName(writeAspect1);
         pairToIngest.add(getAspectRecordPair(writeAspect1, Status.class));
 
-        CorpUserInfo writeAspect2 = createCorpUserInfo("email@test.com");
-        String aspectName2 = getAspectName(writeAspect2);
+        CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
+        String aspectName2 = AspectGenerationUtils.getAspectName(writeAspect2);
         pairToIngest.add(getAspectRecordPair(writeAspect2, CorpUserInfo.class));
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
+        SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
 
         _entityService.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
 
@@ -450,7 +422,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     @Test
     public void testIngestTimeseriesAspect() throws Exception {
-        Urn entityUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+        Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
         DatasetProfile datasetProfile = new DatasetProfile();
         datasetProfile.setRowCount(1000);
         datasetProfile.setColumnCount(15);
@@ -470,15 +442,15 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     }
 
     @Test
-    public void testUpdateGetAspect() throws Exception {
+    public void testUpdateGetAspect() throws AssertionError {
         // Test Writing a CorpUser Entity
-        Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
+        Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:test");
 
-        String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
+        String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
         AspectSpec corpUserInfoSpec = _testEntityRegistry.getEntitySpec("corpuser").getAspectSpec("corpUserInfo");
 
         // Ingest CorpUserInfo Aspect #1
-        CorpUserInfo writeAspect = createCorpUserInfo("email@test.com");
+        CorpUserInfo writeAspect = AspectGenerationUtils.createCorpUserInfo("email@test.com");
 
         // Validate retrieval of CorpUserInfo Aspect #1
         _entityService.updateAspect(entityUrn, "corpuser", aspectName, corpUserInfoSpec, writeAspect, TEST_AUDIT_STAMP, 1,
@@ -500,15 +472,15 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     }
 
     @Test
-    public void testGetAspectAtVersion() throws Exception {
+    public void testGetAspectAtVersion() throws AssertionError {
         // Test Writing a CorpUser Entity
-        Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
+        Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:test");
 
-        String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
+        String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
         AspectSpec corpUserInfoSpec = _testEntityRegistry.getEntitySpec("corpuser").getAspectSpec("corpUserInfo");
 
         // Ingest CorpUserInfo Aspect #1
-        CorpUserInfo writeAspect = createCorpUserInfo("email@test.com");
+        CorpUserInfo writeAspect = AspectGenerationUtils.createCorpUserInfo("email@test.com");
 
         // Validate retrieval of CorpUserInfo Aspect #1
         _entityService.updateAspect(entityUrn, "corpuser", aspectName, corpUserInfoSpec, writeAspect, TEST_AUDIT_STAMP, 1,
@@ -533,35 +505,30 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     }
 
     @Test
-    public void testRollbackAspect() throws Exception {
-        Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
-        Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
-        Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
+    public void testRollbackAspect() throws AssertionError {
+        Urn entityUrn1 = UrnUtils.getUrn("urn:li:corpuser:test1");
+        Urn entityUrn2 = UrnUtils.getUrn("urn:li:corpuser:test2");
+        Urn entityUrn3 = UrnUtils.getUrn("urn:li:corpuser:test3");
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
+        SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
+        SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-456");
 
-        SystemMetadata metadata2 = new SystemMetadata();
-        metadata2.setLastObserved(1635792689);
-        metadata2.setRunId("run-456");
-
-        String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
+        String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
 
         // Ingest CorpUserInfo Aspect #1
-        CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
+        CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
         _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
 
         // Ingest CorpUserInfo Aspect #2
-        CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
+        CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("email2@test.com");
         _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
 
         // Ingest CorpUserInfo Aspect #3
-        CorpUserInfo writeAspect3 = createCorpUserInfo("email3@test.com");
+        CorpUserInfo writeAspect3 = AspectGenerationUtils.createCorpUserInfo("email3@test.com");
         _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
 
         // Ingest CorpUserInfo Aspect #1 Overwrite
-        CorpUserInfo writeAspect1Overwrite = createCorpUserInfo("email1.overwrite@test.com");
+        CorpUserInfo writeAspect1Overwrite = AspectGenerationUtils.createCorpUserInfo("email1.overwrite@test.com");
         _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1Overwrite, TEST_AUDIT_STAMP, metadata2);
 
         // this should no-op since this run has been overwritten
@@ -593,29 +560,24 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     }
 
     @Test
-    public void testRollbackKey() throws Exception {
-        Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
+    public void testRollbackKey() throws AssertionError {
+        Urn entityUrn1 = UrnUtils.getUrn("urn:li:corpuser:test1");
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
+        SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
+        SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-456");
 
-        SystemMetadata metadata2 = new SystemMetadata();
-        metadata2.setLastObserved(1635792689);
-        metadata2.setRunId("run-456");
-
-        String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
+        String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
         String keyAspectName = _entityService.getKeyAspectName(entityUrn1);
 
         // Ingest CorpUserInfo Aspect #1
-        CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
+        CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
         _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
 
         RecordTemplate writeKey1 = _entityService.buildKeyAspect(entityUrn1);
         _entityService.ingestAspect(entityUrn1, keyAspectName, writeKey1, TEST_AUDIT_STAMP, metadata1);
 
         // Ingest CorpUserInfo Aspect #1 Overwrite
-        CorpUserInfo writeAspect1Overwrite = createCorpUserInfo("email1.overwrite@test.com");
+        CorpUserInfo writeAspect1Overwrite = AspectGenerationUtils.createCorpUserInfo("email1.overwrite@test.com");
         _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1Overwrite, TEST_AUDIT_STAMP, metadata2);
 
         // this should no-op since the key should have been written in the furst run
@@ -647,39 +609,34 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     }
 
     @Test
-    public void testRollbackUrn() throws Exception {
-        Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
-        Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
-        Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
+    public void testRollbackUrn() throws AssertionError {
+        Urn entityUrn1 = UrnUtils.getUrn("urn:li:corpuser:test1");
+        Urn entityUrn2 = UrnUtils.getUrn("urn:li:corpuser:test2");
+        Urn entityUrn3 = UrnUtils.getUrn("urn:li:corpuser:test3");
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
+        SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
+        SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-456");
 
-        SystemMetadata metadata2 = new SystemMetadata();
-        metadata2.setLastObserved(1635792689);
-        metadata2.setRunId("run-456");
-
-        String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
+        String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
         String keyAspectName = _entityService.getKeyAspectName(entityUrn1);
 
         // Ingest CorpUserInfo Aspect #1
-        CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
+        CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
         _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
 
         RecordTemplate writeKey1 = _entityService.buildKeyAspect(entityUrn1);
         _entityService.ingestAspect(entityUrn1, keyAspectName, writeKey1, TEST_AUDIT_STAMP, metadata1);
 
         // Ingest CorpUserInfo Aspect #2
-        CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
+        CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("email2@test.com");
         _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
 
         // Ingest CorpUserInfo Aspect #3
-        CorpUserInfo writeAspect3 = createCorpUserInfo("email3@test.com");
+        CorpUserInfo writeAspect3 = AspectGenerationUtils.createCorpUserInfo("email3@test.com");
         _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
 
         // Ingest CorpUserInfo Aspect #1 Overwrite
-        CorpUserInfo writeAspect1Overwrite = createCorpUserInfo("email1.overwrite@test.com");
+        CorpUserInfo writeAspect1Overwrite = AspectGenerationUtils.createCorpUserInfo("email1.overwrite@test.com");
         _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1Overwrite, TEST_AUDIT_STAMP, metadata2);
 
         // this should no-op since the key should have been written in the furst run
@@ -689,7 +646,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         rollbackKeyWithWrongRunId.setUrn(entityUrn1.toString());
 
         // this should delete all related aspects
-        _entityService.deleteUrn(Urn.createFromString("urn:li:corpuser:test1"));
+        _entityService.deleteUrn(UrnUtils.getUrn("urn:li:corpuser:test1"));
 
         // assert the new most recent aspect is null
         RecordTemplate readNewRecentAspect = _entityService.getAspect(entityUrn1, aspectName, 0);
@@ -700,20 +657,15 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     }
 
     @Test
-    public void testIngestGetLatestAspect() throws Exception {
-        Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
+    public void testIngestGetLatestAspect() throws AssertionError {
+        Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:test");
 
         // Ingest CorpUserInfo Aspect #1
-        CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
-        String aspectName = PegasusUtils.getAspectNameFromSchema(writeAspect1.schema());
+        CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
+        String aspectName = AspectGenerationUtils.getAspectName(writeAspect1);
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
-
-        SystemMetadata metadata2 = new SystemMetadata();
-        metadata2.setLastObserved(1635792689);
-        metadata2.setRunId("run-456");
+        SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
+        SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-456");
 
         // Validate retrieval of CorpUserInfo Aspect #1
         _entityService.ingestAspect(entityUrn, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
@@ -736,7 +688,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         reset(_mockProducer);
 
         // Ingest CorpUserInfo Aspect #2
-        CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
+        CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("email2@test.com");
 
         // Validate retrieval of CorpUserInfo Aspect #2
         _entityService.ingestAspect(entityUrn, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata2);
@@ -763,19 +715,14 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     @Test
     public void testIngestGetLatestEnvelopedAspect() throws Exception {
-        Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
+        Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:test");
 
         // Ingest CorpUserInfo Aspect #1
-        CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
-        String aspectName = PegasusUtils.getAspectNameFromSchema(writeAspect1.schema());
+        CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
+        String aspectName = AspectGenerationUtils.getAspectName(writeAspect1);
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
-
-        SystemMetadata metadata2 = new SystemMetadata();
-        metadata2.setLastObserved(1635792689);
-        metadata2.setRunId("run-456");
+        SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
+        SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-456");
 
         // Validate retrieval of CorpUserInfo Aspect #1
         _entityService.ingestAspect(entityUrn, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
@@ -783,7 +730,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         assertTrue(DataTemplateUtil.areEqual(writeAspect1, new CorpUserInfo(readAspect1.getValue().data())));
 
         // Ingest CorpUserInfo Aspect #2
-        CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
+        CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("email2@test.com");
 
         // Validate retrieval of CorpUserInfo Aspect #2
         _entityService.ingestAspect(entityUrn, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata2);
@@ -808,20 +755,16 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     }
 
     @Test
-    public void testIngestSameAspect() throws Exception {
-        Urn entityUrn = Urn.createFromString("urn:li:corpuser:test");
+    public void testIngestSameAspect() throws AssertionError {
+        Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:test");
 
         // Ingest CorpUserInfo Aspect #1
-        CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
-        String aspectName = PegasusUtils.getAspectNameFromSchema(writeAspect1.schema());
+        CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
+        String aspectName = AspectGenerationUtils.getAspectName(writeAspect1);
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
-
-        SystemMetadata metadata2 = new SystemMetadata();
-        metadata2.setLastObserved(1635792689);
-        metadata2.setRunId("run-456");
+        SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
+        SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-456");
+        SystemMetadata metadata3 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-123");
 
         // Validate retrieval of CorpUserInfo Aspect #1
         _entityService.ingestAspect(entityUrn, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
@@ -844,20 +787,16 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         reset(_mockProducer);
 
         // Ingest CorpUserInfo Aspect #2
-        CorpUserInfo writeAspect2 = createCorpUserInfo("email@test.com");
+        CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
 
         // Validate retrieval of CorpUserInfo Aspect #2
         _entityService.ingestAspect(entityUrn, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata2);
         RecordTemplate readAspect2 = _entityService.getLatestAspect(entityUrn, aspectName);
-        EntityAspect readAspectDao2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, 0);
+        EntityAspect readAspectDao2 = _aspectDao.getAspect(entityUrn.toString(), aspectName, ASPECT_LATEST_VERSION);
 
         assertTrue(DataTemplateUtil.areEqual(writeAspect2, readAspect2));
         assertFalse(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata2));
         assertFalse(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata1));
-
-        SystemMetadata metadata3 = new SystemMetadata();
-        metadata3.setLastObserved(1635792689);
-        metadata3.setRunId("run-123");
 
         assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata3));
 
@@ -870,24 +809,22 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     }
 
     @Test
-    public void testRetention() throws Exception {
-        Urn entityUrn = Urn.createFromString("urn:li:corpuser:test1");
+    public void testRetention() throws AssertionError {
+        Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:test1");
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
+        SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
 
-        String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
+        String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
 
         // Ingest CorpUserInfo Aspect
-        CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
+        CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
         _entityService.ingestAspect(entityUrn, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
-        CorpUserInfo writeAspect1a = createCorpUserInfo("email_a@test.com");
+        CorpUserInfo writeAspect1a = AspectGenerationUtils.createCorpUserInfo("email_a@test.com");
         _entityService.ingestAspect(entityUrn, aspectName, writeAspect1a, TEST_AUDIT_STAMP, metadata1);
-        CorpUserInfo writeAspect1b = createCorpUserInfo("email_b@test.com");
+        CorpUserInfo writeAspect1b = AspectGenerationUtils.createCorpUserInfo("email_b@test.com");
         _entityService.ingestAspect(entityUrn, aspectName, writeAspect1b, TEST_AUDIT_STAMP, metadata1);
 
-        String aspectName2 = PegasusUtils.getAspectNameFromSchema(new Status().schema());
+        String aspectName2 = AspectGenerationUtils.getAspectName(new Status());
         // Ingest Status Aspect
         Status writeAspect2 = new Status().setRemoved(true);
         _entityService.ingestAspect(entityUrn, aspectName2, writeAspect2, TEST_AUDIT_STAMP, metadata1);
@@ -905,7 +842,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             new Retention().setVersion(new VersionBasedRetention().setMaxVersions(4))));
 
         // Ingest CorpUserInfo Aspect again
-        CorpUserInfo writeAspect1c = createCorpUserInfo("email_c@test.com");
+        CorpUserInfo writeAspect1c = AspectGenerationUtils.createCorpUserInfo("email_c@test.com");
         _entityService.ingestAspect(entityUrn, aspectName, writeAspect1c, TEST_AUDIT_STAMP, metadata1);
         // Ingest Status Aspect again
         Status writeAspect2c = new Status().setRemoved(false);
@@ -925,24 +862,22 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     }
 
     @Test
-    public void testIngestAspectIfNotPresent() throws Exception {
-        Urn entityUrn = Urn.createFromString("urn:li:corpuser:test1");
+    public void testIngestAspectIfNotPresent() throws AssertionError {
+        Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:test1");
 
-        SystemMetadata metadata1 = new SystemMetadata();
-        metadata1.setLastObserved(1625792689);
-        metadata1.setRunId("run-123");
+        SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
 
-        String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
+        String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
 
         // Ingest CorpUserInfo Aspect
-        CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
+        CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
         _entityService.ingestAspectIfNotPresent(entityUrn, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
-        CorpUserInfo writeAspect1a = createCorpUserInfo("email_a@test.com");
+        CorpUserInfo writeAspect1a = AspectGenerationUtils.createCorpUserInfo("email_a@test.com");
         _entityService.ingestAspectIfNotPresent(entityUrn, aspectName, writeAspect1a, TEST_AUDIT_STAMP, metadata1);
-        CorpUserInfo writeAspect1b = createCorpUserInfo("email_b@test.com");
+        CorpUserInfo writeAspect1b = AspectGenerationUtils.createCorpUserInfo("email_b@test.com");
         _entityService.ingestAspectIfNotPresent(entityUrn, aspectName, writeAspect1b, TEST_AUDIT_STAMP, metadata1);
 
-        String aspectName2 = PegasusUtils.getAspectNameFromSchema(new Status().schema());
+        String aspectName2 = AspectGenerationUtils.getAspectName(new Status());
         // Ingest Status Aspect
         Status writeAspect2 = new Status().setRemoved(true);
         _entityService.ingestAspectIfNotPresent(entityUrn, aspectName2, writeAspect2, TEST_AUDIT_STAMP, metadata1);
@@ -961,14 +896,6 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         assertEquals(_entityService.listLatestAspects(entityUrn.getEntityType(), aspectName2, 0, 10).getTotalCount(), 1);
     }
 
-    protected static AuditStamp createTestAuditStamp() {
-        try {
-            return new AuditStamp().setTime(123L).setActor(Urn.createFromString("urn:li:principal:tester"));
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to create urn");
-        }
-    }
-
     @Nonnull
     protected com.linkedin.entity.Entity createCorpUserEntity(Urn entityUrn, String email) throws Exception {
         CorpuserUrn corpuserUrn = CorpuserUrn.createFromUrn(entityUrn);
@@ -976,7 +903,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         Snapshot snapshot = new Snapshot();
         CorpUserSnapshot corpUserSnapshot = new CorpUserSnapshot();
         List<CorpUserAspect> userAspects = new ArrayList<>();
-        userAspects.add(CorpUserAspect.create(createCorpUserInfo(email)));
+        userAspects.add(CorpUserAspect.create(AspectGenerationUtils.createCorpUserInfo(email)));
         corpUserSnapshot.setAspects(new CorpUserAspectArray(userAspects));
         corpUserSnapshot.setUrn(corpuserUrn);
         snapshot.setCorpUserSnapshot(corpUserSnapshot);
@@ -984,28 +911,11 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         return entity;
     }
 
-    @Nonnull
-    protected RecordTemplate createCorpUserKey(Urn urn) throws Exception {
-        return EntityKeyUtils.convertUrnToEntityKey(urn, new CorpUserKey().schema());
-    }
-
-    @Nonnull
-    protected CorpUserInfo createCorpUserInfo(String email) throws Exception {
-        CorpUserInfo corpUserInfo = new CorpUserInfo();
-        corpUserInfo.setEmail(email);
-        corpUserInfo.setActive(true);
-        return corpUserInfo;
-    }
-
-    protected String getAspectName(RecordTemplate record) {
-        return PegasusUtils.getAspectNameFromSchema(record.schema());
-    }
-
     protected <T extends RecordTemplate> Pair<String, RecordTemplate> getAspectRecordPair(T aspect, Class<T> clazz)
         throws Exception {
         final ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
         RecordTemplate recordTemplate = RecordUtils.toRecordTemplate(clazz, objectMapper.writeValueAsString(aspect));
-        return new Pair<>(getAspectName(aspect), recordTemplate);
+        return new Pair<>(AspectGenerationUtils.getAspectName(aspect), recordTemplate);
     }
 }

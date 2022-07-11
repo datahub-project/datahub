@@ -262,6 +262,7 @@ plugins: Dict[str, Set[str]] = {
     "redshift": sql_common | redshift_common,
     "redshift-usage": sql_common | usage_common | redshift_common,
     "sagemaker": aws_common,
+    "salesforce":{"simple-salesforce"},
     "snowflake": snowflake_common,
     "snowflake-usage": snowflake_common
     | usage_common
@@ -366,6 +367,7 @@ base_dev_requirements = {
             "starburst-trino-usage",
             "powerbi",
             "vertica",
+            "salesforce"
             # airflow is added below
         ]
         for dependency in plugins[plugin]
@@ -509,6 +511,7 @@ entry_points = {
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
         "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
+        "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",

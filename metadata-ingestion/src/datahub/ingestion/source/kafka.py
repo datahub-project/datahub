@@ -47,6 +47,7 @@ from datahub.metadata.schema_classes import (
     JobStatusClass,
     SubTypesClass,
 )
+from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -150,6 +151,11 @@ class KafkaSource(StatefulIngestionSourceBase):
         self.schema_registry_client: KafkaSchemaRegistryBase = (
             KafkaSource.create_schema_registry(config, self.report)
         )
+        if self.source_config.domain:
+            self.domain_registry = DomainRegistry(
+                cached_domains=[k for k in self.source_config.domain],
+                graph=self.ctx.graph,
+            )
 
     def is_checkpointing_enabled(self, job_id: JobId) -> bool:
         if (
@@ -333,7 +339,9 @@ class KafkaSource(StatefulIngestionSourceBase):
         # 6. Emit domains aspect MCPW
         for domain, pattern in self.source_config.domain.items():
             if pattern.allowed(dataset_name):
-                domain_urn = make_domain_urn(domain)
+                domain_urn = make_domain_urn(
+                    self.domain_registry.get_domain_urn(domain)
+                )
 
         if domain_urn:
             wus = add_domain_to_entity_wu(

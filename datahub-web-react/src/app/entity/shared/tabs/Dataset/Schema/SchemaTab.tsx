@@ -14,7 +14,6 @@ import { groupByFieldPath } from '../../../../dataset/profile/schema/utils/utils
 import { ANTD_GRAY } from '../../../constants';
 import { useBaseEntity, useEntityData } from '../../../EntityContext';
 import { ChangeCategoryType, SchemaFieldBlame, SemanticVersionStruct } from '../../../../../../types.generated';
-import { toLocalDateTimeString } from '../../../../../shared/time/timeUtils';
 import { SchemaViewType } from '../../../../dataset/profile/schema/utils/types';
 import SchemaTable from './SchemaTable';
 import useGetSemanticVersionFromUrlParams from './utils/useGetSemanticVersionFromUrlParams';
@@ -120,11 +119,8 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
         return groupByFieldPath(schemaMetadata?.fields, { showKeySchema });
     }, [schemaMetadata, showKeySchema]);
 
-    const lastUpdatedTimeString = `Reported at ${
-        (getSchemaBlameData?.getSchemaBlame?.version?.semanticVersionTimestamp &&
-            toLocalDateTimeString(getSchemaBlameData?.getSchemaBlame?.version?.semanticVersionTimestamp)) ||
-        'unknown'
-    }`;
+    const lastUpdated = getSchemaBlameData?.getSchemaBlame?.version?.semanticVersionTimestamp;
+    const lastObserved = versionedDatasetData.data?.versionedDataset?.schema?.lastObserved;
 
     const schemaFieldBlameList: Array<SchemaFieldBlame> =
         (getSchemaBlameData?.getSchemaBlame?.schemaFieldBlameList as Array<SchemaFieldBlame>) || [];
@@ -139,7 +135,8 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
                 hasKeySchema={hasKeySchema}
                 showKeySchema={showKeySchema}
                 setShowKeySchema={setShowKeySchema}
-                lastUpdatedTimeString={lastUpdatedTimeString}
+                lastObserved={lastObserved}
+                lastUpdated={lastUpdated}
                 selectedVersion={selectedVersion}
                 versionList={versionList}
                 schemaView={schemaViewMode}

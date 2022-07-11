@@ -85,6 +85,7 @@ const TagContainer = styled.div`
     display: inline-flex;
     margin-left: 0px;
     margin-top: 3px;
+    flex-wrap: wrap;
 `;
 
 const TagSeparator = styled.div`
