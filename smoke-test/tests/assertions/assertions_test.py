@@ -4,7 +4,6 @@ import urllib
 
 import pytest
 import requests
-from datahub.cli.docker import check_local_docker_containers
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
@@ -24,7 +23,7 @@ from datahub.metadata.schema_classes import (
     PartitionSpecClass,
     PartitionTypeClass,
 )
-from tests.utils import delete_urns_from_file, get_gms_url, ingest_file_via_rest, check_k8s_endpoint, is_k8s_enabled
+from tests.utils import delete_urns_from_file, get_gms_url, ingest_file_via_rest, wait_for_healthcheck_util
 
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
@@ -63,7 +62,6 @@ def create_test_data(test_file):
         1643880726874,
         1643880726875,
     ]
-    msg_ids = []
     # The assertion run event attached to the dataset
     mcp2 = MetadataChangeProposalWrapper(
         entityType="assertion",
@@ -233,13 +231,7 @@ def generate_test_data(tmp_path_factory):
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks(generate_test_data):
-    if is_k8s_enabled():
-        # Simply assert that kubernetes endpoints are healthy, but don't wait.
-        # assert not check_k8s_endpoint(f"{get_frontend_url()}/admin")
-        assert not check_k8s_endpoint(f"{get_gms_url()}/health")
-    else:    
-        # Simply assert that docker is healthy, but don't wait.
-        assert not check_local_docker_containers()
+    wait_for_healthcheck_util()
     yield
 
 

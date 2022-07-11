@@ -11,7 +11,7 @@ def ingest_cleanup_data(request):
     delete_urns_from_file("tests/tags-and-terms/data.json")
 
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+@pytest.mark.dependency(depends=["ingest_cleanup_data"])
 def test_add_tag(frontend_session, wait_for_healthchecks):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = "test-tags-terms-sample-kafka"
@@ -45,7 +45,7 @@ def test_add_tag(frontend_session, wait_for_healthchecks):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["globalTags"] == None
+    assert res_data["data"]["dataset"]["globalTags"] is None
 
     add_json = {
         "query": """mutation addTag($input: TagAssociationInput!) {\n
@@ -159,7 +159,7 @@ def test_add_tag_to_chart(frontend_session, wait_for_healthchecks):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["chart"]
-    assert res_data["data"]["chart"]["globalTags"] == None
+    assert res_data["data"]["chart"]["globalTags"] is None
 
     add_json = {
         "query": """mutation addTag($input: TagAssociationInput!) {\n
@@ -273,7 +273,7 @@ def test_add_term(frontend_session, wait_for_healthchecks):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["glossaryTerms"] == None
+    assert res_data["data"]["dataset"]["glossaryTerms"] is None
 
     add_json = {
         "query": """mutation addTerm($input: TermAssociationInput!) {\n
@@ -445,7 +445,7 @@ def test_update_schemafield(frontend_session, wait_for_healthchecks):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["editableSchemaMetadata"] == None
+    assert res_data["data"]["dataset"]["editableSchemaMetadata"] is None
 
     add_json = {
         "query": """mutation addTag($input: TagAssociationInput!) {\n

@@ -5,18 +5,16 @@ from typing import Any, Optional
 import pytest
 import requests
 import tenacity
-from datahub.cli.docker import check_local_docker_containers
 from datahub.ingestion.run.pipeline import Pipeline
 
 from tests.utils import (
-    check_k8s_endpoint,
     get_frontend_url,
     get_gms_url,
     get_kafka_broker_url,
     get_kafka_schema_registry,
     get_sleep_info,
     ingest_file_via_rest,
-    is_k8s_enabled,
+    wait_for_healthcheck_util,
 )
 
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
@@ -34,13 +32,7 @@ sleep_sec, sleep_times = get_sleep_info()
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
-    if is_k8s_enabled():
-        # Simply assert that kubernetes endpoints are healthy, but don't wait.
-        assert not check_k8s_endpoint(f"{get_frontend_url()}/admin")
-        assert not check_k8s_endpoint(f"{get_gms_url()}/health")
-    else:
-        # Simply assert that docker is healthy, but don't wait.
-        assert not check_local_docker_containers()
+    wait_for_healthcheck_util()
     yield
 
 

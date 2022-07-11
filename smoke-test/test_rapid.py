@@ -2,11 +2,8 @@ import time
 
 import pytest
 import requests
-from os import getenv
 
-from datahub.cli.docker import check_local_docker_containers
-
-from tests.utils import get_frontend_url, ingest_file_via_rest, check_k8s_endpoint, is_k8s_enabled
+from tests.utils import get_frontend_url, ingest_file_via_rest, wait_for_healthcheck_util
 
 bootstrap_small = "test_resources/bootstrap_single.json"
 bootstrap_small_2 = "test_resources/bootstrap_single2.json"
@@ -14,12 +11,7 @@ bootstrap_small_2 = "test_resources/bootstrap_single2.json"
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
-    if is_k8s_enabled():
-        # Simply assert that kubernetes endpoints are healthy, but don't wait.
-        assert not check_k8s_endpoint(f"{get_frontend_url()}/admin")
-    else:
-        # Simply assert that docker is healthy, but don't wait.
-        assert not check_local_docker_containers()
+    wait_for_healthcheck_util()
     yield
 
 

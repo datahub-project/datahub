@@ -5,6 +5,7 @@ from typing import Any, Tuple
 import requests
 from datahub.cli import cli_utils
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.cli.docker import check_local_docker_containers
 
 
 def get_gms_url():
@@ -44,6 +45,16 @@ def get_sleep_info() -> Tuple[int, int]:
 
 def is_k8s_enabled():
     return os.getenv("K8S_CLUSTER_ENABLED", "false").lower() in ["true", "yes"]
+
+
+def wait_for_healthcheck_util():
+    if is_k8s_enabled():
+        # Simply assert that kubernetes endpoints are healthy, but don't wait.
+        assert not check_k8s_endpoint(f"{get_frontend_url()}/admin")
+        assert not check_k8s_endpoint(f"{get_gms_url()}/health")
+    else:
+        # Simply assert that docker is healthy, but don't wait.
+        assert not check_local_docker_containers()
 
 
 def check_k8s_endpoint(url):

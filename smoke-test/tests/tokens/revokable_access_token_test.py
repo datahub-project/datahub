@@ -3,8 +3,7 @@ import pytest
 import requests
 from time import sleep
 
-from datahub.cli.docker import check_local_docker_containers
-from tests.utils import get_frontend_url, check_k8s_endpoint, is_k8s_enabled
+from tests.utils import get_frontend_url, wait_for_healthcheck_util
 
 # Disable telemetry
 os.putenv("DATAHUB_TELEMETRY_ENABLED", "false")
@@ -12,13 +11,9 @@ os.putenv("DATAHUB_TELEMETRY_ENABLED", "false")
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
-    if is_k8s_enabled():
-        # Simply assert that kubernetes endpoints are healthy, but don't wait.
-        assert not check_k8s_endpoint(f"{get_frontend_url()}/admin")
-    else:
-        # Simply assert that docker is healthy, but don't wait.
-        assert not check_local_docker_containers()
+    wait_for_healthcheck_util()
     yield
+
 @pytest.mark.dependency()
 def test_healthchecks(wait_for_healthchecks):
     # Call to wait_for_healthchecks fixture will do the actual functionality.
