@@ -23,10 +23,12 @@ def wait_for_healthchecks():
         assert not check_local_docker_containers()
     yield
 
+
 @pytest.mark.dependency()
 def test_healthchecks(wait_for_healthchecks):
     # Call to wait_for_healthchecks fixture will do the actual functionality.
     pass
+
 
 @pytest.fixture(autouse=True)
 def test_setup():
@@ -57,6 +59,7 @@ def test_setup():
 
     assert "browsePaths" not in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["browsePaths"], typed=False)
     assert "editableDatasetProperties" not in get_aspects_for_entity(entity_urn=dataset_urn, aspects=["editableDatasetProperties"], typed=False)
+
 
 @pytest.mark.dependency()
 def test_delete_reference(depends=["test_healthchecks"]):

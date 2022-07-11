@@ -48,7 +48,7 @@ def _ensure_more_domains(frontend_session, list_domains_json, before_count):
 
     # Assert that there are more domains now.
     after_count = res_data["data"]["listDomains"]["total"]
-    print(after_count)
+    print(f"after_count is {after_count}")
     assert after_count == before_count + 1
 
 
@@ -83,9 +83,10 @@ def test_create_list_get_domain(frontend_session):
     assert res_data["data"]
     assert res_data["data"]["listDomains"]["total"] is not None
     assert "errors" not in res_data
+    print(f"domains resp is {res_data}")
 
     before_count = res_data["data"]["listDomains"]["total"]
-    print(before_count)
+    print(f"before_count is {before_count}")
 
     domain_id = "test id"
     domain_name = "test name"
