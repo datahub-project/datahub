@@ -660,6 +660,26 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
+        "urn": "urn:li:dataPlatform:powerbi-report-server",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataplatform.DataPlatformInfo": {
+              "datasetNameDelimiter": ".",
+              "name": "powerbi-report-server",
+              "displayName": "Power BI Report Server",
+              "type": "OTHERS",
+              "logoUrl": "/assets/platforms/powerbireportserverlogo.png"
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DataPlatformSnapshot": {
         "urn": "urn:li:dataPlatform:great-expectations",
         "aspects": [
           {
