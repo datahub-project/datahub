@@ -37,7 +37,6 @@ from datahub.metadata.schema_classes import (
     CorpUserKeyClass,
     DashboardInfoClass,
     DashboardKeyClass,
-    DatasetPropertiesClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -152,7 +151,7 @@ class PowerBiReportServerAPI:
     def get_user_policies(self, user_name: str) -> Optional[SystemPolicies]:
         users_policies = self.get_users_policies()
         for user_policy in users_policies:
-            if user_policy.GroupUserName == user_name:
+            if user_policy.group_user_name == user_name:
                 return user_policy
         return None
 
@@ -479,15 +478,14 @@ class Mapper:
         chart_urn_list: List[str] = self.to_urn_set(chart_mcps)
         user_urn_list: List[str] = self.to_urn_set(user_mcps)
 
-        def chart_custom_properties(
+        def custom_properties(
             _report: Report,
         ) -> dict:
             return {
-                "chartCount": str(0),
                 "workspaceName": "PowerBI Report Server",
                 "workspaceId": self.__config.host_port,
                 "dataSource": str(
-                    [report.ConnectionString for report in _report.data_sources]
+                    [report.connection_string for report in _report.data_sources]
                 )
                 if _report.data_sources
                 else "",
@@ -500,7 +498,7 @@ class Mapper:
             charts=chart_urn_list,
             lastModified=ChangeAuditStamps(),
             dashboardUrl=report.get_web_url(self.__config.get_base_url),
-            customProperties={**chart_custom_properties(report)},
+            customProperties={**custom_properties(report)},
         )
 
         info_mcp = self.new_mcp(
