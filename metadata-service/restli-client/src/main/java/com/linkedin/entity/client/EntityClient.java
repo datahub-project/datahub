@@ -230,6 +230,12 @@ public interface EntityClient {
       throws RemoteInvocationException;
 
   /**
+   * Delete all references to an entity with a particular urn.
+   */
+  public void deleteEntityReferences(@Nonnull final Urn urn, @Nonnull final Authentication authentication)
+      throws RemoteInvocationException;
+
+  /**
    * Filters entities based on a particular Filter and Sort criterion
    *
    * @param entity filter entity
@@ -243,6 +249,17 @@ public interface EntityClient {
   @Nonnull
   public SearchResult filter(@Nonnull String entity, @Nonnull Filter filter, @Nullable SortCriterion sortCriterion,
       int start, int count, @Nonnull Authentication authentication) throws RemoteInvocationException;
+
+  /**
+   * Checks whether an entity with a given urn exists
+   *
+   * @param urn the urn of the entity
+   * @return true if an entity exists, i.e. there are > 0 aspects in the DB for the entity. This means that the entity
+   * has not been hard-deleted.
+   * @throws RemoteInvocationException
+   */
+  @Nonnull
+  public boolean exists(@Nonnull Urn urn, @Nonnull Authentication authentication) throws RemoteInvocationException;
 
   @Nullable
   @Deprecated

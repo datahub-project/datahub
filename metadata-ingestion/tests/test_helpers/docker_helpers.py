@@ -1,6 +1,6 @@
 import contextlib
 import subprocess
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 
 import pytest
 import pytest_docker.plugin
@@ -27,16 +27,15 @@ def wait_for_port(
     hostname: str = None,
     timeout: float = 30.0,
     pause: float = 0.5,
+    checker: Optional[Callable[[], bool]] = None,
 ) -> None:
-    # import pdb
-
-    # breakpoint()
     try:
-        # port = docker_services.port_for(container_name, container_port)
         docker_services.wait_until_responsive(
             timeout=timeout,
             pause=pause,
-            check=lambda: is_responsive(container_name, container_port, hostname),
+            check=checker
+            if checker
+            else lambda: is_responsive(container_name, container_port, hostname),
         )
     finally:
         # use check=True to raise an error if command gave bad exit code

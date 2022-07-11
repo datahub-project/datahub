@@ -31,6 +31,7 @@ import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.key.DatasetKey;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaMetadata;
 import javax.annotation.Nonnull;
@@ -61,12 +62,14 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
 
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<VersionedDataset> mappingHelper = new MappingHelper<>(aspectMap, result);
+    SystemMetadata schemaSystemMetadata = getSystemMetadata(aspectMap, SCHEMA_METADATA_ASPECT_NAME);
+
     mappingHelper.mapToResult(DATASET_KEY_ASPECT_NAME, this::mapDatasetKey);
     mappingHelper.mapToResult(DATASET_PROPERTIES_ASPECT_NAME, this::mapDatasetProperties);
     mappingHelper.mapToResult(DATASET_DEPRECATION_ASPECT_NAME, (dataset, dataMap) ->
         dataset.setDeprecation(DatasetDeprecationMapper.map(new DatasetDeprecation(dataMap))));
     mappingHelper.mapToResult(SCHEMA_METADATA_ASPECT_NAME, (dataset, dataMap) ->
-        dataset.setSchema(SchemaMapper.map(new SchemaMetadata(dataMap))));
+        dataset.setSchema(SchemaMapper.map(new SchemaMetadata(dataMap), schemaSystemMetadata)));
     mappingHelper.mapToResult(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME, this::mapEditableDatasetProperties);
     mappingHelper.mapToResult(VIEW_PROPERTIES_ASPECT_NAME, this::mapViewProperties);
     mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (dataset, dataMap) ->
@@ -86,6 +89,13 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
         dataset.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
 
     return mappingHelper.getResult();
+  }
+
+  private SystemMetadata getSystemMetadata(EnvelopedAspectMap aspectMap, String aspectName) {
+    if (aspectMap.containsKey(aspectName) && aspectMap.get(aspectName).hasSystemMetadata()) {
+      return aspectMap.get(aspectName).getSystemMetadata();
+    }
+    return null;
   }
 
   private void mapDatasetKey(@Nonnull VersionedDataset dataset, @Nonnull DataMap dataMap) {

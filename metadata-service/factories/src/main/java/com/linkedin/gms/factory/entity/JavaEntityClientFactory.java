@@ -2,11 +2,13 @@ package com.linkedin.gms.factory.entity;
 
 import com.linkedin.entity.client.JavaEntityClient;
 import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
+import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -23,12 +25,20 @@ public class JavaEntityClientFactory {
   private EntityService _entityService;
 
   @Autowired
+  @Qualifier("deleteEntityService")
+  private DeleteEntityService _deleteEntityService;
+
+  @Autowired
   @Qualifier("searchService")
   private SearchService _searchService;
 
   @Autowired
   @Qualifier("entitySearchService")
   private EntitySearchService _entitySearchService;
+
+  @Autowired
+  @Qualifier("cachingEntitySearchService")
+  private CachingEntitySearchService _cachingEntitySearchService;
 
   @Autowired
   @Qualifier("timeseriesAspectService")
@@ -46,10 +56,12 @@ public class JavaEntityClientFactory {
   public JavaEntityClient getJavaEntityClient() {
     return new JavaEntityClient(
         _entityService,
-        _eventProducer,
+        _deleteEntityService,
         _entitySearchService,
+        _cachingEntitySearchService,
         _searchService,
+        _lineageSearchService,
         _timeseriesAspectService,
-        _lineageSearchService);
+        _eventProducer);
   }
 }

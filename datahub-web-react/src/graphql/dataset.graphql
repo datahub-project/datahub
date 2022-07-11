@@ -41,9 +41,6 @@ fragment nonSiblingDatasetFields on Dataset {
     schemaMetadata(version: 0) {
         ...schemaMetadataFields
     }
-    previousSchemaMetadata: schemaMetadata(version: -1) {
-        ...schemaMetadataFields
-    }
     editableSchemaMetadata {
         editableSchemaFieldInfo {
             fieldPath
@@ -73,9 +70,6 @@ fragment nonSiblingDatasetFields on Dataset {
     }
     domain {
         ...entityDomain
-    }
-    container {
-        ...entityContainer
     }
     parentContainers {
         ...parentContainersFields
@@ -198,22 +192,34 @@ fragment viewProperties on Dataset {
     }
 }
 
+fragment assertionsQuery on Dataset {
+    assertions(start: 0, count: 100) {
+        start
+        count
+        total
+        assertions {
+            ...assertionDetails
+            runEvents(status: COMPLETE, limit: 1) {
+                total
+                failed
+                succeeded
+                runEvents {
+                    ...assertionRunEventDetails
+                }
+            }
+        }
+    }
+}
+
 query getDatasetAssertions($urn: String!) {
     dataset(urn: $urn) {
-        assertions(start: 0, count: 100) {
-            start
-            count
-            total
-            assertions {
-                ...assertionDetails
-                runEvents(status: COMPLETE, limit: 1) {
-                    total
-                    failed
-                    succeeded
-                    runEvents {
-                        ...assertionRunEventDetails
-                    }
-                }
+        ...assertionsQuery
+        siblings {
+            isPrimary
+            siblings {
+                urn
+                type
+                ...assertionsQuery
             }
         }
     }

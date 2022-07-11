@@ -1,9 +1,13 @@
-import pytest
 import time
-from tests.utils import FRONTEND_ENDPOINT
-from tests.utils import GMS_ENDPOINT
-from tests.utils import ingest_file_via_rest
-from tests.utils import delete_urns_from_file
+
+import pytest
+from tests.utils import (
+    delete_urns_from_file,
+    get_frontend_url,
+    get_gms_url,
+    ingest_file_via_rest,
+)
+
 
 @pytest.fixture(scope="module", autouse=False)
 def ingest_cleanup_data(request):
@@ -13,10 +17,12 @@ def ingest_cleanup_data(request):
     print("removing domains test data")
     delete_urns_from_file("tests/domains/data.json")
 
+
 @pytest.mark.dependency()
 def test_healthchecks(wait_for_healthchecks):
     # Call to wait_for_healthchecks fixture will do the actual functionality.
     pass
+
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_create_list_get_domain(frontend_session):
@@ -36,16 +42,11 @@ def test_create_list_get_domain(frontend_session):
               }\n
             }\n
         }""",
-        "variables": {
-          "input": {
-              "start": "0",
-              "count": "20"
-          }
-        }
+        "variables": {"input": {"start": "0", "count": "20"}},
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=list_domains_json
+        f"{get_frontend_url()}/api/v2/graphql", json=list_domains_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -68,16 +69,16 @@ def test_create_list_get_domain(frontend_session):
             createDomain(input: $input)
         }""",
         "variables": {
-          "input": {
-              "id": domain_id,
-              "name": domain_name,
-              "description": domain_description
-          }
-        }
+            "input": {
+                "id": domain_id,
+                "name": domain_name,
+                "description": domain_description,
+            }
+        },
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=create_domain_json
+        f"{get_frontend_url()}/api/v2/graphql", json=create_domain_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -94,7 +95,7 @@ def test_create_list_get_domain(frontend_session):
 
     # Get new count of Domains
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=list_domains_json
+        f"{get_frontend_url()}/api/v2/graphql", json=list_domains_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -109,7 +110,6 @@ def test_create_list_get_domain(frontend_session):
     print(after_count)
     assert after_count == before_count + 1
 
-
     # Get the domain value back
     get_domain_json = {
         "query": """query domain($urn: String!) {\n
@@ -122,13 +122,11 @@ def test_create_list_get_domain(frontend_session):
               }\n
             }\n
         }""",
-        "variables": {
-          "urn": domain_urn
-        }
+        "variables": {"urn": domain_urn},
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=get_domain_json
+        f"{get_frontend_url()}/api/v2/graphql", json=get_domain_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -139,18 +137,16 @@ def test_create_list_get_domain(frontend_session):
     assert "errors" not in res_data
 
     domain = res_data["data"]["domain"]
-    assert domain["urn"] == f'urn:li:domain:{domain_id}'
+    assert domain["urn"] == f"urn:li:domain:{domain_id}"
     assert domain["id"] == domain_id
     assert domain["properties"]["name"] == domain_name
     assert domain["properties"]["description"] == domain_description
 
-    delete_json = {
-      "urn": domain_urn
-    }
+    delete_json = {"urn": domain_urn}
 
     # Cleanup: Delete the domain
     response = frontend_session.post(
-        f"{GMS_ENDPOINT}/entities?action=delete", json=delete_json
+        f"{get_gms_url()}/entities?action=delete", json=delete_json
     )
 
     response.raise_for_status()
@@ -160,20 +156,20 @@ def test_create_list_get_domain(frontend_session):
 def test_set_unset_domain(frontend_session, ingest_cleanup_data):
 
     # Set and Unset a Domain for a dataset. Note that this doesn't test for adding domains to charts, dashboards, charts, & jobs.
-    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-tags-terms-sample-kafka,PROD)"
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,test-tags-terms-sample-kafka,PROD)"
+    )
     domain_urn = "urn:li:domain:engineering"
 
     # First unset to be sure.
     unset_domain_json = {
         "query": """mutation unsetDomain($entityUrn: String!) {\n
             unsetDomain(entityUrn: $entityUrn)}""",
-        "variables": {
-            "entityUrn": dataset_urn
-        }
+        "variables": {"entityUrn": dataset_urn},
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=unset_domain_json
+        f"{get_frontend_url()}/api/v2/graphql", json=unset_domain_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -187,14 +183,11 @@ def test_set_unset_domain(frontend_session, ingest_cleanup_data):
     set_domain_json = {
         "query": """mutation setDomain($entityUrn: String!, $domainUrn: String!) {\n
             setDomain(entityUrn: $entityUrn, domainUrn: $domainUrn)}""",
-        "variables": {
-            "entityUrn": dataset_urn,
-            "domainUrn": domain_urn
-        }
+        "variables": {"entityUrn": dataset_urn, "domainUrn": domain_urn},
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=set_domain_json
+        f"{get_frontend_url()}/api/v2/graphql", json=set_domain_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -204,7 +197,7 @@ def test_set_unset_domain(frontend_session, ingest_cleanup_data):
     assert res_data["data"]["setDomain"] is True
     assert "errors" not in res_data
 
-    # Now, fetch the dataset's domain and confirm it was set.GMS_ENDPOINT
+    # Now, fetch the dataset's domain and confirm it was set.
     get_dataset_json = {
         "query": """query dataset($urn: String!) {\n
             dataset(urn: $urn) {\n
@@ -217,13 +210,11 @@ def test_set_unset_domain(frontend_session, ingest_cleanup_data):
               }\n
             }\n
         }""",
-        "variables": {
-          "urn": dataset_urn
-        }
+        "variables": {"urn": dataset_urn},
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=get_dataset_json
+        f"{get_frontend_url()}/api/v2/graphql", json=get_dataset_json
     )
     response.raise_for_status()
     res_data = response.json()

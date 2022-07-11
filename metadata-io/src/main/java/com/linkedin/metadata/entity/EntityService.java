@@ -722,6 +722,17 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     return updatedValue;
   }
 
+  /**
+   * Ingest a new {@link MetadataChangeProposal}. Note that this method does NOT include any additional aspects or do any
+   * enrichment, instead it changes only those which are provided inside the metadata change proposal.
+   *
+   * Do not use this method directly for creating new entities, as it DOES NOT create an Entity Key aspect in the DB. Instead,
+   * use an Entity Client.
+   *
+   * @param metadataChangeProposal the proposal to ingest
+   * @param auditStamp an audit stamp representing the time and actor proposing the change
+   * @return an {@link IngestProposalResult} containing the results
+   */
   public IngestProposalResult ingestProposal(@Nonnull MetadataChangeProposal metadataChangeProposal,
       AuditStamp auditStamp) {
 
@@ -1035,10 +1046,10 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
   }
 
   /**
-  Returns true if entityType should have some aspect as per its definition
+    Returns true if entityType should have some aspect as per its definition
     but aspects given does not have that aspect
    */
-  private boolean isAspectProvided(String entityType, String aspectName, Set<String> aspects) {
+  private boolean isAspectMissing(String entityType, String aspectName, Set<String> aspects) {
     return _entityRegistry.getEntitySpec(entityType).getAspectSpecMap().containsKey(aspectName)
         && !aspects.contains(aspectName);
   }
@@ -1049,19 +1060,14 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     Set<String> aspectsToGet = new HashSet<>();
     String entityType = urnToEntityName(urn);
 
-    boolean shouldCheckBrowsePath = isAspectProvided(entityType, BROWSE_PATHS, includedAspects);
+    boolean shouldCheckBrowsePath = isAspectMissing(entityType, BROWSE_PATHS, includedAspects);
     if (shouldCheckBrowsePath) {
       aspectsToGet.add(BROWSE_PATHS);
     }
 
-    boolean shouldCheckDataPlatform = isAspectProvided(entityType, DATA_PLATFORM_INSTANCE, includedAspects);
+    boolean shouldCheckDataPlatform = isAspectMissing(entityType, DATA_PLATFORM_INSTANCE, includedAspects);
     if (shouldCheckDataPlatform) {
       aspectsToGet.add(DATA_PLATFORM_INSTANCE);
-    }
-
-    boolean shouldHaveStatusSet = isAspectProvided(entityType, STATUS, includedAspects);
-    if (shouldHaveStatusSet) {
-      aspectsToGet.add(STATUS);
     }
 
     List<Pair<String, RecordTemplate>> aspects = new ArrayList<>();
@@ -1090,12 +1096,6 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     if (shouldCheckDataPlatform && latestAspects.get(DATA_PLATFORM_INSTANCE) == null) {
       DataPlatformInstanceUtils.buildDataPlatformInstance(entityType, keyAspect)
           .ifPresent(aspect -> aspects.add(Pair.of(DATA_PLATFORM_INSTANCE, aspect)));
-    }
-
-    if (shouldHaveStatusSet && latestAspects.get(STATUS) != null) {
-      Status status = new Status();
-      status.setRemoved(false);
-      aspects.add(Pair.of(STATUS, status));
     }
 
     return aspects;
@@ -1522,6 +1522,16 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       //    since nowhere else is using it should be safe for now at least
       envelopedAspect.setType(AspectType.VERSIONED);
       envelopedAspect.setValue(aspect);
+
+      try {
+        if (currAspectEntry.getSystemMetadata() != null) {
+          final SystemMetadata systemMetadata = RecordUtils.toRecordTemplate(SystemMetadata.class, currAspectEntry.getSystemMetadata());
+          envelopedAspect.setSystemMetadata(systemMetadata);
+        }
+      } catch (Exception e) {
+        log.warn("Exception encountered when setting system metadata on enveloped aspect {}. Error: {}", envelopedAspect.getName(), e);
+      }
+
       envelopedAspect.setCreated(new AuditStamp()
           .setActor(UrnUtils.getUrn(currAspectEntry.getCreatedBy()))
           .setTime(currAspectEntry.getCreatedOn().getTime())

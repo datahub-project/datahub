@@ -98,7 +98,7 @@ class PulsarSource(StatefulIngestionSourceBase):
         self.platform: str = "pulsar"
         self.config: PulsarSourceConfig = config
         self.report: PulsarSourceReport = PulsarSourceReport()
-        self.base_url: str = self.config.web_service_url + "/admin/v2"
+        self.base_url: str = f"{self.config.web_service_url}/admin/v2"
         self.tenants: List[str] = config.tenants
 
         if (
@@ -120,7 +120,7 @@ class PulsarSource(StatefulIngestionSourceBase):
         if self._is_oauth_authentication_configured():
             # Get OpenId configuration from issuer, e.g. token_endpoint
             oid_config_url = (
-                "%s/.well-known/openid-configuration" % self.config.issuer_url
+                f"{self.config.issuer_url}/.well-known/openid-configuration"
             )
             oid_config_response = requests.get(
                 oid_config_url, verify=False, allow_redirects=False
@@ -130,8 +130,7 @@ class PulsarSource(StatefulIngestionSourceBase):
                 self.config.oid_config.update(oid_config_response.json())
             else:
                 logger.error(
-                    "Unexpected response while getting discovery document using %s : %s"
-                    % (oid_config_url, oid_config_response)
+                    f"Unexpected response while getting discovery document using {oid_config_url} : {oid_config_response}"
                 )
 
             if "token_endpoint" not in self.config.oid_config:
@@ -325,15 +324,14 @@ class PulsarSource(StatefulIngestionSourceBase):
         # Report the Pulsar broker version we are communicating with
         self.report.report_pulsar_version(
             self.session.get(
-                "%s/brokers/version" % self.base_url,
-                timeout=self.config.timeout,
+                f"{self.base_url}/brokers/version", timeout=self.config.timeout
             ).text
         )
 
         # If no tenants are provided, request all tenants from cluster using /admin/v2/tenants endpoint.
         # Requesting cluster tenant information requires superuser privileges
         if not self.tenants:
-            self.tenants = self._get_pulsar_metadata(self.base_url + "/tenants") or []
+            self.tenants = self._get_pulsar_metadata(f"{self.base_url}/tenants") or []
 
         # Initialize counters
         self.report.tenants_scanned = 0
@@ -346,9 +344,10 @@ class PulsarSource(StatefulIngestionSourceBase):
                 # Get namespaces belonging to a tenant, /admin/v2/%s/namespaces
                 # A tenant admin role has sufficient privileges to perform this action
                 namespaces = (
-                    self._get_pulsar_metadata(self.base_url + "/namespaces/%s" % tenant)
+                    self._get_pulsar_metadata(f"{self.base_url}/namespaces/{tenant}")
                     or []
                 )
+
                 for namespace in namespaces:
                     self.report.namespaces_scanned += 1
                     if self.config.namespace_patterns.allowed(namespace):
@@ -406,14 +405,10 @@ class PulsarSource(StatefulIngestionSourceBase):
             )
 
     def _is_token_authentication_configured(self) -> bool:
-        if self.config.token is not None:
-            return True
-        return False
+        return self.config.token is not None
 
     def _is_oauth_authentication_configured(self) -> bool:
-        if self.config.issuer_url is not None:
-            return True
-        return False
+        return self.config.issuer_url is not None
 
     def _get_schema_and_fields(
         self, pulsar_topic: PulsarTopic, is_key_schema: bool
@@ -421,10 +416,9 @@ class PulsarSource(StatefulIngestionSourceBase):
 
         pulsar_schema: Optional[PulsarSchema] = None
 
-        schema_url = self.base_url + "/schemas/%s/%s/%s/schema" % (
-            pulsar_topic.tenant,
-            pulsar_topic.namespace,
-            pulsar_topic.topic,
+        schema_url = (
+            self.base_url
+            + f"/schemas/{pulsar_topic.tenant}/{pulsar_topic.namespace}/{pulsar_topic.topic}/schema"
         )
 
         schema_payload = self._get_pulsar_metadata(schema_url)
@@ -449,7 +443,7 @@ class PulsarSource(StatefulIngestionSourceBase):
     ) -> List[SchemaField]:
         # Parse the schema and convert it to SchemaFields.
         fields: List[SchemaField] = []
-        if schema.schema_type == "AVRO" or schema.schema_type == "JSON":
+        if schema.schema_type in ["AVRO", "JSON"]:
             # Extract fields from schema and get the FQN for the schema
             fields = schema_util.avro_schema_to_mce_fields(
                 schema.schema_str, is_key_schema=is_key_schema
@@ -465,6 +459,7 @@ class PulsarSource(StatefulIngestionSourceBase):
         self, pulsar_topic: PulsarTopic, platform_urn: str
     ) -> Tuple[Optional[PulsarSchema], Optional[SchemaMetadata]]:
 
+        # FIXME: Type annotations are not working for this function.
         schema, fields = self._get_schema_and_fields(
             pulsar_topic=pulsar_topic, is_key_schema=False
         )  # type: Tuple[Optional[PulsarSchema], List[SchemaField]]

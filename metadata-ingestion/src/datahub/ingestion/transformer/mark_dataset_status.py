@@ -40,6 +40,6 @@ class MarkDatasetStatus(BaseTransformer, SingleAspectTransformer):
         self, entity_urn: str, aspect_name: str, aspect: Optional[builder.Aspect]
     ) -> Optional[builder.Aspect]:
         assert aspect is None or isinstance(aspect, StatusClass)
-        status_aspect: StatusClass = aspect if aspect else StatusClass(removed=None)
+        status_aspect: StatusClass = aspect or StatusClass(removed=None)
         status_aspect.removed = self.config.removed
         return status_aspect  # type: ignore
