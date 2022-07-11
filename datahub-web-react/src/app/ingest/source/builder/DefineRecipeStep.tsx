@@ -1,11 +1,14 @@
 import { Alert, Button, message, Space, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+// import YAML from 'yamljs';
+// import Form from '@rjsf/core';
 import { StepProps } from './types';
 import { getSourceConfigs, jsonToYaml, yamlToJson } from '../utils';
 import { YamlEditor } from './YamlEditor';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { IngestionSourceBuilderStep } from './steps';
+import RecipeBuilder from './RecipeBuilder';
 
 const LOOKML_DOC_LINK = 'https://datahubproject.io/docs/generated/ingestion/sources/looker#module-lookml';
 
@@ -36,7 +39,9 @@ const ControlsContainer = styled.div`
  */
 export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) => {
     const existingRecipeJson = state.config?.recipe;
+    console.log('existingRecipeJson', existingRecipeJson);
     const existingRecipeYaml = existingRecipeJson && jsonToYaml(existingRecipeJson);
+    console.log('existingRecipeYaml', existingRecipeYaml);
 
     const [stagedRecipeYml, setStagedRecipeYml] = useState(existingRecipeYaml || '');
 
@@ -68,6 +73,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
         let recipeJson;
         try {
             recipeJson = yamlToJson(stagedRecipeYml);
+            console.log('recipeJson', recipeJson);
         } catch (e) {
             message.warn('Found invalid YAML. Please check your recipe configuration.');
             return;
@@ -84,6 +90,33 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
 
         goTo(IngestionSourceBuilderStep.CREATE_SCHEDULE);
     };
+
+    // function testSubmit(values: any) {
+    //     console.log('values', values);
+    //     const updatedValues = { source: { type, config: { ...values } } };
+    //     console.log('yaml', jsonToYaml(JSON.stringify(updatedValues)));
+    // }
+
+    // if (displayRecipe) {
+    //     console.log('displayRecipe', displayRecipe);
+    //     const jsonRecipe = YAML.parse(displayRecipe);
+
+    //     console.log('jsonRecipe', jsonRecipe);
+    //     console.log('displayRecipe type', typeof displayRecipe);
+    //     console.log('jsonRecipe type', typeof jsonRecipe);
+    // }
+
+    if (type === 'snowflake') {
+        return (
+            <RecipeBuilder
+                type={type}
+                isEditing={isEditing}
+                displayRecipe={displayRecipe}
+                setStagedRecipe={setStagedRecipeYml}
+                goToPrevious={prev}
+            />
+        );
+    }
 
     return (
         <>
