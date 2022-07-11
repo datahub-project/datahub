@@ -24,7 +24,7 @@ import { EntityMenuItems } from '../../EntityDropdown/EntityDropdown';
 import GlossaryBrowser from '../../../../glossary/GlossaryBrowser/GlossaryBrowser';
 import GlossarySearch from '../../../../glossary/GlossarySearch';
 import { BrowserWrapper, MAX_BROWSER_WIDTH, MIN_BROWSWER_WIDTH } from '../../../../glossary/BusinessGlossaryPage';
-import useIsHideSiblingMode, { combineEntityDataWithSiblings } from '../../siblingUtils';
+import { combineEntityDataWithSiblings, useIsHideSiblingMode } from '../../siblingUtils';
 
 type Props<T, U> = {
     urn: string;
@@ -240,6 +240,7 @@ export const EntityProfile = <T, U>({
                     entityType,
                     entityData,
                     baseEntity: dataPossiblyCombinedWithSiblings,
+                    dataNotCombinedWithSiblings,
                     updateEntity,
                     routeToTab,
                     refetch,
@@ -274,6 +275,7 @@ export const EntityProfile = <T, U>({
                 entityType,
                 entityData,
                 baseEntity: dataPossiblyCombinedWithSiblings,
+                dataNotCombinedWithSiblings,
                 updateEntity,
                 routeToTab,
                 refetch,

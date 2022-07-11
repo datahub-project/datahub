@@ -9,7 +9,7 @@ import { DatasetAssertionsList } from './DatasetAssertionsList';
 import { DatasetAssertionsSummary } from './DatasetAssertionsSummary';
 import { sortAssertions } from './assertionUtils';
 import { TestResults } from './TestResults';
-import useIsHideSiblingMode, { combineEntityDataWithSiblings } from '../../../siblingUtils';
+import { combineEntityDataWithSiblings, useIsHideSiblingMode } from '../../../siblingUtils';
 
 /**
  * Returns a status summary for the assertions associated with a Dataset.

@@ -3,6 +3,7 @@ import { PlusOutlined, MinusOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { Button, Switch } from 'antd';
 import { ProvidedZoom, TransformMatrix } from '@vx/zoom/lib/types';
+import { useHistory, useLocation } from 'react-router-dom';
 
 import LineageTree from './LineageTree';
 import constructTree from './utils/constructTree';
@@ -10,6 +11,8 @@ import { Direction, EntityAndType, EntitySelectParams, FetchedEntity } from './t
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
+import { useIsHideSiblingMode } from '../entity/shared/siblingUtils';
+import { navigateToLineageUrl } from './utils/navigateToLineageUrl';
 
 const ZoomContainer = styled.div`
     position: relative;
@@ -32,11 +35,8 @@ const DisplayControls = styled.div`
     box-shadow: 0px 0px 4px 0px #0000001a;
 `;
 
-const ControlsTitle = styled.div`
-    margin-bottom: 12px;
-`;
-
 const ControlsSwitch = styled(Switch)`
+    margin-top: 12px;
     margin-right: 8px;
 `;
 
@@ -91,10 +91,13 @@ export default function LineageVizInsideZoom({
     height,
 }: Props) {
     const [draggedNodes, setDraggedNodes] = useState<Record<string, { x: number; y: number }>>({});
+    const history = useHistory();
+    const location = useLocation();
 
     const [hoveredEntity, setHoveredEntity] = useState<EntitySelectParams | undefined>(undefined);
     const [isDraggingNode, setIsDraggingNode] = useState(false);
     const [showExpandedTitles, setShowExpandedTitles] = useState(false);
+    const isHideSiblingMode = useIsHideSiblingMode();
 
     const entityRegistry = useEntityRegistry();
 
@@ -131,12 +134,28 @@ export default function LineageVizInsideZoom({
                     </Button>
                 </ZoomControls>
                 <DisplayControls>
-                    <ControlsTitle>Controls</ControlsTitle>
-                    <ControlsSwitch
-                        checked={showExpandedTitles}
-                        onChange={(checked) => setShowExpandedTitles(checked)}
-                    />{' '}
-                    Show Full Titles
+                    <div>Controls</div>
+                    <div>
+                        <ControlsSwitch
+                            checked={showExpandedTitles}
+                            onChange={(checked) => setShowExpandedTitles(checked)}
+                        />{' '}
+                        Show Full Titles
+                    </div>
+                    <div>
+                        <ControlsSwitch
+                            checked={!isHideSiblingMode}
+                            onChange={(checked) => {
+                                navigateToLineageUrl({
+                                    location,
+                                    history,
+                                    isLineageMode: true,
+                                    isHideSiblingMode: !checked,
+                                });
+                            }}
+                        />{' '}
+                        Compress Lineage
+                    </div>
                 </DisplayControls>
                 <RootSvg
                     width={width}

@@ -625,6 +625,11 @@ input LineageInput {
     The number of results to be returned
     """
     count: Int
+
+    """
+    Optional flag to not merge siblings in the response. They are merged by default.
+    """
+    separateSiblings: Boolean
 }
 
 """

@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { EntityType } from '../../../types.generated';
-import useIsHideSiblingMode from './siblingUtils';
+import { useIsHideSiblingMode } from './siblingUtils';
 import { EntityContextType, UpdateEntityType } from './types';
 
 const EntityContext = React.createContext<EntityContextType>({
@@ -12,6 +12,7 @@ const EntityContext = React.createContext<EntityContextType>({
     routeToTab: () => {},
     refetch: () => Promise.resolve({}),
     lineage: undefined,
+    dataNotCombinedWithSiblings: null,
 });
 
 export default EntityContext;
@@ -19,6 +20,11 @@ export default EntityContext;
 export const useBaseEntity = <T,>(): T => {
     const { baseEntity } = useContext(EntityContext);
     return baseEntity as T;
+};
+
+export const useDataNotCombinedWithSiblings = <T,>(): T => {
+    const { dataNotCombinedWithSiblings } = useContext(EntityContext);
+    return dataNotCombinedWithSiblings as T;
 };
 
 export const useEntityUpdate = <U,>(): UpdateEntityType<U> | null | undefined => {

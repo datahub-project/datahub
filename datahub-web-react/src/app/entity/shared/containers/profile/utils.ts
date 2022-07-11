@@ -5,7 +5,7 @@ import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import EntityRegistry from '../../../EntityRegistry';
 import { EntityTab, GenericEntityProperties } from '../../types';
-import useIsHideSiblingMode, { HIDE_SIBLINGS_URL_PARAM } from '../../siblingUtils';
+import { useIsHideSiblingMode, HIDE_SIBLINGS_URL_PARAM } from '../../siblingUtils';
 
 export function getDataForEntityType<T>({
     data: entityData,

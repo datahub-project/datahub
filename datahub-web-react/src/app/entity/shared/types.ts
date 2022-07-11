@@ -116,6 +116,7 @@ export type UpdateEntityType<U> = (
 export type EntityContextType = {
     urn: string;
     entityType: EntityType;
+    dataNotCombinedWithSiblings: any;
     entityData: GenericEntityProperties | null;
     baseEntity: any;
     updateEntity?: UpdateEntityType<any> | null;
