@@ -62,6 +62,25 @@
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+        "value": "{\"domains\":[\"urn:li:domain:Engineering\"]}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
     "aspectName": "editableDatasetProperties",
     "aspect": {
         "value": "{\"created\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:ingestion\"}, \"lastModified\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:ingestion\"}, \"description\": \"new description\"}",

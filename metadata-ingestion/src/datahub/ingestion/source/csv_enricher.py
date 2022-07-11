@@ -18,6 +18,7 @@ from datahub.ingestion.source_config.csv_enricher import CSVEnricherConfig
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     ChangeTypeClass,
+    DomainsClass,
     EditableDatasetPropertiesClass,
     EditableSchemaFieldInfoClass,
     EditableSchemaMetadataClass,
@@ -39,7 +40,7 @@ TAGS_ASPECT_NAME = "globalTags"
 OWNERSHIP_ASPECT_NAME = "ownership"
 EDITABLE_DATASET_PROPERTIES_ASPECT_NAME = "editableDatasetProperties"
 ACTOR = "urn:li:corpuser:ingestion"
-
+DOMAIN_ASPECT_NAME = "domains"
 
 def get_audit_stamp() -> AuditStampClass:
     now = int(time.time() * 1000)
@@ -69,6 +70,7 @@ class SubResourceRow:
     term_associations: List[GlossaryTermAssociationClass]
     tag_associations: List[TagAssociationClass]
     description: Optional[str]
+    domain: Optional[str]
 
 
 @dataclass
@@ -78,6 +80,7 @@ class CSVEnricherReport(SourceReport):
     num_owners_workunits_produced: int = 0
     num_description_workunits_produced: int = 0
     num_editable_schema_metadata_workunits_produced: int = 0
+    num_domain_workunits_produced: int = 0
 
 
 @platform_name("CSV")
@@ -91,11 +94,11 @@ class CSVEnricherSource(Source):
 
     The format of the CSV must be like so, with a few example rows.
 
-    |resource                                                        |subresource|glossary_terms                      |tags               |owners                                             |ownership_type |description    |
-    |----------------------------------------------------------------|-----------|------------------------------------|-------------------|---------------------------------------------------|---------------|---------------|
-    |urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)|           |[urn:li:glossaryTerm:AccountBalance]|[urn:li:tag:Legacy]|[urn:li:corpuser:datahub&#124;urn:li:corpuser:jdoe]|TECHNICAL_OWNER|new description|
-    |urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)|field_foo  |[urn:li:glossaryTerm:AccountBalance]|                   |                                                   |               |field_foo!     |
-    |urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)|field_bar  |                                    |[urn:li:tag:Legacy]|                                                   |               |field_bar?     |
+    |resource                                                        |subresource|glossary_terms                      |tags               |owners                                             |ownership_type |description    |domain       |
+    |----------------------------------------------------------------|-----------|------------------------------------|-------------------|---------------------------------------------------|---------------|---------------|-------------|
+    |urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)|           |[urn:li:glossaryTerm:AccountBalance]|[urn:li:tag:Legacy]|[urn:li:corpuser:datahub&#124;urn:li:corpuser:jdoe]|TECHNICAL_OWNER|new description|Engineering  |
+    |urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)|field_foo  |[urn:li:glossaryTerm:AccountBalance]|                   |                                                   |               |field_foo!     |             |
+    |urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)|field_bar  |                                    |[urn:li:tag:Legacy]|                                                   |               |field_bar?     |             |
 
     Note that the first row does not have a subresource populated. That means any glossary terms, tags, and owners will
     be applied at the entity field. If a subresource IS populated (as it is for the second and third rows), glossary
@@ -117,7 +120,7 @@ class CSVEnricherSource(Source):
                 "Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe."
             )
 
-    def get_resource_glossary_terms_work_unit(
+      def get_resource_glossary_terms_work_unit(
         self,
         entity_urn: str,
         entity_type: str,
@@ -160,7 +163,7 @@ class CSVEnricherSource(Source):
         )
         terms_wu: MetadataWorkUnit = MetadataWorkUnit(
             id=f"{entity_urn}-{GLOSSARY_TERMS_ASPECT_NAME}",
-            mcp=terms_mcpw,
+            mcp=terms_mcpw,glossaryTerm
         )
         return terms_wu
 
@@ -254,6 +257,38 @@ class CSVEnricherSource(Source):
         )
         return owners_wu
 
+    def get_resource_domain_work_unit(
+        self,
+        entity_urn: str,
+        entity_type: str,
+        domain: Optional[DomainsClass],
+    ) -> Optional[MetadataWorkUnit]:
+        # Check if there is a domain to add. If not, return None.
+        if not domain:
+            return None
+
+        current_domain: Optional[DomainsClass] = None
+        if self.ctx.graph and not self.should_overwrite:
+            # Get the existing domain for the entity from the DataHub graph
+            current_domain = self.ctx.graph.get_domain(entity_urn=entity_urn)
+
+        if not current_domain:
+            # If we want to overwrite or there is no existing domain, create a new object
+            current_domain = DomainsClass(domain, get_audit_stamp())
+
+        domain_mcpw: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
+            entityType=entity_type,
+            entityUrn=entity_urn,
+            changeType=ChangeTypeClass.UPSERT,
+            aspectName=DOMAIN_ASPECT_NAME,
+            aspect=current_domain,
+        )
+        domain_wu: MetadataWorkUnit = MetadataWorkUnit(
+            id=f"{entity_urn}-{DOMAIN_ASPECT_NAME}",
+            mcp=domain_mcpw,
+        )
+        return domain_wu
+
     def get_resource_description_work_unit(
         self,
         entity_urn: str,
@@ -308,6 +343,7 @@ class CSVEnricherSource(Source):
         term_associations: List[GlossaryTermAssociationClass],
         tag_associations: List[TagAssociationClass],
         owners: List[OwnerClass],
+        domain: Optional[str],
         description: Optional[str],
     ) -> Iterable[MetadataWorkUnit]:
         maybe_terms_wu: Optional[
@@ -344,6 +380,18 @@ class CSVEnricherSource(Source):
             self.report.report_workunit(maybe_owners_wu)
             yield maybe_owners_wu
 
+        maybe_domain_wu: Optional[
+            MetadataWorkUnit
+        ] = self.get_resource_domain_work_unit(
+            entity_urn=entity_urn,
+            entity_type=entity_type,
+            domain=domain,
+        )
+        if maybe_domain_wu:
+            self.report.num_domain_workunits_produced += 1
+            self.report.report_workunit(maybe_domain_wu)
+            yield maybe_domain_wu
+
         maybe_description_wu: Optional[
             MetadataWorkUnit
         ] = self.get_resource_description_work_unit(
@@ -367,6 +415,7 @@ class CSVEnricherSource(Source):
             GlossaryTermAssociationClass
         ] = sub_resource_row.term_associations
         tag_associations: List[TagAssociationClass] = sub_resource_row.tag_associations
+        domain: Optional[str] = sub_resource_row.domain
         description: Optional[str] = sub_resource_row.description
         has_terms: bool = len(term_associations) > 0
         has_tags: bool = len(tag_associations) > 0
@@ -551,6 +600,17 @@ class CSVEnricherSource(Source):
         ]
         return owners
 
+    def maybe_extract_domain(
+        self, row: Dict[str, str], is_resource_row: bool
+    ) -> List[DomainsClass]:
+        if not row["domain"]:
+            return []
+
+        # Get domain
+        domain_name = row["domain"]
+        domain: List[DomainsClass] = [DomainsClass([domain_name])]
+        return domain
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         with open(self.config.filename, "r") as f:
             rows = csv.DictReader(f, delimiter=self.config.delimiter)
@@ -576,6 +636,17 @@ class CSVEnricherSource(Source):
                     row, is_resource_row
                 )
 
+                domains: List[DomainsClass] = self.maybe_extract_domain(
+                    row, is_resource_row
+                )
+
+                # Does this make sense?
+                domain: Optional[DomainsClass] = (
+                    row["domain"]
+                    if row["domain"] and entity_type == DATASET_ENTITY_TYPE
+                    else None
+                )
+
                 description: Optional[str] = (
                     row["description"]
                     if row["description"] and entity_type == DATASET_ENTITY_TYPE
@@ -589,6 +660,7 @@ class CSVEnricherSource(Source):
                         term_associations=term_associations,
                         tag_associations=tag_associations,
                         owners=owners,
+                        domain=domain,
                         description=description,
                     ):
                         yield wu
@@ -611,6 +683,7 @@ class CSVEnricherSource(Source):
                             term_associations=term_associations,
                             tag_associations=tag_associations,
                             description=description,
+                            domain=domain
                         )
                     )
 
