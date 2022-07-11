@@ -5,7 +5,7 @@ class CreatedFrom(Enum):
     REPORT = "Report"
     DATASET = "Dataset"
     VISUALIZATION = "Visualization"
-    UNKNOWN = "UNKNOWN"
+    UNKNOWN = "Unknown"
 
 
 class RelationshipDirection(Enum):

@@ -1,18 +1,18 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from powerbireportserver.constants import RelationshipDirection
+from .constants import RelationshipDirection
 
 
 class CorpUserEditableInfo(BaseModel):
-    displayName: str
+    display_name: str = Field(alias="displayName")
     title: str
-    aboutMe: Optional[str]
+    about_me: Optional[str] = Field(alias="aboutMe")
     teams: Optional[List[str]]
     skills: Optional[List[str]]
-    pictureLink: Optional[str]
+    picture_link: Optional[str] = Field(alias="pictureLink")
 
 
 class CorpUserEditableProperties(CorpUserEditableInfo):
@@ -45,20 +45,16 @@ class EntityRelationshipsResult(BaseModel):
 
 class CorpUserProperties(BaseModel):
     active: bool
-    displayName: str
+    display_name: str = Field(alias="displayName")
     email: str
     title: Optional[str]
     manager: Optional["CorpUser"]
-    departmentId: Optional[int]
-    departmentName: Optional[str]
-    firstName: Optional[str]
-    lastName: Optional[str]
-    fullName: Optional[str]
-    countryCode: Optional[str]
-
-
-class CorpUserInfo(CorpUserProperties):
-    """Corp User Info"""
+    department_id: Optional[int] = Field(alias="departmentId")
+    department_name: Optional[str] = Field(alias="departmentName")
+    first_name: Optional[str] = Field(alias="firstName")
+    last_name: Optional[str] = Field(alias="lastName")
+    full_name: Optional[str] = Field(alias="fullName")
+    country_code: Optional[str] = Field(alias="countryCode")
 
 
 class CorpUser(BaseModel):
@@ -66,13 +62,14 @@ class CorpUser(BaseModel):
     type: str
     username: str
     properties: CorpUserProperties
-    editableProperties: Optional[CorpUserEditableProperties]
+    editable_properties: Optional[CorpUserEditableProperties] = Field(
+        alias="editableProperties"
+    )
     status: Optional[CorpUserStatus]
     tags: Optional[GlobalTags]
     relationships: Optional[EntityRelationshipsResult]
-    info: Optional[CorpUserInfo]
-    editableInfo: Optional[CorpUserEditableInfo]
-    globalTags: Optional[GlobalTags]
+    editableInfo: Optional[CorpUserEditableInfo] = Field(alias="editableInfo")
+    global_tags: Optional[GlobalTags] = Field(alias="globalTags")
 
     def get_urn_part(self):
         return "{}".format(self.username)

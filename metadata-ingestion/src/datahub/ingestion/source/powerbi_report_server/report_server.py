@@ -4,11 +4,17 @@
 #
 #########################################################
 import logging
-from dataclasses import dataclass, field as dataclass_field
-from typing import Any, Dict, Iterable, List, Optional, Set, Union
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
+from typing import Any, Dict, Iterable, List, Optional, Set
+
+import requests
+from orderedset import OrderedSet
+from pydantic import ValidationError
+from pydantic.fields import Field
+from requests_ntlm import HttpNtlmAuth
 
 import datahub.emitter.mce_builder as builder
-import requests
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -37,12 +43,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     StatusClass,
 )
-from orderedset import OrderedSet
-from pydantic import ValidationError
-from pydantic.fields import Field
-from requests_ntlm import HttpNtlmAuth
 
-# Logger instance
 from .constants import API_ENDPOINTS, Constant
 from .graphql_domain import CorpUser
 from .report_server_domain import (
@@ -98,7 +99,7 @@ class PowerBiReportServerAPIConfig(EnvBasedSourceConfigBase):
 
 
 class PowerBiReportServerDashboardSourceConfig(PowerBiReportServerAPIConfig):
-    platform_name: str = "powerbi_report_server"
+    platform_name: str = "powerbi"
     platform_urn: str = builder.make_data_platform_urn(platform=platform_name)
     report_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
     chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
@@ -328,6 +329,7 @@ class PowerBiReportServerAPI:
 
         return reports
 
+
 class UserDao:
     def __init__(self, config: PowerBiReportServerDashboardSourceConfig):
         self.__config = config
@@ -485,16 +487,16 @@ class Mapper:
                 "workspaceName": "PowerBI Report Server",
                 "workspaceId": self.__config.host_port,
                 "dataSource": str(
-                    [report.ConnectionString for report in _report.DataSources]
+                    [report.ConnectionString for report in _report.data_sources]
                 )
-                if _report.DataSources
+                if _report.data_sources
                 else "",
             }
 
         # DashboardInfo mcp
         dashboard_info_cls = DashboardInfoClass(
-            description=report.Description or "",
-            title=report.Name or "",
+            description=report.description or "",
+            title=report.name or "",
             charts=chart_urn_list,
             lastModified=ChangeAuditStamps(),
             dashboardUrl=report.get_web_url(self.__config.get_base_url),
@@ -519,7 +521,7 @@ class Mapper:
         # dashboardKey mcp
         dashboard_key_cls = DashboardKeyClass(
             dashboardTool=self.__config.platform_name,
-            dashboardId=Constant.DASHBOARD_ID.format(report.Id),
+            dashboardId=Constant.DASHBOARD_ID.format(report.id),
         )
 
         # Dashboard key
@@ -574,7 +576,7 @@ class Mapper:
         user_urn = builder.make_user_urn(user.get_urn_part())
 
         user_info_instance = CorpUserInfoClass(
-            displayName=user.properties.displayName,
+            displayName=user.properties.display_name,
             email=user.properties.email,
             title=user.properties.title,
             active=True,
@@ -609,9 +611,9 @@ class Mapper:
     def to_datahub_work_units(self, report: Report) -> Set[EquableMetadataWorkUnit]:
         mcps = []
 
-        LOGGER.info("Converting Dashboard={} to DataHub Dashboard".format(report.Name))
+        LOGGER.info("Converting Dashboard={} to DataHub Dashboard".format(report.name))
         # Convert user to CorpUser
-        user_mcps = self.to_datahub_user(report.UserInfo)
+        user_mcps = self.to_datahub_user(report.user_info)
         # Convert tiles to charts
         ds_mcps: List[Any]
         chart_mcps: List[Any]
@@ -694,19 +696,21 @@ class PowerBiReportServerDashboardSource(Source):
         """
         LOGGER.info("PowerBiReportServer plugin execution is started")
 
+        # Fetch PowerBiReportServer reports for given url
+        # workspace = self.powerbi_client.get_workspace(self.source_config.workspace_id)
         reports = self.powerbi_client.get_all_reports()
 
         for report in reports:
             try:
-                report.UserInfo = self.user_dao.get_owner_by_name(
-                    user_name=report.DisplayName
+                report.user_info = self.user_dao.get_owner_by_name(
+                    user_name=report.display_name
                 )
             except ValidationError as e:
                 message = "Error ({}) occurred while loading User {}(id={})".format(
-                    e, report.Name, report.Id
+                    e, report.name, report.id
                 )
                 LOGGER.exception(message, e)
-                self.report.report_warning(report.Id, message)
+                self.report.report_warning(report.id, message)
             finally:
                 # Increase Dashboard and tiles count in report
                 self.report.report_scanned(count=1)
