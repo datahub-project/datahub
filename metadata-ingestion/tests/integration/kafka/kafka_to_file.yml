@@ -7,7 +7,7 @@ source:
         bootstrap: "localhost:59092"
         schema_registry_url: "http://localhost:58081"
     domain:
-      sales:
+      "urn:li:domain:sales":
         allow:
           - "key_value_topic"
 sink:
