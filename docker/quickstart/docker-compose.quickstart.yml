@@ -17,8 +17,7 @@ services:
     hostname: broker
     image: confluentinc/cp-kafka:5.4.0
     ports:
-    - 29092:29092
-    - 9092:9092
+    - ${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}:9092
     volumes:
     - broker:/var/lib/kafka/data/
   datahub-actions:
@@ -59,7 +58,7 @@ services:
     hostname: datahub-frontend-react
     image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
     ports:
-    - 9002:9002
+    - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002
     volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   datahub-gms:
@@ -94,7 +93,7 @@ services:
     hostname: datahub-gms
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
     ports:
-    - 8080:8080
+    - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
     volumes:
     - ${HOME}/.datahub/plugins/:/etc/datahub/plugins
   elasticsearch:
@@ -114,7 +113,7 @@ services:
     image: elasticsearch:7.9.3
     mem_limit: 1g
     ports:
-    - 9200:9200
+    - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200
     volumes:
     - esdata:/usr/share/elasticsearch/data
   elasticsearch-setup:
@@ -148,7 +147,7 @@ services:
     hostname: mysql
     image: mysql:5.7
     ports:
-    - 3306:3306
+    - ${DATAHUB_MAPPED_MYSQL_PORT:-3306}:3306
     volumes:
     - ../mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
     - mysqldata:/var/lib/mysql
@@ -173,8 +172,8 @@ services:
     hostname: neo4j
     image: neo4j:4.0.6
     ports:
-    - 7474:7474
-    - 7687:7687
+    - ${DATAHUB_MAPPED_NEO4J_HTTP_PORT:-7474}:7474
+    - ${DATAHUB_MAPPED_NEO4J_BOLT_PORT:-7687}:7687
     volumes:
     - neo4jdata:/data
   schema-registry:
@@ -188,7 +187,7 @@ services:
     hostname: schema-registry
     image: confluentinc/cp-schema-registry:5.4.0
     ports:
-    - 8081:8081
+    - ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}:8081
   zookeeper:
     container_name: zookeeper
     environment:
@@ -197,7 +196,7 @@ services:
     hostname: zookeeper
     image: confluentinc/cp-zookeeper:5.4.0
     ports:
-    - 2181:2181
+    - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
     volumes:
     - zkdata:/var/opt/zookeeper
 version: '2.3'
