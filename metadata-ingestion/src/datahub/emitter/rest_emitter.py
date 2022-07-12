@@ -249,6 +249,16 @@ class DataHubRestEmitter:
                 "Unable to emit metadata to DataHub GMS", {"message": str(e)}
             ) from e
 
+    def __repr__(self) -> str:
+        token_str = (
+            f" with token: {self._token[:4]}**********{self._token[-4:]}"
+            if self._token
+            else ""
+        )
+        return (
+            f"DataHubRestEmitter: configured to talk to {self._gms_server}{token_str}"
+        )
+
 
 class DatahubRestEmitter(DataHubRestEmitter):
     """This class exists as a pass-through for backwards compatibility"""
