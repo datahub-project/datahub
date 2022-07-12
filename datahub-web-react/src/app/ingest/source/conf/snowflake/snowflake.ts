@@ -49,8 +49,10 @@ source:
         
 `;
 
+export const SNOWFLAKE = 'snowflake';
+
 const snowflakeConfig: SourceConfig = {
-    type: 'snowflake',
+    type: SNOWFLAKE,
     placeholderRecipe,
     displayName: 'Snowflake',
     docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/snowflake/',

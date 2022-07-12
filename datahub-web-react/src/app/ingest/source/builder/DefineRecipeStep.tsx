@@ -9,6 +9,7 @@ import { YamlEditor } from './YamlEditor';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { IngestionSourceBuilderStep } from './steps';
 import RecipeBuilder from './RecipeBuilder';
+import { SNOWFLAKE } from '../conf/snowflake/snowflake';
 
 const LOOKML_DOC_LINK = 'https://datahubproject.io/docs/generated/ingestion/sources/looker#module-lookml';
 
@@ -39,20 +40,20 @@ const ControlsContainer = styled.div`
  */
 export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) => {
     const existingRecipeJson = state.config?.recipe;
-    console.log('existingRecipeJson', existingRecipeJson);
     const existingRecipeYaml = existingRecipeJson && jsonToYaml(existingRecipeJson);
-    console.log('existingRecipeYaml', existingRecipeYaml);
+    const { type } = state;
+    const sourceConfigs = getSourceConfigs(type as string);
 
-    const [stagedRecipeYml, setStagedRecipeYml] = useState(existingRecipeYaml || '');
+    const [stagedRecipeYml, setStagedRecipeYml] = useState(existingRecipeYaml || sourceConfigs.placeholderRecipe);
 
     useEffect(() => {
-        setStagedRecipeYml(existingRecipeYaml || '');
+        if (existingRecipeYaml) {
+            setStagedRecipeYml(existingRecipeYaml || '');
+        }
     }, [existingRecipeYaml]);
 
     const [stepComplete, setStepComplete] = useState(false);
 
-    const { type } = state;
-    const sourceConfigs = getSourceConfigs(type as string);
     const isEditing: boolean = prev === undefined;
     const displayRecipe = stagedRecipeYml || sourceConfigs.placeholderRecipe;
     const sourceDisplayName = sourceConfigs.displayName;
@@ -91,28 +92,14 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
         goTo(IngestionSourceBuilderStep.CREATE_SCHEDULE);
     };
 
-    // function testSubmit(values: any) {
-    //     console.log('values', values);
-    //     const updatedValues = { source: { type, config: { ...values } } };
-    //     console.log('yaml', jsonToYaml(JSON.stringify(updatedValues)));
-    // }
-
-    // if (displayRecipe) {
-    //     console.log('displayRecipe', displayRecipe);
-    //     const jsonRecipe = YAML.parse(displayRecipe);
-
-    //     console.log('jsonRecipe', jsonRecipe);
-    //     console.log('displayRecipe type', typeof displayRecipe);
-    //     console.log('jsonRecipe type', typeof jsonRecipe);
-    // }
-
-    if (type === 'snowflake') {
+    if (type === SNOWFLAKE) {
         return (
             <RecipeBuilder
                 type={type}
                 isEditing={isEditing}
                 displayRecipe={displayRecipe}
                 setStagedRecipe={setStagedRecipeYml}
+                onClickNext={onClickNext}
                 goToPrevious={prev}
             />
         );
