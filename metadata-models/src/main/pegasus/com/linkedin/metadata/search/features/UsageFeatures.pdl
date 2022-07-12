@@ -17,9 +17,32 @@ record UsageFeatures {
    */
   percentileRankLast30Days: optional long
   
-   /**
+  /**
    * Overall rank of the dataset based on the the last 30 days usage count on a platform
    * It returns one plus the number of rows proceeding or equals to the current row in the ordering. 
    */
   overallRankLast30Days: optional long
+
+  /**
+   * Percentile rank of the dataset based on the the last 30 days of select queries by unique users on a platform
+   */
+  userPercentileRankLast30Days: optional long
+  
+  /**
+   * Overall rank of the dataset based on the the last 30 days of select queries by unique users on a platform
+   * It returns one plus the number of rows proceeding or equals to the current row in the ordering. 
+   */
+  userOverallRankLast30Days: optional long
+
+  /**
+   * Percentile rank of the dataset based on the the last 30 days insert/update operation count on a platform
+   */
+  insertPercentileRankLast30Days: optional long
+  
+  /**
+   * Overall rank of the dataset based on the the last 30 days insert/update operation count on a platform
+   * It returns one plus the number of rows proceeding or equals to the current row in the ordering. 
+   */
+  insertOverallRankLast30Days: optional long
+
 }
