@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { message, Modal, Button, Form, Select, Tag } from 'antd';
 import styled from 'styled-components';
 import { useAddGroupMembersMutation } from '../../../graphql/group.generated';
-import { CorpUser, EntityType, SearchResult } from '../../../types.generated';
-import { CustomAvatar } from '../../shared/avatar';
+import { CorpUser, Entity, EntityType } from '../../../types.generated';
 import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import { useGetRecommendations } from '../../shared/recommendation';
+import { OwnerLabel } from '../../shared/OwnerLabel';
 
 type Props = {
     urn: string;
@@ -13,19 +14,6 @@ type Props = {
     onCloseModal: () => void;
     onSubmit: () => void;
 };
-
-const SearchResultContainer = styled.div`
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 2px;
-`;
-
-const SearchResultContent = styled.div`
-    display: flex;
-    justify-content: center;
-    align-items: center;
-`;
 
 const SelectInput = styled(Select)`
     > .ant-select-selector {
@@ -43,20 +31,13 @@ const StyleTag = styled(Tag)`
 
 export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+    const [selectedMembers, setSelectedMembers] = useState<any[]>([]);
+    const [inputValue, setInputValue] = useState('');
     const [addGroupMembersMutation] = useAddGroupMembersMutation();
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
-    const searchResults = userSearchData?.search?.searchResults || [];
-
-    const onSelectMember = (newMemberUrn: string) => {
-        const newUsers = [...(selectedMembers || []), newMemberUrn];
-        setSelectedMembers(newUsers);
-    };
-
-    const onDeselectMember = (memberUrn: string) => {
-        const newUserActors = selectedMembers.filter((user) => user !== memberUrn);
-        setSelectedMembers(newUserActors);
-    };
+    const searchResults = userSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
+    const [recommendedData] = useGetRecommendations([EntityType.CorpUser]);
+    const inputEl = useRef(null);
 
     const handleUserSearch = (text: string) => {
         if (text.length > 2) {
@@ -74,17 +55,40 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
     };
 
     // Renders a search result in the select dropdown.
-    const renderSearchResult = (result: SearchResult) => {
-        const avatarUrl = (result.entity as CorpUser).editableProperties?.pictureLink || undefined;
-        const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
+    const renderSearchResult = (entity: Entity) => {
+        const avatarUrl = (entity as CorpUser).editableProperties?.pictureLink || undefined;
+        const displayName = entityRegistry.getDisplayName(entity.type, entity);
         return (
-            <SearchResultContainer>
-                <SearchResultContent>
-                    <CustomAvatar size={24} name={displayName} photoUrl={avatarUrl} isGroup={false} />
-                    <div>{displayName}</div>
-                </SearchResultContent>
-            </SearchResultContainer>
+            <Select.Option value={entity.urn} key={entity.urn}>
+                <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />
+            </Select.Option>
         );
+    };
+
+    const groupResult = !inputValue || inputValue.length === 0 ? recommendedData : searchResults;
+
+    const groupSearchOptions = groupResult?.map((result) => {
+        return renderSearchResult(result);
+    });
+
+    const onModalClose = () => {
+        setInputValue('');
+        setSelectedMembers([]);
+        onCloseModal();
+    };
+
+    const onSelectMember = (newMemberUrn: string) => {
+        if (inputEl && inputEl.current) {
+            (inputEl.current as any).blur();
+        }
+        const newUsers = [...(selectedMembers || []), newMemberUrn];
+        setSelectedMembers(newUsers);
+    };
+
+    const onDeselectMember = (memberUrn: string) => {
+        setInputValue('');
+        const newUserActors = selectedMembers.filter((user) => user !== memberUrn);
+        setSelectedMembers(newUserActors);
     };
 
     const tagRender = (props) => {
@@ -102,38 +106,41 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
     };
 
     const onAdd = async () => {
+        const selectedMemberUrns = selectedMembers.map((selectedMember) => selectedMember.value);
         if (selectedMembers.length === 0) {
             return;
         }
-        addGroupMembersMutation({
-            variables: {
-                groupUrn: urn,
-                userUrns: selectedMembers,
-            },
-        })
-            .catch((e) => {
-                message.destroy();
-                message.error({ content: `Failed to add group members!: \n ${e.message || ''}`, duration: 3 });
-            })
-            .finally(() => {
-                message.success({
-                    content: `Group members added!`,
-                    duration: 3,
-                });
-                onSubmit();
-                setSelectedMembers([]);
+        try {
+            await addGroupMembersMutation({
+                variables: {
+                    groupUrn: urn,
+                    userUrns: selectedMemberUrns,
+                },
             });
-        onCloseModal();
+            message.success({ content: 'Group members added!', duration: 3 });
+        } catch (e: unknown) {
+            message.destroy();
+            if (e instanceof Error) {
+                message.error({ content: `Failed to group members: \n ${e.message || ''}`, duration: 3 });
+            }
+        } finally {
+            onSubmit();
+            onModalClose();
+        }
     };
+
+    function handleBlur() {
+        setInputValue('');
+    }
 
     return (
         <Modal
             title="Add group members"
             visible={visible}
-            onCancel={onCloseModal}
+            onCancel={onModalClose}
             footer={
                 <>
-                    <Button onClick={onCloseModal} type="text">
+                    <Button onClick={onModalClose} type="text">
                         Cancel
                     </Button>
                     <Button disabled={selectedMembers.length === 0} onClick={onAdd}>
@@ -145,20 +152,28 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
             <Form component={false}>
                 <Form.Item>
                     <SelectInput
-                        showSearch
-                        value={selectedMembers}
+                        labelInValue
                         autoFocus
+                        defaultOpen
                         mode="multiple"
-                        filterOption={false}
+                        ref={inputEl}
                         placeholder="Search for users..."
+                        showSearch
+                        filterOption={false}
+                        defaultActiveFirstOption={false}
                         onSelect={(actorUrn: any) => onSelectMember(actorUrn)}
                         onDeselect={(actorUrn: any) => onDeselectMember(actorUrn)}
-                        onSearch={handleUserSearch}
+                        onSearch={(value: string) => {
+                            // eslint-disable-next-line react/prop-types
+                            handleUserSearch(value.trim());
+                            // eslint-disable-next-line react/prop-types
+                            setInputValue(value.trim());
+                        }}
                         tagRender={tagRender}
+                        onBlur={handleBlur}
+                        value={selectedMembers}
                     >
-                        {searchResults?.map((result) => (
-                            <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
-                        ))}
+                        {groupSearchOptions}
                     </SelectInput>
                 </Form.Item>
             </Form>

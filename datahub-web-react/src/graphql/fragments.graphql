@@ -17,16 +17,9 @@ fragment glossaryNode on GlossaryNode {
     properties {
         name
     }
-    children: relationships(
-            input: {
-                types: ["IsPartOf"]
-                direction: INCOMING
-                start: 0
-                count: 1000
-            }
-        ) {
-            count
-        }
+    children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 1000 }) {
+        count
+    }
 }
 
 fragment glossaryTerm on GlossaryTerm {
@@ -209,9 +202,6 @@ fragment nonRecursiveDatasetFields on Dataset {
     schemaMetadata(version: 0) {
         ...schemaMetadataFields
     }
-    previousSchemaMetadata: schemaMetadata(version: -1) {
-        ...schemaMetadataFields
-    }
     editableSchemaMetadata {
         editableSchemaFieldInfo {
             fieldPath
@@ -306,17 +296,6 @@ fragment dataJobFields on DataJob {
     ownership {
         ...ownershipFields
     }
-    inputOutput {
-        inputDatasets {
-            ...nonRecursiveDatasetFields
-        }
-        outputDatasets {
-            ...nonRecursiveDatasetFields
-        }
-        inputDatajobs {
-            ...nonRecursiveDataJobFields
-        }
-    }
     properties {
         name
         description
@@ -343,6 +322,9 @@ fragment dataJobFields on DataJob {
     }
     deprecation {
         ...deprecationFields
+    }
+    status {
+        removed
     }
     dataPlatformInstance {
         ...dataPlatformInstanceFields
@@ -371,6 +353,9 @@ fragment dashboardFields on Dashboard {
             time
         }
     }
+    editableProperties {
+        description
+    }
     ownership {
         ...ownershipFields
     }
@@ -388,9 +373,6 @@ fragment dashboardFields on Dashboard {
     }
     domain {
         ...entityDomain
-    }
-    container {
-        ...entityContainer
     }
     parentContainers {
         ...parentContainersFields
@@ -798,7 +780,7 @@ fragment nonConflictingPlatformFields on DataPlatform {
     }
 }
 
-fragment dataPlatformInstanceFields on DataPlatformInstance  {
+fragment dataPlatformInstanceFields on DataPlatformInstance {
     urn
     type
     platform {

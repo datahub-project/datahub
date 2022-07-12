@@ -1,9 +1,6 @@
 query getDashboard($urn: String!) {
     dashboard(urn: $urn) {
         ...dashboardFields
-        editableProperties {
-            description
-        }
         charts: relationships(input: { types: ["Contains"], direction: OUTGOING, start: 0, count: 100 }) {
             ...fullRelationshipResults
         }

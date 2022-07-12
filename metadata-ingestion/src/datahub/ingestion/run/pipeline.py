@@ -54,11 +54,10 @@ class PipelineConfig(ConfigModel):
         cls, v: Optional[str], values: Dict[str, Any], **kwargs: Any
     ) -> str:
         if v == "__DEFAULT_RUN_ID":
-            if "source" in values:
-                if hasattr(values["source"], "type"):
-                    source_type = values["source"].type
-                    current_time = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
-                    return f"{source_type}-{current_time}"
+            if "source" in values and hasattr(values["source"], "type"):
+                source_type = values["source"].type
+                current_time = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
+                return f"{source_type}-{current_time}"
 
             return str(uuid.uuid1())  # default run_id if we cannot infer a source type
         else:
@@ -88,12 +87,11 @@ class PipelineConfig(ConfigModel):
     def datahub_api_should_use_rest_sink_as_default(
         cls, v: Optional[DatahubClientConfig], values: Dict[str, Any], **kwargs: Any
     ) -> Optional[DatahubClientConfig]:
-        if v is None:
-            if "sink" in values and hasattr(values["sink"], "type"):
-                sink_type = values["sink"].type
-                if sink_type == "datahub-rest":
-                    sink_config = values["sink"].config
-                    v = DatahubClientConfig.parse_obj(sink_config)
+        if v is None and "sink" in values and hasattr(values["sink"], "type"):
+            sink_type = values["sink"].type
+            if sink_type == "datahub-rest":
+                sink_config = values["sink"].config
+                v = DatahubClientConfig.parse_obj(sink_config)
         return v
 
 
@@ -122,6 +120,11 @@ class Pipeline:
     sink: Sink
     transformers: List[Transformer]
 
+    def _record_initialization_failure(self, e: Exception, msg: str) -> None:
+        self.pipeline_init_exception: Optional[Exception] = e
+        self.pipeline_init_failures: Optional[str] = f"{msg} due to {e}"
+        logger.error(e)
+
     def __init__(
         self,
         config: PipelineConfig,
@@ -140,23 +143,59 @@ class Pipeline:
             dry_run=dry_run,
             preview_mode=preview_mode,
         )
+        self.pipeline_init_failures = None
+        self.pipeline_init_exception = None
 
         sink_type = self.config.sink.type
-        sink_class = sink_registry.get(sink_type)
-        sink_config = self.config.sink.dict().get("config") or {}
-        self.sink: Sink = sink_class.create(sink_config, self.ctx)
-        logger.debug(f"Sink type:{self.config.sink.type},{sink_class} configured")
+        try:
+            sink_class = sink_registry.get(sink_type)
+        except Exception as e:
+            self._record_initialization_failure(e, "Failed to create a sink")
+            return
 
-        source_type = self.config.source.type
-        source_class = source_registry.get(source_type)
-        self.source: Source = source_class.create(
-            self.config.source.dict().get("config", {}), self.ctx
-        )
-        logger.debug(f"Source type:{source_type},{source_class} configured")
+        try:
+            sink_config = self.config.sink.dict().get("config") or {}
+            self.sink: Sink = sink_class.create(sink_config, self.ctx)
+            logger.debug(f"Sink type:{self.config.sink.type},{sink_class} configured")
+            logger.info(f"Sink configured successfully. {self.sink.configured()}")
+        except Exception as e:
+            self._record_initialization_failure(
+                e, f"Failed to configure sink ({sink_type})"
+            )
+            return
 
-        self.extractor_class = extractor_registry.get(self.config.source.extractor)
+        try:
+            source_type = self.config.source.type
+            source_class = source_registry.get(source_type)
+        except Exception as e:
+            self._record_initialization_failure(e, "Failed to create source")
+            return
 
-        self._configure_transforms()
+        try:
+            self.source: Source = source_class.create(
+                self.config.source.dict().get("config", {}), self.ctx
+            )
+            logger.debug(f"Source type:{source_type},{source_class} configured")
+        except Exception as e:
+            self._record_initialization_failure(
+                e, f"Failed to configure source ({source_type})"
+            )
+            return
+
+        try:
+            self.extractor_class = extractor_registry.get(self.config.source.extractor)
+        except Exception as e:
+            self._record_initialization_failure(
+                e, f"Failed to configure extractor ({self.config.source.extractor})"
+            )
+            return
+
+        try:
+            self._configure_transforms()
+        except ValueError as e:
+            self._record_initialization_failure(e, "Failed to configure transformers")
+            return
+
         self._configure_reporting()
 
     def _configure_transforms(self) -> None:
@@ -211,6 +250,10 @@ class Pipeline:
     def run(self) -> None:
 
         callback = LoggingCallback()
+        if self.pipeline_init_failures:
+            # no point continuing, return early
+            return
+
         extractor: Extractor = self.extractor_class()
         for wu in itertools.islice(
             self.source.get_workunits(),
@@ -268,11 +311,10 @@ class Pipeline:
             if self.source.get_report().failures or self.sink.get_report().failures
             else False
         )
-        has_warnings: bool = (
-            True
-            if self.source.get_report().warnings or self.sink.get_report().warnings
-            else False
+        has_warnings: bool = bool(
+            self.source.get_report().warnings or self.sink.get_report().warnings
         )
+
         for name, committable in self.ctx.get_committables():
             commit_policy: CommitPolicy = committable.commit_policy
 
@@ -299,6 +341,9 @@ class Pipeline:
                 logger.info(f"Successfully committed changes for {name}.")
 
     def raise_from_status(self, raise_warnings: bool = False) -> None:
+        if self.pipeline_init_exception:
+            raise self.pipeline_init_exception
+
         if self.source.get_report().failures:
             raise PipelineExecutionError(
                 "Source reported errors", self.source.get_report()
@@ -313,18 +358,18 @@ class Pipeline:
             )
 
     def log_ingestion_stats(self) -> None:
-
-        telemetry.telemetry_instance.ping(
-            "ingest_stats",
-            {
-                "source_type": self.config.source.type,
-                "sink_type": self.config.sink.type,
-                "records_written": stats.discretize(
-                    self.sink.get_report().records_written
-                ),
-            },
-            self.ctx.graph,
-        )
+        if not self.pipeline_init_failures:
+            telemetry.telemetry_instance.ping(
+                "ingest_stats",
+                {
+                    "source_type": self.config.source.type,
+                    "sink_type": self.config.sink.type,
+                    "records_written": stats.discretize(
+                        self.sink.get_report().records_written
+                    ),
+                },
+                self.ctx.graph,
+            )
 
     def _count_all_vals(self, d: Dict[str, List]) -> int:
         result = 0
@@ -334,6 +379,9 @@ class Pipeline:
 
     def pretty_print_summary(self, warnings_as_failure: bool = False) -> int:
         click.echo()
+        if self.pipeline_init_failures:
+            click.secho(f"{self.pipeline_init_failures}", fg="red")
+            return 1
         click.secho(f"Source ({self.config.source.type}) report:", bold=True)
         click.echo(self.source.get_report().as_string())
         click.secho(f"Sink ({self.config.sink.type}) report:", bold=True)

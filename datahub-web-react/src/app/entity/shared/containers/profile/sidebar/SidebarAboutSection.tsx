@@ -134,9 +134,7 @@ export const SidebarAboutSection = ({ properties }: { properties?: Props }) => {
                                 {sourceRef}
                             </SourceButton>
                         ) : (
-                            {
-                                sourceRef,
-                            }
+                            <span>{sourceRef}</span>
                         )}
                     </Typography.Paragraph>
                 </>

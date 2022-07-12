@@ -307,7 +307,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     outputParamsToValues.put(aspectArg, aspect);
     outputParamsToValues.put(versionArg, version);
 
-    return String.format("SELECT urn, aspect, version, metadata, createdOn, createdBy, createdFor "
+    return String.format("SELECT urn, aspect, version, metadata, systemMetadata, createdOn, createdBy, createdFor "
             + "FROM %s WHERE urn = :%s AND aspect = :%s AND version = :%s",
         EbeanAspectV2.class.getAnnotation(Table.class).name(), urnArg, aspectArg, versionArg);
   }

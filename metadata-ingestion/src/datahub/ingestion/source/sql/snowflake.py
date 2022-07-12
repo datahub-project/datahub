@@ -72,6 +72,7 @@ class SnowflakeSource(SQLAlchemySource):
         self.report: SnowflakeReport = SnowflakeReport()
         self.config: SnowflakeConfig = config
         self.provision_role_in_progress: bool = False
+        self.profile_candidates: Dict[str, List[str]] = {}
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -754,11 +755,18 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name, upstream_table_na
         return True
 
     def generate_profile_candidates(
-        self, inspector: Inspector, threshold_time: datetime
-    ) -> List[str]:
+        self, inspector: Inspector, threshold_time: Optional[datetime], schema: str
+    ) -> Optional[List[str]]:
+        if threshold_time is None:
+            return None
+        db_name = self.current_database
+        if self.profile_candidates.get(db_name) is not None:
+            #  snowflake profile candidates are available at database level,
+            #  no need to regenerate for every schema
+            return self.profile_candidates[db_name]
         self.report.profile_if_updated_since = threshold_time
         _profile_candidates = []
-
+        logger.debug(f"Generating profiling candidates for db {db_name}")
         db_rows = inspector.engine.execute(
             text(
                 """
@@ -771,7 +779,6 @@ where last_altered >= to_timestamp_ltz({timestamp}, 3) and table_type= 'BASE TAB
             )
         )
 
-        db_name = self.current_database
         for db_row in db_rows:
             _profile_candidates.append(
                 self.get_identifier(
@@ -780,8 +787,9 @@ where last_altered >= to_timestamp_ltz({timestamp}, 3) and table_type= 'BASE TAB
                     inspector=inspector,
                 ).lower()
             )
-        logger.debug(f"Generating profiling candidates for db {db_name}")
+
         self.report.profile_candidates[db_name] = _profile_candidates
+        self.profile_candidates[db_name] = _profile_candidates
         return _profile_candidates
 
     # Stateful Ingestion specific overrides

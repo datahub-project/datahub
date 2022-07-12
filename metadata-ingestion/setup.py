@@ -68,7 +68,7 @@ kafka_common = {
     # At the same time, we use Kafka's AvroSerializer, which internally relies on
     # fastavro for serialization. We do not use confluent_kafka[avro], since it
     # is incompatible with its own dep on avro-python3.
-    "confluent_kafka>=1.5.0,<1.9.0",
+    "confluent_kafka>=1.5.0",
     "fastavro>=1.2.0",
 }
 
@@ -262,6 +262,7 @@ plugins: Dict[str, Set[str]] = {
     "redshift": sql_common | redshift_common,
     "redshift-usage": sql_common | usage_common | redshift_common,
     "sagemaker": aws_common,
+    "salesforce":{"simple-salesforce"},
     "snowflake": snowflake_common,
     "snowflake-usage": snowflake_common
     | usage_common
@@ -366,6 +367,7 @@ base_dev_requirements = {
             "starburst-trino-usage",
             "powerbi",
             "vertica",
+            "salesforce"
             # airflow is added below
         ]
         for dependency in plugins[plugin]
@@ -509,6 +511,7 @@ entry_points = {
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
         "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
+        "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",

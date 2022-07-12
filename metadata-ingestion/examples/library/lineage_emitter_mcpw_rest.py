@@ -10,13 +10,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 from datahub.metadata.schema_classes import ChangeTypeClass
 
-# Construct upstream tables.
-upstream_tables: List[UpstreamClass] = []
 upstream_table_1 = UpstreamClass(
     dataset=builder.make_dataset_urn("bigquery", "upstream_table_1", "PROD"),
     type=DatasetLineageTypeClass.TRANSFORMED,
 )
-upstream_tables.append(upstream_table_1)
+upstream_tables: List[UpstreamClass] = [upstream_table_1]
 upstream_table_2 = UpstreamClass(
     dataset=builder.make_dataset_urn("bigquery", "upstream_table_2", "PROD"),
     type=DatasetLineageTypeClass.TRANSFORMED,
