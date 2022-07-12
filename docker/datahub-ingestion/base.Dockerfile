@@ -13,4 +13,4 @@ RUN apt-get update && apt-get install -y \
 COPY ./base-requirements.txt requirements.txt
 
 RUN pip install -r requirements.txt && \
-    pip uninstall acryl-datahub
+    pip uninstall -y acryl-datahub
