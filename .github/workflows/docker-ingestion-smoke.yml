@@ -1,4 +1,4 @@
-name: ingestion base
+name: ingestion smoke
 on:
   release:
     types: [published, edited]
@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
 
-  build-base:
+  build-smoke:
     name: Build and Push Docker Image to Docker Hub
     runs-on: ubuntu-latest
     steps:
@@ -36,7 +36,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: ./docker/datahub-ingestion
-          file: ./docker/datahub-ingestion/base.Dockerfile
+          file: ./docker/datahub-ingestion/smoke.Dockerfile
           platforms: linux/amd64,linux/arm64
-          tags: acryldata/datahub-ingestion-base:latest
+          tags: acryldata/datahub-ingestion-base:smoke
           push: true
