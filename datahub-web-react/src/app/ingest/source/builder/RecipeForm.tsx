@@ -9,7 +9,23 @@ import ListField from './ListField';
 export const ControlsContainer = styled.div`
     display: flex;
     justify-content: space-between;
-    margin-top: 8px;
+    margin-top: 12px;
+`;
+
+const StyledFormItem = styled(Form.Item)<{ alignLeft: boolean }>`
+    ${(props) =>
+        props.alignLeft &&
+        `
+        .ant-form-item {
+            flex-direction: row;
+
+        }
+
+        .ant-form-item-label {
+            padding: 0;
+            margin-right: 10px;
+        }
+    `}
 `;
 
 function getInitialValues(displayRecipe: string, allFields: any[]) {
@@ -64,23 +80,25 @@ function RecipeForm(props: Props) {
             {allFields.map((field) => {
                 if (field.type === FieldType.LIST) return <ListField field={field} />;
 
-                const input = field.type === FieldType.BOOLEAN ? <Checkbox /> : <Input />;
-                const valuePropName = field.type === FieldType.BOOLEAN ? 'checked' : 'value';
-                const getValueFromEvent =
-                    field.type === FieldType.BOOLEAN
-                        ? undefined
-                        : (e) => (e.target.value === '' ? undefined : e.target.value);
+                const isBoolean = field.type === FieldType.BOOLEAN;
+                const input = isBoolean ? <Checkbox /> : <Input />;
+                const valuePropName = isBoolean ? 'checked' : 'value';
+                const getValueFromEvent = isBoolean
+                    ? undefined
+                    : (e) => (e.target.value === '' ? undefined : e.target.value);
                 return (
-                    <Form.Item
+                    <StyledFormItem
+                        style={isBoolean ? { flexDirection: 'row', alignItems: 'center' } : {}}
                         label={field.label}
                         name={field.name}
                         tooltip={field.tooltip}
                         rules={field.rules || undefined}
                         valuePropName={valuePropName}
                         getValueFromEvent={getValueFromEvent}
+                        alignLeft={isBoolean}
                     >
                         {input}
-                    </Form.Item>
+                    </StyledFormItem>
                 );
             })}
             <ControlsContainer>

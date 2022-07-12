@@ -1,6 +1,17 @@
 import { Button, Form, Input } from 'antd';
 import React from 'react';
+import styled from 'styled-components/macro';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
+
+const Label = styled.div`
+    font-weight: bold;
+    padding-bottom: 8px;
+`;
+
+const StyledRemoveIcon = styled(MinusCircleOutlined)`
+    font-size: 14px;
+    margin-left: 10px;
+`;
 
 function ListField(inputField: any) {
     return (
@@ -8,17 +19,17 @@ function ListField(inputField: any) {
             {(fields, { add, remove }) => (
                 <>
                     <>
-                        {inputField.field.label}
+                        <Label>{inputField.field.label}</Label>
                         {fields.map((field) => (
-                            <Form.Item key={field.fieldKey}>
-                                <Form.Item {...field} validateTrigger={['onChange', 'onBlur']}>
+                            <Form.Item key={field.fieldKey} style={{ marginBottom: '10px' }}>
+                                <Form.Item {...field} noStyle>
                                     <Input
                                         style={{
                                             width: '60%',
                                         }}
                                     />
                                 </Form.Item>
-                                <MinusCircleOutlined onClick={() => remove(field.name)} />
+                                <StyledRemoveIcon onClick={() => remove(field.name)} />
                             </Form.Item>
                         ))}
                         <Button
@@ -29,7 +40,7 @@ function ListField(inputField: any) {
                             }}
                             icon={<PlusOutlined />}
                         >
-                            Add field
+                            Add pattern
                         </Button>
                     </>
                 </>

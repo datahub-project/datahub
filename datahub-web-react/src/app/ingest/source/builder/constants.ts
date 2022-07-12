@@ -23,7 +23,7 @@ export const ACCOUNT_ID: RecipeField = {
     type: FieldType.TEXT,
     rules: null,
     getValueFromRecipe: (recipe: any) => recipe.source.config?.account_id,
-    setValueOnRecipe: (recipe: any, value: any) => {
+    setValueOnRecipe: (recipe: any, value: string) => {
         if (value !== undefined) {
             const updatedRecipe = { ...recipe };
             if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
@@ -46,7 +46,7 @@ export const WAREHOUSE = {
         },
     ],
     getValueFromRecipe: (recipe: any) => recipe.source.config?.warehouse,
-    setValueOnRecipe: (recipe: any, value: any) => {
+    setValueOnRecipe: (recipe: any, value: string) => {
         if (value !== undefined) {
             const updatedRecipe = { ...recipe };
             if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
@@ -64,7 +64,7 @@ export const USERNAME = {
     type: FieldType.TEXT,
     rules: null,
     getValueFromRecipe: (recipe: any) => recipe.source.config?.username,
-    setValueOnRecipe: (recipe: any, value: any) => {
+    setValueOnRecipe: (recipe: any, value: string) => {
         if (value !== undefined) {
             const updatedRecipe = { ...recipe };
             if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
@@ -82,7 +82,7 @@ export const PASSWORD = {
     type: FieldType.TEXT,
     rules: null,
     getValueFromRecipe: (recipe: any) => recipe.source.config?.password,
-    setValueOnRecipe: (recipe: any, value: any) => {
+    setValueOnRecipe: (recipe: any, value: string) => {
         if (value !== undefined) {
             const updatedRecipe = { ...recipe };
             if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
@@ -100,7 +100,7 @@ export const ROLE = {
     type: FieldType.TEXT,
     rules: null,
     getValueFromRecipe: (recipe: any) => recipe.source.config?.role,
-    setValueOnRecipe: (recipe: any, value: any) => {
+    setValueOnRecipe: (recipe: any, value: string) => {
         if (value !== undefined) {
             const updatedRecipe = { ...recipe };
             if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
@@ -111,20 +111,20 @@ export const ROLE = {
     },
 };
 
-// Maybe remove later
-export const PROVISION_ROLE_ENABLED = {
-    name: 'provision_role.enabled',
-    label: 'Provision Role > Enabled',
-    tooltip: 'Snowflake username.',
+export const INCLUDE_LINEAGE = {
+    name: 'include_lineage',
+    label: 'Include Lineage',
+    tooltip: 'Include Table and View lineage in your ingestion.',
     type: FieldType.BOOLEAN,
     rules: null,
-    getValueFromRecipe: (recipe: any) => recipe.source.config?.provision_role?.enabled,
-    setValueOnRecipe: (recipe: any, value: any) => {
+    getValueFromRecipe: (recipe: any) =>
+        recipe.source.config?.include_table_lineage && recipe.source.config?.include_view_lineage,
+    setValueOnRecipe: (recipe: any, value: boolean) => {
         if (value !== undefined) {
             const updatedRecipe = { ...recipe };
             if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
-            if (!updatedRecipe.source.config.provision_role) updatedRecipe.source.config.provision_role = {};
-            updatedRecipe.source.config.provision_role.enabled = value;
+            updatedRecipe.source.config.include_table_lineage = value;
+            updatedRecipe.source.config.include_view_lineage = value;
             return updatedRecipe;
         }
         return recipe;
@@ -138,7 +138,7 @@ export const DATABASE_ALLOW = {
     type: FieldType.LIST,
     rules: null,
     getValueFromRecipe: (recipe: any) => recipe.source.config?.table_pattern?.allow,
-    setValueOnRecipe: (recipe: any, values: any) => {
+    setValueOnRecipe: (recipe: any, values: string[]) => {
         if (values !== undefined) {
             const updatedRecipe = { ...recipe };
 
@@ -157,7 +157,7 @@ export const DATABASE_ALLOW = {
 export const RECIPE_FIELDS = {
     [SNOWFLAKE]: {
         fields: [ACCOUNT_ID, WAREHOUSE, USERNAME, PASSWORD, ROLE],
-        advancedFields: [PROVISION_ROLE_ENABLED],
+        advancedFields: [INCLUDE_LINEAGE],
         filterFields: [DATABASE_ALLOW],
     },
 };
