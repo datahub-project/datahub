@@ -1,4 +1,4 @@
-import { Button, Form, message } from 'antd';
+import { Button, Collapse, Form, message } from 'antd';
 import React from 'react';
 import YAML from 'yamljs';
 import styled from 'styled-components/macro';
@@ -10,6 +10,16 @@ export const ControlsContainer = styled.div`
     display: flex;
     justify-content: space-between;
     margin-top: 12px;
+`;
+
+const StyledCollapse = styled(Collapse)`
+    margin-bottom: 24px;
+
+    .ant-collapse-header {
+        font-size: 14px;
+        font-weight: bold;
+        padding: 12px 0;
+    }
 `;
 
 function getInitialValues(displayRecipe: string, allFields: any[]) {
@@ -64,6 +74,20 @@ function RecipeForm(props: Props) {
             {fields.map((field) => (
                 <FormField field={field} />
             ))}
+            <StyledCollapse>
+                <Collapse.Panel header="Filter" key="0">
+                    {filterFields.map((field) => (
+                        <FormField field={field} />
+                    ))}
+                </Collapse.Panel>
+            </StyledCollapse>
+            <StyledCollapse>
+                <Collapse.Panel header="Advanced" key="1">
+                    {advancedFields.map((field, i) => (
+                        <FormField field={field} removeMargin={i === advancedFields.length - 1} />
+                    ))}
+                </Collapse.Panel>
+            </StyledCollapse>
             <ControlsContainer>
                 <Button disabled={isEditing} onClick={goToPrevious}>
                     Previous

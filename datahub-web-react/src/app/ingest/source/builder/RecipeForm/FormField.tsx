@@ -14,7 +14,9 @@ const StyledRemoveIcon = styled(MinusCircleOutlined)`
     margin-left: 10px;
 `;
 
-const StyledFormItem = styled(Form.Item)<{ alignLeft: boolean }>`
+const StyledFormItem = styled(Form.Item)<{ alignLeft: boolean; removeMargin: boolean }>`
+    ${(props) => props.removeMargin && 'margin-bottom: 0;'}
+
     ${(props) =>
         props.alignLeft &&
         `
@@ -35,31 +37,29 @@ function ListField(inputField: any) {
         <Form.List name={inputField.field.name}>
             {(fields, { add, remove }) => (
                 <>
-                    <>
-                        <Label>{inputField.field.label}</Label>
-                        {fields.map((field) => (
-                            <Form.Item key={field.fieldKey} style={{ marginBottom: '10px' }}>
-                                <Form.Item {...field} noStyle>
-                                    <Input
-                                        style={{
-                                            width: '60%',
-                                        }}
-                                    />
-                                </Form.Item>
-                                <StyledRemoveIcon onClick={() => remove(field.name)} />
+                    <Label>{inputField.field.label}</Label>
+                    {fields.map((field) => (
+                        <Form.Item key={field.fieldKey} style={{ marginBottom: '10px' }}>
+                            <Form.Item {...field} noStyle>
+                                <Input
+                                    style={{
+                                        width: '60%',
+                                    }}
+                                />
                             </Form.Item>
-                        ))}
-                        <Button
-                            type="dashed"
-                            onClick={() => add()}
-                            style={{
-                                width: '60%',
-                            }}
-                            icon={<PlusOutlined />}
-                        >
-                            Add pattern
-                        </Button>
-                    </>
+                            <StyledRemoveIcon onClick={() => remove(field.name)} />
+                        </Form.Item>
+                    ))}
+                    <Button
+                        type="dashed"
+                        onClick={() => add()}
+                        style={{
+                            width: '60%',
+                        }}
+                        icon={<PlusOutlined />}
+                    >
+                        Add pattern
+                    </Button>
                 </>
             )}
         </Form.List>
@@ -68,10 +68,11 @@ function ListField(inputField: any) {
 
 interface Props {
     field: RecipeField;
+    removeMargin?: boolean;
 }
 
 function FormField(props: Props) {
-    const { field } = props;
+    const { field, removeMargin } = props;
 
     if (field.type === FieldType.LIST) return <ListField field={field} />;
 
@@ -90,6 +91,7 @@ function FormField(props: Props) {
             valuePropName={valuePropName}
             getValueFromEvent={getValueFromEvent}
             alignLeft={isBoolean}
+            removeMargin={!!removeMargin}
         >
             {input}
         </StyledFormItem>
