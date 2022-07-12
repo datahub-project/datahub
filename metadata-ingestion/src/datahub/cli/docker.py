@@ -132,6 +132,80 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
         return False
 
 
+def _set_environment_variables(
+    version: Optional[str],
+    mysql_port: Optional[pydantic.PositiveInt],
+    zk_port: Optional[pydantic.PositiveInt],
+    kafka_broker_port: Optional[pydantic.PositiveInt],
+    schema_registry_port: Optional[pydantic.PositiveInt],
+    elastic_port: Optional[pydantic.PositiveInt],
+) -> None:
+    if version is not None:
+        os.environ["DATAHUB_VERSION"] = version
+    if mysql_port is not None:
+        os.environ["DATAHUB_MAPPED_MYSQL_PORT"] = str(mysql_port)
+
+    if zk_port is not None:
+        os.environ["DATAHUB_MAPPED_ZK_PORT"] = str(zk_port)
+
+    if kafka_broker_port is not None:
+        os.environ["DATAHUB_MAPPED_KAFKA_BROKER_PORT"] = str(kafka_broker_port)
+
+    if schema_registry_port is not None:
+        os.environ["DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT"] = str(schema_registry_port)
+
+    if elastic_port is not None:
+        os.environ["DATAHUB_MAPPED_ELASTIC_PORT"] = str(elastic_port)
+
+
+def _get_default_quickstart_compose_file() -> Optional[str]:
+    home = os.environ["HOME"]
+    if home:
+        try:
+            os.makedirs(f"{home}/.datahub/quickstart", exist_ok=True)
+            return f"{home}/.datahub/quickstart/docker-compose.yml"
+        except Exception as e:
+            logger.debug(
+                f"Failed to identify a default quickstart compose file due to {e}"
+            )
+
+    return None
+
+
+def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
+    default_quickstart_compose_file = _get_default_quickstart_compose_file()
+    compose_files_for_stopping = (
+        quickstart_compose_file
+        if quickstart_compose_file
+        else [pathlib.Path(default_quickstart_compose_file)]
+        if default_quickstart_compose_file
+        else None
+    )
+    if compose_files_for_stopping:
+        # docker-compose stop
+        base_command: List[str] = [
+            "docker-compose",
+            *itertools.chain.from_iterable(
+                ("-f", f"{path}") for path in compose_files_for_stopping
+            ),
+            "-p",
+            "datahub",
+        ]
+        try:
+            logger.debug(f"Executing {base_command} stop")
+            subprocess.run(
+                [*base_command, "stop"],
+                check=True,
+            )
+            click.secho("Stopped datahub successfully.", fg="green")
+        except subprocess.CalledProcessError:
+            click.secho(
+                "Error while stopping.",
+                fg="red",
+            )
+        return
+
+
 @docker.command()
 @click.option(
     "--version",
@@ -176,45 +250,53 @@ def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) ->
 )
 @click.option(
     "--zk-port",
-    type=str,
+    type=pydantic.PositiveInt,
     is_flag=False,
     default=None,
     help="If there is an existing zookeeper instance running on port 2181, set this to a free port to avoid port conflicts on startup",
 )
 @click.option(
     "--kafka-broker-port",
-    type=str,
+    type=pydantic.PositiveInt,
     is_flag=False,
     default=None,
     help="If there is an existing Kafka broker running on port 9092, set this to a free port to avoid port conflicts on startup",
 )
 @click.option(
     "--schema-registry-port",
-    type=str,
+    type=pydantic.PositiveInt,
     is_flag=False,
     default=None,
     help="If there is an existing process running on port 8081, set this to a free port to avoid port conflicts with Kafka schema registry on startup",
 )
 @click.option(
     "--elastic-port",
-    type=str,
+    type=pydantic.PositiveInt,
     is_flag=False,
     default=None,
     help="If there is an existing Elasticsearch instance running on port 9092, set this to a free port to avoid port conflicts on startup",
 )
+@click.option(
+    "--stop",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="Use this flag to stop the running containers",
+)
 @upgrade.check_upgrade
 @telemetry.with_telemetry
-def quickstart(  # noqa: C901
+def quickstart(
     version: str,
     build_locally: bool,
     quickstart_compose_file: List[pathlib.Path],
     dump_logs_on_failure: bool,
     graph_service_impl: Optional[str],
     mysql_port: Optional[pydantic.PositiveInt],
-    zk_port: Optional[str],
-    kafka_broker_port: Optional[str],
-    schema_registry_port: Optional[str],
-    elastic_port: Optional[str],
+    zk_port: Optional[pydantic.PositiveInt],
+    kafka_broker_port: Optional[pydantic.PositiveInt],
+    schema_registry_port: Optional[pydantic.PositiveInt],
+    elastic_port: Optional[pydantic.PositiveInt],
+    stop: bool,
 ) -> None:
     """Start an instance of DataHub locally using docker-compose.
 
@@ -226,7 +308,7 @@ def quickstart(  # noqa: C901
 
     running_on_m1 = is_m1()
     if running_on_m1:
-        click.echo("Detected M1 machine")
+        click.secho("Detected M1 machine", fg="yellow")
 
     # Run pre-flight checks.
     issues = check_local_docker_containers(preflight_only=True)
@@ -236,7 +318,13 @@ def quickstart(  # noqa: C901
     quickstart_compose_file = list(
         quickstart_compose_file
     )  # convert to list from tuple
-    if not quickstart_compose_file:
+
+    default_quickstart_compose_file = _get_default_quickstart_compose_file()
+    if stop:
+        _attempt_stop(quickstart_compose_file)
+        return
+    elif not quickstart_compose_file:
+        # download appropriate quickstart file
         should_use_neo4j = should_use_neo4j_for_graph_service(graph_service_impl)
         if should_use_neo4j and running_on_m1:
             click.secho(
@@ -251,7 +339,11 @@ def quickstart(  # noqa: C901
             else GITHUB_M1_QUICKSTART_COMPOSE_URL
         )
 
-        with tempfile.NamedTemporaryFile(suffix=".yml", delete=False) as tmp_file:
+        with open(
+            default_quickstart_compose_file, "wb"
+        ) if default_quickstart_compose_file else tempfile.NamedTemporaryFile(
+            suffix=".yml", delete=False
+        ) as tmp_file:
             path = pathlib.Path(tmp_file.name)
             quickstart_compose_file.append(path)
             click.echo(f"Fetching docker-compose file {github_file} from GitHub")
@@ -262,22 +354,14 @@ def quickstart(  # noqa: C901
             logger.debug(f"Copied to {path}")
 
     # set version
-    if version is not None:
-        os.environ["DATAHUB_VERSION"] = version
-    if mysql_port is not None:
-        os.environ["DATAHUB_MAPPED_MYSQL_PORT"] = str(mysql_port)
-
-    if zk_port is not None:
-        os.environ["DATAHUB_MAPPED_ZK_PORT"] = str(zk_port)
-
-    if kafka_broker_port is not None:
-        os.environ["DATAHUB_MAPPED_KAFKA_BROKER_PORT"] = str(kafka_broker_port)
-
-    if schema_registry_port is not None:
-        os.environ["DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT"] = str(schema_registry_port)
-
-    if elastic_port is not None:
-        os.environ["DATAHUB_MAPPED_ELASTIC_PORT"] = str(elastic_port)
+    _set_environment_variables(
+        version=version,
+        mysql_port=mysql_port,
+        zk_port=zk_port,
+        kafka_broker_port=kafka_broker_port,
+        schema_registry_port=schema_registry_port,
+        elastic_port=elastic_port,
+    )
 
     base_command: List[str] = [
         "docker-compose",
