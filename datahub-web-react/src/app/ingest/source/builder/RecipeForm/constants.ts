@@ -16,6 +16,50 @@ export interface RecipeField {
     setValueOnRecipe: (recipe: any, value: any) => any;
 }
 
+function setFieldValueOnRecipe(recipe: any, value: string | boolean, field: string, parentField?: string) {
+    if (value !== undefined) {
+        const updatedRecipe = { ...recipe };
+        if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
+
+        if (parentField) {
+            if (!updatedRecipe.source.config[parentField]) updatedRecipe.source.config[parentField] = {};
+            updatedRecipe.source.config[parentField][field] = value;
+        } else {
+            updatedRecipe.source.config[field] = value;
+        }
+
+        return updatedRecipe;
+    }
+    return recipe;
+}
+
+function setListValuesOnRecipe(recipe: any, values: string[], field: string, parentField: string) {
+    if (values !== undefined) {
+        const updatedRecipe = { ...recipe };
+
+        const filteredValues: string[] | undefined = values.filter((v) => !!v);
+        if (!filteredValues.length) {
+            // remove this field from the recipe if it's empty
+            if (updatedRecipe.source.config?.[parentField]?.[field]) {
+                updatedRecipe.source.config[parentField][field] = undefined;
+
+                // remove its parent if there are no other fields underneath it
+                const parentKeys = Object.keys(updatedRecipe.source.config[parentField]);
+                if (parentKeys.length === 1 && parentKeys[0] === field) {
+                    updatedRecipe.source.config[parentField] = undefined;
+                }
+            }
+            return updatedRecipe;
+        }
+
+        if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
+        if (!updatedRecipe.source.config[parentField]) updatedRecipe.source.config[parentField] = {};
+        updatedRecipe.source.config[parentField][field] = filteredValues;
+        return updatedRecipe;
+    }
+    return recipe;
+}
+
 export const ACCOUNT_ID: RecipeField = {
     name: 'account_id',
     label: 'Account ID',
@@ -23,15 +67,7 @@ export const ACCOUNT_ID: RecipeField = {
     type: FieldType.TEXT,
     rules: null,
     getValueFromRecipe: (recipe: any) => recipe.source.config?.account_id,
-    setValueOnRecipe: (recipe: any, value: string) => {
-        if (value !== undefined) {
-            const updatedRecipe = { ...recipe };
-            if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
-            updatedRecipe.source.config.account_id = value;
-            return updatedRecipe;
-        }
-        return recipe;
-    },
+    setValueOnRecipe: (recipe: any, value: string) => setFieldValueOnRecipe(recipe, value, 'account_id'),
 };
 
 export const WAREHOUSE: RecipeField = {
@@ -46,15 +82,7 @@ export const WAREHOUSE: RecipeField = {
         },
     ],
     getValueFromRecipe: (recipe: any) => recipe.source.config?.warehouse,
-    setValueOnRecipe: (recipe: any, value: string) => {
-        if (value !== undefined) {
-            const updatedRecipe = { ...recipe };
-            if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
-            updatedRecipe.source.config.warehouse = value;
-            return updatedRecipe;
-        }
-        return recipe;
-    },
+    setValueOnRecipe: (recipe: any, value: string) => setFieldValueOnRecipe(recipe, value, 'warehouse'),
 };
 
 export const USERNAME: RecipeField = {
@@ -64,15 +92,7 @@ export const USERNAME: RecipeField = {
     type: FieldType.TEXT,
     rules: null,
     getValueFromRecipe: (recipe: any) => recipe.source.config?.username,
-    setValueOnRecipe: (recipe: any, value: string) => {
-        if (value !== undefined) {
-            const updatedRecipe = { ...recipe };
-            if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
-            updatedRecipe.source.config.username = value;
-            return updatedRecipe;
-        }
-        return recipe;
-    },
+    setValueOnRecipe: (recipe: any, value: string) => setFieldValueOnRecipe(recipe, value, 'username'),
 };
 
 export const PASSWORD: RecipeField = {
@@ -82,15 +102,7 @@ export const PASSWORD: RecipeField = {
     type: FieldType.TEXT,
     rules: null,
     getValueFromRecipe: (recipe: any) => recipe.source.config?.password,
-    setValueOnRecipe: (recipe: any, value: string) => {
-        if (value !== undefined) {
-            const updatedRecipe = { ...recipe };
-            if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
-            updatedRecipe.source.config.password = value;
-            return updatedRecipe;
-        }
-        return recipe;
-    },
+    setValueOnRecipe: (recipe: any, value: string) => setFieldValueOnRecipe(recipe, value, 'password'),
 };
 
 export const ROLE: RecipeField = {
@@ -100,15 +112,7 @@ export const ROLE: RecipeField = {
     type: FieldType.TEXT,
     rules: null,
     getValueFromRecipe: (recipe: any) => recipe.source.config?.role,
-    setValueOnRecipe: (recipe: any, value: string) => {
-        if (value !== undefined) {
-            const updatedRecipe = { ...recipe };
-            if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
-            updatedRecipe.source.config.role = value;
-            return updatedRecipe;
-        }
-        return recipe;
-    },
+    setValueOnRecipe: (recipe: any, value: string) => setFieldValueOnRecipe(recipe, value, 'role'),
 };
 
 export const INCLUDE_LINEAGE: RecipeField = {
@@ -138,15 +142,7 @@ export const IGNORE_START_TIME_LINEAGE: RecipeField = {
     type: FieldType.BOOLEAN,
     rules: null,
     getValueFromRecipe: (recipe: any) => recipe.source.config?.ignore_start_time_lineage,
-    setValueOnRecipe: (recipe: any, value: boolean) => {
-        if (value !== undefined) {
-            const updatedRecipe = { ...recipe };
-            if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
-            updatedRecipe.source.config.ignore_start_time_lineage = value;
-            return updatedRecipe;
-        }
-        return recipe;
-    },
+    setValueOnRecipe: (recipe: any, value: string) => setFieldValueOnRecipe(recipe, value, 'ignore_start_time_lineage'),
 };
 
 export const CHECK_ROLE_GRANTS: RecipeField = {
@@ -157,15 +153,7 @@ export const CHECK_ROLE_GRANTS: RecipeField = {
     type: FieldType.BOOLEAN,
     rules: null,
     getValueFromRecipe: (recipe: any) => recipe.source.config?.check_role_grants,
-    setValueOnRecipe: (recipe: any, value: boolean) => {
-        if (value !== undefined) {
-            const updatedRecipe = { ...recipe };
-            if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
-            updatedRecipe.source.config.check_role_grants = value;
-            return updatedRecipe;
-        }
-        return recipe;
-    },
+    setValueOnRecipe: (recipe: any, value: string) => setFieldValueOnRecipe(recipe, value, 'check_role_grants'),
 };
 
 export const PROFILING_ENABLED: RecipeField = {
@@ -175,16 +163,7 @@ export const PROFILING_ENABLED: RecipeField = {
     type: FieldType.BOOLEAN,
     rules: null,
     getValueFromRecipe: (recipe: any) => recipe.source.config?.profiling?.enabled,
-    setValueOnRecipe: (recipe: any, value: boolean) => {
-        if (value !== undefined) {
-            const updatedRecipe = { ...recipe };
-            if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
-            if (!updatedRecipe.source.config.profiling) updatedRecipe.source.config.profiling = {};
-            updatedRecipe.source.config.profiling.enabled = value;
-            return updatedRecipe;
-        }
-        return recipe;
-    },
+    setValueOnRecipe: (recipe: any, value: string) => setFieldValueOnRecipe(recipe, value, 'enabled', 'profiling'),
 };
 
 export const STATEFUL_INGESTION_ENABLED: RecipeField = {
@@ -194,16 +173,8 @@ export const STATEFUL_INGESTION_ENABLED: RecipeField = {
     type: FieldType.BOOLEAN,
     rules: null,
     getValueFromRecipe: (recipe: any) => recipe.source.config?.stateful_ingestion?.enabled,
-    setValueOnRecipe: (recipe: any, value: boolean) => {
-        if (value !== undefined) {
-            const updatedRecipe = { ...recipe };
-            if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
-            if (!updatedRecipe.source.config.stateful_ingestion) updatedRecipe.source.config.stateful_ingestion = {};
-            updatedRecipe.source.config.stateful_ingestion.enabled = value;
-            return updatedRecipe;
-        }
-        return recipe;
-    },
+    setValueOnRecipe: (recipe: any, value: string) =>
+        setFieldValueOnRecipe(recipe, value, 'enabled', 'stateful_ingestion'),
 };
 
 export const DATABASE_ALLOW: RecipeField = {
@@ -213,20 +184,8 @@ export const DATABASE_ALLOW: RecipeField = {
     type: FieldType.LIST,
     rules: null,
     getValueFromRecipe: (recipe: any) => recipe.source.config?.database_pattern?.allow,
-    setValueOnRecipe: (recipe: any, values: string[]) => {
-        if (values !== undefined) {
-            const updatedRecipe = { ...recipe };
-
-            const filteredValues = values.filter((v) => !!v);
-            if (!filteredValues.length) return { ...recipe };
-
-            if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
-            if (!updatedRecipe.source.config.database_pattern) updatedRecipe.source.config.database_pattern = {};
-            updatedRecipe.source.config.database_pattern.allow = filteredValues;
-            return updatedRecipe;
-        }
-        return recipe;
-    },
+    setValueOnRecipe: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, 'allow', 'database_pattern'),
 };
 
 export const DATABASE_DENY: RecipeField = {
@@ -236,20 +195,8 @@ export const DATABASE_DENY: RecipeField = {
     type: FieldType.LIST,
     rules: null,
     getValueFromRecipe: (recipe: any) => recipe.source.config?.database_pattern?.deny,
-    setValueOnRecipe: (recipe: any, values: string[]) => {
-        if (values !== undefined) {
-            const updatedRecipe = { ...recipe };
-
-            const filteredValues = values.filter((v) => !!v);
-            if (!filteredValues.length) return { ...recipe };
-
-            if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
-            if (!updatedRecipe.source.config.database_pattern) updatedRecipe.source.config.database_pattern = {};
-            updatedRecipe.source.config.database_pattern.deny = filteredValues;
-            return updatedRecipe;
-        }
-        return recipe;
-    },
+    setValueOnRecipe: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, 'deny', 'database_pattern'),
 };
 
 export const SCHEMA_ALLOW: RecipeField = {
@@ -259,20 +206,8 @@ export const SCHEMA_ALLOW: RecipeField = {
     type: FieldType.LIST,
     rules: null,
     getValueFromRecipe: (recipe: any) => recipe.source.config?.schema_pattern?.allow,
-    setValueOnRecipe: (recipe: any, values: string[]) => {
-        if (values !== undefined) {
-            const updatedRecipe = { ...recipe };
-
-            const filteredValues = values.filter((v) => !!v);
-            if (!filteredValues.length) return { ...recipe };
-
-            if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
-            if (!updatedRecipe.source.config.schema_pattern) updatedRecipe.source.config.schema_pattern = {};
-            updatedRecipe.source.config.schema_pattern.allow = filteredValues;
-            return updatedRecipe;
-        }
-        return recipe;
-    },
+    setValueOnRecipe: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, 'allow', 'schema_pattern'),
 };
 
 export const SCHEMA_DENY: RecipeField = {
@@ -282,20 +217,8 @@ export const SCHEMA_DENY: RecipeField = {
     type: FieldType.LIST,
     rules: null,
     getValueFromRecipe: (recipe: any) => recipe.source.config?.schema_pattern?.deny,
-    setValueOnRecipe: (recipe: any, values: string[]) => {
-        if (values !== undefined) {
-            const updatedRecipe = { ...recipe };
-
-            const filteredValues = values.filter((v) => !!v);
-            if (!filteredValues.length) return { ...recipe };
-
-            if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
-            if (!updatedRecipe.source.config.schema_pattern) updatedRecipe.source.config.schema_pattern = {};
-            updatedRecipe.source.config.schema_pattern.deny = filteredValues;
-            return updatedRecipe;
-        }
-        return recipe;
-    },
+    setValueOnRecipe: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, 'deny', 'schema_pattern'),
 };
 
 export const VIEW_ALLOW: RecipeField = {
@@ -305,20 +228,7 @@ export const VIEW_ALLOW: RecipeField = {
     type: FieldType.LIST,
     rules: null,
     getValueFromRecipe: (recipe: any) => recipe.source.config?.view_pattern?.allow,
-    setValueOnRecipe: (recipe: any, values: string[]) => {
-        if (values !== undefined) {
-            const updatedRecipe = { ...recipe };
-
-            const filteredValues = values.filter((v) => !!v);
-            if (!filteredValues.length) return { ...recipe };
-
-            if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
-            if (!updatedRecipe.source.config.view_pattern) updatedRecipe.source.config.view_pattern = {};
-            updatedRecipe.source.config.view_pattern.allow = filteredValues;
-            return updatedRecipe;
-        }
-        return recipe;
-    },
+    setValueOnRecipe: (recipe: any, values: string[]) => setListValuesOnRecipe(recipe, values, 'allow', 'view_pattern'),
 };
 
 export const VIEW_DENY: RecipeField = {
@@ -328,20 +238,7 @@ export const VIEW_DENY: RecipeField = {
     type: FieldType.LIST,
     rules: null,
     getValueFromRecipe: (recipe: any) => recipe.source.config?.view_pattern?.deny,
-    setValueOnRecipe: (recipe: any, values: string[]) => {
-        if (values !== undefined) {
-            const updatedRecipe = { ...recipe };
-
-            const filteredValues = values.filter((v) => !!v);
-            if (!filteredValues.length) return { ...recipe };
-
-            if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
-            if (!updatedRecipe.source.config.view_pattern) updatedRecipe.source.config.view_pattern = {};
-            updatedRecipe.source.config.view_pattern.deny = filteredValues;
-            return updatedRecipe;
-        }
-        return recipe;
-    },
+    setValueOnRecipe: (recipe: any, values: string[]) => setListValuesOnRecipe(recipe, values, 'deny', 'view_pattern'),
 };
 
 export const RECIPE_FIELDS = {
