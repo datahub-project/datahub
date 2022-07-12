@@ -1,10 +1,10 @@
-import { Button, Collapse, Form, message } from 'antd';
+import { Button, Collapse, Form, message, Typography } from 'antd';
 import React from 'react';
 import YAML from 'yamljs';
 import { ApiOutlined, FilterOutlined, SettingOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { jsonToYaml } from '../../utils';
-import { RECIPE_FIELDS } from './constants';
+import { RecipeField, RECIPE_FIELDS } from './constants';
 import FormField from './FormField';
 
 export const ControlsContainer = styled.div`
@@ -25,6 +25,10 @@ const StyledCollapse = styled(Collapse)`
 
 const HeaderTitle = styled.span`
     margin-left: 8px;
+`;
+
+const MarginWrapper = styled.div`
+    margin-left: 20px;
 `;
 
 function getInitialValues(displayRecipe: string, allFields: any[]) {
@@ -52,6 +56,12 @@ function SectionHeader({ icon, text }: { icon: any; text: string }) {
             <HeaderTitle>{text}</HeaderTitle>
         </span>
     );
+}
+
+function shouldRenderFilterSectionHeader(field: RecipeField, index: number, filterFields: RecipeField[]) {
+    if (index === 0 && field.section) return true;
+    if (field.section && filterFields[index - 1].section !== field.section) return true;
+    return false;
 }
 
 interface Props {
@@ -94,7 +104,14 @@ function RecipeForm(props: Props) {
             <StyledCollapse>
                 <Collapse.Panel header={<SectionHeader icon={<FilterOutlined />} text="Filter" />} key="1">
                     {filterFields.map((field, i) => (
-                        <FormField field={field} removeMargin={i === filterFields.length - 1} />
+                        <>
+                            {shouldRenderFilterSectionHeader(field, i, filterFields) && (
+                                <Typography.Title level={4}>{field.section}</Typography.Title>
+                            )}
+                            <MarginWrapper>
+                                <FormField field={field} removeMargin={i === filterFields.length - 1} />
+                            </MarginWrapper>
+                        </>
                     ))}
                 </Collapse.Panel>
             </StyledCollapse>

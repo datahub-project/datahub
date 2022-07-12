@@ -1,12 +1,23 @@
-import { Button, Checkbox, Form, Input } from 'antd';
+import { Button, Checkbox, Form, Input, Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { MinusCircleOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { FieldType, RecipeField } from './constants';
+import { ANTD_GRAY } from '../../../../entity/shared/constants';
 
 const Label = styled.div`
     font-weight: bold;
     padding-bottom: 8px;
+`;
+
+const StyledButton = styled(Button)`
+    color: ${ANTD_GRAY[7]};
+    width: 80%;
+`;
+
+const StyledQuestion = styled(QuestionCircleOutlined)`
+    color: rgba(0, 0, 0, 0.45);
+    margin-left: 4px;
 `;
 
 const StyledRemoveIcon = styled(MinusCircleOutlined)`
@@ -46,7 +57,12 @@ function ListField({ field, removeMargin }: ListFieldProps) {
         <Form.List name={field.name}>
             {(fields, { add, remove }) => (
                 <ListWrapper removeMargin={!!removeMargin}>
-                    <Label>{field.label}</Label>
+                    <Label>
+                        {field.label}
+                        <Tooltip overlay={field.tooltip}>
+                            <StyledQuestion />
+                        </Tooltip>
+                    </Label>
                     {fields.map((item) => (
                         <Form.Item key={item.fieldKey} style={{ marginBottom: '10px' }}>
                             <Form.Item {...item} noStyle>
@@ -55,9 +71,9 @@ function ListField({ field, removeMargin }: ListFieldProps) {
                             <StyledRemoveIcon onClick={() => remove(item.name)} />
                         </Form.Item>
                     ))}
-                    <Button type="dashed" onClick={() => add()} style={{ width: '80%' }} icon={<PlusOutlined />}>
+                    <StyledButton type="dashed" onClick={() => add()} style={{ width: '80%' }} icon={<PlusOutlined />}>
                         Add pattern
-                    </Button>
+                    </StyledButton>
                 </ListWrapper>
             )}
         </Form.List>

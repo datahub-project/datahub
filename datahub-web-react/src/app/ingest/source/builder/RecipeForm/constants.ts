@@ -12,6 +12,7 @@ export interface RecipeField {
     tooltip: string;
     type: FieldType;
     rules: any[] | null;
+    section?: string;
     getValueFromRecipe: (recipe: any) => any;
     setValueOnRecipe: (recipe: any, value: any) => any;
 }
@@ -179,10 +180,11 @@ export const STATEFUL_INGESTION_ENABLED: RecipeField = {
 
 export const DATABASE_ALLOW: RecipeField = {
     name: 'database_pattern.allow',
-    label: 'Allow Patterns for Databases',
+    label: 'Allow Patterns',
     tooltip: 'Use Regex here.',
     type: FieldType.LIST,
     rules: null,
+    section: 'Databases',
     getValueFromRecipe: (recipe: any) => recipe.source.config?.database_pattern?.allow,
     setValueOnRecipe: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, 'allow', 'database_pattern'),
@@ -190,10 +192,11 @@ export const DATABASE_ALLOW: RecipeField = {
 
 export const DATABASE_DENY: RecipeField = {
     name: 'database_pattern.deny',
-    label: 'Deny Patterns for Databases',
+    label: 'Deny Patterns',
     tooltip: 'Use Regex here.',
     type: FieldType.LIST,
     rules: null,
+    section: 'Databases',
     getValueFromRecipe: (recipe: any) => recipe.source.config?.database_pattern?.deny,
     setValueOnRecipe: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, 'deny', 'database_pattern'),
@@ -201,10 +204,11 @@ export const DATABASE_DENY: RecipeField = {
 
 export const SCHEMA_ALLOW: RecipeField = {
     name: 'schema_pattern.allow',
-    label: 'Allow Patterns for Schemas',
+    label: 'Allow Patterns',
     tooltip: 'Use Regex here.',
     type: FieldType.LIST,
     rules: null,
+    section: 'Schemas',
     getValueFromRecipe: (recipe: any) => recipe.source.config?.schema_pattern?.allow,
     setValueOnRecipe: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, 'allow', 'schema_pattern'),
@@ -212,10 +216,11 @@ export const SCHEMA_ALLOW: RecipeField = {
 
 export const SCHEMA_DENY: RecipeField = {
     name: 'schema_pattern.deny',
-    label: 'Deny Patterns for Schemas',
+    label: 'Deny Patterns',
     tooltip: 'Use Regex here.',
     type: FieldType.LIST,
     rules: null,
+    section: 'Schemas',
     getValueFromRecipe: (recipe: any) => recipe.source.config?.schema_pattern?.deny,
     setValueOnRecipe: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, 'deny', 'schema_pattern'),
@@ -223,20 +228,22 @@ export const SCHEMA_DENY: RecipeField = {
 
 export const VIEW_ALLOW: RecipeField = {
     name: 'view_pattern.allow',
-    label: 'Allow Patterns for Views',
+    label: 'Allow Patterns',
     tooltip: 'Use Regex here.',
     type: FieldType.LIST,
     rules: null,
+    section: 'Views',
     getValueFromRecipe: (recipe: any) => recipe.source.config?.view_pattern?.allow,
     setValueOnRecipe: (recipe: any, values: string[]) => setListValuesOnRecipe(recipe, values, 'allow', 'view_pattern'),
 };
 
 export const VIEW_DENY: RecipeField = {
     name: 'view_pattern.deny',
-    label: 'Deny Patterns for Views',
+    label: 'Deny Patterns',
     tooltip: 'Use Regex here.',
     type: FieldType.LIST,
     rules: null,
+    section: 'Views',
     getValueFromRecipe: (recipe: any) => recipe.source.config?.view_pattern?.deny,
     setValueOnRecipe: (recipe: any, values: string[]) => setListValuesOnRecipe(recipe, values, 'deny', 'view_pattern'),
 };
