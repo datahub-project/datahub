@@ -1,6 +1,7 @@
 import { Button, Collapse, Form, message } from 'antd';
 import React from 'react';
 import YAML from 'yamljs';
+import { ApiOutlined, FilterOutlined, SettingOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { jsonToYaml } from '../../utils';
 import { RECIPE_FIELDS } from './constants';
@@ -13,7 +14,7 @@ export const ControlsContainer = styled.div`
 `;
 
 const StyledCollapse = styled(Collapse)`
-    margin-bottom: 24px;
+    margin-bottom: 16px;
 
     .ant-collapse-header {
         font-size: 14px;
@@ -22,12 +23,15 @@ const StyledCollapse = styled(Collapse)`
     }
 `;
 
+const HeaderTitle = styled.span`
+    margin-left: 8px;
+`;
+
 function getInitialValues(displayRecipe: string, allFields: any[]) {
     const initialValues = {};
     let recipeObj;
     try {
         recipeObj = YAML.parse(displayRecipe);
-        console.log('recipeObj', recipeObj);
     } catch (e) {
         message.warn('Found invalid YAML. Please check your recipe configuration.');
         return {};
@@ -39,6 +43,15 @@ function getInitialValues(displayRecipe: string, allFields: any[]) {
     }
 
     return initialValues;
+}
+
+function SectionHeader({ icon, text }: { icon: any; text: string }) {
+    return (
+        <span>
+            {icon}
+            <HeaderTitle>{text}</HeaderTitle>
+        </span>
+    );
 }
 
 interface Props {
@@ -56,7 +69,7 @@ function RecipeForm(props: Props) {
     const allFields = [...fields, ...advancedFields, ...filterFields];
 
     function updateFormValues(_changedValues: any, allValues: any) {
-        let updatedValues = { source: { type } };
+        let updatedValues = YAML.parse(displayRecipe);
         allFields.forEach((field) => {
             updatedValues = field.setValueOnRecipe(updatedValues, allValues[field.name]);
         });
@@ -71,18 +84,22 @@ function RecipeForm(props: Props) {
             onFinish={onClickNext}
             onValuesChange={updateFormValues}
         >
-            {fields.map((field) => (
-                <FormField field={field} />
-            ))}
+            <StyledCollapse defaultActiveKey="0">
+                <Collapse.Panel header={<SectionHeader icon={<ApiOutlined />} text="Connection" />} key="0">
+                    {fields.map((field, i) => (
+                        <FormField field={field} removeMargin={i === filterFields.length - 1} />
+                    ))}
+                </Collapse.Panel>
+            </StyledCollapse>
             <StyledCollapse>
-                <Collapse.Panel header="Filter" key="0">
+                <Collapse.Panel header={<SectionHeader icon={<FilterOutlined />} text="Filter" />} key="1">
                     {filterFields.map((field, i) => (
                         <FormField field={field} removeMargin={i === filterFields.length - 1} />
                     ))}
                 </Collapse.Panel>
             </StyledCollapse>
             <StyledCollapse>
-                <Collapse.Panel header="Advanced" key="1">
+                <Collapse.Panel header={<SectionHeader icon={<SettingOutlined />} text="Advanced" />} key="2">
                     {advancedFields.map((field, i) => (
                         <FormField field={field} removeMargin={i === advancedFields.length - 1} />
                     ))}

@@ -1,5 +1,6 @@
-import { Button } from 'antd';
+import { Button, message } from 'antd';
 import React, { useState } from 'react';
+import YAML from 'yamljs';
 import { CodeOutlined, FormOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
@@ -50,13 +51,22 @@ function RecipeBuilder(props: Props) {
 
     const [isViewingForm, setIsViewingForm] = useState(true);
 
+    function switchViews(isFormView: boolean) {
+        try {
+            YAML.parse(displayRecipe);
+            setIsViewingForm(isFormView);
+        } catch (e) {
+            message.warn('Found invalid YAML. Please fix your recipe in order to switch views.');
+        }
+    }
+
     return (
         <div>
             <ButtonsWrapper>
-                <StyledButton type="text" isSelected={isViewingForm} onClick={() => setIsViewingForm(true)}>
+                <StyledButton type="text" isSelected={isViewingForm} onClick={() => switchViews(true)}>
                     <FormOutlined /> Form
                 </StyledButton>
-                <StyledButton type="text" isSelected={!isViewingForm} onClick={() => setIsViewingForm(false)}>
+                <StyledButton type="text" isSelected={!isViewingForm} onClick={() => switchViews(false)}>
                     <CodeOutlined /> YAML
                 </StyledButton>
             </ButtonsWrapper>

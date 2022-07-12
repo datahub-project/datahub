@@ -15,7 +15,7 @@ const StyledRemoveIcon = styled(MinusCircleOutlined)`
 `;
 
 const StyledFormItem = styled(Form.Item)<{ alignLeft: boolean; removeMargin: boolean }>`
-    ${(props) => props.removeMargin && 'margin-bottom: 0;'}
+    margin-bottom: ${(props) => (props.removeMargin ? '0' : '16px')};
 
     ${(props) =>
         props.alignLeft &&
@@ -33,7 +33,7 @@ const StyledFormItem = styled(Form.Item)<{ alignLeft: boolean; removeMargin: boo
 `;
 
 const ListWrapper = styled.div<{ removeMargin: boolean }>`
-    margin-bottom: ${(props) => (props.removeMargin ? '0' : '24px')};
+    margin-bottom: ${(props) => (props.removeMargin ? '0' : '16px')};
 `;
 
 interface ListFieldProps {
