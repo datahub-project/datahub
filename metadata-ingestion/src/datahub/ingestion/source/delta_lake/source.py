@@ -153,63 +153,18 @@ class DeltaLakeSource(Source):
                 hist.get("operation"), OperationTypeClass.CUSTOM
             )
             custom_type = hist.get("operation")
+
             operation_custom_properties = dict()
-            operation_custom_properties.update(
-                {}
-                if hist.get("isBlindAppend") is None
-                else {"isBlindAppend": str(hist["isBlindAppend"])}
-            )
-            operation_custom_properties.update(
-                {} if hist.get("version") is None else {"version": str(hist["version"])}
-            )
-            operation_custom_properties.update(
-                {} if hist.get("userId") is None else {"userId": str(hist["userId"])}
-            )
-            operation_custom_properties.update(
-                {}
-                if hist.get("userName") is None
-                else {"userName": str(hist["userName"])}
-            )
-            operation_custom_properties.update(
-                {} if hist.get("job") is None else {"job": str(hist["job"])}
-            )
-            operation_custom_properties.update(
-                {}
-                if hist.get("notebook") is None
-                else {"notebook": str(hist["notebook"])}
-            )
-            operation_custom_properties.update(
-                {}
-                if hist.get("clusterId") is None
-                else {"clusterId": str(hist["clusterId"])}
-            )
-            operation_custom_properties.update(
-                {}
-                if hist.get("readVersion") is None
-                else {"readVersion": str(hist["readVersion"])}
-            )
-            operation_custom_properties.update(
-                {}
-                if hist.get("isolationLevel") is None
-                else {"isolationLevel": str(hist["isolationLevel"])}
-            )
-            operation_custom_properties.update(
-                {}
-                if hist.get("userMetadata") is None
-                else {"userMetadata": str(hist["userMetadata"])}
-            )
-
-            if hist.get("operationMetrics") is not None:
-                for key in hist["operationMetrics"]:
-                    operation_custom_properties["operationMetrics_" + key] = str(
-                        hist["operationMetrics"][key]
-                    )
-            if hist.get("operationParameters") is not None:
-                for key in hist["operationParameters"]:
-                    operation_custom_properties["operationParameters_" + key] = str(
-                        hist["operationParameters"][key]
-                    )
-
+            for key, val in hist.items():
+                if val is not None:
+                    if isinstance(val, dict):
+                        for k, v in val:
+                            if v is not None:
+                                operation_custom_properties[f"{key}_{k}"] = str(v)
+                    else:
+                        operation_custom_properties[key] = str(val)
+            operation_custom_properties.pop("timestamp", None)
+            operation_custom_properties.pop("operation", None)
             operation_aspect = OperationClass(
                 timestampMillis=reported_time,
                 lastUpdatedTimestamp=last_updated_timestamp,
