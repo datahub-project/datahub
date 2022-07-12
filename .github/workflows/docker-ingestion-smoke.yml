@@ -1,5 +1,7 @@
 name: ingestion smoke
 on:
+  release:
+    types: [published, edited]
   push:
     branches:
       - master
