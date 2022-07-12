@@ -24,4 +24,4 @@ DATAHUB_TELEMETRY_ENABLED=false datahub docker quickstart --quickstart-compose-f
 
 (cd ..; ./gradlew :smoke-test:yarnInstall)
 
-pytest --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml
+pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml
