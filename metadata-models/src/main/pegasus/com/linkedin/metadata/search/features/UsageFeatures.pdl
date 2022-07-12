@@ -11,4 +11,15 @@ record UsageFeatures {
     "modifier": "LOG"
   }
   usageCountLast30Days: optional long
+  
+  /**
+   * Percentile rank of the dataset based on the the last 30 days usage count on a platform
+   */
+  percentileRankLast30Days: optional long
+  
+   /**
+   * Overall rank of the dataset based on the the last 30 days usage count on a platform
+   * It returns one plus the number of rows proceeding or equals to the current row in the ordering. 
+   */
+  overallRankLast30Days: optional long
 }
