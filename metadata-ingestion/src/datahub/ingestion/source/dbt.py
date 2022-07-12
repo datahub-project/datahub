@@ -42,7 +42,9 @@ from datahub.ingestion.source.sql.sql_types import (
     POSTGRES_TYPES_MAP,
     SNOWFLAKE_TYPES_MAP,
     SPARK_SQL_TYPES_MAP,
+    TRINO_SQL_TYPES_MAP,
     resolve_postgres_modified_type,
+    resolve_trino_modified_type,
 )
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
@@ -315,6 +317,7 @@ class DBTNode:
     description: str
     raw_sql: Optional[str]
 
+    dbt_adapter: str
     dbt_name: str
     dbt_file_path: str
 
@@ -371,6 +374,7 @@ def extract_dbt_entities(
     all_manifest_entities: Dict[str, Dict[str, Any]],
     all_catalog_entities: Dict[str, Dict[str, Any]],
     sources_results: List[Dict[str, Any]],
+    manifest_adapter: str,
     load_schemas: bool,
     use_identifiers: bool,
     tag_prefix: str,
@@ -446,6 +450,7 @@ def extract_dbt_entities(
             meta_props = manifest_node.get("config", {}).get("meta", {})
         dbtNode = DBTNode(
             dbt_name=key,
+            dbt_adapter=manifest_adapter,
             database=manifest_node["database"],
             schema=manifest_node["schema"],
             name=name,
@@ -629,11 +634,12 @@ _field_type_mapping = {
     **SNOWFLAKE_TYPES_MAP,
     **BIGQUERY_TYPES_MAP,
     **SPARK_SQL_TYPES_MAP,
+    **TRINO_SQL_TYPES_MAP,
 }
 
 
 def get_column_type(
-    report: DBTSourceReport, dataset_name: str, column_type: str
+    report: DBTSourceReport, dataset_name: str, column_type: str, dbt_adapter: str
 ) -> SchemaFieldDataType:
     """
     Maps known DBT types to datahub types
@@ -641,8 +647,11 @@ def get_column_type(
     TypeClass: Any = _field_type_mapping.get(column_type)
 
     if TypeClass is None:
-        # attempt Postgres modified type
-        TypeClass = resolve_postgres_modified_type(column_type)
+        # resolve modified type
+        if dbt_adapter == "trino":
+            TypeClass = resolve_trino_modified_type(column_type)
+        elif dbt_adapter == "postgres":
+            TypeClass = resolve_postgres_modified_type(column_type)
 
     # if still not found, report the warning
     if TypeClass is None:
@@ -684,7 +693,9 @@ def get_schema_metadata(
         field = SchemaField(
             fieldPath=column.name,
             nativeDataType=column.data_type,
-            type=get_column_type(report, node.dbt_name, column.data_type),
+            type=get_column_type(
+                report, node.dbt_name, column.data_type, node.dbt_adapter
+            ),
             description=description,
             nullable=False,  # TODO: actually autodetect this
             recursive=False,
@@ -1065,6 +1076,7 @@ class DBTSource(StatefulIngestionSourceBase):
         Optional[str],
         Optional[str],
         Optional[str],
+        Optional[str],
         Dict[str, Dict[str, Any]],
     ]:
         dbt_manifest_json = self.load_file_as_json(manifest_path)
@@ -1081,6 +1093,7 @@ class DBTSource(StatefulIngestionSourceBase):
             "dbt_schema_version"
         )
         manifest_version = dbt_manifest_json.get("metadata", {}).get("dbt_version")
+        manifest_adapter = dbt_manifest_json.get("metadata", {}).get("adapter_type")
 
         catalog_schema = dbt_catalog_json.get("metadata", {}).get("dbt_schema_version")
         catalog_version = dbt_catalog_json.get("metadata", {}).get("dbt_version")
@@ -1099,6 +1112,7 @@ class DBTSource(StatefulIngestionSourceBase):
             all_manifest_entities,
             all_catalog_entities,
             sources_results,
+            manifest_adapter,
             load_schemas,
             use_identifiers,
             tag_prefix,
@@ -1111,6 +1125,7 @@ class DBTSource(StatefulIngestionSourceBase):
             nodes,
             manifest_schema,
             manifest_version,
+            manifest_adapter,
             catalog_schema,
             catalog_version,
             all_manifest_entities,
@@ -1315,6 +1330,7 @@ class DBTSource(StatefulIngestionSourceBase):
             nodes,
             manifest_schema,
             manifest_version,
+            manifest_adapter,
             catalog_schema,
             catalog_version,
             manifest_nodes_raw,
@@ -1333,6 +1349,7 @@ class DBTSource(StatefulIngestionSourceBase):
         additional_custom_props = {
             "manifest_schema": manifest_schema,
             "manifest_version": manifest_version,
+            "manifest_adapter": manifest_adapter,
             "catalog_schema": catalog_schema,
             "catalog_version": catalog_version,
         }
