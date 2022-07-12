@@ -1,5 +1,9 @@
 package entities;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.event.EventProducer;
@@ -34,6 +38,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.Mockito.when;
 
 
 public class EntitiesControllerTest {
@@ -53,6 +58,9 @@ public class EntitiesControllerTest {
     EventProducer mockEntityEventProducer = Mockito.mock(EventProducer.class);
     MockEntityService mockEntityService = new MockEntityService(aspectDao, mockEntityEventProducer, mockEntityRegistry);
     _entitiesController = new EntitiesController(mockEntityService, new ObjectMapper());
+    Authentication authentication = Mockito.mock(Authentication.class);
+    when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
+    AuthenticationContext.setAuthentication(authentication);
   }
 
   EntitiesController _entitiesController;
