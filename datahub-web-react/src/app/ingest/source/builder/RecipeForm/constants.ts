@@ -1,4 +1,4 @@
-import { SNOWFLAKE } from '../conf/snowflake/snowflake';
+import { SNOWFLAKE } from '../../conf/snowflake/snowflake';
 
 export enum FieldType {
     TEXT,
@@ -34,7 +34,7 @@ export const ACCOUNT_ID: RecipeField = {
     },
 };
 
-export const WAREHOUSE = {
+export const WAREHOUSE: RecipeField = {
     name: 'warehouse',
     label: 'Warehouse',
     tooltip: 'Snowflake warehouse.',
@@ -57,7 +57,7 @@ export const WAREHOUSE = {
     },
 };
 
-export const USERNAME = {
+export const USERNAME: RecipeField = {
     name: 'username',
     label: 'Username',
     tooltip: 'Snowflake username.',
@@ -75,7 +75,7 @@ export const USERNAME = {
     },
 };
 
-export const PASSWORD = {
+export const PASSWORD: RecipeField = {
     name: 'password',
     label: 'Password',
     tooltip: 'Snowflake password.',
@@ -93,7 +93,7 @@ export const PASSWORD = {
     },
 };
 
-export const ROLE = {
+export const ROLE: RecipeField = {
     name: 'role',
     label: 'Role',
     tooltip: 'Snowflake role.',
@@ -111,7 +111,7 @@ export const ROLE = {
     },
 };
 
-export const INCLUDE_LINEAGE = {
+export const INCLUDE_LINEAGE: RecipeField = {
     name: 'include_lineage',
     label: 'Include Lineage',
     tooltip: 'Include Table and View lineage in your ingestion.',
@@ -131,7 +131,7 @@ export const INCLUDE_LINEAGE = {
     },
 };
 
-export const DATABASE_ALLOW = {
+export const DATABASE_ALLOW: RecipeField = {
     name: 'database_pattern.allow',
     label: 'Allow Patterns for Databases',
     tooltip: 'Use Regex here.',

@@ -4,7 +4,7 @@ import { CodeOutlined, FormOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { YamlEditor } from './YamlEditor';
-import RecipeForm from './RecipeForm';
+import RecipeForm from './RecipeForm/RecipeForm';
 
 export const ControlsContainer = styled.div`
     display: flex;

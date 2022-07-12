@@ -1,31 +1,15 @@
-import { Button, Checkbox, Form, Input, message } from 'antd';
+import { Button, Form, message } from 'antd';
 import React from 'react';
 import YAML from 'yamljs';
 import styled from 'styled-components/macro';
-import { jsonToYaml } from '../utils';
-import { FieldType, RECIPE_FIELDS } from './constants';
-import ListField from './ListField';
+import { jsonToYaml } from '../../utils';
+import { RECIPE_FIELDS } from './constants';
+import FormField from './FormField';
 
 export const ControlsContainer = styled.div`
     display: flex;
     justify-content: space-between;
     margin-top: 12px;
-`;
-
-const StyledFormItem = styled(Form.Item)<{ alignLeft: boolean }>`
-    ${(props) =>
-        props.alignLeft &&
-        `
-        .ant-form-item {
-            flex-direction: row;
-
-        }
-
-        .ant-form-item-label {
-            padding: 0;
-            margin-right: 10px;
-        }
-    `}
 `;
 
 function getInitialValues(displayRecipe: string, allFields: any[]) {
@@ -77,30 +61,9 @@ function RecipeForm(props: Props) {
             onFinish={onClickNext}
             onValuesChange={updateFormValues}
         >
-            {allFields.map((field) => {
-                if (field.type === FieldType.LIST) return <ListField field={field} />;
-
-                const isBoolean = field.type === FieldType.BOOLEAN;
-                const input = isBoolean ? <Checkbox /> : <Input />;
-                const valuePropName = isBoolean ? 'checked' : 'value';
-                const getValueFromEvent = isBoolean
-                    ? undefined
-                    : (e) => (e.target.value === '' ? undefined : e.target.value);
-                return (
-                    <StyledFormItem
-                        style={isBoolean ? { flexDirection: 'row', alignItems: 'center' } : {}}
-                        label={field.label}
-                        name={field.name}
-                        tooltip={field.tooltip}
-                        rules={field.rules || undefined}
-                        valuePropName={valuePropName}
-                        getValueFromEvent={getValueFromEvent}
-                        alignLeft={isBoolean}
-                    >
-                        {input}
-                    </StyledFormItem>
-                );
-            })}
+            {fields.map((field) => (
+                <FormField field={field} />
+            ))}
             <ControlsContainer>
                 <Button disabled={isEditing} onClick={goToPrevious}>
                     Previous
