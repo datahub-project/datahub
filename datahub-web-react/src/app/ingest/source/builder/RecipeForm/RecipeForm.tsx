@@ -76,8 +76,8 @@ function RecipeForm(props: Props) {
             ))}
             <StyledCollapse>
                 <Collapse.Panel header="Filter" key="0">
-                    {filterFields.map((field) => (
-                        <FormField field={field} />
+                    {filterFields.map((field, i) => (
+                        <FormField field={field} removeMargin={i === filterFields.length - 1} />
                     ))}
                 </Collapse.Panel>
             </StyledCollapse>
