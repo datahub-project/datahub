@@ -4,6 +4,7 @@ import urllib.parse
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
+
 # This import verifies that the dependencies are available.
 import sqlalchemy_pytds  # noqa: F401
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
