@@ -17,11 +17,37 @@ export interface RecipeField {
     setValueOnRecipe: (recipe: any, value: any) => any;
 }
 
-function setFieldValueOnRecipe(recipe: any, value: string | boolean, field: string, parentField?: string) {
+function updateParentAndField(recipe: any, field: string, parentField: string) {
+    const updatedRecipe = { ...recipe };
+    // remove this field from the recipe if it's empty
+    if (updatedRecipe.source.config?.[parentField]?.[field]) {
+        updatedRecipe.source.config[parentField][field] = undefined;
+
+        // remove its parent if there are no other fields underneath it
+        const parentKeys = Object.keys(updatedRecipe.source.config[parentField]);
+        if (parentKeys.length === 1 && parentKeys[0] === field) {
+            updatedRecipe.source.config[parentField] = undefined;
+        }
+    }
+    return updatedRecipe;
+}
+
+export function setFieldValueOnRecipe(
+    recipe: any,
+    value: string | boolean | null | undefined,
+    field: string,
+    parentField?: string,
+) {
     if (value !== undefined) {
         const recipeValue = value === null ? undefined : value; // clear out fields with null values
         const updatedRecipe = { ...recipe };
         if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
+
+        if (recipeValue === undefined && parentField) {
+            // clearing the field and possibly its parent
+            const finalRecipe = updateParentAndField(updatedRecipe, field, parentField);
+            return finalRecipe;
+        }
 
         if (parentField) {
             if (!updatedRecipe.source.config[parentField]) updatedRecipe.source.config[parentField] = {};
@@ -35,23 +61,16 @@ function setFieldValueOnRecipe(recipe: any, value: string | boolean, field: stri
     return recipe;
 }
 
-function setListValuesOnRecipe(recipe: any, values: string[], field: string, parentField: string) {
+export function setListValuesOnRecipe(recipe: any, values: string[], field: string, parentField: string) {
     if (values !== undefined) {
         const updatedRecipe = { ...recipe };
+        if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
 
         const filteredValues: string[] | undefined = values.filter((v) => !!v);
         if (!filteredValues.length) {
-            // remove this field from the recipe if it's empty
-            if (updatedRecipe.source.config?.[parentField]?.[field]) {
-                updatedRecipe.source.config[parentField][field] = undefined;
-
-                // remove its parent if there are no other fields underneath it
-                const parentKeys = Object.keys(updatedRecipe.source.config[parentField]);
-                if (parentKeys.length === 1 && parentKeys[0] === field) {
-                    updatedRecipe.source.config[parentField] = undefined;
-                }
-            }
-            return updatedRecipe;
+            // clearing the field and possibly its parent
+            const finalRecipe = updateParentAndField(updatedRecipe, field, parentField);
+            return finalRecipe;
         }
 
         if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
@@ -177,7 +196,7 @@ export const STATEFUL_INGESTION_ENABLED: RecipeField = {
 export const DATABASE_ALLOW: RecipeField = {
     name: 'database_pattern.allow',
     label: 'Allow Patterns',
-    tooltip: 'Use Regex here.',
+    tooltip: 'Use regex here.',
     type: FieldType.LIST,
     rules: null,
     section: 'Databases',
@@ -189,7 +208,7 @@ export const DATABASE_ALLOW: RecipeField = {
 export const DATABASE_DENY: RecipeField = {
     name: 'database_pattern.deny',
     label: 'Deny Patterns',
-    tooltip: 'Use Regex here.',
+    tooltip: 'Use regex here.',
     type: FieldType.LIST,
     rules: null,
     section: 'Databases',
@@ -201,7 +220,7 @@ export const DATABASE_DENY: RecipeField = {
 export const SCHEMA_ALLOW: RecipeField = {
     name: 'schema_pattern.allow',
     label: 'Allow Patterns',
-    tooltip: 'Use Regex here.',
+    tooltip: 'Use regex here.',
     type: FieldType.LIST,
     rules: null,
     section: 'Schemas',
@@ -213,7 +232,7 @@ export const SCHEMA_ALLOW: RecipeField = {
 export const SCHEMA_DENY: RecipeField = {
     name: 'schema_pattern.deny',
     label: 'Deny Patterns',
-    tooltip: 'Use Regex here.',
+    tooltip: 'Use regex here.',
     type: FieldType.LIST,
     rules: null,
     section: 'Schemas',
@@ -225,7 +244,7 @@ export const SCHEMA_DENY: RecipeField = {
 export const VIEW_ALLOW: RecipeField = {
     name: 'view_pattern.allow',
     label: 'Allow Patterns',
-    tooltip: 'Use Regex here.',
+    tooltip: 'Use regex here.',
     type: FieldType.LIST,
     rules: null,
     section: 'Views',
@@ -236,7 +255,7 @@ export const VIEW_ALLOW: RecipeField = {
 export const VIEW_DENY: RecipeField = {
     name: 'view_pattern.deny',
     label: 'Deny Patterns',
-    tooltip: 'Use Regex here.',
+    tooltip: 'Use regex here.',
     type: FieldType.LIST,
     rules: null,
     section: 'Views',
@@ -247,7 +266,7 @@ export const VIEW_DENY: RecipeField = {
 export const TABLE_ALLOW: RecipeField = {
     name: 'table_pattern.allow',
     label: 'Allow Patterns',
-    tooltip: 'Use Regex here.',
+    tooltip: 'Use regex here.',
     type: FieldType.LIST,
     rules: null,
     section: 'Tables',
@@ -259,7 +278,7 @@ export const TABLE_ALLOW: RecipeField = {
 export const TABLE_DENY: RecipeField = {
     name: 'table_pattern.deny',
     label: 'Deny Patterns',
-    tooltip: 'Use Regex here.',
+    tooltip: 'Use regex here.',
     type: FieldType.LIST,
     rules: null,
     section: 'Tables',
@@ -289,3 +308,5 @@ export const RECIPE_FIELDS = {
         ],
     },
 };
+
+export const CONNECTORS_WITH_FORM = new Set(Object.keys(RECIPE_FIELDS));

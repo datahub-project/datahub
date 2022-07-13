@@ -97,7 +97,7 @@ function RecipeForm(props: Props) {
             <StyledCollapse defaultActiveKey="0">
                 <Collapse.Panel forceRender header={<SectionHeader icon={<ApiOutlined />} text="Connection" />} key="0">
                     {fields.map((field, i) => (
-                        <FormField field={field} removeMargin={i === filterFields.length - 1} />
+                        <FormField field={field} removeMargin={i === fields.length - 1} />
                     ))}
                 </Collapse.Panel>
             </StyledCollapse>

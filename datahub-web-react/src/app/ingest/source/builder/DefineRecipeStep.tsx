@@ -9,7 +9,7 @@ import { YamlEditor } from './YamlEditor';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { IngestionSourceBuilderStep } from './steps';
 import RecipeBuilder from './RecipeBuilder';
-import { SNOWFLAKE } from '../conf/snowflake/snowflake';
+import { CONNECTORS_WITH_FORM } from './RecipeForm/constants';
 
 const LOOKML_DOC_LINK = 'https://datahubproject.io/docs/generated/ingestion/sources/looker#module-lookml';
 
@@ -92,7 +92,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
         goTo(IngestionSourceBuilderStep.CREATE_SCHEDULE);
     };
 
-    if (type === SNOWFLAKE) {
+    if (type && CONNECTORS_WITH_FORM.has(type)) {
         return (
             <RecipeBuilder
                 type={type}
