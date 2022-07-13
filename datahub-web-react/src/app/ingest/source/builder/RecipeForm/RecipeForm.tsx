@@ -7,6 +7,7 @@ import styled from 'styled-components/macro';
 import { jsonToYaml } from '../../utils';
 import { RecipeField, RECIPE_FIELDS, setFieldValueOnRecipe } from './utils';
 import FormField from './FormField';
+import ConnectionRequest from './ConnectionRequest';
 
 export const ControlsContainer = styled.div`
     display: flex;
@@ -30,6 +31,11 @@ const HeaderTitle = styled.span`
 
 const MarginWrapper = styled.div`
     margin-left: 20px;
+`;
+
+const ConnectionRequestWrapper = styled.div`
+    display: flex;
+    justify-content: flex-end;
 `;
 
 function getInitialValues(displayRecipe: string, allFields: any[]) {
@@ -108,6 +114,9 @@ function RecipeForm(props: Props) {
                     {fields.map((field, i) => (
                         <FormField field={field} removeMargin={i === fields.length - 1} />
                     ))}
+                    <ConnectionRequestWrapper>
+                        <ConnectionRequest />
+                    </ConnectionRequestWrapper>
                 </Collapse.Panel>
             </StyledCollapse>
             <StyledCollapse>
