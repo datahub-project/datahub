@@ -1,5 +1,7 @@
 namespace com.linkedin.metadata.search.features
 
+import com.linkedin.common.Urn
+
 @Aspect = {
   "name": "usageFeatures"
 }
