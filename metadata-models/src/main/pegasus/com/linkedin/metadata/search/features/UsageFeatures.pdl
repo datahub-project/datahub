@@ -60,5 +60,8 @@ record UsageFeatures {
    */
   uniqueUserCountLast30DaysDateHistogram: array[long] = []
 
-
+  /**
+   * Ranked list of the top 10 users in past 30 days
+   */
+  topUsers: array[Urn] = []
 }
