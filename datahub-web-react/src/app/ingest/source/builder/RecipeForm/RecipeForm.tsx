@@ -95,14 +95,14 @@ function RecipeForm(props: Props) {
             onValuesChange={updateFormValues}
         >
             <StyledCollapse defaultActiveKey="0">
-                <Collapse.Panel header={<SectionHeader icon={<ApiOutlined />} text="Connection" />} key="0">
+                <Collapse.Panel forceRender header={<SectionHeader icon={<ApiOutlined />} text="Connection" />} key="0">
                     {fields.map((field, i) => (
                         <FormField field={field} removeMargin={i === filterFields.length - 1} />
                     ))}
                 </Collapse.Panel>
             </StyledCollapse>
             <StyledCollapse>
-                <Collapse.Panel header={<SectionHeader icon={<FilterOutlined />} text="Filter" />} key="1">
+                <Collapse.Panel forceRender header={<SectionHeader icon={<FilterOutlined />} text="Filter" />} key="1">
                     {filterFields.map((field, i) => (
                         <>
                             {shouldRenderFilterSectionHeader(field, i, filterFields) && (
@@ -116,7 +116,11 @@ function RecipeForm(props: Props) {
                 </Collapse.Panel>
             </StyledCollapse>
             <StyledCollapse>
-                <Collapse.Panel header={<SectionHeader icon={<SettingOutlined />} text="Advanced" />} key="2">
+                <Collapse.Panel
+                    forceRender
+                    header={<SectionHeader icon={<SettingOutlined />} text="Advanced" />}
+                    key="2"
+                >
                     {advancedFields.map((field, i) => (
                         <FormField field={field} removeMargin={i === advancedFields.length - 1} />
                     ))}

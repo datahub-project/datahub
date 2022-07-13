@@ -19,14 +19,15 @@ export interface RecipeField {
 
 function setFieldValueOnRecipe(recipe: any, value: string | boolean, field: string, parentField?: string) {
     if (value !== undefined) {
+        const recipeValue = value === null ? undefined : value; // clear out fields with null values
         const updatedRecipe = { ...recipe };
         if (!updatedRecipe.source.config) updatedRecipe.source.config = {};
 
         if (parentField) {
             if (!updatedRecipe.source.config[parentField]) updatedRecipe.source.config[parentField] = {};
-            updatedRecipe.source.config[parentField][field] = value;
+            updatedRecipe.source.config[parentField][field] = recipeValue;
         } else {
-            updatedRecipe.source.config[field] = value;
+            updatedRecipe.source.config[field] = recipeValue;
         }
 
         return updatedRecipe;
@@ -76,12 +77,7 @@ export const WAREHOUSE: RecipeField = {
     label: 'Warehouse',
     tooltip: 'Snowflake warehouse.',
     type: FieldType.TEXT,
-    rules: [
-        {
-            required: true,
-            message: 'Warehouse is required',
-        },
-    ],
+    rules: null,
     getValueFromRecipe: (recipe: any) => recipe.source.config?.warehouse,
     setValueOnRecipe: (recipe: any, value: string) => setFieldValueOnRecipe(recipe, value, 'warehouse'),
 };
@@ -248,6 +244,29 @@ export const VIEW_DENY: RecipeField = {
     setValueOnRecipe: (recipe: any, values: string[]) => setListValuesOnRecipe(recipe, values, 'deny', 'view_pattern'),
 };
 
+export const TABLE_ALLOW: RecipeField = {
+    name: 'table_pattern.allow',
+    label: 'Allow Patterns',
+    tooltip: 'Use Regex here.',
+    type: FieldType.LIST,
+    rules: null,
+    section: 'Tables',
+    getValueFromRecipe: (recipe: any) => recipe.source.config?.table_pattern?.allow,
+    setValueOnRecipe: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, 'allow', 'table_pattern'),
+};
+
+export const TABLE_DENY: RecipeField = {
+    name: 'table_pattern.deny',
+    label: 'Deny Patterns',
+    tooltip: 'Use Regex here.',
+    type: FieldType.LIST,
+    rules: null,
+    section: 'Tables',
+    getValueFromRecipe: (recipe: any) => recipe.source.config?.table_pattern?.deny,
+    setValueOnRecipe: (recipe: any, values: string[]) => setListValuesOnRecipe(recipe, values, 'deny', 'table_pattern'),
+};
+
 export const RECIPE_FIELDS = {
     [SNOWFLAKE]: {
         fields: [ACCOUNT_ID, WAREHOUSE, USERNAME, PASSWORD, ROLE],
@@ -258,6 +277,15 @@ export const RECIPE_FIELDS = {
             PROFILING_ENABLED,
             STATEFUL_INGESTION_ENABLED,
         ],
-        filterFields: [DATABASE_ALLOW, DATABASE_DENY, SCHEMA_ALLOW, SCHEMA_DENY, VIEW_ALLOW, VIEW_DENY],
+        filterFields: [
+            TABLE_ALLOW,
+            TABLE_DENY,
+            DATABASE_ALLOW,
+            DATABASE_DENY,
+            SCHEMA_ALLOW,
+            SCHEMA_DENY,
+            VIEW_ALLOW,
+            VIEW_DENY,
+        ],
     },
 };

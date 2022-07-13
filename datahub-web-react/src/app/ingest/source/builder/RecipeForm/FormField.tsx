@@ -93,7 +93,7 @@ function FormField(props: Props) {
     const isBoolean = field.type === FieldType.BOOLEAN;
     const input = isBoolean ? <Checkbox /> : <Input />;
     const valuePropName = isBoolean ? 'checked' : 'value';
-    const getValueFromEvent = isBoolean ? undefined : (e) => (e.target.value === '' ? undefined : e.target.value);
+    const getValueFromEvent = isBoolean ? undefined : (e) => (e.target.value === '' ? null : e.target.value);
 
     return (
         <StyledFormItem
