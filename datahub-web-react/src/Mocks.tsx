@@ -327,7 +327,7 @@ export const dataset3 = {
         name: 'Yet Another Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
         origin: 'PROD',
-        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
+        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue', associatedUrn: 'urn:li:dataset:3' }],
         externalUrl: 'https://data.hub',
     },
     parentContainers: {
@@ -348,12 +348,14 @@ export const dataset3 = {
                     ...user1,
                 },
                 type: 'DATAOWNER',
+                associatedUrn: 'urn:li:dataset:3',
             },
             {
                 owner: {
                     ...user2,
                 },
                 type: 'DELEGATE',
+                associatedUrn: 'urn:li:dataset:3',
             },
         ],
         lastModified: {
@@ -375,6 +377,7 @@ export const dataset3 = {
                         colorHex: 'sample tag color',
                     },
                 },
+                associatedUrn: 'urn:li:dataset:3',
             },
         ],
     },
@@ -393,6 +396,7 @@ export const dataset3 = {
                         termSource: 'sample term source',
                     },
                 },
+                associatedUrn: 'urn:li:dataset:3',
             },
         ],
     },
