@@ -47,7 +47,7 @@ export const CompactEntityNameList = ({ entities, onClick, linkUrlParams, showTo
                                 </a>
                             }
                         >
-                            <span>
+                            <span data-testid={`compact-entity-link-${entity.urn}`}>
                                 <EntityPreviewTag
                                     displayName={displayName}
                                     url={url}

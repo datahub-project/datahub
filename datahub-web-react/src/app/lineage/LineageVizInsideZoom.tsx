@@ -153,6 +153,7 @@ export default function LineageVizInsideZoom({
                     </div>
                     <div>
                         <ControlsSwitch
+                            data-testid="compress-lineage-toggle"
                             checked={!isHideSiblingMode}
                             onChange={(checked) => {
                                 navigateToLineageUrl({
