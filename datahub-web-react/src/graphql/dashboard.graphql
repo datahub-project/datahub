@@ -1,17 +1,14 @@
 query getDashboard($urn: String!) {
     dashboard(urn: $urn) {
         ...dashboardFields
-        editableProperties {
-            description
-        }
         charts: relationships(input: { types: ["Contains"], direction: OUTGOING, start: 0, count: 100 }) {
             ...fullRelationshipResults
         }
         upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
-            ...fullLineageResults
+            ...partialLineageResults
         }
         downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
-            ...fullLineageResults
+            ...partialLineageResults
         }
     }
 }

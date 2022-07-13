@@ -110,12 +110,8 @@ class LookerExploreNamingConfig(ConfigModel):
     def init_naming_pattern(cls, v):
         if isinstance(v, NamingPattern):
             return v
-        else:
-            assert isinstance(v, str), "pattern must be a string"
-            naming_pattern = NamingPattern(
-                allowed_vars=naming_pattern_variables, pattern=v
-            )
-            return naming_pattern
+        assert isinstance(v, str), "pattern must be a string"
+        return NamingPattern(allowed_vars=naming_pattern_variables, pattern=v)
 
     @validator("explore_naming_pattern", "explore_browse_pattern", always=True)
     def validate_naming_pattern(cls, v):
@@ -143,12 +139,8 @@ class LookerViewNamingConfig(ConfigModel):
     def init_naming_pattern(cls, v):
         if isinstance(v, NamingPattern):
             return v
-        else:
-            assert isinstance(v, str), "pattern must be a string"
-            naming_pattern = NamingPattern(
-                allowed_vars=naming_pattern_variables, pattern=v
-            )
-            return naming_pattern
+        assert isinstance(v, str), "pattern must be a string"
+        return NamingPattern(allowed_vars=naming_pattern_variables, pattern=v)
 
     @validator("view_naming_pattern", "view_browse_pattern", always=True)
     def validate_naming_pattern(cls, v):
@@ -314,8 +306,7 @@ class LookerUtil:
         assert (
             field.count(".") == 1
         ), f"Error: A field must be prefixed by a view name, field is: {field}"
-        view_name = field.split(".")[0]
-        return view_name
+        return field.split(".")[0]
 
     @staticmethod
     def _get_field_type(
@@ -336,8 +327,7 @@ class LookerUtil:
             )
             type_class = NullTypeClass
 
-        data_type = SchemaFieldDataType(type=type_class())
-        return data_type
+        return SchemaFieldDataType(type=type_class())
 
     @staticmethod
     def _get_schema(
@@ -346,7 +336,7 @@ class LookerUtil:
         view_fields: List[ViewField],
         reporter: SourceReport,
     ) -> Optional[SchemaMetadataClass]:
-        if view_fields == []:
+        if not view_fields:
             return None
         fields, primary_keys = LookerUtil._get_fields_and_primary_keys(
             view_fields=view_fields, reporter=reporter
@@ -462,6 +452,11 @@ class LookerUtil:
                 primary_keys.append(schema_field.fieldPath)
         return fields, primary_keys
 
+    @staticmethod
+    def _display_name(name: str) -> str:
+        """Returns a display name that corresponds to the Looker conventions"""
+        return name.replace("_", " ").title() if name else name
+
 
 @dataclass
 class LookerExplore:
@@ -489,20 +484,23 @@ class LookerExplore:
         return field_match.findall(sql_fragment)
 
     @classmethod
-    def __from_dict(cls, model_name: str, dict: Dict) -> "LookerExplore":
+    def from_dict(cls, model_name: str, dict: Dict) -> "LookerExplore":
+        view_names = set()
+        joins = None
+        # always add the explore's name or the name from the from clause as the view on which this explore is built
+        view_names.add(dict.get("from", dict.get("name")))
+
         if dict.get("joins", {}) != {}:
+            # additionally for join-based explores, pull in the linked views
             assert "joins" in dict
-            view_names = set()
             for join in dict["joins"]:
+                join_from = join.get("from")
+                view_names.add(join_from or join["name"])
                 sql_on = join.get("sql_on", None)
                 if sql_on is not None:
                     fields = cls._get_fields_from_sql_equality(sql_on)
                     joins = fields
-                    for f in fields:
-                        view_names.add(LookerUtil._extract_view_from_field(f))
-        else:
-            # non-join explore, get view_name from `from` field if possible, default to explore name
-            view_names = set(dict.get("from", dict.get("name")))
+
         return LookerExplore(
             model_name=model_name,
             name=dict["name"],
@@ -538,7 +536,14 @@ class LookerExplore:
                     views.add(explore.name)
 
             if explore.joins is not None and explore.joins != []:
-                potential_views = [e.name for e in explore.joins if e.name is not None]
+                join_to_orig_name_map = {}
+                potential_views = []
+                for e in explore.joins:
+                    if e.from_ is not None:
+                        potential_views.append(e.from_)
+                        join_to_orig_name_map[e.name] = e.from_
+                    elif e.name is not None:
+                        potential_views.append(e.name)
                 for e_join in [
                     e for e in explore.joins if e.dependent_fields is not None
                 ]:
@@ -546,6 +551,9 @@ class LookerExplore:
                     for field_name in e_join.dependent_fields:
                         try:
                             view_name = LookerUtil._extract_view_from_field(field_name)
+                            orig_name = join_to_orig_name_map.get(e_join.name)
+                            if orig_name is not None:
+                                view_name = orig_name
                             potential_views.append(view_name)
                         except AssertionError:
                             reporter.report_warning(
@@ -618,16 +626,13 @@ class LookerExplore:
                 source_file=explore.source_file,
             )
         except SDKError as e:
-            logger.warn(
-                "Failed to extract explore {} from model {}.".format(
-                    explore_name, model
-                )
+            logger.warning(
+                f"Failed to extract explore {explore_name} from model {model}."
             )
             logger.debug(
-                "Failed to extract explore {} from model {} with {}".format(
-                    explore_name, model, e
-                )
+                f"Failed to extract explore {explore_name} from model {model} with {e}"
             )
+
         except AssertionError:
             reporter.report_warning(
                 key="chart-",
@@ -678,7 +683,7 @@ class LookerExplore:
         # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
         m = re.match("^(.*):([0-9]+)$", base_url)
         if m is not None:
-            base_url = m.group(1)
+            base_url = m[1]
         return f"{base_url}/explore/{self.model_name}/{self.name}"
 
     def _to_metadata_events(  # noqa: C901
@@ -701,7 +706,7 @@ class LookerExplore:
         if self.source_file is not None:
             custom_properties["looker.explore.file"] = str(self.source_file)
         dataset_props = DatasetPropertiesClass(
-            name=self.name,
+            name=str(self.label) if self.label else LookerUtil._display_name(self.name),
             description=self.description,
             customProperties=custom_properties,
         )

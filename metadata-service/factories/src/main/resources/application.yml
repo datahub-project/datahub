@@ -10,6 +10,7 @@ authentication:
       configs:
         # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey
         signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
+        salt: ${DATAHUB_TOKEN_SERVICE_SALT:ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O=}
 
   # Required separately from the DataHubTokenAuthenticator as this is used by the AuthServiceController to authorize token generation
   # at user login time.
@@ -20,6 +21,7 @@ authentication:
   tokenService:
     # Key used to sign new tokens.
     signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
+    salt: ${DATAHUB_TOKEN_SERVICE_SALT:ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O=}
 
   # The max duration of a UI session in milliseconds. Defaults to 1 day.
   sessionTokenDurationMs: ${SESSION_TOKEN_DURATION_MS:86400000}
@@ -40,17 +42,19 @@ authorization:
 
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
-  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.34.1}'
+  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.40}'
 
 telemetry:
   enabledCli: ${CLI_TELEMETRY_ENABLED:true}
   enabledIngestion: ${INGESTION_REPORTING_ENABLED:false}
   enableThirdPartyLogging: ${ENABLE_THIRD_PARTY_LOGGING:false}
+  enabledServer: ${DATAHUB_TELEMETRY_ENABLED:true}
 
 secretService:
   encryptionKey: ${SECRET_SERVICE_ENCRYPTION_KEY:ENCRYPTION_KEY}
 
 datahub:
+  serverType: ${DATAHUB_SERVER_TYPE:prod}
   gms:
     host: ${DATAHUB_GMS_HOST:${GMS_HOST:localhost}}
     port: ${DATAHUB_GMS_PORT:${GMS_PORT:8080}}
@@ -85,9 +89,11 @@ platformAnalytics:
 
 visualConfig:
   assets:
-    logoUrl: ${REACT_APP_LOGO_URL:#{null}}
+    logoUrl: ${REACT_APP_LOGO_URL:/assets/platforms/datahublogo.png}
 
 # Storage Layer
+
+# Only required if entityService.impl is ebean
 ebean:
   username: ${EBEAN_DATASOURCE_USERNAME:datahub}
   password: ${EBEAN_DATASOURCE_PASSWORD:datahub}
@@ -101,6 +107,7 @@ ebean:
   waitTimeoutMillis: ${EBEAN_WAIT_TIMEOUT_MILLIS:1000}
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
 
+# Only required if entityService.impl is cassandra
 cassandra:
   datasourceUsername: ${CASSANDRA_DATASOURCE_USERNAME:cassandra}
   datasourcePassword: ${CASSANDRA_DATASOURCE_PASSWORD:cassandra}
@@ -138,7 +145,7 @@ elasticsearch:
     prefix: ${INDEX_PREFIX:}
     numShards: ${ELASTICSEARCH_NUM_SHARDS_PER_INDEX:1}
     numReplicas: ${ELASTICSEARCH_NUM_REPLICAS_PER_INDEX:1}
-    numRetries: ${ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES :3}
+    numRetries: ${ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES:3}
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
     mainTokenizer: ${ELASTICSEARCH_MAIN_TOKENIZER:#{null}}
 
@@ -173,3 +180,9 @@ spring:
 springdoc:
   cache:
     disabled: true
+
+metadataTests:
+  enabled: ${METADATA_TESTS_ENABLED:true}
+
+siblings:
+  enabled: ${ENABLE_SIBLING_HOOK:true} # enable to turn on automatic sibling associations for dbt

@@ -107,6 +107,7 @@ public class DataHubAuthorizerTest {
         10,
         DataHubAuthorizer.AuthorizationMode.DEFAULT
     );
+    _dataHubAuthorizer.init(Collections.emptyMap(), createAuthorizerContext(systemAuthentication, _entityClient));
     _dataHubAuthorizer.invalidateCache();
     Thread.sleep(500); // Sleep so the runnable can execute. (not ideal)
   }
@@ -281,5 +282,9 @@ public class DataHubAuthorizerTest {
     ownershipAspect.setOwners(owners);
     ownershipAspect.setLastModified(new AuditStamp().setTime(0).setActor(Urn.createFromString("urn:li:corpuser:foo")));
     return ownershipAspect;
+  }
+
+  private AuthorizerContext createAuthorizerContext(final Authentication systemAuthentication, final EntityClient entityClient) {
+    return new AuthorizerContext(new DefaultResourceSpecResolver(systemAuthentication, entityClient));
   }
 }

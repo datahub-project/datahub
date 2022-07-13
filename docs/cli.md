@@ -67,13 +67,14 @@ We use a plugin architecture so that you can install only the dependencies you a
 | [athena](./generated/ingestion/sources/athena.md)                               | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                   |
 | [bigquery](./generated/ingestion/sources/bigquery.md)                           | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                     |
 | [bigquery-usage](./generated/ingestion/sources/bigquery.md#module-bigquery-usage)                     | `pip install 'acryl-datahub[bigquery-usage]'`              | BigQuery usage statistics source    |
-| [datahub-lineage-file](./generated/ingestion/sources/file-based-lineage.md)           | _no additional dependencies_                               | Lineage File source                 |
+| [datahub-lineage-file](./generated/ingestion/sources/file-based-lineage.md)           | _no additional dependencies_                               | Lineage File source           |
 | [datahub-business-glossary](./generated/ingestion/sources/business-glossary.md) | _no additional dependencies_                               | Business Glossary File source       |
 | [dbt](./generated/ingestion/sources/dbt.md)                                     | _no additional dependencies_                               | dbt source                          |
 | [druid](./generated/ingestion/sources/druid.md)                                 | `pip install 'acryl-datahub[druid]'`                       | Druid Source                        |
-| [feast-legacy](./generated/ingestion/sources/feast.md#module-feast-legacy)                   | `pip install 'acryl-datahub[feast-legacy]'`                | Feast source (legacy)               |
+| [feast-legacy](./generated/ingestion/sources/feast.md#module-feast-legacy)                   | `pip install 'acryl-datahub[feast-legacy]'`                | Feast source (legacy)  |
 | [feast](./generated/ingestion/sources/feast.md)                                 | `pip install 'acryl-datahub[feast]'`                       | Feast source (0.18.0)               |
 | [glue](./generated/ingestion/sources/glue.md)                                   | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                     |
+| [hana](./generated/ingestion/sources/hana.md)                                   | `pip install 'acryl-datahub[hana]'`                        | SAP HANA source                     |
 | [hive](./generated/ingestion/sources/hive.md)                                   | `pip install 'acryl-datahub[hive]'`                        | Hive source                         |
 | [kafka](./generated/ingestion/sources/kafka.md)                                 | `pip install 'acryl-datahub[kafka]'`                       | Kafka source                        |
 | [kafka-connect](./generated/ingestion/sources/kafka-connect.md)                 | `pip install 'acryl-datahub[kafka-connect]'`               | Kafka connect source                |
@@ -128,7 +129,10 @@ datahub check plugins
 ## Environment variables supported
 The env variables take precedence over what is in the DataHub CLI config created through `init` command. The list of supported environment variables are as follows
 - `DATAHUB_SKIP_CONFIG` (default `false`) - Set to `true` to skip creating the configuration file.
-- `DATAHUB_GMS_HOST` (default `http://localhost:8080`) - Set to a URL of GMS instance.
+- `DATAHUB_GMS_URL` (default `http://localhost:8080`) - Set to a URL of GMS instance
+- `DATAHUB_GMS_HOST` (default `localhost`) - Set to a host of GMS instance. Prefer using `DATAHUB_GMS_URL` to set the URL.
+- `DATAHUB_GMS_PORT` (default `8080`) - Set to a port of GMS instance. Prefer using `DATAHUB_GMS_URL` to set the URL.
+- `DATAHUB_GMS_PROTOCOL` (default `http`) - Set to a protocol like `http` or `https`. Prefer using `DATAHUB_GMS_URL` to set the URL.
 - `DATAHUB_GMS_TOKEN` (default `None`) - Used for communicating with DataHub Cloud.
 - `DATAHUB_TELEMETRY_ENABLED` (default `true`) - Set to `false` to disable telemetry. If CLI is being run in an environment with no access to public internet then this should be disabled.
 - `DATAHUB_TELEMETRY_TIMEOUT` (default `10`) - Set to a custom integer value to specify timeout in secs when sending telemetry.
@@ -138,7 +142,7 @@ The env variables take precedence over what is in the DataHub CLI config created
 
 ```shell
 DATAHUB_SKIP_CONFIG=false
-DATAHUB_GMS_HOST=http://localhost:8080
+DATAHUB_GMS_URL=http://localhost:8080
 DATAHUB_GMS_TOKEN=
 DATAHUB_TELEMETRY_ENABLED=true
 DATAHUB_TELEMETRY_TIMEOUT=10

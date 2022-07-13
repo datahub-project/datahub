@@ -19,6 +19,8 @@ entities:
       - status
       - container
       - deprecation
+      - testResults
+      - siblings
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -87,6 +89,7 @@ entities:
       - groupMembership
       - globalTags
       - status
+      - corpUserCredentials
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -209,4 +212,31 @@ entities:
       - glossaryTerms
       - editableMlPrimaryKeyProperties
       - domains
+  - name: telemetry
+    category: internal
+    keyAspect: telemetryKey
+    aspects:
+      - telemetryClientId
+  - name: dataHubAccessToken
+    category: internal
+    keyAspect: dataHubAccessTokenKey
+    aspects:
+      - dataHubAccessTokenInfo
+  - name: test
+    doc: A DataHub test
+    category: core
+    keyAspect: testKey
+    aspects:
+      - testInfo
+  - name: dataHubUpgrade
+    category: internal
+    keyAspect: dataHubUpgradeKey
+    aspects:
+      - dataHubUpgradeRequest
+      - dataHubUpgradeResult
+  - name: inviteToken
+    category: core
+    keyAspect: inviteTokenKey
+    aspects:
+      - inviteToken
 events:

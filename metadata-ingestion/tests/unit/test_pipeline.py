@@ -66,7 +66,7 @@ class TestPipeline(object):
         assert pipeline.config.sink.type == "datahub-rest"
         assert pipeline.config.sink.config == {
             "server": "http://localhost:8080",
-            "token": "",
+            "token": None,
         }
 
     @freeze_time(FROZEN_TIME)

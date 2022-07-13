@@ -31,6 +31,7 @@ graphqlCodegen {
         "$projectDir/src/main/resources/ingestion.graphql".toString(),
         "$projectDir/src/main/resources/auth.graphql".toString(),
         "$projectDir/src/main/resources/timeline.graphql".toString(),
+        "$projectDir/src/main/resources/tests.graphql".toString(),
     ]
     outputDir = new File("$projectDir/src/mainGeneratedGraphQL/java")
     packageName = "com.linkedin.datahub.graphql.generated"

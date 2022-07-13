@@ -10,6 +10,7 @@ import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Owners
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { useGetDomainQuery } from '../../../graphql/domain.generated';
 import { DomainEntitiesTab } from './DomainEntitiesTab';
+import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 
 /**
  * Definition of the DataHub Domain entity.
@@ -63,6 +64,8 @@ export class DomainEntity implements Entity<Domain> {
             useEntityQuery={useGetDomainQuery}
             useUpdateQuery={undefined}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
+            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.DELETE])}
+            isNameEditable
             tabs={[
                 {
                     name: 'Entities',
@@ -115,7 +118,7 @@ export class DomainEntity implements Entity<Domain> {
     };
 
     displayName = (data: Domain) => {
-        return data?.properties?.name || data?.id;
+        return data?.properties?.name || data?.id || data.urn;
     };
 
     getOverridePropertiesFromEntity = (data: Domain) => {

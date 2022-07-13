@@ -12,52 +12,47 @@ from termcolor import colored
 import datahub.cli.cli_utils
 from datahub.emitter.mce_builder import dataset_urn_to_key, schema_field_urn_to_key
 from datahub.telemetry import telemetry
+from datahub.upgrade import upgrade
 from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
 
 
 def pretty_field_path(field_path: str) -> str:
-    if field_path.startswith("[version=2.0]"):
+    if not field_path.startswith("[version=2.0]"):
+        return field_path
         # breakpoint()
         # parse schema field
-        tokens = [
-            t
-            for t in field_path.split(".")
-            if not (t.startswith("[") or t.endswith("]"))
-        ]
-        path = ".".join(tokens)
-        return path
-    else:
-        return field_path
+    tokens = [
+        t
+        for t in field_path.split(".")
+        if not t.startswith("[") and not t.endswith("]")
+    ]
+
+    return ".".join(tokens)
 
 
 def pretty_id(id: Optional[str]) -> str:
     if not id:
         return ""
-    else:
-        # breakpoint()
-        assert id is not None
-        if id.startswith("urn:li:datasetField:") or id.startswith(
-            "urn:li:schemaField:"
-        ):
-            # parse schema field
-            schema_field_key = schema_field_urn_to_key(
-                id.replace("urn:li:datasetField", "urn:li:schemaField")
-            )
-            if schema_field_key:
-                assert schema_field_key is not None
-                field_path = schema_field_key.fieldPath
+    # breakpoint()
+    assert id is not None
+    if id.startswith("urn:li:datasetField:") or id.startswith("urn:li:schemaField:"):
+        schema_field_key = schema_field_urn_to_key(
+            id.replace("urn:li:datasetField", "urn:li:schemaField")
+        )
+        if schema_field_key:
+            assert schema_field_key is not None
+            field_path = schema_field_key.fieldPath
 
-                return f"{colored('field','cyan')}:{colored(pretty_field_path(field_path),'white')}"
-        if id.startswith("[version=2.0]"):
-            return f"{colored('field','cyan')}:{colored(pretty_field_path(id),'white')}"
+            return f"{colored('field','cyan')}:{colored(pretty_field_path(field_path),'white')}"
+    if id.startswith("[version=2.0]"):
+        return f"{colored('field','cyan')}:{colored(pretty_field_path(id),'white')}"
 
-        if id.startswith("urn:li:dataset"):
-            # parse dataset urn
-            dataset_key = dataset_urn_to_key(id)
-            if dataset_key:
-                return f"{colored('dataset','cyan')}:{colored(dataset_key.platform,'white')}:{colored(dataset_key.name,'white')}"
+    if id.startswith("urn:li:dataset"):
+        dataset_key = dataset_urn_to_key(id)
+        if dataset_key:
+            return f"{colored('dataset','cyan')}:{colored(dataset_key.platform,'white')}:{colored(dataset_key.name,'white')}"
     # failed to prettify, return original
     return id
 
@@ -113,7 +108,7 @@ def get_timeline(
     required=True,
     multiple=True,
     type=str,
-    help="One of tag, glossary_term, technical_schema, documentation, ownership",
+    help="One of tag, glossary_term, technical_schema, documentation, owner",
 )
 @click.option(
     "--start",
@@ -132,6 +127,7 @@ def get_timeline(
 )
 @click.option("--raw", type=bool, is_flag=True, help="Show the raw diff")
 @click.pass_context
+@upgrade.check_upgrade
 @telemetry.with_telemetry
 def timeline(
     ctx: Any,
@@ -146,7 +142,7 @@ def timeline(
 
     all_categories = [
         "TAG",
-        "OWNERSHIP",
+        "OWNER",
         "GLOSSARY_TERM",
         "TECHNICAL_SCHEMA",
         "DOCUMENTATION",
@@ -194,18 +190,18 @@ def timeline(
             )
             change_color = (
                 "green"
-                if change_txn.get("semVerChange") == "MINOR"
-                or change_txn.get("semVerChange") == "PATCH"
+                if change_txn.get("semVerChange") in ["MINOR", "PATCH"]
                 else "red"
             )
+
             print(
                 f"{colored(change_instant,'cyan')} - {colored(change_txn['semVer'],change_color)}"
             )
             if change_txn["changeEvents"] is not None:
                 for change_event in change_txn["changeEvents"]:
                     element_string = (
-                        f"({pretty_id(change_event.get('elementId'))})"
-                        if change_event.get("elementId")
+                        f"({pretty_id(change_event.get('elementId') or change_event.get('modifier'))})"
+                        if change_event.get("elementId") or change_event.get("modifier")
                         else ""
                     )
                     event_change_color: str = (
@@ -213,9 +209,13 @@ def timeline(
                         if change_event.get("semVerChange") == "MINOR"
                         else "red"
                     )
-                    target_string = pretty_id(change_event.get("target") or "")
+                    target_string = pretty_id(
+                        change_event.get("target")
+                        or change_event.get("entityUrn")
+                        or ""
+                    )
                     print(
-                        f"\t{colored(change_event['changeType'],event_change_color)} {change_event.get('category')} {target_string} {element_string}: {change_event['description']}"
+                        f"\t{colored(change_event.get('changeType') or change_event.get('operation'),event_change_color)} {change_event.get('category')} {target_string} {element_string}: {change_event['description']}"
                     )
     else:
         click.echo(

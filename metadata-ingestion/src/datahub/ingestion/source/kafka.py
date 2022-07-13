@@ -2,7 +2,7 @@ import logging
 import types
 from dataclasses import dataclass, field
 from importlib import import_module
-from typing import Dict, Iterable, List, Optional, Tuple, Type, cast
+from typing import Dict, Iterable, List, Optional, Type, cast
 
 import confluent_kafka
 import pydantic
@@ -47,6 +47,7 @@ from datahub.metadata.schema_classes import (
     JobStatusClass,
     SubTypesClass,
 )
+from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +77,13 @@ class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigBase):
     )
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[KafkaSourceStatefulIngestionConfig] = None
-    schema_registry_class: str = (
-        "datahub.ingestion.source.confluent_schema_registry.ConfluentSchemaRegistry"
+    schema_registry_class: str = pydantic.Field(
+        default="datahub.ingestion.source.confluent_schema_registry.ConfluentSchemaRegistry",
+        description="The fully qualified implementation class(custom) that implements the KafkaSchemaRegistryBase interface.",
+    )
+    ignore_warnings_on_schema_type: bool = pydantic.Field(
+        default=False,
+        description="Disables warnings reported for non-AVRO/Protobuf value or key schemas if set.",
     )
 
 
@@ -107,9 +113,6 @@ class KafkaSource(StatefulIngestionSourceBase):
     - Schemas associated with each topic from the schema registry (only Avro schemas are currently supported)
     """
 
-    source_config: KafkaSourceConfig
-    consumer: confluent_kafka.Consumer
-    report: KafkaSourceReport
     platform: str = "kafka"
 
     @classmethod
@@ -117,9 +120,9 @@ class KafkaSource(StatefulIngestionSourceBase):
         cls, config: KafkaSourceConfig, report: KafkaSourceReport
     ) -> KafkaSchemaRegistryBase:
         try:
-            module_path, class_name = config.schema_registry_class.rsplit(
-                ".", 1
-            )  # type: Tuple[str, str]
+            module_path: str
+            class_name: str
+            module_path, class_name = config.schema_registry_class.rsplit(".", 1)
             module: types.ModuleType = import_module(module_path)
             schema_registry_class: Type = getattr(module, class_name)
             return schema_registry_class.create(config, report)
@@ -137,17 +140,22 @@ class KafkaSource(StatefulIngestionSourceBase):
                 "Enabling kafka stateful ingestion requires to specify a platform instance."
             )
 
-        self.consumer = confluent_kafka.Consumer(
+        self.consumer: confluent_kafka.Consumer = confluent_kafka.Consumer(
             {
                 "group.id": "test",
                 "bootstrap.servers": self.source_config.connection.bootstrap,
                 **self.source_config.connection.consumer_config,
             }
         )
-        self.report = KafkaSourceReport()
-        self.schema_registry_client = KafkaSource.create_schema_registry(
-            config, self.report
+        self.report: KafkaSourceReport = KafkaSourceReport()
+        self.schema_registry_client: KafkaSchemaRegistryBase = (
+            KafkaSource.create_schema_registry(config, self.report)
         )
+        if self.source_config.domain:
+            self.domain_registry = DomainRegistry(
+                cached_domains=[k for k in self.source_config.domain],
+                graph=self.ctx.graph,
+            )
 
     def is_checkpointing_enabled(self, job_id: JobId) -> bool:
         if (
@@ -186,10 +194,10 @@ class KafkaSource(StatefulIngestionSourceBase):
         assert self.source_config.platform_instance is not None
         return self.source_config.platform_instance
 
-    # @classmethod
-    # def create(cls, config_dict: Dict, ctx: PipelineContext) -> "KafkaSource":
-    #    config: KafkaSourceConfig = KafkaSourceConfig.parse_obj(config_dict)
-    #    return cls(config, ctx)
+    @classmethod
+    def create(cls, config_dict: Dict, ctx: PipelineContext) -> "KafkaSource":
+        config: KafkaSourceConfig = KafkaSourceConfig.parse_obj(config_dict)
+        return cls(config, ctx)
 
     def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
         last_checkpoint = self.get_last_checkpoint(
@@ -260,7 +268,7 @@ class KafkaSource(StatefulIngestionSourceBase):
                 )
             )
 
-    def _extract_record(self, topic: str) -> Iterable[MetadataWorkUnit]:  # noqa: C901
+    def _extract_record(self, topic: str) -> Iterable[MetadataWorkUnit]:
         logger.debug(f"topic = {topic}")
 
         # 1. Create the default dataset snapshot for the topic.
@@ -331,7 +339,9 @@ class KafkaSource(StatefulIngestionSourceBase):
         # 6. Emit domains aspect MCPW
         for domain, pattern in self.source_config.domain.items():
             if pattern.allowed(dataset_name):
-                domain_urn = make_domain_urn(domain)
+                domain_urn = make_domain_urn(
+                    self.domain_registry.get_domain_urn(domain)
+                )
 
         if domain_urn:
             wus = add_domain_to_entity_wu(

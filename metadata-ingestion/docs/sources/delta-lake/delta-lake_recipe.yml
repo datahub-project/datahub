@@ -1,0 +1,9 @@
+source:
+  type: delta-lake
+  config:
+    env: "PROD"
+    platform_instance: "my-delta-lake"
+    base_path: "/path/to/data/folder"
+
+sink:
+  # sink configs

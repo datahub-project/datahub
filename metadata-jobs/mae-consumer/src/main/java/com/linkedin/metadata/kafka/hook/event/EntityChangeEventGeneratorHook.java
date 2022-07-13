@@ -79,6 +79,14 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
       Constants.TAG_KEY_ASPECT_NAME,
       Constants.STATUS_ASPECT_NAME
   );
+  /**
+   * The list of change types that are supported for generating semantic change events.
+   */
+  private static final Set<String> SUPPORTED_OPERATIONS = ImmutableSet.of(
+      "CREATE",
+      "UPSERT",
+      "DELETE"
+  );
   private final AspectDifferRegistry _aspectDifferRegistry;
   private final EntityClient _entityClient;
   private final Authentication _systemAuthentication;
@@ -167,7 +175,7 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
   }
 
   private boolean isEligibleForProcessing(final MetadataChangeLog log) {
-    return SUPPORTED_ASPECT_NAMES.contains(log.getAspectName());
+    return SUPPORTED_OPERATIONS.contains(log.getChangeType().toString()) && SUPPORTED_ASPECT_NAMES.contains(log.getAspectName());
   }
 
   private void emitPlatformEvent(@Nonnull final PlatformEvent event, @Nonnull final String partitioningKey) throws Exception {

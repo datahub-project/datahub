@@ -75,6 +75,11 @@ type Query {
     glossaryTerm(urn: String!): GlossaryTerm
 
     """
+    Fetch a Glossary Node by primary key (urn)
+    """
+    glossaryNode(urn: String!): GlossaryNode
+
+    """
     Fetch an Entity Container by primary key (urn)
     """
     container(urn: String!): Container
@@ -143,6 +148,31 @@ type Query {
     List all DataHub Domains
     """
     listDomains(input: ListDomainsInput!): ListDomainsResult
+
+    """
+    Get all GlossaryTerms without a parentNode
+    """
+    getRootGlossaryTerms(input: GetRootGlossaryEntitiesInput!): GetRootGlossaryTermsResult
+
+    """
+    Get all GlossaryNodes without a parentNode
+    """
+    getRootGlossaryNodes(input: GetRootGlossaryEntitiesInput!): GetRootGlossaryNodesResult
+
+    """
+    Get whether or not not an entity exists
+    """
+    entityExists(urn: String!): Boolean
+
+    """
+    Gets the current invite token. If the optional regenerate param is set to true, generate a new invite token.
+    """
+    getNativeUserInviteToken: InviteToken
+
+    """
+    Gets an entity based on its urn
+    """
+    entity(urn: String!): Entity
 }
 
 """
@@ -181,9 +211,24 @@ type Mutation {
     updateDataJob(urn: String!, input: DataJobUpdateInput!): DataJob
 
     """
+    Create a new tag. Requires the 'Manage Tags' or 'Create Tags' Platform Privilege. If a Tag with the provided ID already exists,
+    it will be overwritten.
+    """
+    createTag(
+      "Inputs required to create a new Tag."
+      input: CreateTagInput!): String
+
+    """
     Update the information about a particular Entity Tag
     """
     updateTag(urn: String!, input: TagUpdateInput!): Tag
+
+    """
+    Delete a Tag
+    """
+    deleteTag(
+      "The urn of the Tag to delete"
+      urn: String!): Boolean
 
     """
     Set the hex color associated with an existing Tag
@@ -296,10 +341,18 @@ type Mutation {
     createGroup(input: CreateGroupInput!): String
 
     """
-    Create a new Domain. Returns the urn of the newly created Domain. Requires the Manage Domains privilege. If a domain with the provided ID already exists,
+    Create a new Domain. Returns the urn of the newly created Domain. Requires the 'Create Domains' or 'Manage Domains' Platform Privilege. If a Domain with the provided ID already exists,
     it will be overwritten.
     """
     createDomain(input: CreateDomainInput!): String
+
+    """
+    Delete a Domain
+    """
+    deleteDomain(
+      "The urn of the Domain to delete"
+      urn: String!): Boolean
+
 
     """
     Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully added, or already exists. Requires the Edit Domains privilege for the Entity.
@@ -336,6 +389,60 @@ type Mutation {
       The assertion to remove
       """
       urn: String!): Boolean
+
+    """
+    Report a new operation for an asset
+    """
+    reportOperation(
+      """
+      Input required to report an operation
+      """
+      input: ReportOperationInput!): String
+
+    """
+    Create a new GlossaryTerm. Returns the urn of the newly created GlossaryTerm. If a term with the provided ID already exists, it will be overwritten.
+    """
+    createGlossaryTerm(input: CreateGlossaryEntityInput!): String
+
+    """
+    Create a new GlossaryNode. Returns the urn of the newly created GlossaryNode. If a node with the provided ID already exists, it will be overwritten.
+    """
+    createGlossaryNode(input: CreateGlossaryEntityInput!): String
+
+    """
+    Updates the parent node of a resource. Currently only GlossaryNodes and GlossaryTerms have parentNodes.
+    """
+    updateParentNode(input: UpdateParentNodeInput!): Boolean
+
+    """
+    Remove a glossary entity (GlossaryTerm or GlossaryNode). Return boolean whether it was successful or not.
+    """
+    deleteGlossaryEntity(urn: String!): Boolean
+
+    """
+    Updates the name of the entity.
+    """
+    updateName(input: UpdateNameInput!): Boolean
+
+    """
+    Add multiple related Terms to a Glossary Term to establish relationships
+    """
+    addRelatedTerms(input: RelatedTermsInput!): Boolean
+
+    """
+    Remove multiple related Terms for a Glossary Term
+    """
+    removeRelatedTerms(input: RelatedTermsInput!): Boolean
+
+    """
+    Generates an invite token that can be shared with prospective users to create their accounts.
+    """
+    createNativeUserInviteToken: InviteToken
+
+    """
+    Generates a token that can be shared with existing native users to reset their credentials.
+    """
+    createNativeUserResetToken(input: CreateNativeUserResetTokenInput!): ResetToken
 }
 
 """
@@ -423,6 +530,11 @@ enum EntityType {
     GLOSSARY_TERM
 
     """
+    The Glossary Node Entity
+    """
+    GLOSSARY_NODE
+
+    """
     A container of Metadata Entities
     """
     CONTAINER
@@ -476,6 +588,16 @@ enum EntityType {
     Data Platform Instance Entity
     """
     DATA_PLATFORM_INSTANCE
+
+    """
+    A DataHub Access Token
+    """
+    ACCESS_TOKEN
+
+    """
+    A DataHub Test
+    """
+    TEST
 }
 
 """
@@ -829,9 +951,9 @@ type Dataset implements EntityWithRelationships & Entity {
     lineage(input: LineageInput!): EntityLineageResult
 
     """
-    Experimental! The resolved health status of the Dataset
+    Experimental! The resolved health statuses of the Dataset
     """
-    health: Health
+    health: [Health!]
 
     """
     Schema metadata of the dataset
@@ -896,6 +1018,25 @@ type Dataset implements EntityWithRelationships & Entity {
     History of datajob runs that either produced or consumed this dataset
     """
     runs(start: Int, count: Int, direction: RelationshipDirection!): DataProcessInstanceResult
+
+    """
+    Metadata about the datasets siblings
+    """
+    siblings: SiblingProperties
+}
+
+"""
+Metadata about the entity's siblings
+"""
+type SiblingProperties {
+    """
+    If this entity is the primary sibling among the sibling set
+    """
+    isPrimary: Boolean
+    """
+    The sibling entities
+    """
+    siblings: [Entity]
 }
 
 """
@@ -1001,7 +1142,7 @@ type VersionedDataset implements Entity {
     """
     Experimental! The resolved health status of the Dataset
     """
-    health: Health
+    health: [Health!]
 
     """
     Schema metadata of the dataset
@@ -1207,6 +1348,10 @@ type GlossaryTerm implements Entity {
     """
     schemaMetadata(version: Long): SchemaMetadata
 
+    """
+    Recursively get the lineage of glossary nodes for this entity
+    """
+    parentNodes: ParentNodesResult
 }
 
 """
@@ -1298,6 +1443,71 @@ type GlossaryTermProperties {
     Schema definition of glossary term
     """
     rawSchema: String
+}
+
+"""
+A Glossary Node, or a directory in a Business Glossary represents a container of
+Glossary Terms or other Glossary Nodes
+"""
+type GlossaryNode implements Entity {
+    """
+    The primary key of the glossary term
+    """
+    urn: String!
+
+    """
+    Ownership metadata of the glossary term
+    """
+    ownership: Ownership
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Additional properties associated with the Glossary Term
+    """
+    properties: GlossaryNodeProperties
+
+    """
+    Edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Recursively get the lineage of glossary nodes for this entity
+    """
+    parentNodes: ParentNodesResult
+}
+
+"""
+All of the parent nodes for GlossaryTerms and GlossaryNodes
+"""
+type ParentNodesResult {
+    """
+    The number of parent nodes bubbling up for this entity
+    """
+    count: Int!
+    """
+    A list of parent nodes in order from direct parent, to parent's parent etc. If there are no nodes, return an empty list
+    """
+    nodes: [GlossaryNode!]!
+}
+
+"""
+Additional read only properties about a Glossary Node
+"""
+type GlossaryNodeProperties {
+    """
+    The name of the Glossary Term
+    """
+    name: String!
+
+    """
+    Description of the glossary term
+    """
+    description: String
 }
 
 """
@@ -1922,6 +2132,11 @@ type Schema {
     The time at which the schema metadata information was created
     """
     createdAt: Long
+
+    """
+    The time at which the schema metadata information was last ingested
+    """
+    lastObserved: Long
 }
 
 """
@@ -2523,6 +2738,11 @@ type CorpUser implements Entity {
     Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Whether or not this user is a native DataHub user
+    """
+    isNativeUser: Boolean
 
     """
     Deprecated, use properties field instead
@@ -3424,6 +3644,26 @@ input TagUpdateInput {
 }
 
 """
+Input required to create a new Tag
+"""
+input CreateTagInput {
+  """
+  Optional! A custom id to use as the primary key identifier for the Tag. If not provided, a random UUID will be generated as the id.
+  """
+  id: String
+
+  """
+  Display name for the Tag
+  """
+  name: String!
+
+  """
+  Optional description for the Tag
+  """
+  description: String
+}
+
+"""
 An update for the ownership information for a Metadata Entity
 """
 input OwnershipUpdate {
@@ -4308,6 +4548,16 @@ enum ChartType {
     A box plot chart
     """
     BOX_PLOT
+
+    """
+    A word cloud chart
+    """
+    WORD_CLOUD
+
+    """
+    A Cohort Analysis chart
+    """
+    COHORT
 }
 
 """
@@ -5694,14 +5944,9 @@ Operational info for an entity.
 """
 type Operation implements TimeSeriesAspect {
     """
-    The time at which the profile was reported
+    The time at which the operation was reported
     """
     timestampMillis: Long!
-
-    """
-    When the entity was last updated.
-    """
-    lastUpdatedTimestamp: Long!
 
     """
     Actor who issued this operation.
@@ -5714,6 +5959,16 @@ type Operation implements TimeSeriesAspect {
     operationType: OperationType!
 
     """
+    A custom operation type
+    """
+    customOperationType: String
+
+    """
+    Source of the operation
+    """
+    sourceType: OperationSourceType
+
+    """
     How many rows were affected by this operation.
     """
     numAffectedRows: Long
@@ -5722,6 +5977,21 @@ type Operation implements TimeSeriesAspect {
     Which other datasets were affected by this operation.
     """
     affectedDatasets: [String!]
+
+    """
+    When time at which the asset was actually updated
+    """
+    lastUpdatedTimestamp: Long!
+
+    """
+    Optional partition identifier
+    """
+    partition: String
+
+    """
+    Custom operation properties
+    """
+    customProperties: [StringMapEntry!]
 }
 
 """
@@ -5737,14 +6007,97 @@ enum OperationType {
     When data is updated.
     """
     UPDATE
+
     """
     When data is deleted.
     """
     DELETE
+
     """
-    When data is created.
+    When table is created.
     """
     CREATE
+
+    """
+    When table is altered
+    """
+    ALTER
+
+    """
+    When table is dropped
+    """
+    DROP
+
+    """
+    Unknown operation
+    """
+    UNKNOWN
+
+    """
+    Custom
+    """
+    CUSTOM
+}
+
+"""
+Input provided to report an asset operation
+"""
+input ReportOperationInput {
+    """
+    The urn of the asset (e.g. dataset) to report the operation for
+    """
+    urn: String!
+
+    """
+    The type of operation that was performed. Required
+    """
+    operationType: OperationType!
+
+    """
+    A custom type of operation. Required if operation type is CUSTOM.
+    """
+    customOperationType: String
+
+    """
+    The source or reporter of the operation
+    """
+    sourceType: OperationSourceType!
+
+    """
+    A list of key-value parameters to include
+    """
+    customProperties: [StringMapEntryInput!]
+
+    """
+    An optional partition identifier
+    """
+    partition: String
+
+    """
+    Optional: The number of affected rows
+    """
+    numAffectedRows: Long
+
+    """
+    Optional: Provide a timestamp associated with the operation. If not provided, one will be generated for you based
+    on the current time.
+    """
+    timestampMillis: Long
+}
+
+"""
+Enum to define the source/reporter type for an Operation.
+"""
+enum OperationSourceType {
+    """
+    A data process reported the operation.
+    """
+    DATA_PROCESS
+
+    """
+    A data platform reported the operation.
+    """
+    DATA_PLATFORM
 }
 
 """
@@ -5830,6 +6183,42 @@ enum SubResourceType {
     A Dataset field or column
     """
     DATASET_FIELD
+}
+
+
+"""
+Input provided when adding Terms to an asset
+"""
+input RelatedTermsInput {
+    """
+    The Glossary Term urn to add or remove this relationship to/from
+    """
+    urn: String!
+
+    """
+    The primary key of the Glossary Term to add or remove
+    """
+    termUrns: [String!]!
+
+    """
+    The type of relationship we're adding or removing to/from for a Glossary Term
+    """
+    relationshipType: TermRelationshipType!
+}
+
+"""
+A type of Metadata Entity sub resource
+"""
+enum TermRelationshipType {
+    """
+    When a Term inherits from, or has an 'Is A' relationship with another Term
+    """
+    isA
+
+    """
+    When a Term contains, or has a 'Has A' relationship with another Term
+    """
+    hasA
 }
 
 """
@@ -6030,6 +6419,36 @@ input DescriptionUpdateInput {
     A sub resource identifier, eg dataset field path
     """
     subResource: String
+}
+
+"""
+Input for updating the parent node of a resource. Currently only GlossaryNodes and GlossaryTerms have parentNodes.
+"""
+input UpdateParentNodeInput {
+    """
+    The new parent node urn
+    """
+    parentNode: String!
+
+    """
+    The primary key of the resource to update the parent node for
+    """
+    resourceUrn: String!
+}
+
+"""
+Input for updating the name of an entity
+"""
+input UpdateNameInput {
+    """
+    The new name
+    """
+    name: String!
+
+    """
+    The primary key of the resource to update the name for
+    """
+    urn: String!
 }
 
 """
@@ -7724,6 +8143,96 @@ type ListDomainsResult {
   domains: [Domain!]!
 }
 
+"""
+Input required when getting Business Glossary entities
+"""
+input GetRootGlossaryEntitiesInput {
+    """
+    The starting offset of the result set returned
+    """
+    start: Int!
+
+    """
+    The number of Glossary Entities in the returned result set
+    """
+    count: Int!
+}
+
+"""
+The result when getting root GlossaryTerms
+"""
+type GetRootGlossaryTermsResult {
+    """
+    A list of Glossary Terms without a parent node
+    """
+    terms: [GlossaryTerm!]!
+
+    """
+    The starting offset of the result set returned
+    """
+    start: Int!
+
+    """
+    The number of terms in the returned result
+    """
+    count: Int!
+
+    """
+    The total number of terms in the result set
+    """
+    total: Int!
+}
+
+"""
+The result when getting Glossary entities
+"""
+type GetRootGlossaryNodesResult {
+    """
+    A list of Glossary Nodes without a parent node
+    """
+    nodes: [GlossaryNode!]!
+
+    """
+    The starting offset of the result set returned
+    """
+    start: Int!
+
+    """
+    The number of nodes in the returned result
+    """
+    count: Int!
+
+    """
+    The total number of nodes in the result set
+    """
+    total: Int!
+}
+
+"""
+Input required to create a new Glossary Entity - a Node or a Term.
+"""
+input CreateGlossaryEntityInput {
+    """
+    Optional! A custom id to use as the primary key identifier for the domain. If not provided, a random UUID will be generated as the id.
+    """
+    id: String
+
+    """
+    Display name for the Node or Term
+    """
+    name: String!
+
+    """
+    Description for the Node or Term
+    """
+    description: String
+
+    """
+    Optional parent node urn for the Glossary Node or Term
+    """
+    parentNode: String
+}
+
 enum HealthStatus {
   """
   The Asset is in a healthy state
@@ -7742,9 +8251,24 @@ enum HealthStatus {
 }
 
 """
+The type of the health status
+"""
+enum HealthStatusType {
+  """
+  Assertions status
+  """
+  ASSERTIONS
+}
+
+"""
 The resolved Health of an Asset
 """
 type Health {
+  """
+  An enum representing the type of health indicator
+  """
+  type: HealthStatusType!
+
   """
   An enum representing the resolved Health status of an Asset
   """
@@ -7759,4 +8283,49 @@ type Health {
   The causes responsible for the health status
   """
   causes: [String!]
+}
+
+"""
+String map entry input
+"""
+input StringMapEntryInput {
+  """
+  The key of the map entry
+  """
+  key: String!
+
+  """
+  The value fo the map entry
+  """
+  value: String
+}
+
+"""
+Token that allows users to sign up as a native user
+"""
+type InviteToken {
+    """
+    The invite token
+    """
+    inviteToken: String!
+}
+
+"""
+Input required to generate a password reset token for a native user.
+"""
+input CreateNativeUserResetTokenInput {
+    """
+    The urn of the user to reset the password of
+    """
+    userUrn: String!
+}
+
+"""
+Token that allows native users to reset their credentials
+"""
+type ResetToken {
+    """
+    The reset token
+    """
+    resetToken: String!
 }

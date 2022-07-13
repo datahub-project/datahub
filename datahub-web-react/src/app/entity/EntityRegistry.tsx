@@ -128,6 +128,7 @@ export default class EntityRegistry {
                         entity: relationship.entity as EntityInterface,
                         type: (relationship.entity as EntityInterface).type,
                     })),
+                numDownstreamChildren: genericEntityProperties?.downstream?.total,
                 upstreamChildren: genericEntityProperties?.upstream?.relationships
                     ?.filter((relationship) => relationship.entity)
                     // eslint-disable-next-line @typescript-eslint/dot-notation
@@ -136,7 +137,9 @@ export default class EntityRegistry {
                         entity: relationship.entity as EntityInterface,
                         type: (relationship.entity as EntityInterface).type,
                     })),
+                numUpstreamChildren: genericEntityProperties?.upstream?.total,
                 status: genericEntityProperties?.status,
+                siblingPlatforms: genericEntityProperties?.siblingPlatforms,
             } as FetchedEntity) || undefined
         );
     }

@@ -1,0 +1,104 @@
+plugins {
+    id 'base'
+}
+
+ext {
+  python_executable = 'python3'
+  venv_name = 'venv'
+}
+
+task checkPythonVersion(type: Exec) {
+  commandLine python_executable, '-c', 'import sys; assert sys.version_info >= (3, 6)'
+}
+
+task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
+  inputs.file file('setup.py')
+  outputs.dir("${venv_name}")
+  commandLine 'bash', '-c', "${python_executable} -m venv ${venv_name} && ${venv_name}/bin/python -m pip install --upgrade pip wheel setuptools==57.5.0"
+}
+
+task installPackage(type: Exec, dependsOn: environmentSetup) {
+  inputs.file file('setup.py')
+  outputs.dir("${venv_name}")
+  commandLine "${venv_name}/bin/pip", 'install', '-e', '.'
+}
+
+task install(dependsOn: [installPackage])
+
+task installDev(type: Exec, dependsOn: [install]) {
+  inputs.file file('setup.py')
+  outputs.dir("${venv_name}")
+  outputs.file("${venv_name}/.build_install_dev_sentinel")
+  commandLine 'bash', '-x', '-c',
+    "${venv_name}/bin/pip install -e .[dev] && touch ${venv_name}/.build_install_dev_sentinel"
+}
+
+task lint(type: Exec, dependsOn: installDev) {
+  /*
+    The find/sed combo below is a temporary work-around for the following mypy issue with airflow 2.2.0:
+   "venv/lib/python3.8/site-packages/airflow/_vendor/connexion/spec.py:169: error: invalid syntax".
+   */
+  commandLine 'bash', '-x', '-c',
+    "find ${venv_name}/lib -path *airflow/_vendor/connexion/spec.py -exec sed -i.bak -e '169,169s/  # type: List\\[str\\]//g' {} \\; && " +
+    "source ${venv_name}/bin/activate && black --check --diff src/ tests/ && isort --check --diff src/ tests/ && flake8 --count --statistics src/ tests/ && mypy src/ tests/"
+}
+task lintFix(type: Exec, dependsOn: installDev) {
+  commandLine 'bash', '-x', '-c',
+    "source ${venv_name}/bin/activate && " +
+    "black src/ tests/ && " +
+    "isort src/ tests/ && " +
+    "flake8 src/ tests/ && " +
+    "mypy src/ tests/ "
+}
+
+task testQuick(type: Exec, dependsOn: installDev) {
+  // We can't enforce the coverage requirements if we run a subset of the tests.
+  inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
+  inputs.files(project.fileTree(dir: "tests/"))
+  outputs.dir("${venv_name}")
+  commandLine 'bash', '-x', '-c',
+    "source ${venv_name}/bin/activate && pytest -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
+}
+
+task installDevTest(type: Exec, dependsOn: [installDev]) {
+  inputs.file file('setup.py')
+  outputs.dir("${venv_name}")
+  outputs.file("${venv_name}/.build_install_dev_test_sentinel")
+  commandLine 'bash', '-x', '-c',
+    "${venv_name}/bin/pip install -e .[dev,integration-tests] && touch ${venv_name}/.build_install_dev_test_sentinel"
+}
+
+def testFile = hasProperty('testFile') ? testFile : 'unknown'
+task testSingle(dependsOn: [installDevTest]) {
+  doLast {
+  if (testFile != 'unknown')  {
+  exec {
+    commandLine 'bash', '-x', '-c',
+     "source ${venv_name}/bin/activate && pytest ${testFile}"
+    }
+  } else {
+   throw new GradleException("No file provided. Use -PtestFile=<test_file>")
+    }
+  }
+}
+
+task testFull(type: Exec, dependsOn: [testQuick, installDevTest]) {
+  commandLine 'bash', '-x', '-c',
+    "source ${venv_name}/bin/activate && pytest -m 'not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+}
+
+task cleanPythonCache(type: Exec) {
+  commandLine 'bash', '-x', '-c',
+    "find src -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
+}
+
+build.dependsOn install
+check.dependsOn lint
+check.dependsOn testQuick
+
+clean {
+  delete venv_name
+  delete 'build'
+  delete 'dist'
+}
+clean.dependsOn cleanPythonCache

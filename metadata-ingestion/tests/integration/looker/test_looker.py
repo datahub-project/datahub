@@ -29,6 +29,7 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
             id="1",
             title="foo",
             created_at=datetime.utcfromtimestamp(time.time()),
+            updated_at=datetime.utcfromtimestamp(time.time()),
             description="lorem ipsum",
             dashboard_elements=[
                 DashboardElement(
@@ -87,6 +88,7 @@ def test_looker_ingest_joins(pytestconfig, tmp_path, mock_time):
             id="1",
             title="foo",
             created_at=datetime.utcfromtimestamp(time.time()),
+            updated_at=datetime.utcfromtimestamp(time.time()),
             description="lorem ipsum",
             dashboard_elements=[
                 DashboardElement(
@@ -145,6 +147,7 @@ def test_looker_ingest_unaliased_joins(pytestconfig, tmp_path, mock_time):
             id="1",
             title="foo",
             created_at=datetime.utcfromtimestamp(time.time()),
+            updated_at=datetime.utcfromtimestamp(time.time()),
             description="lorem ipsum",
             dashboard_elements=[
                 DashboardElement(
@@ -222,6 +225,10 @@ def setup_mock_explore_with_joins(mocked_client):
                 relationship="one_to_one",
                 sql_on="1=1",
             ),
+            LookmlModelExploreJoins(
+                name="my_joined_view_join_name",
+                from_="my_joined_view_original_name",
+            ),
         ],
     )
 
@@ -249,7 +256,11 @@ def setup_mock_explore_unaliased_with_joins(mocked_client):
                 view_label="My Labeled View",
                 relationship="one_to_one",
                 sql_on="1=1",
-            )
+            ),
+            LookmlModelExploreJoins(
+                name="my_joined_view_join_name",
+                from_="my_joined_view_original_name",
+            ),
         ],
     )
 
@@ -286,6 +297,7 @@ def test_looker_ingest_allow_pattern(pytestconfig, tmp_path, mock_time):
             id="1",
             title="foo",
             created_at=datetime.utcfromtimestamp(time.time()),
+            updated_at=datetime.utcfromtimestamp(time.time()),
             description="lorem ipsum",
             dashboard_elements=[
                 DashboardElement(

@@ -25,6 +25,8 @@ services:
     environment:
     - GMS_HOST=datahub-gms
     - GMS_PORT=8080
+    - DATAHUB_GMS_HOST=datahub-gms
+    - DATAHUB_GMS_PORT=8080
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - SCHEMA_REGISTRY_URL=http://schema-registry:8081
     - METADATA_AUDIT_EVENT_NAME=MetadataAuditEvent_v4
@@ -63,6 +65,8 @@ services:
     depends_on:
     - mysql
     environment:
+    - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
+    - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
     - DATASET_ENABLE_SCSI=false
     - EBEAN_DATASOURCE_USERNAME=datahub
     - EBEAN_DATASOURCE_PASSWORD=datahub
@@ -80,7 +84,7 @@ services:
     - MCE_CONSUMER_ENABLED=true
     - PE_CONSUMER_ENABLED=true
     - UI_INGESTION_ENABLED=true
-    - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.34.1
+    - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.40
     hostname: datahub-gms
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
     ports:
@@ -153,7 +157,7 @@ services:
     - MYSQL_PASSWORD=datahub
     - DATAHUB_DB_NAME=datahub
     hostname: mysql-setup
-    image: acryldata/datahub-mysql-setup:head
+    image: acryldata/datahub-mysql-setup:${DATAHUB_VERSION:-head}
   schema-registry:
     container_name: schema-registry
     depends_on:

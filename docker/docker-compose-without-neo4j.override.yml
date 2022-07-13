@@ -17,7 +17,7 @@ services:
     build:
       context: ../
       dockerfile: docker/mysql-setup/Dockerfile
-    image: acryldata/datahub-mysql-setup:head
+    image: acryldata/datahub-mysql-setup:${DATAHUB_VERSION:-head}
     env_file: mysql-setup/env/docker.env
     hostname: mysql-setup
     container_name: mysql-setup
@@ -26,6 +26,9 @@ services:
 
   datahub-gms:
     env_file: datahub-gms/env/docker-without-neo4j.env
+    environment:
+      - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
+      - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
     depends_on:
       - mysql
     volumes:

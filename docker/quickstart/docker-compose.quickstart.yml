@@ -17,8 +17,7 @@ services:
     hostname: broker
     image: confluentinc/cp-kafka:5.4.0
     ports:
-    - 29092:29092
-    - 9092:9092
+    - ${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}:9092
     volumes:
     - broker:/var/lib/kafka/data/
   datahub-actions:
@@ -27,6 +26,8 @@ services:
     environment:
     - GMS_HOST=datahub-gms
     - GMS_PORT=8080
+    - DATAHUB_GMS_HOST=datahub-gms
+    - DATAHUB_GMS_PORT=8080
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - SCHEMA_REGISTRY_URL=http://schema-registry:8081
     - METADATA_AUDIT_EVENT_NAME=MetadataAuditEvent_v4
@@ -57,7 +58,7 @@ services:
     hostname: datahub-frontend-react
     image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
     ports:
-    - 9002:9002
+    - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002
     volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   datahub-gms:
@@ -65,6 +66,8 @@ services:
     depends_on:
     - mysql
     environment:
+    - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
+    - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
     - DATASET_ENABLE_SCSI=false
     - EBEAN_DATASOURCE_USERNAME=datahub
     - EBEAN_DATASOURCE_PASSWORD=datahub
@@ -86,11 +89,11 @@ services:
     - MCE_CONSUMER_ENABLED=true
     - PE_CONSUMER_ENABLED=true
     - UI_INGESTION_ENABLED=true
-    - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.34.1
+    - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.40
     hostname: datahub-gms
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
     ports:
-    - 8080:8080
+    - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
     volumes:
     - ${HOME}/.datahub/plugins/:/etc/datahub/plugins
   elasticsearch:
@@ -110,7 +113,7 @@ services:
     image: elasticsearch:7.9.3
     mem_limit: 1g
     ports:
-    - 9200:9200
+    - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200
     volumes:
     - esdata:/usr/share/elasticsearch/data
   elasticsearch-setup:
@@ -144,7 +147,7 @@ services:
     hostname: mysql
     image: mysql:5.7
     ports:
-    - 3306:3306
+    - ${DATAHUB_MAPPED_MYSQL_PORT:-3306}:3306
     volumes:
     - ../mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
     - mysqldata:/var/lib/mysql
@@ -159,7 +162,7 @@ services:
     - MYSQL_PASSWORD=datahub
     - DATAHUB_DB_NAME=datahub
     hostname: mysql-setup
-    image: acryldata/datahub-mysql-setup:head
+    image: acryldata/datahub-mysql-setup:${DATAHUB_VERSION:-head}
   neo4j:
     container_name: neo4j
     environment:
@@ -169,8 +172,8 @@ services:
     hostname: neo4j
     image: neo4j:4.0.6
     ports:
-    - 7474:7474
-    - 7687:7687
+    - ${DATAHUB_MAPPED_NEO4J_HTTP_PORT:-7474}:7474
+    - ${DATAHUB_MAPPED_NEO4J_BOLT_PORT:-7687}:7687
     volumes:
     - neo4jdata:/data
   schema-registry:
@@ -184,7 +187,7 @@ services:
     hostname: schema-registry
     image: confluentinc/cp-schema-registry:5.4.0
     ports:
-    - 8081:8081
+    - ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}:8081
   zookeeper:
     container_name: zookeeper
     environment:
@@ -193,7 +196,7 @@ services:
     hostname: zookeeper
     image: confluentinc/cp-zookeeper:5.4.0
     ports:
-    - 2181:2181
+    - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
     volumes:
     - zkdata:/var/opt/zookeeper
 version: '2.3'

@@ -115,7 +115,7 @@ class DatahubIngestionReportingProvider(IngestionReportingProviderBase):
     ) -> List[ReportingJobStatesMap]:
         if not last_only:
             raise NotImplementedError(
-                "Currently supports retrieving only the last commited state."
+                "Currently supports retrieving only the last committed state."
             )
         if filter_opt is not None:
             raise NotImplementedError(

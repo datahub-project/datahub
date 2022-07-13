@@ -3,11 +3,12 @@ from typing import Any, Dict, Optional, cast
 from datahub.ingestion.api.committable import StatefulCommittable
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
-from datahub.ingestion.source.sql.sql_common import \
-    BaseSQLAlchemyCheckpointState
+from datahub.ingestion.source.sql.sql_common import BaseSQLAlchemyCheckpointState
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from sqlalchemy import create_engine
 from sqlalchemy.sql import text
+
+from tests.utils import get_gms_url
 
 
 def test_stateful_ingestion(wait_for_healthchecks):
@@ -57,7 +58,7 @@ def test_stateful_ingestion(wait_for_healthchecks):
             "remove_stale_metadata": True,
             "state_provider": {
                 "type": "datahub",
-                "config": {"datahub_api": {"server": "http://localhost:8080"}},
+                "config": {"datahub_api": {"server": get_gms_url()}},
             },
         },
     }
@@ -69,13 +70,13 @@ def test_stateful_ingestion(wait_for_healthchecks):
         },
         "sink": {
             "type": "datahub-rest",
-            "config": {"server": "http://localhost:8080"},
+            "config": {"server": get_gms_url()},
         },
         "pipeline_name": "mysql_stateful_ingestion_smoke_test_pipeline",
         "reporting": [
             {
                 "type": "datahub",
-                "config": {"datahub_api": {"server": "http://localhost:8080"}},
+                "config": {"datahub_api": {"server": get_gms_url()}},
             }
         ],
     }
