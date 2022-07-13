@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.Ownership;
-import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
 import javax.annotation.Nonnull;
 import java.util.stream.Collectors;
@@ -11,21 +11,20 @@ import java.util.stream.Collectors;
  *
  * To be replaced by auto-generated mappers implementations
  */
-public class OwnershipMapper implements ModelMapper<com.linkedin.common.Ownership, Ownership> {
+public class OwnershipMapper {
 
     public static final OwnershipMapper INSTANCE = new OwnershipMapper();
 
-    public static Ownership map(@Nonnull final com.linkedin.common.Ownership ownership) {
-        return INSTANCE.apply(ownership);
+    public static Ownership map(@Nonnull final com.linkedin.common.Ownership ownership, @Nonnull final Urn entityUrn) {
+        return INSTANCE.apply(ownership, entityUrn);
     }
 
-    @Override
-    public Ownership apply(@Nonnull final com.linkedin.common.Ownership ownership) {
+    public Ownership apply(@Nonnull final com.linkedin.common.Ownership ownership, @Nonnull final Urn entityUrn) {
         final Ownership result = new Ownership();
         result.setLastModified(AuditStampMapper.map(ownership.getLastModified()));
         result.setOwners(ownership.getOwners()
                 .stream()
-                .map(OwnerMapper::map)
+                .map(owner -> OwnerMapper.map(owner, entityUrn))
                 .collect(Collectors.toList()));
         return result;
     }

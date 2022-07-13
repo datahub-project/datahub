@@ -8,6 +8,7 @@ fragment globalTagsFields on GlobalTags {
                 colorHex
             }
         }
+        associatedUrn
     }
 }
 
@@ -17,16 +18,9 @@ fragment glossaryNode on GlossaryNode {
     properties {
         name
     }
-    children: relationships(
-            input: {
-                types: ["IsPartOf"]
-                direction: INCOMING
-                start: 0
-                count: 1000
-            }
-        ) {
-            count
-        }
+    children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 1000 }) {
+        count
+    }
 }
 
 fragment glossaryTerm on GlossaryTerm {
@@ -46,6 +40,7 @@ fragment glossaryTerms on GlossaryTerms {
         term {
             ...glossaryTerm
         }
+        associatedUrn
     }
 }
 
@@ -154,6 +149,7 @@ fragment ownershipFields on Ownership {
             }
         }
         type
+        associatedUrn
     }
     lastModified {
         time
@@ -798,7 +794,7 @@ fragment nonConflictingPlatformFields on DataPlatform {
     }
 }
 
-fragment dataPlatformInstanceFields on DataPlatformInstance  {
+fragment dataPlatformInstanceFields on DataPlatformInstance {
     urn
     type
     platform {
@@ -823,9 +819,12 @@ fragment entityContainer on Container {
     }
 }
 
-fragment entityDomain on Domain {
-    urn
-    properties {
-        name
+fragment entityDomain on DomainAssociation {
+    domain {
+        urn
+        properties {
+            name
+        }
     }
+    associatedUrn
 }

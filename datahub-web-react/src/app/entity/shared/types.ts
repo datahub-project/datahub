@@ -17,7 +17,6 @@ import {
     Ownership,
     OwnershipUpdate,
     SchemaMetadata,
-    StringMapEntry,
     EntityLineageResult,
     Domain,
     SubTypes,
@@ -30,6 +29,8 @@ import {
     EntityRelationshipsResult,
     ParentNodesResult,
     SiblingProperties,
+    CustomPropertiesEntry,
+    DomainAssociation,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -63,10 +64,10 @@ export type GenericEntityProperties = {
     globalTags?: Maybe<GlobalTags>;
     glossaryTerms?: Maybe<GlossaryTerms>;
     ownership?: Maybe<Ownership>;
-    domain?: Maybe<Domain>;
+    domain?: Maybe<DomainAssociation>;
     platform?: Maybe<DataPlatform>;
     dataPlatformInstance?: Maybe<DataPlatformInstance>;
-    customProperties?: Maybe<StringMapEntry[]>;
+    customProperties?: Maybe<CustomPropertiesEntry[]>;
     institutionalMemory?: Maybe<InstitutionalMemory>;
     schemaMetadata?: Maybe<SchemaMetadata>;
     externalUrl?: Maybe<string>;

@@ -860,7 +860,7 @@ const glossaryTerm2 = {
             {
                 key: 'keyProperty',
                 value: 'valueProperty',
-                __typename: 'StringMapEntry',
+                __typename: 'CustomPropertiesEntry',
             },
         ],
         __typename: 'GlossaryTermInfo',
@@ -877,7 +877,7 @@ const glossaryTerm2 = {
             {
                 key: 'keyProperty',
                 value: 'valueProperty',
-                __typename: 'StringMapEntry',
+                __typename: 'CustomPropertiesEntry',
             },
         ],
         __typename: 'GlossaryTermProperties',
@@ -932,7 +932,7 @@ const glossaryTerm3 = {
             {
                 key: 'keyProperty',
                 value: 'valueProperty',
-                __typename: 'StringMapEntry',
+                __typename: 'CustomPropertiesEntry',
             },
         ],
         __typename: 'GlossaryTermInfo',
@@ -949,7 +949,7 @@ const glossaryTerm3 = {
             {
                 key: 'keyProperty',
                 value: 'valueProperty',
-                __typename: 'StringMapEntry',
+                __typename: 'CustomPropertiesEntry',
             },
         ],
         __typename: 'GlossaryTermProperties',

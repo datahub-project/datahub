@@ -67,6 +67,10 @@ const mergeProperties = (destinationArray, sourceArray, _options) => {
     return unionBy(destinationArray, sourceArray, 'key');
 };
 
+const mergeOwners = (destinationArray, sourceArray, _options) => {
+    return unionBy(destinationArray, sourceArray, 'owner.urn');
+};
+
 function getArrayMergeFunction(key) {
     switch (key) {
         case 'tags':
@@ -77,6 +81,8 @@ function getArrayMergeFunction(key) {
             return mergeAssertions;
         case 'customProperties':
             return mergeProperties;
+        case 'owners':
+            return mergeOwners;
         default:
             return undefined;
     }
@@ -89,7 +95,7 @@ const customMerge = (isPrimary, key) => {
     if (key === 'platform') {
         return (secondary, primary) => (isPrimary ? primary : secondary);
     }
-    if (key === 'tags' || key === 'terms' || key === 'assertions' || key === 'customProperties') {
+    if (key === 'tags' || key === 'terms' || key === 'assertions' || key === 'customProperties' || key === 'owners') {
         return (secondary, primary) => {
             return merge(secondary, primary, {
                 arrayMerge: getArrayMergeFunction(key),

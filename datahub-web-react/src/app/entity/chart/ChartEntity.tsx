@@ -139,7 +139,7 @@ export class ChartEntity implements Entity<Chart> {
                 tags={data?.globalTags || undefined}
                 glossaryTerms={data?.glossaryTerms}
                 logoUrl={data?.platform?.properties?.logoUrl}
-                domain={data.domain}
+                domain={data.domain?.domain}
                 parentContainers={data.parentContainers}
             />
         );
@@ -160,7 +160,7 @@ export class ChartEntity implements Entity<Chart> {
                 glossaryTerms={data?.glossaryTerms}
                 insights={result.insights}
                 logoUrl={data?.platform?.properties?.logoUrl || ''}
-                domain={data.domain}
+                domain={data.domain?.domain}
             />
         );
     };
