@@ -1,6 +1,6 @@
 import * as QueryString from 'query-string';
 import { RouteComponentProps } from 'react-router-dom';
-import { HIDE_SIBLINGS_URL_PARAM } from '../../entity/shared/siblingUtils';
+import { SEPARATE_SIBLINGS_URL_PARAM } from '../../entity/shared/siblingUtils';
 
 export const navigateToLineageUrl = ({
     location,
@@ -24,7 +24,7 @@ export const navigateToLineageUrl = ({
     if (isHideSiblingMode !== undefined) {
         newSearch = {
             ...newSearch,
-            [HIDE_SIBLINGS_URL_PARAM]: isHideSiblingMode,
+            [SEPARATE_SIBLINGS_URL_PARAM]: isHideSiblingMode,
         };
     }
     const newSearchStringified = QueryString.stringify(newSearch, { arrayFormat: 'comma' });

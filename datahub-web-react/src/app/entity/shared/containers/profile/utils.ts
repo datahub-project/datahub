@@ -5,7 +5,7 @@ import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import EntityRegistry from '../../../EntityRegistry';
 import { EntityTab, GenericEntityProperties } from '../../types';
-import { useIsHideSiblingMode, HIDE_SIBLINGS_URL_PARAM } from '../../siblingUtils';
+import { useIsSeparateSiblingsMode, SEPARATE_SIBLINGS_URL_PARAM } from '../../siblingUtils';
 
 export function getDataForEntityType<T>({
     data: entityData,
@@ -73,13 +73,13 @@ export function getEntityPath(
         return `${entityRegistry.getEntityUrl(entityType, urn)}?is_lineage_mode=${isLineageMode}${tabParamsString}`;
     }
     return `${entityRegistry.getEntityUrl(entityType, urn)}/${tabName}?is_lineage_mode=${isLineageMode}${
-        isHideSiblingMode ? `&${HIDE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}` : ''
+        isHideSiblingMode ? `&${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}` : ''
     }${tabParamsString}`;
 }
 
 export function useEntityPath(entityType: EntityType, urn: string, tabName?: string, tabParams?: Record<string, any>) {
     const isLineageMode = useIsLineageMode();
-    const isHideSiblingMode = useIsHideSiblingMode();
+    const isHideSiblingMode = useIsSeparateSiblingsMode();
     const entityRegistry = useEntityRegistry();
     return getEntityPath(entityType, urn, entityRegistry, isLineageMode, isHideSiblingMode, tabName, tabParams);
 }
@@ -99,10 +99,10 @@ export function formatDateString(time: number) {
 }
 
 export function useEntityQueryParams() {
-    const isHideSiblingMode = useIsHideSiblingMode();
+    const isHideSiblingMode = useIsSeparateSiblingsMode();
     const response = {};
     if (isHideSiblingMode) {
-        response[HIDE_SIBLINGS_URL_PARAM] = true;
+        response[SEPARATE_SIBLINGS_URL_PARAM] = true;
     }
 
     return response;

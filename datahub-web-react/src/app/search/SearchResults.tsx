@@ -27,7 +27,7 @@ import SearchExtendedMenu from '../entity/shared/components/styled/search/Search
 import {
     CombinedSearchResult,
     combineSiblingsInSearchResults,
-    HIDE_SIBLINGS_URL_PARAM,
+    SEPARATE_SIBLINGS_URL_PARAM,
 } from '../entity/shared/siblingUtils';
 import { CompactEntityNameList } from '../recommendations/renderer/component/CompactEntityNameList';
 
@@ -260,7 +260,7 @@ export const SearchResults = ({
                                             {item.matchedEntities && item.matchedEntities.length > 0 && (
                                                 <SiblingResultContainer className="test-search-result-sibling-section">
                                                     <CompactEntityNameList
-                                                        linkUrlParams={{ [HIDE_SIBLINGS_URL_PARAM]: true }}
+                                                        linkUrlParams={{ [SEPARATE_SIBLINGS_URL_PARAM]: true }}
                                                         entities={item.matchedEntities}
                                                     />
                                                 </SiblingResultContainer>

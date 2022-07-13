@@ -5,7 +5,7 @@ import { useDataNotCombinedWithSiblings, useEntityData } from '../../../EntityCo
 import { SidebarHeader } from './SidebarHeader';
 import { CompactEntityNameList } from '../../../../../recommendations/renderer/component/CompactEntityNameList';
 import { Entity } from '../../../../../../types.generated';
-import { HIDE_SIBLINGS_URL_PARAM, stripSiblingsFromEntity, useIsHideSiblingMode } from '../../../siblingUtils';
+import { SEPARATE_SIBLINGS_URL_PARAM, stripSiblingsFromEntity, useIsSeparateSiblingsMode } from '../../../siblingUtils';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
 
 const EntityListContainer = styled.div`
@@ -16,7 +16,7 @@ export const SidebarSiblingsSection = () => {
     const { entityData } = useEntityData();
     const dataNotCombinedWithSiblings = useDataNotCombinedWithSiblings<GetDatasetQuery>();
 
-    const isHideSiblingMode = useIsHideSiblingMode();
+    const isHideSiblingMode = useIsSeparateSiblingsMode();
 
     if (!entityData) {
         return <></>;
@@ -44,7 +44,7 @@ export const SidebarSiblingsSection = () => {
             <EntityListContainer>
                 <CompactEntityNameList
                     entities={allSiblingsInGroup}
-                    linkUrlParams={{ [HIDE_SIBLINGS_URL_PARAM]: true }}
+                    linkUrlParams={{ [SEPARATE_SIBLINGS_URL_PARAM]: true }}
                     showTooltips
                 />
             </EntityListContainer>

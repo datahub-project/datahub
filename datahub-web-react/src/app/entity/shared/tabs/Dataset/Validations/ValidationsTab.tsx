@@ -9,7 +9,7 @@ import { DatasetAssertionsList } from './DatasetAssertionsList';
 import { DatasetAssertionsSummary } from './DatasetAssertionsSummary';
 import { sortAssertions } from './assertionUtils';
 import { TestResults } from './TestResults';
-import { combineEntityDataWithSiblings, useIsHideSiblingMode } from '../../../siblingUtils';
+import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../../siblingUtils';
 
 /**
  * Returns a status summary for the assertions associated with a Dataset.
@@ -48,7 +48,7 @@ enum ViewType {
 export const ValidationsTab = () => {
     const { urn, entityData } = useEntityData();
     const { data, refetch } = useGetDatasetAssertionsQuery({ variables: { urn } });
-    const isHideSiblingMode = useIsHideSiblingMode();
+    const isHideSiblingMode = useIsSeparateSiblingsMode();
 
     const combinedData = isHideSiblingMode ? data : combineEntityDataWithSiblings(data);
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);

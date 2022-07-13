@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { EntityType } from '../../../types.generated';
-import { useIsHideSiblingMode } from './siblingUtils';
+import { useIsSeparateSiblingsMode } from './siblingUtils';
 import { EntityContextType, UpdateEntityType } from './types';
 
 const EntityContext = React.createContext<EntityContextType>({
@@ -54,7 +54,7 @@ export const useLineageData = () => {
 
 export const useMutationUrn = () => {
     const { urn, entityData } = useContext(EntityContext);
-    const isHideSiblingMode = useIsHideSiblingMode();
+    const isHideSiblingMode = useIsSeparateSiblingsMode();
     if (!entityData?.siblings || entityData?.siblings?.isPrimary || isHideSiblingMode) {
         return urn;
     }

@@ -24,7 +24,7 @@ import { EntityMenuItems } from '../../EntityDropdown/EntityDropdown';
 import GlossaryBrowser from '../../../../glossary/GlossaryBrowser/GlossaryBrowser';
 import GlossarySearch from '../../../../glossary/GlossarySearch';
 import { BrowserWrapper, MAX_BROWSER_WIDTH, MIN_BROWSWER_WIDTH } from '../../../../glossary/BusinessGlossaryPage';
-import { combineEntityDataWithSiblings, useIsHideSiblingMode } from '../../siblingUtils';
+import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../siblingUtils';
 
 type Props<T, U> = {
     urn: string;
@@ -138,7 +138,7 @@ export const EntityProfile = <T, U>({
     isNameEditable,
 }: Props<T, U>): JSX.Element => {
     const isLineageMode = useIsLineageMode();
-    const isHideSiblingMode = useIsHideSiblingMode();
+    const isHideSiblingMode = useIsSeparateSiblingsMode();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const isCompact = React.useContext(CompactContext);

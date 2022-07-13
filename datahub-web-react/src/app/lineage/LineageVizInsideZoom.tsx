@@ -11,7 +11,7 @@ import { Direction, EntityAndType, EntitySelectParams, FetchedEntity } from './t
 import { useEntityRegistry } from '../useEntityRegistry';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
-import { useIsHideSiblingMode } from '../entity/shared/siblingUtils';
+import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
 import { navigateToLineageUrl } from './utils/navigateToLineageUrl';
 
 const ZoomContainer = styled.div`
@@ -97,7 +97,7 @@ export default function LineageVizInsideZoom({
     const [hoveredEntity, setHoveredEntity] = useState<EntitySelectParams | undefined>(undefined);
     const [isDraggingNode, setIsDraggingNode] = useState(false);
     const [showExpandedTitles, setShowExpandedTitles] = useState(false);
-    const isHideSiblingMode = useIsHideSiblingMode();
+    const isHideSiblingMode = useIsSeparateSiblingsMode();
 
     const entityRegistry = useEntityRegistry();
 

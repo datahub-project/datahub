@@ -11,7 +11,7 @@ import { capitalizeFirstLetter } from '../shared/textUtil';
 import { nodeHeightFromTitleLength } from './utils/nodeHeightFromTitleLength';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
 import { useGetEntityLineageLazyQuery } from '../../graphql/lineage.generated';
-import { useIsHideSiblingMode } from '../entity/shared/siblingUtils';
+import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
 
 const CLICK_DELAY_THRESHOLD = 1000;
 const DRAG_DISTANCE_THRESHOLD = 20;
@@ -91,7 +91,7 @@ export default function LineageEntityNode({
     const [isExpanding, setIsExpanding] = useState(false);
     const [expandHover, setExpandHover] = useState(false);
     const [getAsyncEntityLineage, { data: asyncLineageData }] = useGetEntityLineageLazyQuery();
-    const isHideSiblingMode = useIsHideSiblingMode();
+    const isHideSiblingMode = useIsSeparateSiblingsMode();
 
     useEffect(() => {
         if (asyncLineageData && asyncLineageData.entity) {

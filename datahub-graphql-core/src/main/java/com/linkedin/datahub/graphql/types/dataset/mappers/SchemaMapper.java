@@ -2,10 +2,7 @@ package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.Schema;
-<<<<<<< HEAD
-=======
 import com.linkedin.mxe.SystemMetadata;
->>>>>>> master
 import com.linkedin.schema.SchemaMetadata;
 
 import javax.annotation.Nonnull;

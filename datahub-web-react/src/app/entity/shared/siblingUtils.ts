@@ -197,12 +197,12 @@ export function combineSiblingsInSearchResults(
     return combinedResults;
 }
 // used to determine whether sibling entities should be shown merged or not
-export const HIDE_SIBLINGS_URL_PARAM = 'hide_siblings';
+export const SEPARATE_SIBLINGS_URL_PARAM = 'separate_siblings';
 
 // used to determine whether sibling entities should be shown merged or not
-export function useIsHideSiblingMode() {
+export function useIsSeparateSiblingsMode() {
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
 
-    return params[HIDE_SIBLINGS_URL_PARAM] === 'true';
+    return params[SEPARATE_SIBLINGS_URL_PARAM] === 'true';
 }
