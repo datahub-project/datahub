@@ -19,6 +19,7 @@ import { DashboardPreview } from './preview/DashboardPreview';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
+import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -81,6 +82,19 @@ export class DashboardEntity implements Entity<Dashboard> {
                 {
                     name: 'Properties',
                     component: PropertiesTab,
+                },
+                {
+                    name: 'Lineage',
+                    component: LineageTab,
+                    display: {
+                        visible: (_, _1) => true,
+                        enabled: (_, dashboard: GetDashboardQuery) => {
+                            return (
+                                (dashboard?.dashboard?.upstream?.total || 0) > 0 ||
+                                (dashboard?.dashboard?.downstream?.total || 0) > 0
+                            );
+                        },
+                    },
                 },
                 {
                     name: 'Charts',

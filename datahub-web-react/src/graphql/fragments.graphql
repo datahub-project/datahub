@@ -205,9 +205,6 @@ fragment nonRecursiveDatasetFields on Dataset {
     schemaMetadata(version: 0) {
         ...schemaMetadataFields
     }
-    previousSchemaMetadata: schemaMetadata(version: -1) {
-        ...schemaMetadataFields
-    }
     editableSchemaMetadata {
         editableSchemaFieldInfo {
             fieldPath
@@ -302,17 +299,6 @@ fragment dataJobFields on DataJob {
     ownership {
         ...ownershipFields
     }
-    inputOutput {
-        inputDatasets {
-            ...nonRecursiveDatasetFields
-        }
-        outputDatasets {
-            ...nonRecursiveDatasetFields
-        }
-        inputDatajobs {
-            ...nonRecursiveDataJobFields
-        }
-    }
     properties {
         name
         description
@@ -339,6 +325,9 @@ fragment dataJobFields on DataJob {
     }
     deprecation {
         ...deprecationFields
+    }
+    status {
+        removed
     }
     dataPlatformInstance {
         ...dataPlatformInstanceFields
@@ -367,6 +356,9 @@ fragment dashboardFields on Dashboard {
             time
         }
     }
+    editableProperties {
+        description
+    }
     ownership {
         ...ownershipFields
     }
@@ -384,9 +376,6 @@ fragment dashboardFields on Dashboard {
     }
     domain {
         ...entityDomain
-    }
-    container {
-        ...entityContainer
     }
     parentContainers {
         ...parentContainersFields

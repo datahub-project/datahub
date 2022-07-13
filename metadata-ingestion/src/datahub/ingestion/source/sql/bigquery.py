@@ -868,17 +868,29 @@ class BigQuerySource(SQLAlchemySource):
         partitioned table.
         See more about partitioned tables at https://cloud.google.com/bigquery/docs/partitioned-tables
         """
-
+        logger.debug(
+            f"generate partition profiler query for schema: {schema} and table {table}, partition_datetime: {partition_datetime}"
+        )
         partition = self.get_latest_partition(schema, table)
         if partition:
             partition_where_clause: str
             logger.debug(f"{table} is partitioned and partition column is {partition}")
-            (
-                partition_datetime,
-                upper_bound_partition_datetime,
-            ) = get_partition_range_from_partition_id(
-                partition.partition_id, partition_datetime
-            )
+            try:
+                (
+                    partition_datetime,
+                    upper_bound_partition_datetime,
+                ) = get_partition_range_from_partition_id(
+                    partition.partition_id, partition_datetime
+                )
+            except ValueError as e:
+                logger.error(
+                    f"Unable to get partition range for partition id: {partition.partition_id} it failed with exception {e}"
+                )
+                self.report.invalid_partition_ids[
+                    f"{schema}.{table}"
+                ] = partition.partition_id
+                return None, None
+
             if partition.data_type in ("TIMESTAMP", "DATETIME"):
                 partition_where_clause = "{column_name} BETWEEN '{partition_id}' AND '{upper_bound_partition_id}'".format(
                     column_name=partition.column_name,

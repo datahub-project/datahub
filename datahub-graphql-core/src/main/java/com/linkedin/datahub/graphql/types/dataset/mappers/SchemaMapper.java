@@ -2,9 +2,14 @@ package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.Schema;
+<<<<<<< HEAD
+=======
+import com.linkedin.mxe.SystemMetadata;
+>>>>>>> master
 import com.linkedin.schema.SchemaMetadata;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.stream.Collectors;
 
 public class SchemaMapper {
@@ -12,13 +17,20 @@ public class SchemaMapper {
     public static final SchemaMapper INSTANCE = new SchemaMapper();
 
     public static Schema map(@Nonnull final SchemaMetadata metadata, @Nonnull final Urn entityUrn) {
-        return INSTANCE.apply(metadata, entityUrn);
+        return INSTANCE.apply(metadata, null, entityUrn);
     }
 
-    public Schema apply(@Nonnull final com.linkedin.schema.SchemaMetadata input, @Nonnull final Urn entityUrn) {
+    public static Schema map(@Nonnull final SchemaMetadata metadata, @Nullable final SystemMetadata systemMetadata, @Nonnull final Urn entityUrn) {
+        return INSTANCE.apply(metadata, systemMetadata, entityUrn);
+    }
+
+    public Schema apply(@Nonnull final com.linkedin.schema.SchemaMetadata input, @Nullable final SystemMetadata systemMetadata, @Nonnull final Urn entityUrn) {
         final Schema result = new Schema();
         if (input.getDataset() != null) {
             result.setDatasetUrn(input.getDataset().toString());
+        }
+        if (systemMetadata != null) {
+            result.setLastObserved(systemMetadata.getLastObserved());
         }
         result.setName(input.getSchemaName());
         result.setPlatformUrn(input.getPlatform().toString());

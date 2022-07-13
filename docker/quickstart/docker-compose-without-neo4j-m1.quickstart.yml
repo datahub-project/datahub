@@ -17,8 +17,7 @@ services:
     hostname: broker
     image: kymeric/cp-kafka:latest
     ports:
-    - 29092:29092
-    - 9092:9092
+    - ${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}:9092
   datahub-actions:
     depends_on:
       - datahub-gms
@@ -57,7 +56,7 @@ services:
     hostname: datahub-frontend-react
     image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
     ports:
-    - 9002:9002
+    - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002
     volumes:
       - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   datahub-gms:
@@ -86,7 +85,7 @@ services:
     hostname: datahub-gms
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
     ports:
-    - 8080:8080
+    - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
     volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   elasticsearch:
@@ -106,7 +105,7 @@ services:
     image: elasticsearch:7.9.3
     mem_limit: 1g
     ports:
-    - 9200:9200
+    - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200
     volumes:
     - esdata:/usr/share/elasticsearch/data
   elasticsearch-setup:
@@ -140,7 +139,7 @@ services:
     hostname: mysql
     image: mariadb:10.5.8
     ports:
-    - 3306:3306
+    - ${DATAHUB_MAPPED_MYSQL_PORT:-3306}:3306
     volumes:
     - ../mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
     - mysqldata:/var/lib/mysql
@@ -167,7 +166,7 @@ services:
     hostname: schema-registry
     image: eugenetea/schema-registry-arm64:latest
     ports:
-    - 8081:8081
+    - ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}:8081
   zookeeper:
     container_name: zookeeper
     environment:
@@ -176,7 +175,7 @@ services:
     hostname: zookeeper
     image: kymeric/cp-zookeeper:latest
     ports:
-    - 2181:2181
+    - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
     volumes:
     - zkdata:/var/opt/zookeeper
 version: '2.3'
