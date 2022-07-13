@@ -192,7 +192,7 @@ export default function TagTermGroup({
                         to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
                         key={term.term.urn}
                     >
-                        <Tag closable={false}>
+                        <Tag closable={false} style={{ cursor: 'pointer' }}>
                             <BookOutlined style={{ marginRight: '3%' }} />
                             {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
                         </Tag>
@@ -202,6 +202,7 @@ export default function TagTermGroup({
             {editableGlossaryTerms?.terms?.map((term) => (
                 <TermLink to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)} key={term.term.urn}>
                     <Tag
+                        style={{ cursor: 'pointer' }}
                         closable={canRemove}
                         onClose={(e) => {
                             e.preventDefault();
@@ -225,6 +226,7 @@ export default function TagTermGroup({
                 return (
                     <TagLink key={tag?.tag?.urn}>
                         <StyledTag
+                            style={{ cursor: 'pointer' }}
                             onClick={() => showTagProfileDrawer(tag?.tag?.urn)}
                             $colorHash={tag?.tag?.urn}
                             $color={tag?.tag?.properties?.colorHex}
