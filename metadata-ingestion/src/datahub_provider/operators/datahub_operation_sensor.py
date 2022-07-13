@@ -10,9 +10,9 @@ from datahub.api.circuit_breaker import (
 from datahub_provider.hooks.datahub import DatahubRestHook
 
 
-class DatahubOperationCircuitBreakerSensor(BaseSensorOperator):
+class DataHubOperationCircuitBreakerSensor(BaseSensorOperator):
     r"""
-    Datahub Operation Circuit Breaker Sensor.
+    DataHub Operation Circuit Breaker Sensor.
 
     :param urn: The DataHub dataset unique identifier. (templated)
     :param datahub_rest_conn_id: The REST datahub connection id to communicate with DataHub
@@ -72,7 +72,7 @@ class DatahubOperationCircuitBreakerSensor(BaseSensorOperator):
 
     def poke(self, context: Any) -> bool:
         if "datahub_silence_circuit_breakers" in context["dag_run"].conf:
-            print(
+            self.log.info(
                 "Circuit breaker is silenced because datahub_silence_circuit_breakers config is set"
             )
             return True
@@ -94,7 +94,7 @@ class DatahubOperationCircuitBreakerSensor(BaseSensorOperator):
                 source_type=self.source_type,
             )
             if ret:
-                print(f"Dataset {self.urn} is not in consumable state")
+                self.log.info(f"Dataset {self.urn} is not in consumable state")
                 return False
 
         return True

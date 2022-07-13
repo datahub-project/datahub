@@ -6,7 +6,7 @@ from airflow.operators.bash import BashOperator
 
 from datahub_provider.entities import Dataset
 from datahub_provider.operators.datahub_operation_sensor import (
-    DatahubOperationCircuitBreakerSensor,
+    DataHubOperationCircuitBreakerSensor,
 )
 
 dag = DAG(
@@ -17,7 +17,7 @@ dag = DAG(
 )
 
 # New DataHub Operation Circuit Breaker Sensor
-pet_profiles_operation_sensor = DatahubOperationCircuitBreakerSensor(
+pet_profiles_operation_sensor = DataHubOperationCircuitBreakerSensor(
     task_id="pet_profiles_operation_sensor",
     datahub_rest_conn_id="datahub_longtail",
     urn=[

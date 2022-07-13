@@ -15,7 +15,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class AssertionCircuitBreakerConfig(CircuitBreakerConfig):
-    check_last_assertion_time: bool = Field(
+    verify_after_last_update: bool = Field(
         default=True,
         description="Whether to check if assertion happened after the dataset was last updated.",
     )
@@ -89,7 +89,7 @@ class AssertionCircuitBreaker(AbstractCircuitBreaker):
                 )
                 return True
             elif last_assertion.state == "SUCCESS":
-                print(f"Found successful assertion: {assertion_urn}")
+                logger.info(f"Found successful assertion: {assertion_urn}")
                 result = False
             if last_updated is not None:
                 last_run = datetime.fromtimestamp(last_assertion.time / 1000)
@@ -109,7 +109,7 @@ class AssertionCircuitBreaker(AbstractCircuitBreaker):
 
         last_updated: Optional[datetime] = None
 
-        if self.config.check_last_assertion_time:
+        if self.config.verify_after_last_update:
             last_updated = self.get_last_updated(urn)
             logger.info(
                 f"The dataset {urn} was last updated at {last_updated}, using this as min assertion date."
@@ -129,7 +129,7 @@ class AssertionCircuitBreaker(AbstractCircuitBreaker):
 
         if self._check_if_assertion_failed(
             assertions,
-            last_updated if self.config.check_last_assertion_time is True else None,
+            last_updated if self.config.verify_after_last_update is True else None,
         ):
             logger.info(f"Dataset {urn} has failed or missing assertion(s).")
             return True

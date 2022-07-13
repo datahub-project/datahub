@@ -6,10 +6,10 @@ from airflow.operators.bash import BashOperator
 
 from datahub_provider.entities import Dataset
 from datahub_provider.operators.datahub_assertion_operator import (
-    DatahubAssertionOperator,
+    DataHubAssertionOperator,
 )
 from datahub_provider.operators.datahub_operation_sensor import (
-    DatahubOperationCircuitBreakerSensor,
+    DataHubOperationCircuitBreakerSensor,
 )
 
 dag = DAG(
@@ -19,7 +19,7 @@ dag = DAG(
     catchup=False,
 )
 
-items_operation_sensor = DatahubOperationCircuitBreakerSensor(
+items_operation_sensor = DataHubOperationCircuitBreakerSensor(
     dag=dag,
     task_id="pet_profiles_operation_sensor",
     datahub_rest_conn_id="datahub_longtail",
@@ -30,9 +30,9 @@ items_operation_sensor = DatahubOperationCircuitBreakerSensor(
 )
 
 # Assertion circuit breaker to check if there are assertions for the urns specified.
-# check_last_assertion_time is enabled which means it will get from the latest operation the timeframe
+# verify_after_last_update is enabled which means it will get from the latest operation the timeframe
 # it accepts assertions.
-assertion_circuit_breaker = DatahubAssertionOperator(
+assertion_circuit_breaker = DataHubAssertionOperator(
     task_id="pet_profiles_assertion_circuit_breaker",
     datahub_rest_conn_id="datahub_longtail",
     urn=[

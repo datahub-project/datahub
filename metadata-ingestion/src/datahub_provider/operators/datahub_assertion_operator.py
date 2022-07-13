@@ -10,16 +10,16 @@ from datahub.api.circuit_breaker import (
 from datahub_provider.hooks.datahub import DatahubRestHook
 
 
-class DatahubAssertionOperator(BaseOperator):
+class DataHubAssertionOperator(BaseOperator):
     r"""
-    Datahub Assertion Circuit Breaker Operator.
+    DataHub Assertion Circuit Breaker Operator.
 
     :param urn: The DataHub dataset unique identifier. (templated)
     :param datahub_rest_conn_id: The REST datahub connection id to communicate with DataHub
         which is set as Airflow connection.
     :param check_last_assertion_time: If set it checks assertions after the last operation was set on the dataset.
         By default it is True.
-    :param time_delta: If check_last_assertion_time is False it checks for assertion within the time delta.
+    :param time_delta: If verify_after_last_update is False it checks for assertion within the time delta.
     """
 
     template_fields: Sequence[str] = ("urn",)
@@ -48,7 +48,7 @@ class DatahubAssertionOperator(BaseOperator):
             datahub_host=host,
             datahub_token=password,
             timeout=timeout_sec,
-            check_last_assertion_time=check_last_assertion_time,
+            verify_after_last_update=check_last_assertion_time,
             time_delta=time_delta if time_delta else datetime.timedelta(days=1),
         )
 
@@ -56,7 +56,7 @@ class DatahubAssertionOperator(BaseOperator):
 
     def execute(self, context: Any) -> bool:
         if "datahub_silence_circuit_breakers" in context["dag_run"].conf:
-            print(
+            self.log.info(
                 "Circuit breaker is silenced because datahub_silence_circuit_breakers config is set"
             )
             return True
@@ -73,7 +73,6 @@ class DatahubAssertionOperator(BaseOperator):
             self.log.info(f"Checking if dataset {self.urn} is ready to be consumed")
             ret = self.circuit_breaker.is_circuit_breaker_active(urn=urn)
             if ret:
-                print(f"Dataset {self.urn} is not in consumable state")
                 raise Exception(f"Dataset {self.urn} is not in consumable state")
 
         return True
