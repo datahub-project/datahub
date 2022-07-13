@@ -1,5 +1,6 @@
 import React from 'react';
-import { Divider, List } from 'antd';
+import { Divider, List, Checkbox } from 'antd';
+import type { CheckboxValueType } from 'antd/es/checkbox/Group';
 import styled from 'styled-components';
 import { Entity } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -44,6 +45,18 @@ const ListItem = styled.div`
     padding-bottom: 8px;
 `;
 
+const CheckboxItem = styled(Checkbox)`
+    padding-right: 40px;
+    padding-left: 40px;
+    padding-top: 16px;
+    padding-bottom: 8px;
+    display: flex;
+    align-items: center;
+    > .ant-checkbox {
+        margin-top: -16px;
+    }
+`;
+
 const ThinDivider = styled(Divider)`
     padding: 0px;
     margin: 0px;
@@ -60,9 +73,17 @@ type Props = {
     additionalPropertiesList?: Array<AdditionalProperties>;
     entities: Array<Entity>;
     onClick?: (index: number) => void;
+    showSelectMode?: boolean;
+    setCheckedSearchResults?: (checkedSearchResults: Array<CheckboxValueType>) => any;
 };
 
-export const EntityNameList = ({ additionalPropertiesList, entities, onClick }: Props) => {
+export const EntityNameList = ({
+    additionalPropertiesList,
+    entities,
+    onClick,
+    showSelectMode,
+    setCheckedSearchResults,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
     if (
         additionalPropertiesList?.length !== undefined &&
@@ -74,46 +95,103 @@ export const EntityNameList = ({ additionalPropertiesList, entities, onClick }: 
             { additionalPropertiesList, entities },
         );
     }
+
+    const onChange = (checkedValues: CheckboxValueType[]) => {
+        setCheckedSearchResults?.(checkedValues);
+    };
     return (
-        <StyledList
-            bordered
-            dataSource={entities}
-            renderItem={(entity, index) => {
-                const additionalProperties = additionalPropertiesList?.[index];
-                const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
-                const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
-                const platformName =
-                    genericProps?.platform?.properties?.displayName ||
-                    capitalizeFirstLetter(genericProps?.platform?.name);
-                const entityTypeName = entityRegistry.getEntityName(entity.type);
-                const displayName = entityRegistry.getDisplayName(entity.type, entity);
-                const url = entityRegistry.getEntityUrl(entity.type, entity.urn);
-                const fallbackIcon = entityRegistry.getIcon(entity.type, 18, IconStyleType.ACCENT);
-                const subType = genericProps?.subTypes?.typeNames?.length && genericProps?.subTypes?.typeNames[0];
-                const entityCount = genericProps?.entityCount;
-                return (
-                    <>
-                        <ListItem>
-                            <DefaultPreviewCard
-                                name={displayName}
-                                logoUrl={platformLogoUrl || undefined}
-                                logoComponent={fallbackIcon}
-                                url={url}
-                                platform={platformName || undefined}
-                                type={subType || entityTypeName}
-                                titleSizePx={14}
-                                tags={genericProps?.globalTags || undefined}
-                                glossaryTerms={genericProps?.glossaryTerms || undefined}
-                                domain={genericProps?.domain}
-                                onClick={() => onClick?.(index)}
-                                entityCount={entityCount}
-                                degree={additionalProperties?.degree}
-                            />
-                        </ListItem>
-                        <ThinDivider />
-                    </>
-                );
-            }}
-        />
+        <>
+            {showSelectMode ? (
+                <Checkbox.Group
+                    style={{
+                        width: '100%',
+                        backgroundColor: 'rgb(255, 255, 255)',
+                        marginTop: '-1px',
+                        flex: '1',
+                    }}
+                    onChange={onChange}
+                >
+                    {entities.map((entity, index) => {
+                        const additionalProperties = additionalPropertiesList?.[index];
+                        const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
+                        const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
+                        const platformName =
+                            genericProps?.platform?.properties?.displayName ||
+                            capitalizeFirstLetter(genericProps?.platform?.name);
+                        const entityTypeName = entityRegistry.getEntityName(entity.type);
+                        const displayName = entityRegistry.getDisplayName(entity.type, entity);
+                        const url = entityRegistry.getEntityUrl(entity.type, entity.urn);
+                        const fallbackIcon = entityRegistry.getIcon(entity.type, 18, IconStyleType.ACCENT);
+                        const subType =
+                            genericProps?.subTypes?.typeNames?.length && genericProps?.subTypes?.typeNames[0];
+                        const entityCount = genericProps?.entityCount;
+                        return (
+                            <>
+                                <CheckboxItem value={entity.urn}>
+                                    <DefaultPreviewCard
+                                        name={displayName}
+                                        logoUrl={platformLogoUrl || undefined}
+                                        logoComponent={fallbackIcon}
+                                        url={url}
+                                        platform={platformName || undefined}
+                                        type={subType || entityTypeName}
+                                        titleSizePx={14}
+                                        tags={genericProps?.globalTags || undefined}
+                                        glossaryTerms={genericProps?.glossaryTerms || undefined}
+                                        domain={genericProps?.domain}
+                                        onClick={() => onClick?.(index)}
+                                        entityCount={entityCount}
+                                        degree={additionalProperties?.degree}
+                                    />
+                                </CheckboxItem>
+                                <ThinDivider />
+                            </>
+                        );
+                    })}
+                </Checkbox.Group>
+            ) : (
+                <StyledList
+                    bordered
+                    dataSource={entities}
+                    renderItem={(entity, index) => {
+                        const additionalProperties = additionalPropertiesList?.[index];
+                        const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
+                        const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
+                        const platformName =
+                            genericProps?.platform?.properties?.displayName ||
+                            capitalizeFirstLetter(genericProps?.platform?.name);
+                        const entityTypeName = entityRegistry.getEntityName(entity.type);
+                        const displayName = entityRegistry.getDisplayName(entity.type, entity);
+                        const url = entityRegistry.getEntityUrl(entity.type, entity.urn);
+                        const fallbackIcon = entityRegistry.getIcon(entity.type, 18, IconStyleType.ACCENT);
+                        const subType =
+                            genericProps?.subTypes?.typeNames?.length && genericProps?.subTypes?.typeNames[0];
+                        const entityCount = genericProps?.entityCount;
+                        return (
+                            <>
+                                <ListItem>
+                                    <DefaultPreviewCard
+                                        name={displayName}
+                                        logoUrl={platformLogoUrl || undefined}
+                                        logoComponent={fallbackIcon}
+                                        url={url}
+                                        platform={platformName || undefined}
+                                        type={subType || entityTypeName}
+                                        titleSizePx={14}
+                                        tags={genericProps?.globalTags || undefined}
+                                        glossaryTerms={genericProps?.glossaryTerms || undefined}
+                                        domain={genericProps?.domain}
+                                        onClick={() => onClick?.(index)}
+                                        entityCount={entityCount}
+                                        degree={additionalProperties?.degree}
+                                    />
+                                </ListItem>
+                                <ThinDivider />
+                            </>
+                        );
+                    }}
+                />
+            )}
+        </>
     );
 };
