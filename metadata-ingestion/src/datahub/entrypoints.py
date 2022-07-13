@@ -164,7 +164,8 @@ def main(**kwargs):
         if isinstance(exc, (ConfigurationError, ValidationError)):
             logger.error(exc)
         else:
-            logger.error(
+            # only print stacktraces during debug
+            logger.debug(
                 stackprinter.format(
                     exc,
                     line_wrap=MAX_CONTENT_WIDTH,
@@ -184,6 +185,7 @@ def main(**kwargs):
                     **kwargs,
                 )
             )
+            logger.error(exc)
         logger.info(
             f"DataHub CLI version: {datahub_package.__version__} at {datahub_package.__file__}"
         )
