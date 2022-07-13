@@ -55,4 +55,10 @@ record UsageFeatures {
    */
   writeCountLast30DaysDateHistogram: array[long] = []
 
+  /**
+   * Number of unique users per day for the last 30 days
+   */
+  uniqueUserCountLast30DaysDateHistogram: array[long] = []
+
+
 }
