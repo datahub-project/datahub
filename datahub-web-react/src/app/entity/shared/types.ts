@@ -18,7 +18,6 @@ import {
     OwnershipUpdate,
     SchemaMetadata,
     EntityLineageResult,
-    Domain,
     SubTypes,
     Container,
     Health,
