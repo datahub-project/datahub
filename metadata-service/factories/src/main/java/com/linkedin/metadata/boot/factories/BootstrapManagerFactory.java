@@ -10,6 +10,7 @@ import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
 import com.linkedin.metadata.boot.steps.IngestDataPlatformsStep;
 import com.linkedin.metadata.boot.steps.IngestDefaultGlobalSettingsStep;
 import com.linkedin.metadata.boot.steps.IngestMetadataTestsStep;
+import com.linkedin.metadata.boot.steps.IngestGroupsStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
 import com.linkedin.metadata.boot.steps.IngestRootUserStep;
@@ -68,6 +69,7 @@ public class BootstrapManagerFactory {
   @Nonnull
   protected BootstrapManager createInstance() {
     final IngestRootUserStep ingestRootUserStep = new IngestRootUserStep(_entityService);
+    final IngestGroupsStep ingestGroupsStep = new IngestGroupsStep(_entityService);
     final IngestPoliciesStep ingestPoliciesStep =
         new IngestPoliciesStep(_entityRegistry, _entityService, _entitySearchService, _searchDocumentTransformer);
     final IngestDataPlatformsStep ingestDataPlatformsStep = new IngestDataPlatformsStep(_entityService);
@@ -82,6 +84,7 @@ public class BootstrapManagerFactory {
     final IngestDefaultGlobalSettingsStep ingestSettingsStep = new IngestDefaultGlobalSettingsStep(_entityService);
     return new BootstrapManager(ImmutableList.of(
         ingestRootUserStep,
+        ingestGroupsStep,
         ingestPoliciesStep,
         ingestDataPlatformsStep,
         ingestDataPlatformInstancesStep,

@@ -181,5 +181,303 @@
       "type":"METADATA",
       "editable":true
     }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:organization-admins-platform-policy",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[],
+        "groups":[
+          "urn:li:corpGroup:organization-admins"
+        ]
+      },
+      "privileges":[
+        "MANAGE_POLICIES",
+        "MANAGE_INGESTION",
+        "MANAGE_SECRETS",
+        "MANAGE_USERS_AND_GROUPS",
+        "VIEW_ANALYTICS",
+        "GENERATE_PERSONAL_ACCESS_TOKENS",
+        "VIEW_METADATA_PROPOSALS",
+        "MANAGE_ACCESS_TOKENS",
+        "MANAGE_DOMAINS",
+        "MANAGE_TESTS",
+        "MANAGE_GLOSSARIES",
+        "MANAGE_USER_CREDENTIALS",
+        "MANAGE_TAGS",
+        "MANAGE_GLOBAL_SETTINGS",
+        "CREATE_CONSTRAINTS"
+      ],
+      "displayName":"Organization Admins - Platform Policy",
+      "description":"Organization Admins have all platform privileges.",
+      "state":"ACTIVE",
+      "type":"PLATFORM",
+      "editable":true
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:organization-admins-metadata-policy",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[],
+        "groups":[
+          "urn:li:corpGroup:organization-admins"
+        ]
+      },
+      "privileges":[
+        "VIEW_ENTITY_PAGE",
+        "EDIT_ENTITY_TAGS",
+        "EDIT_ENTITY_GLOSSARY_TERMS",
+        "EDIT_ENTITY_OWNERS",
+        "EDIT_ENTITY_DOCS",
+        "EDIT_ENTITY_DOC_LINKS",
+        "EDIT_ENTITY_STATUS",
+        "EDIT_DOMAINS_PRIVILEGE",
+        "EDIT_DEPRECATION_PRIVILEGE",
+        "EDIT_ENTITY_ASSERTIONS",
+        "EDIT_ENTITY_OPERATIONS",
+        "EDIT_ENTITY",
+        "EDIT_DATASET_COL_TAGS",
+        "EDIT_DATASET_COL_GLOSSARY_TERMS",
+        "EDIT_DATASET_COL_DESCRIPTION",
+        "VIEW_DATASET_USAGE",
+        "VIEW_DATASET_PROFILE",
+        "EDIT_TAG_COLOR",
+        "EDIT_GROUP_MEMBERS",
+        "EDIT_USER_PROFILE",
+        "EDIT_CONTACT_INFO",
+        "PROPOSE_ENTITY_TAGS_PRIVILEGE",
+        "PROPOSE_ENTITY_GLOSSARY_TERMS_PRIVILEGE",
+        "MANAGE_ENTITY_TAGS_PRIVILEGE",
+        "MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE",
+        "PROPOSE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE",
+        "PROPOSE_DATASET_COL_TAGS_PRIVILEGE",
+        "MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE",
+        "MANAGE_DATASET_COL_TAGS_PRIVILEGE",
+        "EDIT_ENTITY_ASSERTIONS_PRIVILEGE"
+
+      ],
+      "displayName":"Organization Admins - Metadata Policy",
+      "description":"Organization Admins have all metadata privileges.",
+      "state":"ACTIVE",
+      "type":"METADATA",
+      "editable":true
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:metadata-stewards-platform-policy",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[],
+        "groups":[
+          "urn:li:corpGroup:metadata-stewards"
+        ]
+      },
+      "privileges":[
+        "MANAGE_INGESTION",
+        "MANAGE_SECRETS",
+        "VIEW_ANALYTICS",
+        "GENERATE_PERSONAL_ACCESS_TOKENS",
+        "VIEW_METADATA_PROPOSALS",
+        "MANAGE_DOMAINS",
+        "MANAGE_TESTS",
+        "MANAGE_GLOSSARIES",
+        "MANAGE_TAGS",
+        "CREATE_CONSTRAINTS"
+      ],
+      "displayName":"Metadata Stewards - Platform Policy",
+      "description":"Metadata Stewards can manage ingestion and view analytics.",
+      "state":"ACTIVE",
+      "type":"PLATFORM",
+      "editable":true
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:metadata-stewards-metadata-policy",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[],
+        "groups":[
+          "urn:li:corpGroup:metadata-stewards"
+        ]
+      },
+      "privileges":[
+        "VIEW_ENTITY_PAGE",
+        "EDIT_ENTITY_TAGS",
+        "EDIT_ENTITY_GLOSSARY_TERMS",
+        "EDIT_ENTITY_OWNERS",
+        "EDIT_ENTITY_DOCS",
+        "EDIT_ENTITY_DOC_LINKS",
+        "EDIT_ENTITY_STATUS",
+        "EDIT_DOMAINS_PRIVILEGE",
+        "EDIT_DEPRECATION_PRIVILEGE",
+        "EDIT_ENTITY_ASSERTIONS",
+        "EDIT_ENTITY_OPERATIONS",
+        "EDIT_ENTITY",
+        "EDIT_DATASET_COL_TAGS",
+        "EDIT_DATASET_COL_GLOSSARY_TERMS",
+        "EDIT_DATASET_COL_DESCRIPTION",
+        "VIEW_DATASET_USAGE",
+        "VIEW_DATASET_PROFILE",
+        "EDIT_TAG_COLOR",
+        "EDIT_GROUP_MEMBERS",
+        "EDIT_USER_PROFILE",
+        "EDIT_CONTACT_INFO",
+        "PROPOSE_ENTITY_TAGS_PRIVILEGE",
+        "PROPOSE_ENTITY_GLOSSARY_TERMS_PRIVILEGE",
+        "MANAGE_ENTITY_TAGS_PRIVILEGE",
+        "MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE",
+        "PROPOSE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE",
+        "PROPOSE_DATASET_COL_TAGS_PRIVILEGE",
+        "MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE",
+        "MANAGE_DATASET_COL_TAGS_PRIVILEGE",
+        "EDIT_ENTITY_ASSERTIONS_PRIVILEGE"
+      ],
+      "displayName":"Metadata Stewards - Metadata Policy",
+      "description":"Metadata Stewards have all metadata privileges.",
+      "state":"ACTIVE",
+      "type":"METADATA",
+      "editable":true
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:asset-owners-metadata-policy",
+    "info": {
+      "actors":{
+        "resourceOwners":true,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[],
+        "groups":[]
+      },
+      "privileges":[
+        "VIEW_ENTITY_PAGE",
+        "EDIT_ENTITY_TAGS",
+        "EDIT_ENTITY_GLOSSARY_TERMS",
+        "EDIT_ENTITY_OWNERS",
+        "EDIT_ENTITY_DOCS",
+        "EDIT_ENTITY_DOC_LINKS",
+        "EDIT_ENTITY_STATUS",
+        "EDIT_DOMAINS_PRIVILEGE",
+        "EDIT_DEPRECATION_PRIVILEGE",
+        "EDIT_ENTITY_ASSERTIONS",
+        "EDIT_ENTITY_OPERATIONS",
+        "EDIT_ENTITY",
+        "EDIT_DATASET_COL_TAGS",
+        "EDIT_DATASET_COL_GLOSSARY_TERMS",
+        "EDIT_DATASET_COL_DESCRIPTION",
+        "VIEW_DATASET_USAGE",
+        "VIEW_DATASET_PROFILE",
+        "EDIT_TAG_COLOR",
+        "EDIT_GROUP_MEMBERS",
+        "EDIT_USER_PROFILE",
+        "EDIT_CONTACT_INFO",
+        "PROPOSE_ENTITY_TAGS_PRIVILEGE",
+        "PROPOSE_ENTITY_GLOSSARY_TERMS_PRIVILEGE",
+        "MANAGE_ENTITY_TAGS_PRIVILEGE",
+        "MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE",
+        "PROPOSE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE",
+        "PROPOSE_DATASET_COL_TAGS_PRIVILEGE",
+        "MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE",
+        "MANAGE_DATASET_COL_TAGS_PRIVILEGE",
+        "EDIT_ENTITY_ASSERTIONS_PRIVILEGE"
+      ],
+      "displayName":"Asset Owners - Metadata Policy",
+      "description":"Asset Owners have all metadata privileges ONLY for assets they own.",
+      "state":"ACTIVE",
+      "type":"METADATA",
+      "editable":true
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:metadata-readers-platform-policy",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[],
+        "groups":[
+          "urn:li:corpGroup:metadata-readers"
+        ]
+      },
+      "privileges":[
+        "VIEW_ANALYTICS"
+      ],
+      "displayName":"Metadata Readers - Platform Policy",
+      "description":"Metadata Readers can view analytics.",
+      "state":"ACTIVE",
+      "type":"PLATFORM",
+      "editable":true
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:metadata-readers-metadata-policy",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[],
+        "groups":[
+          "urn:li:corpGroup:metadata-readers"
+        ]
+      },
+      "privileges":[
+        "VIEW_ENTITY_PAGE",
+        "VIEW_DATASET_USAGE",
+        "VIEW_DATASET_PROFILE",
+        "PROPOSE_ENTITY_TAGS_PRIVILEGE",
+        "PROPOSE_ENTITY_GLOSSARY_TERMS_PRIVILEGE",
+        "PROPOSE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE",
+        "PROPOSE_DATASET_COL_TAGS_PRIVILEGE"
+      ],
+      "displayName":"Metadata Readers - Metadata Policy",
+      "description":"Metadata Readers can view all assets.",
+      "state":"ACTIVE",
+      "type":"METADATA",
+      "editable":true
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:access-admins-platform-policy",
+    "info": {
+      "actors":{
+        "resourceOwners":false,
+        "allUsers":false,
+        "allGroups":false,
+        "users":[],
+        "groups":[
+          "urn:li:corpGroup:access-admins"
+        ]
+      },
+      "privileges":[
+        "MANAGE_POLICIES",
+        "MANAGE_INGESTION",
+        "MANAGE_SECRETS",
+        "MANAGE_USERS_AND_GROUPS",
+        "VIEW_ANALYTICS",
+        "GENERATE_PERSONAL_ACCESS_TOKENS",
+        "MANAGE_ACCESS_TOKENS",
+        "MANAGE_USER_CREDENTIALS"
+      ],
+      "displayName":"Access Admins - Platform Policy",
+      "description":"Access Admins can manage users, group and security-related features.",
+      "state":"ACTIVE",
+      "type":"PLATFORM",
+      "editable":true
+    }
   }
 ]
