@@ -100,6 +100,41 @@ source:
           - "long_tail_companions.ecommerce.*"
 ```
 
+:::note
+
+When bare domain names like `Analytics` is used, the ingestion system will first check if a domain like `urn:li:domain:Analytics` is provisioned, failing that; it will check for a provisioned domain that has the same name. If we are unable to resolve bare domain names to provisioned domains, then ingestion will refuse to proceeed until the domain is provisioned on DataHub.
+
+:::
+
+You can also provide fully-qualified domain names to ensure that no ingestion-time domain resolution is needed. For example, the following recipe shows an example using fully qualified domain names:
+
+```yaml
+source:
+  type: snowflake
+  config:
+    username: ${SNOW_USER}
+    password: ${SNOW_PASS}
+    account_id:
+    warehouse: COMPUTE_WH
+    role: accountadmin
+    database_pattern:
+      allow:
+        - "long_tail_companions"
+    schema_pattern:
+      deny:
+        - information_schema
+    profiling:
+      enabled: False
+    domain:
+      "urn:li:domain:6289fccc-4af2-4cbb-96ed-051e7d1de93c":
+        allow:
+          - "long_tail_companions.analytics.*"
+      "urn:li:domain:07155b15-cee6-4fda-b1c1-5a19a6b74c3a":
+        allow:
+          - "long_tail_companions.ecommerce.*"
+```
+
+
 
 
 ## Searching by Domain
