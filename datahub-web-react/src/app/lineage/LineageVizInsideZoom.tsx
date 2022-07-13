@@ -1,7 +1,7 @@
 import React, { SVGProps, useEffect, useMemo, useState } from 'react';
-import { PlusOutlined, MinusOutlined } from '@ant-design/icons';
+import { PlusOutlined, MinusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import { Button, Switch } from 'antd';
+import { Button, Switch, Tooltip } from 'antd';
 import { ProvidedZoom, TransformMatrix } from '@vx/zoom/lib/types';
 import { useHistory, useLocation } from 'react-router-dom';
 
@@ -62,6 +62,10 @@ const RootSvg = styled.svg<{ isDragging: boolean } & SVGProps<SVGSVGElement>>`
     }
 `;
 
+const ControlLabel = styled.span`
+    vertical-align: sub;
+`;
+
 type Props = {
     margin: { top: number; right: number; bottom: number; left: number };
     entityAndType?: EntityAndType | null;
@@ -77,6 +81,11 @@ type Props = {
     width: number;
     height: number;
 };
+
+const HelpIcon = styled(QuestionCircleOutlined)`
+    color: ${ANTD_GRAY[7]};
+    padding-left: 4px;
+`;
 
 export default function LineageVizInsideZoom({
     zoom,
@@ -140,7 +149,7 @@ export default function LineageVizInsideZoom({
                             checked={showExpandedTitles}
                             onChange={(checked) => setShowExpandedTitles(checked)}
                         />{' '}
-                        Show Full Titles
+                        <ControlLabel>Show Full Titles</ControlLabel>
                     </div>
                     <div>
                         <ControlsSwitch
@@ -154,7 +163,12 @@ export default function LineageVizInsideZoom({
                                 });
                             }}
                         />{' '}
-                        Compress Lineage
+                        <ControlLabel>
+                            Compress Lineage{' '}
+                            <Tooltip title="Collapses related entities into a single lineage node" placement="topRight">
+                                <HelpIcon />
+                            </Tooltip>
+                        </ControlLabel>
                     </div>
                 </DisplayControls>
                 <RootSvg
