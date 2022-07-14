@@ -3129,6 +3129,30 @@
     "systemMetadata":null
   },
   {
+    "auditHeader":null,
+    "entityType":"dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+    "changeType":"UPSERT",
+    "aspectName":"datasetProfile",
+    "aspect":{
+      "value":"{\"timestampMillis\": 1629010800000, \"rowCount\": 3500, \"columnCount\": 2, \"fieldProfiles\": [{\"fieldPath\": \"field_foo\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00057, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\", \"false\"]}, {\"fieldPath\": \"field_bar\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00057, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\"]}]}",
+      "contentType":"application/json"
+    },
+    "systemMetadata":null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1657666279770, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"uniqueUserCount\": 2, \"totalSqlQueries\": 12, \"topSqlQueries\": [\"select * from `SampleHiveDataset`\", \"select field_foo, field_bar from `SampleHiveDataset`\"], \"userCounts\": [{\"user\": \"urn:li:corpuser:jdoe\", \"count\": 2, \"userEmail\": \"test_user@datahubproject.io\"}, {\"user\": \"urn:li:corpuser:datahub\", \"count\": 4, \"userEmail\": \"test_user@datahubproject.io\"}], \"fieldCounts\": [{\"fieldPath\": \"field_foo\", \"count\": 45}, {\"fieldPath\": \"field_bar\", \"count\": 10}]}",
+      "contentType": "application/json"
+    }
+  },
+  {
     "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
@@ -3136,7 +3160,7 @@
     "changeType": "UPSERT",
     "aspectName": "datasetUsageStatistics",
     "aspect": {
-      "value": "{\"timestampMillis\": 1642233600000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"uniqueUserCount\": 1, \"totalSqlQueries\": 2, \"topSqlQueries\": [\"select * from `SampleHiveDataset`\", \"select field_foo, field_bar from `SampleHiveDataset`\"], \"userCounts\": [{\"user\": \"urn:li:corpuser:unknown\", \"count\": 2, \"userEmail\": \"test_user@datahubproject.io\"}], \"fieldCounts\": [{\"fieldPath\": \"field_foo\", \"count\": 45}, {\"fieldPath\": \"field_bar\", \"count\": 10}]}",
+      "value": "{\"timestampMillis\": 1657666279770, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"uniqueUserCount\": 12, \"totalSqlQueries\": 45, \"topSqlQueries\": [\"select * from `SampleHiveDataset`\", \"select field_foo, field_bar from `SampleHiveDataset`\"], \"userCounts\": [{\"user\": \"urn:li:corpuser:unknown\", \"count\": 2, \"userEmail\": \"test_user@datahubproject.io\"}], \"fieldCounts\": [{\"fieldPath\": \"field_foo\", \"count\": 45}, {\"fieldPath\": \"field_bar\", \"count\": 10}]}",
       "contentType": "application/json"
     },
     "systemMetadata": {
@@ -3281,5 +3305,43 @@
       "contentType": "application/json"
     },
     "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1642233600000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1642233600000 }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-bigquery-usage",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1657666279770, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1657666279770 }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-bigquery-usage",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
   }
 ]

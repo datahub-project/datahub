@@ -274,6 +274,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 domain={data.domain?.domain}
+                deprecation={data.deprecation}
                 glossaryTerms={data.glossaryTerms}
                 subtype={data.subTypes?.typeNames?.[0]}
                 container={data.container}
@@ -289,6 +290,12 @@ export class DatasetEntity implements Entity<Dataset> {
                     )
                 }
                 insights={result.insights}
+                externalUrl={data.properties?.externalUrl}
+                statsSummary={data.statsSummary}
+                rowCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].rowCount}
+                lastUpdatedMs={
+                    (data as any).lastOperation?.length && (data as any).lastOperation[0].lastUpdatedTimestamp
+                }
             />
         );
     };

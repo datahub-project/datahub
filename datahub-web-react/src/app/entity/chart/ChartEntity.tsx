@@ -175,6 +175,7 @@ export class ChartEntity implements Entity<Chart> {
                 insights={result.insights}
                 logoUrl={data?.platform?.properties?.logoUrl || ''}
                 domain={data.domain?.domain}
+                deprecation={data.deprecation}
             />
         );
     };

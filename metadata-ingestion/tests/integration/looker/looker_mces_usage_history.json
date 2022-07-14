@@ -3,13 +3,13 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(looker,dashboards.1)",
+            "urn": "urn:li:dashboard:(looker,dashboards.2)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
                         "customProperties": {},
                         "externalUrl": null,
-                        "title": "foo",
+                        "title": "Dashboard",
                         "description": "lorem ipsum",
                         "charts": [],
                         "datasets": [],
@@ -51,12 +51,12 @@
 {
     "auditHeader": null,
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(looker,dashboards.1)",
+    "entityUrn": "urn:li:dashboard:(looker,dashboards.2)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dashboardUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 25, \"favoritesCount\": 5, \"lastViewedAt\": 1586847600000}",
+        "value": "{\"timestampMillis\": 1686847600009, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 30, \"favoritesCount\": 5, \"lastViewedAt\": 1586847600000}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -330,12 +330,12 @@
 {
     "auditHeader": null,
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(looker,dashboards.11)",
+    "entityUrn": "urn:li:dashboard:(looker,dashboards.2)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "dashboardUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 14, \"uniqueUserCount\": 1, \"userCounts\": [{\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 14, \"usageCount\": 14}]}",
+        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 14, \"uniqueUserCount\": 0, \"userCounts\": []}",
         "contentType": "application/json"
     },
     "systemMetadata": {

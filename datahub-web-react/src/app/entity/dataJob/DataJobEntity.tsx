@@ -164,7 +164,12 @@ export class DataJobEntity implements Entity<DataJob> {
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 domain={data.domain?.domain}
+                deprecation={data.deprecation}
                 insights={result.insights}
+                externalUrl={data.properties?.externalUrl}
+                lastRunTimeMs={
+                    ((data as any).lastRun?.runs?.length && (data as any).lastRun?.runs[0]?.created?.time) || undefined
+                }
             />
         );
     };
