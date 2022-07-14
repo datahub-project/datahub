@@ -42,7 +42,7 @@ type Props = {
 
 export default function ViewInviteTokenModal({ visible, onClose }: Props) {
     const baseUrl = window.location.origin;
-    const { data: getNativeUserInviteTokenData } = useGetNativeUserInviteTokenQuery({});
+    const { data: getNativeUserInviteTokenData } = useGetNativeUserInviteTokenQuery({ skip: !visible });
 
     const [createNativeUserInviteToken, { data: createNativeUserInviteTokenData }] =
         useCreateNativeUserInviteTokenMutation({});
