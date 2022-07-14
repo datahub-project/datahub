@@ -342,6 +342,10 @@ class BigQuerySource(SQLAlchemySource):
     def get_multiproject_project_id(
         self, inspector: Optional[Inspector] = None, run_on_compute: bool = False
     ) -> Optional[str]:
+        """
+        Use run_on_compute = true when running queries on storage project
+        where you don't have job create rights
+        """
         if self.config.storage_project_id and (not run_on_compute):
             return self.config.storage_project_id
         elif self.config.project_id:
@@ -353,6 +357,11 @@ class BigQuerySource(SQLAlchemySource):
                 return None
 
     def get_db_name(self, inspector: Inspector) -> str:
+        """
+        DO NOT USE this to get project name when running queries.
+            That can cause problems with multi-project setups.
+            Use get_multiproject_project_id with run_on_compute = True
+        """
         db_name = self.get_multiproject_project_id(inspector)
         # db name can't be empty here as we pass in inpector to get_multiproject_project_id
         assert db_name
@@ -458,7 +467,7 @@ class BigQuerySource(SQLAlchemySource):
         profile_clause = c if c == "" else f" WHERE {c}"[:-4]
         if profile_clause == "":
             return None
-        project_id = self.get_db_name(inspector)
+        project_id = self.get_multiproject_project_id(inspector, run_on_compute=True)
         _client: BigQueryClient = BigQueryClient(project=project_id)
         # Reading all tables' metadata to report
         base_query = (

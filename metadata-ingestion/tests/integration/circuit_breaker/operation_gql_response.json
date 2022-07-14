@@ -1,0 +1,79 @@
+{
+  "dataset": {
+    "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.jaffle_shop.customers,PROD)",
+    "operations": [
+      {
+        "__typename": "Operation",
+        "actor": "urn:li:corpuser:bq-usage",
+        "operationType": "CUSTOM",
+        "sourceType": null,
+        "numAffectedRows": 1,
+        "partition": "FULL_TABLE_SNAPSHOT",
+        "timestampMillis": 1655769674092,
+        "lastUpdatedTimestamp": 1655700504432,
+        "customProperties": [
+          {
+            "key": "millisecondsTaken",
+            "value": "222"
+          },
+          {
+            "key": "text",
+            "value": "/* {\"app\": \"dbt\", \"dbt_version\": \"1.1.0\", \"profile_name\": \"jaffle_shop\", \"target_name\": \"dev\", \"node_id\": \"test.jaffle_shop.unique_customers_customer_id.c5af1ff4b1\"} */\nselect\n      count(*) as failures,\n      count(*) != 0 as should_warn,\n      count(*) != 0 as should_error\n    from (\n      \n    \n    \n\nwith dbt_test__target as (\n\n  select customer_id as unique_field\n  from `my_project`.`jaffle_shop`.`customers`\n  where customer_id is not null\n\n)\n\nselect\n    unique_field,\n    count(*) as n_records\n\nfrom dbt_test__target\ngroup by unique_field\nhaving count(*) > 1\n\n\n\n      \n    ) dbt_internal_test"
+          },
+          {
+            "key": "sessionId",
+            "value": "projects/my_project/jobs/b68487dc-61db-4f01-abd7-c5f7d931a46c"
+          },
+          {
+            "key": "fieldsRead",
+            "value": "customer_id"
+          },
+          {
+            "key": "readReason",
+            "value": "JOB"
+          },
+          {
+            "key": "bytesProcessed",
+            "value": "10485760"
+          }
+        ]
+      },
+      {
+        "__typename": "Operation",
+        "actor": "urn:li:corpuser:bq-usage",
+        "operationType": "CUSTOM",
+        "sourceType": null,
+        "numAffectedRows": 1,
+        "partition": "FULL_TABLE_SNAPSHOT",
+        "timestampMillis": 1655769674090,
+        "lastUpdatedTimestamp": 1655700503898,
+        "customProperties": [
+          {
+            "key": "millisecondsTaken",
+            "value": "234"
+          },
+          {
+            "key": "text",
+            "value": "/* {\"app\": \"dbt\", \"dbt_version\": \"1.1.0\", \"profile_name\": \"jaffle_shop\", \"target_name\": \"dev\", \"node_id\": \"test.jaffle_shop.relationships_orders_customer_id__customer_id__ref_customers_.c6ec7f58f2\"} */\nselect\n      count(*) as failures,\n      count(*) != 0 as should_warn,\n      count(*) != 0 as should_error\n    from (\n      \n    \n    \n\nwith child as (\n    select customer_id as from_field\n    from `my_project`.`jaffle_shop`.`orders`\n    where customer_id is not null\n),\n\nparent as (\n    select customer_id as to_field\n    from `my_project`.`jaffle_shop`.`customers`\n)\n\nselect\n    from_field\n\nfrom child\nleft join parent\n    on child.from_field = parent.to_field\n\nwhere parent.to_field is null\n\n\n\n      \n    ) dbt_internal_test"
+          },
+          {
+            "key": "sessionId",
+            "value": "projects/my_project/jobs/4b6ae0b9-b7d3-43d4-aaae-1baf91be3553"
+          },
+          {
+            "key": "fieldsRead",
+            "value": "customer_id"
+          },
+          {
+            "key": "readReason",
+            "value": "JOB"
+          },
+          {
+            "key": "bytesProcessed",
+            "value": "20971520"
+          }
+        ]
+      }
+    ]
+  }
+}
