@@ -628,7 +628,6 @@ class CSVEnricherSource(Source):
                     row, is_resource_row
                 )
 
-                # Does this make sense?
                 domain: Optional[str] = (
                     row["domain"]
                     if row["domain"] and entity_type == DATASET_ENTITY_TYPE
