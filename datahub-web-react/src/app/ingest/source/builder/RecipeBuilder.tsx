@@ -56,7 +56,10 @@ function RecipeBuilder(props: Props) {
             YAML.parse(displayRecipe);
             setIsViewingForm(isFormView);
         } catch (e) {
-            message.warn('Found invalid YAML. Please fix your recipe in order to switch views.');
+            const messageText = (e as any).parsedLine
+                ? `Fix line ${(e as any).parsedLine} in your recipe`
+                : 'Please fix your recipe';
+            message.warn(`Found invalid YAML. ${messageText} in order to switch views.`);
         }
     }
 

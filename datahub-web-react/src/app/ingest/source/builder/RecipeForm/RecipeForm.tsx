@@ -78,11 +78,16 @@ function RecipeForm(props: Props) {
     const { fields, advancedFields, filterFields } = RECIPE_FIELDS[type];
     const allFields = [...fields, ...advancedFields, ...filterFields];
 
-    function updateFormValues(_changedValues: any, allValues: any) {
+    function updateFormValues(changedValues: any) {
         let updatedValues = YAML.parse(displayRecipe);
-        allFields.forEach((field) => {
-            updatedValues = field.setValueOnRecipe(updatedValues, allValues[field.name]);
+
+        Object.keys(changedValues).forEach((fieldName) => {
+            const recipeField = allFields.find((f) => f.name === fieldName);
+            if (recipeField) {
+                updatedValues = recipeField.setValueOnRecipe(updatedValues, changedValues[fieldName]);
+            }
         });
+
         const stagedRecipe = jsonToYaml(JSON.stringify(updatedValues));
         setStagedRecipe(stagedRecipe);
     }

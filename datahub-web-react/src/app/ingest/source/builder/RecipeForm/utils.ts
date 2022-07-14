@@ -14,7 +14,6 @@ export interface RecipeField {
     type: FieldType;
     rules: any[] | null;
     section?: string;
-    fieldPath?: string;
     getValueFromRecipe: (recipe: any) => any;
     setValueOnRecipe: (recipe: any, value: any) => any;
 }
@@ -58,19 +57,18 @@ export function setListValuesOnRecipe(recipe: any, values: string[] | undefined,
 }
 
 const accountIdFieldPath = 'source.config.account_id';
-export const ACCOUNT_ID: RecipeField = {
+export const SNOWFLAKE_ACCOUNT_ID: RecipeField = {
     name: 'account_id',
     label: 'Account ID',
     tooltip: 'Snowflake account. e.g. abc48144',
     type: FieldType.TEXT,
     rules: null,
-    fieldPath: accountIdFieldPath,
     getValueFromRecipe: (recipe: any) => get(recipe, accountIdFieldPath),
     setValueOnRecipe: (recipe: any, value: string) => setFieldValueOnRecipe(recipe, value, accountIdFieldPath),
 };
 
 const warehouseFieldPath = 'source.config.warehouse';
-export const WAREHOUSE: RecipeField = {
+export const SNOWFLAKE_WAREHOUSE: RecipeField = {
     name: 'warehouse',
     label: 'Warehouse',
     tooltip: 'Snowflake warehouse.',
@@ -81,7 +79,7 @@ export const WAREHOUSE: RecipeField = {
 };
 
 const usernameFieldPath = 'source.config.username';
-export const USERNAME: RecipeField = {
+export const SNOWFLAKE_USERNAME: RecipeField = {
     name: 'username',
     label: 'Username',
     tooltip: 'Snowflake username.',
@@ -92,7 +90,7 @@ export const USERNAME: RecipeField = {
 };
 
 const passwordFieldPath = 'source.config.password';
-export const PASSWORD: RecipeField = {
+export const SNOWFLAKE_PASSWORD: RecipeField = {
     name: 'password',
     label: 'Password',
     tooltip: 'Snowflake password.',
@@ -103,7 +101,7 @@ export const PASSWORD: RecipeField = {
 };
 
 const roleFieldPath = 'source.config.role';
-export const ROLE: RecipeField = {
+export const SNOWFLAKE_ROLE: RecipeField = {
     name: 'role',
     label: 'Role',
     tooltip: 'Snowflake role.',
@@ -274,7 +272,7 @@ export const TABLE_DENY: RecipeField = {
 
 export const RECIPE_FIELDS = {
     [SNOWFLAKE]: {
-        fields: [ACCOUNT_ID, WAREHOUSE, USERNAME, PASSWORD, ROLE],
+        fields: [SNOWFLAKE_ACCOUNT_ID, SNOWFLAKE_WAREHOUSE, SNOWFLAKE_USERNAME, SNOWFLAKE_PASSWORD, SNOWFLAKE_ROLE],
         advancedFields: [
             INCLUDE_LINEAGE,
             IGNORE_START_TIME_LINEAGE,
