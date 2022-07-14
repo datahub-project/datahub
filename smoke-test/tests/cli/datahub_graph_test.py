@@ -1,7 +1,8 @@
 import pytest
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import KafkaSchemaClass, SchemaMetadataClass
-from tests.utils import delete_urns_from_file, ingest_file_via_rest
+from tests.utils import delete_urns_from_file, ingest_file_via_rest, get_gms_url
+
 
 
 @pytest.fixture(scope="module", autouse=False)
@@ -21,7 +22,7 @@ def test_healthchecks(wait_for_healthchecks):
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_get_aspect_v2(frontend_session, ingest_cleanup_data):
-    graph: DataHubGraph = DataHubGraph(DatahubClientConfig())
+    graph: DataHubGraph = DataHubGraph(DatahubClientConfig(server=get_gms_url()))
     urn = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-rollback,PROD)"
     schema_metadata: SchemaMetadataClass = graph.get_aspect_v2(
         urn, aspect="schemaMetadata", aspect_type=SchemaMetadataClass

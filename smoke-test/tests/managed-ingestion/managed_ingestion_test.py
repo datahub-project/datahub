@@ -1,10 +1,22 @@
 import time
 
 import pytest
-from tests.utils import get_frontend_url
+from tests.utils import get_frontend_url, wait_for_healthcheck_util
 
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+@pytest.fixture(scope="session")
+def wait_for_healthchecks():
+    wait_for_healthcheck_util()
+    yield
+
+
+@pytest.mark.dependency()
+def test_healthchecks(wait_for_healthchecks):
+    # Call to wait_for_healthchecks fixture will do the actual functionality.
+    pass
+
+
+@pytest.mark.dependency(depends=["test_healthchecks"])
 def test_create_list_get_remove_secret(frontend_session):
 
     # Get count of existing secrets
@@ -155,7 +167,7 @@ def test_create_list_get_remove_secret(frontend_session):
     assert len(secret_value_arr) == 0
 
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+@pytest.mark.dependency(depends=["test_healthchecks"])
 def test_create_list_get_remove_ingestion_source(frontend_session):
 
     # Get count of existing ingestion sources
@@ -338,7 +350,6 @@ def test_create_list_get_remove_ingestion_source(frontend_session):
 @pytest.mark.dependency(
     depends=[
         "test_healthchecks",
-        "test_run_ingestion",
         "test_create_list_get_remove_ingestion_source",
     ]
 )
