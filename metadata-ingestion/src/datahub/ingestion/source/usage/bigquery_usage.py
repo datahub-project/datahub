@@ -272,20 +272,16 @@ class BigQueryTableRef:
     def remove_extras(self, sharded_table_regex: str) -> "BigQueryTableRef":
         # Handle partitioned and sharded tables.
         table_name: Optional[str] = None
+        shortened_table_name = self.table
+        # if table name ends in _* or * then we strip it as that represents a query on a sharded table
+        shortened_table_name = shortened_table_name.removesuffix("_*")
+        shortened_table_name = shortened_table_name.removesuffix("*")
 
-        # if table name ends in _* then we strip it as that represents a query on a sharded table
-        if self.table.endswith("_*"):
-            table_name = self.table[:-2]
-            logger.debug(
-                f"Found query on sharded table {self.table}. Using {table_name} as the table name."
-            )
-            return BigQueryTableRef(self.project, self.dataset, table_name)
-
-        matches = re.match(sharded_table_regex, self.table)
+        matches = re.match(sharded_table_regex, shortened_table_name)
         if matches:
             table_name = matches.group(2)
         else:
-            matches = PARTITION_SUMMARY_REGEXP.match(self.table)
+            matches = PARTITION_SUMMARY_REGEXP.match(shortened_table_name)
             if matches:
                 table_name = matches.group(1)
         if matches:
@@ -302,7 +298,7 @@ class BigQueryTableRef:
             return BigQueryTableRef(self.project, self.dataset, table_name)
 
         # Handle table snapshots.
-        matches = SNAPSHOT_TABLE_REGEX.match(self.table)
+        matches = SNAPSHOT_TABLE_REGEX.match(shortened_table_name)
         if matches:
             table_name = matches.group(1)
             logger.debug(
@@ -312,14 +308,14 @@ class BigQueryTableRef:
 
         # Handle exceptions
         invalid_chars_in_table_name: List[str] = [
-            c for c in {"$", "@"} if c in self.table
+            c for c in {"$", "@"} if c in shortened_table_name
         ]
         if invalid_chars_in_table_name:
             raise ValueError(
                 f"Cannot handle {self} - poorly formatted table name, contains {invalid_chars_in_table_name}"
             )
 
-        return self
+        return BigQueryTableRef(self.project, self.dataset, shortened_table_name)
 
     def __str__(self) -> str:
         return f"projects/{self.project}/datasets/{self.dataset}/tables/{self.table}"
