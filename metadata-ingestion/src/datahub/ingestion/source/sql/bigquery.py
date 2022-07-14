@@ -467,8 +467,11 @@ class BigQuerySource(SQLAlchemySource):
         profile_clause = c if c == "" else f" WHERE {c}"[:-4]
         if profile_clause == "":
             return None
-        project_id = self.get_multiproject_project_id(inspector, run_on_compute=True)
-        _client: BigQueryClient = BigQueryClient(project=project_id)
+        storage_project_id = self.get_multiproject_project_id(inspector)
+        exec_project_id = self.get_multiproject_project_id(
+            inspector, run_on_compute=True
+        )
+        _client: BigQueryClient = BigQueryClient(project=exec_project_id)
         # Reading all tables' metadata to report
         base_query = (
             f"SELECT "
@@ -476,7 +479,7 @@ class BigQuerySource(SQLAlchemySource):
             f"size_bytes, "
             f"last_modified_time, "
             f"row_count, "
-            f"FROM {schema}.__TABLES__"
+            f"FROM {storage_project_id}.{schema}.__TABLES__"
         )
         all_tables = _client.query(base_query)
         report_tables: List[str] = [
@@ -499,7 +502,7 @@ class BigQuerySource(SQLAlchemySource):
             f"size_bytes, "
             f"last_modified_time, "
             f"row_count, "
-            f"FROM {schema}.__TABLES__"
+            f"FROM {storage_project_id}.{schema}.__TABLES__"
             f"{profile_clause}"
         )
         logger.debug(f"Profiling via {query}")
