@@ -1,10 +1,11 @@
 import { Button, Collapse, Form, message, Typography } from 'antd';
 import React from 'react';
+import { get } from 'lodash';
 import YAML from 'yamljs';
 import { ApiOutlined, FilterOutlined, SettingOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { jsonToYaml } from '../../utils';
-import { RecipeField, RECIPE_FIELDS } from './utils';
+import { RecipeField, RECIPE_FIELDS, setFieldValueOnRecipe } from './utils';
 import FormField from './FormField';
 
 export const ControlsContainer = styled.div`
@@ -42,7 +43,8 @@ function getInitialValues(displayRecipe: string, allFields: any[]) {
     }
     if (recipeObj) {
         allFields.forEach((field) => {
-            initialValues[field.name] = field.getValueFromRecipe(recipeObj);
+            initialValues[field.name] =
+                field.getValueFromRecipeOverride?.(recipeObj) || get(recipeObj, field.fieldPath);
         });
     }
 
@@ -84,7 +86,9 @@ function RecipeForm(props: Props) {
         Object.keys(changedValues).forEach((fieldName) => {
             const recipeField = allFields.find((f) => f.name === fieldName);
             if (recipeField) {
-                updatedValues = recipeField.setValueOnRecipe(updatedValues, changedValues[fieldName]);
+                updatedValues =
+                    recipeField.setValueOnRecipeOverride?.(updatedValues, changedValues[fieldName]) ||
+                    setFieldValueOnRecipe(updatedValues, changedValues[fieldName], recipeField.fieldPath);
             }
         });
 

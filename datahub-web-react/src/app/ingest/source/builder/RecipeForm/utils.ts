@@ -12,10 +12,11 @@ export interface RecipeField {
     label: string;
     tooltip: string;
     type: FieldType;
+    fieldPath: string;
     rules: any[] | null;
     section?: string;
-    getValueFromRecipe: (recipe: any) => any;
-    setValueOnRecipe: (recipe: any, value: any) => any;
+    getValueFromRecipeOverride?: (recipe: any) => any;
+    setValueOnRecipeOverride?: (recipe: any, value: any) => any;
 }
 
 function clearFieldAndParents(recipe: any, fieldPath: string) {
@@ -56,59 +57,49 @@ export function setListValuesOnRecipe(recipe: any, values: string[] | undefined,
     return updatedRecipe;
 }
 
-const accountIdFieldPath = 'source.config.account_id';
 export const SNOWFLAKE_ACCOUNT_ID: RecipeField = {
     name: 'account_id',
     label: 'Account ID',
     tooltip: 'Snowflake account. e.g. abc48144',
     type: FieldType.TEXT,
+    fieldPath: 'source.config.account_id',
     rules: null,
-    getValueFromRecipe: (recipe: any) => get(recipe, accountIdFieldPath),
-    setValueOnRecipe: (recipe: any, value: string) => setFieldValueOnRecipe(recipe, value, accountIdFieldPath),
 };
 
-const warehouseFieldPath = 'source.config.warehouse';
 export const SNOWFLAKE_WAREHOUSE: RecipeField = {
     name: 'warehouse',
     label: 'Warehouse',
     tooltip: 'Snowflake warehouse.',
     type: FieldType.TEXT,
+    fieldPath: 'source.config.warehouse',
     rules: null,
-    getValueFromRecipe: (recipe: any) => get(recipe, warehouseFieldPath),
-    setValueOnRecipe: (recipe: any, value: string) => setFieldValueOnRecipe(recipe, value, warehouseFieldPath),
 };
 
-const usernameFieldPath = 'source.config.username';
 export const SNOWFLAKE_USERNAME: RecipeField = {
     name: 'username',
     label: 'Username',
     tooltip: 'Snowflake username.',
     type: FieldType.TEXT,
+    fieldPath: 'source.config.username',
     rules: null,
-    getValueFromRecipe: (recipe: any) => get(recipe, usernameFieldPath),
-    setValueOnRecipe: (recipe: any, value: string) => setFieldValueOnRecipe(recipe, value, usernameFieldPath),
 };
 
-const passwordFieldPath = 'source.config.password';
 export const SNOWFLAKE_PASSWORD: RecipeField = {
     name: 'password',
     label: 'Password',
     tooltip: 'Snowflake password.',
     type: FieldType.TEXT,
+    fieldPath: 'source.config.password',
     rules: null,
-    getValueFromRecipe: (recipe: any) => get(recipe, passwordFieldPath),
-    setValueOnRecipe: (recipe: any, value: string) => setFieldValueOnRecipe(recipe, value, passwordFieldPath),
 };
 
-const roleFieldPath = 'source.config.role';
 export const SNOWFLAKE_ROLE: RecipeField = {
     name: 'role',
     label: 'Role',
     tooltip: 'Snowflake role.',
     type: FieldType.TEXT,
+    fieldPath: 'source.config.role',
     rules: null,
-    getValueFromRecipe: (recipe: any) => get(recipe, roleFieldPath),
-    setValueOnRecipe: (recipe: any, value: string) => setFieldValueOnRecipe(recipe, value, roleFieldPath),
 };
 
 const includeLineageFieldPathA = 'source.config.include_table_lineage';
@@ -118,60 +109,52 @@ export const INCLUDE_LINEAGE: RecipeField = {
     label: 'Include Lineage',
     tooltip: 'Include Table and View lineage in your ingestion.',
     type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.include_table_lineage',
     rules: null,
-    getValueFromRecipe: (recipe: any) => get(recipe, includeLineageFieldPathA) && get(recipe, includeLineageFieldPathB),
-    setValueOnRecipe: (recipe: any, value: boolean) => {
+    getValueFromRecipeOverride: (recipe: any) =>
+        get(recipe, includeLineageFieldPathA) && get(recipe, includeLineageFieldPathB),
+    setValueOnRecipeOverride: (recipe: any, value: boolean) => {
         let updatedRecipe = setFieldValueOnRecipe(recipe, value, includeLineageFieldPathA);
         updatedRecipe = setFieldValueOnRecipe(updatedRecipe, value, includeLineageFieldPathB);
         return updatedRecipe;
     },
 };
 
-const ignoreStartTimeLineageFieldPath = 'source.config.ignore_start_time_lineage';
 export const IGNORE_START_TIME_LINEAGE: RecipeField = {
     name: 'ignore_start_time_lineage',
     label: 'Ignore Start Time Lineage',
     tooltip: 'Get all lineage by ignoring the start_time field. It is suggested to set to true initially.',
     type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.ignore_start_time_lineage',
     rules: null,
-    getValueFromRecipe: (recipe: any) => get(recipe, ignoreStartTimeLineageFieldPath),
-    setValueOnRecipe: (recipe: any, value: string) =>
-        setFieldValueOnRecipe(recipe, value, ignoreStartTimeLineageFieldPath),
 };
 
-const checkRoleGrantsFieldPath = 'source.config.check_role_grants';
 export const CHECK_ROLE_GRANTS: RecipeField = {
     name: 'check_role_grants',
     label: 'Check Role Grants',
     tooltip:
         'If set to True then checks role grants at the beginning of the ingestion run. To be used for debugging purposes. If you think everything is working fine then set it to False. In some cases this can take long depending on how many roles you might have.',
     type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.check_role_grants',
     rules: null,
-    getValueFromRecipe: (recipe: any) => get(recipe, checkRoleGrantsFieldPath),
-    setValueOnRecipe: (recipe: any, value: string) => setFieldValueOnRecipe(recipe, value, checkRoleGrantsFieldPath),
 };
 
-const profilingEnabledFieldPath = 'source.config.profiling.enabled';
 export const PROFILING_ENABLED: RecipeField = {
     name: 'profiling.enabled',
     label: 'Enable Profiling',
     tooltip: 'Whether profiling should be done.',
     type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.profiling.enabled',
     rules: null,
-    getValueFromRecipe: (recipe: any) => get(recipe, profilingEnabledFieldPath),
-    setValueOnRecipe: (recipe: any, value: string) => setFieldValueOnRecipe(recipe, value, profilingEnabledFieldPath),
 };
 
-const statefulIngestionEnabledFieldPath = 'source.config.stateful_ingestion.enabled';
 export const STATEFUL_INGESTION_ENABLED: RecipeField = {
     name: 'stateful_ingestion.enabled',
     label: 'Enable Stateful Ingestion',
     tooltip: 'Enable the type of the ingestion state provider registered with datahub.',
     type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.stateful_ingestion.enabled',
     rules: null,
-    getValueFromRecipe: (recipe: any) => get(recipe, statefulIngestionEnabledFieldPath),
-    setValueOnRecipe: (recipe: any, value: string) =>
-        setFieldValueOnRecipe(recipe, value, statefulIngestionEnabledFieldPath),
 };
 
 const databaseAllowFieldPath = 'source.config.database_pattern.allow';
@@ -180,10 +163,11 @@ export const DATABASE_ALLOW: RecipeField = {
     label: 'Allow Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
+    fieldPath: 'source.config.database_pattern.allow',
     rules: null,
     section: 'Databases',
-    getValueFromRecipe: (recipe: any) => get(recipe, databaseAllowFieldPath),
-    setValueOnRecipe: (recipe: any, values: string[]) => setListValuesOnRecipe(recipe, values, databaseAllowFieldPath),
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, databaseAllowFieldPath),
 };
 
 const databaseDenyFieldPath = 'source.config.database_pattern.deny';
@@ -192,10 +176,11 @@ export const DATABASE_DENY: RecipeField = {
     label: 'Deny Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
+    fieldPath: 'source.config.database_pattern.deny',
     rules: null,
     section: 'Databases',
-    getValueFromRecipe: (recipe: any) => get(recipe, databaseDenyFieldPath),
-    setValueOnRecipe: (recipe: any, values: string[]) => setListValuesOnRecipe(recipe, values, databaseDenyFieldPath),
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, databaseDenyFieldPath),
 };
 
 const schemaAllowFieldPath = 'source.config.schema_pattern.allow';
@@ -204,10 +189,11 @@ export const SCHEMA_ALLOW: RecipeField = {
     label: 'Allow Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
+    fieldPath: 'source.config.schema_pattern.allow',
     rules: null,
     section: 'Schemas',
-    getValueFromRecipe: (recipe: any) => get(recipe, schemaAllowFieldPath),
-    setValueOnRecipe: (recipe: any, values: string[]) => setListValuesOnRecipe(recipe, values, schemaAllowFieldPath),
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, schemaAllowFieldPath),
 };
 
 const schemaDenyFieldPath = 'source.config.schema_pattern.deny';
@@ -216,10 +202,11 @@ export const SCHEMA_DENY: RecipeField = {
     label: 'Deny Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
+    fieldPath: 'source.config.schema_pattern.deny',
     rules: null,
     section: 'Schemas',
-    getValueFromRecipe: (recipe: any) => get(recipe, schemaDenyFieldPath),
-    setValueOnRecipe: (recipe: any, values: string[]) => setListValuesOnRecipe(recipe, values, schemaDenyFieldPath),
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, schemaDenyFieldPath),
 };
 
 const viewAllowFieldPath = 'source.config.view_pattern.allow';
@@ -228,10 +215,11 @@ export const VIEW_ALLOW: RecipeField = {
     label: 'Allow Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
+    fieldPath: 'source.config.view_pattern.allow',
     rules: null,
     section: 'Views',
-    getValueFromRecipe: (recipe: any) => get(recipe, viewAllowFieldPath),
-    setValueOnRecipe: (recipe: any, values: string[]) => setListValuesOnRecipe(recipe, values, viewAllowFieldPath),
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, viewAllowFieldPath),
 };
 
 const viewDenyFieldPath = 'source.config.view_pattern.deny';
@@ -240,10 +228,11 @@ export const VIEW_DENY: RecipeField = {
     label: 'Deny Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
+    fieldPath: 'source.config.view_pattern.deny',
     rules: null,
     section: 'Views',
-    getValueFromRecipe: (recipe: any) => get(recipe, viewDenyFieldPath),
-    setValueOnRecipe: (recipe: any, values: string[]) => setListValuesOnRecipe(recipe, values, viewDenyFieldPath),
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, viewDenyFieldPath),
 };
 
 const tableAllowFieldPath = 'source.config.table_pattern.allow';
@@ -252,10 +241,11 @@ export const TABLE_ALLOW: RecipeField = {
     label: 'Allow Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
+    fieldPath: 'source.config.table_pattern.allow',
     rules: null,
     section: 'Tables',
-    getValueFromRecipe: (recipe: any) => get(recipe, tableAllowFieldPath),
-    setValueOnRecipe: (recipe: any, values: string[]) => setListValuesOnRecipe(recipe, values, tableAllowFieldPath),
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, tableAllowFieldPath),
 };
 
 const tableDenyFieldPath = 'source.config.table_pattern.deny';
@@ -264,10 +254,11 @@ export const TABLE_DENY: RecipeField = {
     label: 'Deny Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
+    fieldPath: 'source.config.table_pattern.deny',
     rules: null,
     section: 'Tables',
-    getValueFromRecipe: (recipe: any) => get(recipe, tableDenyFieldPath),
-    setValueOnRecipe: (recipe: any, values: string[]) => setListValuesOnRecipe(recipe, values, tableDenyFieldPath),
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, tableDenyFieldPath),
 };
 
 export const RECIPE_FIELDS = {
