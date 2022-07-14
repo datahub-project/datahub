@@ -61,7 +61,7 @@ const CheckBoxGroup = styled(Checkbox.Group)`
     &&& .ant-checkbox {
         display: inline-block;
         position: relative;
-        top: 24px;
+        top: 54px;
     }
 `;
 
