@@ -18,7 +18,7 @@ describe('DefineRecipeStep', () => {
         expect(queryByText('For more information about how to configure a recipe')).toBeNull();
     });
 
-    it('should render the RecipeBuilder if the type is in CONNECTORS_WITH_FORM', () => {
+    it('should not render the RecipeBuilder if the type is not in CONNECTORS_WITH_FORM', () => {
         const { getByText, queryByText } = render(
             <DefineRecipeStep
                 state={{ type: 'postgres' }}
