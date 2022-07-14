@@ -468,7 +468,9 @@ class BigQuerySource(SQLAlchemySource):
         if profile_clause == "":
             return None
         storage_project_id = self.get_multiproject_project_id(inspector)
-        exec_project_id = self.get_multiproject_project_id(inspector, run_on_compute=True)
+        exec_project_id = self.get_multiproject_project_id(
+            inspector, run_on_compute=True
+        )
         _client: BigQueryClient = BigQueryClient(project=exec_project_id)
         # Reading all tables' metadata to report
         base_query = (
