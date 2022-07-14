@@ -4,7 +4,7 @@ import YAML from 'yamljs';
 import { ApiOutlined, FilterOutlined, SettingOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { jsonToYaml } from '../../utils';
-import { RecipeField, RECIPE_FIELDS } from './constants';
+import { RecipeField, RECIPE_FIELDS } from './utils';
 import FormField from './FormField';
 
 export const ControlsContainer = styled.div`

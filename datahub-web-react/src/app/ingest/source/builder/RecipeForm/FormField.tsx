@@ -2,7 +2,7 @@ import { Button, Checkbox, Form, Input, Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 import { MinusCircleOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
-import { FieldType, RecipeField } from './constants';
+import { FieldType, RecipeField } from './utils';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
 
 const Label = styled.div`
