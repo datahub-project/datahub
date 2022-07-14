@@ -60,13 +60,14 @@ const CheckBoxGroup = styled(Checkbox.Group)`
     &&& .ant-checkbox {
         display: inline-block;
         position: relative;
-        top: 54px;
+        top: 48px;
     }
 `;
 
 const LabelContainer = styled.span`
     position: relative;
     left: 24px;
+    bottom: 6px;
 `;
 
 const ThinDivider = styled(Divider)`
