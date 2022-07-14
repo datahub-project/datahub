@@ -1442,7 +1442,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 database=None, schema=schema, table=table
             ):
                 self.report.report_warning(
-                    "profile skipped as partitioned table empty", dataset_name
+                    "profile skipped as partitioned table is empty or partition id was invalid",
+                    dataset_name,
                 )
                 continue
 

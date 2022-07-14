@@ -1,12 +1,16 @@
 import time
 
 import pytest
+import tenacity
 from tests.utils import (
     delete_urns_from_file,
     get_frontend_url,
     get_gms_url,
     ingest_file_via_rest,
+    get_sleep_info,
 )
+
+sleep_sec, sleep_times = get_sleep_info()
 
 
 @pytest.fixture(scope="module", autouse=False)
@@ -22,6 +26,30 @@ def ingest_cleanup_data(request):
 def test_healthchecks(wait_for_healthchecks):
     # Call to wait_for_healthchecks fixture will do the actual functionality.
     pass
+
+
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
+)
+def _ensure_more_domains(frontend_session, list_domains_json, before_count):
+    time.sleep(2)
+
+    # Get new count of Domains
+    response = frontend_session.post(
+        f"{get_frontend_url()}/api/v2/graphql", json=list_domains_json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["listDomains"]["total"] is not None
+    assert "errors" not in res_data
+
+    # Assert that there are more domains now.
+    after_count = res_data["data"]["listDomains"]["total"]
+    print(f"after_count is {after_count}")
+    assert after_count == before_count + 1
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
@@ -55,9 +83,10 @@ def test_create_list_get_domain(frontend_session):
     assert res_data["data"]
     assert res_data["data"]["listDomains"]["total"] is not None
     assert "errors" not in res_data
+    print(f"domains resp is {res_data}")
 
     before_count = res_data["data"]["listDomains"]["total"]
-    print(before_count)
+    print(f"before_count is {before_count}")
 
     domain_id = "test id"
     domain_name = "test name"
@@ -90,25 +119,11 @@ def test_create_list_get_domain(frontend_session):
 
     domain_urn = res_data["data"]["createDomain"]
 
-    # Sleep for eventual consistency (not ideal)
-    time.sleep(2)
-
-    # Get new count of Domains
-    response = frontend_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=list_domains_json
+    _ensure_more_domains(
+        frontend_session=frontend_session,
+        list_domains_json=list_domains_json,
+        before_count=before_count,
     )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["listDomains"]["total"] is not None
-    assert "errors" not in res_data
-
-    # Assert that there are more domains now.
-    after_count = res_data["data"]["listDomains"]["total"]
-    print(after_count)
-    assert after_count == before_count + 1
 
     # Get the domain value back
     get_domain_json = {
