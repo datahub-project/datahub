@@ -469,5 +469,17 @@ query getIncidents($urn: String!, $start: Int!, $count: Int!, $state: IncidentSt
         incidents(start: $start, count: $count, state: $state) {
             ...incidentsFields
         }
+        siblings {
+            isPrimary
+            siblings {
+                urn
+                type
+                ... on Dataset {
+                    incidents(start: $start, count: $count, state: $state) {
+                        ...incidentsFields
+                    }
+                }
+            }
+        }
     }
 }

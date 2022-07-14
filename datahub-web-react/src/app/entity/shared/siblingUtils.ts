@@ -54,6 +54,10 @@ const mergeAssertions = (destinationArray, sourceArray, _options) => {
     return unionBy(destinationArray, sourceArray, 'urn');
 };
 
+const mergeIncidents = (destinationArray, sourceArray, _options) => {
+    return unionBy(destinationArray, sourceArray, 'urn');
+};
+
 function getArrayMergeFunction(key) {
     switch (key) {
         case 'tags':
@@ -62,6 +66,8 @@ function getArrayMergeFunction(key) {
             return mergeTerms;
         case 'assertions':
             return mergeAssertions;
+        case 'incidents':
+            return mergeIncidents;
         default:
             return undefined;
     }
@@ -77,7 +83,10 @@ const customMerge = (isPrimary, key) => {
     if (key === 'testResults') {
         return (_secondary, primary) => primary;
     }
-    if (key === 'tags' || key === 'terms' || key === 'assertions') {
+    if (key === 'totalIncidents') {
+        return (secondary, primary) => ({ ...primary, total: primary.total + secondary.total });
+    }
+    if (key === 'tags' || key === 'terms' || key === 'assertions' || key === 'incidents') {
         return (secondary, primary) => {
             return merge(secondary, primary, {
                 arrayMerge: getArrayMergeFunction(key),

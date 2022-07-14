@@ -12,6 +12,7 @@ import { INCIDENT_DISPLAY_STATES } from './incidentUtils';
 import { Incident, IncidentState } from '../../../../../types.generated';
 import { IncidentSummary } from './components/IncidentSummary';
 import { AddIncidentModal } from './components/AddIncidentModal';
+import { combineEntityDataWithSiblings } from '../../siblingUtils';
 
 const LoadingContainer = styled.div`
     padding-top: 40px;
@@ -100,7 +101,10 @@ export const IncidentTab = () => {
         },
     });
 
-    const incidents = (data && data.dataset?.incidents?.incidents?.map((incident) => incident as Incident)) || [];
+    const combinedData = combineEntityDataWithSiblings(data);
+
+    const incidents =
+        (combinedData && combinedData.dataset?.incidents?.incidents?.map((incident) => incident as Incident)) || [];
 
     const incidentList = incidents?.map((incident) => ({
         urn: incident?.urn,
@@ -158,7 +162,7 @@ export const IncidentTab = () => {
                         <Pagination
                             current={page}
                             pageSize={PAGE_SIZE}
-                            total={data?.dataset?.incidents?.total || 0}
+                            total={combinedData?.dataset?.incidents?.total || 0}
                             showLessItems
                             onChange={(newPage) => setPage(newPage)}
                             showSizeChanger={false}
