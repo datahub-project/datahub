@@ -48,21 +48,6 @@ record UsageFeatures {
   writeCountRankLast30Days: optional long
 
   /**
-   * Number of query per day for the last 30 days
-   */
-  queryCountLast30DaysDateHistogram: optional map[long, long]
-
-  /**
-   * Number of write operations per day for the last 30 days
-   */
-  writeCountLast30DaysDateHistogram: optional map[long, long]
-
-  /**
-   * Number of unique users per day for the last 30 days
-   */
-  uniqueUserCountLast30DaysDateHistogram: optional map[long, long]
-
-  /**
    * Ranked list of the top 10 users in past 30 days
    */
   topUsers: optional array[Urn]
