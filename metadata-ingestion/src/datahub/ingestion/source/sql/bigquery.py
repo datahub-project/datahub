@@ -343,7 +343,7 @@ class BigQuerySource(SQLAlchemySource):
         self, inspector: Optional[Inspector] = None, run_on_compute: bool = False
     ) -> Optional[str]:
         """
-        Use run_on_compute = true when running queries on storage project 
+        Use run_on_compute = true when running queries on storage project
         where you don't have job create rights
         """
         if self.config.storage_project_id and (not run_on_compute):
@@ -358,7 +358,7 @@ class BigQuerySource(SQLAlchemySource):
 
     def get_db_name(self, inspector: Inspector) -> str:
         """
-        DO NOT USE this to get project name when running queries. 
+        DO NOT USE this to get project name when running queries.
             That can cause problems with multi-project setups.
             Use get_multiproject_project_id with run_on_compute = True
         """
