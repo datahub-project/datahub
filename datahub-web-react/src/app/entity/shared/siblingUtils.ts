@@ -1,7 +1,16 @@
 import merge from 'deepmerge';
 import { unionBy } from 'lodash';
+import { useLocation } from 'react-router-dom';
+import * as QueryString from 'query-string';
 import { Entity, MatchedField, Maybe, SiblingProperties } from '../../../types.generated';
 
+export function stripSiblingsFromEntity(entity: any) {
+    return {
+        ...entity,
+        siblings: null,
+        siblingPlatforms: null,
+    };
+}
 function cleanHelper(obj, visited) {
     if (visited.has(obj)) return obj;
     visited.add(obj);
@@ -54,6 +63,14 @@ const mergeAssertions = (destinationArray, sourceArray, _options) => {
     return unionBy(destinationArray, sourceArray, 'urn');
 };
 
+const mergeProperties = (destinationArray, sourceArray, _options) => {
+    return unionBy(destinationArray, sourceArray, 'key');
+};
+
+const mergeOwners = (destinationArray, sourceArray, _options) => {
+    return unionBy(destinationArray, sourceArray, 'owner.urn');
+};
+
 function getArrayMergeFunction(key) {
     switch (key) {
         case 'tags':
@@ -62,6 +79,10 @@ function getArrayMergeFunction(key) {
             return mergeTerms;
         case 'assertions':
             return mergeAssertions;
+        case 'customProperties':
+            return mergeProperties;
+        case 'owners':
+            return mergeOwners;
         default:
             return undefined;
     }
@@ -74,7 +95,7 @@ const customMerge = (isPrimary, key) => {
     if (key === 'platform') {
         return (secondary, primary) => (isPrimary ? primary : secondary);
     }
-    if (key === 'tags' || key === 'terms' || key === 'assertions') {
+    if (key === 'tags' || key === 'terms' || key === 'assertions' || key === 'customProperties' || key === 'owners') {
         return (secondary, primary) => {
             return merge(secondary, primary, {
                 arrayMerge: getArrayMergeFunction(key),
@@ -164,8 +185,8 @@ export function combineSiblingsInSearchResults(
         const siblingUrns = entity?.siblings?.siblings?.map((sibling) => sibling.urn) || [];
         if (siblingUrns.length > 0) {
             combinedResult.matchedEntities = entity.siblings.isPrimary
-                ? [entity, ...entity.siblings.siblings]
-                : [...entity.siblings.siblings, entity];
+                ? [stripSiblingsFromEntity(entity), ...entity.siblings.siblings]
+                : [...entity.siblings.siblings, stripSiblingsFromEntity(entity)];
             siblingUrns.forEach((urn) => {
                 siblingsToPair[urn] = combinedResult;
             });
@@ -174,4 +195,14 @@ export function combineSiblingsInSearchResults(
     });
 
     return combinedResults;
+}
+// used to determine whether sibling entities should be shown merged or not
+export const SEPARATE_SIBLINGS_URL_PARAM = 'separate_siblings';
+
+// used to determine whether sibling entities should be shown merged or not
+export function useIsSeparateSiblingsMode() {
+    const location = useLocation();
+    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+
+    return params[SEPARATE_SIBLINGS_URL_PARAM] === 'true';
 }

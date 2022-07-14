@@ -5,7 +5,15 @@ import styled from 'styled-components';
 import { BookOutlined, PlusOutlined } from '@ant-design/icons';
 
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { Domain, EntityType, GlobalTags, GlossaryTerms, SubResourceType } from '../../../types.generated';
+import {
+    Domain,
+    EntityType,
+    GlobalTags,
+    GlossaryTermAssociation,
+    GlossaryTerms,
+    SubResourceType,
+    TagAssociation,
+} from '../../../types.generated';
 import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
 import { EMPTY_MESSAGES, ANTD_GRAY } from '../../entity/shared/constants';
 import { useRemoveTagMutation, useRemoveTermMutation } from '../../../graphql/mutations.generated';
@@ -84,19 +92,19 @@ export default function TagTermGroup({
     const [tagProfileDrawerVisible, setTagProfileDrawerVisible] = useState(false);
     const [addTagUrn, setAddTagUrn] = useState('');
 
-    const removeTag = (urnToRemove: string) => {
+    const removeTag = (tagAssociationToRemove: TagAssociation) => {
+        const tagToRemove = tagAssociationToRemove.tag;
         onOpenModal?.();
-        const tagToRemove = editableTags?.tags?.find((tag) => tag.tag.urn === urnToRemove);
         Modal.confirm({
-            title: `Do you want to remove ${tagToRemove?.tag.name} tag?`,
-            content: `Are you sure you want to remove the ${tagToRemove?.tag.name} tag?`,
+            title: `Do you want to remove ${tagToRemove?.name} tag?`,
+            content: `Are you sure you want to remove the ${tagToRemove?.name} tag?`,
             onOk() {
-                if (entityUrn) {
+                if (tagAssociationToRemove.associatedUrn || entityUrn) {
                     removeTagMutation({
                         variables: {
                             input: {
-                                tagUrn: urnToRemove,
-                                resourceUrn: entityUrn,
+                                tagUrn: tagToRemove.urn,
+                                resourceUrn: tagAssociationToRemove.associatedUrn || entityUrn || '',
                                 subResource: entitySubresource,
                                 subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
                             },
@@ -121,20 +129,19 @@ export default function TagTermGroup({
         });
     };
 
-    const removeTerm = (urnToRemove: string) => {
+    const removeTerm = (termToRemove: GlossaryTermAssociation) => {
         onOpenModal?.();
-        const termToRemove = editableGlossaryTerms?.terms?.find((term) => term.term.urn === urnToRemove);
         const termName = termToRemove && entityRegistry.getDisplayName(termToRemove.term.type, termToRemove.term);
         Modal.confirm({
             title: `Do you want to remove ${termName} term?`,
             content: `Are you sure you want to remove the ${termName} term?`,
             onOk() {
-                if (entityUrn) {
+                if (termToRemove.associatedUrn || entityUrn) {
                     removeTermMutation({
                         variables: {
                             input: {
-                                termUrn: urnToRemove,
-                                resourceUrn: entityUrn,
+                                termUrn: termToRemove.term.urn,
+                                resourceUrn: termToRemove.associatedUrn || entityUrn || '',
                                 subResource: entitySubresource,
                                 subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
                             },
@@ -205,7 +212,7 @@ export default function TagTermGroup({
                         closable={canRemove}
                         onClose={(e) => {
                             e.preventDefault();
-                            removeTerm(term.term.urn);
+                            removeTerm(term);
                         }}
                     >
                         <BookOutlined style={{ marginRight: '3%' }} />
@@ -249,7 +256,7 @@ export default function TagTermGroup({
                             closable={canRemove}
                             onClose={(e) => {
                                 e.preventDefault();
-                                removeTag(tag?.tag?.urn);
+                                removeTag(tag);
                             }}
                         >
                             {tag?.tag?.name}

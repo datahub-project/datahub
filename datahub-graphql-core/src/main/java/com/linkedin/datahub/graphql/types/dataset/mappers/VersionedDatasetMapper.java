@@ -6,11 +6,11 @@ import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.DatasetEditableProperties;
-import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.generated.VersionedDataset;
@@ -18,8 +18,9 @@ import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
@@ -57,6 +58,7 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
   @Override
   public VersionedDataset apply(@Nonnull final EntityResponse entityResponse) {
     VersionedDataset result = new VersionedDataset();
+    Urn entityUrn = entityResponse.getUrn();
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.DATASET);
 
@@ -65,24 +67,24 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
     SystemMetadata schemaSystemMetadata = getSystemMetadata(aspectMap, SCHEMA_METADATA_ASPECT_NAME);
 
     mappingHelper.mapToResult(DATASET_KEY_ASPECT_NAME, this::mapDatasetKey);
-    mappingHelper.mapToResult(DATASET_PROPERTIES_ASPECT_NAME, this::mapDatasetProperties);
+    mappingHelper.mapToResult(DATASET_PROPERTIES_ASPECT_NAME, (entity, dataMap) -> this.mapDatasetProperties(entity, dataMap, entityUrn));
     mappingHelper.mapToResult(DATASET_DEPRECATION_ASPECT_NAME, (dataset, dataMap) ->
         dataset.setDeprecation(DatasetDeprecationMapper.map(new DatasetDeprecation(dataMap))));
     mappingHelper.mapToResult(SCHEMA_METADATA_ASPECT_NAME, (dataset, dataMap) ->
-        dataset.setSchema(SchemaMapper.map(new SchemaMetadata(dataMap), schemaSystemMetadata)));
+        dataset.setSchema(SchemaMapper.map(new SchemaMetadata(dataMap), schemaSystemMetadata, entityUrn)));
     mappingHelper.mapToResult(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME, this::mapEditableDatasetProperties);
     mappingHelper.mapToResult(VIEW_PROPERTIES_ASPECT_NAME, this::mapViewProperties);
     mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (dataset, dataMap) ->
         dataset.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
     mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (dataset, dataMap) ->
-        dataset.setOwnership(OwnershipMapper.map(new Ownership(dataMap))));
+        dataset.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
     mappingHelper.mapToResult(STATUS_ASPECT_NAME, (dataset, dataMap) ->
         dataset.setStatus(StatusMapper.map(new Status(dataMap))));
-    mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, this::mapGlobalTags);
+    mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, (dataset, dataMap) -> this.mapGlobalTags(dataset, dataMap, entityUrn));
     mappingHelper.mapToResult(EDITABLE_SCHEMA_METADATA_ASPECT_NAME, (dataset, dataMap) ->
-        dataset.setEditableSchemaMetadata(EditableSchemaMetadataMapper.map(new EditableSchemaMetadata(dataMap))));
+        dataset.setEditableSchemaMetadata(EditableSchemaMetadataMapper.map(new EditableSchemaMetadata(dataMap), entityUrn)));
     mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (dataset, dataMap) ->
-        dataset.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap))));
+        dataset.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap), entityUrn)));
     mappingHelper.mapToResult(CONTAINER_ASPECT_NAME, this::mapContainers);
     mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
     mappingHelper.mapToResult(DEPRECATION_ASPECT_NAME, (dataset, dataMap) ->
@@ -107,7 +109,7 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
         .setUrn(gmsKey.getPlatform().toString()).build());
   }
 
-  private void mapDatasetProperties(@Nonnull VersionedDataset dataset, @Nonnull DataMap dataMap) {
+  private void mapDatasetProperties(@Nonnull VersionedDataset dataset, @Nonnull DataMap dataMap, Urn entityUrn) {
     final DatasetProperties gmsProperties = new DatasetProperties(dataMap);
     final com.linkedin.datahub.graphql.generated.DatasetProperties properties =
         new com.linkedin.datahub.graphql.generated.DatasetProperties();
@@ -116,7 +118,7 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
     if (gmsProperties.getExternalUrl() != null) {
       properties.setExternalUrl(gmsProperties.getExternalUrl().toString());
     }
-    properties.setCustomProperties(StringMapMapper.map(gmsProperties.getCustomProperties()));
+    properties.setCustomProperties(CustomPropertiesMapper.map(gmsProperties.getCustomProperties(), entityUrn));
     if (gmsProperties.getName() != null) {
       properties.setName(gmsProperties.getName());
     } else {
@@ -143,8 +145,8 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
     dataset.setViewProperties(graphqlProperties);
   }
 
-  private void mapGlobalTags(@Nonnull VersionedDataset dataset, @Nonnull DataMap dataMap) {
-    com.linkedin.datahub.graphql.generated.GlobalTags globalTags = GlobalTagsMapper.map(new GlobalTags(dataMap));
+  private void mapGlobalTags(@Nonnull VersionedDataset dataset, @Nonnull DataMap dataMap, @Nonnull Urn entityUrn) {
+    com.linkedin.datahub.graphql.generated.GlobalTags globalTags = GlobalTagsMapper.map(new GlobalTags(dataMap), entityUrn);
     dataset.setTags(globalTags);
   }
 
@@ -160,10 +162,6 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
   private void mapDomains(@Nonnull VersionedDataset dataset, @Nonnull DataMap dataMap) {
     final Domains domains = new Domains(dataMap);
     // Currently we only take the first domain if it exists.
-    if (domains.getDomains().size() > 0) {
-      dataset.setDomain(Domain.builder()
-          .setType(EntityType.DOMAIN)
-          .setUrn(domains.getDomains().get(0).toString()).build());
-    }
+    dataset.setDomain(DomainAssociationMapper.map(domains, dataset.getUrn()));
   }
 }

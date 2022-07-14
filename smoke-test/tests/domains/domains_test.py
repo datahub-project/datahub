@@ -218,9 +218,11 @@ def test_set_unset_domain(frontend_session, ingest_cleanup_data):
             dataset(urn: $urn) {\n
               urn\n
               domain {\n
-                urn\n
-                properties{\n
-                  name\n
+                domain {\n
+                  urn\n
+                  properties{\n
+                    name\n
+                  }\n
                 }\n
               }\n
             }\n
@@ -235,5 +237,5 @@ def test_set_unset_domain(frontend_session, ingest_cleanup_data):
     res_data = response.json()
 
     assert res_data
-    assert res_data["data"]["dataset"]["domain"]["urn"] == domain_urn
-    assert res_data["data"]["dataset"]["domain"]["properties"]["name"] == "Engineering"
+    assert res_data["data"]["dataset"]["domain"]["domain"]["urn"] == domain_urn
+    assert res_data["data"]["dataset"]["domain"]["domain"]["properties"]["name"] == "Engineering"

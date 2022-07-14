@@ -11,6 +11,7 @@ import { capitalizeFirstLetter } from '../shared/textUtil';
 import { nodeHeightFromTitleLength } from './utils/nodeHeightFromTitleLength';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
 import { useGetEntityLineageLazyQuery } from '../../graphql/lineage.generated';
+import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
 
 const CLICK_DELAY_THRESHOLD = 1000;
 const DRAG_DISTANCE_THRESHOLD = 20;
@@ -90,6 +91,7 @@ export default function LineageEntityNode({
     const [isExpanding, setIsExpanding] = useState(false);
     const [expandHover, setExpandHover] = useState(false);
     const [getAsyncEntityLineage, { data: asyncLineageData }] = useGetEntityLineageLazyQuery();
+    const isHideSiblingMode = useIsSeparateSiblingsMode();
 
     useEffect(() => {
         if (asyncLineageData && asyncLineageData.entity) {
@@ -117,7 +119,7 @@ export default function LineageEntityNode({
     );
 
     let platformDisplayText = capitalizeFirstLetter(node.data.platform);
-    if (node.data.siblingPlatforms) {
+    if (node.data.siblingPlatforms && !isHideSiblingMode) {
         platformDisplayText = node.data.siblingPlatforms
             .map((platform) => platform.properties?.displayName || platform.name)
             .join(' & ');
@@ -160,7 +162,9 @@ export default function LineageEntityNode({
                             setIsExpanding(true);
                             if (node.data.urn && node.data.type) {
                                 // getAsyncEntity(node.data.urn, node.data.type);
-                                getAsyncEntityLineage({ variables: { urn: node.data.urn } });
+                                getAsyncEntityLineage({
+                                    variables: { urn: node.data.urn, separateSiblings: isHideSiblingMode },
+                                });
                             }
                         }}
                         onMouseOver={() => {
@@ -249,14 +253,14 @@ export default function LineageEntityNode({
                     // eslint-disable-next-line react/style-prop-object
                     style={{ filter: isSelected ? 'url(#shadow1-selected)' : 'url(#shadow1)' }}
                 />
-                {node.data.siblingPlatforms && (
+                {node.data.siblingPlatforms && !isHideSiblingMode && (
                     <svg x={iconX} y={iconY - 5}>
                         <image
                             // preserveAspectRatio="none"
                             y={0}
                             height={iconHeight * (3 / 4)}
                             width={iconWidth * (3 / 4)}
-                            href={node.data.siblingPlatforms[0].properties?.logoUrl || ''}
+                            href={node.data.siblingPlatforms[0]?.properties?.logoUrl || ''}
                             clipPath="url(#clipPolygonTop)"
                         />
                         <image
@@ -265,14 +269,14 @@ export default function LineageEntityNode({
                             height={iconHeight * (3 / 4)}
                             width={iconWidth * (3 / 4)}
                             clipPath="url(#clipPolygon)"
-                            href={node.data.siblingPlatforms[1].properties?.logoUrl || ''}
+                            href={node.data.siblingPlatforms[1]?.properties?.logoUrl || ''}
                         />
                     </svg>
                 )}
-                {!node.data.siblingPlatforms && node.data.icon && (
+                {(!node.data.siblingPlatforms || isHideSiblingMode) && node.data.icon && (
                     <image href={node.data.icon} height={iconHeight} width={iconWidth} x={iconX} y={iconY} />
                 )}
-                {!node.data.icon && !node.data.siblingPlatforms && node.data.type && (
+                {!node.data.icon && (!node.data.siblingPlatforms || isHideSiblingMode) && node.data.type && (
                     <svg
                         viewBox="64 64 896 896"
                         focusable="false"

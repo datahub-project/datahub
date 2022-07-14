@@ -162,7 +162,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 owners={data.ownership?.owners}
                 glossaryTerms={data?.glossaryTerms}
                 logoUrl={data?.platform?.properties?.logoUrl}
-                domain={data.domain}
+                domain={data.domain?.domain}
                 container={data.container}
             />
         );
@@ -183,7 +183,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 glossaryTerms={data?.glossaryTerms}
                 insights={result.insights}
                 logoUrl={data?.platform?.properties?.logoUrl || ''}
-                domain={data.domain}
+                domain={data.domain?.domain}
                 container={data.container}
                 parentContainers={data.parentContainers}
             />

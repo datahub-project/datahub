@@ -2,6 +2,7 @@ import React from 'react';
 import { Image, Tag } from 'antd';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
+import { Maybe } from 'graphql/jsutils/Maybe';
 
 const EntityTag = styled(Tag)`
     margin: 4px;
@@ -37,17 +38,33 @@ type Props = {
     displayName: string;
     url: string;
     platformLogoUrl?: string;
+    platformLogoUrls?: Maybe<string>[];
     logoComponent?: React.ReactNode;
     onClick?: () => void;
 };
 
-export const EntityPreviewTag = ({ displayName, url, platformLogoUrl, logoComponent, onClick }: Props) => {
+export const EntityPreviewTag = ({
+    displayName,
+    url,
+    platformLogoUrl,
+    platformLogoUrls,
+    logoComponent,
+    onClick,
+}: Props) => {
     return (
         <Link to={url} onClick={onClick}>
             <EntityTag>
                 <TitleContainer>
                     <IconContainer>
-                        {(platformLogoUrl && <PlatformLogo preview={false} src={platformLogoUrl} alt="none" />) ||
+                        {(!!platformLogoUrl && !platformLogoUrls && (
+                            <PlatformLogo preview={false} src={platformLogoUrl} alt="none" />
+                        )) ||
+                            (!!platformLogoUrls &&
+                                platformLogoUrls.slice(0, 2).map((platformLogoUrlsEntry) => (
+                                    <>
+                                        <PlatformLogo preview={false} src={platformLogoUrlsEntry || ''} alt="none" />
+                                    </>
+                                ))) ||
                             logoComponent}
                     </IconContainer>
                     <DisplayNameContainer>
