@@ -1,40 +1,16 @@
 query getDataJob($urn: String!) {
     dataJob(urn: $urn) {
         ...dataJobFields
-        parentFlow: relationships(input: { types: ["IsPartOf"], direction: OUTGOING, start: 0, count: 1 }) {
-            ...fullRelationshipResults
-        }
-        incoming: relationships(
-            input: {
-                types: ["DownstreamOf", "Consumes", "Produces", "TrainedBy"]
-                direction: INCOMING
-                start: 0
-                count: 100
-            }
-        ) {
-            ...fullRelationshipResults
-        }
-        outgoing: relationships(
-            input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: OUTGOING, start: 0, count: 100 }
-        ) {
-            ...fullRelationshipResults
-        }
         upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
             ...partialLineageResults
         }
         downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
             ...partialLineageResults
         }
-        status {
-            removed
-        }
         runs(start: 0, count: 20) {
             count
             start
             total
-        }
-        deprecation {
-            ...deprecationFields
         }
     }
 }

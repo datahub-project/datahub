@@ -161,7 +161,7 @@ public class StatefulTokenService extends StatelessTokenService {
       this.revokeAccessToken(hash(accessToken));
       throw e;
     } catch (final ExecutionException e) {
-      throw new TokenException("Failed to validate DataHub token: Unable to load token information from store");
+      throw new TokenException("Failed to validate DataHub token: Unable to load token information from store", e);
     }
   }
 
@@ -174,9 +174,17 @@ public class StatefulTokenService extends StatelessTokenService {
         return;
       }
     } catch (ExecutionException e) {
-      throw new TokenException("Failed to validate DataHub token from cache");
+      throw new TokenException("Failed to validate DataHub token from cache", e);
     }
     throw new TokenException("Access token no longer exists");
+  }
+
+  public boolean isTokenRevoked(@Nonnull String hashToken) {
+    try {
+      return _revokedTokenCache.get(hashToken);
+    } catch (ExecutionException e) {
+      return false;
+    }
   }
 
   /**

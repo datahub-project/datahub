@@ -1070,11 +1070,6 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       aspectsToGet.add(DATA_PLATFORM_INSTANCE);
     }
 
-    boolean shouldHaveStatusSet = isAspectMissing(entityType, STATUS, includedAspects);
-    if (shouldHaveStatusSet) {
-      aspectsToGet.add(STATUS);
-    }
-
     List<Pair<String, RecordTemplate>> aspects = new ArrayList<>();
     final String keyAspectName = getKeyAspectName(urn);
     aspectsToGet.add(keyAspectName);
@@ -1101,12 +1096,6 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     if (shouldCheckDataPlatform && latestAspects.get(DATA_PLATFORM_INSTANCE) == null) {
       DataPlatformInstanceUtils.buildDataPlatformInstance(entityType, keyAspect)
           .ifPresent(aspect -> aspects.add(Pair.of(DATA_PLATFORM_INSTANCE, aspect)));
-    }
-
-    if (shouldHaveStatusSet && latestAspects.get(STATUS) != null) {
-      Status status = new Status();
-      status.setRemoved(false);
-      aspects.add(Pair.of(STATUS, status));
     }
 
     return aspects;
@@ -1533,6 +1522,16 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       //    since nowhere else is using it should be safe for now at least
       envelopedAspect.setType(AspectType.VERSIONED);
       envelopedAspect.setValue(aspect);
+
+      try {
+        if (currAspectEntry.getSystemMetadata() != null) {
+          final SystemMetadata systemMetadata = RecordUtils.toRecordTemplate(SystemMetadata.class, currAspectEntry.getSystemMetadata());
+          envelopedAspect.setSystemMetadata(systemMetadata);
+        }
+      } catch (Exception e) {
+        log.warn("Exception encountered when setting system metadata on enveloped aspect {}. Error: {}", envelopedAspect.getName(), e);
+      }
+
       envelopedAspect.setCreated(new AuditStamp()
           .setActor(UrnUtils.getUrn(currAspectEntry.getCreatedBy()))
           .setTime(currAspectEntry.getCreatedOn().getTime())

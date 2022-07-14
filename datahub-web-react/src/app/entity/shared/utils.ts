@@ -65,3 +65,5 @@ export function getPlatformName(entityData: GenericEntityProperties | null) {
 }
 
 export const EDITED_DESCRIPTIONS_CACHE_NAME = 'editedDescriptions';
+
+export const FORBIDDEN_URN_CHARS_REGEX = /.*[(),\\].*/;

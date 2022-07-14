@@ -17,11 +17,13 @@ import lombok.extern.slf4j.Slf4j;
 import javax.annotation.Nonnull;
 import java.util.Optional;
 
+import static com.linkedin.metadata.Constants.*;
+
 
 @Slf4j
 @RequiredArgsConstructor
 public class IngestDataPlatformInstancesStep implements BootstrapStep {
-  private static final String PLATFORM_INSTANCE_ASPECT_NAME = "dataPlatformInstance";
+
   private static final int BATCH_SIZE = 1000;
 
   private final EntityService _entityService;
@@ -47,7 +49,7 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
   @Override
   public void execute() throws Exception {
     log.info("Checking for DataPlatformInstance");
-    if (_migrationsDao.checkIfAspectExists(PLATFORM_INSTANCE_ASPECT_NAME)) {
+    if (_migrationsDao.checkIfAspectExists(DATA_PLATFORM_INSTANCE_ASPECT_NAME)) {
       log.info("DataPlatformInstance aspect exists. Skipping step");
       return;
     }
@@ -69,7 +71,7 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
         final AuditStamp aspectAuditStamp =
             new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
 
-        _entityService.ingestAspect(urn, PLATFORM_INSTANCE_ASPECT_NAME, dataPlatformInstance.get(), aspectAuditStamp, null);
+        _entityService.ingestAspect(urn, DATA_PLATFORM_INSTANCE_ASPECT_NAME, dataPlatformInstance.get(), aspectAuditStamp, null);
       }
       log.info("Finished ingesting DataPlatformInstance for urn {} to {}", start, start + BATCH_SIZE);
       start += BATCH_SIZE;

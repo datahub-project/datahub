@@ -88,6 +88,13 @@ const user2 = {
     editableInfo: {
         pictureLink: null,
     },
+    editableProperties: {
+        displayName: 'Test',
+        title: 'test',
+        pictureLink: null,
+        teams: [],
+        skills: [],
+    },
     globalTags: {
         tags: [
             {
@@ -455,7 +462,6 @@ export const dataset3 = {
         primaryKeys: [],
         foreignKeys: [],
     },
-    previousSchemaMetadata: null,
     editableSchemaMetadata: null,
     deprecation: null,
     usageStats: null,
@@ -1118,7 +1124,15 @@ export const dataFlow1 = {
         ],
     },
     platform: {
-        ...dataPlatform,
+        urn: 'urn:li:dataPlatform:airflow',
+        name: 'Airflow',
+        type: EntityType.DataPlatform,
+        properties: {
+            displayName: 'Airflow',
+            type: PlatformType.FileSystem,
+            datasetNameDelimiter: '.',
+            logoUrl: '',
+        },
     },
     domain: null,
     deprecation: null,
@@ -1754,7 +1768,7 @@ export const mocks = [
             variables: {
                 input: {
                     query: 't',
-                    limit: 30,
+                    limit: 10,
                 },
             },
         },
@@ -3235,7 +3249,7 @@ export const mocks = [
                     types: [],
                     query: '*',
                     start: 0,
-                    count: 20,
+                    count: 6,
                     filters: [],
                 },
             },

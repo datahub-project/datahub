@@ -203,29 +203,33 @@ class BigqueryQualifiedNameParser(QualifiedNameParser):
 
 
 def get_full_qualified_name(platform: str, database_name: str, table_name: str) -> str:
-    if platform == "postgres":
-        full_qualified_name = PostgresQualifiedNameParser().get_full_qualified_name(
+    if platform == "athena":
+        return AthenaQualifiedNameParser().get_full_qualified_name(
             database_name, table_name
         )
-    elif platform == "mysql":
-        full_qualified_name = MysqlQualifiedNameParser().get_full_qualified_name(
-            database_name, table_name
-        )
-    elif platform == "mssql":
-        full_qualified_name = MssqlQualifiedNameParser().get_full_qualified_name(
-            database_name, table_name
-        )
-    elif platform == "athena":
-        full_qualified_name = AthenaQualifiedNameParser().get_full_qualified_name(
-            database_name, table_name
-        )
+
     elif platform == "bigquery":
-        full_qualified_name = BigqueryQualifiedNameParser().get_full_qualified_name(
+        return BigqueryQualifiedNameParser().get_full_qualified_name(
             database_name, table_name
         )
+
+    elif platform == "mssql":
+        return MssqlQualifiedNameParser().get_full_qualified_name(
+            database_name, table_name
+        )
+
+    elif platform == "mysql":
+        return MysqlQualifiedNameParser().get_full_qualified_name(
+            database_name, table_name
+        )
+
+    elif platform == "postgres":
+        return PostgresQualifiedNameParser().get_full_qualified_name(
+            database_name, table_name
+        )
+
     else:
-        full_qualified_name = f"{database_name}.{table_name}"
-    return full_qualified_name
+        return f"{database_name}.{table_name}"
 
 
 class RedashConfig(ConfigModel):
@@ -405,8 +409,7 @@ class RedashSource(Source):
             map = REDASH_DATA_SOURCE_TO_DATAHUB_MAP.get(
                 data_source_type, {"platform": DEFAULT_DATA_SOURCE_PLATFORM}
             )
-            platform = map.get("platform", DEFAULT_DATA_SOURCE_PLATFORM)
-            return platform
+            return map.get("platform", DEFAULT_DATA_SOURCE_PLATFORM)
         return DEFAULT_DATA_SOURCE_PLATFORM
 
     def _get_database_name_based_on_datasource(
@@ -597,7 +600,7 @@ class RedashSource(Source):
                     # Tested the same with a Redash instance
                     dashboard_id = dashboard_response["id"]
                     dashboard_data = self.client._get(
-                        "api/dashboards/{}".format(dashboard_id)
+                        f"api/dashboards/{dashboard_id}"
                     ).json()
                 except Exception:
                     # This does not work in our testing but keeping for now because
@@ -686,9 +689,7 @@ class RedashSource(Source):
         chart_type = self._get_chart_type_from_viz_data(viz_data)
         query_id = query_data.get("id")
         chart_url = f"{self.config.connect_uri}/queries/{query_id}#{viz_id}"
-        description = (
-            viz_data.get("description", "") if viz_data.get("description", "") else ""
-        )
+        description = viz_data.get("description", "") or ""
         data_source_id = query_data.get("data_source_id")
         data_source = self._get_chart_data_source(data_source_id)
         data_source_type = data_source.get("type")

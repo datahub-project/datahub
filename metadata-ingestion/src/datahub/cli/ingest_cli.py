@@ -79,7 +79,7 @@ def ingest() -> None:
     type=bool,
     is_flag=True,
     default=False,
-    help="Supress display of variable values in logs by supressing elaborae stacktrace (stackprinter) during ingestion failures",
+    help="Suppress display of variable values in logs by suppressing elaborate stacktrace (stackprinter) during ingestion failures",
 )
 @click.pass_context
 @upgrade.check_upgrade
@@ -313,14 +313,14 @@ def rollback(
         current_time = now.strftime("%Y-%m-%d %H:%M:%S")
 
         try:
-            folder_name = report_dir + "/" + current_time
+            folder_name = f"{report_dir}/{current_time}"
 
-            ingestion_config_file_name = folder_name + "/config.json"
+            ingestion_config_file_name = f"{folder_name}/config.json"
             os.makedirs(os.path.dirname(ingestion_config_file_name), exist_ok=True)
             with open(ingestion_config_file_name, "w") as file_handle:
                 json.dump({"run_id": run_id}, file_handle)
 
-            csv_file_name = folder_name + "/unsafe_entities.csv"
+            csv_file_name = f"{folder_name}/unsafe_entities.csv"
             with open(csv_file_name, "w") as file_handle:
                 writer = csv.writer(file_handle)
                 writer.writerow(["urn"])
@@ -329,4 +329,4 @@ def rollback(
 
         except IOError as e:
             print(e)
-            sys.exit("Unable to write reports to " + report_dir)
+            sys.exit(f"Unable to write reports to {report_dir}")

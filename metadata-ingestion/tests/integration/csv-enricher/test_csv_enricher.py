@@ -13,7 +13,7 @@ def test_csv_enricher_config():
     config = CSVEnricherConfig.parse_obj(
         dict(
             filename="../integration/csv_enricher/csv_enricher_test_data.csv",
-            should_overwrite=True,
+            write_semantics="OVERRIDE",
             delimiter=",",
             array_delimiter="|",
         )
@@ -34,7 +34,7 @@ def test_csv_enricher_source(pytestconfig, tmp_path):
                 "type": "csv-enricher",
                 "config": {
                     "filename": f"{test_resources_dir}/csv_enricher_test_data.csv",
-                    "should_overwrite": True,
+                    "write_semantics": "OVERRIDE",
                     "delimiter": ",",
                     "array_delimiter": "|",
                 },
