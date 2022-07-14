@@ -269,8 +269,10 @@ class Pipeline:
                 for record_envelope in self.transform(record_envelopes):
                     if not self.dry_run:
                         self.sink.write_record_async(record_envelope, callback)
+
             except Exception as e:
                 logger.error(f"Failed to extract some records due to: {e}")
+
             extractor.close()
             if not self.dry_run:
                 self.sink.handle_work_unit_end(wu)

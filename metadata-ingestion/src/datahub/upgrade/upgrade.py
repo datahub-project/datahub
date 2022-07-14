@@ -8,14 +8,13 @@ from typing import Any, Callable, Optional, Tuple, TypeVar
 
 import aiohttp
 import humanfriendly
-import requests
 from packaging.version import Version
 from pydantic import BaseModel
 from termcolor import colored
 
 from datahub import __version__
 from datahub.cli import cli_utils
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.client import DataHubGraph
 
 log = logging.getLogger(__name__)
 
@@ -54,7 +53,6 @@ async def get_client_version_stats():
         pypi_url = "https://pypi.org/pypi/acryl_datahub/json"
         async with session.get(pypi_url) as resp:
             response_json = await resp.json()
-            # await asyncio.sleep(10)
             try:
                 releases = response_json.get("releases", [])
                 sorted_releases = sorted(releases.keys(), key=lambda x: Version(x))
@@ -258,6 +256,8 @@ def maybe_print_upgrade_message(  # noqa: C901
         if not version_stats:
             log.debug("No version stats found")
             return
+        else:
+            log.debug(f"Version stats found: {version_stats}")
         current_release_date = version_stats.client.current.release_date
         latest_release_date = (
             version_stats.client.latest.release_date
@@ -360,7 +360,7 @@ def check_upgrade(func: Callable[..., T]) -> Callable[..., T]:
             version_stats_future = asyncio.ensure_future(retrieve_version_stats())
             the_one_future = asyncio.ensure_future(run_inner_func())
             while not the_one_future.done():
-                await the_one_future
+                ret = await the_one_future
 
             # the one future has returned
             # we check the other futures quickly
@@ -368,12 +368,9 @@ def check_upgrade(func: Callable[..., T]) -> Callable[..., T]:
                 version_stats = await asyncio.wait_for(version_stats_future, 0.5)
                 maybe_print_upgrade_message(version_stats=version_stats)
             except Exception:
-                log.warning("timed out waiting for version stats to be computed")
+                log.debug("timed out waiting for version stats to be computed")
 
-            if isinstance(the_one_future.result(), Exception):
-                raise the_one_future.result()
-            else:
-                return the_one_future.result()
+            return ret
 
         asyncio.run(run_func_check_upgrade())
 

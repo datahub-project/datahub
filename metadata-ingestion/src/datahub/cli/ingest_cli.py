@@ -116,7 +116,7 @@ def run(
             else:
                 raise e
         else:
-            logger.info("Finished metadata pipeline")
+            logger.info("Finished metadata ingestion")
             pipeline.log_ingestion_stats()
             ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
             return ret
@@ -132,26 +132,20 @@ def run(
             upgrade.retrieve_version_stats(pipeline.ctx.graph)
         )
         the_one_future = asyncio.ensure_future(run_pipeline_async(pipeline))
-        while not the_one_future.done():
-            await the_one_future
+        ret = await the_one_future
 
         # the one future has returned
-        try:
-            ret = the_one_future.result()
-            if ret == 0:
-                # we check the other futures quickly on success
-                try:
-                    version_stats = await asyncio.wait_for(version_stats_future, 0.5)
-                    upgrade.maybe_print_upgrade_message(version_stats=version_stats)
-                except Exception:
-                    logger.debug(
-                        "timed out waiting for version stats to be computed... skipping ahead."
-                    )
+        if ret == 0:
+            # we check the other futures quickly on success
+            try:
+                version_stats = await asyncio.wait_for(version_stats_future, 0.5)
+                upgrade.maybe_print_upgrade_message(version_stats=version_stats)
+            except Exception:
+                logger.debug(
+                    "timed out waiting for version stats to be computed... skipping ahead."
+                )
 
-            sys.exit(ret)
-
-        except Exception as e:
-            raise e
+        sys.exit(ret)
 
     logger.info("DataHub CLI version: %s", datahub_package.nice_version_name())
 
