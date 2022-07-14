@@ -561,6 +561,7 @@ class CSVEnricherSource(Source):
         # Sanitizing the terms string to just get the list of term urns
         terms_array_string = sanitize_array_string(row["glossary_terms"])
         term_urns: List[str] = terms_array_string.split(self.config.array_delimiter)
+
         term_associations: List[GlossaryTermAssociationClass] = [
             GlossaryTermAssociationClass(term) for term in term_urns
         ]
@@ -573,6 +574,7 @@ class CSVEnricherSource(Source):
         # Sanitizing the tags string to just get the list of tag urns
         tags_array_string = sanitize_array_string(row["tags"])
         tag_urns: List[str] = tags_array_string.split(self.config.array_delimiter)
+
         tag_associations: List[TagAssociationClass] = [
             TagAssociationClass(tag) for tag in tag_urns
         ]
@@ -595,21 +597,11 @@ class CSVEnricherSource(Source):
         # Sanitizing the owners string to just get the list of owner urns
         owners_array_string: str = sanitize_array_string(row["owners"])
         owner_urns: List[str] = owners_array_string.split(self.config.array_delimiter)
+
         owners: List[OwnerClass] = [
             OwnerClass(owner_urn, type=ownership_type) for owner_urn in owner_urns
         ]
         return owners
-
-    def maybe_extract_domain(
-        self, row: Dict[str, str], is_resource_row: bool
-    ) -> List[DomainsClass]:
-        if not row["domain"]:
-            return []
-
-        # Get domain
-        domain_name = row["domain"]
-        domain: List[DomainsClass] = [DomainsClass([domain_name])]
-        return domain
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         with open(self.config.filename, "r") as f:
