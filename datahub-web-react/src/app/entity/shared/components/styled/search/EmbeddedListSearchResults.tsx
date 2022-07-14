@@ -98,6 +98,7 @@ interface Props {
     onChangePage: (page: number) => void;
     showSelectMode: boolean;
     setCheckedSearchResults: (checkedSearchResults: Array<CheckboxValueType>) => any;
+    checkedSearchResults: CheckboxValueType[];
 }
 
 export const EmbeddedListSearchResults = ({
@@ -111,6 +112,7 @@ export const EmbeddedListSearchResults = ({
     onChangePage,
     showSelectMode,
     setCheckedSearchResults,
+    checkedSearchResults,
 }: Props) => {
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
@@ -159,6 +161,7 @@ export const EmbeddedListSearchResults = ({
                                 }
                                 showSelectMode={showSelectMode}
                                 setCheckedSearchResults={setCheckedSearchResults}
+                                checkedSearchResults={checkedSearchResults}
                             />
                         </>
                     )}

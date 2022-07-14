@@ -50,18 +50,24 @@ const CheckBoxGroup = styled(Checkbox.Group)`
     background-color: rgb(255, 255, 255);
     margin-top: -1px;
     flex: 1;
+    padding-right: 32px;
+    padding-left: 32px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    > .ant-checkbox-group-item {
+        display: block;
+        margin-right: 0;
+    }
+    &&& .ant-checkbox {
+        display: inline-block;
+        position: relative;
+        top: 24px;
+    }
 `;
 
-const CheckboxItem = styled(Checkbox)`
-    padding-right: 40px;
-    padding-left: 40px;
-    padding-top: 16px;
-    padding-bottom: 8px;
-    display: flex;
-    align-items: center;
-    > .ant-checkbox {
-        margin-top: -16px;
-    }
+const LabelContainer = styled.span`
+    position: relative;
+    left: 24px;
 `;
 
 const ThinDivider = styled(Divider)`
@@ -82,6 +88,7 @@ type Props = {
     onClick?: (index: number) => void;
     showSelectMode?: boolean;
     setCheckedSearchResults?: (checkedSearchResults: Array<CheckboxValueType>) => any;
+    checkedSearchResults?: CheckboxValueType[];
 };
 
 export const EntityNameList = ({
@@ -90,6 +97,7 @@ export const EntityNameList = ({
     onClick,
     showSelectMode,
     setCheckedSearchResults,
+    checkedSearchResults,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     if (
@@ -107,48 +115,47 @@ export const EntityNameList = ({
         setCheckedSearchResults?.(checkedValues);
     };
 
+    const options = entities.map((entity, index) => {
+        const additionalProperties = additionalPropertiesList?.[index];
+        const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
+        const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
+        const platformName =
+            genericProps?.platform?.properties?.displayName || capitalizeFirstLetter(genericProps?.platform?.name);
+        const entityTypeName = entityRegistry.getEntityName(entity.type);
+        const displayName = entityRegistry.getDisplayName(entity.type, entity);
+        const url = entityRegistry.getEntityUrl(entity.type, entity.urn);
+        const fallbackIcon = entityRegistry.getIcon(entity.type, 18, IconStyleType.ACCENT);
+        const subType = genericProps?.subTypes?.typeNames?.length && genericProps?.subTypes?.typeNames[0];
+        const entityCount = genericProps?.entityCount;
+        return {
+            label: (
+                <LabelContainer>
+                    <DefaultPreviewCard
+                        name={displayName}
+                        logoUrl={platformLogoUrl || undefined}
+                        logoComponent={fallbackIcon}
+                        url={url}
+                        platform={platformName || undefined}
+                        type={subType || entityTypeName}
+                        titleSizePx={14}
+                        tags={genericProps?.globalTags || undefined}
+                        glossaryTerms={genericProps?.glossaryTerms || undefined}
+                        domain={genericProps?.domain}
+                        onClick={() => onClick?.(index)}
+                        entityCount={entityCount}
+                        degree={additionalProperties?.degree}
+                    />
+                    <ThinDivider />
+                </LabelContainer>
+            ),
+            value: entity.urn,
+        };
+    });
+
     return (
         <>
             {showSelectMode ? (
-                <CheckBoxGroup onChange={onChange}>
-                    {entities.map((entity, index) => {
-                        const additionalProperties = additionalPropertiesList?.[index];
-                        const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
-                        const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
-                        const platformName =
-                            genericProps?.platform?.properties?.displayName ||
-                            capitalizeFirstLetter(genericProps?.platform?.name);
-                        const entityTypeName = entityRegistry.getEntityName(entity.type);
-                        const displayName = entityRegistry.getDisplayName(entity.type, entity);
-                        const url = entityRegistry.getEntityUrl(entity.type, entity.urn);
-                        const fallbackIcon = entityRegistry.getIcon(entity.type, 18, IconStyleType.ACCENT);
-                        const subType =
-                            genericProps?.subTypes?.typeNames?.length && genericProps?.subTypes?.typeNames[0];
-                        const entityCount = genericProps?.entityCount;
-                        return (
-                            <>
-                                <CheckboxItem value={entity.urn}>
-                                    <DefaultPreviewCard
-                                        name={displayName}
-                                        logoUrl={platformLogoUrl || undefined}
-                                        logoComponent={fallbackIcon}
-                                        url={url}
-                                        platform={platformName || undefined}
-                                        type={subType || entityTypeName}
-                                        titleSizePx={14}
-                                        tags={genericProps?.globalTags || undefined}
-                                        glossaryTerms={genericProps?.glossaryTerms || undefined}
-                                        domain={genericProps?.domain}
-                                        onClick={() => onClick?.(index)}
-                                        entityCount={entityCount}
-                                        degree={additionalProperties?.degree}
-                                    />
-                                </CheckboxItem>
-                                <ThinDivider />
-                            </>
-                        );
-                    })}
-                </CheckBoxGroup>
+                <CheckBoxGroup options={options} onChange={onChange} value={checkedSearchResults} />
             ) : (
                 <StyledList
                     bordered

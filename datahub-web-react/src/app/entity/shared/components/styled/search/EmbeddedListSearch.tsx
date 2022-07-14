@@ -202,6 +202,7 @@ export const EmbeddedListSearch = ({
                 showFilters={showFilters}
                 showSelectMode={showSelectMode}
                 setCheckedSearchResults={setCheckedSearchResults}
+                checkedSearchResults={checkedSearchResults}
             />
         </Container>
     );

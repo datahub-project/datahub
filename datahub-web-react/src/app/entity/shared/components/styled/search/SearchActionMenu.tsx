@@ -22,7 +22,6 @@ type Props = {
 // currently only contains Download As Csv but will be extended to contain other actions as well
 export default function SearchActionMenu({ checkedSearchResults }: Props) {
     console.log('checkedSearchResults:: ', checkedSearchResults);
-
     const menu = (
         <Menu>
             <Menu.Item key="0">
