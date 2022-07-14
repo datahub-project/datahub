@@ -6,18 +6,49 @@ import com.linkedin.common.Urn
   "name": "usageFeatures"
 }
 record UsageFeatures {
+
   /**
    * Usage count in the last 30 days
+   * This field is for Dashboard usage
+   */
+  viewCountLast30Days: optional long
+
+  /**
+   * View count total 
+   * This field is for Dashboard usage
+   */
+  viewCountTotal: optional long
+
+  /**
+   * Percentile rank of the dashboard views based on the the last 30 days view count on a platform
    */
   @SearchScore = {
     "modifier": "LOG"
   }
+  viewCountPercentileLast30Days: optional int
+
+  /**
+   * Usage count in the last 30 days
+   */
   usageCountLast30Days: optional long
   
   /**
+   * Unique user count in the last 30 days
+   */
+  uniqueUserCountLast30Days: optional long
+
+  /**
+   * Write (insert/update) count in the last 30 days
+   */
+  writeCountLast30Days: optional long
+
+  /**
    * Percentile rank of the dataset based on the the last 30 days usage count on a platform
    */
-  queryCountPercentileLast30Days: optional long
+  @SearchScore = {
+    "modifier": "LOG"
+  }
+  queryCountPercentileLast30Days: optional int
   
   /**
    * Overall rank of the dataset based on the the last 30 days usage count on a platform
@@ -28,7 +59,10 @@ record UsageFeatures {
   /**
    * Percentile rank of the dataset based on the the last 30 days of select queries by unique users on a platform
    */
-  uniqueUserPercentileLast30Days: optional long
+  @SearchScore = {
+    "modifier": "LOG"
+  }
+  uniqueUserPercentileLast30Days: optional int
   
   /**
    * Overall rank of the dataset based on the the last 30 days of select queries by unique users on a platform
@@ -39,7 +73,10 @@ record UsageFeatures {
   /**
    * Percentile rank of the dataset based on the the last 30 days insert/update operation count on a platform
    */
-  writeCountPercentileLast30Days: optional long
+  @SearchScore = {
+    "modifier": "LOG"
+  }
+  writeCountPercentileLast30Days: optional int
   
   /**
    * Overall rank of the dataset based on the the last 30 days insert/update operation count on a platform
@@ -48,7 +85,8 @@ record UsageFeatures {
   writeCountRankLast30Days: optional long
 
   /**
-   * Ranked list of the top 10 users in past 30 days
+   * Ranked list of the top 10 users in past 30 days. 
+   * It is ranked by highest usage descending.
    */
-  topUsers: optional array[Urn]
+  topUsersLast30Days: optional array[Urn]
 }
