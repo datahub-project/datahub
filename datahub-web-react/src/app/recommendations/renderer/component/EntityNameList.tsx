@@ -46,10 +46,9 @@ const ListItem = styled.div`
 `;
 
 const CheckBoxGroup = styled(Checkbox.Group)`
+    flex: 1;
     width: 100%;
     background-color: rgb(255, 255, 255);
-    margin-top: -1px;
-    flex: 1;
     padding-right: 32px;
     padding-left: 32px;
     padding-top: 8px;
