@@ -60,6 +60,7 @@ framework_common = {
     "types-Deprecated",
     "humanfriendly",
     "packaging",
+    "aiohttp<4"
 }
 
 kafka_common = {

@@ -163,7 +163,10 @@ def run(
         # in a SensitiveError to prevent detailed variable-level information from being logged.
         raise SensitiveError() from e
 
-    asyncio.run(run_func_check_upgrade(pipeline))
+    if hasattr(asyncio, "run"):
+        asyncio.run(run_func_check_upgrade(pipeline))
+    else:
+        sys.exit(run_pipeline_to_completion(pipeline))
 
 
 def get_runs_url(gms_host: str) -> str:
