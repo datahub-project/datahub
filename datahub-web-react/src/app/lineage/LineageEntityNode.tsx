@@ -260,7 +260,7 @@ export default function LineageEntityNode({
                             y={0}
                             height={iconHeight * (3 / 4)}
                             width={iconWidth * (3 / 4)}
-                            href={node.data.siblingPlatforms[0].properties?.logoUrl || ''}
+                            href={node.data.siblingPlatforms[0]?.properties?.logoUrl || ''}
                             clipPath="url(#clipPolygonTop)"
                         />
                         <image
@@ -269,7 +269,7 @@ export default function LineageEntityNode({
                             height={iconHeight * (3 / 4)}
                             width={iconWidth * (3 / 4)}
                             clipPath="url(#clipPolygon)"
-                            href={node.data.siblingPlatforms[1].properties?.logoUrl || ''}
+                            href={node.data.siblingPlatforms[1]?.properties?.logoUrl || ''}
                         />
                     </svg>
                 )}

@@ -59,12 +59,12 @@ export const EntityPreviewTag = ({
                         {(!!platformLogoUrl && !platformLogoUrls && (
                             <PlatformLogo preview={false} src={platformLogoUrl} alt="none" />
                         )) ||
-                            (!!platformLogoUrls && (
-                                <>
-                                    <PlatformLogo preview={false} src={platformLogoUrls[0] || ''} alt="none" />
-                                    <PlatformLogo preview={false} src={platformLogoUrls[1] || ''} alt="none" />
-                                </>
-                            )) ||
+                            (!!platformLogoUrls &&
+                                platformLogoUrls.slice(0, 2).map((platformLogoUrlsEntry) => (
+                                    <>
+                                        <PlatformLogo preview={false} src={platformLogoUrlsEntry || ''} alt="none" />
+                                    </>
+                                ))) ||
                             logoComponent}
                     </IconContainer>
                     <DisplayNameContainer>

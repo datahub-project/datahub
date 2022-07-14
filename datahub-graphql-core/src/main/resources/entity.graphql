@@ -2584,7 +2584,7 @@ type CustomPropertiesEntry {
     """
     The urn of the entity this property came from for tracking purposes e.g. when sibling nodes are merged together
     """
-    associatedUrn: String
+    associatedUrn: String!
 }
 
 """
@@ -3217,7 +3217,7 @@ type Owner {
     """
     Reference back to the owned urn for tracking purposes e.g. when sibling nodes are merged together
     """
-    associatedUrn: String
+    associatedUrn: String!
 }
 
 """
@@ -3333,7 +3333,7 @@ type TagAssociation {
     """
     Reference back to the tagged urn for tracking purposes e.g. when sibling nodes are merged together
     """
-    associatedUrn: String
+    associatedUrn: String!
 }
 
 """
@@ -3377,7 +3377,7 @@ type GlossaryTermAssociation {
     """
     Reference back to the associated urn for tracking purposes e.g. when sibling nodes are merged together
     """
-    associatedUrn: String
+    associatedUrn: String!
 }
 
 """
@@ -8038,7 +8038,7 @@ type DomainAssociation {
     """
     Reference back to the tagged urn for tracking purposes e.g. when sibling nodes are merged together
     """
-    associatedUrn: String
+    associatedUrn: String!
 }
 
 """
