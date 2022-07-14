@@ -89,7 +89,7 @@ class CSVEnricherReport(SourceReport):
 @support_status(SupportStatus.INCUBATING)
 class CSVEnricherSource(Source):
     """
-    This plugin is used to apply glossary terms, tags and owners at the entity level. It can also be used to apply tags
+    This plugin is used to apply glossary terms, tags, owners and domain at the entity level. It can also be used to apply tags
     and glossary terms at the column level. These values are read from a CSV file and can be used to either overwrite
     or append the above aspects to entities.
 
