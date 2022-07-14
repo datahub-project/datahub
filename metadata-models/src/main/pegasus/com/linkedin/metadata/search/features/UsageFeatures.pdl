@@ -15,6 +15,16 @@ record UsageFeatures {
   usageCountLast30Days: optional long
   
   /**
+   * Unique user count in the last 30 days
+   */
+  uniqueUserCountLast30Days: optional long
+
+  /**
+   * Write (insert/update) count in the last 30 days
+   */
+  writeCountLast30Days: optional long
+
+  /**
    * Percentile rank of the dataset based on the the last 30 days usage count on a platform
    */
   queryCountPercentileLast30Days: optional long
@@ -48,7 +58,8 @@ record UsageFeatures {
   writeCountRankLast30Days: optional long
 
   /**
-   * Ranked list of the top 10 users in past 30 days
+   * Ranked list of the top 10 users in past 30 days. 
+   * It is ranked by highest usage descending.
    */
-  topUsers: optional array[Urn]
+  topUsersLast30Days: optional array[Urn]
 }
