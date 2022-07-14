@@ -45,6 +45,13 @@ const ListItem = styled.div`
     padding-bottom: 8px;
 `;
 
+const CheckBoxGroup = styled(Checkbox.Group)`
+    width: 100%;
+    background-color: rgb(255, 255, 255);
+    margin-top: -1px;
+    flex: 1;
+`;
+
 const CheckboxItem = styled(Checkbox)`
     padding-right: 40px;
     padding-left: 40px;
@@ -99,18 +106,11 @@ export const EntityNameList = ({
     const onChange = (checkedValues: CheckboxValueType[]) => {
         setCheckedSearchResults?.(checkedValues);
     };
+
     return (
         <>
             {showSelectMode ? (
-                <Checkbox.Group
-                    style={{
-                        width: '100%',
-                        backgroundColor: 'rgb(255, 255, 255)',
-                        marginTop: '-1px',
-                        flex: '1',
-                    }}
-                    onChange={onChange}
-                >
+                <CheckBoxGroup onChange={onChange}>
                     {entities.map((entity, index) => {
                         const additionalProperties = additionalPropertiesList?.[index];
                         const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
@@ -148,7 +148,7 @@ export const EntityNameList = ({
                             </>
                         );
                     })}
-                </Checkbox.Group>
+                </CheckBoxGroup>
             ) : (
                 <StyledList
                     bordered
