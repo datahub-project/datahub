@@ -1,8 +1,6 @@
 import { Alert, Button, message, Space, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-// import YAML from 'yamljs';
-// import Form from '@rjsf/core';
 import { StepProps } from './types';
 import { getSourceConfigs, jsonToYaml, yamlToJson } from '../utils';
 import { YamlEditor } from './YamlEditor';
@@ -48,7 +46,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
 
     useEffect(() => {
         if (existingRecipeYaml) {
-            setStagedRecipeYml(existingRecipeYaml || '');
+            setStagedRecipeYml(existingRecipeYaml);
         }
     }, [existingRecipeYaml]);
 
@@ -74,7 +72,6 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
         let recipeJson;
         try {
             recipeJson = yamlToJson(stagedRecipeYml);
-            console.log('recipeJson', recipeJson);
         } catch (e) {
             message.warn('Found invalid YAML. Please check your recipe configuration.');
             return;
