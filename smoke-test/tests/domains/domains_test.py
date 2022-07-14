@@ -203,9 +203,11 @@ def test_set_unset_domain(frontend_session, ingest_cleanup_data):
             dataset(urn: $urn) {\n
               urn\n
               domain {\n
-                urn\n
-                properties{\n
-                  name\n
+                domain {\n
+                  urn\n
+                  properties{\n
+                    name\n
+                  }\n
                 }\n
               }\n
             }\n
