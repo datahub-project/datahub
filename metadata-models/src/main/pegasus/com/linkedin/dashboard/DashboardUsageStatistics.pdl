@@ -4,22 +4,23 @@ import com.linkedin.timeseries.TimeseriesAspectBase
 
 /**
  * Stats corresponding to dashboard's usage.
+ *
+ * If this aspect represents the latest snapshot of the statistics about a Dashboard, the eventGranularity field should be null. 
+ * If this aspect represents a bucketed window of usage statistics (e.g. over a day), then the eventGranularity field should be set accordingly. 
  */
- //To represent stats for a fixed time window, set eventGranularity field as per the time window.
- //To represent absolute stats at an instance, keep eventGranularity field empty.
 @Aspect = {
   "name": "dashboardUsageStatistics",
   "type": "timeseries",
 }
 record DashboardUsageStatistics includes TimeseriesAspectBase {
   /**
-   * Number of times dashboard has been viewed
+   * The total number of times dashboard has been viewed
    */
   @TimeseriesField = {}
   viewsCount: optional int
 
   /**
-   * Number of dashboard executions
+   * The total number of dashboard executions (refreshes / syncs) 
    */
   @TimeseriesField = {}
   executionsCount: optional int
@@ -33,24 +34,21 @@ record DashboardUsageStatistics includes TimeseriesAspectBase {
   /**
    * Users within this bucket, with frequency counts
    */
-  //Applicable only when eventGranularity is present
   @TimeseriesFieldCollection = {"key":"user"}
   userCounts: optional array[DashboardUserUsageCounts]
 
   /**
-   * Number of times dashboard has been favorited
+   * The total number of times that the dashboard has been favorited 
    */
-  //Not applicable when eventGranularity is present
   @TimeseriesField = {}
   favoritesCount: optional int
 
   /**
    * Last viewed at
+   * 
+   * This should not be set in cases where statistics are windowed. 
    */
-  //Not applicable when eventGranularity is present
   @TimeseriesField = {}
   lastViewedAt: optional long
-
-  //TODO - Number of queries executed for dashboard, top filters used for dashboard, etc
 
 }
