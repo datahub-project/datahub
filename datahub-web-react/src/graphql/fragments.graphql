@@ -8,6 +8,7 @@ fragment globalTagsFields on GlobalTags {
                 colorHex
             }
         }
+        associatedUrn
     }
 }
 
@@ -42,6 +43,7 @@ fragment glossaryTerms on GlossaryTerms {
         actor {
             urn
         }
+        associatedUrn
     }
 }
 
@@ -150,6 +152,7 @@ fragment ownershipFields on Ownership {
             }
         }
         type
+        associatedUrn
     }
     lastModified {
         time
@@ -808,11 +811,14 @@ fragment entityContainer on Container {
     }
 }
 
-fragment entityDomain on Domain {
-    urn
-    properties {
-        name
+fragment entityDomain on DomainAssociation {
+    domain {
+        urn
+        properties {
+            name
+        }
     }
+    associatedUrn
 }
 
 fragment incidentsFields on EntityIncidentsResult {

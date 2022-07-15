@@ -157,7 +157,7 @@ export const EntityHeader = ({ refreshBrowser, headerDropdownItems, isNameEditab
     const canEditName = isNameEditable && getCanEditName(entityType, me?.platformPrivileges as PlatformPrivileges);
 
     return (
-        <HeaderContainer>
+        <HeaderContainer data-testid="entity-header-test-id">
             <MainHeaderContent>
                 <PlatformContent />
                 <TitleWrapper>

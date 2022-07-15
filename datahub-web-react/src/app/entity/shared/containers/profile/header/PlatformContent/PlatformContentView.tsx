@@ -128,12 +128,12 @@ function PlatformContentView(props: Props) {
                     {!!platformLogoUrl && !platformLogoUrls && (
                         <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />
                     )}
-                    {!!platformLogoUrls && (
-                        <>
-                            <PreviewImage preview={false} src={platformLogoUrls[0] || ''} alt={platformName} />
-                            <PreviewImage preview={false} src={platformLogoUrls[1] || ''} alt={platformName} />
-                        </>
-                    )}
+                    {!!platformLogoUrls &&
+                        platformLogoUrls.slice(0, 2).map((platformLogoUrlsEntry) => (
+                            <>
+                                <PreviewImage preview={false} src={platformLogoUrlsEntry || ''} alt={platformName} />
+                            </>
+                        ))}
                 </LogoIcon>
             )}
             <PlatformText>

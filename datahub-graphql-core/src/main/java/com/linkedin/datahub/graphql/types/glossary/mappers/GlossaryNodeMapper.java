@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.glossary.mappers;
 
 import com.linkedin.common.Ownership;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
@@ -30,6 +31,7 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
     GlossaryNode result = new GlossaryNode();
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.GLOSSARY_NODE);
+    Urn entityUrn = entityResponse.getUrn();
 
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<GlossaryNode> mappingHelper = new MappingHelper<>(aspectMap, result);
@@ -37,7 +39,7 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
         glossaryNode.setProperties(mapGlossaryNodeProperties(dataMap)));
     mappingHelper.mapToResult(GLOSSARY_NODE_KEY_ASPECT_NAME, this::mapGlossaryNodeKey);
     mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (glossaryNode, dataMap) ->
-        glossaryNode.setOwnership(OwnershipMapper.map(new Ownership(dataMap))));
+        glossaryNode.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
 
     return mappingHelper.getResult();
   }

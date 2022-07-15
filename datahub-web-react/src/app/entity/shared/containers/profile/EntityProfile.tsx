@@ -25,6 +25,7 @@ import { EntityMenuItems } from '../../EntityDropdown/EntityDropdown';
 import GlossaryBrowser from '../../../../glossary/GlossaryBrowser/GlossaryBrowser';
 import GlossarySearch from '../../../../glossary/GlossarySearch';
 import { BrowserWrapper, MAX_BROWSER_WIDTH, MIN_BROWSWER_WIDTH } from '../../../../glossary/BusinessGlossaryPage';
+import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../siblingUtils';
 
 type Props<T, U> = {
     urn: string;
@@ -138,6 +139,7 @@ export const EntityProfile = <T, U>({
     isNameEditable,
 }: Props<T, U>): JSX.Element => {
     const isLineageMode = useIsLineageMode();
+    const isHideSiblingMode = useIsSeparateSiblingsMode();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const isCompact = React.useContext(CompactContext);
@@ -172,9 +174,11 @@ export const EntityProfile = <T, U>({
                 entityUrn: urn,
                 section: tabName.toLowerCase(),
             });
-            history[method](getEntityPath(entityType, urn, entityRegistry, false, tabName, tabParams));
+            history[method](
+                getEntityPath(entityType, urn, entityRegistry, false, isHideSiblingMode, tabName, tabParams),
+            );
         },
-        [history, entityType, urn, entityRegistry],
+        [history, entityType, urn, entityRegistry, isHideSiblingMode],
     );
 
     const {
@@ -186,7 +190,9 @@ export const EntityProfile = <T, U>({
         variables: { urn },
     });
 
-    const dataCombinedWithSiblings = combineEntityDataWithSiblings(dataNotCombinedWithSiblings);
+    const dataPossiblyCombinedWithSiblings = isHideSiblingMode
+        ? dataNotCombinedWithSiblings
+        : combineEntityDataWithSiblings(dataNotCombinedWithSiblings);
 
     const maybeUpdateEntity = useUpdateQuery?.({
         onCompleted: () => refetch(),
@@ -197,12 +203,13 @@ export const EntityProfile = <T, U>({
     }
 
     const entityData =
-        (dataCombinedWithSiblings &&
-            Object.keys(dataCombinedWithSiblings).length > 0 &&
+        (dataPossiblyCombinedWithSiblings &&
+            Object.keys(dataPossiblyCombinedWithSiblings).length > 0 &&
             getDataForEntityType({
-                data: dataCombinedWithSiblings[Object.keys(dataCombinedWithSiblings)[0]],
+                data: dataPossiblyCombinedWithSiblings[Object.keys(dataPossiblyCombinedWithSiblings)[0]],
                 entityType,
                 getOverrideProperties,
+                isHideSiblingMode,
             })) ||
         null;
 
@@ -233,7 +240,8 @@ export const EntityProfile = <T, U>({
                     urn,
                     entityType,
                     entityData,
-                    baseEntity: dataCombinedWithSiblings,
+                    baseEntity: dataPossiblyCombinedWithSiblings,
+                    dataNotCombinedWithSiblings,
                     updateEntity,
                     routeToTab,
                     refetch,
@@ -267,7 +275,8 @@ export const EntityProfile = <T, U>({
                 urn,
                 entityType,
                 entityData,
-                baseEntity: dataCombinedWithSiblings,
+                baseEntity: dataPossiblyCombinedWithSiblings,
+                dataNotCombinedWithSiblings,
                 updateEntity,
                 routeToTab,
                 refetch,

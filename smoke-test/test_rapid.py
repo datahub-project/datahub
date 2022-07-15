@@ -2,9 +2,8 @@ import time
 
 import pytest
 import requests
-from datahub.cli.docker import check_local_docker_containers
 
-from tests.utils import get_frontend_url, ingest_file_via_rest
+from tests.utils import get_frontend_url, ingest_file_via_rest, wait_for_healthcheck_util
 
 bootstrap_small = "test_resources/bootstrap_single.json"
 bootstrap_small_2 = "test_resources/bootstrap_single2.json"

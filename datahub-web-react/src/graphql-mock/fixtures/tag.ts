@@ -34,6 +34,7 @@ export const createTag = ({ name, urn, description }: TagUpdateInput): Tag => {
                 {
                     owner: user,
                     type: OwnershipType.Dataowner,
+                    associatedUrn: urn,
                     __typename: 'Owner',
                 },
             ],
