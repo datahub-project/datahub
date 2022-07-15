@@ -11,12 +11,12 @@ from typing import Any, Callable, Dict, Optional, TypeVar
 from mixpanel import Consumer, Mixpanel
 
 import datahub as datahub_package
-from datahub.cli.cli_utils import get_datahub_folder
+from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
 from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
 
-DATAHUB_FOLDER = Path(get_datahub_folder())
+DATAHUB_FOLDER = Path(DATAHUB_ROOT_FOLDER)
 
 CONFIG_FILE = DATAHUB_FOLDER / "telemetry-config.json"
 

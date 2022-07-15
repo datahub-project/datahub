@@ -15,7 +15,7 @@ import click
 import pydantic
 import requests
 
-from datahub.cli.cli_utils import get_datahub_folder
+from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
     check_local_docker_containers,
     get_client_with_error,
@@ -161,8 +161,7 @@ def _set_environment_variables(
 
 
 def _get_default_quickstart_compose_file() -> Optional[str]:
-    datahub_folder = get_datahub_folder()
-    quickstart_folder = Path(datahub_folder) / "quickstart"
+    quickstart_folder = Path(DATAHUB_ROOT_FOLDER) / "quickstart"
     try:
         os.makedirs(quickstart_folder, exist_ok=True)
         return f"{quickstart_folder}/docker-compose.yml"
