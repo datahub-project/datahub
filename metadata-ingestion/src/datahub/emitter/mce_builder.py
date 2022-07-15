@@ -15,6 +15,7 @@ from datahub.configuration.source_common import DEFAULT_ENV as DEFAULT_ENV_CONFI
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.metadata.com.linkedin.pegasus2avro.common import GlossaryTerms
 from datahub.metadata.schema_classes import (
+    AssertionKeyClass,
     AuditStampClass,
     ContainerKeyClass,
     DatasetKeyClass,
@@ -146,6 +147,14 @@ def container_urn_to_key(guid: str) -> Optional[ContainerKeyClass]:
     return None
 
 
+def assertion_urn_to_key(guid: str) -> Optional[AssertionKeyClass]:
+    pattern = r"urn:li:assertion:(.*)"
+    results = re.search(pattern, guid)
+    if results is not None:
+        return AssertionKeyClass(assertionId=results[1])
+    return None
+
+
 def datahub_guid(obj: dict) -> str:
     obj_str = json.dumps(
         pre_json_transform(obj), separators=(",", ":"), sort_keys=True
@@ -216,7 +225,6 @@ def make_domain_urn(domain: str) -> str:
 
 
 def make_ml_primary_key_urn(feature_table_name: str, primary_key_name: str) -> str:
-
     return f"urn:li:mlPrimaryKey:({feature_table_name},{primary_key_name})"
 
 
@@ -224,7 +232,6 @@ def make_ml_feature_urn(
     feature_table_name: str,
     feature_name: str,
 ) -> str:
-
     return f"urn:li:mlFeature:({feature_table_name},{feature_name})"
 
 

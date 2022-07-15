@@ -3,6 +3,7 @@ from typing import Iterable, List
 import pydantic
 
 from datahub.emitter.mce_builder import (
+    assertion_urn_to_key,
     container_urn_to_key,
     dataset_urn_to_key,
     make_container_urn,
@@ -21,6 +22,7 @@ class BaseSQLAlchemyCheckpointState(CheckpointStateBase):
     encoded_table_urns: List[str] = pydantic.Field(default_factory=list)
     encoded_view_urns: List[str] = pydantic.Field(default_factory=list)
     encoded_container_urns: List[str] = pydantic.Field(default_factory=list)
+    encoded_assertion_urns: List[str] = pydantic.Field(default_factory=list)
 
     @staticmethod
     def _get_separator() -> str:
@@ -41,6 +43,13 @@ class BaseSQLAlchemyCheckpointState(CheckpointStateBase):
         key = container_urn_to_key(container_urn)
         assert key is not None
         return f"{key.guid}"
+
+    @staticmethod
+    def _get_assertion_lightweight_repr(assertion_urn: str) -> str:
+        """Reduces the amount of text in the URNs for smaller state footprint."""
+        key = assertion_urn_to_key(assertion_urn)
+        assert key is not None
+        return f"{key.assertionId}"
 
     @staticmethod
     def _get_dataset_urns_not_in(
@@ -87,6 +96,11 @@ class BaseSQLAlchemyCheckpointState(CheckpointStateBase):
 
     def add_view_urn(self, view_urn: str) -> None:
         self.encoded_view_urns.append(self._get_lightweight_repr(view_urn))
+
+    def add_assertion_urn(self, assertion_urn: str) -> None:
+        self.encoded_assertion_urns.append(
+            self._get_assertion_lightweight_repr(assertion_urn)
+        )
 
     def add_container_guid(self, container_urn: str) -> None:
         self.encoded_container_urns.append(

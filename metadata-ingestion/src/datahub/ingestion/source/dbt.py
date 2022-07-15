@@ -1135,7 +1135,7 @@ class DBTSource(StatefulIngestionSourceBase):
                     }
                 )
             )
-            self.save_checkpoint(node_datahub_urn)
+            self.save_checkpoint(node_datahub_urn, "assertion")
 
             dpi_mcp = MetadataChangeProposalWrapper(
                 entityType="assertion",
@@ -1435,7 +1435,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 self.config.env,
                 mce_platform_instance,
             )
-            self.save_checkpoint(node_datahub_urn)
+            self.save_checkpoint(node_datahub_urn, "dataset")
 
             meta_aspects: Dict[str, Any] = {}
             if self.config.enable_meta_mapping and node.meta:
@@ -1511,7 +1511,7 @@ class DBTSource(StatefulIngestionSourceBase):
             self.report.report_workunit(wu)
             yield wu
 
-    def save_checkpoint(self, node_datahub_urn: str) -> None:
+    def save_checkpoint(self, node_datahub_urn: str, entity_type: str) -> None:
         if self.is_stateful_ingestion_configured():
             cur_checkpoint = self.get_current_checkpoint(
                 self.get_default_ingestion_job_id()
@@ -1522,7 +1522,14 @@ class DBTSource(StatefulIngestionSourceBase):
                 checkpoint_state = cast(
                     BaseSQLAlchemyCheckpointState, cur_checkpoint.state
                 )
-                checkpoint_state.add_table_urn(node_datahub_urn)
+                if entity_type == "dataset":
+                    checkpoint_state.add_table_urn(node_datahub_urn)
+                elif entity_type == "assertion":
+                    checkpoint_state.add_assertion_urn(node_datahub_urn)
+                else:
+                    logger.error(
+                        f"Can not save Unknown entity {entity_type} to checkpoint."
+                    )
 
     def extract_query_tag_aspects(
         self,
