@@ -13,6 +13,7 @@ import { SidebarAboutSection } from '../shared/containers/profile/sidebar/Sideba
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { DashboardChartsTab } from '../shared/tabs/Entity/DashboardChartsTab';
+import { DashboardDatasetsTab } from '../shared/tabs/Entity/DashboardDatasetsTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { GenericEntityProperties } from '../shared/types';
 import { DashboardPreview } from './preview/DashboardPreview';
@@ -100,8 +101,18 @@ export class DashboardEntity implements Entity<Dashboard> {
                     name: 'Charts',
                     component: DashboardChartsTab,
                     display: {
-                        visible: (_, _1) => true,
+                        visible: (_, dashboard: GetDashboardQuery) =>
+                            (dashboard?.dashboard?.charts?.total || 0) > 0 ||
+                            (dashboard?.dashboard?.datasets?.total || 0) === 0,
                         enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.charts?.total || 0) > 0,
+                    },
+                },
+                {
+                    name: 'Datasets',
+                    component: DashboardDatasetsTab,
+                    display: {
+                        visible: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.datasets?.total || 0) > 0,
+                        enabled: (_, dashboard: GetDashboardQuery) => (dashboard?.dashboard?.datasets?.total || 0) > 0,
                     },
                 },
             ]}
@@ -151,7 +162,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 owners={data.ownership?.owners}
                 glossaryTerms={data?.glossaryTerms}
                 logoUrl={data?.platform?.properties?.logoUrl}
-                domain={data.domain}
+                domain={data.domain?.domain}
                 container={data.container}
             />
         );
@@ -172,7 +183,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 glossaryTerms={data?.glossaryTerms}
                 insights={result.insights}
                 logoUrl={data?.platform?.properties?.logoUrl || ''}
-                domain={data.domain}
+                domain={data.domain?.domain}
                 container={data.container}
                 parentContainers={data.parentContainers}
             />

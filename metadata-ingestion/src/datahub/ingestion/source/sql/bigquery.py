@@ -342,6 +342,10 @@ class BigQuerySource(SQLAlchemySource):
     def get_multiproject_project_id(
         self, inspector: Optional[Inspector] = None, run_on_compute: bool = False
     ) -> Optional[str]:
+        """
+        Use run_on_compute = true when running queries on storage project
+        where you don't have job create rights
+        """
         if self.config.storage_project_id and (not run_on_compute):
             return self.config.storage_project_id
         elif self.config.project_id:
@@ -353,6 +357,11 @@ class BigQuerySource(SQLAlchemySource):
                 return None
 
     def get_db_name(self, inspector: Inspector) -> str:
+        """
+        DO NOT USE this to get project name when running queries.
+            That can cause problems with multi-project setups.
+            Use get_multiproject_project_id with run_on_compute = True
+        """
         db_name = self.get_multiproject_project_id(inspector)
         # db name can't be empty here as we pass in inpector to get_multiproject_project_id
         assert db_name
@@ -458,8 +467,11 @@ class BigQuerySource(SQLAlchemySource):
         profile_clause = c if c == "" else f" WHERE {c}"[:-4]
         if profile_clause == "":
             return None
-        project_id = self.get_db_name(inspector)
-        _client: BigQueryClient = BigQueryClient(project=project_id)
+        storage_project_id = self.get_multiproject_project_id(inspector)
+        exec_project_id = self.get_multiproject_project_id(
+            inspector, run_on_compute=True
+        )
+        _client: BigQueryClient = BigQueryClient(project=exec_project_id)
         # Reading all tables' metadata to report
         base_query = (
             f"SELECT "
@@ -467,7 +479,7 @@ class BigQuerySource(SQLAlchemySource):
             f"size_bytes, "
             f"last_modified_time, "
             f"row_count, "
-            f"FROM {schema}.__TABLES__"
+            f"FROM {storage_project_id}.{schema}.__TABLES__"
         )
         all_tables = _client.query(base_query)
         report_tables: List[str] = [
@@ -490,7 +502,7 @@ class BigQuerySource(SQLAlchemySource):
             f"size_bytes, "
             f"last_modified_time, "
             f"row_count, "
-            f"FROM {schema}.__TABLES__"
+            f"FROM {storage_project_id}.{schema}.__TABLES__"
             f"{profile_clause}"
         )
         logger.debug(f"Profiling via {query}")
@@ -868,17 +880,29 @@ class BigQuerySource(SQLAlchemySource):
         partitioned table.
         See more about partitioned tables at https://cloud.google.com/bigquery/docs/partitioned-tables
         """
-
+        logger.debug(
+            f"generate partition profiler query for schema: {schema} and table {table}, partition_datetime: {partition_datetime}"
+        )
         partition = self.get_latest_partition(schema, table)
         if partition:
             partition_where_clause: str
             logger.debug(f"{table} is partitioned and partition column is {partition}")
-            (
-                partition_datetime,
-                upper_bound_partition_datetime,
-            ) = get_partition_range_from_partition_id(
-                partition.partition_id, partition_datetime
-            )
+            try:
+                (
+                    partition_datetime,
+                    upper_bound_partition_datetime,
+                ) = get_partition_range_from_partition_id(
+                    partition.partition_id, partition_datetime
+                )
+            except ValueError as e:
+                logger.error(
+                    f"Unable to get partition range for partition id: {partition.partition_id} it failed with exception {e}"
+                )
+                self.report.invalid_partition_ids[
+                    f"{schema}.{table}"
+                ] = partition.partition_id
+                return None, None
+
             if partition.data_type in ("TIMESTAMP", "DATETIME"):
                 partition_where_clause = "{column_name} BETWEEN '{partition_id}' AND '{upper_bound_partition_id}'".format(
                     column_name=partition.column_name,

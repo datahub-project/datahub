@@ -192,6 +192,10 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {
         "apache-airflow >= 1.10.2",
     },
+    "circuit-breaker": {
+        "gql>=3.3.0",
+        "gql[requests]>=3.3.0",
+    },
     "great-expectations": sql_common | {"sqllineage==1.3.5"},
     # Source plugins
     # PyAthena is pinned with exact version because we use private method in PyAthena
@@ -422,6 +426,7 @@ full_test_dev_requirements = {
     *list(
         dependency
         for plugin in [
+            "circuit-breaker",
             "clickhouse",
             "druid",
             "feast-legacy",

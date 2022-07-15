@@ -147,7 +147,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 platformLogo={data?.dataFlow?.platform?.properties?.logoUrl || ''}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags || null}
-                domain={data.domain}
+                domain={data.domain?.domain}
             />
         );
     };
@@ -164,7 +164,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
-                domain={data.domain}
+                domain={data.domain?.domain}
                 insights={result.insights}
             />
         );

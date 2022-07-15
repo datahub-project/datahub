@@ -12,7 +12,7 @@ import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
 import QueriesTab from '../shared/tabs/Dataset/Queries/QueriesTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarA<>boutSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import { SidebarStatsSection } from '../shared/containers/profile/sidebar/Dataset/StatsSidebarSection';
@@ -28,7 +28,7 @@ import { ValidationsTab } from '../shared/tabs/Dataset/Validations/ValidationsTa
 import { OperationsTab } from './profile/OperationsTab';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
-// import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
+import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -198,6 +198,13 @@ export class DatasetEntity implements Entity<Dataset> {
                 //     },
                 // },
                 {
+                    component: SidebarSiblingsSection,
+                    display: {
+                        visible: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.siblings?.siblings?.length || 0) > 0,
+                    },
+                },
+                {
                     component: SidebarViewDefinitionSection,
                     display: {
                         visible: (_, dataset: GetDatasetQuery) =>
@@ -264,7 +271,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 glossaryTerms={data.glossaryTerms}
-                domain={data.domain}
+                domain={data.domain?.domain}
                 container={data.container}
             />
         );
@@ -288,7 +295,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 platformLogos={genericProperties?.siblingPlatforms?.map((platform) => platform.properties?.logoUrl)}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
-                domain={data.domain}
+                domain={data.domain?.domain}
                 glossaryTerms={data.glossaryTerms}
                 subtype={data.subTypes?.typeNames?.[0]}
                 container={data.container}

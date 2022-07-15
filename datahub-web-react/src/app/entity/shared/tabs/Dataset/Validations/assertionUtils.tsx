@@ -12,10 +12,10 @@ import {
  * Utility methods
  */
 export const sortAssertions = (a, b) => {
-    if (!a.runEvents?.runEvents.length) {
+    if (!a.runEvents?.runEvents?.length) {
         return 1;
     }
-    if (!b.runEvents?.runEvents.length) {
+    if (!b.runEvents?.runEvents?.length) {
         return -1;
     }
     return b.runEvents.runEvents[0].timestampMillis - a.runEvents.runEvents[0].timestampMillis;

@@ -668,6 +668,11 @@ input LineageInput {
     The number of results to be returned
     """
     count: Int
+
+    """
+    Optional flag to not merge siblings in the response. They are merged by default.
+    """
+    separateSiblings: Boolean
 }
 
 """
@@ -959,7 +964,7 @@ type Dataset implements EntityWithRelationships & Entity {
     """
     The Domain associated with the Dataset
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     Statistics about how this Dataset is used
@@ -1198,7 +1203,7 @@ type VersionedDataset implements Entity {
     """
     The Domain associated with the Dataset
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     Experimental! The resolved health status of the Dataset
@@ -1339,7 +1344,7 @@ type DatasetProperties {
     """
     Custom properties of the Dataset
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     External URL associated with the Dataset
@@ -1453,7 +1458,7 @@ type GlossaryTermInfo {
     """
     Properties of the glossary term
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     Schema definition of glossary term
@@ -1498,7 +1503,7 @@ type GlossaryTermProperties {
     """
     Properties of the glossary term
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     Schema definition of glossary term
@@ -1869,7 +1874,7 @@ type Container implements Entity {
     """
     The Domain associated with the Dataset
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     Incidents associated with the Dataset
@@ -1926,7 +1931,7 @@ type ContainerProperties {
   """
   Custom properties of the Container
   """
-  customProperties: [StringMapEntry!]
+  customProperties: [CustomPropertiesEntry!]
 
   """
   Native platform URL of the Container
@@ -2641,6 +2646,26 @@ type StringMapEntry {
 }
 
 """
+An entry in a custom properties map represented as a tuple
+"""
+type CustomPropertiesEntry {
+    """
+    The key of the map entry
+    """
+    key: String!
+
+    """
+    The value fo the map entry
+    """
+    value: String
+
+    """
+    The urn of the entity this property came from for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
+}
+
+"""
 The origin of Ownership metadata associated with a Metadata Entity
 """
 enum OwnershipSourceType {
@@ -3266,6 +3291,11 @@ type Owner {
     Source information for the ownership
     """
     source: OwnershipSource
+
+    """
+    Reference back to the owned urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """
@@ -3377,6 +3407,11 @@ type TagAssociation {
     The tag itself
     """
     tag: Tag!
+
+    """
+    Reference back to the tagged urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """
@@ -3421,6 +3456,11 @@ type GlossaryTermAssociation {
     The actor who is responsible for the term being added"
     """
     actor: CorpUser
+
+    """
+    Reference back to the associated urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """
@@ -3890,7 +3930,7 @@ type Notebook implements Entity {
     """
     The Domain associated with the Notebook
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     The specific instance of the data platform that this entity belongs to
@@ -4147,7 +4187,7 @@ type Dashboard implements EntityWithRelationships & Entity {
     """
     The Domain associated with the Dashboard
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     The specific instance of the data platform that this entity belongs to
@@ -4223,7 +4263,7 @@ type DashboardInfo {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     The time when this dashboard last refreshed
@@ -4268,7 +4308,7 @@ type NotebookInfo {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     Captures information about who created/last modified/deleted this Notebook and when
@@ -4304,7 +4344,7 @@ type DashboardProperties {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     The time when this dashboard last refreshed
@@ -4410,7 +4450,7 @@ type Chart implements EntityWithRelationships & Entity {
     """
     The Domain associated with the Chart
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     The specific instance of the data platform that this entity belongs to
@@ -4490,7 +4530,7 @@ type ChartInfo {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     The time when this chart last refreshed
@@ -4545,7 +4585,7 @@ type ChartProperties {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     The time when this chart last refreshed
@@ -4747,7 +4787,7 @@ type DataFlow implements EntityWithRelationships & Entity {
     """
     The Domain associated with the DataFlow
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     The specific instance of the data platform that this entity belongs to
@@ -4833,7 +4873,7 @@ type DataFlowInfo {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -4863,7 +4903,7 @@ type DataFlowProperties {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -4940,7 +4980,7 @@ type DataJob implements EntityWithRelationships & Entity {
     """
     The Domain associated with the Data Job
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     Incidents associated with the Data Job
@@ -5140,7 +5180,7 @@ type DataJobInfo {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -5165,7 +5205,7 @@ type DataJobProperties {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -7321,7 +7361,7 @@ type MLModel implements EntityWithRelationships & Entity {
     """
     The Domain associated with the entity
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     An additional set of of read write properties
@@ -7412,7 +7452,7 @@ type MLModelGroup implements EntityWithRelationships & Entity {
     """
     The Domain associated with the entity
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     An additional set of of read write properties
@@ -7521,7 +7561,7 @@ type MLFeature implements EntityWithRelationships & Entity {
     """
     The Domain associated with the entity
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     An additional set of of read write properties
@@ -7571,7 +7611,7 @@ type MLModelProperties {
 
     groups: [MLModelGroup]
 
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 type MLFeatureProperties {
@@ -7678,7 +7718,7 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     """
     The Domain associated with the entity
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     An additional set of of read write properties
@@ -7785,7 +7825,7 @@ type MLFeatureTable implements EntityWithRelationships & Entity {
     """
     The Domain associated with the entity
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     An additional set of of read write properties
@@ -7836,7 +7876,7 @@ description: String
 
     mlPrimaryKeys: [MLPrimaryKey]
 
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 type HyperParameterMap {
@@ -8120,6 +8160,18 @@ type SubTypes {
     The sub-types that this entity implements. e.g. Datasets that are views will implement the "view" subtype
    """
    typeNames: [String!]
+}
+
+type DomainAssociation {
+    """
+    The domain related to the assocaited urn
+    """
+    domain: Domain!
+
+    """
+    Reference back to the tagged urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """

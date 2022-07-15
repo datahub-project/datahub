@@ -59,6 +59,7 @@ export const datasetEntity = ({ platform, origin, path }: DatasetEntityArg): Dat
                 {
                     owner: datahubUser,
                     type: OwnershipType.Dataowner,
+                    associatedUrn: `urn:li:dataset:(${platformURN},${name},${origin.toUpperCase()})`,
                     __typename: 'Owner',
                 },
             ],
