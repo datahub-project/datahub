@@ -60,7 +60,8 @@ public class ESUtils {
       log.warn("Received query Filter with a deprecated field 'criteria'. Use 'or' instead.");
       final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
       filter.getCriteria().forEach(criterion -> {
-        if (!criterion.getValue().trim().isEmpty() || criterion.hasValues()) {
+        if (!criterion.getValue().trim().isEmpty() || criterion.hasValues()
+                || criterion.getCondition() == Condition.IS_NULL) {
           andQueryBuilder.must(getQueryBuilderFromCriterion(criterion));
         }
       });
@@ -73,7 +74,8 @@ public class ESUtils {
   public static BoolQueryBuilder buildConjunctiveFilterQuery(@Nonnull ConjunctiveCriterion conjunctiveCriterion) {
     final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
     conjunctiveCriterion.getAnd().forEach(criterion -> {
-      if (!criterion.getValue().trim().isEmpty() || criterion.hasValues()) {
+      if (!criterion.getValue().trim().isEmpty() || criterion.hasValues()
+              || criterion.getCondition() == Condition.IS_NULL) {
         andQueryBuilder.must(getQueryBuilderFromCriterion(criterion));
       }
     });
@@ -120,6 +122,8 @@ public class ESUtils {
       Arrays.stream(criterion.getValue().trim().split("\\s*,\\s*"))
           .forEach(elem -> filters.should(QueryBuilders.matchQuery(criterion.getField(), elem)));
       return filters;
+    } else if (condition == Condition.IS_NULL) {
+      return QueryBuilders.boolQuery().mustNot(QueryBuilders.existsQuery(criterion.getField()));
     } else if (condition == Condition.GREATER_THAN) {
       return QueryBuilders.rangeQuery(criterion.getField()).gt(criterion.getValue().trim());
     } else if (condition == Condition.GREATER_THAN_OR_EQUAL_TO) {

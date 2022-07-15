@@ -124,6 +124,9 @@ clean {
   delete 'tmp'
   delete 'build'
   delete 'just'
+  delete fileTree(dir: 'genDocs', exclude: '.gitignore')
+  delete fileTree(dir: 'docs', exclude: '.gitignore')
+  delete 'graphql/combined.graphql'
   yarnClear
 }
 

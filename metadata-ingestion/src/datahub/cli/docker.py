@@ -8,12 +8,14 @@ import subprocess
 import sys
 import tempfile
 import time
+from pathlib import Path
 from typing import List, NoReturn, Optional
 
 import click
 import pydantic
 import requests
 
+from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
     check_local_docker_containers,
     get_client_with_error,
@@ -159,16 +161,12 @@ def _set_environment_variables(
 
 
 def _get_default_quickstart_compose_file() -> Optional[str]:
-    home = os.environ["HOME"]
-    if home:
-        try:
-            os.makedirs(f"{home}/.datahub/quickstart", exist_ok=True)
-            return f"{home}/.datahub/quickstart/docker-compose.yml"
-        except Exception as e:
-            logger.debug(
-                f"Failed to identify a default quickstart compose file due to {e}"
-            )
-
+    quickstart_folder = Path(DATAHUB_ROOT_FOLDER) / "quickstart"
+    try:
+        os.makedirs(quickstart_folder, exist_ok=True)
+        return f"{quickstart_folder}/docker-compose.yml"
+    except Exception as e:
+        logger.debug(f"Failed to identify a default quickstart compose file due to {e}")
     return None
 
 

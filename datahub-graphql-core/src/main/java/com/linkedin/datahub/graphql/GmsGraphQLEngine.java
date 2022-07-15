@@ -31,6 +31,7 @@ import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserInfo;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
+import com.linkedin.datahub.graphql.generated.DashboardUserUsageCounts;
 import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
@@ -90,6 +91,7 @@ import com.linkedin.datahub.graphql.resolvers.constraint.ConstraintsResolver;
 import com.linkedin.datahub.graphql.resolvers.constraint.CreateTermConstraintResolver;
 import com.linkedin.datahub.graphql.resolvers.container.ContainerEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.container.ParentContainersResolver;
+import com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageStatsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetHealthResolver;
 import com.linkedin.datahub.graphql.resolvers.deprecation.UpdateDeprecationResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.CreateDomainResolver;
@@ -1131,12 +1133,18 @@ public class GmsGraphQLEngine {
                 })
             )
             .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
+            .dataFetcher("usageStats", new DashboardUsageStatsResolver(timeseriesAspectService))
         );
         builder.type("DashboardInfo", typeWiring -> typeWiring
             .dataFetcher("charts", new LoadableTypeBatchResolver<>(chartType,
                 (env) -> ((DashboardInfo) env.getSource()).getCharts().stream()
                     .map(Chart::getUrn)
                     .collect(Collectors.toList())))
+        );
+        builder.type("DashboardUserUsageCounts", typeWiring -> typeWiring
+            .dataFetcher("user", new LoadableTypeResolver<>(
+                corpUserType,
+                (env) -> ((DashboardUserUsageCounts) env.getSource()).getUser().getUrn()))
         );
     }
 

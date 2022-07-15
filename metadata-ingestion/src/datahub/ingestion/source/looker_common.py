@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 from dataclasses import dataclass
@@ -8,6 +9,7 @@ import pydantic
 from looker_sdk.error import SDKError
 from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api31.methods import Looker31SDK
+from looker_sdk.sdk.api31.models import WriteQuery
 from pydantic import BaseModel, Field
 from pydantic.class_validators import validator
 
@@ -456,6 +458,42 @@ class LookerUtil:
     def _display_name(name: str) -> str:
         """Returns a display name that corresponds to the Looker conventions"""
         return name.replace("_", " ").title() if name else name
+
+    @staticmethod
+    def create_query_request(q: dict, limit: Optional[str] = None) -> WriteQuery:
+        return WriteQuery(
+            model=q["model"],
+            view=q["view"],
+            fields=q.get("fields"),
+            filters=q.get("filters"),
+            filter_expression=q.get("filter_expressions"),
+            sorts=q.get("sorts"),
+            limit=q.get("limit") or limit,
+            column_limit=q.get("column_limit"),
+            vis_config={"type": "looker_column"},
+            filter_config=q.get("filter_config"),
+            query_timezone="UTC",
+        )
+
+    @staticmethod
+    def run_inline_query(client: Looker31SDK, q: dict) -> List:
+
+        response_sql = client.run_inline_query(
+            result_format="sql",
+            body=LookerUtil.create_query_request(q),
+        )
+        logger.debug("=================Query=================")
+        logger.debug(response_sql)
+
+        response_json = client.run_inline_query(
+            result_format="json",
+            body=LookerUtil.create_query_request(q),
+        )
+
+        logger.debug("=================Response=================")
+        data = json.loads(response_json)
+        logger.debug(f"length {len(data)}")
+        return data
 
 
 @dataclass
