@@ -121,7 +121,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 platformLogo={data?.platform?.properties?.logoUrl || ''}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
-                domain={data.domain}
+                domain={data.domain?.domain}
             />
         );
     };
@@ -139,7 +139,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 insights={result.insights}
-                domain={data.domain}
+                domain={data.domain?.domain}
             />
         );
     };

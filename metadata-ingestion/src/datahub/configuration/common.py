@@ -105,11 +105,11 @@ class AllowDenyPattern(ConfigModel):
 
     allow: List[str] = Field(
         default=[".*"],
-        description="List of regex patterns for process groups to include in ingestion",
+        description="List of regex patterns to include in ingestion",
     )
     deny: List[str] = Field(
         default=[],
-        description="List of regex patterns for process groups to exclude from ingestion.",
+        description="List of regex patterns to exclude from ingestion.",
     )
     ignoreCase: Optional[bool] = Field(
         default=True,

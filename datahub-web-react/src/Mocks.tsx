@@ -67,6 +67,7 @@ const user1 = {
                         colorHex: 'sample tag color',
                     },
                 },
+                associatedUrn: 'urn:li:corpuser:1',
             },
         ],
     },
@@ -109,6 +110,7 @@ const user2 = {
                         colorHex: 'sample tag color',
                     },
                 },
+                associatedUrn: 'urn:li:corpuser:3',
             },
         ],
     },
@@ -152,9 +154,11 @@ export const dataset1 = {
         customProperties: [
             {
                 key: 'TestProperty',
+                associatedUrn: 'urn:li:dataset:1',
                 value: 'My property value.',
             },
             {
+                associatedUrn: 'urn:li:dataset:1',
                 key: 'AnotherTestProperty',
                 value: 'My other property value.',
             },
@@ -173,12 +177,14 @@ export const dataset1 = {
                 owner: {
                     ...user1,
                 },
+                associatedUrn: 'urn:li:dataset:1',
                 type: 'DATAOWNER',
             },
             {
                 owner: {
                     ...user2,
                 },
+                associatedUrn: 'urn:li:dataset:1',
                 type: 'DELEGATE',
             },
         ],
@@ -260,6 +266,7 @@ export const dataset2 = {
                 owner: {
                     ...user1,
                 },
+                associatedUrn: 'urn:li:dataset:2',
                 type: 'DATAOWNER',
             },
             {
@@ -267,6 +274,7 @@ export const dataset2 = {
                     ...user2,
                 },
                 type: 'DELEGATE',
+                associatedUrn: 'urn:li:dataset:2',
             },
         ],
         lastModified: {
@@ -327,7 +335,7 @@ export const dataset3 = {
         name: 'Yet Another Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
         origin: 'PROD',
-        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
+        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue', associatedUrn: 'urn:li:dataset:3' }],
         externalUrl: 'https://data.hub',
     },
     parentContainers: {
@@ -348,12 +356,14 @@ export const dataset3 = {
                     ...user1,
                 },
                 type: 'DATAOWNER',
+                associatedUrn: 'urn:li:dataset:3',
             },
             {
                 owner: {
                     ...user2,
                 },
                 type: 'DELEGATE',
+                associatedUrn: 'urn:li:dataset:3',
             },
         ],
         lastModified: {
@@ -375,6 +385,7 @@ export const dataset3 = {
                         colorHex: 'sample tag color',
                     },
                 },
+                associatedUrn: 'urn:li:dataset:3',
             },
         ],
     },
@@ -393,6 +404,7 @@ export const dataset3 = {
                         termSource: 'sample term source',
                     },
                 },
+                associatedUrn: 'urn:li:dataset:3',
             },
         ],
     },
@@ -535,7 +547,7 @@ export const dataset5 = {
         name: 'Fifth Test Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
         origin: 'PROD',
-        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
+        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue', associatedUrn: 'urn:li:dataset:5' }],
         externalUrl: 'https://data.hub',
     },
 };
@@ -549,7 +561,7 @@ export const dataset6 = {
         qualifiedName: 'Fully Qualified Name of Sixth Test Dataset',
         description: 'This and here we have yet another Dataset (YAN). Are there more?',
         origin: 'PROD',
-        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
+        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue', associatedUrn: 'urn:li:dataset:6' }],
         externalUrl: 'https://data.hub',
     },
 };
@@ -809,12 +821,14 @@ const glossaryTerm1 = {
                 owner: {
                     ...user1,
                 },
+                associatedUrn: 'urn:li:glossaryTerm:1',
                 type: 'DATAOWNER',
             },
             {
                 owner: {
                     ...user2,
                 },
+                associatedUrn: 'urn:li:glossaryTerm:1',
                 type: 'DELEGATE',
             },
         ],
@@ -859,7 +873,7 @@ const glossaryTerm2 = {
             {
                 key: 'keyProperty',
                 value: 'valueProperty',
-                __typename: 'StringMapEntry',
+                __typename: 'CustomPropertiesEntry',
             },
         ],
         __typename: 'GlossaryTermInfo',
@@ -876,7 +890,7 @@ const glossaryTerm2 = {
             {
                 key: 'keyProperty',
                 value: 'valueProperty',
-                __typename: 'StringMapEntry',
+                __typename: 'CustomPropertiesEntry',
             },
         ],
         __typename: 'GlossaryTermProperties',
@@ -931,7 +945,8 @@ const glossaryTerm3 = {
             {
                 key: 'keyProperty',
                 value: 'valueProperty',
-                __typename: 'StringMapEntry',
+                associatedUrn: 'urn:li:glossaryTerm:example.glossaryterm2',
+                __typename: 'CustomPropertiesEntry',
             },
         ],
         __typename: 'GlossaryTermInfo',
@@ -948,7 +963,8 @@ const glossaryTerm3 = {
             {
                 key: 'keyProperty',
                 value: 'valueProperty',
-                __typename: 'StringMapEntry',
+                associatedUrn: 'urn:li:glossaryTerm:example.glossaryterm2',
+                __typename: 'CustomPropertiesEntry',
             },
         ],
         __typename: 'GlossaryTermProperties',
@@ -1094,12 +1110,14 @@ export const dataFlow1 = {
                     ...user1,
                 },
                 type: 'DATAOWNER',
+                associatedUrn: 'urn:li:dataFlow:1',
             },
             {
                 owner: {
                     ...user2,
                 },
                 type: 'DELEGATE',
+                associatedUrn: 'urn:li:dataFlow:1',
             },
         ],
         lastModified: {
@@ -1120,6 +1138,7 @@ export const dataFlow1 = {
                         colorHex: 'sample tag color',
                     },
                 },
+                associatedUrn: 'urn:li:dataFlow:1',
             },
         ],
     },
@@ -1151,12 +1170,14 @@ export const dataJob1 = {
                 owner: {
                     ...user1,
                 },
+                associatedUrn: 'urn:li:dataJob:1',
                 type: 'DATAOWNER',
             },
             {
                 owner: {
                     ...user2,
                 },
+                associatedUrn: 'urn:li:dataJob:1',
                 type: 'DELEGATE',
             },
         ],
@@ -1191,6 +1212,7 @@ export const dataJob1 = {
                         colorHex: 'sample tag color',
                     },
                 },
+                associatedUrn: 'urn:li:dataJob:1',
             },
         ],
     },
@@ -1228,12 +1250,14 @@ export const dataJob2 = {
                 owner: {
                     ...user1,
                 },
+                associatedUrn: 'urn:li:dataJob:2',
                 type: 'DATAOWNER',
             },
             {
                 owner: {
                     ...user2,
                 },
+                associatedUrn: 'urn:li:dataJob:2',
                 type: 'DELEGATE',
             },
         ],
@@ -1268,6 +1292,7 @@ export const dataJob2 = {
                         colorHex: 'sample tag color',
                     },
                 },
+                associatedUrn: 'urn:li:dataJob:2',
             },
         ],
     },
@@ -1290,12 +1315,14 @@ export const dataJob3 = {
                 owner: {
                     ...user1,
                 },
+                associatedUrn: 'urn:li:dataJob:3',
                 type: 'DATAOWNER',
             },
             {
                 owner: {
                     ...user2,
                 },
+                associatedUrn: 'urn:li:dataJob:3',
                 type: 'DELEGATE',
             },
         ],
@@ -1330,6 +1357,7 @@ export const dataJob3 = {
                         colorHex: 'sample tag color',
                     },
                 },
+                associatedUrn: 'urn:li:dataJob:3',
             },
         ],
     },
@@ -1377,12 +1405,14 @@ export const mlModel = {
                     ...user1,
                 },
                 type: 'DATAOWNER',
+                associatedUrn: 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,trustmodel,PROD)',
             },
             {
                 owner: {
                     ...user2,
                 },
                 type: 'DELEGATE',
+                associatedUrn: 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,trustmodel,PROD)',
             },
         ],
         lastModified: {
@@ -1405,6 +1435,7 @@ export const mlModel = {
                         colorHex: 'sample tag color',
                     },
                 },
+                associatedUrn: 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,trustmodel,PROD)',
             },
         ],
     },
@@ -1462,12 +1493,14 @@ export const mlModelGroup = {
                 owner: {
                     ...user1,
                 },
+                associatedUrn: 'urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,another-group,PROD)',
                 type: 'DATAOWNER',
             },
             {
                 owner: {
                     ...user2,
                 },
+                associatedUrn: 'urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,another-group,PROD)',
                 type: 'DELEGATE',
             },
         ],

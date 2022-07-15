@@ -12,6 +12,7 @@
                         "title": "foo",
                         "description": "lorem ipsum",
                         "charts": [],
+                        "datasets": [],
                         "lastModified": {
                             "created": {
                                 "time": 1586847600000,

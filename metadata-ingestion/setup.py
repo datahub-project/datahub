@@ -68,7 +68,7 @@ kafka_common = {
     # At the same time, we use Kafka's AvroSerializer, which internally relies on
     # fastavro for serialization. We do not use confluent_kafka[avro], since it
     # is incompatible with its own dep on avro-python3.
-    "confluent_kafka>=1.5.0,<1.9.0",
+    "confluent_kafka>=1.5.0",
     "fastavro>=1.2.0",
 }
 
@@ -191,6 +191,10 @@ plugins: Dict[str, Set[str]] = {
     # Integrations.
     "airflow": {
         "apache-airflow >= 1.10.2",
+    },
+    "circuit-breaker": {
+        "gql>=3.3.0",
+        "gql[requests]>=3.3.0",
     },
     "great-expectations": sql_common | {"sqllineage==1.3.5"},
     # Source plugins
@@ -422,6 +426,7 @@ full_test_dev_requirements = {
     *list(
         dependency
         for plugin in [
+            "circuit-breaker",
             "clickhouse",
             "druid",
             "feast-legacy",

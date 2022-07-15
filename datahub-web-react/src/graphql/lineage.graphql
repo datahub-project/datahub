@@ -263,7 +263,7 @@ fragment partialLineageResults on EntityLineageResult {
     total
 }
 
-query getEntityLineage($urn: String!) {
+query getEntityLineage($urn: String!, $separateSiblings: Boolean) {
     entity(urn: $urn) {
         urn
         type
@@ -279,10 +279,14 @@ query getEntityLineage($urn: String!) {
             }
         }
         ... on EntityWithRelationships {
-            upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+            upstream: lineage(
+                input: { direction: UPSTREAM, start: 0, count: 100, separateSiblings: $separateSiblings }
+            ) {
                 ...fullLineageResults
             }
-            downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+            downstream: lineage(
+                input: { direction: DOWNSTREAM, start: 0, count: 100, separateSiblings: $separateSiblings }
+            ) {
                 ...fullLineageResults
             }
         }
