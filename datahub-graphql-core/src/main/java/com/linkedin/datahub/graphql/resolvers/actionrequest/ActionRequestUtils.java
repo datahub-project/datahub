@@ -7,6 +7,7 @@ import com.linkedin.actionrequest.TagProposal;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.generated.ActionRequest;
 import com.linkedin.datahub.graphql.generated.ActionRequestParams;
 import com.linkedin.datahub.graphql.generated.ActionRequestResourceProperties;
@@ -133,7 +134,7 @@ public class ActionRequestUtils {
           if (editableSchemaMetadataAspect != null && editableSchemaMetadataAspect.hasEditableSchemaFieldInfo()) {
             EditableSchemaMetadataMapper editableSchemaMetadataMapper = new EditableSchemaMetadataMapper();
             com.linkedin.datahub.graphql.generated.EditableSchemaMetadata editableSchemaMetadata =
-                editableSchemaMetadataMapper.apply(editableSchemaMetadataAspect);
+                editableSchemaMetadataMapper.apply(editableSchemaMetadataAspect, UrnUtils.getUrn(rejectedActionRequest.getEntity().getUrn()));
 
             Optional<EditableSchemaFieldInfo> editableSchemaFieldInfoOptional =
                 editableSchemaMetadata.getEditableSchemaFieldInfo()
@@ -154,7 +155,7 @@ public class ActionRequestUtils {
           if (glossaryTermsAspect != null && glossaryTermsAspect.hasTerms()) {
             GlossaryTermsMapper glossaryTermsMapper = new GlossaryTermsMapper();
             com.linkedin.datahub.graphql.generated.GlossaryTerms glossaryTerms =
-                glossaryTermsMapper.apply(glossaryTermsAspect);
+                glossaryTermsMapper.apply(glossaryTermsAspect, UrnUtils.getUrn(rejectedActionRequest.getEntity().getUrn()));
 
             resourceProperties.setGlossaryTerms(glossaryTerms);
           }
@@ -170,7 +171,7 @@ public class ActionRequestUtils {
           if (editableSchemaMetadataAspect != null && editableSchemaMetadataAspect.hasEditableSchemaFieldInfo()) {
             EditableSchemaMetadataMapper editableSchemaMetadataMapper = new EditableSchemaMetadataMapper();
             com.linkedin.datahub.graphql.generated.EditableSchemaMetadata editableSchemaMetadata =
-                editableSchemaMetadataMapper.apply(editableSchemaMetadataAspect);
+                editableSchemaMetadataMapper.apply(editableSchemaMetadataAspect, UrnUtils.getUrn(rejectedActionRequest.getEntity().getUrn()));
 
             Optional<EditableSchemaFieldInfo> editableSchemaFieldInfoOptional =
                 editableSchemaMetadata.getEditableSchemaFieldInfo()
@@ -190,7 +191,7 @@ public class ActionRequestUtils {
 
           if (globalTagsAspect != null && globalTagsAspect.hasTags()) {
             GlobalTagsMapper globalTagsMapper = new GlobalTagsMapper();
-            com.linkedin.datahub.graphql.generated.GlobalTags globalTags = globalTagsMapper.apply(globalTagsAspect);
+            com.linkedin.datahub.graphql.generated.GlobalTags globalTags = globalTagsMapper.apply(globalTagsAspect, UrnUtils.getUrn(rejectedActionRequest.getEntity().getUrn()));
 
             resourceProperties.setTags(globalTags);
           }
