@@ -102,6 +102,7 @@ public class Constants {
   public static final String DASHBOARD_KEY_ASPECT_NAME = "dashboardKey";
   public static final String DASHBOARD_INFO_ASPECT_NAME = "dashboardInfo";
   public static final String EDITABLE_DASHBOARD_PROPERTIES_ASPECT_NAME = "editableDashboardProperties";
+  public static final String DASHBOARD_USAGE_STATISTICS_ASPECT_NAME = "dashboardUsageStatistics";
 
   // Notebook
   public static final String NOTEBOOK_KEY_ASPECT_NAME = "notebookKey";

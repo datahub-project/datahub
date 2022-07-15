@@ -7,6 +7,7 @@ import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.dashboard.EditableDashboardProperties;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.AccessLevel;
@@ -17,7 +18,6 @@ import com.linkedin.datahub.graphql.generated.DashboardEditableProperties;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
 import com.linkedin.datahub.graphql.generated.DashboardProperties;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
-import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
@@ -25,8 +25,9 @@ import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
@@ -53,26 +54,28 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
     @Override
     public Dashboard apply(@Nonnull final EntityResponse entityResponse) {
         final Dashboard result = new Dashboard();
+        Urn entityUrn = entityResponse.getUrn();
+
         result.setUrn(entityResponse.getUrn().toString());
         result.setType(EntityType.DASHBOARD);
         EnvelopedAspectMap aspectMap = entityResponse.getAspects();
         MappingHelper<Dashboard> mappingHelper = new MappingHelper<>(aspectMap, result);
         mappingHelper.mapToResult(DASHBOARD_KEY_ASPECT_NAME, this::mapDashboardKey);
-        mappingHelper.mapToResult(DASHBOARD_INFO_ASPECT_NAME, this::mapDashboardInfo);
+        mappingHelper.mapToResult(DASHBOARD_INFO_ASPECT_NAME, (entity, dataMap) -> this.mapDashboardInfo(entity, dataMap, entityUrn));
         mappingHelper.mapToResult(EDITABLE_DASHBOARD_PROPERTIES_ASPECT_NAME, this::mapEditableDashboardProperties);
         mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (dashboard, dataMap) ->
-            dashboard.setOwnership(OwnershipMapper.map(new Ownership(dataMap))));
+            dashboard.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
         mappingHelper.mapToResult(STATUS_ASPECT_NAME, (dashboard, dataMap) ->
             dashboard.setStatus(StatusMapper.map(new Status(dataMap))));
         mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (dashboard, dataMap) ->
             dashboard.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
         mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (dashboard, dataMap) ->
-            dashboard.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap))));
+            dashboard.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap), entityUrn)));
         mappingHelper.mapToResult(CONTAINER_ASPECT_NAME, this::mapContainers);
         mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
         mappingHelper.mapToResult(DEPRECATION_ASPECT_NAME, (dashboard, dataMap) ->
             dashboard.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
-        mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, this::mapGlobalTags);
+        mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, (dataset, dataMap) -> this.mapGlobalTags(dataset, dataMap, entityUrn));
         mappingHelper.mapToResult(DATA_PLATFORM_INSTANCE_ASPECT_NAME, (dataset, dataMap) ->
             dataset.setDataPlatformInstance(DataPlatformInstanceAspectMapper.map(new DataPlatformInstance(dataMap))));
 
@@ -90,16 +93,16 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
                     .setPlatformName(gmsKey.getDashboardTool()), DATA_PLATFORM_ENTITY_NAME).toString()).build());
     }
 
-    private void mapDashboardInfo(@Nonnull Dashboard dashboard, @Nonnull DataMap dataMap) {
+    private void mapDashboardInfo(@Nonnull Dashboard dashboard, @Nonnull DataMap dataMap, Urn entityUrn) {
         final com.linkedin.dashboard.DashboardInfo gmsDashboardInfo = new com.linkedin.dashboard.DashboardInfo(dataMap);
-        dashboard.setInfo(mapInfo(gmsDashboardInfo));
-        dashboard.setProperties(mapDashboardInfoToProperties(gmsDashboardInfo));
+        dashboard.setInfo(mapInfo(gmsDashboardInfo, entityUrn));
+        dashboard.setProperties(mapDashboardInfoToProperties(gmsDashboardInfo, entityUrn));
     }
 
     /**
      * Maps GMS {@link com.linkedin.dashboard.DashboardInfo} to deprecated GraphQL {@link DashboardInfo}
      */
-    private DashboardInfo mapInfo(final com.linkedin.dashboard.DashboardInfo info) {
+    private DashboardInfo mapInfo(final com.linkedin.dashboard.DashboardInfo info, Urn entityUrn) {
         final DashboardInfo result = new DashboardInfo();
         result.setDescription(info.getDescription());
         result.setName(info.getTitle());
@@ -116,7 +119,7 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
             result.setExternalUrl(info.getDashboardUrl().toString());
         }
         if (info.hasCustomProperties()) {
-            result.setCustomProperties(StringMapMapper.map(info.getCustomProperties()));
+            result.setCustomProperties(CustomPropertiesMapper.map(info.getCustomProperties(), entityUrn));
         }
         if (info.hasAccess()) {
             result.setAccess(AccessLevel.valueOf(info.getAccess().toString()));
@@ -132,7 +135,7 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
     /**
      * Maps GMS {@link com.linkedin.dashboard.DashboardInfo} to new GraphQL {@link DashboardProperties}
      */
-    private DashboardProperties mapDashboardInfoToProperties(final com.linkedin.dashboard.DashboardInfo info) {
+    private DashboardProperties mapDashboardInfoToProperties(final com.linkedin.dashboard.DashboardInfo info, Urn entityUrn) {
         final DashboardProperties result = new DashboardProperties();
         result.setDescription(info.getDescription());
         result.setName(info.getTitle());
@@ -145,7 +148,7 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
             result.setExternalUrl(info.getDashboardUrl().toString());
         }
         if (info.hasCustomProperties()) {
-            result.setCustomProperties(StringMapMapper.map(info.getCustomProperties()));
+            result.setCustomProperties(CustomPropertiesMapper.map(info.getCustomProperties(), entityUrn));
         }
         if (info.hasAccess()) {
             result.setAccess(AccessLevel.valueOf(info.getAccess().toString()));
@@ -165,8 +168,8 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
         dashboard.setEditableProperties(dashboardEditableProperties);
     }
 
-    private void mapGlobalTags(@Nonnull Dashboard dashboard, @Nonnull DataMap dataMap) {
-        com.linkedin.datahub.graphql.generated.GlobalTags globalTags = GlobalTagsMapper.map(new GlobalTags(dataMap));
+    private void mapGlobalTags(@Nonnull Dashboard dashboard, @Nonnull DataMap dataMap, @Nonnull Urn entityUrn) {
+        com.linkedin.datahub.graphql.generated.GlobalTags globalTags = GlobalTagsMapper.map(new GlobalTags(dataMap), entityUrn);
         dashboard.setGlobalTags(globalTags);
         dashboard.setTags(globalTags);
     }
@@ -182,11 +185,6 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
 
     private void mapDomains(@Nonnull Dashboard dashboard, @Nonnull DataMap dataMap) {
         final Domains domains = new Domains(dataMap);
-        // Currently we only take the first domain if it exists.
-        if (domains.getDomains().size() > 0) {
-            dashboard.setDomain(Domain.builder()
-                .setType(EntityType.DOMAIN)
-                .setUrn(domains.getDomains().get(0).toString()).build());
-        }
+        dashboard.setDomain(DomainAssociationMapper.map(domains, dashboard.getUrn()));
     }
 }

@@ -9,7 +9,7 @@ import { DatasetAssertionsList } from './DatasetAssertionsList';
 import { DatasetAssertionsSummary } from './DatasetAssertionsSummary';
 import { sortAssertions } from './assertionUtils';
 import { TestResults } from './TestResults';
-import { combineEntityDataWithSiblings } from '../../../siblingUtils';
+import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../../siblingUtils';
 
 /**
  * Returns a status summary for the assertions associated with a Dataset.
@@ -22,9 +22,9 @@ const getAssertionsStatusSummary = (assertions: Array<Assertion>) => {
         totalAssertions: assertions.length,
     };
     assertions.forEach((assertion) => {
-        if (assertion.runEvents?.runEvents.length) {
-            const mostRecentRun = assertion.runEvents?.runEvents[0];
-            const resultType = mostRecentRun.result?.type;
+        if ((assertion.runEvents?.runEvents?.length || 0) > 0) {
+            const mostRecentRun = assertion.runEvents?.runEvents?.[0];
+            const resultType = mostRecentRun?.result?.type;
             if (AssertionResultType.Success === resultType) {
                 summary.succeededRuns++;
             }
@@ -48,7 +48,9 @@ enum ViewType {
 export const ValidationsTab = () => {
     const { urn, entityData } = useEntityData();
     const { data, refetch } = useGetDatasetAssertionsQuery({ variables: { urn } });
-    const combinedData = combineEntityDataWithSiblings(data);
+    const isHideSiblingMode = useIsSeparateSiblingsMode();
+
+    const combinedData = isHideSiblingMode ? data : combineEntityDataWithSiblings(data);
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
     /**
      * Determines which view should be visible: assertions or tests.

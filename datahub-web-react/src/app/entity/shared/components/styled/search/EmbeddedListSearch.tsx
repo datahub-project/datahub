@@ -15,6 +15,7 @@ import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
 import EmbeddedListSearchHeader from './EmbeddedListSearchHeader';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/search.generated';
 import { GetSearchResultsParams, SearchResultsInterface } from './types';
+import { useEntityQueryParams } from '../../../containers/profile/utils';
 
 const Container = styled.div`
     display: flex;
@@ -79,6 +80,7 @@ export const EmbeddedListSearch = ({
     const history = useHistory();
     const location = useLocation();
     const entityRegistry = useEntityRegistry();
+    const baseParams = useEntityQueryParams();
 
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const query: string = addFixedQuery(params?.query as string, fixedQuery as string, emptySearchQuery as string);
@@ -128,6 +130,7 @@ export const EmbeddedListSearch = ({
         const finalQuery = addFixedQuery(q as string, fixedQuery as string, emptySearchQuery as string);
         navigateToEntitySearchUrl({
             baseUrl: location.pathname,
+            baseParams,
             type: activeType,
             query: finalQuery,
             page: 1,
@@ -138,6 +141,7 @@ export const EmbeddedListSearch = ({
     const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
         navigateToEntitySearchUrl({
             baseUrl: location.pathname,
+            baseParams,
             type: activeType,
             query,
             page: 1,
@@ -149,6 +153,7 @@ export const EmbeddedListSearch = ({
     const onChangePage = (newPage: number) => {
         navigateToEntitySearchUrl({
             baseUrl: location.pathname,
+            baseParams,
             type: activeType,
             query,
             page: newPage,

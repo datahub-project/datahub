@@ -5,6 +5,7 @@ import filtersToQueryStringParams from '../../../../../search/utils/filtersToQue
 
 export const navigateToEntitySearchUrl = ({
     baseUrl,
+    baseParams,
     type: newType,
     query: newQuery,
     page: newPage = 1,
@@ -12,6 +13,7 @@ export const navigateToEntitySearchUrl = ({
     history,
 }: {
     baseUrl: string;
+    baseParams: Record<string, string | boolean>;
     type?: EntityType;
     query?: string;
     page?: number;
@@ -28,6 +30,7 @@ export const navigateToEntitySearchUrl = ({
             ...filtersToQueryStringParams(constructedFilters),
             query: newQuery,
             page: newPage,
+            ...baseParams,
         },
         { arrayFormat: 'comma' },
     );

@@ -30,6 +30,7 @@ import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserInfo;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
+import com.linkedin.datahub.graphql.generated.DashboardUserUsageCounts;
 import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
@@ -81,6 +82,7 @@ import com.linkedin.datahub.graphql.resolvers.browse.BrowseResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
 import com.linkedin.datahub.graphql.resolvers.container.ContainerEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.container.ParentContainersResolver;
+import com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageStatsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetHealthResolver;
 import com.linkedin.datahub.graphql.resolvers.deprecation.UpdateDeprecationResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.CreateDomainResolver;
@@ -544,10 +546,6 @@ public class GmsGraphQLEngine {
             .type("Container", typeWiring -> typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher("entities", new ContainerEntitiesResolver(entityClient))
-                .dataFetcher("domain", new LoadableTypeResolver<>(domainType, (env) -> {
-                    final Container container = env.getSource();
-                    return container.getDomain() != null ? container.getDomain().getUrn() : null;
-                }))
                 .dataFetcher("platform",
                     new LoadableTypeResolver<>(dataPlatformType,
                         (env) -> ((Container) env.getSource()).getPlatform().getUrn()))
@@ -819,13 +817,6 @@ public class GmsGraphQLEngine {
             .type("Dataset", typeWiring -> typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService))
-                .dataFetcher("domain",
-                    new LoadableTypeResolver<>(
-                        domainType,
-                        (env) -> {
-                            final Dataset dataset = env.getSource();
-                            return dataset.getDomain() != null ? dataset.getDomain().getUrn() : null;
-                        }))
                 .dataFetcher("platform", new LoadableTypeResolver<>(dataPlatformType,
                             (env) -> ((Dataset) env.getSource()).getPlatform().getUrn())
                 )
@@ -1000,9 +991,7 @@ public class GmsGraphQLEngine {
                   return notebook.getDataPlatformInstance() != null ? notebook.getDataPlatformInstance().getUrn() : null;
                 })
         )
-        .dataFetcher("domain", new LoadableTypeResolver<>(domainType,
-            (env) -> ((Notebook) env.getSource()).getDomain().getUrn())
-    ));
+    );
   }
 
     /**
@@ -1014,14 +1003,6 @@ public class GmsGraphQLEngine {
             .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService))
             .dataFetcher("platform", new LoadableTypeResolver<>(dataPlatformType,
                     (env) -> ((Dashboard) env.getSource()).getPlatform().getUrn()))
-            .dataFetcher("domain", new LoadableTypeResolver<>(
-                    domainType,
-                    (env) -> {
-                        final Dashboard dashboard = env.getSource();
-                        return dashboard.getDomain() != null ? dashboard.getDomain().getUrn() : null;
-                    }
-                )
-            )
             .dataFetcher("dataPlatformInstance",
                 new LoadableTypeResolver<>(dataPlatformInstanceType,
                     (env) -> {
@@ -1036,12 +1017,18 @@ public class GmsGraphQLEngine {
                     })
             )
             .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
+            .dataFetcher("usageStats", new DashboardUsageStatsResolver(timeseriesAspectService))
         );
         builder.type("DashboardInfo", typeWiring -> typeWiring
             .dataFetcher("charts", new LoadableTypeBatchResolver<>(chartType,
                     (env) -> ((DashboardInfo) env.getSource()).getCharts().stream()
                         .map(Chart::getUrn)
                         .collect(Collectors.toList())))
+        );
+        builder.type("DashboardUserUsageCounts", typeWiring -> typeWiring
+            .dataFetcher("user", new LoadableTypeResolver<>(
+                corpUserType,
+                (env) -> ((DashboardUserUsageCounts) env.getSource()).getUser().getUrn()))
         );
     }
 
@@ -1054,13 +1041,6 @@ public class GmsGraphQLEngine {
             .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService))
             .dataFetcher("platform", new LoadableTypeResolver<>(dataPlatformType,
                 (env) -> ((Chart) env.getSource()).getPlatform().getUrn()))
-            .dataFetcher("domain", new LoadableTypeResolver<>(
-                domainType,
-                (env) -> {
-                    final Chart chart = env.getSource();
-                    return chart.getDomain() != null ? chart.getDomain().getUrn() : null;
-                })
-            )
             .dataFetcher("dataPlatformInstance",
                 new LoadableTypeResolver<>(dataPlatformInstanceType,
                     (env) -> {
@@ -1138,13 +1118,6 @@ public class GmsGraphQLEngine {
                 .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService))
                 .dataFetcher("dataFlow", new LoadableTypeResolver<>(dataFlowType,
                     (env) -> ((DataJob) env.getSource()).getDataFlow().getUrn()))
-                .dataFetcher("domain", new LoadableTypeResolver<>(
-                    domainType,
-                    (env) -> {
-                        final DataJob dataJob = env.getSource();
-                        return dataJob.getDomain() != null ? dataJob.getDomain().getUrn() : null;
-                    })
-                )
                 .dataFetcher("dataPlatformInstance",
                     new LoadableTypeResolver<>(dataPlatformInstanceType,
                         (env) -> {
@@ -1180,13 +1153,6 @@ public class GmsGraphQLEngine {
                 .dataFetcher("lineage", new EntityLineageResultResolver(siblingGraphService))
                 .dataFetcher("platform", new LoadableTypeResolver<>(dataPlatformType,
                     (env) -> ((DataFlow) env.getSource()).getPlatform().getUrn()))
-                .dataFetcher("domain", new LoadableTypeResolver<>(
-                    domainType,
-                    (env) -> {
-                        final DataFlow dataFlow = env.getSource();
-                        return dataFlow.getDomain() != null ? dataFlow.getDomain().getUrn() : null;
-                    })
-                )
                 .dataFetcher("dataPlatformInstance",
                     new LoadableTypeResolver<>(dataPlatformInstanceType,
                         (env) -> {
@@ -1215,12 +1181,6 @@ public class GmsGraphQLEngine {
                             return entity.getDataPlatformInstance() != null ? entity.getDataPlatformInstance().getUrn() : null;
                         })
                 )
-                .dataFetcher("domain", new LoadableTypeResolver<>(
-                    domainType,
-                    (env) -> {
-                        final MLFeatureTable entity = env.getSource();
-                        return entity.getDomain() != null ? entity.getDomain().getUrn() : null;
-                    }))
             )
             .type("MLFeatureTableProperties", typeWiring -> typeWiring
                 .dataFetcher("mlFeatures",
@@ -1264,13 +1224,6 @@ public class GmsGraphQLEngine {
                             return mlModel.getDataPlatformInstance() != null ? mlModel.getDataPlatformInstance().getUrn() : null;
                         })
                 )
-                .dataFetcher("domain",
-                    new LoadableTypeResolver<>(
-                        domainType,
-                        (env) -> {
-                            final MLModel mlModel = env.getSource();
-                            return mlModel.getDomain() != null ? mlModel.getDomain().getUrn() : null;
-                        }))
             )
             .type("MLModelProperties", typeWiring -> typeWiring
                 .dataFetcher("groups", new LoadableTypeBatchResolver<>(mlModelGroupType,
@@ -1298,13 +1251,6 @@ public class GmsGraphQLEngine {
                             return entity.getDataPlatformInstance() != null ? entity.getDataPlatformInstance().getUrn() : null;
                         })
                 )
-                .dataFetcher("domain",
-                    new LoadableTypeResolver<>(
-                        domainType,
-                        (env) -> {
-                            final MLModelGroup entity = env.getSource();
-                            return entity.getDomain() != null ? entity.getDomain().getUrn() : null;
-                        }))
             )
             .type("MLFeature", typeWiring -> typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
@@ -1316,13 +1262,6 @@ public class GmsGraphQLEngine {
                             return entity.getDataPlatformInstance() != null ? entity.getDataPlatformInstance().getUrn() : null;
                         })
                 )
-                .dataFetcher("domain",
-                    new LoadableTypeResolver<>(
-                        domainType,
-                        (env) -> {
-                            final MLFeature entity = env.getSource();
-                            return entity.getDomain() != null ? entity.getDomain().getUrn() : null;
-                        }))
             )
             .type("MLPrimaryKey", typeWiring -> typeWiring
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
@@ -1334,13 +1273,6 @@ public class GmsGraphQLEngine {
                             return entity.getDataPlatformInstance() != null ? entity.getDataPlatformInstance().getUrn() : null;
                         })
                 )
-                .dataFetcher("domain",
-                    new LoadableTypeResolver<>(
-                        domainType,
-                        (env) -> {
-                            final MLPrimaryKey entity = env.getSource();
-                            return entity.getDomain() != null ? entity.getDomain().getUrn() : null;
-                        }))
             );
     }
 
@@ -1356,6 +1288,11 @@ public class GmsGraphQLEngine {
             .dataFetcher("entities", new DomainEntitiesResolver(this.entityClient))
             .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)
             )
+        );
+        builder.type("DomainAssociation", typeWiring -> typeWiring
+            .dataFetcher("domain",
+                new LoadableTypeResolver<>(domainType,
+                    (env) -> ((com.linkedin.datahub.graphql.generated.DomainAssociation) env.getSource()).getDomain().getUrn()))
         );
     }
 

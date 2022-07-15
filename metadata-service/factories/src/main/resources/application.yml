@@ -160,6 +160,10 @@ kafka:
     awsGlue:
       region: ${AWS_GLUE_SCHEMA_REGISTRY_REGION:us-east-1}
       registryName: ${AWS_GLUE_SCHEMA_REGISTRY_NAME:#{null}}
+  schema:
+    registry:
+      security:
+        protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
 
 # Only required if GraphService type is neo4j
 neo4j:
@@ -176,6 +180,9 @@ spring:
   mvc:
     servlet:
       path: /openapi
+  kafka:
+    security:
+      protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
 
 springdoc:
   cache:

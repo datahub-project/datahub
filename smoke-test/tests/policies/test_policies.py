@@ -1,15 +1,14 @@
 import time
 import pytest
 import requests
-from tests.utils import get_frontend_url
-from datahub.cli.docker import check_local_docker_containers
+from tests.utils import get_frontend_url, wait_for_healthcheck_util
 
 TEST_POLICY_NAME = "Updated Platform Policy"
 
+
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
-    # Simply assert that everything is healthy, but don't wait.
-    assert not check_local_docker_containers()
+    wait_for_healthcheck_util()
     yield
 
 
