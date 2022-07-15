@@ -4,7 +4,7 @@ from typing import Dict, Iterable, Optional
 
 import dateutil.parser as dp
 import requests
-from pydantic.class_validators import validator, root_validator
+from pydantic.class_validators import root_validator, validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
@@ -59,7 +59,10 @@ class SupersetConfig(ConfigModel):
     # See the Superset /security/login endpoint for details
     # https://superset.apache.org/docs/rest-api
     connect_uri: str = Field(default="localhost:8088", description="Superset host URL.")
-    base_uri: str = Field(default=None, description="optional URL to use in links (if `connect_uri` is only for ingestion)")
+    base_uri: str = Field(
+        default=None,
+        description="optional URL to use in links (if `connect_uri` is only for ingestion)",
+    )
     username: Optional[str] = Field(default=None, description="Superset username.")
     password: Optional[str] = Field(default=None, description="Superset password.")
     provider: str = Field(default="db", description="Superset provider.")
@@ -79,9 +82,9 @@ class SupersetConfig(ConfigModel):
 
     @root_validator
     def default_base_uri_to_connect_uri(cls, values):
-        base = values.get('base_uri')
+        base = values.get("base_uri")
         if base is None:
-            values.set('base_uri', values.get('connect_uri'))
+            values.set("base_uri", values.get("connect_uri"))
         return values
 
 
