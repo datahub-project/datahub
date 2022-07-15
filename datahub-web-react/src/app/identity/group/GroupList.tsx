@@ -122,16 +122,17 @@ export const GroupList = () => {
                         showSizeChanger={false}
                     />
                 </GroupPaginationContainer>
-                <CreateGroupModal
-                    visible={isCreatingGroup}
-                    onClose={() => setIsCreatingGroup(false)}
-                    onCreate={() => {
-                        // Hack to deal with eventual consistency.
-                        setTimeout(function () {
-                            refetch?.();
-                        }, 2000);
-                    }}
-                />
+                {isCreatingGroup && (
+                    <CreateGroupModal
+                        onClose={() => setIsCreatingGroup(false)}
+                        onCreate={() => {
+                            // Hack to deal with eventual consistency.
+                            setTimeout(function () {
+                                refetch?.();
+                            }, 2000);
+                        }}
+                    />
+                )}
             </GroupContainer>
         </>
     );

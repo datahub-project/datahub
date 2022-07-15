@@ -1,29 +1,24 @@
 package com.linkedin.datahub.graphql.resolvers.auth;
 
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.generated.AccessTokenMetadata;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenInput;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenResult;
-import com.linkedin.datahub.graphql.generated.AccessTokenMetadata;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.search.utils.QueryUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
@@ -36,8 +31,6 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 public class ListAccessTokensResolver implements DataFetcher<CompletableFuture<ListAccessTokenResult>> {
 
   private static final String EXPIRES_AT_FIELD_NAME = "expiresAt";
-  private static final Set<String> FACET_FIELDS =
-      ImmutableSet.of("ownerUrn", "actorUrn", "name", "createdAt", "expiredAt", "description");
 
   private final EntityClient _entityClient;
 
@@ -62,7 +55,7 @@ public class ListAccessTokensResolver implements DataFetcher<CompletableFuture<L
               new SortCriterion().setField(EXPIRES_AT_FIELD_NAME).setOrder(SortOrder.DESCENDING);
 
           final SearchResult searchResult = _entityClient.search(Constants.ACCESS_TOKEN_ENTITY_NAME, "",
-              QueryUtils.newFilter(buildFacetFilters(filters, FACET_FIELDS)), sortCriterion, start, count,
+              buildFilter(filters), sortCriterion, start, count,
               getAuthentication(environment));
 
           final List<AccessTokenMetadata> tokens = searchResult.getEntities().stream().map(entity -> {
@@ -101,6 +94,6 @@ public class ListAccessTokensResolver implements DataFetcher<CompletableFuture<L
    */
   private boolean isListingSelfTokens(final List<FacetFilterInput> filters, final QueryContext context) {
     return AuthorizationUtils.canGeneratePersonalAccessToken(context) && filters.stream()
-        .anyMatch(filter -> filter.getField().equals("actorUrn") && filter.getValue().equals(context.getActorUrn()));
+        .anyMatch(filter -> filter.getField().equals("ownerUrn") && filter.getValue().equals(context.getActorUrn()));
   }
 }

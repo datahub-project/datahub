@@ -1,0 +1,40 @@
+apply plugin: 'com.github.node-gradle.node'
+
+node {
+
+  // If true, it will download node using above parameters.
+  // If false, it will try to use globally installed node.
+  if (project.hasProperty('useSystemNode') && project.getProperty('useSystemNode').toBoolean()) {
+    download = false
+  } else {
+    download = true
+  }
+
+  // Version of node to use.
+  version = '16.8.0'
+
+  // Version of Yarn to use.
+  yarnVersion = '1.22.0'
+
+  // Base URL for fetching node distributions (set nodeDistBaseUrl if you have a mirror).
+  if (project.hasProperty('nodeDistBaseUrl')) {
+    distBaseUrl = project.getProperty('nodeDistBaseUrl')
+  } else {
+    distBaseUrl = 'https://nodejs.org/dist'
+  }
+
+  // Set the work directory for unpacking node
+  workDir = file("${project.projectDir}/.gradle/nodejs")
+
+  // Set the work directory for NPM
+  yarnWorkDir = file("${project.projectDir}/.gradle/yarn")
+
+  // Set the work directory where node_modules should be located
+  nodeModulesDir = file("${project.projectDir}")
+
+}
+
+task yarnInstall(type: YarnTask) {
+  println  "Root directory:  ${project.rootDir}";
+  args = ['install', '--cwd', "${project.rootDir}/smoke-test/tests/cypress"]
+}

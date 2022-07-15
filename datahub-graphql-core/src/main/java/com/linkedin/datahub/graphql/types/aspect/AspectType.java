@@ -62,7 +62,7 @@ public class AspectType implements LoadableType<Aspect, VersionedAspectKey> {
             return DataFetcherResult.<Aspect>newResult().data(null).build();
           }
           final EnvelopedAspect aspect = entityResponse.getAspects().get(key.getAspectName());
-          return DataFetcherResult.<Aspect>newResult().data(AspectMapper.map(aspect)).build();
+          return DataFetcherResult.<Aspect>newResult().data(AspectMapper.map(aspect, entityUrn)).build();
         } catch (Exception e) {
           if (e instanceof RestLiResponseException) {
             // if no aspect is found, restli will return a 404 rather than null

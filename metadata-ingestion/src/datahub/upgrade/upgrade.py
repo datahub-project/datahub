@@ -1,3 +1,4 @@
+import contextlib
 import logging
 from datetime import datetime, timedelta, timezone
 from functools import wraps
@@ -104,7 +105,7 @@ def retrieve_versions(  # noqa: C901
     if not server:
         try:
             # let's get the server from the cli config
-            host, token = cli_utils.get_host_and_token()
+            host, token = cli_utils.get_url_and_token()
             server = DataHubGraph(DatahubClientConfig(server=host, token=token))
         except Exception as e:
             log.debug("Failed to get a valid server", e)
@@ -221,7 +222,7 @@ def maybe_print_upgrade_message(  # noqa: C901
     encourage_cli_upgrade = False
     client_server_compat = 0
     encourage_quickstart_upgrade = False
-    try:
+    with contextlib.suppress(Exception):
         version_stats = retrieve_versions(server)
         if not version_stats:
             return
@@ -261,12 +262,9 @@ def maybe_print_upgrade_message(  # noqa: C901
             ):
                 encourage_quickstart_upgrade = True
 
-    except Exception:
-        pass
-
     # Compute recommendations and print one
     if client_server_compat < 0:
-        try:
+        with contextlib.suppress(Exception):
             assert version_stats
             print(
                 colored("❗Client-Server Incompatible❗", "yellow"),
@@ -279,10 +277,8 @@ def maybe_print_upgrade_message(  # noqa: C901
                     "cyan",
                 ),
             )
-        except Exception:
-            pass
     elif client_server_compat > 0:
-        try:
+        with contextlib.suppress(Exception):
             assert version_stats
             print(
                 colored("❗Client-Server Incompatible❗", "red"),
@@ -295,12 +291,8 @@ def maybe_print_upgrade_message(  # noqa: C901
                     "cyan",
                 ),
             )
-        except Exception:
-            pass
-
-    # we only encourage upgrades if we think client_server is currently compatible
     elif client_server_compat == 0 and encourage_cli_upgrade:
-        try:
+        with contextlib.suppress(Exception):
             print(
                 colored("💡 Upgrade cli!", "yellow"),
                 colored(
@@ -308,9 +300,6 @@ def maybe_print_upgrade_message(  # noqa: C901
                     "cyan",
                 ),
             )
-        except Exception:
-            pass
-
     elif encourage_quickstart_upgrade:
         try:
             assert version_stats

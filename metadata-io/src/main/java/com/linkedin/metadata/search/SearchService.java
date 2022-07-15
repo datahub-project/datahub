@@ -1,13 +1,11 @@
 package com.linkedin.metadata.search;
 
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.search.aggregator.AllEntitiesSearchAggregator;
-import com.linkedin.metadata.search.cache.AllEntitiesSearchAggregatorCache;
+import com.linkedin.metadata.search.cache.CachingAllEntitiesSearchAggregator;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
-import com.linkedin.metadata.search.cache.EntitySearchServiceCache;
+import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.ranker.SearchRanker;
 import java.util.List;
 import java.util.Map;
@@ -16,30 +14,24 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.CacheManager;
 
 
 @Slf4j
 public class SearchService {
-  private final EntitySearchService _entitySearchService;
-  private final AllEntitiesSearchAggregator _aggregator;
+  private final CachingEntitySearchService _cachingEntitySearchService;
+  private final CachingAllEntitiesSearchAggregator _cachingAllEntitiesSearchAggregator;
+  private final EntityDocCountCache _entityDocCountCache;
   private final SearchRanker _searchRanker;
 
-  private final EntityDocCountCache _entityDocCountCache;
-  private final EntitySearchServiceCache _entitySearchServiceCache;
-  private final AllEntitiesSearchAggregatorCache _allEntitiesSearchAggregatorCache;
-
-  public SearchService(EntityRegistry entityRegistry, EntitySearchService entitySearchService,
-      SearchRanker searchRanker, CacheManager cacheManager, int batchSize, boolean enableCache) {
-    _entitySearchService = entitySearchService;
+  public SearchService(
+      EntityDocCountCache entityDocCountCache,
+      CachingEntitySearchService cachingEntitySearchService,
+      CachingAllEntitiesSearchAggregator cachingEntitySearchAggregator,
+      SearchRanker searchRanker) {
+    _cachingEntitySearchService = cachingEntitySearchService;
+    _cachingAllEntitiesSearchAggregator = cachingEntitySearchAggregator;
     _searchRanker = searchRanker;
-    _aggregator =
-        new AllEntitiesSearchAggregator(entityRegistry, entitySearchService, searchRanker, cacheManager, batchSize,
-            enableCache);
-    _entityDocCountCache = new EntityDocCountCache(entityRegistry, entitySearchService);
-    _entitySearchServiceCache = new EntitySearchServiceCache(cacheManager, entitySearchService, batchSize, enableCache);
-    _allEntitiesSearchAggregatorCache =
-        new AllEntitiesSearchAggregatorCache(cacheManager, _aggregator, batchSize, enableCache);
+    _entityDocCountCache = entityDocCountCache;
   }
 
   public Map<String, Long> docCountPerEntity(@Nonnull List<String> entityNames) {
@@ -65,8 +57,8 @@ public class SearchService {
   public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags) {
     SearchResult result =
-        _entitySearchServiceCache.getSearcher(entityName, input, postFilters, sortCriterion, searchFlags)
-            .getSearchResults(from, size);
+        _cachingEntitySearchService.search(entityName, input, postFilters, sortCriterion, from, size, searchFlags);
+
     try {
       return result.copy().setEntities(new SearchEntityArray(_searchRanker.rank(result.getEntities())));
     } catch (Exception e) {
@@ -95,7 +87,6 @@ public class SearchService {
     log.debug(String.format(
         "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
         entities, input, postFilters, sortCriterion, from, size));
-    return _allEntitiesSearchAggregatorCache.getSearcher(entities, input, postFilters, sortCriterion, searchFlags)
-        .getSearchResults(from, size);
+    return _cachingAllEntitiesSearchAggregator.getSearchResults(entities, input, postFilters, sortCriterion, from, size, searchFlags);
   }
 }

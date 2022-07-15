@@ -11,11 +11,12 @@ from typing import Any, Callable, Dict, Optional, TypeVar
 from mixpanel import Consumer, Mixpanel
 
 import datahub as datahub_package
+from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
 from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
 
-DATAHUB_FOLDER = Path(os.path.expanduser("~/.datahub"))
+DATAHUB_FOLDER = Path(DATAHUB_ROOT_FOLDER)
 
 CONFIG_FILE = DATAHUB_FOLDER / "telemetry-config.json"
 
@@ -262,18 +263,18 @@ telemetry_instance = Telemetry()
 T = TypeVar("T")
 
 
-def set_telemetry_enable(enable: bool) -> Any:
-    telemetry_instance.enabled = enable
-    if not enable:
-        logger.info("Disabling Telemetry locally due to server config")
-    telemetry_instance.update_config()
+def suppress_telemetry() -> Any:
+    """disables telemetry for this invocation, doesn't affect persistent client settings"""
+    if telemetry_instance.enabled:
+        logger.debug("Disabling telemetry locally due to server config")
+    telemetry_instance.enabled = False
 
 
 def get_full_class_name(obj):
     module = obj.__class__.__module__
     if module is None or module == str.__class__.__module__:
         return obj.__class__.__name__
-    return module + "." + obj.__class__.__name__
+    return f"{module}.{obj.__class__.__name__}"
 
 
 def with_telemetry(func: Callable[..., T]) -> Callable[..., T]:

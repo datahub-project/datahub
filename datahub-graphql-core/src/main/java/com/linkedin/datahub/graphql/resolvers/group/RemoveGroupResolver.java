@@ -5,13 +5,17 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
+import lombok.extern.slf4j.Slf4j;
+
 
 /**
  * Resolver responsible for hard deleting a particular DataHub Corp Group
  */
+@Slf4j
 public class RemoveGroupResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityClient _entityClient;
@@ -28,8 +32,17 @@ public class RemoveGroupResolver implements DataFetcher<CompletableFuture<Boolea
       final Urn urn = Urn.createFromString(groupUrn);
       return CompletableFuture.supplyAsync(() -> {
         try {
-          // TODO: Remove all dangling references to this group.
           _entityClient.deleteEntity(urn, context.getAuthentication());
+
+          // Asynchronously Delete all references to the entity (to return quickly)
+          CompletableFuture.runAsync(() -> {
+            try {
+              _entityClient.deleteEntityReferences(urn, context.getAuthentication());
+            } catch (RemoteInvocationException e) {
+              log.error(String.format("Caught exception while attempting to clear all entity references for group with urn %s", urn), e);
+            }
+          });
+
           return true;
         } catch (Exception e) {
           throw new RuntimeException(String.format("Failed to perform delete against group with urn %s", groupUrn), e);

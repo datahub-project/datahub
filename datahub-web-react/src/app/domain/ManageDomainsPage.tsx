@@ -1,7 +1,6 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { SearchablePage } from '../search/SearchablePage';
 import { DomainsList } from './DomainsList';
 
 const PageContainer = styled.div`
@@ -24,18 +23,16 @@ const ListContainer = styled.div``;
 
 export const ManageDomainsPage = () => {
     return (
-        <SearchablePage>
-            <PageContainer>
-                <PageHeaderContainer>
-                    <PageTitle level={3}>Domains</PageTitle>
-                    <Typography.Paragraph type="secondary">
-                        View your DataHub Domains. Take administrative actions.
-                    </Typography.Paragraph>
-                </PageHeaderContainer>
-                <ListContainer>
-                    <DomainsList />
-                </ListContainer>
-            </PageContainer>
-        </SearchablePage>
+        <PageContainer>
+            <PageHeaderContainer>
+                <PageTitle level={3}>Domains</PageTitle>
+                <Typography.Paragraph type="secondary">
+                    View your DataHub Domains. Take administrative actions.
+                </Typography.Paragraph>
+            </PageHeaderContainer>
+            <ListContainer>
+                <DomainsList />
+            </ListContainer>
+        </PageContainer>
     );
 };

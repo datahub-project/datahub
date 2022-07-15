@@ -10,11 +10,8 @@ from avrogen import write_schema_files
 
 
 def load_schema_file(schema_file: str) -> str:
-    with open(schema_file) as f:
-        raw_schema_text = f.read()
-
-    redo_spaces = json.dumps(json.loads(raw_schema_text), indent=2)
-    return redo_spaces
+    raw_schema_text = Path(schema_file).read_text()
+    return json.dumps(json.loads(raw_schema_text), indent=2)
 
 
 def merge_schemas(schemas: List[str]) -> str:

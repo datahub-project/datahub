@@ -57,7 +57,7 @@ public class AutoCompleteForMultipleResolver implements DataFetcher<CompletableF
                 environment);
         }
 
-        // By default, autocomplete only against the set of Searchable Entity Types.
+        // By default, autocomplete only against the Default Set of Autocomplete entities
         return AutocompleteUtils.batchGetAutocompleteResults(
             AUTO_COMPLETE_ENTITY_TYPES.stream().map(_typeToEntity::get).collect(Collectors.toList()),
             sanitizedQuery,

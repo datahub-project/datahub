@@ -60,6 +60,7 @@ export const dataFlowEntity = ({ orchestrator, cluster }: DataFlowEntityArg): Da
                 {
                     owner: datahubUser,
                     type: OwnershipType.Stakeholder,
+                    associatedUrn: `urn:li:dataFlow:(${orchestrator},${flowId},${cluster})`,
                     __typename: 'Owner',
                 },
             ],

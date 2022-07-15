@@ -1,13 +1,12 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
-
 import com.linkedin.datahub.graphql.generated.StringMapEntry;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
-
-import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nonnull;
+
 
 /**
  * Maps Pegasus {@link RecordTemplate} objects to objects conforming to the GQL schema.

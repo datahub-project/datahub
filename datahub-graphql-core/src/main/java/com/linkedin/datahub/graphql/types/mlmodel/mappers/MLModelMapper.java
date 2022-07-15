@@ -8,10 +8,10 @@ import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
-import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.generated.MLModel;
@@ -23,6 +23,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapp
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
@@ -62,15 +63,17 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
     @Override
     public MLModel apply(@Nonnull final EntityResponse entityResponse) {
         final MLModel result = new MLModel();
+        Urn entityUrn = entityResponse.getUrn();
+
         result.setUrn(entityResponse.getUrn().toString());
         result.setType(EntityType.MLMODEL);
         EnvelopedAspectMap aspectMap = entityResponse.getAspects();
         MappingHelper<MLModel> mappingHelper = new MappingHelper<>(aspectMap, result);
         mappingHelper.mapToResult(ML_MODEL_KEY_ASPECT_NAME, this::mapMLModelKey);
         mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (mlModel, dataMap) ->
-            mlModel.setOwnership(OwnershipMapper.map(new Ownership(dataMap))));
-        mappingHelper.mapToResult(ML_MODEL_PROPERTIES_ASPECT_NAME, this::mapMLModelProperties);
-        mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, this::mapGlobalTags);
+            mlModel.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
+        mappingHelper.mapToResult(ML_MODEL_PROPERTIES_ASPECT_NAME, (entity, dataMap) -> this.mapMLModelProperties(entity, dataMap, entityUrn));
+        mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, (mlModel, dataMap) -> this.mapGlobalTags(mlModel, dataMap, entityUrn));
         mappingHelper.mapToResult(INTENDED_USE_ASPECT_NAME, (mlModel, dataMap) ->
             mlModel.setIntendedUse(IntendedUseMapper.map(new IntendedUse(dataMap))));
         mappingHelper.mapToResult(ML_MODEL_FACTOR_PROMPTS_ASPECT_NAME, (mlModel, dataMap) ->
@@ -101,7 +104,7 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
         mappingHelper.mapToResult(DEPRECATION_ASPECT_NAME, (mlModel, dataMap) ->
             mlModel.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
         mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (entity, dataMap) ->
-            entity.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap))));
+            entity.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap), entityUrn)));
         mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
         mappingHelper.mapToResult(ML_MODEL_EDITABLE_PROPERTIES_ASPECT_NAME, this::mapEditableProperties);
         mappingHelper.mapToResult(DATA_PLATFORM_INSTANCE_ASPECT_NAME, (dataset, dataMap) ->
@@ -119,17 +122,17 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
         mlModel.setPlatform(partialPlatform);
     }
 
-    private void mapMLModelProperties(MLModel mlModel, DataMap dataMap) {
+    private void mapMLModelProperties(MLModel mlModel, DataMap dataMap, Urn entityUrn) {
         MLModelProperties modelProperties = new MLModelProperties(dataMap);
-        mlModel.setProperties(MLModelPropertiesMapper.map(modelProperties));
+        mlModel.setProperties(MLModelPropertiesMapper.map(modelProperties, entityUrn));
         if (modelProperties.getDescription() != null) {
             mlModel.setDescription(modelProperties.getDescription());
         }
     }
 
-    private void mapGlobalTags(MLModel mlModel, DataMap dataMap) {
+    private void mapGlobalTags(MLModel mlModel, DataMap dataMap, Urn entityUrn) {
         GlobalTags globalTags = new GlobalTags(dataMap);
-        com.linkedin.datahub.graphql.generated.GlobalTags graphQlGlobalTags = GlobalTagsMapper.map(globalTags);
+        com.linkedin.datahub.graphql.generated.GlobalTags graphQlGlobalTags = GlobalTagsMapper.map(globalTags, entityUrn);
         mlModel.setGlobalTags(graphQlGlobalTags);
         mlModel.setTags(graphQlGlobalTags);
     }
@@ -143,15 +146,10 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
         mlModel.setSourceCode(graphQlSourceCode);
     }
 
-
     private void mapDomains(@Nonnull MLModel entity, @Nonnull DataMap dataMap) {
         final Domains domains = new Domains(dataMap);
         // Currently we only take the first domain if it exists.
-        if (domains.getDomains().size() > 0) {
-            entity.setDomain(Domain.builder()
-                .setType(EntityType.DOMAIN)
-                .setUrn(domains.getDomains().get(0).toString()).build());
-        }
+        entity.setDomain(DomainAssociationMapper.map(domains, entity.getUrn()));
     }
 
     private void mapEditableProperties(MLModel entity, DataMap dataMap) {

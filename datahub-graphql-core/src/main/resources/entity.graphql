@@ -168,6 +168,11 @@ type Query {
     Gets the current invite token. If the optional regenerate param is set to true, generate a new invite token.
     """
     getNativeUserInviteToken: InviteToken
+
+    """
+    Gets an entity based on its urn
+    """
+    entity(urn: String!): Entity
 }
 
 """
@@ -206,9 +211,24 @@ type Mutation {
     updateDataJob(urn: String!, input: DataJobUpdateInput!): DataJob
 
     """
+    Create a new tag. Requires the 'Manage Tags' or 'Create Tags' Platform Privilege. If a Tag with the provided ID already exists,
+    it will be overwritten.
+    """
+    createTag(
+      "Inputs required to create a new Tag."
+      input: CreateTagInput!): String
+
+    """
     Update the information about a particular Entity Tag
     """
     updateTag(urn: String!, input: TagUpdateInput!): Tag
+
+    """
+    Delete a Tag
+    """
+    deleteTag(
+      "The urn of the Tag to delete"
+      urn: String!): Boolean
 
     """
     Set the hex color associated with an existing Tag
@@ -321,10 +341,18 @@ type Mutation {
     createGroup(input: CreateGroupInput!): String
 
     """
-    Create a new Domain. Returns the urn of the newly created Domain. Requires the Manage Domains privilege. If a domain with the provided ID already exists,
+    Create a new Domain. Returns the urn of the newly created Domain. Requires the 'Create Domains' or 'Manage Domains' Platform Privilege. If a Domain with the provided ID already exists,
     it will be overwritten.
     """
     createDomain(input: CreateDomainInput!): String
+
+    """
+    Delete a Domain
+    """
+    deleteDomain(
+      "The urn of the Domain to delete"
+      urn: String!): Boolean
+
 
     """
     Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully added, or already exists. Requires the Edit Domains privilege for the Entity.
@@ -597,6 +625,11 @@ input LineageInput {
     The number of results to be returned
     """
     count: Int
+
+    """
+    Optional flag to not merge siblings in the response. They are merged by default.
+    """
+    separateSiblings: Boolean
 }
 
 """
@@ -888,7 +921,7 @@ type Dataset implements EntityWithRelationships & Entity {
     """
     The Domain associated with the Dataset
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     Statistics about how this Dataset is used
@@ -923,9 +956,9 @@ type Dataset implements EntityWithRelationships & Entity {
     lineage(input: LineageInput!): EntityLineageResult
 
     """
-    Experimental! The resolved health status of the Dataset
+    Experimental! The resolved health statuses of the Dataset
     """
-    health: Health
+    health: [Health!]
 
     """
     Schema metadata of the dataset
@@ -990,6 +1023,25 @@ type Dataset implements EntityWithRelationships & Entity {
     History of datajob runs that either produced or consumed this dataset
     """
     runs(start: Int, count: Int, direction: RelationshipDirection!): DataProcessInstanceResult
+
+    """
+    Metadata about the datasets siblings
+    """
+    siblings: SiblingProperties
+}
+
+"""
+Metadata about the entity's siblings
+"""
+type SiblingProperties {
+    """
+    If this entity is the primary sibling among the sibling set
+    """
+    isPrimary: Boolean
+    """
+    The sibling entities
+    """
+    siblings: [Entity]
 }
 
 """
@@ -1090,12 +1142,12 @@ type VersionedDataset implements Entity {
     """
     The Domain associated with the Dataset
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     Experimental! The resolved health status of the Dataset
     """
-    health: Health
+    health: [Health!]
 
     """
     Schema metadata of the dataset
@@ -1231,7 +1283,7 @@ type DatasetProperties {
     """
     Custom properties of the Dataset
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     External URL associated with the Dataset
@@ -1345,7 +1397,7 @@ type GlossaryTermInfo {
     """
     Properties of the glossary term
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     Schema definition of glossary term
@@ -1390,7 +1442,7 @@ type GlossaryTermProperties {
     """
     Properties of the glossary term
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     Schema definition of glossary term
@@ -1761,7 +1813,7 @@ type Container implements Entity {
     """
     The Domain associated with the Dataset
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     The deprecation status of the container
@@ -1801,7 +1853,7 @@ type ContainerProperties {
   """
   Custom properties of the Container
   """
-  customProperties: [StringMapEntry!]
+  customProperties: [CustomPropertiesEntry!]
 
   """
   Native platform URL of the Container
@@ -2085,6 +2137,11 @@ type Schema {
     The time at which the schema metadata information was created
     """
     createdAt: Long
+
+    """
+    The time at which the schema metadata information was last ingested
+    """
+    lastObserved: Long
 }
 
 """
@@ -2508,6 +2565,26 @@ type StringMapEntry {
     The value fo the map entry
     """
     value: String
+}
+
+"""
+An entry in a custom properties map represented as a tuple
+"""
+type CustomPropertiesEntry {
+    """
+    The key of the map entry
+    """
+    key: String!
+
+    """
+    The value fo the map entry
+    """
+    value: String
+
+    """
+    The urn of the entity this property came from for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """
@@ -3136,6 +3213,11 @@ type Owner {
     Source information for the ownership
     """
     source: OwnershipSource
+
+    """
+    Reference back to the owned urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """
@@ -3247,6 +3329,11 @@ type TagAssociation {
     The tag itself
     """
     tag: Tag!
+
+    """
+    Reference back to the tagged urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """
@@ -3286,6 +3373,11 @@ type GlossaryTermAssociation {
     The glossary term itself
     """
     term: GlossaryTerm!
+
+    """
+    Reference back to the associated urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """
@@ -3592,6 +3684,26 @@ input TagUpdateInput {
 }
 
 """
+Input required to create a new Tag
+"""
+input CreateTagInput {
+  """
+  Optional! A custom id to use as the primary key identifier for the Tag. If not provided, a random UUID will be generated as the id.
+  """
+  id: String
+
+  """
+  Display name for the Tag
+  """
+  name: String!
+
+  """
+  Optional description for the Tag
+  """
+  description: String
+}
+
+"""
 An update for the ownership information for a Metadata Entity
 """
 input OwnershipUpdate {
@@ -3735,7 +3847,7 @@ type Notebook implements Entity {
     """
     The Domain associated with the Notebook
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     The specific instance of the data platform that this entity belongs to
@@ -3992,7 +4104,7 @@ type Dashboard implements EntityWithRelationships & Entity {
     """
     The Domain associated with the Dashboard
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     The specific instance of the data platform that this entity belongs to
@@ -4068,7 +4180,7 @@ type DashboardInfo {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     The time when this dashboard last refreshed
@@ -4113,7 +4225,7 @@ type NotebookInfo {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     Captures information about who created/last modified/deleted this Notebook and when
@@ -4149,7 +4261,7 @@ type DashboardProperties {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     The time when this dashboard last refreshed
@@ -4255,7 +4367,7 @@ type Chart implements EntityWithRelationships & Entity {
     """
     The Domain associated with the Chart
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     The specific instance of the data platform that this entity belongs to
@@ -4335,7 +4447,7 @@ type ChartInfo {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     The time when this chart last refreshed
@@ -4390,7 +4502,7 @@ type ChartProperties {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     The time when this chart last refreshed
@@ -4592,7 +4704,7 @@ type DataFlow implements EntityWithRelationships & Entity {
     """
     The Domain associated with the DataFlow
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     The specific instance of the data platform that this entity belongs to
@@ -4661,7 +4773,7 @@ type DataFlowInfo {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -4691,7 +4803,7 @@ type DataFlowProperties {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -4768,7 +4880,7 @@ type DataJob implements EntityWithRelationships & Entity {
     """
     The Domain associated with the Data Job
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     Granular API for querying edges extending from this entity
@@ -4951,7 +5063,7 @@ type DataJobInfo {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -4976,7 +5088,7 @@ type DataJobProperties {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -7132,7 +7244,7 @@ type MLModel implements EntityWithRelationships & Entity {
     """
     The Domain associated with the entity
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     An additional set of of read write properties
@@ -7223,7 +7335,7 @@ type MLModelGroup implements EntityWithRelationships & Entity {
     """
     The Domain associated with the entity
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     An additional set of of read write properties
@@ -7332,7 +7444,7 @@ type MLFeature implements EntityWithRelationships & Entity {
     """
     The Domain associated with the entity
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     An additional set of of read write properties
@@ -7382,7 +7494,7 @@ type MLModelProperties {
 
     groups: [MLModelGroup]
 
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 type MLFeatureProperties {
@@ -7489,7 +7601,7 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     """
     The Domain associated with the entity
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     An additional set of of read write properties
@@ -7596,7 +7708,7 @@ type MLFeatureTable implements EntityWithRelationships & Entity {
     """
     The Domain associated with the entity
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     An additional set of of read write properties
@@ -7647,7 +7759,7 @@ description: String
 
     mlPrimaryKeys: [MLPrimaryKey]
 
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 type HyperParameterMap {
@@ -7917,6 +8029,18 @@ type SubTypes {
    typeNames: [String!]
 }
 
+type DomainAssociation {
+    """
+    The domain related to the assocaited urn
+    """
+    domain: Domain!
+
+    """
+    Reference back to the tagged urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
+}
+
 """
 A domain, or a logical grouping of Metadata Entities
 """
@@ -8179,9 +8303,24 @@ enum HealthStatus {
 }
 
 """
+The type of the health status
+"""
+enum HealthStatusType {
+  """
+  Assertions status
+  """
+  ASSERTIONS
+}
+
+"""
 The resolved Health of an Asset
 """
 type Health {
+  """
+  An enum representing the type of health indicator
+  """
+  type: HealthStatusType!
+
   """
   An enum representing the resolved Health status of an Asset
   """
