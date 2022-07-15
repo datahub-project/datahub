@@ -173,7 +173,6 @@ def _get_default_quickstart_compose_file() -> Optional[str]:
 
 def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
     default_quickstart_compose_file = _get_default_quickstart_compose_file()
-    print(f"quickstart file is {default_quickstart_compose_file}")
     compose_files_for_stopping = (
         quickstart_compose_file
         if quickstart_compose_file
