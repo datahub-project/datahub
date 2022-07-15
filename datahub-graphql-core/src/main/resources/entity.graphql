@@ -4121,6 +4121,12 @@ type Dashboard implements EntityWithRelationships & Entity {
     """
     lineage(input: LineageInput!): EntityLineageResult
 
+
+    """
+    Experimental (Subject to breaking change) -- Statistics about how this Dashboard is used
+    """
+    usageStats(startTimeMillis: Long, endTimeMillis: Long, limit: Int): DashboardUsageQueryResult
+
     """
     Deprecated, use properties field instead
     Additional read only information about the dashboard
@@ -5248,6 +5254,158 @@ type FieldUsageCounts {
 }
 
 """
+Information about individual user usage of a Dashboard
+"""
+type DashboardUserUsageCounts {
+    """
+    The user of the Dashboard
+    """
+    user: CorpUser
+
+    """
+    number of times dashboard has been viewed by the user
+    """
+    viewsCount: Int
+
+    """
+    number of dashboard executions by the user
+    """
+    executionsCount: Int
+
+    """
+    Normalized numeric metric representing user's dashboard usage
+    Higher value represents more usage
+    """
+    usageCount: Int
+}
+
+"""
+The result of a dashboard usage query
+"""
+type DashboardUsageQueryResult {
+    """
+    A set of relevant time windows for use in displaying usage statistics
+    """
+    buckets: [DashboardUsageAggregation]
+
+    """
+    A set of rolled up aggregations about the dashboard usage
+    """
+    aggregations: DashboardUsageQueryResultAggregations
+
+    """
+    A set of absolute dashboard usage metrics
+    """
+    metrics: [DashboardUsageMetrics!]
+
+}
+
+"""
+A set of rolled up aggregations about the Dashboard usage
+"""
+type DashboardUsageQueryResultAggregations {
+    """
+    The count of unique Dashboard users within the queried time range
+    """
+    uniqueUserCount: Int
+
+    """
+    The specific per user usage counts within the queried time range
+    """
+    users: [DashboardUserUsageCounts]
+
+    """
+    The total number of dashboard views within the queried time range
+    """
+    viewsCount: Int
+
+    """
+    The total number of dashboard executions within the queried time range
+    """
+    executionsCount: Int
+
+}
+
+
+"""
+A set of absolute dashboard usage metrics
+"""
+type DashboardUsageMetrics implements TimeSeriesAspect {
+    """
+    The time at which the metrics were reported
+    """
+    timestampMillis: Long!
+
+    """
+    The total number of times dashboard has been favorited
+    FIXME: Qualifies as Popularity Metric rather than Usage Metric?
+    """
+    favoritesCount: Int
+
+    """
+    The total number of dashboard views
+    """
+    viewsCount: Int
+
+    """
+    The total number of dashboard execution
+    """
+    executionsCount: Int
+
+    """
+    The time when this dashboard was last viewed
+    """
+    lastViewed: Long
+
+}
+
+"""
+An aggregation of Dashboard usage statistics
+"""
+type DashboardUsageAggregation {
+    """
+    The time window start time
+    """
+    bucket: Long
+
+    """
+    The time window span
+    """
+    duration: WindowDuration
+
+    """
+    The resource urn associated with the usage information, eg a Dashboard urn
+    """
+    resource: String
+
+    """
+    The rolled up usage metrics
+    """
+    metrics: DashboardUsageAggregationMetrics
+}
+
+"""
+Rolled up metrics about Dashboard usage over time
+"""
+type DashboardUsageAggregationMetrics {
+    """
+    The unique number of dashboard users within the time range
+    """
+    uniqueUserCount: Int
+
+    """
+    The total number of dashboard views within the time range
+    """
+    viewsCount: Int
+
+    """
+    The total number of dashboard executions within the time range
+    """
+    executionsCount: Int
+
+}
+
+"""
 The duration of a fixed window of time
 """
 enum WindowDuration {
@@ -5273,7 +5431,7 @@ enum WindowDuration {
 }
 
 """
-A time range used in fetching Dataset Usage statistics
+A time range used in fetching Usage statistics
 """
 enum TimeRange {
     """
