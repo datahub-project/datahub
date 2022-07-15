@@ -126,12 +126,12 @@ def test_admin_can_create_list_and_revoke_tokens(wait_for_healthchecks):
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 0
 
     # Using a super account, generate a token for itself.
-    res_data = generateAccessToken_v2(admin_session, "urn:li:corpuser:${admin_user}")
+    res_data = generateAccessToken_v2(admin_session, f"urn:li:corpuser:{admin_user}")
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["createAccessToken"]
     assert res_data["data"]["createAccessToken"]["accessToken"]
-    assert res_data["data"]["createAccessToken"]["metadata"]["actorUrn"] == "urn:li:corpuser:${admin_user}"
+    assert res_data["data"]["createAccessToken"]["metadata"]["actorUrn"] == f"urn:li:corpuser:{admin_user}"
     admin_tokenId = res_data["data"]["createAccessToken"]["metadata"]["id"]
     # Sleep for eventual consistency
     sleep(3)
@@ -142,8 +142,8 @@ def test_admin_can_create_list_and_revoke_tokens(wait_for_healthchecks):
     assert res_data["data"]
     assert res_data["data"]["listAccessTokens"]["total"] is not None
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 1
-    assert res_data["data"]["listAccessTokens"]["tokens"][0]["actorUrn"] == "urn:li:corpuser:${admin_user}"
-    assert res_data["data"]["listAccessTokens"]["tokens"][0]["ownerUrn"] == "urn:li:corpuser:${admin_user}"
+    assert res_data["data"]["listAccessTokens"]["tokens"][0]["actorUrn"] == f"urn:li:corpuser:{admin_user}"
+    assert res_data["data"]["listAccessTokens"]["tokens"][0]["ownerUrn"] == f"urn:li:corpuser:{admin_user}"
 
     # Check that the super account can revoke tokens that it created
     res_data = revokeAccessToken(admin_session, admin_tokenId)
@@ -190,7 +190,7 @@ def test_admin_can_create_and_revoke_tokens_for_other_user(wait_for_healthchecks
     assert res_data["data"]["listAccessTokens"]["total"] is not None
     assert len(res_data["data"]["listAccessTokens"]["tokens"]) == 1
     assert res_data["data"]["listAccessTokens"]["tokens"][0]["actorUrn"] == "urn:li:corpuser:user"
-    assert res_data["data"]["listAccessTokens"]["tokens"][0]["ownerUrn"] == "urn:li:corpuser:${admin_user}"
+    assert res_data["data"]["listAccessTokens"]["tokens"][0]["ownerUrn"] == f"urn:li:corpuser:{admin_user}"
 
     # Check that the super account can revoke tokens that it created for another user
     res_data = revokeAccessToken(admin_session, user_tokenId)
@@ -317,7 +317,7 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
 def test_non_admin_can_not_generate_tokens_for_others(wait_for_healthchecks):
     user_session = loginAs("user", "user")
     # Normal user should not be able to generate token for another user
-    res_data = generateAccessToken_v2(user_session, "urn:li:corpuser:${admin_user}")
+    res_data = generateAccessToken_v2(user_session, f"urn:li:corpuser:{admin_user}")
     assert res_data
     assert res_data["errors"]
     assert res_data["errors"][0]["message"] == "Unauthorized to perform this action. Please contact your DataHub administrator."

@@ -26,7 +26,7 @@ def frontend_session(wait_for_healthchecks):
         "Content-Type": "application/json",
     }
     (admin_user, admin_pass) = get_admin_credentials()
-    data = '{"username": ${admin_user}, "password":${admin_pass}}'
+    data = '{"username":"' + admin_user + '", "password":"' + admin_pass + '"}'
     response = session.post(f"{get_frontend_url()}/logIn", headers=headers, data=data)
     response.raise_for_status()
 
