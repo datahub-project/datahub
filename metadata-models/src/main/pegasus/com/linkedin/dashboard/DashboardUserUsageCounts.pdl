@@ -1,0 +1,33 @@
+namespace com.linkedin.dashboard
+
+import com.linkedin.common.Urn
+
+/**
+ * Records a single user's usage counts for a given resource
+ */
+record DashboardUserUsageCounts {
+  /**
+   * The unique id of the user.
+   */
+  user: Urn
+
+  /**
+   * Views count
+   */
+  @TimeseriesField = {}
+  viewsCount: optional int
+  
+  /**
+   * Number of dashboard executions
+   */
+  @TimeseriesField = {}
+  executionsCount: optional int
+
+  /**
+   * Normalized numeric metric representing user's dashboard usage
+   */
+  // Function of usage representation in the dashboard's platform
+  @TimeseriesField = {}
+  usageCount: optional int
+
+}

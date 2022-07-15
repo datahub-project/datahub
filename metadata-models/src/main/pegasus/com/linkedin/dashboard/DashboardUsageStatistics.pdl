@@ -1,0 +1,56 @@
+namespace com.linkedin.dashboard
+
+import com.linkedin.timeseries.TimeseriesAspectBase
+
+/**
+ * Stats corresponding to dashboard's usage.
+ */
+ //To represent stats for a fixed time window, set eventGranularity field as per the time window.
+ //To represent absolute stats at an instance, keep eventGranularity field empty.
+@Aspect = {
+  "name": "dashboardUsageStatistics",
+  "type": "timeseries",
+}
+record DashboardUsageStatistics includes TimeseriesAspectBase {
+  /**
+   * Number of times dashboard has been viewed
+   */
+  @TimeseriesField = {}
+  viewsCount: optional int
+
+  /**
+   * Number of dashboard executions
+   */
+  @TimeseriesField = {}
+  executionsCount: optional int
+
+  /**
+   * Unique user count
+   */
+  @TimeseriesField = {}
+  uniqueUserCount: optional int
+
+  /**
+   * Users within this bucket, with frequency counts
+   */
+  //Applicable only when eventGranularity is present
+  @TimeseriesFieldCollection = {"key":"user"}
+  userCounts: optional array[DashboardUserUsageCounts]
+
+  /**
+   * Number of times dashboard has been favorited
+   */
+  //Not applicable when eventGranularity is present
+  @TimeseriesField = {}
+  favoritesCount: optional int
+
+  /**
+   * Last viewed at
+   */
+  //Not applicable when eventGranularity is present
+  @TimeseriesField = {}
+  lastViewedAt: optional long
+
+  //TODO - Number of queries executed for dashboard, top filters used for dashboard, etc
+
+}
