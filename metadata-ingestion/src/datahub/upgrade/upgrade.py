@@ -177,7 +177,13 @@ async def retrieve_version_stats(
                     current_server_release_date,
                 ) = server_config_future.result()
             tasks.remove(t)
-        await asyncio.sleep(0.1)
+        if len(tasks):
+            try:
+                await asyncio.wait_for(tasks[0], 5)
+            except Exception as e:
+                log.debug(f"Failed to get due to {e}")
+                return None
+        # await asyncio.sleep(0.1)
 
     server_version_stats = ServerVersionStats(
         current=VersionStats(
@@ -358,9 +364,8 @@ def check_upgrade(func: Callable[..., T]) -> Callable[..., T]:
 
         async def run_func_check_upgrade():
             version_stats_future = asyncio.ensure_future(retrieve_version_stats())
-            the_one_future = asyncio.ensure_future(run_inner_func())
-            while not the_one_future.done():
-                ret = await the_one_future
+            the_one_future = asyncio.create_task(run_inner_func())
+            ret = await the_one_future
 
             # the one future has returned
             # we check the other futures quickly

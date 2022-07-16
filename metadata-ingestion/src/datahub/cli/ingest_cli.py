@@ -136,13 +136,13 @@ def run(
 
         # the one future has returned
         if ret == 0:
-            # we check the other futures quickly on success
             try:
+                # we check the other futures quickly on success
                 version_stats = await asyncio.wait_for(version_stats_future, 0.5)
                 upgrade.maybe_print_upgrade_message(version_stats=version_stats)
-            except Exception:
+            except Exception as e:
                 logger.debug(
-                    "timed out waiting for version stats to be computed... skipping ahead."
+                    f"timed out with {e} waiting for version stats to be computed... skipping ahead."
                 )
 
         sys.exit(ret)
