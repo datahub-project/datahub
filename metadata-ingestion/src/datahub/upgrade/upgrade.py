@@ -164,8 +164,10 @@ async def retrieve_version_stats(
     github_stats_future = asyncio.ensure_future(get_github_stats())
     server_config_future = asyncio.ensure_future(get_server_version_stats(server))
     tasks = [client_version_stats_future, github_stats_future, server_config_future]
+
     while len(tasks):
-        for t in [t for t in tasks if t.done()]:
+        done, pending = await asyncio.wait(tasks, timeout=0.1)
+        for t in done:
             if t == client_version_stats_future:
                 client_version_stats = t.result()
             elif t == github_stats_future:
@@ -177,13 +179,6 @@ async def retrieve_version_stats(
                     current_server_release_date,
                 ) = server_config_future.result()
             tasks.remove(t)
-        if len(tasks):
-            try:
-                await asyncio.wait_for(tasks[0], 5)
-            except Exception as e:
-                log.debug(f"Failed to get due to {e}")
-                return None
-        # await asyncio.sleep(0.1)
 
     server_version_stats = ServerVersionStats(
         current=VersionStats(
@@ -293,11 +288,17 @@ def maybe_print_upgrade_message(  # noqa: C901
                     - version_stats.server.current.release_date
                 )
                 if time_delta > timedelta(days=days_before_quickstart_stale):
+                    log.debug(
+                        f"will encourage upgrade due to server being old {version_stats.server.current.release_date},{time_delta}"
+                    )
                     encourage_quickstart_upgrade = True
             if version_stats.server.latest and (
                 version_stats.server.latest.version
                 > version_stats.server.current.version
             ):
+                log.debug(
+                    f"Will encourage upgrade due to newer version of server {version_stats.server.latest.version} being available compared to {version_stats.server.current.version}"
+                )
                 encourage_quickstart_upgrade = True
 
     # Compute recommendations and print one
