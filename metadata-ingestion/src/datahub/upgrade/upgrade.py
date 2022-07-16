@@ -364,7 +364,7 @@ def check_upgrade(func: Callable[..., T]) -> Callable[..., T]:
 
         async def run_func_check_upgrade():
             version_stats_future = asyncio.ensure_future(retrieve_version_stats())
-            the_one_future = asyncio.create_task(run_inner_func())
+            the_one_future = asyncio.ensure_future(run_inner_func())
             ret = await the_one_future
 
             # the one future has returned
