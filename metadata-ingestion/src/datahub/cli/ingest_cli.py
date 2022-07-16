@@ -122,7 +122,7 @@ def run(
             return ret
 
     async def run_pipeline_async(pipeline: Pipeline) -> int:
-        loop = asyncio.get_running_loop()
+        loop = asyncio._get_running_loop()
         return await loop.run_in_executor(
             None, functools.partial(run_pipeline_to_completion, pipeline)
         )
@@ -163,10 +163,12 @@ def run(
         # in a SensitiveError to prevent detailed variable-level information from being logged.
         raise SensitiveError() from e
 
-    if hasattr(asyncio, "run"):
-        asyncio.run(run_func_check_upgrade(pipeline))
-    else:
-        sys.exit(run_pipeline_to_completion(pipeline))
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(run_func_check_upgrade(pipeline))
+    # if hasattr(asyncio, "run"):
+    #    asyncio.run(run_func_check_upgrade(pipeline))
+    # else:
+    #    sys.exit(run_pipeline_to_completion(pipeline))
 
 
 def get_runs_url(gms_host: str) -> str:

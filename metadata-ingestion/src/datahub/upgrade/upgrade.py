@@ -377,7 +377,11 @@ def check_upgrade(func: Callable[..., T]) -> Callable[..., T]:
 
             return ret
 
-        asyncio.run(run_func_check_upgrade())
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(run_func_check_upgrade())
+
+    #        if hasattr(asyncio, "run"):
+    #            asyncio.run(run_func_check_upgrade())
 
     if hasattr(asyncio, "run"):
         return async_wrapper
