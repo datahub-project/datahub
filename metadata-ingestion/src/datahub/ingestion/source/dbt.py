@@ -584,9 +584,8 @@ def get_upstreams(
             materialized = upstream_manifest_node.get("config", {}).get("materialized")
             resource_type = upstream_manifest_node["resource_type"]
 
-            if (
-                materialized in {"view", "table", "incremental"}
-                or (resource_type == "source" and point_source_lineage_edges_to_target_node)
+            if materialized in {"view", "table", "incremental"} or (
+                resource_type == "source" and point_source_lineage_edges_to_target_node
             ):
                 # upstream urns point to the target platform
                 platform_value = target_platform
@@ -878,7 +877,7 @@ class DBTTest:
                         config.env,
                         config.disable_dbt_node_creation,
                         config.platform_instance,
-                        config.point_source_lineage_edges_to_target_node
+                        config.point_source_lineage_edges_to_target_node,
                     )
                     assertion_urn = mce_builder.make_assertion_urn(
                         mce_builder.datahub_guid(
@@ -1167,7 +1166,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 environment=self.config.env,
                 disable_dbt_node_creation=self.config.disable_dbt_node_creation,
                 platform_instance=None,
-                point_source_lineage_edges_to_target_node=self.config.point_source_lineage_edges_to_target_node
+                point_source_lineage_edges_to_target_node=self.config.point_source_lineage_edges_to_target_node,
             )
 
             raw_node = manifest_nodes.get(node.dbt_name)
@@ -1763,7 +1762,7 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.env,
             self.config.disable_dbt_node_creation,
             self.config.platform_instance,
-            self.config.point_source_lineage_edges_to_target_node
+            self.config.point_source_lineage_edges_to_target_node,
         )
 
         # if a node is of type source in dbt, its upstream lineage should have the corresponding table/view
@@ -1799,7 +1798,7 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.env,
             self.config.disable_dbt_node_creation,
             self.config.platform_instance,
-            self.config.point_source_lineage_edges_to_target_node
+            self.config.point_source_lineage_edges_to_target_node,
         )
         if upstream_urns:
             return get_upstream_lineage(upstream_urns)
