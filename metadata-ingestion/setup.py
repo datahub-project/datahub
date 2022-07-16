@@ -360,7 +360,6 @@ base_dev_requirements = {
             "redshift",
             "redshift-usage",
             "data-lake",
-            "delta-lake",
             "s3",
             "tableau",
             "trino",
@@ -424,10 +423,12 @@ full_test_dev_requirements = {
         dependency
         for plugin in [
             "clickhouse",
+            "delta-lake",
             "druid",
             "feast-legacy",
             "hana",
             "hive",
+            "kafka-connect",
             "ldap",
             "mongodb",
             "mssql",
@@ -435,7 +436,6 @@ full_test_dev_requirements = {
             "mariadb",
             "snowflake",
             "redash",
-            "kafka-connect",
             "vertica",
         ]
         for dependency in plugins[plugin]

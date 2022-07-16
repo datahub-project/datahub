@@ -165,10 +165,6 @@ def run(
 
     loop = asyncio.get_event_loop()
     loop.run_until_complete(run_func_check_upgrade(pipeline))
-    # if hasattr(asyncio, "run"):
-    #    asyncio.run(run_func_check_upgrade(pipeline))
-    # else:
-    #    sys.exit(run_pipeline_to_completion(pipeline))
 
 
 def get_runs_url(gms_host: str) -> str:

@@ -349,11 +349,6 @@ def maybe_print_upgrade_message(  # noqa: C901
 
 def check_upgrade(func: Callable[..., T]) -> Callable[..., T]:
     @wraps(func)
-    def noop_wrapper(*args: Any, **kwargs: Any) -> Any:
-        res = func(*args, **kwargs)
-        return res
-
-    @wraps(func)
     def async_wrapper(*args: Any, **kwargs: Any) -> Any:
         async def run_inner_func():
             loop = asyncio.get_event_loop()
@@ -380,10 +375,4 @@ def check_upgrade(func: Callable[..., T]) -> Callable[..., T]:
         loop = asyncio.get_event_loop()
         loop.run_until_complete(run_func_check_upgrade())
 
-    #        if hasattr(asyncio, "run"):
-    #            asyncio.run(run_func_check_upgrade())
-
-    if hasattr(asyncio, "run"):
-        return async_wrapper
-    else:
-        return noop_wrapper
+    return async_wrapper
