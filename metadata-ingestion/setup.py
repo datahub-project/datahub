@@ -60,6 +60,7 @@ framework_common = {
     "types-Deprecated",
     "humanfriendly",
     "packaging",
+    "aiohttp<4",
 }
 
 kafka_common = {
@@ -266,7 +267,7 @@ plugins: Dict[str, Set[str]] = {
     "redshift": sql_common | redshift_common,
     "redshift-usage": sql_common | usage_common | redshift_common,
     "sagemaker": aws_common,
-    "salesforce":{"simple-salesforce"},
+    "salesforce": {"simple-salesforce"},
     "snowflake": snowflake_common,
     "snowflake-usage": snowflake_common
     | usage_common
@@ -347,6 +348,7 @@ base_dev_requirements = {
             "bigquery-usage",
             "clickhouse",
             "clickhouse-usage",
+            "delta-lake",
             "druid",
             "elasticsearch",
             "ldap",
@@ -363,7 +365,6 @@ base_dev_requirements = {
             "redshift",
             "redshift-usage",
             "data-lake",
-            "delta-lake",
             "s3",
             "tableau",
             "trino",
@@ -432,6 +433,7 @@ full_test_dev_requirements = {
             "feast-legacy",
             "hana",
             "hive",
+            "kafka-connect",
             "ldap",
             "mongodb",
             "mssql",
@@ -439,7 +441,6 @@ full_test_dev_requirements = {
             "mariadb",
             "snowflake",
             "redash",
-            "kafka-connect",
             "vertica",
         ]
         for dependency in plugins[plugin]
