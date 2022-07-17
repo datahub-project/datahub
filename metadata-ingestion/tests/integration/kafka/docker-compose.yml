@@ -2,7 +2,7 @@
 version: '3.8'
 services:
   zookeeper:
-    image: confluentinc/cp-zookeeper:5.4.0
+    image: confluentinc/cp-zookeeper:7.2.0
     env_file: zookeeper.env
     hostname: test_zookeeper
     ports:
@@ -11,7 +11,7 @@ services:
       - test_zkdata:/var/opt/zookeeper
 
   broker:
-    image: confluentinc/cp-kafka:5.4.0
+    image: confluentinc/cp-kafka:7.2.0
     env_file: broker.env
     hostname: test_broker
     container_name: test_broker
@@ -21,7 +21,7 @@ services:
       - "59092:59092"
 
   schema-registry:
-    image: confluentinc/cp-schema-registry:5.4.0
+    image: confluentinc/cp-schema-registry:7.2.0
     env_file: schema-registry.env
     container_name: test_schema_registry
     depends_on:
