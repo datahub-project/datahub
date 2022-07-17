@@ -15,7 +15,7 @@ services:
     - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
     - KAFKA_HEAP_OPTS=-Xms256m -Xmx256m
     hostname: broker
-    image: kymeric/cp-kafka:latest
+    image: confluentinc/cp-kafka:7.2.0
     ports:
     - ${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}:9092
   datahub-actions:
@@ -162,9 +162,9 @@ services:
     - broker
     environment:
     - SCHEMA_REGISTRY_HOST_NAME=schemaregistry
-    - SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL=zookeeper:2181
+    - SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=PLAINTEXT://broker:29092
     hostname: schema-registry
-    image: eugenetea/schema-registry-arm64:latest
+    image: confluentinc/cp-schema-registry:7.2.0
     ports:
     - ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}:8081
   zookeeper:
@@ -173,7 +173,7 @@ services:
     - ZOOKEEPER_CLIENT_PORT=2181
     - ZOOKEEPER_TICK_TIME=2000
     hostname: zookeeper
-    image: kymeric/cp-zookeeper:latest
+    image: confluentinc/cp-zookeeper:7.2.0
     ports:
     - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
     volumes:
