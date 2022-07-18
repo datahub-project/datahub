@@ -1,4 +1,4 @@
-import { Button, message, Typography } from 'antd';
+import { Alert, Button, message, Space, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { StepProps } from './types';
@@ -6,6 +6,10 @@ import { getSourceConfigs, jsonToYaml, yamlToJson } from '../utils';
 import { YamlEditor } from './YamlEditor';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { IngestionSourceBuilderStep } from './steps';
+import RecipeBuilder from './RecipeBuilder';
+import { CONNECTORS_WITH_FORM } from './RecipeForm/utils';
+
+const LOOKML_DOC_LINK = 'https://datahubproject.io/docs/generated/ingestion/sources/looker#module-lookml';
 
 const Section = styled.div`
     display: flex;
@@ -35,26 +39,33 @@ const ControlsContainer = styled.div`
 export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) => {
     const existingRecipeJson = state.config?.recipe;
     const existingRecipeYaml = existingRecipeJson && jsonToYaml(existingRecipeJson);
+    const { type } = state;
+    const sourceConfigs = getSourceConfigs(type as string);
 
-    const [stagedRecipeYml, setStagedRecipeYml] = useState(existingRecipeYaml || '');
+    const [stagedRecipeYml, setStagedRecipeYml] = useState(existingRecipeYaml || sourceConfigs.placeholderRecipe);
 
     useEffect(() => {
-        setStagedRecipeYml(existingRecipeYaml || '');
+        if (existingRecipeYaml) {
+            setStagedRecipeYml(existingRecipeYaml);
+        }
     }, [existingRecipeYaml]);
 
     const [stepComplete, setStepComplete] = useState(false);
 
-    const { type } = state;
-    const sourceConfigs = getSourceConfigs(type as string);
+    const isEditing: boolean = prev === undefined;
     const displayRecipe = stagedRecipeYml || sourceConfigs.placeholderRecipe;
     const sourceDisplayName = sourceConfigs.displayName;
     const sourceDocumentationUrl = sourceConfigs.docsUrl; // Maybe undefined (in case of "custom")
 
+    // TODO: Delete LookML banner specific code
+    const isSourceLooker: boolean = sourceConfigs.type === 'looker';
+    const [showLookerBanner, setShowLookerBanner] = useState(isSourceLooker && !isEditing);
+
     useEffect(() => {
-        if (stagedRecipeYml && stagedRecipeYml.length > 0) {
+        if (stagedRecipeYml && stagedRecipeYml.length > 0 && !showLookerBanner) {
             setStepComplete(true);
         }
-    }, [stagedRecipeYml]);
+    }, [stagedRecipeYml, showLookerBanner]);
 
     const onClickNext = () => {
         // Convert the recipe into it's json representation, and catch + report exceptions while we do it.
@@ -78,11 +89,59 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
         goTo(IngestionSourceBuilderStep.CREATE_SCHEDULE);
     };
 
+    if (type && CONNECTORS_WITH_FORM.has(type)) {
+        return (
+            <RecipeBuilder
+                type={type}
+                isEditing={isEditing}
+                displayRecipe={displayRecipe}
+                setStagedRecipe={setStagedRecipeYml}
+                onClickNext={onClickNext}
+                goToPrevious={prev}
+            />
+        );
+    }
+
     return (
         <>
             <Section>
                 <SelectTemplateHeader level={5}>Configure {sourceDisplayName} Recipe</SelectTemplateHeader>
+                {showLookerBanner && (
+                    <Alert
+                        type="warning"
+                        banner
+                        message={
+                            <>
+                                <big>
+                                    <i>
+                                        <b>You must acknowledge this message to proceed!</b>
+                                    </i>
+                                </big>
+                                <br />
+                                <br />
+                                To get complete Looker metadata integration (including Looker views and lineage to the
+                                underlying warehouse tables), you must <b>also</b> use the{' '}
+                                <a href={LOOKML_DOC_LINK} target="_blank" rel="noopener noreferrer">
+                                    DataHub lookml module
+                                </a>
+                                .
+                                <br />
+                                <br />
+                                LookML ingestion <b>cannot</b> currently be performed via UI-based ingestion. This is a
+                                known problem the DataHub team is working to solve!
+                                <br />
+                                <Space direction="horizontal" style={{ width: '100%', justifyContent: 'center' }}>
+                                    <Button type="ghost" size="small" onClick={() => setShowLookerBanner(false)}>
+                                        I have set up LookML ingestion!
+                                    </Button>
+                                </Space>
+                            </>
+                        }
+                        afterClose={() => setShowLookerBanner(false)}
+                    />
+                )}
                 <Typography.Text>
+                    {showLookerBanner && <br />}
                     For more information about how to configure a recipe, see the{' '}
                     <a href={sourceDocumentationUrl} target="_blank" rel="noopener noreferrer">
                         {sourceDisplayName} source docs.
@@ -93,7 +152,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
                 <YamlEditor initialText={displayRecipe} onChange={setStagedRecipeYml} />
             </BorderedSection>
             <ControlsContainer>
-                <Button disabled={prev === undefined} onClick={prev}>
+                <Button disabled={isEditing} onClick={prev}>
                     Previous
                 </Button>
                 <Button disabled={!stepComplete} onClick={onClickNext}>

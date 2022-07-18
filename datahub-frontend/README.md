@@ -19,7 +19,7 @@ installed to be able to build because UI tests have a dependency on `Google Chro
 ```
 However, if you only want to build `DataHub Frontend` specifically:
 ```
-./gradlew :datahub-frontend:build
+./gradlew :datahub-frontend:dist
 ```
 
 ## Dependencies
@@ -62,7 +62,7 @@ WHZ-Authentication {
 
 ### Authentication in React
 The React app supports both JAAS as described above and separately OIDC authentication. To learn about configuring OIDC for React,
-see the [OIDC in React](../docs/how/auth/sso/configure-oidc-react.md) document.
+see the [OIDC in React](../docs/authentication/guides/sso/configure-oidc-react.md) document.
 
 
 ### API Debugging

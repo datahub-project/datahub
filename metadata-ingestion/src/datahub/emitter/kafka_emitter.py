@@ -49,12 +49,11 @@ class KafkaEmitterConfig(ConfigModel):
                 raise ConfigurationError(
                     "Using both topic and topic_routes configuration for Kafka is not supported. Use only topic_routes"
                 )
-            else:
-                logger.warning(
-                    "Looks like you're using the deprecated `topic` configuration. Please migrate to `topic_routes`."
-                )
-                # upgrade topic provided to topic_routes mce entry
-                values["topic_routes"][MCE_KEY] = values["topic"]
+            logger.warning(
+                "Looks like you're using the deprecated `topic` configuration. Please migrate to `topic_routes`."
+            )
+            # upgrade topic provided to topic_routes mce entry
+            values["topic_routes"][MCE_KEY] = values["topic"]
         return values
 
 
@@ -70,8 +69,7 @@ class DatahubKafkaEmitter:
         def convert_mce_to_dict(
             mce: MetadataChangeEvent, ctx: SerializationContext
         ) -> dict:
-            tuple_encoding = mce.to_obj(tuples=True)
-            return tuple_encoding
+            return mce.to_obj(tuples=True)
 
         mce_avro_serializer = AvroSerializer(
             schema_str=getMetadataChangeEventSchema(),
@@ -83,8 +81,7 @@ class DatahubKafkaEmitter:
             mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
             ctx: SerializationContext,
         ) -> dict:
-            tuple_encoding = mcp.to_obj(tuples=True)
-            return tuple_encoding
+            return mcp.to_obj(tuples=True)
 
         mcp_avro_serializer = AvroSerializer(
             schema_str=getMetadataChangeProposalSchema(),

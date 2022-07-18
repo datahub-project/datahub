@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { Button, Divider, Empty, Typography } from 'antd';
 import { RocketOutlined } from '@ant-design/icons';
-import { RecommendationModule as RecommendationModuleType, ScenarioType } from '../../types.generated';
+import { EntityType, RecommendationModule as RecommendationModuleType, ScenarioType } from '../../types.generated';
 import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
 import { RecommendationModule } from '../recommendations/RecommendationModule';
 import { BrowseEntityCard } from '../search/BrowseEntityCard';
@@ -125,6 +125,9 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
                                         />
                                     ),
                             )}
+                            {!orderedEntityCounts.some(
+                                (entityCount) => entityCount.entityType === EntityType.GlossaryTerm,
+                            ) && <BrowseEntityCard entityType={EntityType.GlossaryTerm} count={0} />}
                         </BrowseCardContainer>
                     ) : (
                         <NoMetadataContainer>

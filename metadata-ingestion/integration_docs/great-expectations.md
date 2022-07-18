@@ -48,6 +48,9 @@ This integration does not support
     - `extra_headers` (optional): Extra headers which will be added to the datahub request.
     - `parse_table_names_from_sql` (defaults to false): The integration can use an SQL parser to try to parse the datasets being asserted. This parsing is disabled by default, but can be enabled by setting `parse_table_names_from_sql: True`.  The parser is based on the [`sqllineage`](https://pypi.org/project/sqllineage/) package.
     
+## Debugging
+Set environment variable `DATAHUB_DEBUG` (default `false`) to `true` to enable debug logging for `DataHubValidationAction`.
+
 ## Learn more
 
 To see the Great Expectations in action, check out [this demo](https://www.loom.com/share/d781c9f0b270477fb5d6b0c26ef7f22d) from the Feb 2022 townhall. 

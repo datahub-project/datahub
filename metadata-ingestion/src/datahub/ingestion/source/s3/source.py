@@ -5,7 +5,6 @@ import pathlib
 import re
 from collections import OrderedDict
 from datetime import datetime
-from math import log10
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pydeequ
@@ -35,20 +34,12 @@ from pyspark.sql.types import (
 from pyspark.sql.utils import AnalysisException
 from smart_open import open as smart_open
 
+import datahub.ingestion.source.s3.config
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
-    make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import (
-    FolderKey,
-    KeyType,
-    PlatformKey,
-    S3BucketKey,
-    add_dataset_to_container,
-    gen_containers,
-)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -60,12 +51,14 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.s3_boto_utils import get_s3_tags, list_folders
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
     get_key_prefix,
     strip_s3_prefix,
 )
+from datahub.ingestion.source.data_lake.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig, PathSpec
 from datahub.ingestion.source.s3.profiling import _SingleTableProfiler
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
@@ -87,10 +80,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetPropertiesClass,
-    GlobalTagsClass,
     MapTypeClass,
     OtherSchemaClass,
-    TagAssociationClass,
 )
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
@@ -119,6 +110,8 @@ _field_type_mapping = {
     StructField: RecordTypeClass,
     StructType: RecordTypeClass,
 }
+SAMPLE_SIZE = 100
+PAGE_SIZE = 1000
 
 
 def get_column_type(
@@ -227,7 +220,7 @@ class S3Source(Source):
     source_config: DataLakeSourceConfig
     report: DataLakeSourceReport
     profiling_times_taken: List[float]
-    processed_containers: List[str]
+    container_WU_creator: ContainerWUCreator
 
     def __init__(self, config: DataLakeSourceConfig, ctx: PipelineContext):
         super().__init__(ctx)
@@ -380,75 +373,6 @@ class S3Source(Source):
         # see https://mungingdata.com/pyspark/avoid-dots-periods-column-names/
         return df.toDF(*(c.replace(".", "_") for c in df.columns))
 
-    def create_emit_containers(
-        self,
-        container_key: KeyType,
-        name: str,
-        sub_types: List[str],
-        parent_container_key: Optional[PlatformKey] = None,
-        domain_urn: Optional[str] = None,
-    ) -> Iterable[MetadataWorkUnit]:
-        if container_key.guid() not in self.processed_containers:
-            container_wus = gen_containers(
-                container_key=container_key,
-                name=name,
-                sub_types=sub_types,
-                parent_container_key=parent_container_key,
-                domain_urn=domain_urn,
-            )
-            self.processed_containers.append(container_key.guid())
-            logger.debug(f"Creating container with key: {container_key}")
-            for wu in container_wus:
-                self.report.report_workunit(wu)
-                yield wu
-
-    def create_container_hierarchy(
-        self, table_data: TableData, dataset_urn: str
-    ) -> Iterable[MetadataWorkUnit]:
-        logger.debug(f"Creating containers for {dataset_urn}")
-        base_full_path = table_data.table_path
-        parent_key = None
-        if table_data.is_s3:
-            bucket_name = get_bucket_name(table_data.table_path)
-            bucket_key = self.gen_bucket_key(bucket_name)
-            yield from self.create_emit_containers(
-                container_key=bucket_key,
-                name=bucket_name,
-                sub_types=["S3 bucket"],
-                parent_container_key=None,
-            )
-            parent_key = bucket_key
-            base_full_path = get_bucket_relative_path(table_data.table_path)
-
-        parent_folder_path = (
-            base_full_path[: base_full_path.rfind("/")]
-            if base_full_path.rfind("/") != -1
-            else ""
-        )
-        for folder in parent_folder_path.split("/"):
-            abs_path = folder
-            if parent_key:
-                prefix: str = ""
-                if isinstance(parent_key, S3BucketKey):
-                    prefix = parent_key.bucket_name
-                elif isinstance(parent_key, FolderKey):
-                    prefix = parent_key.folder_abs_path
-                abs_path = prefix + "/" + folder
-            folder_key = self.gen_folder_key(abs_path)
-            yield from self.create_emit_containers(
-                container_key=folder_key,
-                name=folder,
-                sub_types=["Folder"],
-                parent_container_key=parent_key,
-            )
-            parent_key = folder_key
-        if parent_key is None:
-            logger.warning(
-                f"Failed to associate Dataset ({dataset_urn}) with container"
-            )
-            return
-        yield from add_dataset_to_container(parent_key, dataset_urn)
-
     def get_fields(self, table_data: TableData, path_spec: PathSpec) -> List:
         if table_data.is_s3:
             if self.source_config.aws_config is None:
@@ -466,8 +390,14 @@ class S3Source(Source):
         fields = []
 
         extension = pathlib.Path(table_data.full_path).suffix
+        if path_spec.enable_compression and (
+            extension[1:]
+            in datahub.ingestion.source.aws.path_spec.SUPPORTED_COMPRESSIONS
+        ):
+            # Removing the compression extension and using the one before that like .json.gz -> .json
+            extension = pathlib.Path(table_data.full_path).with_suffix("").suffix
         if extension == "" and path_spec.default_extension:
-            extension = path_spec.default_extension
+            extension = f".{path_spec.default_extension}"
 
         try:
             if extension == ".parquet":
@@ -602,13 +532,17 @@ class S3Source(Source):
             aspects=[],
         )
 
+        customProperties: Optional[Dict[str, str]] = None
+        if not path_spec.sample_files:
+            customProperties = {
+                "number_of_files": str(table_data.number_of_files),
+                "size_in_bytes": str(table_data.size_in_bytes),
+            }
+
         dataset_properties = DatasetPropertiesClass(
             description="",
             name=table_data.display_name,
-            customProperties={
-                "number_of_files": str(table_data.number_of_files),
-                "size_in_bytes": str(table_data.size_in_bytes),
-            },
+            customProperties=customProperties,
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
@@ -632,7 +566,15 @@ class S3Source(Source):
                 if table_data.full_path == table_data.table_path
                 else None
             )
-            s3_tags = self.get_s3_tags(bucket, key_prefix, dataset_urn)
+            s3_tags = get_s3_tags(
+                bucket,
+                key_prefix,
+                dataset_urn,
+                self.source_config.aws_config,
+                self.ctx,
+                self.source_config.use_s3_bucket_tags,
+                self.source_config.use_s3_object_tags,
+            )
             if s3_tags is not None:
                 dataset_snapshot.aspects.append(s3_tags)
 
@@ -641,90 +583,18 @@ class S3Source(Source):
         self.report.report_workunit(wu)
         yield wu
 
-        yield from self.create_container_hierarchy(table_data, dataset_urn)
+        container_wus = self.container_WU_creator.create_container_hierarchy(
+            table_data.table_path, table_data.is_s3, dataset_urn
+        )
+        for wu in container_wus:
+            self.report.report_workunit(wu)
+            yield wu
 
         if self.source_config.profiling.enabled:
             yield from self.get_table_profile(table_data, dataset_urn)
 
-    def gen_bucket_key(self, name):
-        return S3BucketKey(
-            platform="s3",
-            instance=self.source_config.env
-            if self.source_config.platform_instance is None
-            else self.source_config.platform_instance,
-            bucket_name=name,
-        )
-
-    def get_s3_tags(
-        self, bucket_name: str, key_name: Optional[str], dataset_urn: str
-    ) -> Optional[GlobalTagsClass]:
-        if self.source_config.aws_config is None:
-            raise ValueError("aws_config not set. Cannot browse s3")
-        new_tags = GlobalTagsClass(tags=[])
-        tags_to_add = []
-        if self.source_config.use_s3_bucket_tags:
-            s3 = self.source_config.aws_config.get_s3_resource()
-            bucket = s3.Bucket(bucket_name)
-            try:
-                tags_to_add.extend(
-                    [
-                        make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
-                        for tag in bucket.Tagging().tag_set
-                    ]
-                )
-            except s3.meta.client.exceptions.ClientError:
-                logger.warn(f"No tags found for bucket={bucket_name}")
-
-        if self.source_config.use_s3_object_tags and key_name is not None:
-            s3_client = self.source_config.aws_config.get_s3_client()
-            object_tagging = s3_client.get_object_tagging(
-                Bucket=bucket_name, Key=key_name
-            )
-            tag_set = object_tagging["TagSet"]
-            if tag_set:
-                tags_to_add.extend(
-                    [
-                        make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
-                        for tag in tag_set
-                    ]
-                )
-            else:
-                # Unlike bucket tags, if an object does not have tags, it will just return an empty array
-                # as opposed to an exception.
-                logger.warn(f"No tags found for bucket={bucket_name} key={key_name}")
-        if len(tags_to_add) == 0:
-            return None
-        if self.ctx.graph is not None:
-            logger.debug("Connected to DatahubApi, grabbing current tags to maintain.")
-            current_tags: Optional[GlobalTagsClass] = self.ctx.graph.get_aspect_v2(
-                entity_urn=dataset_urn,
-                aspect="globalTags",
-                aspect_type=GlobalTagsClass,
-            )
-            if current_tags:
-                tags_to_add.extend(
-                    [current_tag.tag for current_tag in current_tags.tags]
-                )
-        else:
-            logger.warn("Could not connect to DatahubApi. No current tags to maintain")
-        # Remove duplicate tags
-        tags_to_add = list(set(tags_to_add))
-        new_tags = GlobalTagsClass(
-            tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
-        )
-        return new_tags
-
-    def gen_folder_key(self, abs_path):
-        return FolderKey(
-            platform=self.source_config.platform,
-            instance=self.source_config.env
-            if self.source_config.platform_instance is None
-            else self.source_config.platform_instance,
-            folder_abs_path=abs_path,
-        )
-
     def get_prefix(self, relative_path: str) -> str:
-        index = re.search("[\*|\{]", relative_path)  # noqa: W605
+        index = re.search(r"[\*|\{]", relative_path)
         if index:
             return relative_path[: index.start()]
         else:
@@ -740,49 +610,92 @@ class S3Source(Source):
     ) -> TableData:
 
         logger.debug(f"Getting table data for path: {path}")
-        parsed_vars = path_spec.get_named_vars(path)
+        table_name, table_path = path_spec.extract_table_name_and_path(path)
         table_data = None
-        if parsed_vars is None or "table" not in parsed_vars.named:
-            table_data = TableData(
-                display_name=os.path.basename(path),
-                is_s3=path_spec.is_s3(),
-                full_path=path,
-                partitions=None,
-                timestamp=timestamp,
-                table_path=path,
-                number_of_files=1,
-                size_in_bytes=size,
-            )
-        else:
-            include = path_spec.include
-            depth = include.count("/", 0, include.find("{table}"))
-            table_path = (
-                "/".join(path.split("/")[:depth]) + "/" + parsed_vars.named["table"]
-            )
-            table_data = TableData(
-                display_name=self.extract_table_name(path_spec, parsed_vars.named),
-                is_s3=path_spec.is_s3(),
-                full_path=path,
-                partitions=None,
-                timestamp=timestamp,
-                table_path=table_path,
-                number_of_files=1,
-                size_in_bytes=size,
-            )
+        table_data = TableData(
+            display_name=table_name,
+            is_s3=path_spec.is_s3(),
+            full_path=path,
+            partitions=None,
+            timestamp=timestamp,
+            table_path=table_path,
+            number_of_files=1,
+            size_in_bytes=size,
+        )
         return table_data
+
+    def resolve_templated_folders(self, bucket_name: str, prefix: str) -> Iterable[str]:
+        folder_split: List[str] = prefix.split("*", 1)
+        # If the len of split is 1 it means we don't have * in the prefix
+        if len(folder_split) == 1:
+            yield prefix
+            return
+
+        folders: Iterable[str] = list_folders(
+            bucket_name, folder_split[0], self.source_config.aws_config
+        )
+        for folder in folders:
+            yield from self.resolve_templated_folders(
+                bucket_name, f"{folder}{folder_split[1]}"
+            )
 
     def s3_browser(self, path_spec: PathSpec) -> Iterable[Tuple[str, datetime, int]]:
         if self.source_config.aws_config is None:
             raise ValueError("aws_config not set. Cannot browse s3")
         s3 = self.source_config.aws_config.get_s3_resource()
         bucket_name = get_bucket_name(path_spec.include)
-        logger.debug(f"Scanning bucket : {bucket_name}")
+        logger.debug(f"Scanning bucket: {bucket_name}")
         bucket = s3.Bucket(bucket_name)
         prefix = self.get_prefix(get_bucket_relative_path(path_spec.include))
         logger.debug(f"Scanning objects with prefix:{prefix}")
-        for obj in bucket.objects.filter(Prefix=prefix).page_size(1000):
-            s3_path = f"s3://{obj.bucket_name}/{obj.key}"
-            yield s3_path, obj.last_modified, obj.size,
+        matches = re.finditer(r"{\s*\w+\s*}", path_spec.include, re.MULTILINE)
+        matches_list = list(matches)
+        if matches_list and path_spec.sample_files:
+            # Replace the patch_spec include's templates with star because later we want to resolve all the stars
+            # to actual directories.
+            # For example:
+            # "s3://my-test-bucket/*/{dept}/*/{table}/*/*.*" -> "s3://my-test-bucket/*/*/*/{table}/*/*.*"
+            # We only keep the last template as a marker to know the point util we need to resolve path.
+            # After the marker we can safely get sample files for sampling because it is not used in the
+            # table name, so we don't need all the files.
+            # This speed up processing but we won't be able to get a precise modification date/size/number of files.
+            max_start: int = -1
+            include: str = path_spec.include
+            max_match: str = ""
+            for match in matches_list:
+                pos = include.find(match.group())
+                if pos > max_start:
+                    if max_match:
+                        include = include.replace(max_match, "*")
+                    max_start = match.start()
+                    max_match = match.group()
+
+            table_index = include.find(max_match)
+            for folder in self.resolve_templated_folders(
+                bucket_name, get_bucket_relative_path(include[:table_index])
+            ):
+                for f in list_folders(
+                    bucket_name, f"{folder}", self.source_config.aws_config
+                ):
+                    logger.info(f"Processing folder: {f}")
+
+                    for obj in (
+                        bucket.objects.filter(Prefix=f"{f}")
+                        .page_size(PAGE_SIZE)
+                        .limit(SAMPLE_SIZE)
+                    ):
+                        s3_path = f"s3://{obj.bucket_name}/{obj.key}"
+                        logger.debug(f"Samping file: {s3_path}")
+                        yield s3_path, obj.last_modified, obj.size,
+        else:
+            logger.debug(
+                "No template in the pathspec can't do sampling, fallbacking to do full scan"
+            )
+            path_spec.sample_files = False
+            for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE):
+                s3_path = f"s3://{obj.bucket_name}/{obj.key}"
+                logger.debug(f"Path: {s3_path}")
+                yield s3_path, obj.last_modified, obj.size,
 
     def local_browser(self, path_spec: PathSpec) -> Iterable[Tuple[str, datetime, int]]:
         prefix = self.get_prefix(path_spec.include)
@@ -801,7 +714,11 @@ class S3Source(Source):
                     ), os.path.getsize(full_path)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        self.processed_containers = []
+        self.container_WU_creator = ContainerWUCreator(
+            self.source_config.platform,
+            self.source_config.platform_instance,
+            self.source_config.env,
+        )
         with PerfTimer() as timer:
             assert self.source_config.path_specs
             for path_spec in self.source_config.path_specs:
@@ -856,8 +773,9 @@ class S3Source(Source):
                 )
 
                 time_percentiles = {
-                    f"table_time_taken_p{percentile}": 10
-                    ** int(log10(percentile_values[percentile] + 1))
+                    f"table_time_taken_p{percentile}": stats.discretize(
+                        percentile_values[percentile]
+                    )
                     for percentile in percentiles
                 }
 
@@ -865,8 +783,8 @@ class S3Source(Source):
                 "data_lake_profiling_summary",
                 # bucket by taking floor of log of time taken
                 {
-                    "total_time_taken": 10 ** int(log10(total_time_taken + 1)),
-                    "count": 10 ** int(log10(len(self.profiling_times_taken) + 1)),
+                    "total_time_taken": stats.discretize(total_time_taken),
+                    "count": stats.discretize(len(self.profiling_times_taken)),
                     "platform": self.source_config.platform,
                     **time_percentiles,
                 },

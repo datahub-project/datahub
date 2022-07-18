@@ -12,7 +12,7 @@ import { useEntityData } from '../../EntityContext';
 import { getDescriptionFromType, getNameFromType } from '../../containers/profile/sidebar/Ownership/ownershipUtils';
 
 type Props = {
-    entityUrn: string;
+    entityUrn?: string;
     owner: Owner;
     hidePopOver?: boolean | undefined;
     refetch?: () => Promise<any>;
@@ -43,6 +43,9 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch }: Props)
         (owner.owner.__typename === 'CorpUser' && owner.owner.editableProperties?.pictureLink) || undefined;
 
     const onDelete = async () => {
+        if (!entityUrn) {
+            return;
+        }
         try {
             await removeOwnerMutation({
                 variables: {
@@ -84,7 +87,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch }: Props)
     };
 
     return (
-        <OwnerTag onClose={onClose} closable>
+        <OwnerTag onClose={onClose} closable={!!entityUrn}>
             <Link to={`/${entityRegistry.getPathName(owner.owner.type)}/${owner.owner.urn}`}>
                 <CustomAvatar name={name} photoUrl={pictureLink} useDefaultAvatar={false} />
                 {(hidePopOver && <>{name}</>) || (

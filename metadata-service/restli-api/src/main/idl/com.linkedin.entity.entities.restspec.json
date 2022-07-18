@@ -115,6 +115,13 @@
       } ],
       "returns" : "com.linkedin.metadata.run.DeleteReferencesResponse"
     }, {
+      "name" : "exists",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      } ],
+      "returns" : "boolean"
+    }, {
       "name" : "filter",
       "parameters" : [ {
         "name" : "entity",
@@ -256,6 +263,10 @@
       }, {
         "name" : "input",
         "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "maxHops",
+        "type" : "int",
         "optional" : true
       }, {
         "name" : "filter",

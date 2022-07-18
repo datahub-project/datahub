@@ -11,6 +11,7 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.source_common import DatasetSourceConfigBase
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
+from datahub.ingestion.source_config.bigquery import BigQueryBaseConfig
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ class BigQueryCredential(ConfigModel):
     project_id: str = pydantic.Field(description="Project id to set the credentials")
     private_key_id: str = pydantic.Field(description="Private key id")
     private_key: str = pydantic.Field(
-        description="Private key in a form of '-----BEGIN PRIVATE KEY-----\nprivate-key\n-----END PRIVATE KEY-----\n'"
+        description="Private key in a form of '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n'"
     )
     client_email: str = pydantic.Field(description="Client email")
     client_id: str = pydantic.Field(description="Client Id")
@@ -57,7 +58,7 @@ class BigQueryCredential(ConfigModel):
             return fp.name
 
 
-class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
+class BigQueryUsageConfig(BigQueryBaseConfig, DatasetSourceConfigBase, BaseUsageConfig):
     projects: Optional[List[str]] = pydantic.Field(
         default=None,
         description="List of project ids to ingest usage from. If not specified, will infer from environment.",
@@ -113,7 +114,7 @@ class BigQueryUsageConfig(DatasetSourceConfigBase, BaseUsageConfig):
 
     credential: Optional[BigQueryCredential] = pydantic.Field(
         default=None,
-        description="Bigquery credential. Required if GOOGLE_APPLICATION_CREDENTIALS enviroment variable is not set. See this example recipe for details",
+        description="Bigquery credential. Required if GOOGLE_APPLICATION_CREDENTIALS environment variable is not set. See this example recipe for details",
     )
     _credentials_path: Optional[str] = pydantic.PrivateAttr(None)
     temp_table_dataset_prefix: str = pydantic.Field(

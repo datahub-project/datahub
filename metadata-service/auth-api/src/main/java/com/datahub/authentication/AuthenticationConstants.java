@@ -29,5 +29,9 @@ public class AuthenticationConstants {
   public static final String SYSTEM_CLIENT_ID_CONFIG = "systemClientId";
   public static final String SYSTEM_CLIENT_SECRET_CONFIG = "systemClientSecret";
 
+  public static final String ENTITY_SERVICE = "entityService";
+  public static final String TOKEN_SERVICE = "tokenService";
+
+
   private AuthenticationConstants() { }
 }

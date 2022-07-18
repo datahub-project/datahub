@@ -14,14 +14,17 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
+import lombok.extern.slf4j.Slf4j;
 
 
 /**
  * GraphQL Resolver that deletes an Assertion.
  */
+@Slf4j
 public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Boolean>>  {
 
   private final EntityClient _entityClient;
@@ -46,6 +49,16 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
       if (isAuthorizedToDeleteAssertion(context, assertionUrn)) {
           try {
             _entityClient.deleteEntity(assertionUrn, context.getAuthentication());
+
+            // Asynchronously Delete all references to the entity (to return quickly)
+            CompletableFuture.runAsync(() -> {
+              try {
+                _entityClient.deleteEntityReferences(assertionUrn, context.getAuthentication());
+              } catch (RemoteInvocationException e) {
+                log.error(String.format("Caught exception while attempting to clear all entity references for assertion with urn %s", assertionUrn), e);
+              }
+            });
+
             return true;
           } catch (Exception e) {
             throw new RuntimeException(String.format("Failed to perform delete against assertion with urn %s", assertionUrn), e);

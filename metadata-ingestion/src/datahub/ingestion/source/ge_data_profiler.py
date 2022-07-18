@@ -7,9 +7,11 @@ import threading
 import traceback
 import unittest.mock
 import uuid
-from math import log10
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
+from great_expectations import __version__ as ge_version
+
+from datahub.configuration.common import ConfigurationError
 from datahub.telemetry import stats, telemetry
 
 # Fun compatibility hack! GE version 0.13.44 broke compatibility with SQLAlchemy 1.3.24.
@@ -304,8 +306,17 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     def _get_column_cardinality(
         self, column_spec: _SingleColumnSpec, column: str
     ) -> None:
-        nonnull_count = self.dataset.get_column_nonnull_count(column)
-        column_spec.nonnull_count = nonnull_count
+        try:
+            nonnull_count = self.dataset.get_column_nonnull_count(column)
+            column_spec.nonnull_count = nonnull_count
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get column cardinality for column {column}. {e}"
+            )
+            self.report.report_warning(
+                "Profiling - Unable to get column cardinality",
+                f"{self.dataset_name}.{column}",
+            )
 
         unique_count = None
         pct_unique = None
@@ -351,21 +362,43 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     def _get_dataset_column_median(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_median_value:
+        if not self.config.include_field_median_value:
+            return
+        try:
             column_profile.median = str(self.dataset.get_column_median(column))
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get column median for column {column}. {e}"
+            )
+            self.report.report_warning(
+                "Profiling - Unable to get column medians",
+                f"{self.dataset_name}.{column}",
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_stdev(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_stddev_value:
+        if not self.config.include_field_stddev_value:
+            return
+        try:
             column_profile.stdev = str(self.dataset.get_column_stdev(column))
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get column stddev for column {column}. {e}"
+            )
+            self.report.report_warning(
+                "Profiling - Unable to get column stddev",
+                f"{self.dataset_name}.{column}",
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_quantiles(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_quantiles:
+        if not self.config.include_field_quantiles:
+            return
+        try:
             # FIXME: Eventually we'd like to switch to using the quantile method directly.
             # However, that method seems to be throwing an error in some cases whereas
             # this does not.
@@ -390,6 +423,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                         res["observed_value"]["values"],
                     )
                 ]
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get column quantiles for column {column}. {e}"
+            )
+            self.report.report_warning(
+                "Profiling - Unable to get column quantiles",
+                f"{self.dataset_name}.{column}",
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_distinct_value_frequencies(
@@ -405,7 +446,9 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     def _get_dataset_column_histogram(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_histogram:
+        if not self.config.include_field_histogram:
+            return
+        try:
             self.dataset.set_config_value("interactive_evaluation", True)
 
             res = self.dataset.expect_column_kl_divergence_to_be_less_than(
@@ -424,6 +467,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                         partition["tail_weights"][1],
                     ],
                 )
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get column histogram for column {column}. {e}"
+            )
+            self.report.report_warning(
+                "Profiling - Unable to get column histogram",
+                f"{self.dataset_name}.{column}",
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_sample_values(
@@ -482,7 +533,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             "profile_sql_table",
             # bucket by taking floor of log of the number of rows scanned
             {
-                "rows_profiled": 10 ** int(log10(row_count + 1)),
+                "rows_profiled": stats.discretize(row_count),
             },
         )
 
@@ -677,7 +728,11 @@ class DatahubGEProfiler:
             yield GEContext(data_context, datasource_name)
 
     def generate_profiles(
-        self, requests: List[GEProfilerRequest], max_workers: int
+        self,
+        requests: List[GEProfilerRequest],
+        max_workers: int,
+        platform: Optional[str] = None,
+        profiler_args: Optional[Dict] = None,
     ) -> Iterable[Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]]:
         with PerfTimer() as timer, concurrent.futures.ThreadPoolExecutor(
             max_workers=max_workers
@@ -704,6 +759,8 @@ class DatahubGEProfiler:
                             self._generate_profile_from_request,
                             query_combiner,
                             request,
+                            platform=platform,
+                            profiler_args=profiler_args,
                         )
                         for request in requests
                     ]
@@ -729,8 +786,9 @@ class DatahubGEProfiler:
                         )
 
                         time_percentiles = {
-                            f"table_time_taken_p{percentile}": 10
-                            ** int(log10(percentile_values[percentile] + 1))
+                            f"table_time_taken_p{percentile}": stats.discretize(
+                                percentile_values[percentile]
+                            )
                             for percentile in percentiles
                         }
 
@@ -738,8 +796,8 @@ class DatahubGEProfiler:
                         "sql_profiling_summary",
                         # bucket by taking floor of log of time taken
                         {
-                            "total_time_taken": 10 ** int(log10(total_time_taken + 1)),
-                            "count": 10 ** int(log10(len(self.times_taken) + 1)),
+                            "total_time_taken": stats.discretize(total_time_taken),
+                            "count": stats.discretize(len(self.times_taken)),
                             "platform": self.platform,
                             **time_percentiles,
                         },
@@ -747,31 +805,40 @@ class DatahubGEProfiler:
 
                     self.report.report_from_query_combiner(query_combiner.report)
 
+    def _is_legacy_ge_temp_table_creation(self) -> bool:
+        legacy_ge_bq_temp_table_creation: bool = False
+        (major, minor, patch) = ge_version.split(".")
+        if int(major) == 0 and (
+            int(minor) < 15 or (int(minor) == 15 and int(patch) < 3)
+        ):
+            legacy_ge_bq_temp_table_creation = True
+
+        return legacy_ge_bq_temp_table_creation
+
     def _generate_profile_from_request(
         self,
         query_combiner: SQLAlchemyQueryCombiner,
         request: GEProfilerRequest,
+        platform: Optional[str] = None,
+        profiler_args: Optional[Dict] = None,
     ) -> Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]:
         return request, self._generate_single_profile(
             query_combiner=query_combiner,
             pretty_name=request.pretty_name,
+            platform=platform,
+            profiler_args=profiler_args,
             **request.batch_kwargs,
         )
 
-    def _drop_bigquery_temp_table(self, ge_config: dict) -> None:
-        if "bigquery_temp_table" in ge_config:
-            try:
-                with self.base_engine.connect() as connection:
-                    connection.execute(
-                        f"drop view if exists `{ge_config.get('bigquery_temp_table')}`"
-                    )
-                    logger.debug(
-                        f"Temp table {ge_config.get('bigquery_temp_table')} was dropped."
-                    )
-            except Exception:
-                logger.warning(
-                    f"Unable to delete bigquery temporary table: {ge_config.get('bigquery_temp_table')}"
-                )
+    def _drop_bigquery_temp_table(self, bigquery_temp_table: str) -> None:
+        try:
+            with self.base_engine.connect() as connection:
+                connection.execute(f"drop view if exists `{bigquery_temp_table}`")
+                logger.debug(f"Temp table {bigquery_temp_table} was dropped.")
+        except Exception:
+            logger.warning(
+                f"Unable to delete bigquery temporary table: {bigquery_temp_table}"
+            )
 
     def _generate_single_profile(
         self,
@@ -781,8 +848,13 @@ class DatahubGEProfiler:
         table: str = None,
         partition: Optional[str] = None,
         custom_sql: Optional[str] = None,
+        platform: Optional[str] = None,
+        profiler_args: Optional[Dict] = None,
         **kwargs: Any,
     ) -> Optional[DatasetProfileClass]:
+        logger.debug(
+            f"Received single profile request for {pretty_name} for {schema}, {table}, {custom_sql}"
+        )
         bigquery_temp_table: Optional[str] = None
 
         ge_config = {
@@ -795,19 +867,41 @@ class DatahubGEProfiler:
 
         # We have to create temporary tables if offset or limit or custom sql is set on Bigquery
         if custom_sql or self.config.limit or self.config.offset:
+            if profiler_args is not None:
+                temp_table_db = profiler_args.get("temp_table_db", schema)
+                if platform is not None and platform == "bigquery":
+                    ge_config["schema"] = temp_table_db
+
             if self.config.bigquery_temp_table_schema:
-                bigquery_temp_table = (
-                    f"{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
-                )
-                ge_config["bigquery_temp_table"] = bigquery_temp_table
+                num_parts = self.config.bigquery_temp_table_schema.split(".")
+                # If we only have 1 part that means the project_id is missing from the table name and we add it
+                if len(num_parts) == 1:
+                    bigquery_temp_table = f"{temp_table_db}.{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
+                elif len(num_parts) == 2:
+                    bigquery_temp_table = f"{self.config.bigquery_temp_table_schema}.ge-temp-{uuid.uuid4()}"
+                else:
+                    raise ConfigurationError(
+                        f"bigquery_temp_table_schema should be either project.dataset or dataset format but it was: {self.config.bigquery_temp_table_schema}"
+                    )
             else:
                 assert table
                 table_parts = table.split(".")
                 if len(table_parts) == 2:
                     bigquery_temp_table = (
-                        f"{schema}.{table_parts[0]}.ge-temp-{uuid.uuid4()}"
+                        f"{temp_table_db}.{table_parts[0]}.ge-temp-{uuid.uuid4()}"
                     )
-                    ge_config["bigquery_temp_table"] = bigquery_temp_table
+
+            # With this pr there is no option anymore to set the bigquery temp table:
+            # https://github.com/great-expectations/great_expectations/pull/4925
+            # This dirty hack to make it possible to control the temp table to use in Bigquery
+            # otherwise it will expect dataset_id in the connection url which is not option in our case
+            # as we batch these queries.
+            # Currently only with this option is possible to control the temp table which is created:
+            # https://github.com/great-expectations/great_expectations/blob/7e53b615c36a53f78418ce46d6bc91a7011163c0/great_expectations/datasource/sqlalchemy_datasource.py#L397
+            if self._is_legacy_ge_temp_table_creation():
+                ge_config["bigquery_temp_table"] = bigquery_temp_table
+            else:
+                ge_config["snowflake_transient_table"] = bigquery_temp_table
 
         if custom_sql is not None:
             ge_config["query"] = custom_sql
@@ -820,6 +914,7 @@ class DatahubGEProfiler:
                     ge_context,
                     ge_config,
                     pretty_name=pretty_name,
+                    platform=platform,
                 )
 
                 profile = _SingleDatasetProfiler(
@@ -845,13 +940,15 @@ class DatahubGEProfiler:
                 self.report.report_failure(pretty_name, f"Profiling exception {e}")
                 return None
             finally:
-                self._drop_bigquery_temp_table(ge_config)
+                if bigquery_temp_table:
+                    self._drop_bigquery_temp_table(bigquery_temp_table)
 
     def _get_ge_dataset(
         self,
         ge_context: GEContext,
         batch_kwargs: dict,
         pretty_name: str,
+        platform: Optional[str] = None,
     ) -> Dataset:
         # This is effectively emulating the beginning of the process that
         # is followed by GE itself. In particular, we simply want to construct
@@ -865,12 +962,14 @@ class DatahubGEProfiler:
         #     },
         # )
 
+        logger.debug(f"Got pretty_name={pretty_name}, kwargs={batch_kwargs}")
         expectation_suite_name = ge_context.datasource_name + "." + pretty_name
 
         ge_context.data_context.create_expectation_suite(
             expectation_suite_name=expectation_suite_name,
             overwrite_existing=True,
         )
+
         batch = ge_context.data_context.get_batch(
             expectation_suite_name=expectation_suite_name,
             batch_kwargs={
@@ -878,4 +977,18 @@ class DatahubGEProfiler:
                 **batch_kwargs,
             },
         )
+        if platform is not None and platform == "bigquery":
+            # This is done as GE makes the name as DATASET.TABLE
+            # but we want it to be PROJECT.DATASET.TABLE instead for multi-project setups
+            name_parts = pretty_name.split(".")
+            if len(name_parts) != 3:
+                logger.error(
+                    f"Unexpected {pretty_name} while profiling. Should have 3 parts but has {len(name_parts)} parts."
+                )
+            # If we only have two parts that means the project_id is missing from the table name and we add it
+            # Temp tables has 3 parts while normal tables only has 2 parts
+            if len(str(batch._table).split(".")) == 2:
+                batch._table = sa.text(f"{name_parts[0]}.{str(batch._table)}")
+                logger.debug(f"Setting table name to be {batch._table}")
+
         return batch

@@ -1,5 +1,46 @@
 package com.linkedin.metadata.entity;
 
-public interface EntityAspect {
-    String getSystemMetadata();
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import javax.annotation.Nonnull;
+import java.sql.Timestamp;
+
+/**
+ * This is an internal representation of an entity aspect record {@link EntityService} and {@link AspectDao}
+ * implementations are using. While {@link AspectDao} implementations have their own aspect record implementations,
+ * they cary implementation details that should not leak outside. Therefore, this is the type to use in public
+ * {@link AspectDao} methods.
+ */
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode
+public class EntityAspect {
+
+    @Nonnull
+    private String urn;
+
+    @Nonnull
+    private String aspect;
+
+    private long version;
+
+    private String metadata;
+
+    private String systemMetadata;
+
+    private Timestamp createdOn;
+
+    private String createdBy;
+
+    private String createdFor;
+
+    public EntityAspectIdentifier toAspectIdentifier() {
+        return new EntityAspectIdentifier(getUrn(), getAspect(), getVersion());
+    }
 }

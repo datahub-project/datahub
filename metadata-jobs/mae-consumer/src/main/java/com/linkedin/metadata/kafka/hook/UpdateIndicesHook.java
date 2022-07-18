@@ -95,7 +95,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     }
     Urn urn = EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec());
 
-    if (event.getChangeType() == ChangeType.UPSERT) {
+    if (event.getChangeType() == ChangeType.UPSERT || event.getChangeType() == ChangeType.RESTATE) {
 
       if (!event.hasAspectName() || !event.hasAspect()) {
         log.error("Aspect or aspect name is missing");

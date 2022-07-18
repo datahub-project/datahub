@@ -1,3 +1,4 @@
+import { FullLineageResultsFragment } from '../../graphql/lineage.generated';
 import {
     Chart,
     Dashboard,
@@ -11,6 +12,7 @@ import {
     MlModelGroup,
     Maybe,
     Status,
+    DataPlatform,
 } from '../../types.generated';
 
 export type EntitySelectParams = {
@@ -34,10 +36,13 @@ export type FetchedEntity = {
     icon?: string;
     // children?: Array<string>;
     upstreamChildren?: Array<EntityAndType>;
+    numUpstreamChildren?: number;
     downstreamChildren?: Array<EntityAndType>;
+    numDownstreamChildren?: number;
     fullyFetched?: boolean;
     platform?: string;
     status?: Maybe<Status>;
+    siblingPlatforms?: Maybe<DataPlatform[]>;
 };
 
 export type NodeData = {
@@ -55,6 +60,7 @@ export type NodeData = {
     countercurrentChildrenUrns?: string[];
     platform?: string;
     status?: Maybe<Status>;
+    siblingPlatforms?: Maybe<DataPlatform[]>;
 };
 
 export type VizNode = {
@@ -87,7 +93,7 @@ export type TreeProps = {
     fetchedEntities: { [x: string]: FetchedEntity };
     onEntityClick: (EntitySelectParams) => void;
     onEntityCenter: (EntitySelectParams) => void;
-    onLineageExpand: (LineageExpandParams) => void;
+    onLineageExpand: (data: EntityAndType) => void;
     selectedEntity?: EntitySelectParams;
     hoveredEntity?: EntitySelectParams;
 };
@@ -129,3 +135,9 @@ export type EntityAndType =
           type: EntityType.MlprimaryKey;
           entity: MlPrimaryKey;
       };
+
+export interface LineageResult {
+    urn: string;
+    upstream?: Maybe<{ __typename?: 'EntityLineageResult' } & FullLineageResultsFragment>;
+    downstream?: Maybe<{ __typename?: 'EntityLineageResult' } & FullLineageResultsFragment>;
+}

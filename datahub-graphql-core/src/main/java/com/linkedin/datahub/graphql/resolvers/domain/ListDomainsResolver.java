@@ -45,7 +45,7 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
 
     return CompletableFuture.supplyAsync(() -> {
 
-      if (AuthorizationUtils.canManageDomains(context)) {
+      if (AuthorizationUtils.canCreateDomains(context)) {
         final ListDomainsInput input = bindArgument(environment.getArgument("input"), ListDomainsInput.class);
         final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
         final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();

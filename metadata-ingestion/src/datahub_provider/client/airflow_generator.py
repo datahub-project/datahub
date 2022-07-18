@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union, cast
 
 from airflow.configuration import conf
 
@@ -10,7 +10,6 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
 from datahub.metadata.schema_classes import DataProcessTypeClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
-from datahub_provider.hooks.datahub import AIRFLOW_1
 
 if TYPE_CHECKING:
     from airflow import DAG
@@ -88,6 +87,27 @@ class AirflowGenerator:
                 if subdag_task_id in upstream_task._downstream_task_ids:
                     upstream_subdag_triggers.append(upstream_task_urn)
 
+        # If the operator is an ExternalTaskSensor then we set the remote task as upstream.
+        # It is possible to tie an external sensor to DAG if external_task_id is omitted but currently we can't tie
+        # jobflow to anothet jobflow.
+        external_task_upstreams = []
+        if task.task_type == "ExternalTaskSensor":
+            from airflow.sensors.external_task_sensor import ExternalTaskSensor
+
+            task = cast(ExternalTaskSensor, task)
+            if hasattr(task, "external_task_id") and task.external_task_id is not None:
+                external_task_upstreams = [
+                    DataJobUrn.create_from_ids(
+                        job_id=task.external_task_id,
+                        data_flow_urn=str(
+                            DataFlowUrn.create_from_ids(
+                                orchestrator=flow_urn.get_orchestrator_name(),
+                                flow_id=task.external_dag_id,
+                                env=flow_urn.get_env(),
+                            )
+                        ),
+                    )
+                ]
         # exclude subdag operator tasks since these are not emitted, resulting in empty metadata
         upstream_tasks = (
             [
@@ -97,6 +117,7 @@ class AirflowGenerator:
             ]
             + upstream_subdag_task_urns
             + upstream_subdag_triggers
+            + external_task_upstreams
         )
         return upstream_tasks
 
@@ -115,8 +136,6 @@ class AirflowGenerator:
         :param capture_owner:
         :return: DataFlow - Data generated dataflow
         """
-        from airflow.serialization.serialized_objects import SerializedDAG
-
         id = dag.dag_id
         orchestrator = "airflow"
         description = f"{dag.description}\n\n{dag.doc_md or ''}"
@@ -124,13 +143,7 @@ class AirflowGenerator:
             cluster=cluster, id=id, orchestrator=orchestrator, description=description
         )
 
-        flow_property_bag: Dict[str, str] = {
-            key: repr(value)
-            for (key, value) in SerializedDAG.serialize_dag(dag).items()
-        }
-        for key in dag.get_serialized_fields():
-            if key not in flow_property_bag:
-                flow_property_bag[key] = repr(getattr(dag, key))
+        flow_property_bag: Dict[str, str] = {}
 
         allowed_flow_keys = [
             "_access_control",
@@ -143,9 +156,10 @@ class AirflowGenerator:
             "tags",
             "timezone",
         ]
-        flow_property_bag = {
-            k: v for (k, v) in flow_property_bag.items() if k in allowed_flow_keys
-        }
+
+        for key in allowed_flow_keys:
+            if hasattr(dag, key):
+                flow_property_bag[key] = repr(getattr(dag, key))
 
         data_flow.properties = flow_property_bag
         base_url = conf.get("webserver", "base_url")
@@ -158,6 +172,20 @@ class AirflowGenerator:
             data_flow.tags.update(dag.tags)
 
         return data_flow
+
+    @staticmethod
+    def _get_description(task: "BaseOperator") -> Optional[str]:
+        if hasattr(task, "doc") and task.doc:
+            return task.doc
+        elif hasattr(task, "doc_md") and task.doc_md:
+            return task.doc_md
+        elif hasattr(task, "doc_json") and task.doc_json:
+            return task.doc_json
+        elif hasattr(task, "doc_yaml") and task.doc_yaml:
+            return task.doc_yaml
+        elif hasattr(task, "doc_rst") and task.doc_yaml:
+            return task.doc_yaml
+        return None
 
     @staticmethod
     def generate_datajob(
@@ -178,25 +206,13 @@ class AirflowGenerator:
         :param capture_tags: bool - whether to set tags automatically from airflow task
         :return: DataJob - returns the generated DataJob object
         """
-        from airflow.serialization.serialized_objects import SerializedBaseOperator
-
         dataflow_urn = DataFlowUrn.create_from_ids(
             orchestrator="airflow", env=cluster, flow_id=dag.dag_id
         )
         datajob = DataJob(id=task.task_id, flow_urn=dataflow_urn)
-        datajob.description = (
-            (task.doc or task.doc_md or task.doc_json or task.doc_yaml or task.doc_rst)
-            if not AIRFLOW_1
-            else None
-        )
+        datajob.description = AirflowGenerator._get_description(task)
 
-        job_property_bag: Dict[str, str] = {
-            key: repr(value)
-            for (key, value) in SerializedBaseOperator.serialize_operator(task).items()
-        }
-        for key in task.get_serialized_fields():
-            if key not in job_property_bag:
-                job_property_bag[key] = repr(getattr(task, key))
+        job_property_bag: Dict[str, str] = {}
 
         allowed_task_keys = [
             "_downstream_task_ids",
@@ -214,9 +230,10 @@ class AirflowGenerator:
             "trigger_rule",
             "wait_for_downstream",
         ]
-        job_property_bag = {
-            k: v for (k, v) in job_property_bag.items() if k in allowed_task_keys
-        }
+
+        for key in allowed_task_keys:
+            if hasattr(task, key):
+                job_property_bag[key] = repr(getattr(task, key))
 
         datajob.properties = job_property_bag
         base_url = conf.get("webserver", "base_url")
@@ -375,7 +392,7 @@ class AirflowGenerator:
         job_property_bag["hostname"] = str(ti.hostname)
         job_property_bag["max_tries"] = str(ti.max_tries)
         # Not compatible with Airflow 1
-        if not AIRFLOW_1:
+        if hasattr(ti, "external_executor_id"):
             job_property_bag["external_executor_id"] = str(ti.external_executor_id)
         job_property_bag["pid"] = str(ti.pid)
         job_property_bag["state"] = str(ti.state)
@@ -387,7 +404,7 @@ class AirflowGenerator:
         dpi.url = ti.log_url
 
         # This property only exists in Airflow2
-        if hasattr(ti.dag_run, "run_type"):
+        if hasattr(ti, "dag_run") and hasattr(ti.dag_run, "run_type"):
             from airflow.utils.types import DagRunType
 
             if ti.dag_run.run_type == DagRunType.SCHEDULED:

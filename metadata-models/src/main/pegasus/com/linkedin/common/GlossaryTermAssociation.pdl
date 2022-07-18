@@ -19,4 +19,9 @@ record GlossaryTermAssociation {
     "filterNameOverride": "Glossary Term"
   }
   urn: GlossaryTermUrn
+
+  /**
+   * Additional context about the association
+   */
+  context: optional string
 }

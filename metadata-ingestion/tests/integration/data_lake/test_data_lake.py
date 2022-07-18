@@ -6,7 +6,7 @@ from tests.test_helpers import mce_helpers
 FROZEN_TIME = "2020-04-14 07:00:00"
 
 
-@pytest.mark.integration
+@pytest.mark.integration_batch_1
 def test_data_lake_ingest(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/data_lake/"
 

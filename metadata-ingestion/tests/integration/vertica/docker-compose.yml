@@ -1,0 +1,25 @@
+version: '3.9'
+services:
+  vertica:
+    image: vertica/vertica-ce:10.1.1-0
+    container_name: vertica_ce
+    platform: linux/amd64
+    environment:
+      - APP_DB_USER=dbadmin
+      - APP_DB_PASSWORD=vertica
+      - VERTICA_MEMDEBUG=2
+    ports:
+      - 5433:5433
+      - 5444:5444
+    deploy:
+      mode: global
+    volumes:
+      - type: volume
+        source: vertica-data
+        target: /data
+volumes:
+  vertica-data:
+networks:
+  default:
+    external:
+      name: datahub_network

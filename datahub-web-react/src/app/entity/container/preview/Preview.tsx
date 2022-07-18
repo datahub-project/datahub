@@ -1,4 +1,6 @@
+import { Typography } from 'antd';
 import React from 'react';
+import styled from 'styled-components';
 import {
     Container,
     EntityType,
@@ -7,10 +9,17 @@ import {
     SubTypes,
     Domain,
     ParentContainersResult,
+    GlobalTags,
+    Deprecation,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
+import { ANTD_GRAY } from '../../shared/constants';
+
+const StatText = styled(Typography.Text)`
+    color: ${ANTD_GRAY[8]};
+`;
 
 export const Preview = ({
     urn,
@@ -20,6 +29,7 @@ export const Preview = ({
     platformInstanceId,
     description,
     owners,
+    tags,
     insights,
     subTypes,
     logoComponent,
@@ -27,6 +37,8 @@ export const Preview = ({
     entityCount,
     domain,
     parentContainers,
+    externalUrl,
+    deprecation,
 }: {
     urn: string;
     name: string;
@@ -35,13 +47,16 @@ export const Preview = ({
     platformInstanceId?: string;
     description?: string | null;
     owners?: Array<Owner> | null;
+    tags?: GlobalTags | null;
     insights?: Array<SearchInsight> | null;
     subTypes?: SubTypes | null;
     logoComponent?: JSX.Element;
     container?: Container | null;
     entityCount?: number;
     domain?: Domain | null;
+    deprecation?: Deprecation | null;
     parentContainers?: ParentContainersResult | null;
+    externalUrl?: string | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const typeName = (subTypes?.typeNames?.length && subTypes?.typeNames[0]) || 'Container';
@@ -54,14 +69,24 @@ export const Preview = ({
             description={description || ''}
             type={typeName}
             owners={owners}
+            deprecation={deprecation}
             insights={insights}
             logoUrl={platformLogo || undefined}
             logoComponent={logoComponent}
             container={container || undefined}
             typeIcon={entityRegistry.getIcon(EntityType.Container, 12, IconStyleType.ACCENT)}
-            entityCount={entityCount}
             domain={domain || undefined}
             parentContainers={parentContainers}
+            tags={tags || undefined}
+            externalUrl={externalUrl}
+            stats={
+                (entityCount && [
+                    <StatText>
+                        <b>{entityCount}</b> {entityCount === 1 ? 'entity' : 'entities'}
+                    </StatText>,
+                ]) ||
+                undefined
+            }
         />
     );
 };

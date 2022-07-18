@@ -19,6 +19,8 @@ entities:
       - status
       - container
       - deprecation
+      - testResults
+      - siblings
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -61,6 +63,7 @@ entities:
       - domains
       - container
       - deprecation
+      - dashboardUsageStatistics
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version
     keyAspect: notebookKey
@@ -87,6 +90,7 @@ entities:
       - groupMembership
       - globalTags
       - status
+      - corpUserCredentials
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -214,4 +218,26 @@ entities:
     keyAspect: telemetryKey
     aspects:
       - telemetryClientId
+  - name: dataHubAccessToken
+    category: internal
+    keyAspect: dataHubAccessTokenKey
+    aspects:
+      - dataHubAccessTokenInfo
+  - name: test
+    doc: A DataHub test
+    category: core
+    keyAspect: testKey
+    aspects:
+      - testInfo
+  - name: dataHubUpgrade
+    category: internal
+    keyAspect: dataHubUpgradeKey
+    aspects:
+      - dataHubUpgradeRequest
+      - dataHubUpgradeResult
+  - name: inviteToken
+    category: core
+    keyAspect: inviteTokenKey
+    aspects:
+      - inviteToken
 events:
