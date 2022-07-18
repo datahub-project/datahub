@@ -1,9 +1,11 @@
 import json
 import time
 from datetime import datetime
+from typing import Optional
 from unittest import mock
 
 from freezegun import freeze_time
+from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api31.models import (
     Dashboard,
     DashboardElement,
@@ -294,7 +296,9 @@ def setup_mock_user(mocked_client):
     mocked_client.user.return_value = User(id=1, email="test@looker.com")
 
 
-def side_effect_query_inline(result_format: str, body: WriteQuery) -> str:
+def side_effect_query_inline(
+    result_format: str, body: WriteQuery, transport_options: Optional[TransportOptions]
+) -> str:
     query_type = None
     if result_format == "sql":
         return ""  # Placeholder for sql text
