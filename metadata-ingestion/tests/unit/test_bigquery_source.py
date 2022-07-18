@@ -182,7 +182,7 @@ def test_bq_get_profile_candidate_query_all_params():
         }
     )
     source = BigQuerySource(config=config, ctx=PipelineContext(run_id="test"))
-    threshold_time = datetime.fromisoformat("2022-04-02 10:42:29")
+    threshold_time = datetime.fromtimestamp(1648876349)
     expected_query = (
         "SELECT table_id, size_bytes, last_modified_time, row_count, FROM dataset_foo.__TABLES__ WHERE "
         "row_count<50000 and ROUND(size_bytes/POW(10,9),2)<5 and last_modified_time>=1648876349000 "
@@ -221,7 +221,7 @@ def test_bq_get_profile_candidate_query_no_size_limit():
         }
     )
     source = BigQuerySource(config=config, ctx=PipelineContext(run_id="test"))
-    threshold_time = datetime.fromisoformat("2022-04-02 10:42:29")
+    threshold_time = datetime.fromtimestamp(1648876349)
     expected_query = (
         "SELECT table_id, size_bytes, last_modified_time, row_count, FROM dataset_foo.__TABLES__ WHERE "
         "row_count<50000 and last_modified_time>=1648876349000 "
@@ -241,7 +241,7 @@ def test_bq_get_profile_candidate_query_no_row_limit():
         }
     )
     source = BigQuerySource(config=config, ctx=PipelineContext(run_id="test"))
-    threshold_time = datetime.fromisoformat("2022-04-02 10:42:29")
+    threshold_time = datetime.fromtimestamp(1648876349)
     expected_query = (
         "SELECT table_id, size_bytes, last_modified_time, row_count, FROM dataset_foo.__TABLES__ WHERE "
         "ROUND(size_bytes/POW(10,9),2)<5 and last_modified_time>=1648876349000 "
@@ -297,7 +297,7 @@ def test_bq_get_profile_candidate_query_only_days():
         }
     )
     source = BigQuerySource(config=config, ctx=PipelineContext(run_id="test"))
-    threshold_time = datetime.fromisoformat("2022-04-02 10:42:29")
+    threshold_time = datetime.fromtimestamp(1648876349)
     expected_query = (
         "SELECT table_id, size_bytes, last_modified_time, row_count, FROM dataset_foo.__TABLES__ WHERE "
         "last_modified_time>=1648876349000 "
