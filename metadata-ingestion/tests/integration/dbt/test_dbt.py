@@ -538,6 +538,4 @@ def test_dbt_stateful_tests(pytestconfig, tmp_path, mock_time, mock_datahub_grap
             golden_path=golden_path,
             ignore_paths=[],
         )
-        # Do the first run of the pipeline and get the default job's checkpoint.
-        # pipeline_run1 = run_and_get_pipeline(pipeline_config_dict)
-        # print(pipeline_run1)
+
