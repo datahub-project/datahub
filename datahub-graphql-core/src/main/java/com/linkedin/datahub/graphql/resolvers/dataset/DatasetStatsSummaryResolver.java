@@ -55,6 +55,9 @@ public class DatasetStatsSummaryResolver implements DataFetcher<CompletableFutur
 
       try {
 
+        // acryl-main only - first see if we can populate stats based on the UsageFeatures aspect
+
+
         com.linkedin.usage.UsageQueryResult
             usageQueryResult = usageClient.getUsageStats(resourceUrn.toString(), UsageTimeRange.MONTH, context.getAuthentication());
 
