@@ -6,11 +6,12 @@ import { BookOutlined, PlusOutlined } from '@ant-design/icons';
 
 import { useEntityRegistry } from '../../useEntityRegistry';
 import {
-    Domain,
+    DomainAssociation,
     EntityType,
     GlobalTags,
     GlossaryTermAssociation,
     GlossaryTerms,
+    Maybe,
     SubResourceType,
     TagAssociation,
 } from '../../../types.generated';
@@ -26,7 +27,7 @@ type Props = {
     editableTags?: GlobalTags | null;
     editableGlossaryTerms?: GlossaryTerms | null;
     uneditableGlossaryTerms?: GlossaryTerms | null;
-    domain?: Domain | null;
+    domain?: Maybe<DomainAssociation> | undefined;
     canRemove?: boolean;
     canAddTag?: boolean;
     canAddTerm?: boolean;
@@ -180,7 +181,10 @@ export default function TagTermGroup({
     return (
         <>
             {domain && (
-                <DomainLink urn={domain.urn} name={entityRegistry.getDisplayName(EntityType.Domain, domain) || ''} />
+                <DomainLink
+                    urn={domain.associatedUrn}
+                    name={entityRegistry.getDisplayName(EntityType.Domain, domain) || ''}
+                />
             )}
             {uneditableGlossaryTerms?.terms?.map((term) => {
                 renderedTags += 1;

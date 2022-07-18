@@ -10,11 +10,11 @@ import {
     GlossaryTerms,
     SearchInsight,
     Container,
-    Domain,
     ParentContainersResult,
     Maybe,
     CorpUser,
     Deprecation,
+    DomainAssociation,
 } from '../../types.generated';
 import TagTermGroup from '../shared/tags/TagTermGroup';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -180,7 +180,7 @@ interface Props {
     insights?: Array<SearchInsight> | null;
     glossaryTerms?: GlossaryTerms;
     container?: Container;
-    domain?: Domain | null;
+    domain?: Maybe<DomainAssociation> | undefined;
     entityCount?: number;
     dataTestID?: string;
     titleSizePx?: number;
