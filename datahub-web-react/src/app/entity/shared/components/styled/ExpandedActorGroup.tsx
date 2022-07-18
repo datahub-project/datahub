@@ -9,10 +9,26 @@ type Props = {
 
 export const ExpandedActorGroup = ({ actors, onClose }: Props) => {
     return (
-        <>
-            {actors.map((actor) => (
-                <ExpandedActor key={actor.urn} actor={actor} onClose={() => onClose?.(actor)} />
-            ))}
-        </>
+        <Popover
+            placement="left"
+            content={
+                <PopoverActors>
+                    {actors.map((actor) => (
+                        <ExpandedActor key={actor.urn} actor={actor} onClose={() => onClose?.(actor)} />
+                    ))}
+                </PopoverActors>
+            }
+        >
+            <div style={{ display: 'flex', justifyContent: 'right', flexWrap: 'wrap', alignItems: 'center' }}>
+                {finalActors.map((actor) => (
+                    <ExpandedActor key={actor.urn} actor={actor} onClose={() => onClose?.(actor)} />
+                ))}
+                {remainder && (
+                    <Typography.Text style={{ marginBottom: 8 }} type="secondary">
+                        + {remainder} more
+                    </Typography.Text>
+                )}
+            </div>
+        </Popover>
     );
 };
