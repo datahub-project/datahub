@@ -22,22 +22,26 @@ export const ExpandedActorGroup = ({ actors, max, onClose }: Props) => {
     const remainder = actors.length > finalMax ? actors.length - finalMax : undefined;
 
     return (
-        <>
-            <Popover
-                placement="left"
-                content={
-                    <PopoverActors>
-                        {actors.map((actor) => (
-                            <ExpandedActor key={actor.urn} actor={actor} onClose={() => onClose?.(actor)} />
-                        ))}
-                    </PopoverActors>
-                }
-            >
+        <Popover
+            placement="left"
+            content={
+                <PopoverActors>
+                    {actors.map((actor) => (
+                        <ExpandedActor key={actor.urn} actor={actor} onClose={() => onClose?.(actor)} />
+                    ))}
+                </PopoverActors>
+            }
+        >
+            <div style={{ display: 'flex', justifyContent: 'right', flexWrap: 'wrap', alignItems: 'center' }}>
                 {finalActors.map((actor) => (
                     <ExpandedActor key={actor.urn} actor={actor} onClose={() => onClose?.(actor)} />
                 ))}
-                {remainder && <Typography.Text type="secondary">+ {remainder} more</Typography.Text>}
-            </Popover>
-        </>
+                {remainder && (
+                    <Typography.Text style={{ marginBottom: 8 }} type="secondary">
+                        + {remainder} more
+                    </Typography.Text>
+                )}
+            </div>
+        </Popover>
     );
 };
