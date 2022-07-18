@@ -63,11 +63,11 @@ def map_snapshot(table: OrientRecord) -> MetadataWorkUnit:
     external_type = table.oRecordData.get("externalType")
     if external_type == "kafka_topic":
         platform = "kafka"
-        parents = [table.oRecordData.get("location"), table.oRecordData.get("db")]
+        parents = [table.oRecordData.get("location").lower(), table.oRecordData.get("db")]
     elif external_type == "mssql_table":
         platform = "mssql"
         parents = [
-            table.oRecordData.get("location"),
+            table.oRecordData.get("location").lower(),
             table.oRecordData.get("db"),
             table.oRecordData.get("schema"),
         ]
@@ -80,7 +80,7 @@ def map_snapshot(table: OrientRecord) -> MetadataWorkUnit:
         customProperties=table.oRecordData.get("customFields"),
     )
 
-    browse_paths = BrowsePathsClass([f"/prod/{platform}/{'/'.join(parents).lower()}/{name}"])
+    browse_paths = BrowsePathsClass([f"/prod/{platform}/{'/'.join(parents)}/{name}"])
 
     columns = json.loads(table.columns)
     schema = SchemaMetadataClass(
@@ -93,7 +93,7 @@ def map_snapshot(table: OrientRecord) -> MetadataWorkUnit:
     )
 
     snapshot = DatasetSnapshot(
-        urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{'.'.join(parents).lower()}.{name},PROD)",
+        urn=f"urn:li:dataset:(urn:li:dataPlatform:{platform},{'.'.join(parents)}.{name},PROD)",
         aspects=[properties, browse_paths, schema],
     )
 
