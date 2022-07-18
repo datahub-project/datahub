@@ -243,8 +243,13 @@ export default function DefaultPreviewCard({
 
     const { parentContainersRef, areContainersTruncated } = useParentContainersTruncation(container);
 
+    const onPreventMouseDown = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+    };
+
     return (
-        <PreviewContainer data-testid={dataTestID}>
+        <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
             <LeftColumn>
                 <TitleContainer>
                     <PlatformContentView
