@@ -77,6 +77,9 @@ const LabelContainer = styled.span`
     position: relative;
     left: 24px;
     bottom: 6px;
+    * {
+        pointer-events: none;
+    }
 `;
 
 type Props = {
