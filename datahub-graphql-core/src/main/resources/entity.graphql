@@ -930,6 +930,11 @@ type Dataset implements EntityWithRelationships & Entity {
     usageStats(resource: String, range: TimeRange): UsageQueryResult
 
     """
+    Experimental - Summary operational & usage statistics about a Dataset
+    """
+    statsSummary: DatasetStatsSummary
+
+    """
     Profile Stats resource that retrieves the events in a previous unit of time in descending order
     If no start or end time are provided, the most recent events will be returned
     """
@@ -4121,11 +4126,15 @@ type Dashboard implements EntityWithRelationships & Entity {
     """
     lineage(input: LineageInput!): EntityLineageResult
 
-
     """
     Experimental (Subject to breaking change) -- Statistics about how this Dashboard is used
     """
     usageStats(startTimeMillis: Long, endTimeMillis: Long, limit: Int): DashboardUsageQueryResult
+
+    """
+    Experimental - Summary operational & usage statistics about a Dataset
+    """
+    statsSummary: DashboardStatsSummary
 
     """
     Deprecated, use properties field instead
@@ -5254,6 +5263,26 @@ type FieldUsageCounts {
 }
 
 """
+Experimental - subject to change. A summary of usage metrics about a Dataset.
+"""
+type DatasetStatsSummary {
+    """
+    The query count in the past 30 days
+    """
+    queryCountLast30Days: Int
+
+    """
+    The unique user count in the past 30 days
+    """
+    uniqueUserCountLast30Days: Int
+
+    """
+    The top users in the past 30 days
+    """
+    topUsersLast30Days: [CorpUser!]!
+}
+
+"""
 Information about individual user usage of a Dashboard
 """
 type DashboardUserUsageCounts {
@@ -5404,6 +5433,32 @@ type DashboardUsageAggregationMetrics {
     executionsCount: Int
 
 }
+
+"""
+Experimental - subject to change. A summary of usage metrics about a Dashboard.
+"""
+type DashboardStatsSummary {
+    """
+    The total view count for the dashboard
+    """
+    viewCount: Int
+
+    """
+    The view count in the last 30 days
+    """
+    viewCountLast30Days: Int
+
+    """
+    The unique user count in the past 30 days
+    """
+    uniqueUserCountLast30Days: Int
+
+    """
+    The top users in the past 30 days
+    """
+    topUsersLast30Days: [CorpUser!]!
+}
+
 
 """
 The duration of a fixed window of time
