@@ -23,6 +23,7 @@ import { IconStyleType } from '../../Entity';
 import { ANTD_GRAY } from '../../shared/constants';
 import { toRelativeTimeString } from '../../../shared/time/timeUtils';
 import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
+import { PercentileLabel } from '../../shared/stats/PercentileLabel';
 
 const StatText = styled.span`
     color: ${ANTD_GRAY[8]};
@@ -117,7 +118,11 @@ export const Preview = ({
                         <b>{formatNumberWithoutAbbreviation(statsSummary?.queryCountLast30Days)}</b> queries last month{' '}
                         {statsSummary?.queryCountPercentileLast30Days && (
                             <Typography.Text type="secondary">
-                                - {statsSummary?.queryCountPercentileLast30Days}pct
+                                -{' '}
+                                <PercentileLabel
+                                    percentile={statsSummary?.queryCountPercentileLast30Days}
+                                    description={`This dataset has been queried more often than %${statsSummary?.queryCountPercentileLast30Days} of similar datasets in the past 30 days.`}
+                                />
                             </Typography.Text>
                         )}
                     </StatText>
@@ -129,7 +134,11 @@ export const Preview = ({
                         <b>{formatNumberWithoutAbbreviation(statsSummary?.uniqueUserCountLast30Days)}</b> unique users{' '}
                         {statsSummary?.uniqueUserPercentileLast30Days && (
                             <Typography.Text type="secondary">
-                                - {statsSummary.uniqueUserPercentileLast30Days}pct
+                                -{' '}
+                                <PercentileLabel
+                                    percentile={statsSummary?.uniqueUserPercentileLast30Days}
+                                    description={`This dataset has more unique users than %${statsSummary?.uniqueUserPercentileLast30Days} of similar datasets in the past 30 days.`}
+                                />
                             </Typography.Text>
                         )}
                     </StatText>

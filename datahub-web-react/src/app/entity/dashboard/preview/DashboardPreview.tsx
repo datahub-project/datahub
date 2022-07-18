@@ -23,6 +23,7 @@ import { IconStyleType } from '../../Entity';
 import { ANTD_GRAY } from '../../shared/constants';
 import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
 import { toRelativeTimeString } from '../../../shared/time/timeUtils';
+import { PercentileLabel } from '../../shared/stats/PercentileLabel';
 
 const StatText = styled.span`
     color: ${ANTD_GRAY[8]};
@@ -110,7 +111,11 @@ export const DashboardPreview = ({
                         <b>{formatNumberWithoutAbbreviation(effectiveViewCount)}</b> {effectiveViewCountText}{' '}
                         {statsSummary?.viewCountPercentileLast30Days && (
                             <Typography.Text type="secondary">
-                                - {statsSummary?.viewCountPercentileLast30Days}pct
+                                -{' '}
+                                <PercentileLabel
+                                    percentile={statsSummary?.viewCountPercentileLast30Days}
+                                    description={`This dashboard has been viewed more often than %${statsSummary?.viewCountPercentileLast30Days} of similar dashboards in the past 30 days.`}
+                                />
                             </Typography.Text>
                         )}
                     </StatText>
@@ -122,7 +127,11 @@ export const DashboardPreview = ({
                         <b>{formatNumberWithoutAbbreviation(statsSummary?.uniqueUserCountLast30Days)}</b> unique users{' '}
                         {statsSummary?.uniqueUserPercentileLast30Days && (
                             <Typography.Text type="secondary">
-                                - {statsSummary.uniqueUserPercentileLast30Days}pct
+                                -{' '}
+                                <PercentileLabel
+                                    percentile={statsSummary?.uniqueUserPercentileLast30Days}
+                                    description={`This dashboard has more unique users than %${statsSummary?.uniqueUserPercentileLast30Days} of similar dashboards in the past 30 days.`}
+                                />
                             </Typography.Text>
                         )}
                     </StatText>
