@@ -152,6 +152,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
         properties {
             name
             description
+            qualifiedName
         }
         editableProperties {
             description
