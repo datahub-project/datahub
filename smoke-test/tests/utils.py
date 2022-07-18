@@ -8,6 +8,10 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.cli.docker import check_local_docker_containers
 
 
+def get_admin_credentials():
+    return ("admin", "admin")
+
+
 def get_gms_url():
     return os.getenv("DATAHUB_GMS_URL") or "http://localhost:8080"
 

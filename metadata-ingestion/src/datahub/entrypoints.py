@@ -164,7 +164,8 @@ def main(**kwargs):
         if isinstance(exc, (ConfigurationError, ValidationError)):
             logger.error(exc)
         else:
-            logger.error(
+            # only print stacktraces during debug
+            logger.debug(
                 stackprinter.format(
                     exc,
                     line_wrap=MAX_CONTENT_WIDTH,
@@ -184,11 +185,14 @@ def main(**kwargs):
                     **kwargs,
                 )
             )
+            logger.error(
+                f"Command failed with {exc}. Run with --debug to get full trace"
+            )
         logger.info(
             f"DataHub CLI version: {datahub_package.__version__} at {datahub_package.__file__}"
         )
-        logger.info(
+        logger.debug(
             f"Python version: {sys.version} at {sys.executable} on {platform.platform()}"
         )
-        logger.info(f"GMS config {get_gms_config()}")
+        logger.debug(f"GMS config {get_gms_config()}")
         sys.exit(1)

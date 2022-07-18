@@ -9,6 +9,7 @@ import {
     Owner,
     SearchInsight,
     ParentContainersResult,
+    Deprecation,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -29,6 +30,7 @@ export const ChartPreview = ({
     container,
     insights,
     logoUrl,
+    deprecation,
     parentContainers,
 }: {
     urn: string;
@@ -44,6 +46,7 @@ export const ChartPreview = ({
     container?: Container | null;
     insights?: Array<SearchInsight> | null;
     logoUrl?: string | null;
+    deprecation?: Deprecation | null;
     parentContainers?: ParentContainersResult | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
@@ -67,6 +70,7 @@ export const ChartPreview = ({
             container={container || undefined}
             insights={insights}
             parentContainers={parentContainers}
+            deprecation={deprecation}
         />
     );
 };

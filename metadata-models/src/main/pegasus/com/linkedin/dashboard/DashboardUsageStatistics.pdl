@@ -3,7 +3,7 @@ namespace com.linkedin.dashboard
 import com.linkedin.timeseries.TimeseriesAspectBase
 
 /**
- * Stats corresponding to dashboard's usage.
+ * Experimental (Subject to breaking change) -- Stats corresponding to dashboard's usage.
  *
  * If this aspect represents the latest snapshot of the statistics about a Dashboard, the eventGranularity field should be null. 
  * If this aspect represents a bucketed window of usage statistics (e.g. over a day), then the eventGranularity field should be set accordingly. 

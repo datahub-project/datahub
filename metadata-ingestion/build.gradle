@@ -144,8 +144,8 @@ task docGen(type: Exec, dependsOn: [codegen, installDevTest]) {
 
 
 task cleanPythonCache(type: Exec) {
-  commandLine 'bash', '-x', '-c',
-    "find src -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
+  commandLine 'bash', '-c',
+    "find src tests -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
 }
 
 build.dependsOn install
@@ -158,5 +158,8 @@ clean {
   delete 'dist'
   delete 'src/datahub/metadata'
   delete '../docs/generated'
+  delete 'generated'
+  delete '.mypy_cache'
+  delete '.pytest_cache'
 }
 clean.dependsOn cleanPythonCache

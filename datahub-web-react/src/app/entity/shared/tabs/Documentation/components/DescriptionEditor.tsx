@@ -141,7 +141,7 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
                 </Button>
             </TabToolbar>
             <StyledMDEditor
-                value={description}
+                value={updatedDescription}
                 onChange={(v) => handleEditorChange(v || '')}
                 preview="live"
                 visiableDragbar={false}
