@@ -538,4 +538,3 @@ def test_dbt_stateful_tests(pytestconfig, tmp_path, mock_time, mock_datahub_grap
             golden_path=golden_path,
             ignore_paths=[],
         )
-
