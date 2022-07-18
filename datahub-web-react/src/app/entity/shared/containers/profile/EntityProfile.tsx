@@ -20,7 +20,6 @@ import CompactContext from '../../../../shared/CompactContext';
 import DynamicTab from '../../tabs/Entity/weaklyTypedAspects/DynamicTab';
 import analytics, { EventType } from '../../../../analytics';
 import { ProfileSidebarResizer } from './sidebar/ProfileSidebarResizer';
-import { combineEntityDataWithSiblings } from '../../siblingUtils';
 import { EntityMenuItems } from '../../EntityDropdown/EntityDropdown';
 import GlossaryBrowser from '../../../../glossary/GlossaryBrowser/GlossaryBrowser';
 import GlossarySearch from '../../../../glossary/GlossarySearch';
