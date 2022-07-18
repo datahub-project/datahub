@@ -262,7 +262,11 @@ fragment searchResultFields on Entity {
         }
         statsSummary {
             queryCountLast30Days
+            queryCountPercentileLast30Days
+            queryCountRankLast30Days
             uniqueUserCountLast30Days
+            uniqueUserPercentileLast30Days
+            uniqueUserRankLast30Days
             topUsersLast30Days {
                 urn
                 type
@@ -356,7 +360,11 @@ fragment searchResultFields on Entity {
         }
         statsSummary {
             viewCount
+            viewCountLast30Days
+            viewCountPercentileLast30Days
             uniqueUserCountLast30Days
+            uniqueUserPercentileLast30Days
+            uniqueUserRankLast30Days
             topUsersLast30Days {
                 urn
                 type
