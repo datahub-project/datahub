@@ -107,7 +107,14 @@ const customMerge = (isPrimary, key) => {
     if (key === 'totalIncidents') {
         return (secondary, primary) => ({ ...primary, total: primary.total + secondary.total });
     }
-    if (key === 'tags' || key === 'terms' || key === 'assertions' || key === 'customProperties' || key === 'owners' || key === 'incidents') {
+    if (
+        key === 'tags' ||
+        key === 'terms' ||
+        key === 'assertions' ||
+        key === 'customProperties' ||
+        key === 'owners' ||
+        key === 'incidents'
+    ) {
         return (secondary, primary) => {
             return merge(secondary, primary, {
                 arrayMerge: getArrayMergeFunction(key),

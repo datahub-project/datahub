@@ -24,6 +24,7 @@ import { AddIncidentModal } from '../tabs/Incident/components/AddIncidentModal';
 import { getEntityPath } from '../containers/profile/utils';
 import useDeleteEntity from './useDeleteEntity';
 import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
+import { useIsSeparateSiblingsMode } from '../siblingUtils';
 
 export enum EntityMenuItems {
     COPY_URL,
@@ -96,6 +97,7 @@ function EntityDropdown(props: Props) {
     const entityRegistry = useEntityRegistry();
     const me = useGetAuthenticatedUser(!!platformPrivileges);
     const [updateDeprecation] = useUpdateDeprecationMutation();
+    const isHideSiblingMode = useIsSeparateSiblingsMode();
     const { onDeleteEntity, hasBeenDeleted } = useDeleteEntity(urn, entityType, entityData, onDelete);
 
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
@@ -253,7 +255,16 @@ function EntityDropdown(props: Props) {
                     refetch={
                         (() => {
                             refetchForEntity?.();
-                            history.push(`${getEntityPath(entityType, urn, entityRegistry, false, 'Incidents')}`);
+                            history.push(
+                                `${getEntityPath(
+                                    entityType,
+                                    urn,
+                                    entityRegistry,
+                                    false,
+                                    isHideSiblingMode,
+                                    'Incidents',
+                                )}`,
+                            );
                         }) as any
                     }
                 />

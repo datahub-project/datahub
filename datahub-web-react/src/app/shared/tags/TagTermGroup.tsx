@@ -283,7 +283,7 @@ export default function TagTermGroup({
                             closable={canRemove}
                             onClose={(e) => {
                                 e.preventDefault();
-                                removeTerm(term.term.urn);
+                                removeTerm(term);
                             }}
                         >
                             <BookOutlined style={{ marginRight: '3%' }} />
