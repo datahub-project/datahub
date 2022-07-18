@@ -470,3 +470,74 @@ def test_dbt_tests(pytestconfig, tmp_path, mock_time, **kwargs):
         golden_path=golden_path,
         ignore_paths=[],
     )
+
+
+@pytest.mark.integration
+@freeze_time(FROZEN_TIME)
+def test_dbt_stateful_tests(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
+    output_file = tmp_path / "dbt_stateful_tests.json"
+    golden_path = test_resources_dir / "dbt_stateful_tests_golden.json"
+    manifest_path = str((test_resources_dir / "jaffle_shop_manifest.json").resolve())
+    catalog_path = str((test_resources_dir / "jaffle_shop_catalog.json").resolve())
+    test_results_path = str(
+        (test_resources_dir / "jaffle_shop_test_results.json").resolve()
+    )
+
+    stateful_config = {
+        "stateful_ingestion": {
+            "enabled": True,
+            "remove_stale_metadata": True,
+            "state_provider": {
+                "type": "datahub",
+                "config": {"datahub_api": {"server": GMS_SERVER}},
+            },
+        },
+    }
+
+    scd: Dict[str, Any] = {
+        "manifest_path": manifest_path,
+        "catalog_path": catalog_path,
+        "test_results_path": test_results_path,
+        "target_platform": "postgres",
+        "load_schemas": True,
+        # This will bypass check in get_workunits function of dbt.py
+        "write_semantics": "OVERRIDE",
+        "owner_extraction_pattern": r"^@(?P<owner>(.*))",
+        # enable stateful ingestion
+        **stateful_config,
+    }
+
+    pipeline_config_dict: Dict[str, Any] = {
+        "source": {
+            "type": "dbt",
+            "config": scd,
+        },
+        "sink": {
+            # we are not really interested in the resulting events for this test
+            "type": "file",
+            "config": {"filename": str(output_file)},
+        },
+        "pipeline_name": "statefulpipeline",
+        "run_id": "test_pipeline",
+    }
+
+    with patch(
+        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+        mock_datahub_graph,
+    ) as mock_checkpoint:
+        mock_checkpoint.return_value = mock_datahub_graph
+        pipeline = Pipeline.create(pipeline_config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+        # Verify the output.
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=output_file,
+            golden_path=golden_path,
+            ignore_paths=[],
+        )
+        # Do the first run of the pipeline and get the default job's checkpoint.
+        # pipeline_run1 = run_and_get_pipeline(pipeline_config_dict)
+        # print(pipeline_run1)
