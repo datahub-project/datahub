@@ -35,7 +35,11 @@ export const TestDefinitionForm = ({ initialValue, onChange }: Props) => {
                 <SelectTemplateHeader level={5}>Define your Test</SelectTemplateHeader>
                 <Typography.Text>
                     For more information about how to configure a Test, check out the{' '}
-                    <a href="http://www.google.com" target="_blank" rel="noopener noreferrer">
+                    <a
+                        href="https://docs.acryl.io/-Mhxve3SFaX4GN0xKMZB/administering-datahub/metadata-tests d"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
                         DataHub Tests Guide.
                     </a>
                 </Typography.Text>

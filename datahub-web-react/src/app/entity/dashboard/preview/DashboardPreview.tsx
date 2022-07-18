@@ -1,6 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
 import { ClockCircleOutlined, EyeOutlined, TeamOutlined } from '@ant-design/icons';
+import { Typography } from 'antd';
+
 import {
     AccessLevel,
     Domain,
@@ -70,6 +72,10 @@ export const DashboardPreview = ({
     const entityRegistry = useEntityRegistry();
     const capitalizedPlatform = capitalizeFirstLetter(platform);
 
+    // acryl-main only.
+    const effectiveViewCount = statsSummary?.viewCountLast30Days || statsSummary?.viewCount;
+    const effectiveViewCountText = (statsSummary?.viewCountLast30Days && 'views last month') || 'views';
+
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Dashboard, urn)}
@@ -98,17 +104,27 @@ export const DashboardPreview = ({
                     </StatText>
                 )) ||
                     undefined,
-                (statsSummary?.viewCount && (
+                (effectiveViewCount && (
                     <StatText>
                         <EyeOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                        <b>{formatNumberWithoutAbbreviation(statsSummary.viewCount)}</b> views
+                        <b>{formatNumberWithoutAbbreviation(effectiveViewCount)}</b> {effectiveViewCountText}{' '}
+                        {statsSummary?.viewCountPercentileLast30Days && (
+                            <Typography.Text type="secondary">
+                                - {statsSummary?.viewCountPercentileLast30Days}pct
+                            </Typography.Text>
+                        )}
                     </StatText>
                 )) ||
                     undefined,
                 (statsSummary?.uniqueUserCountLast30Days && (
                     <StatText>
                         <TeamOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                        <b>{formatNumberWithoutAbbreviation(statsSummary?.uniqueUserCountLast30Days)}</b> unique users
+                        <b>{formatNumberWithoutAbbreviation(statsSummary?.uniqueUserCountLast30Days)}</b> unique users{' '}
+                        {statsSummary?.uniqueUserPercentileLast30Days && (
+                            <Typography.Text type="secondary">
+                                - {statsSummary.uniqueUserPercentileLast30Days}pct
+                            </Typography.Text>
+                        )}
                     </StatText>
                 )) ||
                     undefined,

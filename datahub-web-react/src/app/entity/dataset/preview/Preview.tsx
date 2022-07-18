@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import { Typography } from 'antd';
 import { ClockCircleOutlined, ConsoleSqlOutlined, TableOutlined, TeamOutlined } from '@ant-design/icons';
 import {
     EntityType,
@@ -113,14 +114,24 @@ export const Preview = ({
                 (statsSummary?.queryCountLast30Days && (
                     <StatText>
                         <ConsoleSqlOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                        <b>{formatNumberWithoutAbbreviation(statsSummary?.queryCountLast30Days)}</b> queries last month
+                        <b>{formatNumberWithoutAbbreviation(statsSummary?.queryCountLast30Days)}</b> queries last month{' '}
+                        {statsSummary?.queryCountPercentileLast30Days && (
+                            <Typography.Text type="secondary">
+                                - {statsSummary?.queryCountPercentileLast30Days}pct
+                            </Typography.Text>
+                        )}
                     </StatText>
                 )) ||
                     undefined,
                 (statsSummary?.uniqueUserCountLast30Days && (
                     <StatText>
                         <TeamOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                        <b>{formatNumberWithoutAbbreviation(statsSummary?.uniqueUserCountLast30Days)}</b> unique users
+                        <b>{formatNumberWithoutAbbreviation(statsSummary?.uniqueUserCountLast30Days)}</b> unique users{' '}
+                        {statsSummary?.uniqueUserPercentileLast30Days && (
+                            <Typography.Text type="secondary">
+                                - {statsSummary.uniqueUserPercentileLast30Days}pct
+                            </Typography.Text>
+                        )}
                     </StatText>
                 )) ||
                     undefined,
