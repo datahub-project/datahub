@@ -9,7 +9,7 @@ import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { EntityType, FacetFilterInput, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
 import { SearchResultsInterface } from './types';
 import SearchExtendedMenu from './SearchExtendedMenu';
-import SearchActionMenu from './SearchActionMenu';
+// import SearchActionMenu from './SearchActionMenu';
 
 const HeaderContainer = styled.div`
     display: flex;
@@ -103,9 +103,9 @@ export default function EmbeddedListSearchHeader({
                             >
                                 <CloseCircleOutlined /> Cancel
                             </Button>
-                            <SearchMenuContainer>
+                            {/* <SearchMenuContainer>
                                 <SearchActionMenu checkedSearchResults={checkedSearchResults} />
-                            </SearchMenuContainer>
+                            </SearchMenuContainer> */}
                         </>
                     ) : (
                         <SearchMenuContainer>
