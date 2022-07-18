@@ -121,7 +121,7 @@ export const Preview = ({
                                 -{' '}
                                 <PercentileLabel
                                     percentile={statsSummary?.queryCountPercentileLast30Days}
-                                    description={`This dataset has been queried more often than %${statsSummary?.queryCountPercentileLast30Days} of similar datasets in the past 30 days.`}
+                                    description={`This dataset has been queried more often than ${statsSummary?.queryCountPercentileLast30Days}% of similar datasets in the past 30 days.`}
                                 />
                             </Typography.Text>
                         )}
@@ -137,7 +137,7 @@ export const Preview = ({
                                 -{' '}
                                 <PercentileLabel
                                     percentile={statsSummary?.uniqueUserPercentileLast30Days}
-                                    description={`This dataset has more unique users than %${statsSummary?.uniqueUserPercentileLast30Days} of similar datasets in the past 30 days.`}
+                                    description={`This dataset has had more unique users than ${statsSummary?.uniqueUserPercentileLast30Days}% of similar datasets in the past 30 days.`}
                                 />
                             </Typography.Text>
                         )}

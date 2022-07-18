@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardStatsSummary;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.query.filter.Filter;
@@ -45,10 +46,11 @@ public class DashboardStatsSummaryTest {
   @Test
   public void testGetSuccess() throws Exception {
 
+    EntityClient mockEntityClient = initMockEntityClient();
     TimeseriesAspectService mockClient = initTestAspectService();
 
     // Execute resolver
-    DashboardStatsSummaryResolver resolver = new DashboardStatsSummaryResolver(mockClient);
+    DashboardStatsSummaryResolver resolver = new DashboardStatsSummaryResolver(mockEntityClient, mockClient);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -123,7 +125,8 @@ public class DashboardStatsSummaryTest {
     )).thenThrow(RuntimeException.class);
 
     // Execute resolver
-    DatasetStatsSummaryResolver resolver = new DatasetStatsSummaryResolver(mockClient);
+    EntityClient mockEntityClient = initMockEntityClient();
+    DatasetStatsSummaryResolver resolver = new DatasetStatsSummaryResolver(mockEntityClient, mockClient);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -185,6 +188,16 @@ public class DashboardStatsSummaryTest {
     );
 
     return mockClient;
+  }
+
+  private EntityClient initMockEntityClient() throws Exception {
+    EntityClient client = Mockito.mock(EntityClient.class);
+    Mockito.when(client.getV2(
+        Mockito.eq(Constants.DATASET_ENTITY_NAME),
+        Mockito.any(),
+        Mockito.any(),
+        Mockito.any(Authentication.class))).thenReturn(null);
+    return client;
   }
 
 }

@@ -250,6 +250,9 @@ public class Constants {
 
   /* SaaS-Only */
 
+  // Search
+  public static final String USAGE_FEATURES_ASPECT_NAME = "usageFeatures";
+
   // Constraints
   public static final String CONSTRAINT_INFO_ASPECT_NAME = "constraintInfo";
 

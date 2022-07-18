@@ -114,7 +114,7 @@ export const DashboardPreview = ({
                                 -{' '}
                                 <PercentileLabel
                                     percentile={statsSummary?.viewCountPercentileLast30Days}
-                                    description={`This dashboard has been viewed more often than %${statsSummary?.viewCountPercentileLast30Days} of similar dashboards in the past 30 days.`}
+                                    description={`This dashboard has been viewed more often than ${statsSummary?.viewCountPercentileLast30Days}% of similar dashboards in the past 30 days.`}
                                 />
                             </Typography.Text>
                         )}
@@ -130,7 +130,7 @@ export const DashboardPreview = ({
                                 -{' '}
                                 <PercentileLabel
                                     percentile={statsSummary?.uniqueUserPercentileLast30Days}
-                                    description={`This dashboard has more unique users than %${statsSummary?.uniqueUserPercentileLast30Days} of similar dashboards in the past 30 days.`}
+                                    description={`This dashboard has had more unique users than ${statsSummary?.uniqueUserPercentileLast30Days}% of similar dashboards in the past 30 days.`}
                                 />
                             </Typography.Text>
                         )}
