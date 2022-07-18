@@ -140,7 +140,7 @@ export const EntityNameList = ({
                         titleSizePx={14}
                         tags={genericProps?.globalTags || undefined}
                         glossaryTerms={genericProps?.glossaryTerms || undefined}
-                        domain={genericProps?.domain}
+                        domain={genericProps?.domain?.domain}
                         onClick={() => onClick?.(index)}
                         entityCount={entityCount}
                         degree={additionalProperties?.degree}
@@ -187,7 +187,7 @@ export const EntityNameList = ({
                                         titleSizePx={14}
                                         tags={genericProps?.globalTags || undefined}
                                         glossaryTerms={genericProps?.glossaryTerms || undefined}
-                                        domain={genericProps?.domain}
+                                        domain={genericProps?.domain?.domain}
                                         onClick={() => onClick?.(index)}
                                         entityCount={entityCount}
                                         degree={additionalProperties?.degree}
