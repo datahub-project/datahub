@@ -6,6 +6,8 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import com.linkedin.usage.UsageClient;
 import com.linkedin.usage.UsageQueryResult;
 import com.linkedin.usage.UsageQueryResultAggregations;
@@ -58,7 +60,8 @@ public class DatasetStatsSummaryResolverTest {
     )).thenReturn(testResult);
 
     // Execute resolver
-    DatasetStatsSummaryResolver resolver = new DatasetStatsSummaryResolver(mockClient);
+    EntityClient mockEntityClient = initMockEntityClient();
+    DatasetStatsSummaryResolver resolver = new DatasetStatsSummaryResolver(mockEntityClient, mockClient);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -121,7 +124,8 @@ public class DatasetStatsSummaryResolverTest {
     )).thenThrow(RuntimeException.class);
 
     // Execute resolver
-    DatasetStatsSummaryResolver resolver = new DatasetStatsSummaryResolver(mockClient);
+    EntityClient mockEntityClient = initMockEntityClient();
+    DatasetStatsSummaryResolver resolver = new DatasetStatsSummaryResolver(mockEntityClient, mockClient);
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -133,5 +137,15 @@ public class DatasetStatsSummaryResolverTest {
 
     // Summary should be null
     Assert.assertNull(result);
+  }
+
+  private EntityClient initMockEntityClient() throws Exception {
+    EntityClient client = Mockito.mock(EntityClient.class);
+    Mockito.when(client.getV2(
+        Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
+        Mockito.any(),
+        Mockito.any(),
+        Mockito.any(Authentication.class))).thenReturn(null);
+    return client;
   }
 }

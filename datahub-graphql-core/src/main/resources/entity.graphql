@@ -5389,14 +5389,34 @@ type DatasetStatsSummary {
     queryCountLast30Days: Int
 
     """
+    The relative percentile for query count in the past 30 days
+    """
+    queryCountPercentileLast30Days: Int
+
+    """
+    The relative rank for query count in the past 30 days
+    """
+    queryCountRankLast30Days: Int
+
+    """
     The unique user count in the past 30 days
     """
     uniqueUserCountLast30Days: Int
 
     """
+    The relative percentile for number of unique users in the last 30 days
+    """
+    uniqueUserPercentileLast30Days: Int
+
+    """
+    The relative rank for number of unique users in the last 30 days
+    """
+    uniqueUserRankLast30Days: Int
+
+    """
     The top users in the past 30 days
     """
-    topUsersLast30Days: [CorpUser!]!
+    topUsersLast30Days: [CorpUser!]
 }
 
 """
@@ -5566,14 +5586,29 @@ type DashboardStatsSummary {
     viewCountLast30Days: Int
 
     """
+    The relative percentile for view count in the past 30 days
+    """
+    viewCountPercentileLast30Days: Int
+
+    """
     The unique user count in the past 30 days
     """
     uniqueUserCountLast30Days: Int
 
     """
+    The relative percentile for number of unique users in the last 30 days
+    """
+    uniqueUserPercentileLast30Days: Int
+
+    """
+    The relative rank for number of unique users in the last 30 days
+    """
+    uniqueUserRankLast30Days: Int
+
+    """
     The top users in the past 30 days
     """
-    topUsersLast30Days: [CorpUser!]!
+    topUsersLast30Days: [CorpUser!]
 }
 
 

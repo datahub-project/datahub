@@ -68,6 +68,7 @@ entities:
       - container
       - deprecation
       - dashboardUsageStatistics
+      - usageFeatures
       - testResults
   - name: notebook
     doc: Notebook represents a combination of query, text, chart and etc. This is in BETA version

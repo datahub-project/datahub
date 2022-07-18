@@ -947,7 +947,7 @@ public class GmsGraphQLEngine {
                     )
                 )
                 .dataFetcher("usageStats", new DatasetUsageStatsResolver(this.usageClient))
-                .dataFetcher("statsSummary", new DatasetStatsSummaryResolver(this.usageClient))
+                .dataFetcher("statsSummary", new DatasetStatsSummaryResolver(this.entityClient, this.usageClient))
                 .dataFetcher("health", new DatasetHealthResolver(graphClient, timeseriesAspectService))
                 .dataFetcher("schemaMetadata", new AspectResolver())
                 .dataFetcher("assertions", new EntityAssertionsResolver(entityClient, graphClient))
@@ -1001,9 +1001,14 @@ public class GmsGraphQLEngine {
             )
             .type("DatasetStatsSummary", typeWiring -> typeWiring
                 .dataFetcher("topUsersLast30Days", new LoadableTypeBatchResolver<>(corpUserType,
-                    (env) -> ((DatasetStatsSummary) env.getSource()).getTopUsersLast30Days().stream()
-                        .map(CorpUser::getUrn)
-                        .collect(Collectors.toList())))
+                    (env) -> {
+                        DatasetStatsSummary summary = ((DatasetStatsSummary) env.getSource());
+                        return summary.getTopUsersLast30Days() != null
+                            ? summary.getTopUsersLast30Days().stream()
+                            .map(CorpUser::getUrn)
+                            .collect(Collectors.toList())
+                            : null;
+                    }))
             );
     }
 
@@ -1140,7 +1145,7 @@ public class GmsGraphQLEngine {
             )
             .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
             .dataFetcher("usageStats", new DashboardUsageStatsResolver(timeseriesAspectService))
-            .dataFetcher("statsSummary", new DashboardStatsSummaryResolver(timeseriesAspectService))
+            .dataFetcher("statsSummary", new DashboardStatsSummaryResolver(this.entityClient, timeseriesAspectService))
         );
         builder.type("DashboardInfo", typeWiring -> typeWiring
             .dataFetcher("charts", new LoadableTypeBatchResolver<>(chartType,
@@ -1155,9 +1160,14 @@ public class GmsGraphQLEngine {
         );
         builder.type("DashboardStatsSummary", typeWiring -> typeWiring
             .dataFetcher("topUsersLast30Days", new LoadableTypeBatchResolver<>(corpUserType,
-                (env) -> ((DashboardStatsSummary) env.getSource()).getTopUsersLast30Days().stream()
-                    .map(CorpUser::getUrn)
-                    .collect(Collectors.toList())))
+                (env) -> {
+                DashboardStatsSummary summary = ((DashboardStatsSummary) env.getSource());
+                return summary.getTopUsersLast30Days() != null
+                    ? summary.getTopUsersLast30Days().stream()
+                        .map(CorpUser::getUrn)
+                        .collect(Collectors.toList())
+                    : null;
+                }))
         );
     }
 

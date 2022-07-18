@@ -329,7 +329,7 @@ export default function DefaultPreviewCard({
                         <UserListContainer>
                             <UserListTitle strong>Top Users</UserListTitle>
                             <div>
-                                <ExpandedActorGroup actors={topUsers} />
+                                <ExpandedActorGroup actors={topUsers} max={2} />
                             </div>
                         </UserListContainer>
                         <UserListDivider type="vertical" />
@@ -339,7 +339,7 @@ export default function DefaultPreviewCard({
                     <UserListContainer>
                         <UserListTitle strong>Owners</UserListTitle>
                         <div>
-                            <ExpandedActorGroup actors={owners.map((owner) => owner.owner)} />
+                            <ExpandedActorGroup actors={owners.map((owner) => owner.owner)} max={2} />
                         </div>
                     </UserListContainer>
                 )}
