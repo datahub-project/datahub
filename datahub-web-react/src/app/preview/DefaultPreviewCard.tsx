@@ -14,7 +14,7 @@ import {
     Maybe,
     CorpUser,
     Deprecation,
-    DomainAssociation,
+    Domain,
 } from '../../types.generated';
 import TagTermGroup from '../shared/tags/TagTermGroup';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -180,7 +180,7 @@ interface Props {
     insights?: Array<SearchInsight> | null;
     glossaryTerms?: GlossaryTerms;
     container?: Container;
-    domain?: Maybe<DomainAssociation> | undefined;
+    domain?: Domain | undefined | null;
     entityCount?: number;
     dataTestID?: string;
     titleSizePx?: number;
