@@ -5416,7 +5416,7 @@ type DatasetStatsSummary {
     """
     The top users in the past 30 days
     """
-    topUsersLast30Days: [CorpUser!]!
+    topUsersLast30Days: [CorpUser!]
 }
 
 """
@@ -5608,7 +5608,7 @@ type DashboardStatsSummary {
     """
     The top users in the past 30 days
     """
-    topUsersLast30Days: [CorpUser!]!
+    topUsersLast30Days: [CorpUser!]
 }
 
 

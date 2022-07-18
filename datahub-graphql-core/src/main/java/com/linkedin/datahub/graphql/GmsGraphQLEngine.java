@@ -1001,9 +1001,14 @@ public class GmsGraphQLEngine {
             )
             .type("DatasetStatsSummary", typeWiring -> typeWiring
                 .dataFetcher("topUsersLast30Days", new LoadableTypeBatchResolver<>(corpUserType,
-                    (env) -> ((DatasetStatsSummary) env.getSource()).getTopUsersLast30Days().stream()
-                        .map(CorpUser::getUrn)
-                        .collect(Collectors.toList())))
+                    (env) -> {
+                        DatasetStatsSummary summary = ((DatasetStatsSummary) env.getSource());
+                        return summary.getTopUsersLast30Days() != null
+                            ? summary.getTopUsersLast30Days().stream()
+                            .map(CorpUser::getUrn)
+                            .collect(Collectors.toList())
+                            : null;
+                    }))
             );
     }
 
@@ -1155,9 +1160,14 @@ public class GmsGraphQLEngine {
         );
         builder.type("DashboardStatsSummary", typeWiring -> typeWiring
             .dataFetcher("topUsersLast30Days", new LoadableTypeBatchResolver<>(corpUserType,
-                (env) -> ((DashboardStatsSummary) env.getSource()).getTopUsersLast30Days().stream()
-                    .map(CorpUser::getUrn)
-                    .collect(Collectors.toList())))
+                (env) -> {
+                DashboardStatsSummary summary = ((DashboardStatsSummary) env.getSource());
+                return summary.getTopUsersLast30Days() != null
+                    ? summary.getTopUsersLast30Days().stream()
+                        .map(CorpUser::getUrn)
+                        .collect(Collectors.toList())
+                    : null;
+                }))
         );
     }
 
