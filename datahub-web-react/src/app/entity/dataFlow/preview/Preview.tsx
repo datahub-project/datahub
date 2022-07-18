@@ -1,9 +1,16 @@
 import React from 'react';
-import { Domain, EntityType, GlobalTags, Owner, SearchInsight } from '../../../../types.generated';
+import { Typography } from 'antd';
+import styled from 'styled-components';
+import { Deprecation, Domain, EntityType, GlobalTags, Owner, SearchInsight } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { capitalizeFirstLetter } from '../../../shared/textUtil';
 import { IconStyleType } from '../../Entity';
+import { ANTD_GRAY } from '../../shared/constants';
+
+const StatText = styled(Typography.Text)`
+    color: ${ANTD_GRAY[8]};
+`;
 
 export const Preview = ({
     urn,
@@ -15,8 +22,11 @@ export const Preview = ({
     owners,
     globalTags,
     domain,
+    externalUrl,
     snippet,
     insights,
+    jobCount,
+    deprecation,
 }: {
     urn: string;
     name: string;
@@ -27,8 +37,11 @@ export const Preview = ({
     owners?: Array<Owner> | null;
     domain?: Domain | null;
     globalTags?: GlobalTags | null;
+    deprecation?: Deprecation | null;
+    externalUrl?: string | null;
     snippet?: React.ReactNode | null;
     insights?: Array<SearchInsight> | null;
+    jobCount?: number | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const capitalizedPlatform = capitalizeFirstLetter(platformName);
@@ -47,6 +60,16 @@ export const Preview = ({
             domain={domain}
             snippet={snippet}
             insights={insights}
+            externalUrl={externalUrl}
+            deprecation={deprecation}
+            stats={
+                (jobCount && [
+                    <StatText>
+                        <b>{jobCount}</b> {entityRegistry.getCollectionName(EntityType.DataJob)}
+                    </StatText>,
+                ]) ||
+                undefined
+            }
         />
     );
 };

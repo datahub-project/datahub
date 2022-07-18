@@ -1053,7 +1053,11 @@ class LookerDashboardSource(Source):
 
     def _populate_userwise_runs_counts(self, dashboard_usages):
         userwise_count_rows = LookerUtil.run_inline_query(
-            self.client, usage_queries["counts_per_day_per_user_per_dashboard"]
+            self.client,
+            usage_queries["counts_per_day_per_user_per_dashboard"],
+            transport_options=self.source_config.transport_options.get_transport_options()
+            if self.source_config.transport_options is not None
+            else None,
         )
 
         for row in userwise_count_rows:
@@ -1108,6 +1112,9 @@ class LookerDashboardSource(Source):
         count_rows = LookerUtil.run_inline_query(
             self.client,
             usage_queries["counts_per_day_per_dashboard"],
+            transport_options=self.source_config.transport_options.get_transport_options()
+            if self.source_config.transport_options is not None
+            else None,
         )
         for row in count_rows:
             dashboard_usages[

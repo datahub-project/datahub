@@ -1,7 +1,7 @@
 version: "2"
 services:
   clickhouse:
-    image: yandex/clickhouse-server:22.1
+    image: clickhouse/clickhouse-server:22.5.2
     container_name: "testclickhouse"
     environment:
       CLICKHOUSE_USER: clickhouseuser

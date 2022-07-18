@@ -186,6 +186,10 @@ export class DashboardEntity implements Entity<Dashboard> {
                 domain={data.domain?.domain}
                 container={data.container}
                 parentContainers={data.parentContainers}
+                deprecation={data.deprecation}
+                externalUrl={data.properties?.externalUrl}
+                statsSummary={data.statsSummary}
+                lastUpdatedMs={data.properties?.lastModified?.time}
             />
         );
     };
