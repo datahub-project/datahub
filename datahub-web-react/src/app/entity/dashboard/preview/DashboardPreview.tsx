@@ -1,8 +1,4 @@
 import React from 'react';
-import styled from 'styled-components';
-import { ClockCircleOutlined, EyeOutlined, TeamOutlined } from '@ant-design/icons';
-import { Typography } from 'antd';
-
 import {
     AccessLevel,
     Domain,
@@ -20,14 +16,7 @@ import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { capitalizeFirstLetter } from '../../../shared/textUtil';
 import { IconStyleType } from '../../Entity';
-import { ANTD_GRAY } from '../../shared/constants';
-import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
-import { toRelativeTimeString } from '../../../shared/time/timeUtils';
-import { PercentileLabel } from '../../shared/stats/PercentileLabel';
-
-const StatText = styled.span`
-    color: ${ANTD_GRAY[8]};
-`;
+import { DashboardStatsSummary as DashboardStatsSummaryView } from '../shared/DashboardStatsSummary';
 
 export const DashboardPreview = ({
     urn,
@@ -46,6 +35,7 @@ export const DashboardPreview = ({
     chartCount,
     statsSummary,
     lastUpdatedMs,
+    createdMs,
     externalUrl,
     parentContainers,
     deprecation,
@@ -67,16 +57,12 @@ export const DashboardPreview = ({
     chartCount?: number | null;
     statsSummary?: DashboardStatsSummary | null;
     lastUpdatedMs?: number | null;
+    createdMs?: number | null;
     externalUrl?: string | null;
     parentContainers?: ParentContainersResult | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const capitalizedPlatform = capitalizeFirstLetter(platform);
-
-    // acryl-main only.
-    const effectiveViewCount =
-        (!!statsSummary?.viewCountLast30Days && statsSummary.viewCountLast30Days) || statsSummary?.viewCount;
-    const effectiveViewCountText = (!!statsSummary?.viewCountLast30Days && 'views last month') || 'views';
 
     return (
         <DefaultPreviewCard
@@ -99,53 +85,18 @@ export const DashboardPreview = ({
             parentContainers={parentContainers}
             externalUrl={externalUrl}
             topUsers={statsSummary?.topUsersLast30Days}
-            stats={[
-                (chartCount && (
-                    <StatText>
-                        <b>{chartCount}</b> charts
-                    </StatText>
-                )) ||
-                    undefined,
-                (!!effectiveViewCount && (
-                    <StatText>
-                        <EyeOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                        <b>{formatNumberWithoutAbbreviation(effectiveViewCount)}</b> {effectiveViewCountText}{' '}
-                        {!!statsSummary?.viewCountPercentileLast30Days && (
-                            <Typography.Text type="secondary">
-                                -{' '}
-                                <PercentileLabel
-                                    percentile={statsSummary?.viewCountPercentileLast30Days}
-                                    description={`This dashboard has been viewed more often than ${statsSummary?.viewCountPercentileLast30Days}% of similar dashboards in the past 30 days.`}
-                                />
-                            </Typography.Text>
-                        )}
-                    </StatText>
-                )) ||
-                    undefined,
-                (!!statsSummary?.uniqueUserCountLast30Days && (
-                    <StatText>
-                        <TeamOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                        <b>{formatNumberWithoutAbbreviation(statsSummary?.uniqueUserCountLast30Days)}</b> unique users{' '}
-                        {!!statsSummary?.uniqueUserPercentileLast30Days && (
-                            <Typography.Text type="secondary">
-                                -{' '}
-                                <PercentileLabel
-                                    percentile={statsSummary?.uniqueUserPercentileLast30Days}
-                                    description={`This dashboard has had more unique users than ${statsSummary?.uniqueUserPercentileLast30Days}% of similar dashboards in the past 30 days.`}
-                                />
-                            </Typography.Text>
-                        )}
-                    </StatText>
-                )) ||
-                    undefined,
-                (!!lastUpdatedMs && (
-                    <StatText>
-                        <ClockCircleOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                        Changed {toRelativeTimeString(lastUpdatedMs)}
-                    </StatText>
-                )) ||
-                    undefined,
-            ].filter((stat) => stat !== undefined)}
+            subHeader={
+                <DashboardStatsSummaryView
+                    chartCount={chartCount}
+                    viewCount={statsSummary?.viewCount}
+                    viewCountLast30Days={statsSummary?.viewCountLast30Days}
+                    viewCountPercentileLast30Days={statsSummary?.viewCountPercentileLast30Days}
+                    uniqueUserCountLast30Days={statsSummary?.uniqueUserCountLast30Days}
+                    uniqueUserPercentileLast30Days={statsSummary?.uniqueUserPercentileLast30Days}
+                    lastUpdatedMs={lastUpdatedMs}
+                    createdMs={createdMs}
+                />
+            }
         />
     );
 };

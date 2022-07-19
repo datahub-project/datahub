@@ -1,7 +1,4 @@
 import React from 'react';
-import styled from 'styled-components';
-import { Typography } from 'antd';
-import { ClockCircleOutlined, ConsoleSqlOutlined, TableOutlined, TeamOutlined } from '@ant-design/icons';
 import {
     EntityType,
     FabricType,
@@ -20,14 +17,7 @@ import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { IconStyleType } from '../../Entity';
-import { ANTD_GRAY } from '../../shared/constants';
-import { toRelativeTimeString } from '../../../shared/time/timeUtils';
-import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
-import { PercentileLabel } from '../../shared/stats/PercentileLabel';
-
-const StatText = styled.span`
-    color: ${ANTD_GRAY[8]};
-`;
+import { DatasetStatsSummary as DatasetStatsSummaryView } from '../shared/DatasetStatsSummary';
 
 export const Preview = ({
     urn,
@@ -104,54 +94,16 @@ export const Preview = ({
             parentContainers={parentContainers}
             externalUrl={externalUrl}
             topUsers={statsSummary?.topUsersLast30Days}
-            stats={[
-                (rowCount && (
-                    <StatText>
-                        <TableOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                        <b>{formatNumberWithoutAbbreviation(rowCount)}</b> rows
-                    </StatText>
-                )) ||
-                    undefined,
-                (!!statsSummary?.queryCountLast30Days && (
-                    <StatText>
-                        <ConsoleSqlOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                        <b>{formatNumberWithoutAbbreviation(statsSummary?.queryCountLast30Days)}</b> queries last month{' '}
-                        {!!statsSummary?.queryCountPercentileLast30Days && (
-                            <Typography.Text type="secondary">
-                                -{' '}
-                                <PercentileLabel
-                                    percentile={statsSummary?.queryCountPercentileLast30Days}
-                                    description={`This dataset has been queried more often than ${statsSummary?.queryCountPercentileLast30Days}% of similar datasets in the past 30 days.`}
-                                />
-                            </Typography.Text>
-                        )}
-                    </StatText>
-                )) ||
-                    undefined,
-                (!!statsSummary?.uniqueUserCountLast30Days && (
-                    <StatText>
-                        <TeamOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                        <b>{formatNumberWithoutAbbreviation(statsSummary?.uniqueUserCountLast30Days)}</b> unique users{' '}
-                        {!!statsSummary?.uniqueUserPercentileLast30Days && (
-                            <Typography.Text type="secondary">
-                                -{' '}
-                                <PercentileLabel
-                                    percentile={statsSummary?.uniqueUserPercentileLast30Days}
-                                    description={`This dataset has had more unique users than ${statsSummary?.uniqueUserPercentileLast30Days}% of similar datasets in the past 30 days.`}
-                                />
-                            </Typography.Text>
-                        )}
-                    </StatText>
-                )) ||
-                    undefined,
-                (!!lastUpdatedMs && (
-                    <StatText>
-                        <ClockCircleOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                        Changed {toRelativeTimeString(lastUpdatedMs)}
-                    </StatText>
-                )) ||
-                    undefined,
-            ].filter((stat) => stat !== undefined)}
+            subHeader={
+                <DatasetStatsSummaryView
+                    rowCount={rowCount}
+                    queryCountLast30Days={statsSummary?.queryCountLast30Days}
+                    queryCountPercentileLast30Days={statsSummary?.queryCountPercentileLast30Days}
+                    uniqueUserCountLast30Days={statsSummary?.uniqueUserCountLast30Days}
+                    uniqueUserPercentileLast30Days={statsSummary?.uniqueUserPercentileLast30Days}
+                    lastUpdatedMs={lastUpdatedMs}
+                />
+            }
         />
     );
 };

@@ -21,6 +21,7 @@ import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
+import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -75,6 +76,9 @@ export class DashboardEntity implements Entity<Dashboard> {
             useUpdateQuery={useUpdateDashboardMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
+            subHeader={{
+                component: DashboardStatsSummarySubHeader,
+            }}
             tabs={[
                 {
                     name: 'Documentation',
@@ -164,6 +168,12 @@ export class DashboardEntity implements Entity<Dashboard> {
                 logoUrl={data?.platform?.properties?.logoUrl}
                 domain={data.domain?.domain}
                 container={data.container}
+                parentContainers={data.parentContainers}
+                deprecation={data.deprecation}
+                externalUrl={data.properties?.externalUrl}
+                statsSummary={data.statsSummary}
+                lastUpdatedMs={data.properties?.lastModified?.time}
+                createdMs={data.properties?.created?.time}
             />
         );
     };
@@ -190,6 +200,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={data.properties?.lastModified?.time}
+                createdMs={data.properties?.created?.time}
             />
         );
     };

@@ -51,6 +51,10 @@ export type EntitySidebarSection = {
     properties?: any;
 };
 
+export type EntitySubHeaderSection = {
+    component: React.FunctionComponent<{ properties?: any }>;
+};
+
 export type GenericEntityProperties = {
     urn?: string;
     name?: Maybe<string>;
