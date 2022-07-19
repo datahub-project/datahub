@@ -36,6 +36,7 @@ const MarginWrapper = styled.div`
 const ConnectionRequestWrapper = styled.div`
     display: flex;
     justify-content: flex-end;
+    margin-top: 16px;
 `;
 
 function getInitialValues(displayRecipe: string, allFields: any[]) {
@@ -115,7 +116,7 @@ function RecipeForm(props: Props) {
                         <FormField field={field} removeMargin={i === fields.length - 1} />
                     ))}
                     <ConnectionRequestWrapper>
-                        <ConnectionRequest />
+                        <ConnectionRequest recipe={displayRecipe} />
                     </ConnectionRequestWrapper>
                 </Collapse.Panel>
             </StyledCollapse>

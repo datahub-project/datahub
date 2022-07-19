@@ -1,10 +1,15 @@
 import { CheckCircleOutlined, CheckOutlined, CloseCircleOutlined, CloseOutlined } from '@ant-design/icons';
-import { Button, Modal, Typography } from 'antd';
-import React, { useState } from 'react';
+import { Button, message, Modal, Typography } from 'antd';
+import React, { useEffect, useState } from 'react';
 import { green, red } from '@ant-design/colors';
 import styled from 'styled-components/macro';
 import { ReactComponent as LoadingSvg } from '../../../../../images/datahub-logo-color-loading_pendulum.svg';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
+import {
+    useCreateTestConnectionRequestMutation,
+    useGetIngestionExecutionRequestLazyQuery,
+} from '../../../../../graphql/ingestion.generated';
+import { yamlToJson } from '../../utils';
 
 const LoadingWrapper = styled.div`
     display: flex;
@@ -77,17 +82,62 @@ const mockData = [
     { capability: 'Platform Instance', success: true, failureMessage: null },
 ];
 
-// interface Props {}
+export function getRecipeJson(recipeYaml: string) {
+    // Convert the recipe into it's json representation, and catch + report exceptions while we do it.
+    let recipeJson;
+    try {
+        recipeJson = yamlToJson(recipeYaml);
+    } catch (e) {
+        const messageText = (e as any).parsedLine
+            ? `Please fix line ${(e as any).parsedLine} in your recipe.`
+            : 'Please check your recipe configuration.';
+        message.warn(`Found invalid YAML. ${messageText}`);
+        return null;
+    }
+    return recipeJson;
+}
 
-function ConnectionRequest() {
-    // simply mocking this on the FE for now for demo purposes
+interface Props {
+    recipe: string;
+}
+
+function ConnectionRequest(props: Props) {
+    const { recipe } = props;
     const [isLoading, setIsLoading] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
+    const [pollingInterval, setPollingInterval] = useState<null | NodeJS.Timeout>(null);
+    const [createTestConnectionRequest, { data: requestData }] = useCreateTestConnectionRequestMutation();
+    const [getIngestionExecutionRequest, { data: resultData }] = useGetIngestionExecutionRequestLazyQuery();
+
+    useEffect(() => {
+        if (requestData && requestData.createTestConnectionRequest) {
+            const interval = setInterval(
+                () =>
+                    getIngestionExecutionRequest({
+                        variables: { urn: requestData.createTestConnectionRequest as string },
+                    }),
+                1000,
+            );
+            setIsLoading(true);
+            setIsModalVisible(true);
+            setPollingInterval(interval);
+        }
+    }, [requestData, getIngestionExecutionRequest]);
+
+    useEffect(() => {
+        if (resultData) {
+            if (pollingInterval) clearInterval(pollingInterval);
+            setIsLoading(false);
+        }
+    }, [resultData, pollingInterval]);
 
     function testConnection() {
-        setIsLoading(true);
-        setIsModalVisible(true);
-        setTimeout(() => setIsLoading(false), 3000);
+        const recipeJson = getRecipeJson(recipe);
+        if (recipeJson) {
+            createTestConnectionRequest({ variables: { input: { recipe: recipeJson } } }).catch(() => {
+                message.error('There was an unexpected error when trying to test your connection. Please try again.');
+            });
+        }
     }
 
     let numFailures = 0;
