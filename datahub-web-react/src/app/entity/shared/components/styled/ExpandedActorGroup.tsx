@@ -23,11 +23,12 @@ type Props = {
     actors: Array<CorpUser | CorpGroup>;
     max: number;
     onClose?: (actor: CorpUser | CorpGroup) => void;
+    containerStyle?: any;
 };
 
 const DEFAULT_MAX = 10;
 
-export const ExpandedActorGroup = ({ actors, max = DEFAULT_MAX, onClose }: Props) => {
+export const ExpandedActorGroup = ({ actors, max = DEFAULT_MAX, onClose, containerStyle }: Props) => {
     const finalActors = actors.length > max ? actors.slice(0, max) : actors;
     const remainder = actors.length > max ? actors.length - max : undefined;
 
@@ -42,7 +43,7 @@ export const ExpandedActorGroup = ({ actors, max = DEFAULT_MAX, onClose }: Props
                 </PopoverActors>
             }
         >
-            <ActorsContainer>
+            <ActorsContainer style={containerStyle}>
                 {finalActors.map((actor) => (
                     <ExpandedActor key={actor.urn} actor={actor} onClose={() => onClose?.(actor)} />
                 ))}
