@@ -2,10 +2,10 @@ package com.linkedin.datahub.graphql.util;
 
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.datahub.graphql.generated.SearchInsight;
-import com.linkedin.metadata.search.features.Features;
+// import com.linkedin.metadata.search.features.Features;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+// import java.util.Optional;
 import javax.annotation.Nonnull;
 
 public class SearchInsightsUtil {
@@ -14,12 +14,13 @@ public class SearchInsightsUtil {
   public static List<SearchInsight> getInsightsFromFeatures(@Nonnull final DoubleMap features) {
     // Currently no features are extracted.
     final List<SearchInsight> insights = new ArrayList<>();
-    final Optional<SearchInsight> queryCountInsight = extractQueryCountInsight(features);
-    queryCountInsight.ifPresent(insights::add);
+    // TODO: Consider which search insights would be best suited for this.
+    // final Optional<SearchInsight> queryCountInsight = extractQueryCountInsight(features);
+    // queryCountInsight.ifPresent(insights::add);
     return insights;
   }
 
-  @Nonnull
+  /*@Nonnull
   private static Optional<SearchInsight> extractQueryCountInsight(final DoubleMap features) {
     if (features.containsKey(Features.Name.QUERY_COUNT.toString())) {
       // Search result has query count.
@@ -31,7 +32,7 @@ public class SearchInsightsUtil {
       }
     }
     return Optional.empty();
-  }
+  }*/
 
   private SearchInsightsUtil() { }
 }

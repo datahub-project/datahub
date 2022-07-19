@@ -112,11 +112,11 @@ export const Preview = ({
                     </StatText>
                 )) ||
                     undefined,
-                (statsSummary?.queryCountLast30Days && (
+                (!!statsSummary?.queryCountLast30Days && (
                     <StatText>
                         <ConsoleSqlOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
                         <b>{formatNumberWithoutAbbreviation(statsSummary?.queryCountLast30Days)}</b> queries last month{' '}
-                        {statsSummary?.queryCountPercentileLast30Days && (
+                        {!!statsSummary?.queryCountPercentileLast30Days && (
                             <Typography.Text type="secondary">
                                 -{' '}
                                 <PercentileLabel
@@ -128,11 +128,11 @@ export const Preview = ({
                     </StatText>
                 )) ||
                     undefined,
-                (statsSummary?.uniqueUserCountLast30Days && (
+                (!!statsSummary?.uniqueUserCountLast30Days && (
                     <StatText>
                         <TeamOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
                         <b>{formatNumberWithoutAbbreviation(statsSummary?.uniqueUserCountLast30Days)}</b> unique users{' '}
-                        {statsSummary?.uniqueUserPercentileLast30Days && (
+                        {!!statsSummary?.uniqueUserPercentileLast30Days && (
                             <Typography.Text type="secondary">
                                 -{' '}
                                 <PercentileLabel
@@ -144,7 +144,7 @@ export const Preview = ({
                     </StatText>
                 )) ||
                     undefined,
-                (lastUpdatedMs && (
+                (!!lastUpdatedMs && (
                     <StatText>
                         <ClockCircleOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
                         Changed {toRelativeTimeString(lastUpdatedMs)}
