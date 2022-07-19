@@ -7,6 +7,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
@@ -98,7 +100,7 @@ public class AuthServiceController {
           final String token = _statelessTokenService.generateAccessToken(
               TokenType.SESSION,
               new Actor(ActorType.USER, userId.asText()),
-              _configProvider.getAuthentication().getSessionTokenDurationMs());
+              Optional.of(_configProvider.getAuthentication().getSessionTokenDurationMs()));
           return new ResponseEntity<>(buildTokenResponse(token), HttpStatus.OK);
         } catch (Exception e) {
           log.error("Failed to generate session token for user", e);

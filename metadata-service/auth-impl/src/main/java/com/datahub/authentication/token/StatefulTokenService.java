@@ -16,12 +16,8 @@ import com.linkedin.metadata.resources.entity.AspectUtils;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
-import java.util.Base64;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
@@ -78,12 +74,12 @@ public class StatefulTokenService extends StatelessTokenService {
       @Nonnull final String name, final String description, final String actorUrn) {
     Date date = new Date();
     long timeMilli = date.getTime();
-    return generateAccessToken(type, actor, DEFAULT_EXPIRES_IN_MS, timeMilli, name, description, actorUrn);
+    return generateAccessToken(type, actor, Optional.of(DEFAULT_EXPIRES_IN_MS), timeMilli, name, description, actorUrn);
   }
 
   @Nonnull
   public String generateAccessToken(@Nonnull final TokenType type, @Nonnull final Actor actor,
-      @Nonnull final long expiresInMs, @Nonnull final long createdAtInMs, @Nonnull final String tokenName,
+      @Nonnull final Optional<Long> expiresInMs, @Nonnull final long createdAtInMs, @Nonnull final String tokenName,
       @Nullable final String tokenDescription, final String actorUrn) {
 
     Objects.requireNonNull(type);
@@ -114,7 +110,8 @@ public class StatefulTokenService extends StatelessTokenService {
     value.setActorUrn(UrnUtils.getUrn(actor.toUrnStr()));
     value.setOwnerUrn(UrnUtils.getUrn(actorUrn));
     value.setCreatedAt(createdAtInMs);
-    value.setExpiresAt(createdAtInMs + expiresInMs);
+    if (expiresInMs.isPresent())
+      value.setExpiresAt(createdAtInMs + expiresInMs.get());
 
     proposal.setEntityType(Constants.ACCESS_TOKEN_ENTITY_NAME);
     proposal.setAspectName(Constants.ACCESS_TOKEN_INFO_NAME);

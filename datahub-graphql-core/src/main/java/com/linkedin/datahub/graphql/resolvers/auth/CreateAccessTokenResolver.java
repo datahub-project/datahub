@@ -18,6 +18,7 @@ import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Date;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 
@@ -50,7 +51,7 @@ public class CreateAccessTokenResolver implements DataFetcher<CompletableFuture<
         final String actorUrn = input.getActorUrn();
         final Date date = new Date();
         final long createdAtInMs = date.getTime();
-        final long expiresInMs = AccessTokenUtil.mapDurationToMs(input.getDuration());
+        final Optional<Long> expiresInMs = AccessTokenUtil.mapDurationToMs(input.getDuration());
 
         final String tokenName = input.getName();
         final String tokenDescription = input.getDescription();

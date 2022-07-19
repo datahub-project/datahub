@@ -9,14 +9,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 import javax.crypto.spec.SecretKeySpec;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -65,7 +58,7 @@ public class StatelessTokenService {
    *
    */
   public String generateAccessToken(@Nonnull final TokenType type, @Nonnull final Actor actor) {
-    return generateAccessToken(type, actor, DEFAULT_EXPIRES_IN_MS);
+    return generateAccessToken(type, actor, Optional.of(DEFAULT_EXPIRES_IN_MS));
   }
 
   /**
@@ -78,7 +71,7 @@ public class StatelessTokenService {
   public String generateAccessToken(
       @Nonnull final TokenType type,
       @Nonnull final Actor actor,
-      final long expiresInMs) {
+      final Optional<Long> expiresInMs) {
     Objects.requireNonNull(type);
     Objects.requireNonNull(actor);
     Map<String, Object> claims = new HashMap<>();
@@ -95,20 +88,23 @@ public class StatelessTokenService {
    * Note that the caller of this method is expected to authorize the action of generating a token.
    */
   @Nonnull
-  public String generateAccessToken(@Nonnull final String sub, @Nonnull final Map<String, Object> claims, final long expiresInMs) {
+  public String generateAccessToken(@Nonnull final String sub, @Nonnull final Map<String, Object> claims, final Optional<Long> expiresInMs) {
     Objects.requireNonNull(sub);
     Objects.requireNonNull(claims);
     final JwtBuilder builder = Jwts.builder()
       .addClaims(claims)
-      .setExpiration(new Date(System.currentTimeMillis() + expiresInMs))
       .setId(UUID.randomUUID().toString())
       .setSubject(sub);
+
+    if (expiresInMs.isPresent()) {
+      builder.setExpiration(new Date(System.currentTimeMillis() + expiresInMs.get()));
+    }
     if (this.iss != null) {
       builder.setIssuer(this.iss);
     }
     byte [] apiKeySecretBytes = this.signingKey.getBytes(StandardCharsets.UTF_8);
     final Key signingKey = new SecretKeySpec(apiKeySecretBytes, this.signingAlgorithm.getJcaName());
-      return builder.signWith(signingKey, this.signingAlgorithm).compact();
+    return builder.signWith(signingKey, this.signingAlgorithm).compact();
   }
 
   /**
@@ -137,7 +133,7 @@ public class StatelessTokenService {
               TokenType.valueOf(tokenType),
               ActorType.valueOf(actorType),
               actorId,
-              claims.getExpiration().getTime());
+              claims.getExpiration() == null ? Optional.empty() : Optional.of(claims.getExpiration().getTime()));
       }
     } catch (io.jsonwebtoken.ExpiredJwtException e) {
       throw new TokenExpiredException("Failed to validate DataHub token. Token has expired.", e);

@@ -4,6 +4,7 @@ import com.datahub.authentication.ActorType;
 import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 
 
@@ -44,14 +45,14 @@ public class TokenClaims {
    */
   private final String actorId;
 
-  private final long expirationInMs;
+  private final Optional<Long> expirationInMs;
 
   public TokenClaims(
-      @Nonnull TokenVersion tokenVersion,
-      @Nonnull TokenType tokenType,
-      @Nonnull final ActorType actorType,
-      @Nonnull final String actorId,
-      long expirationInMs) {
+          @Nonnull TokenVersion tokenVersion,
+          @Nonnull TokenType tokenType,
+          @Nonnull final ActorType actorType,
+          @Nonnull final String actorId,
+          @Nonnull Optional<Long> expirationInMs) {
     Objects.requireNonNull(tokenVersion);
     Objects.requireNonNull(tokenType);
     Objects.requireNonNull(actorType);
@@ -87,10 +88,9 @@ public class TokenClaims {
   /**
    * Returns the type of an authenticated DataHub actor.
    */
-  public long getExpirationInMs() {
+  public Optional<Long> getExpirationInMs() {
     return this.expirationInMs;
   }
-
 
   /**
    * Returns a unique id associated with a DataHub actor of a particular type.

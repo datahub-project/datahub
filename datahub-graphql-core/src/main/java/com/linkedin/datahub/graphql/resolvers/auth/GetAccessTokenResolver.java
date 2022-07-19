@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.GetAccessTokenInput;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 
@@ -42,7 +43,7 @@ public class GetAccessTokenResolver implements DataFetcher<CompletableFuture<Acc
         final TokenType type = TokenType.valueOf(
             input.getType().toString()); // warn: if we are out of sync with AccessTokenType there are problems.
         final String actorUrn = input.getActorUrn();
-        final long expiresInMs = AccessTokenUtil.mapDurationToMs(input.getDuration());
+        final Optional<Long> expiresInMs = AccessTokenUtil.mapDurationToMs(input.getDuration());
         final String accessToken =
             _tokenService.generateAccessToken(type, createActor(input.getType(), actorUrn), expiresInMs);
         AccessToken result = new AccessToken();
