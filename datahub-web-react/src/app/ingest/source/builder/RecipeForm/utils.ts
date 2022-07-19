@@ -1,6 +1,7 @@
 import { set, get } from 'lodash';
 import { SNOWFLAKE } from '../../conf/snowflake/snowflake';
 import { BIGQUERY } from '../../conf/bigquery/bigquery';
+import { REDSHIFT } from '../../conf/redshift/redshift';
 
 export enum FieldType {
     TEXT,
@@ -145,6 +146,42 @@ export const BIGQUERY_CLIENT_ID: RecipeField = {
     tooltip: 'BigQuery client id.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.credential.client_id',
+    rules: null,
+};
+
+export const REDSHIFT_HOST_PORT: RecipeField = {
+    name: 'host_port',
+    label: 'Host Port',
+    tooltip: 'Redshift Host Port.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.host_port',
+    rules: null,
+};
+
+export const REDSHIFT_DATABASE: RecipeField = {
+    name: 'database',
+    label: 'Database',
+    tooltip: 'Redshift database.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.database',
+    rules: null,
+};
+
+export const REDSHIFT_USERNAME: RecipeField = {
+    name: 'redshift.username',
+    label: 'Username',
+    tooltip: 'Redshift username.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.redshift.username',
+    rules: null,
+};
+
+export const REDSHIFT_PASSWORD: RecipeField = {
+    name: 'redshift.password',
+    label: 'Password',
+    tooltip: 'Redshift password.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.redshift.password',
     rules: null,
 };
 
@@ -351,6 +388,11 @@ export const RECIPE_FIELDS = {
             STATEFUL_INGESTION_ENABLED,
             INCLUDE_UPSTREAM_LINEAGE_IN_REPORT,
         ],
+        filterFields: [TABLE_ALLOW, TABLE_DENY, SCHEMA_ALLOW, SCHEMA_DENY, VIEW_ALLOW, VIEW_DENY],
+    },
+    [REDSHIFT]: {
+        fields: [REDSHIFT_HOST_PORT, REDSHIFT_DATABASE, REDSHIFT_USERNAME, REDSHIFT_PASSWORD],
+        advancedFields: [INCLUDE_LINEAGE, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED],
         filterFields: [TABLE_ALLOW, TABLE_DENY, SCHEMA_ALLOW, SCHEMA_DENY, VIEW_ALLOW, VIEW_DENY],
     },
 };
