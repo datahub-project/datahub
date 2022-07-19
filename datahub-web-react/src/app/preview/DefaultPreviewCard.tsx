@@ -105,10 +105,6 @@ const TagSeparator = styled.div`
     border-right: 1px solid #cccccc;
 `;
 
-const StatsContainer = styled.div`
-    margin-top: 8px;
-`;
-
 const InsightContainer = styled.div`
     margin-top: 12px;
 `;
@@ -175,7 +171,7 @@ interface Props {
     deprecation?: Deprecation | null;
     topUsers?: Array<CorpUser> | null;
     externalUrl?: string | null;
-    stats?: Array<React.ReactNode> | null;
+    subHeader?: React.ReactNode;
     snippet?: React.ReactNode;
     insights?: Array<SearchInsight> | null;
     glossaryTerms?: GlossaryTerms;
@@ -207,7 +203,7 @@ export default function DefaultPreviewCard({
     tags,
     owners,
     topUsers,
-    stats,
+    subHeader,
     snippet,
     insights,
     glossaryTerms,
@@ -302,16 +298,7 @@ export default function DefaultPreviewCard({
                         {hasTags && <TagTermGroup uneditableTags={tags} maxShow={3} />}
                     </TagContainer>
                 )}
-                {stats && stats.length > 0 && (
-                    <StatsContainer>
-                        {stats.map((statView, index) => (
-                            <span>
-                                {statView}
-                                {index < stats.length - 1 && <PlatformDivider />}
-                            </span>
-                        ))}
-                    </StatsContainer>
-                )}
+                {subHeader}
                 {insightViews.length > 0 && (
                     <InsightContainer>
                         {insightViews.map((insightView, index) => (

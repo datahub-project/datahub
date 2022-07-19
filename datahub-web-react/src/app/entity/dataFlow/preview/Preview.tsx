@@ -62,7 +62,7 @@ export const Preview = ({
             insights={insights}
             externalUrl={externalUrl}
             deprecation={deprecation}
-            stats={
+            subHeader={
                 (jobCount && [
                     <StatText>
                         <b>{jobCount}</b> {entityRegistry.getCollectionName(EntityType.DataJob)}

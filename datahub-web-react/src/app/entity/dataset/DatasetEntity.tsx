@@ -15,7 +15,6 @@ import QueriesTab from '../shared/tabs/Dataset/Queries/QueriesTab';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { SidebarStatsSection } from '../shared/containers/profile/sidebar/Dataset/StatsSidebarSection';
 import StatsTab from '../shared/tabs/Dataset/Stats/StatsTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
@@ -28,6 +27,7 @@ import { ValidationsTab } from '../shared/tabs/Dataset/Validations/ValidationsTa
 import { OperationsTab } from './profile/OperationsTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
+import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -86,6 +86,9 @@ export class DatasetEntity implements Entity<Dataset> {
             useUpdateQuery={useUpdateDatasetMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
+            subHeader={{
+                component: DatasetStatsSummarySubHeader,
+            }}
             tabs={[
                 {
                     name: 'Schema',
@@ -176,6 +179,12 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: SidebarAboutSection,
                 },
                 {
+                    component: SidebarOwnerSection,
+                    properties: {
+                        defaultOwnerType: OwnershipType.TechnicalOwner,
+                    },
+                },
+                {
                     component: SidebarSiblingsSection,
                     display: {
                         visible: (_, dataset: GetDatasetQuery) =>
@@ -190,24 +199,10 @@ export class DatasetEntity implements Entity<Dataset> {
                     },
                 },
                 {
-                    component: SidebarStatsSection,
-                    display: {
-                        visible: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.datasetProfiles?.length || 0) > 0 ||
-                            (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
-                    },
-                },
-                {
                     component: SidebarTagsSection,
                     properties: {
                         hasTags: true,
                         hasTerms: true,
-                    },
-                },
-                {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
                     },
                 },
                 {
