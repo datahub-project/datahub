@@ -74,8 +74,9 @@ export const DashboardPreview = ({
     const capitalizedPlatform = capitalizeFirstLetter(platform);
 
     // acryl-main only.
-    const effectiveViewCount = statsSummary?.viewCountLast30Days || statsSummary?.viewCount;
-    const effectiveViewCountText = (statsSummary?.viewCountLast30Days && 'views last month') || 'views';
+    const effectiveViewCount =
+        (!!statsSummary?.viewCountLast30Days && statsSummary.viewCountLast30Days) || statsSummary?.viewCount;
+    const effectiveViewCountText = (!!statsSummary?.viewCountLast30Days && 'views last month') || 'views';
 
     return (
         <DefaultPreviewCard
@@ -105,11 +106,11 @@ export const DashboardPreview = ({
                     </StatText>
                 )) ||
                     undefined,
-                (effectiveViewCount && (
+                (!!effectiveViewCount && (
                     <StatText>
                         <EyeOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
                         <b>{formatNumberWithoutAbbreviation(effectiveViewCount)}</b> {effectiveViewCountText}{' '}
-                        {statsSummary?.viewCountPercentileLast30Days && (
+                        {!!statsSummary?.viewCountPercentileLast30Days && (
                             <Typography.Text type="secondary">
                                 -{' '}
                                 <PercentileLabel
@@ -121,11 +122,11 @@ export const DashboardPreview = ({
                     </StatText>
                 )) ||
                     undefined,
-                (statsSummary?.uniqueUserCountLast30Days && (
+                (!!statsSummary?.uniqueUserCountLast30Days && (
                     <StatText>
                         <TeamOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
                         <b>{formatNumberWithoutAbbreviation(statsSummary?.uniqueUserCountLast30Days)}</b> unique users{' '}
-                        {statsSummary?.uniqueUserPercentileLast30Days && (
+                        {!!statsSummary?.uniqueUserPercentileLast30Days && (
                             <Typography.Text type="secondary">
                                 -{' '}
                                 <PercentileLabel
@@ -137,7 +138,7 @@ export const DashboardPreview = ({
                     </StatText>
                 )) ||
                     undefined,
-                (lastUpdatedMs && (
+                (!!lastUpdatedMs && (
                     <StatText>
                         <ClockCircleOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
                         Changed {toRelativeTimeString(lastUpdatedMs)}
