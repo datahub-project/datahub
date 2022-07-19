@@ -330,6 +330,7 @@ type Mutation {
     """
     addGroupMembers(input: AddGroupMembersInput!): Boolean
 
+
     """
     Remove members from a group
     """
@@ -3055,6 +3056,7 @@ A DataHub Group entity, which represents a Person on the Metadata Entity Graph
 """
 type CorpGroup implements Entity {
     """
+
     The primary key of the group
     """
     urn: String!
@@ -3088,6 +3090,11 @@ type CorpGroup implements Entity {
     Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Origin info about this group.
+    """
+    origin: Origin
 
     """
     Deprecated, use properties field instead
@@ -6770,9 +6777,9 @@ input PolicyUpdateInput {
 }
 
 """
-Input required to add members to a DataHub group
+Input required to add members to a native DataHub group
 """
-input AddGroupMembersInput {
+input AddNativeGroupMembersInput {
   """
   The group to add members to
   """
@@ -6785,18 +6792,48 @@ input AddGroupMembersInput {
 }
 
 """
-Input required to remove members from a DataHub group
+Input required to add members to an external DataHub group
+"""
+input AddGroupMembersInput {
+    """
+    The group to add members to
+    """
+    groupUrn: String!
+
+    """
+    The members to add to the group
+    """
+    userUrns: [String!]!
+}
+
+"""
+Input required to remove members from a native DataHub group
+"""
+input RemoveNativeGroupMembersInput {
+    """
+    The group to remove members from
+    """
+    groupUrn: String!
+
+    """
+    The members to remove from the group
+    """
+    userUrns: [String!]!
+}
+
+"""
+Input required to remove members from an external DataHub group
 """
 input RemoveGroupMembersInput {
-  """
-  The group to remove members from
-  """
-  groupUrn: String!
+    """
+    The group to remove members from
+    """
+    groupUrn: String!
 
-  """
-  The members to remove from the group
-  """
-  userUrns: [String!]!
+    """
+    The members to remove from the group
+    """
+    userUrns: [String!]!
 }
 
 """
@@ -8593,4 +8630,37 @@ type ResetToken {
     The reset token
     """
     resetToken: String!
+}
+
+"""
+Carries information about where an entity originated from.
+"""
+type Origin {
+    """
+    Where an entity originated from. Either NATIVE or EXTERNAL
+    """
+    type: OriginType!
+
+    """
+    Only populated if type is EXTERNAL. The externalType of the entity, such as the name of the identity provider.
+    """
+    externalType: String
+}
+
+"""
+Enum to define where an entity originated from.
+"""
+enum OriginType {
+    """
+    The entity is native to DataHub.
+    """
+    NATIVE
+    """
+    The entity is external to DataHub.
+    """
+    EXTERNAL
+    """
+    The entity is of unknown origin.
+    """
+    UNKNOWN
 }
