@@ -4,9 +4,7 @@ import styled from 'styled-components';
 import { CorpGroup, CorpUser } from '../../../../../types.generated';
 import { ExpandedActor } from './ExpandedActor';
 
-const PopoverActors = styled.div`
-    max-width: 260px;
-`;
+const PopoverActors = styled.div``;
 
 type Props = {
     actors: Array<CorpUser | CorpGroup>;
@@ -36,12 +34,12 @@ export const ExpandedActorGroup = ({ actors, max, onClose }: Props) => {
                 {finalActors.map((actor) => (
                     <ExpandedActor key={actor.urn} actor={actor} onClose={() => onClose?.(actor)} />
                 ))}
-                {remainder && (
-                    <Typography.Text style={{ marginBottom: 8 }} type="secondary">
-                        + {remainder} more
-                    </Typography.Text>
-                )}
             </div>
+            {remainder && (
+                <Typography.Text style={{ display: 'flex', justifyContent: 'right', marginRight: 8 }} type="secondary">
+                    + {remainder} more
+                </Typography.Text>
+            )}
         </Popover>
     );
 };
