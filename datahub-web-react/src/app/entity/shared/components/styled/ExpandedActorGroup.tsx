@@ -6,18 +6,30 @@ import { ExpandedActor } from './ExpandedActor';
 
 const PopoverActors = styled.div``;
 
+const ActorsContainer = styled.div`
+    display: flex;
+    justify-content: right;
+    flex-wrap: wrap;
+    align-items: center;
+`;
+
+const RemainderText = styled(Typography.Text)`
+    display: flex;
+    justify-content: right;
+    margin-right: 8px;
+`;
+
 type Props = {
     actors: Array<CorpUser | CorpGroup>;
-    max?: number | null;
+    max: number;
     onClose?: (actor: CorpUser | CorpGroup) => void;
 };
 
 const DEFAULT_MAX = 10;
 
-export const ExpandedActorGroup = ({ actors, max, onClose }: Props) => {
-    const finalMax = max || DEFAULT_MAX;
-    const finalActors = actors.length > finalMax ? actors.slice(0, finalMax) : actors;
-    const remainder = actors.length > finalMax ? actors.length - finalMax : undefined;
+export const ExpandedActorGroup = ({ actors, max = DEFAULT_MAX, onClose }: Props) => {
+    const finalActors = actors.length > max ? actors.slice(0, max) : actors;
+    const remainder = actors.length > max ? actors.length - max : undefined;
 
     return (
         <Popover
@@ -30,16 +42,12 @@ export const ExpandedActorGroup = ({ actors, max, onClose }: Props) => {
                 </PopoverActors>
             }
         >
-            <div style={{ display: 'flex', justifyContent: 'right', flexWrap: 'wrap', alignItems: 'center' }}>
+            <ActorsContainer>
                 {finalActors.map((actor) => (
                     <ExpandedActor key={actor.urn} actor={actor} onClose={() => onClose?.(actor)} />
                 ))}
-            </div>
-            {remainder && (
-                <Typography.Text style={{ display: 'flex', justifyContent: 'right', marginRight: 8 }} type="secondary">
-                    + {remainder} more
-                </Typography.Text>
-            )}
+            </ActorsContainer>
+            {remainder && <RemainderText type="secondary">+ {remainder} more</RemainderText>}
         </Popover>
     );
 };
