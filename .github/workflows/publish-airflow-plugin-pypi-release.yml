@@ -1,4 +1,4 @@
-name: pypi-release metadata-ingestion
+name: pypi-release acryl-datahub-airflow-plugin
 on:
   release:
     types: [published]
