@@ -148,7 +148,7 @@ const UserListContainer = styled.div`
 
 const UserListDivider = styled(Divider)`
     padding: 4px;
-    height: 60px;
+    height: auto;
 `;
 
 const UserListTitle = styled(Typography.Text)`
@@ -266,7 +266,7 @@ export default function DefaultPreviewCard({
                                 {name || ' '}
                             </EntityTitle>
                         </Link>
-                        {deprecation && <DeprecationPill deprecation={deprecation} preview />}
+                        {deprecation?.deprecated && <DeprecationPill deprecation={deprecation} preview />}
                         {externalUrl && (
                             <ExternalUrlContainer>
                                 <ExternalUrlButton type="link" href={externalUrl} target="_blank">
@@ -324,22 +324,22 @@ export default function DefaultPreviewCard({
                 )}
             </LeftColumn>
             <RightColumn>
-                {topUsers && topUsers.length > 0 && (
+                {topUsers && topUsers?.length > 0 && (
                     <>
                         <UserListContainer>
                             <UserListTitle strong>Top Users</UserListTitle>
                             <div>
-                                <ExpandedActorGroup actors={topUsers} />
+                                <ExpandedActorGroup actors={topUsers} max={2} />
                             </div>
                         </UserListContainer>
-                        <UserListDivider type="vertical" />
                     </>
                 )}
-                {owners && owners.length > 0 && (
+                {(topUsers?.length || 0) > 0 && (owners?.length || 0) > 0 && <UserListDivider type="vertical" />}
+                {owners && owners?.length > 0 && (
                     <UserListContainer>
                         <UserListTitle strong>Owners</UserListTitle>
                         <div>
-                            <ExpandedActorGroup actors={owners.map((owner) => owner.owner)} />
+                            <ExpandedActorGroup actors={owners.map((owner) => owner.owner)} max={2} />
                         </div>
                     </UserListContainer>
                 )}
