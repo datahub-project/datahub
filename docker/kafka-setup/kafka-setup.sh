@@ -53,4 +53,4 @@ if [[ $DATAHUB_ANALYTICS_ENABLED == true ]]; then
   kafka-topics.sh --create --if-not-exists --command-config $CONNECTION_PROPERTIES_PATH --bootstrap-server $KAFKA_BOOTSTRAP_SERVER --partitions $PARTITIONS --replication-factor $REPLICATION_FACTOR --topic $DATAHUB_USAGE_EVENT_NAME
 fi
 
-kafka-configs.sh --zookeeper zookeeper --entity-type topics --entity-name _schemas --alter --add-config cleanup.policy=compact
+kafka-configs.sh --command-config $CONNECTION_PROPERTIES_PATH --bootstrap-server $KAFKA_BOOTSTRAP_SERVER --entity-type topics --entity-name _schemas --alter --add-config cleanup.policy=compact

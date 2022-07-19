@@ -1025,11 +1025,17 @@ class LookerDashboardSource(Source):
         self, dashboard_ids: List[str]
     ) -> Iterable[MetadataChangeProposalWrapper]:
 
+        dashboard_ids_allowed = [
+            dashboard_id
+            for dashboard_id in dashboard_ids
+            if self.source_config.dashboard_pattern.allowed(dashboard_id)
+        ]
+
         # key tuple (dashboard_id, date)
         dashboard_usages: Dict[tuple, DashboardUsageStatisticsClass] = dict()
 
         common_filters = {
-            "history.dashboard_id": ",".join(dashboard_ids),
+            "history.dashboard_id": ",".join(dashboard_ids_allowed),
             "history.created_date": self.source_config.extract_usage_history_for_interval,
         }
         for query in usage_queries.values():
