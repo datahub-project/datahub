@@ -6,11 +6,6 @@ import { ExpandedActor } from './ExpandedActor';
 
 const PopoverActors = styled.div``;
 
-<<<<<<< HEAD
-type Props = {
-    actors: Array<CorpUser | CorpGroup>;
-    max?: number | null;
-=======
 const ActorsContainer = styled.div`
     display: flex;
     justify-content: right;
@@ -27,7 +22,6 @@ const RemainderText = styled(Typography.Text)`
 type Props = {
     actors: Array<CorpUser | CorpGroup>;
     max: number;
->>>>>>> master
     onClose?: (actor: CorpUser | CorpGroup) => void;
 };
 
