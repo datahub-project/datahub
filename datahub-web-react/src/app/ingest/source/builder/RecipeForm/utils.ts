@@ -1,5 +1,6 @@
 import { set, get } from 'lodash';
 import { SNOWFLAKE } from '../../conf/snowflake/snowflake';
+import { BIGQUERY } from '../../conf/bigquery/bigquery';
 
 export enum FieldType {
     TEXT,
@@ -102,6 +103,51 @@ export const SNOWFLAKE_ROLE: RecipeField = {
     rules: null,
 };
 
+export const BIGQUERY_PROJECT_ID: RecipeField = {
+    name: 'project_id',
+    label: 'BigQuery Project ID',
+    tooltip: 'BigQuery project id.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.project_id',
+    rules: null,
+};
+
+export const BIGQUERY_CREDENTIAL_PROJECT_ID: RecipeField = {
+    name: 'credential.project_id',
+    label: 'Credentials Project ID',
+    tooltip: 'BigQuery Credentials project id.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.credential.project_id',
+    rules: null,
+};
+
+export const BIGQUERY_PRIVATE_KEY: RecipeField = {
+    name: 'credential.private_key',
+    label: 'Private Key',
+    tooltip: 'BigQuery private key id.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.credential.private_key',
+    rules: null,
+};
+
+export const BIGQUERY_CLIENT_EMAIL: RecipeField = {
+    name: 'credential.client_email',
+    label: 'Client Email',
+    tooltip: 'BigQuery client email.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.credential.client_email',
+    rules: null,
+};
+
+export const BIGQUERY_CLIENT_ID: RecipeField = {
+    name: 'credential.client_id',
+    label: 'Client ID',
+    tooltip: 'BigQuery client id.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.credential.client_id',
+    rules: null,
+};
+
 const includeLineageFieldPathA = 'source.config.include_table_lineage';
 const includeLineageFieldPathB = 'source.config.include_view_lineage';
 export const INCLUDE_LINEAGE: RecipeField = {
@@ -154,6 +200,15 @@ export const STATEFUL_INGESTION_ENABLED: RecipeField = {
     tooltip: 'Enable the type of the ingestion state provider registered with datahub.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.stateful_ingestion.enabled',
+    rules: null,
+};
+
+export const INCLUDE_UPSTREAM_LINEAGE_IN_REPORT: RecipeField = {
+    name: 'include_upstream_lineage_in_report',
+    label: 'Include Upstream Lineage In Report.',
+    tooltip: 'Include Upstream lineage in your ingestion.',
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.include_upstream_lineage_in_report',
     rules: null,
 };
 
@@ -281,6 +336,22 @@ export const RECIPE_FIELDS = {
             VIEW_ALLOW,
             VIEW_DENY,
         ],
+    },
+    [BIGQUERY]: {
+        fields: [
+            BIGQUERY_PROJECT_ID,
+            BIGQUERY_CREDENTIAL_PROJECT_ID,
+            BIGQUERY_PRIVATE_KEY,
+            BIGQUERY_CLIENT_EMAIL,
+            BIGQUERY_CLIENT_ID,
+        ],
+        advancedFields: [
+            INCLUDE_LINEAGE,
+            PROFILING_ENABLED,
+            STATEFUL_INGESTION_ENABLED,
+            INCLUDE_UPSTREAM_LINEAGE_IN_REPORT,
+        ],
+        filterFields: [TABLE_ALLOW, TABLE_DENY, SCHEMA_ALLOW, SCHEMA_DENY, VIEW_ALLOW, VIEW_DENY],
     },
 };
 
