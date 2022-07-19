@@ -176,6 +176,25 @@ fragment nonSiblingDatasetFields on Dataset {
             type
         }
     }
+    statsSummary {
+        queryCountLast30Days
+        uniqueUserCountLast30Days
+        topUsersLast30Days {
+            urn
+            type
+            username
+            properties {
+                displayName
+                firstName
+                lastName
+                fullName
+            }
+            editableProperties {
+                displayName
+                pictureLink
+            }
+        }
+    }
 }
 
 mutation updateDataset($urn: String!, $input: DatasetUpdateInput!) {
