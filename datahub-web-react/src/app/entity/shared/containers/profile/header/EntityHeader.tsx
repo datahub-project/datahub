@@ -113,7 +113,7 @@ export const EntityHeader = ({ refreshBrowser, headerDropdownItems, isNameEditab
                 <PlatformContent />
                 <TitleWrapper>
                     <EntityName isNameEditable={canEditName} />
-                    {entityData?.deprecation && (
+                    {entityData?.deprecation?.deprecated && (
                         <DeprecationPill deprecation={entityData?.deprecation} preview={isCompact} />
                     )}
                     {entityData?.health?.map((health) => (
