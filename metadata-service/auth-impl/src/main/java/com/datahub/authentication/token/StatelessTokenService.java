@@ -74,7 +74,7 @@ public class StatelessTokenService {
       final Optional<Long> expiresInMs) {
     Objects.requireNonNull(type);
     Objects.requireNonNull(actor);
-    if (type != TokenType.PERSONAL && !expiresInMs.isPresent()) {
+    if (type.isExpirationMandatory() && !expiresInMs.isPresent()) {
       throw new UnsupportedOperationException("Expiration is mandatory for token of type " + type);
     }
     Map<String, Object> claims = new HashMap<>();
