@@ -85,6 +85,9 @@ public class StatefulTokenService extends StatelessTokenService {
     Objects.requireNonNull(type);
     Objects.requireNonNull(actor);
     Objects.requireNonNull(tokenName);
+    if (type != TokenType.PERSONAL && !expiresInMs.isPresent()) {
+      throw new UnsupportedOperationException("Expiration is mandatory for token of type " + type);
+    }
     Map<String, Object> claims = new HashMap<>();
     // Only stateful token service generates v2 tokens.
     claims.put(TOKEN_VERSION_CLAIM_NAME, String.valueOf(TokenVersion.TWO.numericValue));

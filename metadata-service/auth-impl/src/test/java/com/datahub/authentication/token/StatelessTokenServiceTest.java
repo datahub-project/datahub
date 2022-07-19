@@ -51,7 +51,7 @@ public class StatelessTokenServiceTest {
   }
 
   @Test
-  public void testGenerateEternalAccessTokenPersonalToken() throws Exception {
+  public void testGenerateAccessTokenPersonalTokenEternal() throws Exception {
     StatelessTokenService statelessTokenService = new StatelessTokenService(TEST_SIGNING_KEY, "HS256");
     String token = statelessTokenService.generateAccessToken(TokenType.PERSONAL,
             new Actor(ActorType.USER, "datahub"),
@@ -94,6 +94,19 @@ public class StatelessTokenServiceTest {
     assertEquals(claimsMap.get(TOKEN_TYPE_CLAIM_NAME), "SESSION");
     assertEquals(claimsMap.get(ACTOR_TYPE_CLAIM_NAME), "USER");
     assertEquals(claimsMap.get(ACTOR_ID_CLAIM_NAME), "datahub");
+  }
+
+  @Test
+  public void testGenerateAccessTokenSessionTokenEternalFails() throws Exception {
+    StatelessTokenService statelessTokenService = new StatelessTokenService(TEST_SIGNING_KEY, "HS256");
+    try {
+      String token = statelessTokenService.generateAccessToken(TokenType.SESSION,
+              new Actor(ActorType.USER, "datahub"),
+              Optional.empty());
+    } catch (UnsupportedOperationException e) {
+      return;
+    }
+    fail();
   }
 
   @Test
