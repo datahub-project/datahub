@@ -1,7 +1,13 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Popover } from 'antd';
-import { ClockCircleOutlined, ConsoleSqlOutlined, TableOutlined, TeamOutlined } from '@ant-design/icons';
+import { Popover, Tooltip } from 'antd';
+import {
+    ClockCircleOutlined,
+    ConsoleSqlOutlined,
+    TableOutlined,
+    TeamOutlined,
+    QuestionCircleOutlined,
+} from '@ant-design/icons';
 import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
 import { ANTD_GRAY } from '../../shared/constants';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/time/timeUtils';
@@ -9,6 +15,11 @@ import { StatsSummary } from '../../shared/components/styled/StatsSummary';
 
 const StatText = styled.span`
     color: ${ANTD_GRAY[8]};
+`;
+
+const HelpIcon = styled(QuestionCircleOutlined)`
+    color: ${ANTD_GRAY[7]};
+    padding-left: 4px;
 `;
 
 type Props = {
@@ -47,7 +58,16 @@ export const DatasetStatsSummary = ({
         )) ||
             undefined,
         (!!lastUpdatedMs && (
-            <Popover content={<div>Changed on {toLocalDateTimeString(lastUpdatedMs)}.</div>}>
+            <Popover
+                content={
+                    <div>
+                        Changed on {toLocalDateTimeString(lastUpdatedMs)}.{' '}
+                        <Tooltip title="The time at which the data was last changed in the source platform">
+                            <HelpIcon />
+                        </Tooltip>
+                    </div>
+                }
+            >
                 <StatText>
                     <ClockCircleOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
                     Changed {toRelativeTimeString(lastUpdatedMs)}

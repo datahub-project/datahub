@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Popover } from 'antd';
-import { ClockCircleOutlined, EyeOutlined, TeamOutlined } from '@ant-design/icons';
+import { Popover, Tooltip } from 'antd';
+import { ClockCircleOutlined, EyeOutlined, TeamOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
 import { ANTD_GRAY } from '../../shared/constants';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/time/timeUtils';
@@ -9,6 +9,11 @@ import { StatsSummary } from '../../shared/components/styled/StatsSummary';
 
 const StatText = styled.span`
     color: ${ANTD_GRAY[8]};
+`;
+
+const HelpIcon = styled(QuestionCircleOutlined)`
+    color: ${ANTD_GRAY[7]};
+    padding-left: 4px;
 `;
 
 type Props = {
@@ -52,7 +57,12 @@ export const DashboardStatsSummary = ({
                 content={
                     <>
                         {createdMs && <div>Created on {toLocalDateTimeString(createdMs)}.</div>}
-                        <div>Changed on {toLocalDateTimeString(lastUpdatedMs)}.</div>
+                        <div>
+                            Changed on {toLocalDateTimeString(lastUpdatedMs)}.{' '}
+                            <Tooltip title="The time at which the dashboard was last changed in the source platform">
+                                <HelpIcon />
+                            </Tooltip>
+                        </div>
                     </>
                 }
             >
