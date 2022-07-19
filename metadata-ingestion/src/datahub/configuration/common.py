@@ -2,13 +2,13 @@ import re
 from abc import ABC, abstractmethod
 from typing import IO, Any, Dict, List, Optional, Pattern, cast
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Extra
 from pydantic.fields import Field
 
 
 class ConfigModel(BaseModel):
     class Config:
-        extra = "forbid"
+        extra = Extra.forbid
 
 
 class DynamicTypedConfig(ConfigModel):
