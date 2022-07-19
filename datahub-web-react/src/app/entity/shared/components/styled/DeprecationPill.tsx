@@ -64,7 +64,6 @@ export const DeprecationPill = ({ deprecation, preview }: Props) => {
     /**
      * Deprecation Decommission Timestamp
      */
-
     const localeTimezone = getLocaleTimezone();
     const decommissionTimeLocal =
         (deprecation.decommissionTime &&
