@@ -16,8 +16,13 @@ import com.linkedin.metadata.resources.entity.AspectUtils;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
-
-import java.util.*;
+import java.util.Base64;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
@@ -113,9 +118,9 @@ public class StatefulTokenService extends StatelessTokenService {
     value.setActorUrn(UrnUtils.getUrn(actor.toUrnStr()));
     value.setOwnerUrn(UrnUtils.getUrn(actorUrn));
     value.setCreatedAt(createdAtInMs);
-    if (expiresInMs.isPresent())
+    if (expiresInMs.isPresent()) {
       value.setExpiresAt(createdAtInMs + expiresInMs.get());
-
+    }
     proposal.setEntityType(Constants.ACCESS_TOKEN_ENTITY_NAME);
     proposal.setAspectName(Constants.ACCESS_TOKEN_INFO_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(value));
