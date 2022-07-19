@@ -213,7 +213,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
     }
 }
 
-fragment relationshipFields on EntityWithRelationships {
+fragment lineageFields on EntityWithRelationships {
     ...lineageNodeProperties
     ... on Dataset {
         siblings {
@@ -225,10 +225,10 @@ fragment relationshipFields on EntityWithRelationships {
             }
         }
     }
-    upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
+    upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100, separateSiblings: $separateSiblings }) {
         ...leafLineageResults
     }
-    downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
+    downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100, separateSiblings: $separateSiblings }) {
         ...leafLineageResults
     }
 }
@@ -240,7 +240,7 @@ fragment fullLineageResults on EntityLineageResult {
     relationships {
         type
         entity {
-            ...relationshipFields
+            ...lineageFields
         }
     }
 }
