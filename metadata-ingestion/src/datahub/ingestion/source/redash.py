@@ -363,7 +363,7 @@ class RedashSource(Source):
         self.report.report_warning(key, reason)
         log.warning(f"{key} => {reason}")
 
-    def test_connection(self) -> None:
+    def validate_connection(self) -> None:
         test_response = self.client._get(f"{self.config.connect_uri}/api")
         if test_response.status_code == 200:
             logger.info("Redash API connected succesfully")
@@ -769,7 +769,7 @@ class RedashSource(Source):
         self.report.api_page_limit = self.config.api_page_limit
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        self.test_connection()
+        self.validate_connection()
         self.add_config_to_report()
         with PerfTimer() as timer:
             yield from self._emit_chart_mces()
