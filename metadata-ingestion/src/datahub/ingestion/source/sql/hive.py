@@ -79,6 +79,7 @@ try:
                     "nullable": True,
                     "default": None,
                     "full_type": orig_col_type,  # pass it through
+                    "comment": _comment,
                 }
             )
         return result
