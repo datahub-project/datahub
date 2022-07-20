@@ -27,15 +27,16 @@ def test_basic_capability_report():
         },
     )
     foo = cast(dict, report.as_obj())
-    assert foo.get("capability_report").get("CONTAINERS").get("capable") == True
-    assert foo.get("capability_report").get("SCHEMA_METADATA").get("capable") == True
-    assert foo.get("capability_report").get("DESCRIPTIONS").get("capable") == False
+    assert isinstance(foo, dict)
+    assert foo["capability_report"]["CONTAINERS"]["capable"] is True
+    assert foo["capability_report"]["SCHEMA_METADATA"]["capable"] is True
+    assert foo["capability_report"]["DESCRIPTIONS"]["capable"] is False
     assert (
-        foo.get("capability_report").get("DESCRIPTIONS").get("failure_reason")
+        foo["capability_report"]["DESCRIPTIONS"]["failure_message"]
         == "failed to get descriptions"
     )
     assert (
-        foo.get("capability_report").get("DESCRIPTIONS").get("mitigation_message")
+        foo["capability_report"]["DESCRIPTIONS"]["mitigation_message"]
         == "Enable admin privileges for this account."
     )
 
