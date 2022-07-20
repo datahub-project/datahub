@@ -297,6 +297,9 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
     database_alias: Optional[str] = Field(
         default=None, description="Alias to apply to database when ingesting."
     )
+    schema_aliases: Optional[dict] = Field(
+        default=None, description="Alias to apply to schemas when importing."
+    )
     scheme: str = Field(description="scheme")
     sqlalchemy_uri: Optional[str] = Field(
         default=None,
@@ -575,6 +578,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     def get_schema_names(self, inspector):
         return inspector.get_schema_names()
 
+    def get_schema_name(self, schema):
+        schema_aliases = self.config.schema_aliases
+        if schema in schema_aliases:
+            return schema_aliases[schema]
+        else:
+            return schema
+
     def get_platform_instance_id(self) -> str:
         """
         The source identifier such as the specific source host address required for stateful ingestion.
@@ -726,8 +736,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     self.report.report_dropped(f"{schema}.*")
                     continue
                 self.add_information_for_schema(inspector, schema)
-                schema_alias = 'etsy_shard'
-                yield from self.gen_schema_containers(schema_alias, db_name)
+                schema_name = self.get_schema_name(schema)
+                yield from self.gen_schema_containers(schema_name, db_name)
 
                 if sql_config.include_tables:
                     yield from self.loop_tables(inspector, schema, sql_config)
@@ -973,8 +983,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         )
         dataset_snapshot.aspects.append(schema_metadata)
         db_name = self.get_db_name(inspector)
-        schema_alias = "etsy_shard"
-        yield from self.add_table_to_schema_container(dataset_urn, db_name, schema_alias)
+        schema_name = self.get_schema_name(schema)
+        yield from self.add_table_to_schema_container(dataset_urn, db_name, schema_name)
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         wu = SqlWorkUnit(id=dataset_name, mce=mce)
         self.report.report_workunit(wu)
@@ -1239,8 +1249,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             aspects=[StatusClass(removed=False)],
         )
         db_name = self.get_db_name(inspector)
-        schema_alias = 'etsy_shard'
-        yield from self.add_table_to_schema_container(dataset_urn, db_name, schema_alias)
+        schema_name = self.get_schema_name(schema)
+        yield from self.add_table_to_schema_container(dataset_urn, db_name, schema_name)
         if self.is_stateful_ingestion_configured():
             cur_checkpoint = self.get_current_checkpoint(
                 self.get_default_ingestion_job_id()
