@@ -1,7 +1,7 @@
-import { Button, Checkbox, Dropdown, Form, Input, Menu, Tooltip } from 'antd';
 import React from 'react';
+import { Button, Checkbox, Form, Input, Select, Tooltip } from 'antd';
 import styled from 'styled-components/macro';
-import { CaretDownOutlined, MinusCircleOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { MinusCircleOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { FieldType, RecipeField } from './utils';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
 
@@ -47,20 +47,13 @@ const ListWrapper = styled.div<{ removeMargin: boolean }>`
     margin-bottom: ${(props) => (props.removeMargin ? '0' : '16px')};
 `;
 
-const DropdownWrapper = styled.div`
-    align-items: center;
-    cursor: pointer;
-    display: flex;
-`;
-
 interface ListFieldProps {
     field: RecipeField;
     removeMargin?: boolean;
 }
 
-interface DropdownProps {
+interface SelectFieldProps {
     field: RecipeField;
-    removeMargin?: boolean;
 }
 
 function ListField({ field, removeMargin }: ListFieldProps) {
@@ -91,24 +84,26 @@ function ListField({ field, removeMargin }: ListFieldProps) {
     );
 }
 
-function DropdownField({ field, removeMargin }: DropdownProps) {
-    console.log('field', field, removeMargin);
+function SelectField({ field }: SelectFieldProps) {
     return (
-        <Form.Item name={field.name}>
-            <Dropdown
-                overlay={
-                    <Menu>
-                        <Menu.Item key="0">stl_scan_based</Menu.Item>
-                        <Menu.Item key="1">sql_based</Menu.Item>
-                        <Menu.Item key="1">mixed</Menu.Item>
-                    </Menu>
-                }
-                trigger={['click']}
-            >
-                <DropdownWrapper>
-                    <CaretDownOutlined />
-                </DropdownWrapper>
-            </Dropdown>
+        <Form.Item
+            name={field.name}
+            label={
+                <Label>
+                    {field.label}
+                    <Tooltip overlay={field.tooltip}>
+                        <StyledQuestion />
+                    </Tooltip>
+                </Label>
+            }
+        >
+            {field.tableLineages && (
+                <Select>
+                    {field.tableLineages.map((lineage) => (
+                        <Select.Option value={lineage.value}>{lineage.label}</Select.Option>
+                    ))}
+                </Select>
+            )}
         </Form.Item>
     );
 }
@@ -123,7 +118,7 @@ function FormField(props: Props) {
 
     if (field.type === FieldType.LIST) return <ListField field={field} removeMargin={removeMargin} />;
 
-    if (field.type === FieldType.SELECT) return <DropdownField field={field} removeMargin={removeMargin} />;
+    if (field.type === FieldType.SELECT) return <SelectField field={field} />;
 
     const isBoolean = field.type === FieldType.BOOLEAN;
     const input = isBoolean ? <Checkbox /> : <Input />;

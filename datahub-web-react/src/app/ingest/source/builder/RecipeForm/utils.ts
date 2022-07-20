@@ -10,6 +10,11 @@ export enum FieldType {
     SELECT,
 }
 
+interface LineageType {
+    label: string;
+    value: string;
+}
+
 export interface RecipeField {
     name: string;
     label: string;
@@ -18,6 +23,7 @@ export interface RecipeField {
     fieldPath: string;
     rules: any[] | null;
     section?: string;
+    tableLineages?: LineageType[];
     getValueFromRecipeOverride?: (recipe: any) => any;
     setValueOnRecipeOverride?: (recipe: any, value: any) => any;
 }
@@ -154,7 +160,7 @@ export const BIGQUERY_CLIENT_ID: RecipeField = {
 export const REDSHIFT_HOST_PORT: RecipeField = {
     name: 'host_port',
     label: 'Host Port',
-    tooltip: 'host URL.',
+    tooltip: 'Host URL.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.host_port',
     rules: null,
@@ -172,7 +178,7 @@ export const REDSHIFT_DATABASE: RecipeField = {
 export const REDSHIFT_USERNAME: RecipeField = {
     name: 'redshift.username',
     label: 'Username',
-    tooltip: 'Username.',
+    tooltip: 'Username',
     type: FieldType.TEXT,
     fieldPath: 'source.config.username',
     rules: null,
@@ -181,7 +187,7 @@ export const REDSHIFT_USERNAME: RecipeField = {
 export const REDSHIFT_PASSWORD: RecipeField = {
     name: 'redshift.password',
     label: 'Password',
-    tooltip: 'Password.',
+    tooltip: 'Password',
     type: FieldType.TEXT,
     fieldPath: 'source.config.password',
     rules: null,
@@ -258,6 +264,11 @@ export const TABLE_LINEAGE_MODE: RecipeField = {
     type: FieldType.SELECT,
     fieldPath: 'source.config.table_lineage_mode',
     rules: null,
+    tableLineages: [
+        { label: 'stl_scan_based', value: 'stl_scan_based' },
+        { label: 'sql_based', value: 'sql_based' },
+        { label: 'mixed', value: 'mixed' },
+    ],
 };
 
 const databaseAllowFieldPath = 'source.config.database_pattern.allow';
