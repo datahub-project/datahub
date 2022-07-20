@@ -19,8 +19,8 @@ jobs:
     runs-on: windows-2022
     steps:
     - uses: actions/setup-python@v2
-        with:
-          python-version: "3.9.9"
+      with:
+        python-version: "3.9.9"
     - name: Install acryl-datahub
       run: |
         pip install --upgrade acryl-datahub
