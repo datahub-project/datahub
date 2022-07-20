@@ -130,6 +130,15 @@ export const BIGQUERY_CREDENTIAL_PROJECT_ID: RecipeField = {
     rules: null,
 };
 
+export const BIGQUERY_PRIVATE_KEY_ID: RecipeField = {
+    name: 'credential.private_key_id',
+    label: 'Private Key Id',
+    tooltip: 'Private key id.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.credential.private_key_id',
+    rules: null,
+};
+
 export const BIGQUERY_PRIVATE_KEY: RecipeField = {
     name: 'credential.private_key',
     label: 'Private Key',
@@ -401,6 +410,7 @@ export const RECIPE_FIELDS = {
             BIGQUERY_PROJECT_ID,
             BIGQUERY_CREDENTIAL_PROJECT_ID,
             BIGQUERY_PRIVATE_KEY,
+            BIGQUERY_PRIVATE_KEY_ID,
             BIGQUERY_CLIENT_EMAIL,
             BIGQUERY_CLIENT_ID,
         ],
