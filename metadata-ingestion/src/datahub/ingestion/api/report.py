@@ -15,8 +15,15 @@ else:
 class Report:
     def as_obj(self) -> dict:
         return {
-            key: value.as_obj() if hasattr(value, "as_obj") else value
+            key: value.as_obj()
+            if hasattr(value, "as_obj")
+            else value.dict()
+            if hasattr(value, "dict")  # BaseModel extensions
+            else value
+            if isinstance(value, list) or isinstance(value, dict)  # simple collections
+            else str(value)  # stringify everything else
             for (key, value) in self.__dict__.items()
+            if value  # ignore nulls
         }
 
     def as_string(self) -> str:

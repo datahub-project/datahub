@@ -3,13 +3,13 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import IO, Any, Dict, List, Optional, Pattern, cast
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, Extra, validator
 from pydantic.fields import Field
 
 
 class ConfigModel(BaseModel):
     class Config:
-        extra = "forbid"
+        extra = Extra.forbid
 
 
 class Semantics(Enum):

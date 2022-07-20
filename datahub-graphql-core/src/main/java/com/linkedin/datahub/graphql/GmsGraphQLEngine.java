@@ -113,6 +113,7 @@ import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupMembersResolver;
 import com.linkedin.datahub.graphql.resolvers.group.RemoveGroupResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CancelIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionExecutionRequestResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateTestConnectionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.GetIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.IngestionSourceExecutionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.secret.CreateSecretResolver;
@@ -719,6 +720,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("deleteIngestionSource", new DeleteIngestionSourceResolver(this.entityClient))
             .dataFetcher("createIngestionExecutionRequest", new CreateIngestionExecutionRequestResolver(this.entityClient, this.ingestionConfiguration))
             .dataFetcher("cancelIngestionExecutionRequest", new CancelIngestionExecutionRequestResolver(this.entityClient))
+            .dataFetcher("createTestConnectionRequest", new CreateTestConnectionRequestResolver(this.entityClient, this.ingestionConfiguration))
             .dataFetcher("deleteAssertion", new DeleteAssertionResolver(this.entityClient, this.entityService))
             .dataFetcher("createTest", new CreateTestResolver(this.entityClient))
             .dataFetcher("updateTest", new UpdateTestResolver(this.entityClient))
@@ -885,9 +887,14 @@ public class GmsGraphQLEngine {
             )
             .type("DatasetStatsSummary", typeWiring -> typeWiring
                 .dataFetcher("topUsersLast30Days", new LoadableTypeBatchResolver<>(corpUserType,
-                    (env) -> ((DatasetStatsSummary) env.getSource()).getTopUsersLast30Days().stream()
-                        .map(CorpUser::getUrn)
-                        .collect(Collectors.toList())))
+                    (env) -> {
+                        DatasetStatsSummary summary = ((DatasetStatsSummary) env.getSource());
+                        return summary.getTopUsersLast30Days() != null
+                            ? summary.getTopUsersLast30Days().stream()
+                            .map(CorpUser::getUrn)
+                            .collect(Collectors.toList())
+                            : null;
+                    }))
             );
     }
 
@@ -1039,9 +1046,14 @@ public class GmsGraphQLEngine {
         );
         builder.type("DashboardStatsSummary", typeWiring -> typeWiring
             .dataFetcher("topUsersLast30Days", new LoadableTypeBatchResolver<>(corpUserType,
-                (env) -> ((DashboardStatsSummary) env.getSource()).getTopUsersLast30Days().stream()
-                    .map(CorpUser::getUrn)
-                    .collect(Collectors.toList())))
+                (env) -> {
+                DashboardStatsSummary summary = ((DashboardStatsSummary) env.getSource());
+                return summary.getTopUsersLast30Days() != null
+                    ? summary.getTopUsersLast30Days().stream()
+                        .map(CorpUser::getUrn)
+                        .collect(Collectors.toList())
+                    : null;
+                }))
         );
     }
 

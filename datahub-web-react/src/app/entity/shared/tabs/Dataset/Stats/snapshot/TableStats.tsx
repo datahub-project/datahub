@@ -1,11 +1,11 @@
 import { Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Maybe, UserUsageCounts } from '../../../../../../../types.generated';
-import UsageFacepile from '../../../../../dataset/profile/UsageFacepile';
+import { CorpUser, Maybe, UserUsageCounts } from '../../../../../../../types.generated';
 import { InfoItem } from '../../../../components/styled/InfoItem';
 import { ANTD_GRAY } from '../../../../constants';
 import { countFormatter, countSeparator } from '../../../../../../../utils/formatter/index';
+import { ExpandedActorGroup } from '../../../../components/styled/ExpandedActorGroup';
 
 type Props = {
     rowCount?: number;
@@ -67,10 +67,20 @@ export default function TableStats({
                         </Typography.Text>
                     </InfoItem>
                 )}
-                {users && (
+                {users && users.length > 0 && (
                     <InfoItem title="Top Users">
                         <div style={{ paddingTop: 8 }}>
-                            <UsageFacepile users={users} maxNumberDisplayed={10} />
+                            <ExpandedActorGroup
+                                containerStyle={{
+                                    justifyContent: 'left',
+                                }}
+                                actors={
+                                    users
+                                        .filter((user) => user && user?.user !== undefined && user?.user !== null)
+                                        .map((user) => user?.user as CorpUser) || []
+                                }
+                                max={4}
+                            />
                         </div>
                     </InfoItem>
                 )}

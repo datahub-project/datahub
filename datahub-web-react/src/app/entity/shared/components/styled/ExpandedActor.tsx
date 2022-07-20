@@ -22,8 +22,6 @@ const ActorTag = styled(Tag)`
 `;
 
 export const ExpandedActor = ({ actor, popOver, closable, onClose }: Props) => {
-    console.log(actor);
-
     const entityRegistry = useEntityRegistry();
 
     let name = '';

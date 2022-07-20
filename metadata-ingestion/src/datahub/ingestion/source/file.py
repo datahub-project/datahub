@@ -1,4 +1,5 @@
 import json
+import os.path
 from dataclasses import dataclass, field
 from typing import Iterable, Iterator, Union
 
@@ -11,7 +12,12 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import (
+    CapabilityReport,
+    Source,
+    SourceReport,
+    TestConnectionReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -90,3 +96,29 @@ class GenericFileSource(Source):
 
     def close(self):
         pass
+
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        config = FileSourceConfig.parse_obj(config_dict)
+        is_file = os.path.isfile(config.filename)
+        readable = os.access(config.filename, os.R_OK)
+        if is_file and readable:
+            return TestConnectionReport(
+                basic_connectivity=CapabilityReport(capable=True)
+            )
+        elif not is_file:
+            return TestConnectionReport(
+                basic_connectivity=CapabilityReport(
+                    capable=False,
+                    failure_reason=f"{config.filename} doesn't appear to be a valid file.",
+                )
+            )
+        elif not readable:
+            return TestConnectionReport(
+                basic_connectivity=CapabilityReport(
+                    capable=False, failure_reason=f"Cannot read file {config.filename}"
+                )
+            )
+        else:
+            # not expected to be here
+            raise Exception("Not expected to be here.")
