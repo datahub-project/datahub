@@ -3,13 +3,13 @@ from typing import Iterable, List
 import pydantic
 
 from datahub.emitter.mce_builder import (
-    assertion_urn_to_key,
     container_urn_to_key,
     dataset_urn_to_key,
     make_container_urn,
     make_dataset_urn,
 )
 from datahub.ingestion.source.state.checkpoint import CheckpointStateBase
+from datahub.utilities.urns.urn import Urn
 
 
 class BaseSQLAlchemyCheckpointState(CheckpointStateBase):
@@ -47,9 +47,10 @@ class BaseSQLAlchemyCheckpointState(CheckpointStateBase):
     @staticmethod
     def _get_assertion_lightweight_repr(assertion_urn: str) -> str:
         """Reduces the amount of text in the URNs for smaller state footprint."""
-        key = assertion_urn_to_key(assertion_urn)
+        urn = Urn.create_from_string(assertion_urn)
+        key = urn.get_entity_id_as_string()
         assert key is not None
-        return f"{key.assertionId}"
+        return key
 
     @staticmethod
     def _get_dataset_urns_not_in(

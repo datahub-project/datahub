@@ -15,7 +15,6 @@ from datahub.configuration.source_common import DEFAULT_ENV as DEFAULT_ENV_CONFI
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.metadata.com.linkedin.pegasus2avro.common import GlossaryTerms
 from datahub.metadata.schema_classes import (
-    AssertionKeyClass,
     AuditStampClass,
     ContainerKeyClass,
     DatasetKeyClass,
@@ -144,14 +143,6 @@ def container_urn_to_key(guid: str) -> Optional[ContainerKeyClass]:
     results = re.search(pattern, guid)
     if results is not None:
         return ContainerKeyClass(guid=results[1])
-    return None
-
-
-def assertion_urn_to_key(guid: str) -> Optional[AssertionKeyClass]:
-    pattern = r"urn:li:assertion:(.*)"
-    results = re.search(pattern, guid)
-    if results is not None:
-        return AssertionKeyClass(assertionId=results[1])
     return None
 
 
