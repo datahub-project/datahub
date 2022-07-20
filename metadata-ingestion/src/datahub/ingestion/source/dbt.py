@@ -216,7 +216,7 @@ class DBTConfig(StatefulIngestionConfigBase):
         False,
         description="Prior to version 0.8.38, dbt tests were represented as datasets. If you ingested dbt tests before, set this flag to True (just needed once) to soft-delete tests that were generated as datasets by previous ingestion.",
     )
-    point_source_lineage_edges_to_target_node: bool = Field(
+    backcompat_skip_source_on_lineage_edge: bool = Field(
         False,
         description="Prior to version 0.8.41, lineage edges to sources were directed to the target platform node rather than the dbt source node. This contradicted the established pattern for other lineage edges to point to upstream dbt nodes. To revert lineage logic to this legacy approach, set this flag to true.",
     )
@@ -548,7 +548,7 @@ def get_upstreams(
     environment: str,
     disable_dbt_node_creation: bool,
     platform_instance: Optional[str],
-    point_source_lineage_edges_to_target_node: Optional[bool],
+    legacy_skip_source_lineage: Optional[bool],
 ) -> List[str]:
     upstream_urns = []
 
@@ -585,7 +585,7 @@ def get_upstreams(
             resource_type = upstream_manifest_node["resource_type"]
 
             if materialized in {"view", "table", "incremental"} or (
-                resource_type == "source" and point_source_lineage_edges_to_target_node
+                resource_type == "source" and legacy_skip_source_lineage
             ):
                 # upstream urns point to the target platform
                 platform_value = target_platform
@@ -877,7 +877,7 @@ class DBTTest:
                         config.env,
                         config.disable_dbt_node_creation,
                         config.platform_instance,
-                        config.point_source_lineage_edges_to_target_node,
+                        config.backcompat_skip_source_on_lineage_edge,
                     )
                     assertion_urn = mce_builder.make_assertion_urn(
                         mce_builder.datahub_guid(
@@ -1166,7 +1166,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 environment=self.config.env,
                 disable_dbt_node_creation=self.config.disable_dbt_node_creation,
                 platform_instance=None,
-                point_source_lineage_edges_to_target_node=self.config.point_source_lineage_edges_to_target_node,
+                legacy_skip_source_lineage=self.config.backcompat_skip_source_on_lineage_edge,
             )
 
             raw_node = manifest_nodes.get(node.dbt_name)
@@ -1762,7 +1762,7 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.env,
             self.config.disable_dbt_node_creation,
             self.config.platform_instance,
-            self.config.point_source_lineage_edges_to_target_node,
+            self.config.backcompat_skip_source_on_lineage_edge,
         )
 
         # if a node is of type source in dbt, its upstream lineage should have the corresponding table/view
@@ -1798,7 +1798,7 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.env,
             self.config.disable_dbt_node_creation,
             self.config.platform_instance,
-            self.config.point_source_lineage_edges_to_target_node,
+            self.config.backcompat_skip_source_on_lineage_edge,
         )
         if upstream_urns:
             return get_upstream_lineage(upstream_urns)
