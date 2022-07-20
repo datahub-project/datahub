@@ -86,7 +86,7 @@ export function AdminHeaderLinks(props: Props) {
                 <AdminLink>
                     <Link to="/requests">
                         <Button type="text">
-                            <InboxOutlined /> My Requests
+                            <InboxOutlined /> Inbox
                         </Button>
                     </Link>
                 </AdminLink>
@@ -100,16 +100,7 @@ export function AdminHeaderLinks(props: Props) {
                     </Link>
                 </AdminLink>
             )}
-            {showTests && (
-                <AdminLink style={{ marginRight: 16 }}>
-                    <Link to="/tests">
-                        <Button type="text">
-                            <FileDoneOutlined /> Tests
-                        </Button>
-                    </Link>
-                </AdminLink>
-            )}
-            {(showGlossary || showDomains) && (
+            {(showGlossary || showDomains || showTests) && (
                 <Dropdown
                     trigger={['click']}
                     overlay={
@@ -125,6 +116,13 @@ export function AdminHeaderLinks(props: Props) {
                                 <MenuItem key="1">
                                     <Link to="/domains">
                                         <FolderOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} /> Domains
+                                    </Link>
+                                </MenuItem>
+                            )}
+                            {showTests && (
+                                <MenuItem key="2">
+                                    <Link to="/tests">
+                                        <FileDoneOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} /> Tests
                                     </Link>
                                 </MenuItem>
                             )}
