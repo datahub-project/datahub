@@ -1045,6 +1045,10 @@ class GlueSource(Source):
             )
 
         def get_s3_tags() -> Optional[GlobalTagsClass]:
+            # when TableType=VIRTUAL_VIEW the Location can be empty and we should
+            # return no tags rather than fail the entire ingestion
+            if table.get("StorageDescriptor", {}).get("Location") is None:
+                return None
             bucket_name = s3_util.get_bucket_name(
                 table["StorageDescriptor"]["Location"]
             )
@@ -1059,7 +1063,7 @@ class GlueSource(Source):
                         ]
                     )
                 except self.s3_client.exceptions.ClientError:
-                    logger.warn(f"No tags found for bucket={bucket_name}")
+                    logger.warning(f"No tags found for bucket={bucket_name}")
             if self.source_config.use_s3_object_tags:
                 key_prefix = s3_util.get_key_prefix(
                     table["StorageDescriptor"]["Location"]
@@ -1078,7 +1082,7 @@ class GlueSource(Source):
                 else:
                     # Unlike bucket tags, if an object does not have tags, it will just return an empty array
                     # as opposed to an exception.
-                    logger.warn(
+                    logger.warning(
                         f"No tags found for bucket={bucket_name} key={key_prefix}"
                     )
             if len(tags_to_add) == 0:
@@ -1097,7 +1101,7 @@ class GlueSource(Source):
                         [current_tag.tag for current_tag in current_tags.tags]
                     )
             else:
-                logger.warn(
+                logger.warning(
                     "Could not connect to DatahubApi. No current tags to maintain"
                 )
 

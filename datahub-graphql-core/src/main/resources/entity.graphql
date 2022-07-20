@@ -625,6 +625,11 @@ input LineageInput {
     The number of results to be returned
     """
     count: Int
+
+    """
+    Optional flag to not merge siblings in the response. They are merged by default.
+    """
+    separateSiblings: Boolean
 }
 
 """
@@ -916,13 +921,18 @@ type Dataset implements EntityWithRelationships & Entity {
     """
     The Domain associated with the Dataset
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     Statistics about how this Dataset is used
     The first parameter, `resource`, is deprecated and no longer needs to be provided
     """
     usageStats(resource: String, range: TimeRange): UsageQueryResult
+
+    """
+    Experimental - Summary operational & usage statistics about a Dataset
+    """
+    statsSummary: DatasetStatsSummary
 
     """
     Profile Stats resource that retrieves the events in a previous unit of time in descending order
@@ -1137,7 +1147,7 @@ type VersionedDataset implements Entity {
     """
     The Domain associated with the Dataset
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     Experimental! The resolved health status of the Dataset
@@ -1278,7 +1288,7 @@ type DatasetProperties {
     """
     Custom properties of the Dataset
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     External URL associated with the Dataset
@@ -1392,7 +1402,7 @@ type GlossaryTermInfo {
     """
     Properties of the glossary term
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     Schema definition of glossary term
@@ -1437,7 +1447,7 @@ type GlossaryTermProperties {
     """
     Properties of the glossary term
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     Schema definition of glossary term
@@ -1808,7 +1818,7 @@ type Container implements Entity {
     """
     The Domain associated with the Dataset
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     The deprecation status of the container
@@ -1848,7 +1858,7 @@ type ContainerProperties {
   """
   Custom properties of the Container
   """
-  customProperties: [StringMapEntry!]
+  customProperties: [CustomPropertiesEntry!]
 
   """
   Native platform URL of the Container
@@ -2132,6 +2142,11 @@ type Schema {
     The time at which the schema metadata information was created
     """
     createdAt: Long
+
+    """
+    The time at which the schema metadata information was last ingested
+    """
+    lastObserved: Long
 }
 
 """
@@ -2555,6 +2570,26 @@ type StringMapEntry {
     The value fo the map entry
     """
     value: String
+}
+
+"""
+An entry in a custom properties map represented as a tuple
+"""
+type CustomPropertiesEntry {
+    """
+    The key of the map entry
+    """
+    key: String!
+
+    """
+    The value fo the map entry
+    """
+    value: String
+
+    """
+    The urn of the entity this property came from for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """
@@ -3183,6 +3218,11 @@ type Owner {
     Source information for the ownership
     """
     source: OwnershipSource
+
+    """
+    Reference back to the owned urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """
@@ -3294,6 +3334,11 @@ type TagAssociation {
     The tag itself
     """
     tag: Tag!
+
+    """
+    Reference back to the tagged urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """
@@ -3333,6 +3378,11 @@ type GlossaryTermAssociation {
     The glossary term itself
     """
     term: GlossaryTerm!
+
+    """
+    Reference back to the associated urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """
@@ -3802,7 +3852,7 @@ type Notebook implements Entity {
     """
     The Domain associated with the Notebook
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     The specific instance of the data platform that this entity belongs to
@@ -4059,7 +4109,7 @@ type Dashboard implements EntityWithRelationships & Entity {
     """
     The Domain associated with the Dashboard
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     The specific instance of the data platform that this entity belongs to
@@ -4075,6 +4125,16 @@ type Dashboard implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Experimental (Subject to breaking change) -- Statistics about how this Dashboard is used
+    """
+    usageStats(startTimeMillis: Long, endTimeMillis: Long, limit: Int): DashboardUsageQueryResult
+
+    """
+    Experimental - Summary operational & usage statistics about a Dataset
+    """
+    statsSummary: DashboardStatsSummary
 
     """
     Deprecated, use properties field instead
@@ -4135,7 +4195,7 @@ type DashboardInfo {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     The time when this dashboard last refreshed
@@ -4180,7 +4240,7 @@ type NotebookInfo {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     Captures information about who created/last modified/deleted this Notebook and when
@@ -4216,7 +4276,7 @@ type DashboardProperties {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     The time when this dashboard last refreshed
@@ -4322,7 +4382,7 @@ type Chart implements EntityWithRelationships & Entity {
     """
     The Domain associated with the Chart
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     The specific instance of the data platform that this entity belongs to
@@ -4402,7 +4462,7 @@ type ChartInfo {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     The time when this chart last refreshed
@@ -4457,7 +4517,7 @@ type ChartProperties {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     The time when this chart last refreshed
@@ -4659,7 +4719,7 @@ type DataFlow implements EntityWithRelationships & Entity {
     """
     The Domain associated with the DataFlow
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     The specific instance of the data platform that this entity belongs to
@@ -4728,7 +4788,7 @@ type DataFlowInfo {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -4758,7 +4818,7 @@ type DataFlowProperties {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -4835,7 +4895,7 @@ type DataJob implements EntityWithRelationships & Entity {
     """
     The Domain associated with the Data Job
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     Granular API for querying edges extending from this entity
@@ -5018,7 +5078,7 @@ type DataJobInfo {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -5043,7 +5103,7 @@ type DataJobProperties {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -5203,6 +5263,204 @@ type FieldUsageCounts {
 }
 
 """
+Experimental - subject to change. A summary of usage metrics about a Dataset.
+"""
+type DatasetStatsSummary {
+    """
+    The query count in the past 30 days
+    """
+    queryCountLast30Days: Int
+
+    """
+    The unique user count in the past 30 days
+    """
+    uniqueUserCountLast30Days: Int
+
+    """
+    The top users in the past 30 days
+    """
+    topUsersLast30Days: [CorpUser!]
+}
+
+"""
+Information about individual user usage of a Dashboard
+"""
+type DashboardUserUsageCounts {
+    """
+    The user of the Dashboard
+    """
+    user: CorpUser
+
+    """
+    number of times dashboard has been viewed by the user
+    """
+    viewsCount: Int
+
+    """
+    number of dashboard executions by the user
+    """
+    executionsCount: Int
+
+    """
+    Normalized numeric metric representing user's dashboard usage
+    Higher value represents more usage
+    """
+    usageCount: Int
+}
+
+"""
+The result of a dashboard usage query
+"""
+type DashboardUsageQueryResult {
+    """
+    A set of relevant time windows for use in displaying usage statistics
+    """
+    buckets: [DashboardUsageAggregation]
+
+    """
+    A set of rolled up aggregations about the dashboard usage
+    """
+    aggregations: DashboardUsageQueryResultAggregations
+
+    """
+    A set of absolute dashboard usage metrics
+    """
+    metrics: [DashboardUsageMetrics!]
+
+}
+
+"""
+A set of rolled up aggregations about the Dashboard usage
+"""
+type DashboardUsageQueryResultAggregations {
+    """
+    The count of unique Dashboard users within the queried time range
+    """
+    uniqueUserCount: Int
+
+    """
+    The specific per user usage counts within the queried time range
+    """
+    users: [DashboardUserUsageCounts]
+
+    """
+    The total number of dashboard views within the queried time range
+    """
+    viewsCount: Int
+
+    """
+    The total number of dashboard executions within the queried time range
+    """
+    executionsCount: Int
+
+}
+
+
+"""
+A set of absolute dashboard usage metrics
+"""
+type DashboardUsageMetrics implements TimeSeriesAspect {
+    """
+    The time at which the metrics were reported
+    """
+    timestampMillis: Long!
+
+    """
+    The total number of times dashboard has been favorited
+    FIXME: Qualifies as Popularity Metric rather than Usage Metric?
+    """
+    favoritesCount: Int
+
+    """
+    The total number of dashboard views
+    """
+    viewsCount: Int
+
+    """
+    The total number of dashboard execution
+    """
+    executionsCount: Int
+
+    """
+    The time when this dashboard was last viewed
+    """
+    lastViewed: Long
+
+}
+
+"""
+An aggregation of Dashboard usage statistics
+"""
+type DashboardUsageAggregation {
+    """
+    The time window start time
+    """
+    bucket: Long
+
+    """
+    The time window span
+    """
+    duration: WindowDuration
+
+    """
+    The resource urn associated with the usage information, eg a Dashboard urn
+    """
+    resource: String
+
+    """
+    The rolled up usage metrics
+    """
+    metrics: DashboardUsageAggregationMetrics
+}
+
+"""
+Rolled up metrics about Dashboard usage over time
+"""
+type DashboardUsageAggregationMetrics {
+    """
+    The unique number of dashboard users within the time range
+    """
+    uniqueUserCount: Int
+
+    """
+    The total number of dashboard views within the time range
+    """
+    viewsCount: Int
+
+    """
+    The total number of dashboard executions within the time range
+    """
+    executionsCount: Int
+
+}
+
+"""
+Experimental - subject to change. A summary of usage metrics about a Dashboard.
+"""
+type DashboardStatsSummary {
+    """
+    The total view count for the dashboard
+    """
+    viewCount: Int
+
+    """
+    The view count in the last 30 days
+    """
+    viewCountLast30Days: Int
+
+    """
+    The unique user count in the past 30 days
+    """
+    uniqueUserCountLast30Days: Int
+
+    """
+    The top users in the past 30 days
+    """
+    topUsersLast30Days: [CorpUser!]
+}
+
+
+"""
 The duration of a fixed window of time
 """
 enum WindowDuration {
@@ -5228,7 +5486,7 @@ enum WindowDuration {
 }
 
 """
-A time range used in fetching Dataset Usage statistics
+A time range used in fetching Usage statistics
 """
 enum TimeRange {
     """
@@ -7199,7 +7457,7 @@ type MLModel implements EntityWithRelationships & Entity {
     """
     The Domain associated with the entity
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     An additional set of of read write properties
@@ -7290,7 +7548,7 @@ type MLModelGroup implements EntityWithRelationships & Entity {
     """
     The Domain associated with the entity
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     An additional set of of read write properties
@@ -7399,7 +7657,7 @@ type MLFeature implements EntityWithRelationships & Entity {
     """
     The Domain associated with the entity
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     An additional set of of read write properties
@@ -7449,7 +7707,7 @@ type MLModelProperties {
 
     groups: [MLModelGroup]
 
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 type MLFeatureProperties {
@@ -7556,7 +7814,7 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     """
     The Domain associated with the entity
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     An additional set of of read write properties
@@ -7663,7 +7921,7 @@ type MLFeatureTable implements EntityWithRelationships & Entity {
     """
     The Domain associated with the entity
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     An additional set of of read write properties
@@ -7714,7 +7972,7 @@ description: String
 
     mlPrimaryKeys: [MLPrimaryKey]
 
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 type HyperParameterMap {
@@ -7982,6 +8240,18 @@ type SubTypes {
     The sub-types that this entity implements. e.g. Datasets that are views will implement the "view" subtype
    """
    typeNames: [String!]
+}
+
+type DomainAssociation {
+    """
+    The domain related to the assocaited urn
+    """
+    domain: Domain!
+
+    """
+    Reference back to the tagged urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """

@@ -3,7 +3,7 @@ import logging
 import os
 import pprint
 import shutil
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 import deepdiff
 
@@ -91,11 +91,23 @@ def assert_mces_equal(
             exclude_regex_paths=ignore_paths,
             ignore_order=True,
         )
-        if clean_diff != diff:
-            logger.warning(
-                f"MCE-s differ, clean MCE-s are fine\n{pprint.pformat(diff)}"
-            )
+        if not clean_diff:
+            logger.debug(f"MCE-s differ, clean MCE-s are fine\n{pprint.pformat(diff)}")
         diff = clean_diff
+        if diff:
+            # do some additional processing to emit helpful messages
+            output_urns = _get_entity_urns(output)
+            golden_urns = _get_entity_urns(golden)
+            in_golden_but_not_in_output = golden_urns - output_urns
+            in_output_but_not_in_golden = output_urns - golden_urns
+            if in_golden_but_not_in_output:
+                logger.info(
+                    f"Golden file has {len(in_golden_but_not_in_output)} more urns: {in_golden_but_not_in_output}"
+                )
+            if in_output_but_not_in_golden:
+                logger.info(
+                    f"Golden file has {len(in_output_but_not_in_golden)} more urns: {in_output_but_not_in_golden}"
+                )
 
     assert (
         not diff
@@ -190,6 +202,33 @@ def _element_matches_pattern(
         return (False, False)
     else:
         return (True, re.search(pattern, str(element)) is not None)
+
+
+def get_entity_urns(events_file: str) -> Set[str]:
+    events = load_json_file(events_file)
+    assert isinstance(events, list)
+    return _get_entity_urns(events)
+
+
+def _get_entity_urns(events_list: List[Dict]) -> Set[str]:
+    entity_type = "dataset"
+    # mce urns
+    mce_urns = set(
+        [
+            _get_element(x, _get_mce_urn_path_spec(entity_type))
+            for x in events_list
+            if _get_filter(mce=True, entity_type=entity_type)(x)
+        ]
+    )
+    mcp_urns = set(
+        [
+            _get_element(x, _get_mcp_urn_path_spec())
+            for x in events_list
+            if _get_filter(mcp=True, entity_type=entity_type)(x)
+        ]
+    )
+    all_urns = mce_urns.union(mcp_urns)
+    return all_urns
 
 
 def assert_mcp_entity_urn(

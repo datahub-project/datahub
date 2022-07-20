@@ -22,10 +22,12 @@ public class KafkaEmitterConfig {
   private final String bootstrap = "localhost:9092";
   @Builder.Default
   private final String schemaRegistryUrl = "http://localhost:8081";
-
+  
+  @Builder.Default
   private final Map<String, String> schemaRegistryConfig = Collections.emptyMap();
+  @Builder.Default
   private final Map<String, String> producerConfig = Collections.emptyMap();
-
+  
   @Builder.Default
   private final EventFormatter eventFormatter = new EventFormatter(EventFormatter.Format.PEGASUS_JSON);
   

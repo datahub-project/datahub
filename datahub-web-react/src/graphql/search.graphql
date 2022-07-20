@@ -1,9 +1,175 @@
+fragment autoCompleteFields on Entity {
+    urn
+    type
+    ... on Dataset {
+        name
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        properties {
+            name
+            qualifiedName
+        }
+    }
+    ... on CorpUser {
+        username
+        properties {
+            displayName
+            title
+            firstName
+            lastName
+            fullName
+        }
+        editableProperties {
+            displayName
+        }
+    }
+    ... on CorpGroup {
+        name
+        info {
+            displayName
+        }
+    }
+    ... on Dashboard {
+        properties {
+            name
+        }
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on Chart {
+        chartId
+        properties {
+            name
+        }
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on DataFlow {
+        orchestrator
+        properties {
+            name
+        }
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on DataJob {
+        dataFlow {
+            orchestrator
+            platform {
+                ...platformFields
+            }
+            dataPlatformInstance {
+                ...dataPlatformInstanceFields
+            }
+        }
+        jobId
+        properties {
+            name
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on GlossaryTerm {
+        name
+        hierarchicalName
+        properties {
+            name
+        }
+    }
+    ... on GlossaryNode {
+        properties {
+            name
+        }
+    }
+    ... on Domain {
+        properties {
+            name
+        }
+    }
+    ... on Container {
+        properties {
+            name
+        }
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+        parentContainers {
+            ...parentContainersFields
+        }
+    }
+    ... on Tag {
+        name
+        properties {
+            name
+        }
+    }
+    ... on MLFeatureTable {
+        name
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on MLFeature {
+        name
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on MLPrimaryKey {
+        name
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on MLModel {
+        name
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on MLModelGroup {
+        name
+        platform {
+            ...platformFields
+        }
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+}
+
 query getAutoCompleteResults($input: AutoCompleteInput!) {
     autoComplete(input: $input) {
         query
         suggestions
         entities {
-            ...searchResultFields
+            ...autoCompleteFields
         }
     }
 }
@@ -15,7 +181,7 @@ query getAutoCompleteMultipleResults($input: AutoCompleteMultipleInput!) {
             type
             suggestions
             entities {
-                ...searchResultFields
+                ...autoCompleteFields
             }
         }
     }
@@ -62,9 +228,6 @@ fragment searchResultFields on Entity {
         domain {
             ...entityDomain
         }
-        container {
-            ...entityContainer
-        }
         parentContainers {
             ...parentContainersFields
         }
@@ -86,6 +249,33 @@ fragment searchResultFields on Entity {
                         description
                         qualifiedName
                     }
+                }
+            }
+        }
+        lastProfile: datasetProfiles(limit: 1) {
+            rowCount
+            timestampMillis
+        }
+        lastOperation: operations(limit: 1) {
+            lastUpdatedTimestamp
+            timestampMillis
+        }
+        statsSummary {
+            queryCountLast30Days
+            uniqueUserCountLast30Days
+            topUsersLast30Days {
+                urn
+                type
+                username
+                properties {
+                    displayName
+                    firstName
+                    lastName
+                    fullName
+                }
+                editableProperties {
+                    displayName
+                    pictureLink
                 }
             }
         }
@@ -127,9 +317,6 @@ fragment searchResultFields on Entity {
         }
     }
     ... on Dashboard {
-        urn
-        type
-        tool
         dashboardId
         properties {
             name
@@ -161,20 +348,33 @@ fragment searchResultFields on Entity {
         domain {
             ...entityDomain
         }
-        container {
-            ...entityContainer
-        }
         deprecation {
             ...deprecationFields
         }
         parentContainers {
             ...parentContainersFields
         }
+        statsSummary {
+            viewCount
+            uniqueUserCountLast30Days
+            topUsersLast30Days {
+                urn
+                type
+                username
+                properties {
+                    displayName
+                    firstName
+                    lastName
+                    fullName
+                }
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+            }
+        }
     }
     ... on Chart {
-        urn
-        type
-        tool
         chartId
         properties {
             name
@@ -207,9 +407,6 @@ fragment searchResultFields on Entity {
         domain {
             ...entityDomain
         }
-        container {
-            ...entityContainer
-        }
         deprecation {
             ...deprecationFields
         }
@@ -218,9 +415,6 @@ fragment searchResultFields on Entity {
         }
     }
     ... on DataFlow {
-        urn
-        type
-        orchestrator
         flowId
         cluster
         properties {
@@ -252,10 +446,11 @@ fragment searchResultFields on Entity {
         deprecation {
             ...deprecationFields
         }
+        childJobs: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 100 }) {
+            total
+        }
     }
     ... on DataJob {
-        urn
-        type
         dataFlow {
             ...nonRecursiveDataFlowFields
         }
@@ -285,6 +480,19 @@ fragment searchResultFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        lastRun: runs(start: 0, count: 1) {
+            count
+            start
+            total
+            runs {
+                urn
+                type
+                created {
+                    time
+                    actor
+                }
+            }
+        }
     }
     ... on GlossaryTerm {
         name
@@ -310,10 +518,8 @@ fragment searchResultFields on Entity {
         parentNodes {
             ...parentNodesFields
         }
-
     }
     ... on Domain {
-        urn
         properties {
             name
             description
@@ -323,7 +529,6 @@ fragment searchResultFields on Entity {
         }
     }
     ... on Container {
-        urn
         properties {
             name
             description
@@ -343,9 +548,6 @@ fragment searchResultFields on Entity {
         tags {
             ...globalTagsFields
         }
-        institutionalMemory {
-            ...institutionalMemoryFields
-        }
         glossaryTerms {
             ...glossaryTerms
         }
@@ -355,9 +557,6 @@ fragment searchResultFields on Entity {
         entities(input: {}) {
             total
         }
-        container {
-            ...entityContainer
-        }
         deprecation {
             ...deprecationFields
         }
@@ -366,8 +565,6 @@ fragment searchResultFields on Entity {
         }
     }
     ... on MLFeatureTable {
-        urn
-        type
         name
         description
         featureTableProperties {
@@ -434,6 +631,9 @@ fragment searchResultFields on Entity {
     }
     ... on Tag {
         name
+        properties {
+            name
+        }
         description
     }
 }
@@ -449,12 +649,12 @@ fragment facetFields on FacetMetadata {
             type
             ... on Tag {
                 name
-                description
                 properties {
                     colorHex
                 }
             }
             ... on GlossaryTerm {
+                name
                 properties {
                     name
                 }
@@ -466,13 +666,11 @@ fragment facetFields on FacetMetadata {
                 ...dataPlatformInstanceFields
             }
             ... on Domain {
-                urn
                 properties {
                     name
                 }
             }
             ... on Container {
-                urn
                 platform {
                     ...platformFields
                 }
@@ -481,7 +679,6 @@ fragment facetFields on FacetMetadata {
                 }
             }
             ... on CorpUser {
-                urn
                 username
                 properties {
                     displayName
@@ -493,7 +690,6 @@ fragment facetFields on FacetMetadata {
                 }
             }
             ... on CorpGroup {
-                urn
                 name
                 properties {
                     displayName

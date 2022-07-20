@@ -6,7 +6,13 @@ import { useHistory } from 'react-router';
 import { EntityType, Exact } from '../../../../../types.generated';
 import { Message } from '../../../../shared/Message';
 import { getDataForEntityType, getEntityPath, useRoutedTab } from './utils';
-import { EntitySidebarSection, EntityTab, GenericEntityProperties, GenericEntityUpdate } from '../../types';
+import {
+    EntitySidebarSection,
+    EntitySubHeaderSection,
+    EntityTab,
+    GenericEntityProperties,
+    GenericEntityUpdate,
+} from '../../types';
 import { EntityProfileNavBar } from './nav/EntityProfileNavBar';
 import { ANTD_GRAY } from '../../constants';
 import { EntityHeader } from './header/EntityHeader';
@@ -24,7 +30,7 @@ import { EntityMenuItems } from '../../EntityDropdown/EntityDropdown';
 import GlossaryBrowser from '../../../../glossary/GlossaryBrowser/GlossaryBrowser';
 import GlossarySearch from '../../../../glossary/GlossarySearch';
 import { BrowserWrapper, MAX_BROWSER_WIDTH, MIN_BROWSWER_WIDTH } from '../../../../glossary/BusinessGlossaryPage';
-import { combineEntityDataWithSiblings } from '../../siblingUtils';
+import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../siblingUtils';
 
 type Props<T, U> = {
     urn: string;
@@ -49,6 +55,7 @@ type Props<T, U> = {
     tabs: EntityTab[];
     sidebarSections: EntitySidebarSection[];
     customNavBar?: React.ReactNode;
+    subHeader?: EntitySubHeaderSection;
     headerDropdownItems?: Set<EntityMenuItems>;
     displayGlossaryBrowser?: boolean;
     isNameEditable?: boolean;
@@ -90,7 +97,8 @@ const HeaderAndTabsFlex = styled.div`
 const Sidebar = styled.div<{ $width: number }>`
     max-height: 100%;
     overflow: auto;
-    flex-basis: ${(props) => props.$width}px;
+    width: ${(props) => props.$width}px;
+    min-width: ${(props) => props.$width}px;
     padding-left: 20px;
     padding-right: 20px;
 `;
@@ -117,7 +125,6 @@ const defaultSidebarSection = {
     visible: (_, _1) => true,
 };
 
-const INITIAL_SIDEBAR_WIDTH = 400;
 const MAX_SIDEBAR_WIDTH = 800;
 const MIN_SIDEBAR_WIDTH = 200;
 
@@ -136,8 +143,10 @@ export const EntityProfile = <T, U>({
     headerDropdownItems,
     displayGlossaryBrowser,
     isNameEditable,
+    subHeader,
 }: Props<T, U>): JSX.Element => {
     const isLineageMode = useIsLineageMode();
+    const isHideSiblingMode = useIsSeparateSiblingsMode();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const isCompact = React.useContext(CompactContext);
@@ -147,7 +156,7 @@ export const EntityProfile = <T, U>({
         display: { ...defaultSidebarSection, ...sidebarSection.display },
     }));
 
-    const [sidebarWidth, setSidebarWidth] = useState(INITIAL_SIDEBAR_WIDTH);
+    const [sidebarWidth, setSidebarWidth] = useState(window.innerWidth * 0.25);
     const [browserWidth, setBrowserWith] = useState(window.innerWidth * 0.2);
     const [shouldUpdateBrowser, setShouldUpdateBrowser] = useState(false);
 
@@ -172,9 +181,11 @@ export const EntityProfile = <T, U>({
                 entityUrn: urn,
                 section: tabName.toLowerCase(),
             });
-            history[method](getEntityPath(entityType, urn, entityRegistry, false, tabName, tabParams));
+            history[method](
+                getEntityPath(entityType, urn, entityRegistry, false, isHideSiblingMode, tabName, tabParams),
+            );
         },
-        [history, entityType, urn, entityRegistry],
+        [history, entityType, urn, entityRegistry, isHideSiblingMode],
     );
 
     const {
@@ -186,7 +197,9 @@ export const EntityProfile = <T, U>({
         variables: { urn },
     });
 
-    const dataCombinedWithSiblings = combineEntityDataWithSiblings(dataNotCombinedWithSiblings);
+    const dataPossiblyCombinedWithSiblings = isHideSiblingMode
+        ? dataNotCombinedWithSiblings
+        : combineEntityDataWithSiblings(dataNotCombinedWithSiblings);
 
     const maybeUpdateEntity = useUpdateQuery?.({
         onCompleted: () => refetch(),
@@ -197,12 +210,13 @@ export const EntityProfile = <T, U>({
     }
 
     const entityData =
-        (dataCombinedWithSiblings &&
-            Object.keys(dataCombinedWithSiblings).length > 0 &&
+        (dataPossiblyCombinedWithSiblings &&
+            Object.keys(dataPossiblyCombinedWithSiblings).length > 0 &&
             getDataForEntityType({
-                data: dataCombinedWithSiblings[Object.keys(dataCombinedWithSiblings)[0]],
+                data: dataPossiblyCombinedWithSiblings[Object.keys(dataPossiblyCombinedWithSiblings)[0]],
                 entityType,
                 getOverrideProperties,
+                isHideSiblingMode,
             })) ||
         null;
 
@@ -233,7 +247,8 @@ export const EntityProfile = <T, U>({
                     urn,
                     entityType,
                     entityData,
-                    baseEntity: dataCombinedWithSiblings,
+                    baseEntity: dataPossiblyCombinedWithSiblings,
+                    dataNotCombinedWithSiblings,
                     updateEntity,
                     routeToTab,
                     refetch,
@@ -247,7 +262,7 @@ export const EntityProfile = <T, U>({
                     )}
                     {!loading && (
                         <>
-                            <EntityHeader headerDropdownItems={headerDropdownItems} />
+                            <EntityHeader headerDropdownItems={headerDropdownItems} subHeader={subHeader} />
                             <Divider />
                             <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
                         </>
@@ -267,7 +282,8 @@ export const EntityProfile = <T, U>({
                 urn,
                 entityType,
                 entityData,
-                baseEntity: dataCombinedWithSiblings,
+                baseEntity: dataPossiblyCombinedWithSiblings,
+                dataNotCombinedWithSiblings,
                 updateEntity,
                 routeToTab,
                 refetch,
@@ -315,6 +331,7 @@ export const EntityProfile = <T, U>({
                                         <EntityHeader
                                             headerDropdownItems={headerDropdownItems}
                                             isNameEditable={isNameEditable}
+                                            subHeader={subHeader}
                                             refreshBrowser={refreshBrowser}
                                         />
                                         <EntityTabs
