@@ -9,7 +9,7 @@ from datahub.cli.docker import check_local_docker_containers
 
 
 def get_admin_credentials():
-    return ("admin", "admin")
+    return ("admin", "mypass")
 
 
 def get_gms_url():

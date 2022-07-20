@@ -392,6 +392,29 @@ fragment dashboardFields on Dashboard {
     dataPlatformInstance {
         ...dataPlatformInstanceFields
     }
+    statsSummary {
+        viewCount
+        viewCountLast30Days
+        viewCountPercentileLast30Days
+        uniqueUserCountLast30Days
+        uniqueUserPercentileLast30Days
+        uniqueUserRankLast30Days
+        topUsersLast30Days {
+            urn
+            type
+            username
+            properties {
+                displayName
+                firstName
+                lastName
+                fullName
+            }
+            editableProperties {
+                displayName
+                pictureLink
+            }
+        }
+    }
 }
 
 fragment nonRecursiveMLFeature on MLFeature {

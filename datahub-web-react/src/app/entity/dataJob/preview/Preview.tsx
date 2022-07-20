@@ -66,7 +66,7 @@ export const Preview = ({
             dataTestID="datajob-item-preview"
             insights={insights}
             externalUrl={externalUrl}
-            stats={
+            subHeader={
                 (lastRunTimeMs && [
                     <StatText>
                         <ClockCircleOutlined style={{ paddingRight: 8 }} />

@@ -31,6 +31,15 @@ describe('siblings', () => {
 
   it('can view individual nodes', () => {
     cy.login();
+
+    const resizeObserverLoopErrRe = /^[^(ResizeObserver loop limit exceeded)]/
+    cy.on('uncaught:exception', (err) => {
+        /* returning false here prevents Cypress from failing the test */
+        if (resizeObserverLoopErrRe.test(err.message)) {
+            return false
+        }
+    })
+
     cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)/?is_lineage_mode=false');
 
     // navigate to the bq entity

@@ -79,7 +79,7 @@ export const Preview = ({
             parentContainers={parentContainers}
             tags={tags || undefined}
             externalUrl={externalUrl}
-            stats={
+            subHeader={
                 (entityCount && [
                     <StatText>
                         <b>{entityCount}</b> {entityCount === 1 ? 'entity' : 'entities'}

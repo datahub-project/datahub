@@ -6,7 +6,13 @@ import { useHistory } from 'react-router';
 import { EntityType, Exact } from '../../../../../types.generated';
 import { Message } from '../../../../shared/Message';
 import { getDataForEntityType, getEntityPath, useRoutedTab } from './utils';
-import { EntitySidebarSection, EntityTab, GenericEntityProperties, GenericEntityUpdate } from '../../types';
+import {
+    EntitySidebarSection,
+    EntitySubHeaderSection,
+    EntityTab,
+    GenericEntityProperties,
+    GenericEntityUpdate,
+} from '../../types';
 import { EntityProfileNavBar } from './nav/EntityProfileNavBar';
 import { ANTD_GRAY } from '../../constants';
 import { EntityHeader } from './header/EntityHeader';
@@ -49,6 +55,7 @@ type Props<T, U> = {
     tabs: EntityTab[];
     sidebarSections: EntitySidebarSection[];
     customNavBar?: React.ReactNode;
+    subHeader?: EntitySubHeaderSection;
     headerDropdownItems?: Set<EntityMenuItems>;
     displayGlossaryBrowser?: boolean;
     isNameEditable?: boolean;
@@ -136,6 +143,7 @@ export const EntityProfile = <T, U>({
     headerDropdownItems,
     displayGlossaryBrowser,
     isNameEditable,
+    subHeader,
 }: Props<T, U>): JSX.Element => {
     const isLineageMode = useIsLineageMode();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
@@ -254,7 +262,7 @@ export const EntityProfile = <T, U>({
                     )}
                     {!loading && (
                         <>
-                            <EntityHeader headerDropdownItems={headerDropdownItems} />
+                            <EntityHeader headerDropdownItems={headerDropdownItems} subHeader={subHeader} />
                             <Divider />
                             <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
                         </>
@@ -323,6 +331,7 @@ export const EntityProfile = <T, U>({
                                         <EntityHeader
                                             headerDropdownItems={headerDropdownItems}
                                             isNameEditable={isNameEditable}
+                                            subHeader={subHeader}
                                             refreshBrowser={refreshBrowser}
                                         />
                                         <EntityTabs
