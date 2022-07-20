@@ -25,5 +25,8 @@ jobs:
       run: |
         pip install --upgrade acryl-datahub
         datahub version
+        python  -c "import platform; print(platform.platform())"
+    - name: Run quickstart
+      run: |
         datahub docker quickstart
          
