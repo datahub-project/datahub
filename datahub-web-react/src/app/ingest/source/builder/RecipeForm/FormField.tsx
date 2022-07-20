@@ -25,6 +25,10 @@ const StyledRemoveIcon = styled(MinusCircleOutlined)`
     margin-left: 10px;
 `;
 
+const StyledSelectField = styled(Select)`
+    margin-left: 10px;
+`;
+
 const StyledFormItem = styled(Form.Item)<{ alignLeft: boolean; removeMargin: boolean }>`
     margin-bottom: ${(props) => (props.removeMargin ? '0' : '16px')};
 
@@ -86,13 +90,18 @@ function ListField({ field, removeMargin }: ListFieldProps) {
 
 function SelectField({ field }: SelectFieldProps) {
     return (
-        <Form.Item name={field.name} label={field.label} tooltip={field.tooltip}>
+        <Form.Item
+            name={field.name}
+            label={field.label}
+            tooltip={field.tooltip}
+            style={{ flexDirection: 'row', width: '98%', display: 'flex', alignItems: 'baseline' }}
+        >
             {field.options && (
-                <Select>
+                <StyledSelectField>
                     {field.options.map((option) => (
                         <Select.Option value={option.value}>{option.label}</Select.Option>
                     ))}
-                </Select>
+                </StyledSelectField>
             )}
         </Form.Item>
     );
