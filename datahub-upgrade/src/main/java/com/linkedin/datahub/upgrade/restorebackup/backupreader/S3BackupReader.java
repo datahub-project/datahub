@@ -34,7 +34,6 @@ public class S3BackupReader implements BackupReader {
 
   private final AmazonS3 _client;
 
-  private static final String PARQUET_SUFFIX = ".gz.parquet";
   private static final String TEMP_DIR = "/tmp/";
 
   public S3BackupReader(@Nonnull List<Optional<String>> args) {
@@ -51,9 +50,9 @@ public class S3BackupReader implements BackupReader {
       s3Region = arg.get();
     }
     try {
-      region = Regions.valueOf(s3Region);
+      region = Regions.fromName(s3Region);
     } catch (Exception e) {
-      log.warn("Invalid region: {} , defaulting to us-west-2", s3Region);
+      log.warn("Invalid region: {}, defaulting to us-west-2", s3Region);
       region = Regions.US_WEST_2;
     }
     _client = AmazonS3ClientBuilder.standard().withRegion(region).build();
@@ -104,7 +103,6 @@ public class S3BackupReader implements BackupReader {
     ListObjectsV2Result objectListResult = _client.listObjectsV2(bucket, path);
     return objectListResult.getObjectSummaries()
         .stream()
-        .filter(os -> os.getKey().endsWith(PARQUET_SUFFIX))
         .map(S3ObjectSummary::getKey)
         .collect(Collectors.toList());
   }
@@ -119,8 +117,7 @@ public class S3BackupReader implements BackupReader {
       localFilePath = "backup.gz.parquet";
     }
 
-    final AmazonS3 s3 = AmazonS3ClientBuilder.standard().withRegion(Regions.DEFAULT_REGION).build();
-    try (S3Object o = s3.getObject(bucket, key);
+    try (S3Object o = _client.getObject(bucket, key);
         S3ObjectInputStream s3is = o.getObjectContent();
         FileOutputStream fos = FileUtils.openOutputStream(new File(localFilePath))) {
       byte[] readBuf = new byte[1024];

@@ -71,7 +71,7 @@ public class RestoreStorageStep implements UpgradeStep {
           Collectors.toList());
       BackupReader backupReader;
       try {
-        backupReader = clazz.getConstructor().newInstance(args);
+        backupReader = clazz.getConstructor(List.class).newInstance(args);
       } catch (InstantiationException | InvocationTargetException | IllegalAccessException | NoSuchMethodException e) {
         context.report().addLine("Invalid BackupReader, not able to construct instance of " + clazz.getSimpleName());
         throw new IllegalArgumentException("Invalid BackupReader: " + clazz.getSimpleName() + ", need to implement proper constructor.");
@@ -89,7 +89,7 @@ public class RestoreStorageStep implements UpgradeStep {
           context.report()
               .addLine(
                   String.format("Failed to bind Urn with value %s into Urn object: %s", aspect.getKey().getUrn(), e));
-          return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+          continue;
         }
 
         // 2. Verify that the entity associated with the aspect is found in the registry.
@@ -100,13 +100,21 @@ public class RestoreStorageStep implements UpgradeStep {
         } catch (Exception e) {
           context.report()
               .addLine(String.format("Failed to find Entity with name %s in Entity Registry: %s", entityName, e));
-          return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+          continue;
         }
         final String aspectName = aspect.getKey().getAspect();
 
         // 3. Create record from json aspect
-        final RecordTemplate aspectRecord =
-            EntityUtils.toAspectRecord(entityName, aspectName, aspect.getMetadata(), _entityRegistry);
+        final RecordTemplate aspectRecord;
+        try {
+          aspectRecord =
+              EntityUtils.toAspectRecord(entityName, aspectName, aspect.getMetadata(), _entityRegistry);
+        } catch (Exception e) {
+          context.report()
+              .addLine(String.format("Failed to create aspect record with name %s associated with entity named %s: %s",
+                  aspectName, entityName, e));
+          continue;
+        }
 
         // 4. Verify that the aspect is a valid aspect associated with the entity
         AspectSpec aspectSpec;
@@ -116,7 +124,7 @@ public class RestoreStorageStep implements UpgradeStep {
           context.report()
               .addLine(String.format("Failed to find aspect spec with name %s associated with entity named %s: %s",
                   aspectName, entityName, e));
-          return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.FAILED);
+          continue;
         }
 
         // 5. Write the row back using the EntityService
