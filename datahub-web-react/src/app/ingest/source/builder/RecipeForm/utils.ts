@@ -10,7 +10,7 @@ export enum FieldType {
     SELECT,
 }
 
-interface LineageType {
+interface Option {
     label: string;
     value: string;
 }
@@ -23,7 +23,7 @@ export interface RecipeField {
     fieldPath: string;
     rules: any[] | null;
     section?: string;
-    tableLineages?: LineageType[];
+    options?: Option[];
     getValueFromRecipeOverride?: (recipe: any) => any;
     setValueOnRecipeOverride?: (recipe: any, value: any) => any;
 }
@@ -114,8 +114,7 @@ export const SNOWFLAKE_ROLE: RecipeField = {
 export const BIGQUERY_PROJECT_ID: RecipeField = {
     name: 'project_id',
     label: 'BigQuery Project ID',
-    tooltip:
-        'Project ID to ingest usage from. If not specified, will infer from environment. Deprecated in favour of projects.',
+    tooltip: 'Project ID where you have rights to run queries and create tables.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.project_id',
     rules: null,
@@ -186,7 +185,7 @@ export const REDSHIFT_DATABASE: RecipeField = {
 
 export const REDSHIFT_USERNAME: RecipeField = {
     name: 'redshift.username',
-    label: 'Username',
+    label: 'Redshift username',
     tooltip: 'Username',
     type: FieldType.TEXT,
     fieldPath: 'source.config.username',
@@ -195,7 +194,7 @@ export const REDSHIFT_USERNAME: RecipeField = {
 
 export const REDSHIFT_PASSWORD: RecipeField = {
     name: 'redshift.password',
-    label: 'Password',
+    label: 'Redshift password',
     tooltip: 'Password',
     type: FieldType.TEXT,
     fieldPath: 'source.config.password',
@@ -257,23 +256,24 @@ export const STATEFUL_INGESTION_ENABLED: RecipeField = {
     rules: null,
 };
 
-export const INCLUDE_UPSTREAM_LINEAGE_IN_REPORT: RecipeField = {
-    name: 'include_upstream_lineage_in_report',
+export const UPSTREAM_LINEAGE_IN_REPORT: RecipeField = {
+    name: 'upstream_lineage_in_report',
     label: 'Include Upstream Lineage In Report.',
     tooltip: 'Useful for debugging lineage information. Set to True to see the raw lineage created internally.',
     type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.include_upstream_lineage_in_report',
+    fieldPath: 'source.config.upstream_lineage_in_report',
     rules: null,
 };
 
 export const TABLE_LINEAGE_MODE: RecipeField = {
     name: 'table_lineage_mode',
     label: 'Table Lineage Mode',
-    tooltip: 'Option to enable/disable lineage generation. Is enabled by default.',
+    tooltip:
+        'Which table lineage collector mode to use. Check out the documentation explaining the difference between the three available modes." where "the documentation" is a link to https://datahubproject.io/docs/generated/ingestion/sources/redshift/#lineage',
     type: FieldType.SELECT,
     fieldPath: 'source.config.table_lineage_mode',
     rules: null,
-    tableLineages: [
+    options: [
         { label: 'stl_scan_based', value: 'stl_scan_based' },
         { label: 'sql_based', value: 'sql_based' },
         { label: 'mixed', value: 'mixed' },
@@ -414,12 +414,7 @@ export const RECIPE_FIELDS = {
             BIGQUERY_CLIENT_EMAIL,
             BIGQUERY_CLIENT_ID,
         ],
-        advancedFields: [
-            INCLUDE_LINEAGE,
-            PROFILING_ENABLED,
-            STATEFUL_INGESTION_ENABLED,
-            INCLUDE_UPSTREAM_LINEAGE_IN_REPORT,
-        ],
+        advancedFields: [INCLUDE_LINEAGE, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED, UPSTREAM_LINEAGE_IN_REPORT],
         filterFields: [TABLE_ALLOW, TABLE_DENY, SCHEMA_ALLOW, SCHEMA_DENY, VIEW_ALLOW, VIEW_DENY],
     },
     [REDSHIFT]: {

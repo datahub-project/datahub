@@ -86,21 +86,11 @@ function ListField({ field, removeMargin }: ListFieldProps) {
 
 function SelectField({ field }: SelectFieldProps) {
     return (
-        <Form.Item
-            name={field.name}
-            label={
-                <Label>
-                    {field.label}
-                    <Tooltip overlay={field.tooltip}>
-                        <StyledQuestion />
-                    </Tooltip>
-                </Label>
-            }
-        >
-            {field.tableLineages && (
+        <Form.Item name={field.name} label={field.label} tooltip={field.tooltip}>
+            {field.options && (
                 <Select>
-                    {field.tableLineages.map((lineage) => (
-                        <Select.Option value={lineage.value}>{lineage.label}</Select.Option>
+                    {field.options.map((option) => (
+                        <Select.Option value={option.value}>{option.label}</Select.Option>
                     ))}
                 </Select>
             )}
