@@ -32,7 +32,7 @@ def test_basic_capability_report():
     assert foo["capability_report"]["SCHEMA_METADATA"]["capable"] is True
     assert foo["capability_report"]["DESCRIPTIONS"]["capable"] is False
     assert (
-        foo["capability_report"]["DESCRIPTIONS"]["failure_message"]
+        foo["capability_report"]["DESCRIPTIONS"]["failure_reason"]
         == "failed to get descriptions"
     )
     assert (
