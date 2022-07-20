@@ -7,6 +7,7 @@ export enum FieldType {
     TEXT,
     BOOLEAN,
     LIST,
+    SELECT,
 }
 
 export interface RecipeField {
@@ -107,7 +108,8 @@ export const SNOWFLAKE_ROLE: RecipeField = {
 export const BIGQUERY_PROJECT_ID: RecipeField = {
     name: 'project_id',
     label: 'BigQuery Project ID',
-    tooltip: 'BigQuery project id.',
+    tooltip:
+        'Project ID to ingest usage from. If not specified, will infer from environment. Deprecated in favour of projects.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.project_id',
     rules: null,
@@ -116,7 +118,7 @@ export const BIGQUERY_PROJECT_ID: RecipeField = {
 export const BIGQUERY_CREDENTIAL_PROJECT_ID: RecipeField = {
     name: 'credential.project_id',
     label: 'Credentials Project ID',
-    tooltip: 'BigQuery Credentials project id.',
+    tooltip: 'Project id to set the credentials.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.credential.project_id',
     rules: null,
@@ -125,7 +127,7 @@ export const BIGQUERY_CREDENTIAL_PROJECT_ID: RecipeField = {
 export const BIGQUERY_PRIVATE_KEY: RecipeField = {
     name: 'credential.private_key',
     label: 'Private Key',
-    tooltip: 'BigQuery private key id.',
+    tooltip: 'Private key in a form of "-----BEGIN PRIVATE KEY-----\nprivate-key\n-----END PRIVATE KEY-----\n".',
     type: FieldType.TEXT,
     fieldPath: 'source.config.credential.private_key',
     rules: null,
@@ -134,7 +136,7 @@ export const BIGQUERY_PRIVATE_KEY: RecipeField = {
 export const BIGQUERY_CLIENT_EMAIL: RecipeField = {
     name: 'credential.client_email',
     label: 'Client Email',
-    tooltip: 'BigQuery client email.',
+    tooltip: 'Client email.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.credential.client_email',
     rules: null,
@@ -143,7 +145,7 @@ export const BIGQUERY_CLIENT_EMAIL: RecipeField = {
 export const BIGQUERY_CLIENT_ID: RecipeField = {
     name: 'credential.client_id',
     label: 'Client ID',
-    tooltip: 'BigQuery client id.',
+    tooltip: 'Client ID.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.credential.client_id',
     rules: null,
@@ -152,7 +154,7 @@ export const BIGQUERY_CLIENT_ID: RecipeField = {
 export const REDSHIFT_HOST_PORT: RecipeField = {
     name: 'host_port',
     label: 'Host Port',
-    tooltip: 'Redshift Host Port.',
+    tooltip: 'host URL.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.host_port',
     rules: null,
@@ -161,7 +163,7 @@ export const REDSHIFT_HOST_PORT: RecipeField = {
 export const REDSHIFT_DATABASE: RecipeField = {
     name: 'database',
     label: 'Database',
-    tooltip: 'Redshift database.',
+    tooltip: 'Database (catalog).',
     type: FieldType.TEXT,
     fieldPath: 'source.config.database',
     rules: null,
@@ -170,18 +172,18 @@ export const REDSHIFT_DATABASE: RecipeField = {
 export const REDSHIFT_USERNAME: RecipeField = {
     name: 'redshift.username',
     label: 'Username',
-    tooltip: 'Redshift username.',
+    tooltip: 'Username.',
     type: FieldType.TEXT,
-    fieldPath: 'source.config.redshift.username',
+    fieldPath: 'source.config.username',
     rules: null,
 };
 
 export const REDSHIFT_PASSWORD: RecipeField = {
     name: 'redshift.password',
     label: 'Password',
-    tooltip: 'Redshift password.',
+    tooltip: 'Password.',
     type: FieldType.TEXT,
-    fieldPath: 'source.config.redshift.password',
+    fieldPath: 'source.config.password',
     rules: null,
 };
 
@@ -243,9 +245,18 @@ export const STATEFUL_INGESTION_ENABLED: RecipeField = {
 export const INCLUDE_UPSTREAM_LINEAGE_IN_REPORT: RecipeField = {
     name: 'include_upstream_lineage_in_report',
     label: 'Include Upstream Lineage In Report.',
-    tooltip: 'Include Upstream lineage in your ingestion.',
+    tooltip: 'Useful for debugging lineage information. Set to True to see the raw lineage created internally.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.include_upstream_lineage_in_report',
+    rules: null,
+};
+
+export const TABLE_LINEAGE_MODE: RecipeField = {
+    name: 'table_lineage_mode',
+    label: 'Table Lineage Mode',
+    tooltip: 'Option to enable/disable lineage generation. Is enabled by default.',
+    type: FieldType.SELECT,
+    fieldPath: 'source.config.table_lineage_mode',
     rules: null,
 };
 
@@ -392,7 +403,7 @@ export const RECIPE_FIELDS = {
     },
     [REDSHIFT]: {
         fields: [REDSHIFT_HOST_PORT, REDSHIFT_DATABASE, REDSHIFT_USERNAME, REDSHIFT_PASSWORD],
-        advancedFields: [INCLUDE_LINEAGE, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED],
+        advancedFields: [INCLUDE_LINEAGE, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED, TABLE_LINEAGE_MODE],
         filterFields: [TABLE_ALLOW, TABLE_DENY, SCHEMA_ALLOW, SCHEMA_DENY, VIEW_ALLOW, VIEW_DENY],
     },
 };

@@ -1,7 +1,7 @@
-import { Button, Checkbox, Form, Input, Tooltip } from 'antd';
+import { Button, Checkbox, Dropdown, Form, Input, Menu, Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { MinusCircleOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { CaretDownOutlined, MinusCircleOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { FieldType, RecipeField } from './utils';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
 
@@ -47,7 +47,18 @@ const ListWrapper = styled.div<{ removeMargin: boolean }>`
     margin-bottom: ${(props) => (props.removeMargin ? '0' : '16px')};
 `;
 
+const DropdownWrapper = styled.div`
+    align-items: center;
+    cursor: pointer;
+    display: flex;
+`;
+
 interface ListFieldProps {
+    field: RecipeField;
+    removeMargin?: boolean;
+}
+
+interface DropdownProps {
     field: RecipeField;
     removeMargin?: boolean;
 }
@@ -80,6 +91,28 @@ function ListField({ field, removeMargin }: ListFieldProps) {
     );
 }
 
+function DropdownField({ field, removeMargin }: DropdownProps) {
+    console.log('field', field, removeMargin);
+    return (
+        <Form.Item name={field.name}>
+            <Dropdown
+                overlay={
+                    <Menu>
+                        <Menu.Item key="0">stl_scan_based</Menu.Item>
+                        <Menu.Item key="1">sql_based</Menu.Item>
+                        <Menu.Item key="1">mixed</Menu.Item>
+                    </Menu>
+                }
+                trigger={['click']}
+            >
+                <DropdownWrapper>
+                    <CaretDownOutlined />
+                </DropdownWrapper>
+            </Dropdown>
+        </Form.Item>
+    );
+}
+
 interface Props {
     field: RecipeField;
     removeMargin?: boolean;
@@ -89,6 +122,8 @@ function FormField(props: Props) {
     const { field, removeMargin } = props;
 
     if (field.type === FieldType.LIST) return <ListField field={field} removeMargin={removeMargin} />;
+
+    if (field.type === FieldType.SELECT) return <DropdownField field={field} removeMargin={removeMargin} />;
 
     const isBoolean = field.type === FieldType.BOOLEAN;
     const input = isBoolean ? <Checkbox /> : <Input />;
