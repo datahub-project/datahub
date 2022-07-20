@@ -15,6 +15,7 @@ else:
 class Report:
     @staticmethod
     def to_dict(some_val: Any) -> Any:
+        """A cheap way to generate a dictionary."""
         if hasattr(some_val, "as_obj"):
             return some_val.as_obj()
         if hasattr(some_val, "dict"):
@@ -30,7 +31,7 @@ class Report:
         return {
             key: Report.to_dict(value)
             for (key, value) in self.__dict__.items()
-            if value  # ignore nulls
+            if value is not None  # ignore nulls
         }
 
     def as_string(self) -> str:
