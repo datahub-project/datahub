@@ -2,7 +2,7 @@ import json
 import pprint
 import sys
 from dataclasses import dataclass
-from typing import Dict
+from typing import Any, Dict
 
 # The sort_dicts option was added in Python 3.8.
 if sys.version_info >= (3, 8):
@@ -13,15 +13,22 @@ else:
 
 @dataclass
 class Report:
+    @staticmethod
+    def to_dict(some_val: Any) -> Any:
+        if hasattr(some_val, "as_obj"):
+            return some_val.as_obj()
+        if hasattr(some_val, "dict"):
+            return some_val.dict()
+        elif isinstance(some_val, list):
+            return [Report.to_dict(v) for v in some_val if v is not None]
+        elif isinstance(some_val, dict):
+            return {k: Report.to_dict(v) for k, v in some_val.items() if v is not None}
+        else:
+            return str(some_val)
+
     def as_obj(self) -> dict:
         return {
-            key: value.as_obj()
-            if hasattr(value, "as_obj")
-            else value.dict()
-            if hasattr(value, "dict")  # BaseModel extensions
-            else value
-            if isinstance(value, list) or isinstance(value, dict)  # simple collections
-            else str(value)  # stringify everything else
+            key: Report.to_dict(value)
             for (key, value) in self.__dict__.items()
             if value  # ignore nulls
         }
