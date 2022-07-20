@@ -41,6 +41,9 @@ source:
     index_pattern:
       allow: [".*some_index_name_pattern*"]
       deny: [".*skip_index_name_pattern*"]
+    ingest_index_template: False
+    template_pattern:
+      allow: [".*some_index_name_pattern*"]
 
 sink:
 # sink configs
@@ -62,6 +65,9 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `index_pattern.allow`       |          |                    | List of regex patterns for indexes to include in ingestion.   |
 | `index_pattern.deny`        |          |                    | List of regex patterns for indexes to exclude from ingestion. |
 | `index_pattern.ignoreCase`  |          | `True`             | Whether regex matching should ignore case or not              |
+| `ingest_index_template`     |          | `False`            | Whether index templates should be ingested                    |
+| `template_pattern.allow`    |          |                    | List of regex patterns for index templates to include in ingestion.   |
+| `template_pattern.deny`    |          |                    | List of regex patterns for index templates to exclude in ingestion.   |
 
 ## Compatibility
 
