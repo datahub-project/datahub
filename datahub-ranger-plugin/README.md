@@ -24,7 +24,7 @@ We'll break down configuration of the DataHub Apache Ranger Plugin into two part
 ## Configuring your Apache Ranger Deployment
 
 Perform the following steps to configure an Apache Ranger deployment to support creating access policies compatible with DataHub.
-For kubernetes example command, please replace the <ranger-pod-name> and <namespace> as per your environment.
+For kubernetes example command, please replace the &lt;ranger-pod-name&gt; and &lt;namespace&gt; as per your environment.
 
 1. Download the **datahub-ranger-plugin** from [Maven](https://mvnrepository.com/artifact/io.acryl/datahub-ranger-plugin)
 2. Create a "datahub" directory inside the "ranger-plugins" directory where Apache Ranger is deployed. For example, to do this in a Privacera container
@@ -35,26 +35,26 @@ docker exec privacera_ranger_1 mkdir ews/webapp/WEB-INF/classes/ranger-plugins/d
 ```
 *Kubernetes command:*
 ```bash
-kubectl exec <ranger-pod-name> mkdir ews/webapp/WEB-INF/classes/ranger-plugins/datahub -n <namespace>
+kubectl exec &lt;ranger-pod-name&gt; mkdir ews/webapp/WEB-INF/classes/ranger-plugins/datahub -n &lt;namespace&gt;
 ```
 3. Copy the downloaded **datahub-ranger-plugin** jar into the newly created "datahub" directory. For example, to do this in a Privacera container
 
 *Docker command:*
 ```bash 
-docker cp datahub-ranger-plugin-<version>.jar privacera_ranger_1:/opt/ranger/ranger-2.1.0-admin/ews/webapp/WEB-INF/classes/ranger-plugins/datahub/
+docker cp datahub-ranger-plugin-&lt;version&gt;.jar privacera_ranger_1:/opt/ranger/ranger-2.1.0-admin/ews/webapp/WEB-INF/classes/ranger-plugins/datahub/
 ```
 *Kubernetes command:*
 ```bash 
-kubectl cp datahub-ranger-plugin-<version>.jar <ranger-pod-name>:/opt/ranger/ranger-2.1.0-admin/ews/webapp/WEB-INF/classes/ranger-plugins/datahub/ -n <namespace>
+kubectl cp datahub-ranger-plugin-&lt;version&gt;.jar &lt;ranger-pod-name&gt;:/opt/ranger/ranger-2.1.0-admin/ews/webapp/WEB-INF/classes/ranger-plugins/datahub/ -n &lt;namespace&gt;
 ```
-5. Download the [service definition file](../datahub-ranger-plugin/conf/servicedef.json). This service definition is the ranger service definition JSON file for datahub-ranger-plugin-<version\>.jar
+5. Download the [service definition file](../datahub-ranger-plugin/conf/servicedef.json). This service definition is the ranger service definition JSON file for datahub-ranger-plugin-&lt;version&gt;.jar
 6. Register the downloaded service definition file with Apache Ranger Service. To do this executes the below curl command <br /> 
 Replace variables with corresponding values in curl command
-- <ranger-admin-username\>
-- <ranger-admin-password\>
-- <ranger-host\>
+- &lt;ranger-admin-username&gt;
+- &lt;ranger-admin-password&gt;
+- &lt;ranger-host&gt;
 ```bash 
-curl -u <ranger-admin-username>:<ranger-admin-password> -X POST -H "Accept: application/json" -H "Content-Type: application/json" --data @servicedef.json http://<ranger-host>:6080/service/public/v2/api/servicedef
+curl -u &lt;ranger-admin-username&gt;:&lt;ranger-admin-password&gt; -X POST -H "Accept: application/json" -H "Content-Type: application/json" --data @servicedef.json http://&lt;ranger-host&gt;:6080/service/public/v2/api/servicedef
 ```
 
 ### Defining a Ranger Policy
@@ -118,11 +118,11 @@ As per your deployment follow either Docker or Kubernetes section below
    ```
    5. Set the Apache Ranger admin username by setting the following environment variable on the `datahub-gms` container:
    ```bash
-   export RANGER_USERNAME=<username>
+   export RANGER_USERNAME=&lt;username&gt;
    ```
    6. Set the Apache Ranger admin password by setting the following environment variable on the `datahub-gms` container:
    ```bash
-   export RANGER_PASSWORD=<password>
+   export RANGER_PASSWORD=&lt;password&gt;
    ```
    7. Redeploy DataHub (`datahub-gms`) with the new environment variables
 ### Kubernetes
@@ -134,11 +134,11 @@ As per your deployment follow either Docker or Kubernetes section below
 
    1. Create directory **/etc/datahub/plugins/auth/resources**: Executes below command
    ```bash
-   kubectl exec <datahub-gms-pod-name> -n <namespace> -- sh -c 'mkdir -p /etc/datahub/plugins/auth/resources'
+   kubectl exec &lt;datahub-gms-pod-name&gt; -n &lt;namespace&gt; -- sh -c 'mkdir -p /etc/datahub/plugins/auth/resources'
    ```
    2. Copy **ranger-datahub-security.xml** file to /etc/datahub/plugins/auth/resources: Execute below command
    ```bash
-     kubectl cp ranger-datahub-security.xml <datahub-gms-pod-name>:/etc/datahub/plugins/auth/resources/ -n dev
+     kubectl cp ranger-datahub-security.xml &lt;datahub-gms-pod-name&gt;:/etc/datahub/plugins/auth/resources/ -n &lt;namespace&gt;
    ```
    3. Edit **datahub-datahub-gms** deployment to set environment variables: Execute below command
    ```bash
@@ -151,9 +151,9 @@ As per your deployment follow either Docker or Kubernetes section below
     - name: RANGER_AUTHORIZER_ENABLED
       value: "true"
     - name: RANGER_USERNAME
-      value: "<username>"
+      value: "&lt;username&gt;"
     - name: RANGER_PASSWORD
-      value: "<password>"
+      value: "&lt;password&gt;"
    ```
    5. Save and quit the editor 
    6. Check status of **datahub-datahub-gms** deployment rollout: Execute below command
@@ -185,12 +185,12 @@ then follow the below sections to undo the configuration steps you have performe
 
    2. Delete **datahub** plugin: Execute below curl command to delete **datahub** plugin
       Replace variables with corresponding values in curl command
-      - <ranger-admin-username\>
-      - <ranger-admin-password\>
-      - <ranger-host\>
+      - &lt;ranger-admin-username&gt;
+      - &lt;ranger-admin-password&gt;
+      - &lt;ranger-host&gt;
 
       ```bash
-      curl -u <ranger-admin-username\>:<ranger-admin-password\> -X DELETE -H "Accept: application/json" -H "Content-Type: application/json" http://<ranger-host\>:6080/service/public/v2/api/servicedef/name/datahub
+      curl -u &lt;ranger-admin-username&gt;:&lt;ranger-admin-password&gt; -X DELETE -H "Accept: application/json" -H "Content-Type: application/json" http://&lt;ranger-host&gt;:6080/service/public/v2/api/servicedef/name/datahub
       ```
    3. Delete **datahub** plugin directory: Execute below command to delete the **datahub** plugin directory from Apache Ranger
 
@@ -200,7 +200,7 @@ then follow the below sections to undo the configuration steps you have performe
       ```
       *Kubernetes command:*
       ```bash
-      kubectl exec <ranger-pod-name\> -n <namespace\> -- sh -c 'rm -rf ews/webapp/WEB-INF/classes/ranger-plugins/datahub'
+      kubectl exec &lt;ranger-pod-name&gt; -n &lt;namespace&gt; -- sh -c 'rm -rf ews/webapp/WEB-INF/classes/ranger-plugins/datahub'
       ```
 
       
@@ -219,7 +219,7 @@ then follow the below sections to undo the configuration steps you have performe
 
    1. Delete directory **/etc/datahub/plugins/auth/resources**: Execute below command
    ```bash
-   kubectl exec <datahub-gms-pod-name> -n <namespace> -- sh -c 'rm -rf /etc/datahub/plugins/auth' 
+   kubectl exec &lt;datahub-gms-pod-name&gt; -n &lt;namespace&gt; -- sh -c 'rm -rf /etc/datahub/plugins/auth' 
    ```
    2. Remove environment variables from **datahub-datahub-gms** deployment: Execute below command to open deployment yaml editor 
    ```bash
