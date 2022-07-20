@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   test-windows:
-    runs-on: windows-2022
+    runs-on: windows-2019
     steps:
     - uses: actions/setup-python@v2
       with:
