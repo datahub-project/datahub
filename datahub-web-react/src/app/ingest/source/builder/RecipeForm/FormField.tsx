@@ -94,7 +94,7 @@ function SelectField({ field }: SelectFieldProps) {
             name={field.name}
             label={field.label}
             tooltip={field.tooltip}
-            style={{ flexDirection: 'row', width: '98%', display: 'flex', alignItems: 'baseline' }}
+            style={{ flexDirection: 'row', width: '80%', display: 'flex', alignItems: 'baseline' }}
         >
             {field.options && (
                 <StyledSelectField>
