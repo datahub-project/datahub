@@ -6,7 +6,7 @@ import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { ActionRequestsGroupTab } from './ActionRequestsGroupTab';
 
 const PageContainer = styled.div`
-    padding-top: 40px;
+    padding-top: 20px;
 `;
 
 const PageHeaderContainer = styled.div`
@@ -17,7 +17,7 @@ const PageHeaderContainer = styled.div`
 
 const PageTitle = styled(Typography.Title)`
     && {
-        margin-bottom: 24px;
+        margin-bottom: 12px;
     }
 `;
 
@@ -94,9 +94,9 @@ export const ActionRequestsPage = () => {
     return (
         <PageContainer>
             <PageHeaderContainer>
-                <PageTitle level={2}>My Requests</PageTitle>
+                <PageTitle level={3}>Inbox</PageTitle>
                 <Typography.Paragraph type="secondary">
-                    The inbox for requests assigned to you or a group you are a part of.
+                    View and manage change requests for metadata assets you own.
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <StyledTabs activeKey={actionRequestGroupName} size="large" onTabClick={(tab: string) => onClickTab(tab)}>
