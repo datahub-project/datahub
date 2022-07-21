@@ -166,6 +166,7 @@ FROM `{project_id}.{schema}.INFORMATION_SCHEMA.TABLES`
 where REGEXP_CONTAINS(table_name, r'^\\d{{{date_length}}}$')
 """.strip()
 
+
 # The existing implementation of this method can be found here:
 # https://github.com/googleapis/python-bigquery-sqlalchemy/blob/main/sqlalchemy_bigquery/base.py#L1018-L1025.
 # The existing implementation does not use the schema parameter and hence
@@ -442,12 +443,21 @@ class BigQuerySource(SQLAlchemySource):
         else:
             return [GCPLoggingClient(**client_options)]
 
-    def generate_profile_candidates(
-        self,
-        inspector: Inspector,
-        threshold_time: Optional[datetime.datetime],
-        schema: str,
-    ) -> Optional[List[str]]:
+    @staticmethod
+    def get_all_schema_tables_query(schema: str) -> str:
+        base_query = (
+            f"SELECT "
+            f"table_id, "
+            f"size_bytes, "
+            f"last_modified_time, "
+            f"row_count, "
+            f"FROM {schema}.__TABLES__"
+        )
+        return base_query
+
+    def generate_profile_candidate_query(
+        self, threshold_time: Optional[datetime.datetime], schema: str
+    ) -> str:
         row_condition = (
             f"row_count<{self.config.profiling.profile_table_row_limit} and "
             if self.config.profiling.profile_table_row_limit
@@ -466,22 +476,26 @@ class BigQuerySource(SQLAlchemySource):
         c = f"{row_condition}{size_condition}{time_condition}"
         profile_clause = c if c == "" else f" WHERE {c}"[:-4]
         if profile_clause == "":
-            return None
+            return ""
+        query = f"{self.get_all_schema_tables_query(schema)}{profile_clause}"
+        logger.debug(f"Profiling via {query}")
+        return query
+
+    def generate_profile_candidates(
+        self,
+        inspector: Inspector,
+        threshold_time: Optional[datetime.datetime],
+        schema: str,
+    ) -> Optional[List[str]]:
         storage_project_id = self.get_multiproject_project_id(inspector)
         exec_project_id = self.get_multiproject_project_id(
             inspector, run_on_compute=True
         )
         _client: BigQueryClient = BigQueryClient(project=exec_project_id)
+
+        full_schema_name = f"{storage_project_id}.{schema}"
         # Reading all tables' metadata to report
-        base_query = (
-            f"SELECT "
-            f"table_id, "
-            f"size_bytes, "
-            f"last_modified_time, "
-            f"row_count, "
-            f"FROM {storage_project_id}.{schema}.__TABLES__"
-        )
-        all_tables = _client.query(base_query)
+        all_tables = _client.query(self.get_all_schema_tables_query(full_schema_name))
         report_tables: List[str] = [
             "table_id, size_bytes, last_modified_time, row_count"
         ]
@@ -489,29 +503,22 @@ class BigQuerySource(SQLAlchemySource):
             report_tables.append(
                 f"{table_row.table_id}, {table_row.size_bytes}, {table_row.last_modified_time}, {table_row.row_count}"
             )
-        report_key = f"{self._get_project_id(inspector)}.{schema}"
+        report_key = f"{self._get_project_id(inspector)}.{full_schema_name}"
         self.report.table_metadata[report_key] = report_tables
-        self.report.profile_table_selection_criteria[report_key] = (
-            "no constraint" if profile_clause == "" else profile_clause.lstrip(" WHERE")
-        )
 
-        # reading filtered tables. TODO: remove this call and apply local filtering on above query results.
-        query = (
-            f"SELECT "
-            f"table_id, "
-            f"size_bytes, "
-            f"last_modified_time, "
-            f"row_count, "
-            f"FROM {storage_project_id}.{schema}.__TABLES__"
-            f"{profile_clause}"
+        query = self.generate_profile_candidate_query(threshold_time, full_schema_name)
+        self.report.profile_table_selection_criteria[report_key] = (
+            "no constraint" if query == "" else query.split(" WHERE")[1]
         )
-        logger.debug(f"Profiling via {query}")
+        if query == "":
+            return None
+
         query_job = _client.query(query)
         _profile_candidates = []
         for row in query_job:
             _profile_candidates.append(
                 self.get_identifier(
-                    schema=schema,
+                    schema=full_schema_name,
                     entity=row.table_id,
                     inspector=inspector,
                 )

@@ -140,6 +140,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 globalTags={data.globalTags}
                 insights={result.insights}
                 domain={data.domain?.domain}
+                externalUrl={data.properties?.externalUrl}
+                jobCount={(data as any).childJobs?.total}
+                deprecation={data.deprecation}
             />
         );
     };
