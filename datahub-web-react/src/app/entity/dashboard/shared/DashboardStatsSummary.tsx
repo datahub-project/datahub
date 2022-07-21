@@ -52,7 +52,7 @@ export const DashboardStatsSummary = ({
         (!!effectiveViewCount && (
             <StatText>
                 <EyeOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                <b>{formatNumberWithoutAbbreviation(viewCount)}</b> {effectiveViewCountText}
+                <b>{formatNumberWithoutAbbreviation(effectiveViewCount)}</b> {effectiveViewCountText}
                 {!!viewCountPercentileLast30Days && (
                     <Typography.Text type="secondary">
                         -{' '}
