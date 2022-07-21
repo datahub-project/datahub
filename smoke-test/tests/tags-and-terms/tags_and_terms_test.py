@@ -1,5 +1,5 @@
 import pytest
-from tests.utils import delete_urns_from_file, get_frontend_url, ingest_file_via_rest
+from tests.utils import delete_urns_from_file, get_frontend_url, ingest_file_via_rest, wait_for_healthcheck_util
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -11,8 +11,20 @@ def ingest_cleanup_data(request):
     delete_urns_from_file("tests/tags-and-terms/data.json")
 
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_add_tag(frontend_session, wait_for_healthchecks):
+@pytest.fixture(scope="session")
+def wait_for_healthchecks():
+    wait_for_healthcheck_util()
+    yield
+
+
+@pytest.mark.dependency()
+def test_healthchecks(wait_for_healthchecks):
+    # Call to wait_for_healthchecks fixture will do the actual functionality.
+    pass
+
+
+@pytest.mark.dependency(depends=["test_healthchecks"])
+def test_add_tag(frontend_session):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = "test-tags-terms-sample-kafka"
     env = "PROD"
@@ -45,7 +57,7 @@ def test_add_tag(frontend_session, wait_for_healthchecks):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["globalTags"] == None
+    assert res_data["data"]["dataset"]["globalTags"] is None
 
     add_json = {
         "query": """mutation addTag($input: TagAssociationInput!) {\n
@@ -128,8 +140,8 @@ def test_add_tag(frontend_session, wait_for_healthchecks):
     assert res_data["data"]["dataset"]["globalTags"] == {"tags": []}
 
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_add_tag_to_chart(frontend_session, wait_for_healthchecks):
+@pytest.mark.dependency(depends=["test_healthchecks"])
+def test_add_tag_to_chart(frontend_session):
     chart_urn = "urn:li:chart:(looker,test-tags-terms-sample-chart)"
 
     chart_json = {
@@ -159,7 +171,7 @@ def test_add_tag_to_chart(frontend_session, wait_for_healthchecks):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["chart"]
-    assert res_data["data"]["chart"]["globalTags"] == None
+    assert res_data["data"]["chart"]["globalTags"] is None
 
     add_json = {
         "query": """mutation addTag($input: TagAssociationInput!) {\n
@@ -240,8 +252,8 @@ def test_add_tag_to_chart(frontend_session, wait_for_healthchecks):
     assert res_data["data"]["chart"]["globalTags"] == {"tags": []}
 
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_add_term(frontend_session, wait_for_healthchecks):
+@pytest.mark.dependency(depends=["test_healthchecks"])
+def test_add_term(frontend_session):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = "test-tags-terms-sample-kafka"
     env = "PROD"
@@ -273,7 +285,7 @@ def test_add_term(frontend_session, wait_for_healthchecks):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["glossaryTerms"] == None
+    assert res_data["data"]["dataset"]["glossaryTerms"] is None
 
     add_json = {
         "query": """mutation addTerm($input: TermAssociationInput!) {\n
@@ -356,8 +368,8 @@ def test_add_term(frontend_session, wait_for_healthchecks):
     assert res_data["data"]["dataset"]["glossaryTerms"] == {"terms": []}
 
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_update_schemafield(frontend_session, wait_for_healthchecks):
+@pytest.mark.dependency(depends=["test_healthchecks"])
+def test_update_schemafield(frontend_session):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = "test-tags-terms-sample-kafka"
     env = "PROD"
@@ -445,7 +457,7 @@ def test_update_schemafield(frontend_session, wait_for_healthchecks):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["dataset"]
-    assert res_data["data"]["dataset"]["editableSchemaMetadata"] == None
+    assert res_data["data"]["dataset"]["editableSchemaMetadata"] is None
 
     add_json = {
         "query": """mutation addTag($input: TagAssociationInput!) {\n

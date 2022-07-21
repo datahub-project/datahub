@@ -1,0 +1,19 @@
+namespace com.linkedin.identity
+
+import com.linkedin.common.Urn
+
+/**
+ * Carries information about the native CorpGroups a user is in.
+ */
+@Aspect = {
+  "name": "nativeGroupMembership"
+}
+record NativeGroupMembership {
+  @Relationship = {
+    "/*": {
+      "name": "IsMemberOfNativeGroup",
+      "entityTypes": [ "corpGroup" ]
+    }
+  }
+  nativeGroups: array[Urn]
+}

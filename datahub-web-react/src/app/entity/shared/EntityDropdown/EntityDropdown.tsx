@@ -162,35 +162,51 @@ function EntityDropdown(props: Props) {
                             </Menu.Item>
                         )}
                         {menuItems.has(EntityMenuItems.ADD_TERM) && (
-                            <StyledMenuItem key="2" disabled={!canManageGlossaries}>
-                                <MenuItem onClick={() => setIsCreateTermModalVisible(true)}>
+                            <StyledMenuItem
+                                key="2"
+                                disabled={!canManageGlossaries}
+                                onClick={() => setIsCreateTermModalVisible(true)}
+                            >
+                                <MenuItem>
                                     <PlusOutlined /> &nbsp;Add Term
                                 </MenuItem>
                             </StyledMenuItem>
                         )}
                         {menuItems.has(EntityMenuItems.ADD_TERM_GROUP) && (
-                            <StyledMenuItem key="3" disabled={!canManageGlossaries}>
-                                <MenuItem onClick={() => setIsCreateNodeModalVisible(true)}>
+                            <StyledMenuItem
+                                key="3"
+                                disabled={!canManageGlossaries}
+                                onClick={() => setIsCreateNodeModalVisible(true)}
+                            >
+                                <MenuItem>
                                     <FolderAddOutlined /> &nbsp;Add Term Group
                                 </MenuItem>
                             </StyledMenuItem>
                         )}
                         {menuItems.has(EntityMenuItems.MOVE) && (
-                            <StyledMenuItem key="4" disabled={!canManageGlossaries}>
-                                <MenuItem onClick={() => setIsMoveModalVisible(true)}>
+                            <StyledMenuItem
+                                key="4"
+                                disabled={!canManageGlossaries}
+                                onClick={() => setIsMoveModalVisible(true)}
+                            >
+                                <MenuItem>
                                     <FolderOpenOutlined /> &nbsp;Move
                                 </MenuItem>
                             </StyledMenuItem>
                         )}
                         {menuItems.has(EntityMenuItems.DELETE) && (
-                            <StyledMenuItem key="5" disabled={isDeleteDisabled || !canManageGlossaries}>
+                            <StyledMenuItem
+                                key="5"
+                                disabled={isDeleteDisabled || !canManageGlossaries}
+                                onClick={onDeleteEntity}
+                            >
                                 <Tooltip
                                     title={`Can't delete ${entityRegistry.getEntityName(
                                         entityType,
                                     )} with child entities.`}
                                     overlayStyle={isDeleteDisabled ? {} : { display: 'none' }}
                                 >
-                                    <MenuItem onClick={onDeleteEntity}>
+                                    <MenuItem>
                                         <DeleteOutlined /> &nbsp;Delete
                                     </MenuItem>
                                 </Tooltip>

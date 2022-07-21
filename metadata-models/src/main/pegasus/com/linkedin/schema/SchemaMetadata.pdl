@@ -3,6 +3,7 @@ namespace com.linkedin.schema
 import com.linkedin.common.ChangeAuditStamps
 import com.linkedin.common.DatasetUrn
 import com.linkedin.dataset.SchemaFieldPath
+import com.linkedin.mxe.SystemMetadata
 
 /**
  * SchemaMetadata to describe metadata related to store schema

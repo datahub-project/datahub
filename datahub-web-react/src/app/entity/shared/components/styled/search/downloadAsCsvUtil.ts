@@ -78,7 +78,7 @@ export const transformGenericEntityPropertiesToCsvRow = (
         // terms
         properties?.glossaryTerms?.terms?.map((term) => term.term.name).join(',') || '',
         // domain
-        properties?.domain?.properties?.name || '',
+        properties?.domain?.domain?.properties?.name || '',
         // properties
         properties?.platform?.properties?.displayName || '',
         // container

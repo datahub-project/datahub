@@ -88,8 +88,8 @@ export class DataJobEntity implements Entity<DataJob> {
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, dataJob: GetDataJobQuery) =>
-                            (dataJob?.dataJob?.incoming?.count || 0) !== 0 ||
-                            (dataJob?.dataJob?.outgoing?.count || 0) !== 0,
+                            (dataJob?.dataJob?.upstream?.count || 0) !== 0 ||
+                            (dataJob?.dataJob?.downstream?.count || 0) !== 0,
                     },
                 },
                 {
@@ -146,7 +146,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 platformLogo={data?.dataFlow?.platform?.properties?.logoUrl || ''}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags || null}
-                domain={data.domain}
+                domain={data.domain?.domain}
             />
         );
     };
@@ -163,8 +163,13 @@ export class DataJobEntity implements Entity<DataJob> {
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
-                domain={data.domain}
+                domain={data.domain?.domain}
+                deprecation={data.deprecation}
                 insights={result.insights}
+                externalUrl={data.properties?.externalUrl}
+                lastRunTimeMs={
+                    ((data as any).lastRun?.runs?.length && (data as any).lastRun?.runs[0]?.created?.time) || undefined
+                }
             />
         );
     };

@@ -1,9 +1,11 @@
 package com.linkedin.metadata.entity;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
@@ -55,39 +57,37 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
    * to make sure this class will always be discovered.
    */
   @Test
-  public void obligatoryTest() throws Exception {
+  public void obligatoryTest() throws AssertionError {
     Assert.assertTrue(true);
   }
 
   @Override
   @Test
-  public void testIngestListLatestAspects() throws Exception {
+  public void testIngestListLatestAspects() throws AssertionError {
 
     // TODO: If you're modifying this test - match your changes in sibling implementations.
 
     // TODO: Move this test into the base class,
     //  If you can find a way for Cassandra and relational databases to share result ordering rules.
 
-    Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
-    Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
-    Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
+    Urn entityUrn1 = UrnUtils.getUrn("urn:li:corpuser:test1");
+    Urn entityUrn2 = UrnUtils.getUrn("urn:li:corpuser:test2");
+    Urn entityUrn3 = UrnUtils.getUrn("urn:li:corpuser:test3");
 
-    SystemMetadata metadata1 = new SystemMetadata();
-    metadata1.setLastObserved(1625792689);
-    metadata1.setRunId("run-123");
+    SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
 
     String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserInfo().schema());
 
     // Ingest CorpUserInfo Aspect #1
-    CorpUserInfo writeAspect1 = createCorpUserInfo("email@test.com");
+    CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
     _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
 
     // Ingest CorpUserInfo Aspect #2
-    CorpUserInfo writeAspect2 = createCorpUserInfo("email2@test.com");
+    CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("email2@test.com");
     _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
 
     // Ingest CorpUserInfo Aspect #3
-    CorpUserInfo writeAspect3 = createCorpUserInfo("email3@test.com");
+    CorpUserInfo writeAspect3 = AspectGenerationUtils.createCorpUserInfo("email3@test.com");
     _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
 
     // List aspects
@@ -108,57 +108,55 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
 
   @Override
   @Test
-  public void testIngestListUrns() throws Exception {
+  public void testIngestListUrns() throws AssertionError {
 
     // TODO: If you're modifying this test - match your changes in sibling implementations.
 
     // TODO: Move this test into the base class,
     //  If you can find a way for Cassandra and relational databases to share result ordering rules.
 
-    Urn entityUrn1 = Urn.createFromString("urn:li:corpuser:test1");
-    Urn entityUrn2 = Urn.createFromString("urn:li:corpuser:test2");
-    Urn entityUrn3 = Urn.createFromString("urn:li:corpuser:test3");
+    Urn entityUrn1 = UrnUtils.getUrn("urn:li:corpuser:test1");
+    Urn entityUrn2 = UrnUtils.getUrn("urn:li:corpuser:test2");
+    Urn entityUrn3 = UrnUtils.getUrn("urn:li:corpuser:test3");
 
-    SystemMetadata metadata1 = new SystemMetadata();
-    metadata1.setLastObserved(1625792689);
-    metadata1.setRunId("run-123");
+    SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
 
     String aspectName = PegasusUtils.getAspectNameFromSchema(new CorpUserKey().schema());
 
     // Ingest CorpUserInfo Aspect #1
-    RecordTemplate writeAspect1 = createCorpUserKey(entityUrn1);
+    RecordTemplate writeAspect1 = AspectGenerationUtils.createCorpUserKey(entityUrn1);
     _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
 
     // Ingest CorpUserInfo Aspect #2
-    RecordTemplate writeAspect2 = createCorpUserKey(entityUrn2);
+    RecordTemplate writeAspect2 = AspectGenerationUtils.createCorpUserKey(entityUrn2);
     _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
 
     // Ingest CorpUserInfo Aspect #3
-    RecordTemplate writeAspect3 = createCorpUserKey(entityUrn3);
+    RecordTemplate writeAspect3 = AspectGenerationUtils.createCorpUserKey(entityUrn3);
     _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
 
     // List aspects urns
     ListUrnsResult batch1 = _entityService.listUrns(entityUrn1.getEntityType(), 0, 2);
 
-    assertEquals((int) batch1.getStart(), 0);
-    assertEquals((int) batch1.getCount(), 2);
-    assertEquals((int) batch1.getTotal(), 3);
+    assertEquals(batch1.getStart().intValue(), 0);
+    assertEquals(batch1.getCount().intValue(), 2);
+    assertEquals(batch1.getTotal().intValue(), 3);
     assertEquals(batch1.getEntities().size(), 2);
     assertEquals(entityUrn1.toString(), batch1.getEntities().get(0).toString());
     assertEquals(entityUrn2.toString(), batch1.getEntities().get(1).toString());
 
     ListUrnsResult batch2 = _entityService.listUrns(entityUrn1.getEntityType(), 2, 2);
 
-    assertEquals((int) batch2.getStart(), 2);
-    assertEquals((int) batch2.getCount(), 1);
-    assertEquals((int) batch2.getTotal(), 3);
+    assertEquals(batch2.getStart().intValue(), 2);
+    assertEquals(batch2.getCount().intValue(), 1);
+    assertEquals(batch2.getTotal().intValue(), 3);
     assertEquals(batch2.getEntities().size(), 1);
     assertEquals(entityUrn3.toString(), batch2.getEntities().get(0).toString());
   }
 
   @Override
   @Test
-  public void testNestedTransactions() throws Exception {
+  public void testNestedTransactions() throws AssertionError {
     EbeanServer server = _aspectDao.getServer();
 
     try (Transaction transaction = server.beginTransaction(TxScope.requiresNew()

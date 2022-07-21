@@ -42,7 +42,7 @@ authorization:
 
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
-  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.40}'
+  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.41}'
 
 telemetry:
   enabledCli: ${CLI_TELEMETRY_ENABLED:true}
@@ -56,8 +56,8 @@ secretService:
 datahub:
   serverType: ${DATAHUB_SERVER_TYPE:prod}
   gms:
-    host: ${DATAHUB_GMS_HOST:${GMS_HOST:localhost}}
-    port: ${DATAHUB_GMS_PORT:${GMS_PORT:8080}}
+    host: ${DATAHUB_GMS_HOST:localhost}
+    port: ${DATAHUB_GMS_PORT:8080}
     useSSL: ${DATAHUB_GMS_USE_SSL:${GMS_USE_SSL:false}}
     sslContext:
       protocol: ${DATAHUB_GMS_SSL_PROTOCOL:${GMS_SSL_PROTOCOL:#{null}}}
@@ -160,6 +160,10 @@ kafka:
     awsGlue:
       region: ${AWS_GLUE_SCHEMA_REGISTRY_REGION:us-east-1}
       registryName: ${AWS_GLUE_SCHEMA_REGISTRY_NAME:#{null}}
+  schema:
+    registry:
+      security:
+        protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
 
 # Only required if GraphService type is neo4j
 neo4j:
@@ -176,6 +180,9 @@ spring:
   mvc:
     servlet:
       path: /openapi
+  kafka:
+    security:
+      protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
 
 springdoc:
   cache:
