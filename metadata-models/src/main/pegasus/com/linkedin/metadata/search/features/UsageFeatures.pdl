@@ -30,6 +30,9 @@ record UsageFeatures {
   /**
    * Usage count in the last 30 days
    */
+  @SearchScore = {
+    "modifier": "LOG"
+  }
   usageCountLast30Days: optional long
   
   /**

@@ -5,17 +5,16 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.features.FeatureExtractor;
 import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.search.features.MatchMetadataFeature;
-import com.linkedin.metadata.search.features.UsageFeature;
 import java.util.List;
-import org.javatuples.Triplet;
+import org.javatuples.Pair;
 
 
-public class UsageBasedRanker extends SearchRanker {
+public class DefaultRanker extends SearchRanker {
 
   private final List<FeatureExtractor> featureExtractors;
 
-  public UsageBasedRanker(UsageFeature usageFeature) {
-    featureExtractors = ImmutableList.of(usageFeature, new MatchMetadataFeature());
+  public DefaultRanker() {
+    featureExtractors = ImmutableList.of(new MatchMetadataFeature());
   }
 
   @Override
@@ -26,8 +25,8 @@ public class UsageBasedRanker extends SearchRanker {
   @Override
   public Comparable<?> score(SearchEntity searchEntity) {
     Features features = Features.from(searchEntity.getFeatures());
-    return Triplet.with(-features.getNumericFeature(Features.Name.ONLY_MATCH_CUSTOM_PROPERTIES, 0.0),
-        features.getNumericFeature(Features.Name.QUERY_COUNT, 0.0),
-        features.getNumericFeature(Features.Name.HAS_OWNERS, 0.0));
+    return Pair.with(-features.getNumericFeature(
+        Features.Name.ONLY_MATCH_CUSTOM_PROPERTIES, 0.0),
+        features.getNumericFeature(Features.Name.SEARCH_BACKEND_SCORE, 0.0));
   }
 }
