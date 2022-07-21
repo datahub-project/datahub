@@ -269,7 +269,7 @@ export const TABLE_LINEAGE_MODE: RecipeField = {
     name: 'table_lineage_mode',
     label: 'Table Lineage Mode',
     tooltip:
-        'Which table lineage collector mode to use. Check out the documentation explaining the difference between the three available modes." where "the documentation" is a link to https://datahubproject.io/docs/generated/ingestion/sources/redshift/#lineage',
+        'Which table lineage collector mode to use. Check out the documentation explaining the difference between the three available modes.',
     type: FieldType.SELECT,
     fieldPath: 'source.config.table_lineage_mode',
     rules: null,
