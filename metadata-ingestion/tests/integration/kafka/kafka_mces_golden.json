@@ -92,13 +92,13 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "clusterId": "8X5ZpgtXTdStkp2F6A5fCg",
+                            "clusterId": "AOQy19HnRSGqkUX8yBQssA",
                             "controllerId": "1001",
                             "numberOfPartitions": "1"
                         },
                         "externalUrl": null,
                         "name": "key_topic",
-                        "qualifiedName": "/prod/kafka/key_topic",
+                        "qualifiedName": "/prod/kafka/AOQy19HnRSGqkUX8yBQssA/key_topic",
                         "description": "Documentation- urn:li:dataPlatform:kafka.key_topic",
                         "uri": null,
                         "tags": []
@@ -288,13 +288,13 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "clusterId": "8X5ZpgtXTdStkp2F6A5fCg",
+                            "clusterId": "AOQy19HnRSGqkUX8yBQssA",
                             "controllerId": "1001",
                             "numberOfPartitions": "1"
                         },
                         "externalUrl": null,
                         "name": "key_value_topic",
-                        "qualifiedName": "/prod/kafka/key_value_topic",
+                        "qualifiedName": "/prod/kafka/AOQy19HnRSGqkUX8yBQssA/key_value_topic",
                         "description": "Documentation- urn:li:dataPlatform:kafka.key_value_topic",
                         "uri": null,
                         "tags": []
@@ -483,13 +483,13 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "clusterId": "8X5ZpgtXTdStkp2F6A5fCg",
+                            "clusterId": "AOQy19HnRSGqkUX8yBQssA",
                             "controllerId": "1001",
                             "numberOfPartitions": "1"
                         },
                         "externalUrl": null,
                         "name": "value_topic",
-                        "qualifiedName": "/prod/kafka/value_topic",
+                        "qualifiedName": "/prod/kafka/AOQy19HnRSGqkUX8yBQssA/value_topic",
                         "description": "Documentation- urn:li:dataPlatform:kafka.value_topic",
                         "uri": null,
                         "tags": []

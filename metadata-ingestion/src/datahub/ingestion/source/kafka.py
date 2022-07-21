@@ -5,6 +5,7 @@ from importlib import import_module
 from typing import Dict, Iterable, List, Optional, Type, cast
 
 import confluent_kafka
+import confluent_kafka.admin
 import pydantic
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
@@ -240,11 +241,12 @@ class KafkaSource(StatefulIngestionSourceBase):
                 yield from soft_delete_dataset(topic_urn, "topic")
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        topics = self.consumer.list_topics().topics
+        topicList = self.consumer.list_topics()
+        topics = topicList.topics
         for t in topics:
             self.report.report_topic_scanned(t)
             if self.source_config.topic_patterns.allowed(t):
-                yield from self._extract_record(t)
+                yield from self._extract_record(t, topicList)
                 # add topic to checkpoint if stateful ingestion is enabled
                 if self.is_stateful_ingestion_configured():
                     self._add_topic_to_checkpoint(t)
@@ -269,7 +271,9 @@ class KafkaSource(StatefulIngestionSourceBase):
                 )
             )
 
-    def _extract_record(self, topic: str) -> Iterable[MetadataWorkUnit]:
+    def _extract_record(
+        self, topic: str, topicList: confluent_kafka.admin.ClusterMetadata
+    ) -> Iterable[MetadataWorkUnit]:
         logger.debug(f"topic = {topic}")
 
         # 1. Create the default dataset snapshot for the topic.
@@ -305,16 +309,20 @@ class KafkaSource(StatefulIngestionSourceBase):
         dataset_snapshot.aspects.append(browse_path)
 
         # Attach  DatasetProperties  aspect
-        clusterId = f"{self.consumer.list_topics().cluster_id}"
-        controllerId = f"{self.consumer.list_topics().controller_id}"
-        numberOfPartitions = f"{len(self.consumer.list_topics().topics[topic].partitions)}"
-        datasetProp = DatasetPropertiesClass(customProperties={"clusterId": clusterId, "controllerId": controllerId,
-                                                               "numberOfPartitions": numberOfPartitions},
-                                             externalUrl=None,
-                                             name=dataset_name,
-                                             qualifiedName=f"/{self.source_config.env.lower()}/{self.platform}/{browse_path_suffix}",
-                                             description=f"Documentation- {platform_urn}.{dataset_name}",
-                                             tags=[])
+        clusterId = f"{topicList.cluster_id}"
+        controllerId = f"{topicList.controller_id}"
+        numberOfPartitions = f"{len(topicList.topics[topic].partitions)}"
+        datasetProp = DatasetPropertiesClass(
+            customProperties={
+                "clusterId": clusterId,
+                "controllerId": controllerId,
+                "numberOfPartitions": numberOfPartitions,
+            },
+            name=dataset_name,
+            qualifiedName=f"/{self.source_config.env.lower()}/{self.platform}/{clusterId}/{browse_path_suffix}",
+            description=f"Documentation- {platform_urn}.{dataset_name}",
+            tags=[],
+        )
 
         dataset_snapshot.aspects.append(datasetProp)
 
