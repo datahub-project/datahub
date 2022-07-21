@@ -38,6 +38,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetPropertiesClass
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
@@ -302,6 +303,20 @@ class KafkaSource(StatefulIngestionSourceBase):
             [f"/{self.source_config.env.lower()}/{self.platform}/{browse_path_suffix}"]
         )
         dataset_snapshot.aspects.append(browse_path)
+
+        # Attach  DatasetProperties  aspect
+        clusterId = f"{self.consumer.list_topics().cluster_id}"
+        controllerId = f"{self.consumer.list_topics().controller_id}"
+        numberOfPartitions = f"{len(self.consumer.list_topics().topics[topic].partitions)}"
+        datasetProp = DatasetPropertiesClass(customProperties={"clusterId": clusterId, "controllerId": controllerId,
+                                                               "numberOfPartitions": numberOfPartitions},
+                                             externalUrl=None,
+                                             name=dataset_name,
+                                             qualifiedName=f"/{self.source_config.env.lower()}/{self.platform}/{browse_path_suffix}",
+                                             description=f"Documentation- {platform_urn}.{dataset_name}",
+                                             tags=[])
+
+        dataset_snapshot.aspects.append(datasetProp)
 
         # 4. Attach dataPlatformInstance aspect.
         if self.source_config.platform_instance:
