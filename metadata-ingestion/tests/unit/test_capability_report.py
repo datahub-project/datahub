@@ -1,7 +1,11 @@
 import json
 from typing import cast
 
-from datahub.ingestion.api.source import CapabilityReport, TestConnectionReport
+from datahub.ingestion.api.source import (
+    CapabilityReport,
+    SourceCapability,
+    TestConnectionReport,
+)
 
 
 def test_basic_capability_report():
@@ -24,8 +28,10 @@ def test_basic_capability_report():
             "DATA_PROFILING": CapabilityReport(
                 capable=True, failure_reason=None, mitigation_message=None
             ),
+            SourceCapability.DOMAINS: CapabilityReport(capable=True),
         },
     )
+    print(report.as_obj())
     foo = cast(dict, report.as_obj())
     assert isinstance(foo, dict)
     assert foo["capability_report"]["CONTAINERS"]["capable"] is True
@@ -39,5 +45,6 @@ def test_basic_capability_report():
         foo["capability_report"]["DESCRIPTIONS"]["mitigation_message"]
         == "Enable admin privileges for this account."
     )
+    assert foo["capability_report"]["DOMAINS"]["capable"] is True
 
     assert isinstance(json.loads(report.as_json()), dict)
