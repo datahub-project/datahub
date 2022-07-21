@@ -4,7 +4,7 @@ from datahub.configuration.common import (
     ConfigurationError,
     KeyValuePattern,
     Semantics,
-    SemanticTransformerConfigModel,
+    SemanticsTransformerConfigModel,
 )
 from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.emitter.mce_builder import Aspect
@@ -14,7 +14,7 @@ from datahub.ingestion.transformer.dataset_transformer import DatasetDomainTrans
 from datahub.metadata.schema_classes import DomainsClass
 
 
-class AddDatasetDomainConfig(SemanticTransformerConfigModel):
+class AddDatasetDomainConfig(SemanticsTransformerConfigModel):
     get_domains_to_add: Union[
         Callable[[str], DomainsClass],
         Callable[[str], DomainsClass],
@@ -23,11 +23,11 @@ class AddDatasetDomainConfig(SemanticTransformerConfigModel):
     _resolve_domain_fn = pydantic_resolve_key("get_domains_to_add")
 
 
-class SimpleDatasetDomainConfig(SemanticTransformerConfigModel):
+class SimpleDatasetDomainConfig(SemanticsTransformerConfigModel):
     domain_urns: List[str]
 
 
-class PatternDatasetDomainConfig(SemanticTransformerConfigModel):
+class PatternDatasetDomainConfig(SemanticsTransformerConfigModel):
     domain_pattern: KeyValuePattern = KeyValuePattern.all()
 
 
@@ -58,7 +58,7 @@ class AddDatasetDomain(DatasetDomainTransformer):
         if not mce_domain or not mce_domain.domains:
             # nothing to add, no need to consult server
             return None
-        assert mce_domain
+
         server_domain = graph.get_domain(entity_urn=urn)
         if server_domain:
             # compute patch
@@ -68,13 +68,10 @@ class AddDatasetDomain(DatasetDomainTransformer):
                 if domain not in server_domain.domains:
                     domains_to_add.append(domain)
 
-            if domains_to_add:
-                mce_domain.domains = server_domain.domains + domains_to_add
-                return mce_domain
-            else:
-                return None
-        else:
-            return mce_domain
+            mce_domain.domains.extend(server_domain.domains)
+            mce_domain.domains.extend(domains_to_add)
+
+        return mce_domain
 
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]

@@ -19,7 +19,7 @@ class Semantics(Enum):
     PATCH = "PATCH"  # Only apply differences from what exists already on the server
 
 
-class SemanticTransformerConfigModel(ConfigModel):
+class SemanticsTransformerConfigModel(ConfigModel):
     semantics: Semantics = Semantics.OVERWRITE
 
     @validator("semantics", pre=True)
