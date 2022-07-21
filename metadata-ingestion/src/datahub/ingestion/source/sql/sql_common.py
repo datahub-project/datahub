@@ -725,10 +725,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             profile_requests: List["GEProfilerRequest"] = []
             if sql_config.profiling.enabled:
                 profiler = self.get_profiler_instance(inspector)
-            print("Entering DB Name")
+
             db_name = self.get_db_name(inspector)
-            print("DB NAME")
-            print(db_name)
             yield from self.gen_database_containers(db_name)
 
             for schema in self.get_schema_names(inspector):
