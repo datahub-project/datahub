@@ -67,7 +67,8 @@ class AddDatasetDomain(DatasetDomainTransformer):
             for domain in mce_domain.domains:
                 if domain not in server_domain.domains:
                     domains_to_add.append(domain)
-
+            # Lets patch
+            mce_domain.domains = []
             mce_domain.domains.extend(server_domain.domains)
             mce_domain.domains.extend(domains_to_add)
 
@@ -79,7 +80,7 @@ class AddDatasetDomain(DatasetDomainTransformer):
 
         domain_aspect = DomainsClass(domains=[])
         # Check if we have received existing aspect
-        if aspect is not None:
+        if aspect is not None and self.config.replace_existing is False:
             domain_aspect.domains.extend(aspect.domains)  # type: ignore[attr-defined]
 
         domain_to_add = self.config.get_domains_to_add(entity_urn)

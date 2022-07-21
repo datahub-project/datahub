@@ -75,7 +75,9 @@ class DatasetOwnershipTransformer(DatasetTransformer, SingleAspectTransformer):
         return "ownership"
 
 
-class DatasetDomainTransformer(DatasetTransformerV2, SingleAspectTransformer):
+class DatasetDomainTransformer(
+    DatasetTransformerV2, SingleAspectTransformer, metaclass=ABCMeta
+):
     def aspect_name(self) -> str:
         return "domains"
 
@@ -100,6 +102,8 @@ class DatasetPropertiesTransformer(DatasetTransformer, SingleAspectTransformer):
         return "datasetProperties"
 
 
-class DatasetBrowsePathsTransformer(DatasetTransformer, SingleAspectTransformer):
+class DatasetBrowsePathsTransformer(
+    DatasetTransformerV2, SingleAspectTransformer, metaclass=ABCMeta
+):
     def aspect_name(self) -> str:
         return "browsePaths"

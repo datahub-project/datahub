@@ -14,6 +14,7 @@ from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import (
+    BrowsePathsClass,
     DatasetUsageStatisticsClass,
     DomainsClass,
     GlobalTagsClass,
@@ -202,6 +203,13 @@ class DataHubGraph(DatahubRestEmitter):
             entity_urn=entity_urn,
             aspect="domains",
             aspect_type=DomainsClass,
+        )
+
+    def get_browse_path(self, entity_urn: str) -> Optional[BrowsePathsClass]:
+        return self.get_aspect_v2(
+            entity_urn=entity_urn,
+            aspect="browsePaths",
+            aspect_type=BrowsePathsClass,
         )
 
     def get_usage_aspects_from_urn(
