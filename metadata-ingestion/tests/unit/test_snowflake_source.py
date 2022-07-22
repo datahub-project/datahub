@@ -205,9 +205,9 @@ def test_test_connection_basic_success(mock_connect):
 def setup_mock_connect(mock_connect, query_results=None):
     def default_query_results(query):
         if query == "select current_role()":
-            return [[("TEST_ROLE")]]
+            return [("TEST_ROLE",)]
         elif query == "select current_secondary_roles()":
-            return [['{"roles":"","value":""}']]
+            return [('{"roles":"","value":""}',)]
         elif query == "select current_warehouse()":
             return [("TEST_WAREHOUSE")]
         # Unreachable code
@@ -226,16 +226,16 @@ def setup_mock_connect(mock_connect, query_results=None):
 def test_test_connection_no_warehouse(mock_connect):
     def query_results(query):
         if query == "select current_role()":
-            return [["TEST_ROLE"]]
+            return [("TEST_ROLE",)]
         elif query == "select current_secondary_roles()":
-            return [['{"roles":"","value":""}']]
+            return [('{"roles":"","value":""}',)]
         elif query == "select current_warehouse()":
             return [(None,)]
         elif query == "show grants to role TEST_ROLE":
             return [
-                ["", "USAGE", "DATABASE", "DB1"],
-                ["", "USAGE", "SCHEMA", "DB1.SCHEMA1"],
-                ["", "REFERENCES", "TABLE", "DB1.SCHEMA1.TABLE1"],
+                ("", "USAGE", "DATABASE", "DB1"),
+                ("", "USAGE", "SCHEMA", "DB1.SCHEMA1"),
+                ("", "REFERENCES", "TABLE", "DB1.SCHEMA1.TABLE1"),
             ]
         elif query == "show grants to role PUBLIC":
             return []
@@ -273,13 +273,13 @@ def test_test_connection_no_warehouse(mock_connect):
 def test_test_connection_capability_schema_failure(mock_connect):
     def query_results(query):
         if query == "select current_role()":
-            return [[("TEST_ROLE")]]
+            return [("TEST_ROLE",)]
         elif query == "select current_secondary_roles()":
-            return [['{"roles":"","value":""}']]
+            return [('{"roles":"","value":""}',)]
         elif query == "select current_warehouse()":
-            return [("TEST_WAREHOUSE")]
+            return [("TEST_WAREHOUSE",)]
         elif query == "show grants to role TEST_ROLE":
-            return [["", "USAGE", "DATABASE", "DB1"]]
+            return [("", "USAGE", "DATABASE", "DB1")]
         elif query == "show grants to role PUBLIC":
             return []
         # Unreachable code
@@ -313,9 +313,9 @@ def test_test_connection_capability_schema_failure(mock_connect):
 def test_test_connection_capability_schema_success(mock_connect):
     def query_results(query):
         if query == "select current_role()":
-            return [["TEST_ROLE"]]
+            return [("TEST_ROLE",)]
         elif query == "select current_secondary_roles()":
-            return [['{"roles":"","value":""}']]
+            return [('{"roles":"","value":""}',)]
         elif query == "select current_warehouse()":
             return [("TEST_WAREHOUSE")]
         elif query == "show grants to role TEST_ROLE":
@@ -364,17 +364,17 @@ def test_test_connection_capability_schema_success(mock_connect):
 def test_test_connection_capability_all_success(mock_connect):
     def query_results(query):
         if query == "select current_role()":
-            return [["TEST_ROLE"]]
+            return [("TEST_ROLE",)]
         elif query == "select current_secondary_roles()":
-            return [['{"roles":"","value":""}']]
+            return [('{"roles":"","value":""}',)]
         elif query == "select current_warehouse()":
             return [("TEST_WAREHOUSE")]
         elif query == "show grants to role TEST_ROLE":
             return [
-                ["", "USAGE", "DATABASE", "DB1"],
-                ["", "USAGE", "SCHEMA", "DB1.SCHEMA1"],
-                ["", "SELECT", "TABLE", "DB1.SCHEMA1.TABLE1"],
-                ["", "USAGE", "ROLE", "TEST_USAGE_ROLE"],
+                ("", "USAGE", "DATABASE", "DB1"),
+                ("", "USAGE", "SCHEMA", "DB1.SCHEMA1"),
+                ("", "SELECT", "TABLE", "DB1.SCHEMA1.TABLE1"),
+                ("", "USAGE", "ROLE", "TEST_USAGE_ROLE"),
             ]
         elif query == "show grants to role PUBLIC":
             return []
