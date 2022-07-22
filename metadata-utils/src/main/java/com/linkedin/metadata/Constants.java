@@ -251,7 +251,6 @@ public class Constants {
   // Invite Token
   public static final String INVITE_TOKEN_ASPECT_NAME = "inviteToken";
 
-<<<<<<< HEAD
   /* SaaS-Only */
 
   // Search
