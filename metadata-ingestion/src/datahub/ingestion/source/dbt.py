@@ -18,12 +18,14 @@ from typing import (
 from urllib.parse import urlparse
 
 import dateutil.parser
+import pydantic
 import requests
 from pydantic import BaseModel, validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.emitter import mce_builder
+from datahub.emitter.mce_builder import make_assertion_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -44,7 +46,7 @@ from datahub.ingestion.source.sql.sql_types import (
     SPARK_SQL_TYPES_MAP,
     resolve_postgres_modified_type,
 )
-from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
@@ -107,7 +109,9 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
+from datahub.utilities.check_point_util import CheckpointStateUtil
 from datahub.utilities.mapping import Constants, OperationProcessor
+from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
@@ -121,6 +125,65 @@ class DBTStatefulIngestionConfig(StatefulIngestionConfig):
     """
 
     remove_stale_metadata: bool = True
+
+
+class DbtCheckpointState(CheckpointStateBase):
+    """
+    Class for representing the checkpoint state for DBT sources.
+    Stores all nodes and assertions being ingested and is used to remove any stale entities.
+    """
+
+    encoded_node_urns: List[str] = pydantic.Field(default_factory=list)
+    encoded_assertion_urns: List[str] = pydantic.Field(default_factory=list)
+
+    @staticmethod
+    def _get_assertion_lightweight_repr(assertion_urn: str) -> str:
+        """Reduces the amount of text in the URNs for smaller state footprint."""
+        urn = Urn.create_from_string(assertion_urn)
+        key = urn.get_entity_id_as_string()
+        assert key is not None
+        return key
+
+    def add_assertion_urn(self, assertion_urn: str) -> None:
+        self.encoded_assertion_urns.append(
+            self._get_assertion_lightweight_repr(assertion_urn)
+        )
+
+    def get_assertion_urns_not_in(
+        self, checkpoint: "DbtCheckpointState"
+    ) -> Iterable[str]:
+        """
+        Dbt assertion are mapped to DataHub assertion concept
+        """
+        difference = CheckpointStateUtil.get_encoded_urns_not_in(
+            self.encoded_assertion_urns, checkpoint.encoded_assertion_urns
+        )
+        for key in difference:
+            yield make_assertion_urn(key)
+
+    def get_node_urns_not_in(self, checkpoint: "DbtCheckpointState") -> Iterable[str]:
+        """
+        Dbt node are mapped to DataHub dataset concept
+        """
+        yield from CheckpointStateUtil.get_dataset_urns_not_in(
+            self.encoded_node_urns, checkpoint.encoded_node_urns
+        )
+
+    def add_node_urn(self, node_urn: str) -> None:
+        self.encoded_node_urns.append(
+            CheckpointStateUtil.get_dataset_lightweight_repr(node_urn)
+        )
+
+    def set_checkpoint_urn(self, urn: str, entity_type: str) -> None:
+        supported_entities = {
+            "dataset": self.add_node_urn,
+            "assertion": self.add_assertion_urn,
+        }
+
+        if supported_entities.get(entity_type) is None:
+            logger.error(f"Can not save Unknown entity {entity_type} to checkpoint.")
+
+        supported_entities[entity_type](urn)
 
 
 @dataclass
@@ -989,15 +1052,51 @@ class DBTSource(StatefulIngestionSourceBase):
                 self.config.owner_extraction_pattern
             )
 
+    def get_last_dbt_checkpoint(
+        self, job_id: JobId, checkpoint_state_class: Type[CheckpointStateBase]
+    ) -> Optional[Checkpoint]:
+
+        last_checkpoint: Optional[Checkpoint] = cast(Checkpoint, None)
+        is_conversion_required: bool = False
+        try:
+            # Best-case that last checkpoint state is DbtCheckpointState
+            last_checkpoint = self.get_last_checkpoint(
+                self.get_default_ingestion_job_id(), DbtCheckpointState
+            )
+        except Exception:
+            # Backward compatibility for old dbt ingestion source which was saving dbt-nodes in
+            # BaseSQLAlchemyCheckpointState
+            last_checkpoint = self.get_last_checkpoint(
+                self.get_default_ingestion_job_id(), BaseSQLAlchemyCheckpointState
+            )
+            logger.debug("Found BaseSQLAlchemyCheckpointState as checkpoint state")
+            is_conversion_required = True
+
+        if last_checkpoint is None:
+            return None
+
+        if is_conversion_required:
+            # Map the BaseSQLAlchemyCheckpointState to DbtCheckpointState
+            dbt_checkpoint_state: DbtCheckpointState = DbtCheckpointState()
+            dbt_checkpoint_state.encoded_node_urns = (
+                cast(BaseSQLAlchemyCheckpointState, last_checkpoint.state)
+            ).encoded_table_urns
+            # Old dbt source was not supporting the assertion
+            dbt_checkpoint_state.encoded_assertion_urns = []
+            last_checkpoint.state = dbt_checkpoint_state
+
+        return last_checkpoint
+
     # TODO: Consider refactoring this logic out for use across sources as it is leading to a significant amount of
     #  code duplication.
     def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
-        last_checkpoint = self.get_last_checkpoint(
-            self.get_default_ingestion_job_id(), BaseSQLAlchemyCheckpointState
+        last_checkpoint: Optional[Checkpoint] = self.get_last_dbt_checkpoint(
+            self.get_default_ingestion_job_id(), DbtCheckpointState
         )
         cur_checkpoint = self.get_current_checkpoint(
             self.get_default_ingestion_job_id()
         )
+
         if (
             self.config.stateful_ingestion
             and self.config.stateful_ingestion.remove_stale_metadata
@@ -1008,7 +1107,7 @@ class DBTSource(StatefulIngestionSourceBase):
         ):
             logger.debug("Checking for stale entity removal.")
 
-            def soft_delete_item(urn: str, type: str) -> Iterable[MetadataWorkUnit]:
+            def soft_delete_item(urn: str, type: str) -> MetadataWorkUnit:
 
                 logger.info(f"Soft-deleting stale entity of type {type} - {urn}.")
                 mcp = MetadataChangeProposalWrapper(
@@ -1021,19 +1120,28 @@ class DBTSource(StatefulIngestionSourceBase):
                 wu = MetadataWorkUnit(id=f"soft-delete-{type}-{urn}", mcp=mcp)
                 self.report.report_workunit(wu)
                 self.report.report_stale_entity_soft_deleted(urn)
-                yield wu
+                return wu
 
-            last_checkpoint_state = cast(
-                BaseSQLAlchemyCheckpointState, last_checkpoint.state
-            )
-            cur_checkpoint_state = cast(
-                BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-            )
+            last_checkpoint_state = cast(DbtCheckpointState, last_checkpoint.state)
+            cur_checkpoint_state = cast(DbtCheckpointState, cur_checkpoint.state)
 
-            for table_urn in last_checkpoint_state.get_table_urns_not_in(
-                cur_checkpoint_state
-            ):
-                yield from soft_delete_item(table_urn, "dataset")
+            soft_delete_urn: Dict = {
+                "dataset": [
+                    node_urn
+                    for node_urn in last_checkpoint_state.get_node_urns_not_in(
+                        cur_checkpoint_state
+                    )
+                ],
+                "assertion": [
+                    assertion_urn
+                    for assertion_urn in last_checkpoint_state.get_assertion_urns_not_in(
+                        cur_checkpoint_state
+                    )
+                ],
+            }
+            for entity_type in soft_delete_urn:
+                for urn in soft_delete_urn[entity_type]:
+                    yield soft_delete_item(urn, entity_type)
 
     def load_file_as_json(self, uri: str) -> Any:
         if re.match("^https?://", uri):
@@ -1389,10 +1497,12 @@ class DBTSource(StatefulIngestionSourceBase):
         )
 
         if cur_checkpoint is not None:
-            # Utilizing BaseSQLAlchemyCheckpointState class to save state
-            checkpoint_state = cast(BaseSQLAlchemyCheckpointState, cur_checkpoint.state)
-            checkpoint_state.encoded_table_urns = list(
-                set(checkpoint_state.encoded_table_urns)
+            checkpoint_state = cast(DbtCheckpointState, cur_checkpoint.state)
+            checkpoint_state.encoded_node_urns = list(
+                set(checkpoint_state.encoded_node_urns)
+            )
+            checkpoint_state.encoded_assertion_urns = list(
+                set(checkpoint_state.encoded_assertion_urns)
             )
 
     def create_platform_mces(
@@ -1511,25 +1621,21 @@ class DBTSource(StatefulIngestionSourceBase):
             self.report.report_workunit(wu)
             yield wu
 
-    def save_checkpoint(self, node_datahub_urn: str, entity_type: str) -> None:
-        if self.is_stateful_ingestion_configured():
-            cur_checkpoint = self.get_current_checkpoint(
-                self.get_default_ingestion_job_id()
-            )
+    def save_checkpoint(self, urn: str, entity_type: str) -> None:
+        # if stateful ingestion is not configured then return
+        if not self.is_stateful_ingestion_configured():
+            return
 
-            if cur_checkpoint is not None:
-                # Utilizing BaseSQLAlchemyCheckpointState class to save state
-                checkpoint_state = cast(
-                    BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-                )
-                if entity_type == "dataset":
-                    checkpoint_state.add_table_urn(node_datahub_urn)
-                elif entity_type == "assertion":
-                    checkpoint_state.add_assertion_urn(node_datahub_urn)
-                else:
-                    logger.error(
-                        f"Can not save Unknown entity {entity_type} to checkpoint."
-                    )
+        cur_checkpoint = self.get_current_checkpoint(
+            self.get_default_ingestion_job_id()
+        )
+        # if no checkpoint found then return
+        if cur_checkpoint is None:
+            return
+
+        # Cast and set the state
+        checkpoint_state = cast(DbtCheckpointState, cur_checkpoint.state)
+        checkpoint_state.set_checkpoint_urn(urn, entity_type)
 
     def extract_query_tag_aspects(
         self,
@@ -1882,8 +1988,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 platform_instance_id=self.get_platform_instance_id(),
                 run_id=self.ctx.run_id,
                 config=self.config,
-                # Reusing BaseSQLAlchemyCheckpointState as it has needed functionality to support statefulness of DBT
-                state=BaseSQLAlchemyCheckpointState(),
+                state=DbtCheckpointState(),
             )
         return None
 

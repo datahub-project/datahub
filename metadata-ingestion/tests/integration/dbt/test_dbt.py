@@ -1,5 +1,5 @@
 from os import PathLike
-from typing import Any, Dict, Optional, Union, cast
+from typing import Any, Dict, Optional, Type, Union, cast
 from unittest.mock import patch
 
 import pytest
@@ -7,14 +7,16 @@ import requests_mock
 from freezegun import freeze_time
 
 from datahub.configuration.common import DynamicTypedConfig
+from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.run.pipeline import Pipeline, PipelineConfig, SourceConfig
-from datahub.ingestion.source.dbt import DBTConfig, DBTSource
-from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.ingestion.source.dbt import DbtCheckpointState, DBTConfig, DBTSource
+from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
+    create_pipeline,
     run_and_get_pipeline,
     validate_all_providers_have_committed_successfully,
 )
@@ -401,9 +403,9 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
 
         # Perform all assertions on the states. The deleted table should not be
         # part of the second state
-        state1 = cast(BaseSQLAlchemyCheckpointState, checkpoint1.state)
-        state2 = cast(BaseSQLAlchemyCheckpointState, checkpoint2.state)
-        difference_urns = list(state1.get_table_urns_not_in(state2))
+        state1 = cast(DbtCheckpointState, checkpoint1.state)
+        state2 = cast(DbtCheckpointState, checkpoint2.state)
+        difference_urns = list(state1.get_node_urns_not_in(state2))
 
         assert len(difference_urns) == 2
 
@@ -427,6 +429,107 @@ def test_dbt_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
             output_path=deleted_mces_path,
             golden_path=deleted_actor_golden_mcs,
         )
+
+
+@pytest.mark.integration
+@freeze_time(FROZEN_TIME)
+def test_dbt_state_backward_compatibility(
+    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
+
+    manifest_path = "{}/dbt_manifest.json".format(test_resources_dir)
+    catalog_path = "{}/dbt_catalog.json".format(test_resources_dir)
+    sources_path = "{}/dbt_sources.json".format(test_resources_dir)
+
+    stateful_config = {
+        "stateful_ingestion": {
+            "enabled": True,
+            "remove_stale_metadata": True,
+            "state_provider": {
+                "type": "datahub",
+                "config": {"datahub_api": {"server": GMS_SERVER}},
+            },
+        },
+    }
+
+    scd_config: Dict[str, Any] = {
+        "manifest_path": manifest_path,
+        "catalog_path": catalog_path,
+        "sources_path": sources_path,
+        "target_platform": "postgres",
+        "load_schemas": True,
+        # This will bypass check in get_workunits function of dbt.py
+        "write_semantics": "OVERRIDE",
+        "owner_extraction_pattern": r"^@(?P<owner>(.*))",
+        # enable stateful ingestion
+        **stateful_config,
+    }
+
+    pipeline_config_dict: Dict[str, Any] = {
+        "source": {
+            "type": "dbt",
+            "config": scd_config,
+        },
+        "sink": {
+            # we are not really interested in the resulting events for this test
+            "type": "console"
+        },
+        "pipeline_name": "statefulpipeline",
+    }
+
+    with patch(
+        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+        mock_datahub_graph,
+    ) as mock_checkpoint:
+        mock_checkpoint.return_value = mock_datahub_graph
+
+        pipeline = create_pipeline(pipeline_config_dict)
+
+        dbt_source = cast(DBTSource, pipeline.source)
+
+        def get_fake_base_sql_alchemy_checkpoint_state(
+            job_id: JobId, checkpoint_state_class: Type[CheckpointStateBase]
+        ) -> Optional[Checkpoint]:
+            if checkpoint_state_class is DbtCheckpointState:
+                raise Exception(
+                    "DBT source will call this function again with BaseSQLAlchemyCheckpointState"
+                )
+
+            sql_state = BaseSQLAlchemyCheckpointState()
+
+            urn1 = "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD)"
+            urn2 = (
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)"
+            )
+
+            sql_state.add_table_urn(urn1)
+            sql_state.add_table_urn(urn2)
+
+            assert dbt_source.ctx.pipeline_name is not None
+
+            return Checkpoint(
+                job_name=dbt_source.get_default_ingestion_job_id(),
+                pipeline_name=dbt_source.ctx.pipeline_name,
+                platform_instance_id=dbt_source.get_platform_instance_id(),
+                run_id=dbt_source.ctx.run_id,
+                config=dbt_source.config,
+                state=sql_state,
+            )
+
+        # Set fake method to return BaseSQLAlchemyCheckpointState
+        dbt_source.get_last_checkpoint = get_fake_base_sql_alchemy_checkpoint_state  # type: ignore[assignment]
+
+        last_checkpoint = dbt_source.get_last_dbt_checkpoint(
+            dbt_source.get_default_ingestion_job_id(), DbtCheckpointState
+        )
+        # Our fake method is returning BaseSQLAlchemyCheckpointState,however it should get converted to DbtCheckpointState
+        assert last_checkpoint is not None and isinstance(
+            last_checkpoint.state, DbtCheckpointState
+        )
+
+        pipeline.run()
+        pipeline.raise_from_status()
 
 
 @pytest.mark.integration
