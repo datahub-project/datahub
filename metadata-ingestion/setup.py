@@ -100,7 +100,6 @@ sql_common = {
     "greenlet",
 }
 
-
 aws_common = {
     # AWS Python SDK
     "boto3",
