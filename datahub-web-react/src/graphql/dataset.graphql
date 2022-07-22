@@ -91,7 +91,18 @@ fragment nonSiblingDatasetFields on Dataset {
             users {
                 user {
                     urn
+                    type
                     username
+                    properties {
+                        displayName
+                        firstName
+                        lastName
+                        fullName
+                    }
+                    editableProperties {
+                        displayName
+                        pictureLink
+                    }
                 }
                 count
                 userEmail
@@ -174,6 +185,25 @@ fragment nonSiblingDatasetFields on Dataset {
                 ...testFields
             }
             type
+        }
+    }
+    statsSummary {
+        queryCountLast30Days
+        uniqueUserCountLast30Days
+        topUsersLast30Days {
+            urn
+            type
+            username
+            properties {
+                displayName
+                firstName
+                lastName
+                fullName
+            }
+            editableProperties {
+                displayName
+                pictureLink
+            }
         }
     }
 }

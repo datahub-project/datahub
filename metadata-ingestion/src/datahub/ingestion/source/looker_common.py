@@ -476,11 +476,14 @@ class LookerUtil:
         )
 
     @staticmethod
-    def run_inline_query(client: Looker31SDK, q: dict) -> List:
+    def run_inline_query(
+        client: Looker31SDK, q: dict, transport_options: Optional[TransportOptions]
+    ) -> List:
 
         response_sql = client.run_inline_query(
             result_format="sql",
             body=LookerUtil.create_query_request(q),
+            transport_options=transport_options,
         )
         logger.debug("=================Query=================")
         logger.debug(response_sql)
@@ -488,6 +491,7 @@ class LookerUtil:
         response_json = client.run_inline_query(
             result_format="json",
             body=LookerUtil.create_query_request(q),
+            transport_options=transport_options,
         )
 
         logger.debug("=================Response=================")

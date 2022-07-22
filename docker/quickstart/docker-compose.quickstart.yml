@@ -24,8 +24,6 @@ services:
     depends_on:
     - datahub-gms
     environment:
-    - GMS_HOST=datahub-gms
-    - GMS_PORT=8080
     - DATAHUB_GMS_HOST=datahub-gms
     - DATAHUB_GMS_PORT=8080
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
@@ -89,7 +87,7 @@ services:
     - MCE_CONSUMER_ENABLED=true
     - PE_CONSUMER_ENABLED=true
     - UI_INGESTION_ENABLED=true
-    - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.40
+    - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.41
     hostname: datahub-gms
     image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
     ports:

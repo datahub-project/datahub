@@ -64,7 +64,7 @@
     "changeType": "UPSERT",
     "aspectName": "domains",
     "aspect": {
-        "value": "{\"domains\":[\"urn:li:domain:Engineering\"]}",
+        "value": "{\"domains\": [\"urn:li:domain:Engineering\"]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
