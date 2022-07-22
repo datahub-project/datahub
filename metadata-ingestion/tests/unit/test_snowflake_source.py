@@ -1,7 +1,9 @@
+from unittest.mock import patch
+
 import pytest
 
 from datahub.configuration.common import ConfigurationError, OauthConfiguration
-from datahub.ingestion.source.sql.snowflake import SnowflakeConfig
+from datahub.ingestion.source.sql.snowflake import SnowflakeConfig, SnowflakeSource
 
 
 def test_snowflake_source_throws_error_on_account_id_missing():
@@ -162,3 +164,37 @@ def test_options_contain_connect_args():
     )
     connect_args = config.get_options().get("connect_args")
     assert connect_args is not None
+
+
+@patch("snowflake.connector.connect")
+def test_test_connection_failure(mock_connect):
+    mock_connect.side_effect = Exception("Failed to connect to snowflake")
+    config = {
+        "username": "user",
+        "password": "password",
+        "account_id": "missing",
+        "warehouse": "COMPUTE_WH",
+        "role": "sysadmin",
+    }
+    report = SnowflakeSource.test_connection(config)
+    assert report is not None
+    assert report.basic_connectivity
+    assert not report.basic_connectivity.capable
+    assert report.basic_connectivity.failure_reason
+    assert "Failed to connect to snowflake" in report.basic_connectivity.failure_reason
+
+
+@patch("snowflake.connector.connect")
+def test_test_connection_basic_success(mock_connect):
+    config = {
+        "username": "user",
+        "password": "password",
+        "account_id": "missing",
+        "warehouse": "COMPUTE_WH",
+        "role": "sysadmin",
+    }
+    report = SnowflakeSource.test_connection(config)
+    assert report is not None
+    assert report.basic_connectivity
+    assert report.basic_connectivity.capable
+    assert report.basic_connectivity.failure_reason is None
