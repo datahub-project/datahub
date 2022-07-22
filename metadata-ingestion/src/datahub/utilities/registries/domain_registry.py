@@ -28,16 +28,27 @@ class DomainRegistry:
                 )
             for domain_identifier in domains_needing_resolution:
                 assert graph
-                domain_urn = graph.get_domain_urn_by_name(domain_identifier)
-                if domain_urn:
-                    self.domain_registry[domain_identifier] = domain_urn
+                # first try to check if this domain exists by urn
+                maybe_domain_urn = f"urn:li:domain:{domain_identifier}"
+                from datahub.metadata.schema_classes import DomainPropertiesClass
+
+                maybe_domain_properties = graph.get_aspect_v2(
+                    maybe_domain_urn, DomainPropertiesClass, "domainProperties"
+                )
+                if maybe_domain_properties:
+                    self.domain_registry[domain_identifier] = maybe_domain_urn
                 else:
-                    logger.error(
-                        f"Failed to retrieve domain id for domain {domain_identifier}"
-                    )
-                    raise ValueError(
-                        f"domain {domain_identifier} doesn't seem to be provisioned on DataHub. Either provision it first and re-run ingestion, or provide a fully qualified domain id (e.g. urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba) to skip this check."
-                    )
+                    # try to get this domain by name
+                    domain_urn = graph.get_domain_urn_by_name(domain_identifier)
+                    if domain_urn:
+                        self.domain_registry[domain_identifier] = domain_urn
+                    else:
+                        logger.error(
+                            f"Failed to retrieve domain id for domain {domain_identifier}"
+                        )
+                        raise ValueError(
+                            f"domain {domain_identifier} doesn't seem to be provisioned on DataHub. Either provision it first and re-run ingestion, or provide a fully qualified domain id (e.g. urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba) to skip this check."
+                        )
 
     def get_domain_urn(self, domain_identifier: str) -> str:
         return self.domain_registry.get(domain_identifier) or domain_identifier
