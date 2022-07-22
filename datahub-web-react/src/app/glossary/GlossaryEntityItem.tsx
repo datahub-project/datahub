@@ -58,7 +58,7 @@ function GlossaryEntityItem(props: Props) {
     const entityRegistry = useEntityRegistry();
 
     return (
-        <Link to={`/${entityRegistry.getPathName(type)}/${urn}`}>
+        <Link to={`/data-catalogue/${entityRegistry.getPathName(type)}/${urn}`}>
             <ItemWrapper>
                 <GlossaryItem>
                     <span>

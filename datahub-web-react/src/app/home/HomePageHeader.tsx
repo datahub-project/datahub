@@ -16,8 +16,6 @@ import { EntityType } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
 import { AdminHeaderLinks } from '../shared/admin/AdminHeaderLinks';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import { useAppConfig } from '../useAppConfig';
-import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
 
 const Background = styled.div`
     width: 100%;
@@ -118,7 +116,6 @@ export const HomePageHeader = () => {
     const [getAutoCompleteResultsForMultiple, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
     const user = useGetAuthenticatedUser()?.corpUser;
     const themeConfig = useTheme();
-    const appConfig = useAppConfig();
 
     const onSearch = (query: string, type?: EntityType) => {
         if (!query || query.trim().length === 0) {
@@ -197,15 +194,7 @@ export const HomePageHeader = () => {
                 </NavGroup>
             </Row>
             <HeaderContainer>
-                <Image
-                    src={
-                        appConfig.config !== DEFAULT_APP_CONFIG
-                            ? appConfig.config.visualConfig.logoUrl || themeConfig.assets.logoUrl
-                            : undefined
-                    }
-                    preview={false}
-                    style={styles.logoImage}
-                />
+                <Image src={themeConfig.assets.logoUrl} preview={false} style={styles.logoImage} />
                 {!!themeConfig.content.subtitle && (
                     <Typography.Text style={styles.subtitle}>{themeConfig.content.subtitle}</Typography.Text>
                 )}

@@ -24,15 +24,18 @@ export const SearchRoutes = (): JSX.Element => {
                 {entityRegistry.getEntities().map((entity) => (
                     <Route
                         key={entity.getPathName()}
-                        path={`/${entity.getPathName()}/:urn`}
+                        path={`/data-catalogue/${entity.getPathName()}/:urn`}
                         render={() => <EntityPage entityType={entity.type} />}
                     />
                 ))}
                 <Route path={PageRoutes.SEARCH_RESULTS} render={() => <SearchPage />} />
                 <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
                 <Route path={PageRoutes.ANALYTICS} render={() => <AnalyticsPage />} />
-                <Route path={PageRoutes.POLICIES} render={() => <Redirect to="/settings/policies" />} />
-                <Route path={PageRoutes.IDENTITIES} render={() => <Redirect to="/settings/identities" />} />
+                <Route path={PageRoutes.POLICIES} render={() => <Redirect to="/data-catalogue/settings/policies" />} />
+                <Route
+                    path={PageRoutes.IDENTITIES}
+                    render={() => <Redirect to="/data-catalogue/settings/identities" />}
+                />
                 <Route path={PageRoutes.DOMAINS} render={() => <ManageDomainsPage />} />
                 <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
                 <Route path={PageRoutes.SETTINGS} render={() => <SettingsPage />} />

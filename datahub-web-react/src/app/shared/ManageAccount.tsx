@@ -70,7 +70,7 @@ export const ManageAccount = ({ urn: _urn, pictureLink: _pictureLink, name }: Pr
             <Menu.Divider />
             <MenuItem key="profile">
                 <a
-                    href={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${_urn}`}
+                    href={`/data-catalogue/${entityRegistry.getPathName(EntityType.CorpUser)}/${_urn}`}
                     rel="noopener noreferrer"
                     tabIndex={0}
                 >
