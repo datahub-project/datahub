@@ -19,13 +19,13 @@
    bigquery.readsessions.create
    bigquery.readsessions.getData
 
-   # requirements if profiling enabled
+   # needed if profiling enabled
 
    bigquery.tables.create 
    bigquery.tables.getData
    bigquery.tables.list
 
-   # requirements if table lineage enabled via GDP logging
+   # needed for lineage generation via GCP logging
 
    logging.logEntries.list
    logging.privateLogEntries.list
