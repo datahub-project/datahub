@@ -65,11 +65,13 @@ public class Constants {
   public static final String DEPRECATION_ASPECT_NAME = "deprecation";
   public static final String OPERATION_ASPECT_NAME = "operation";
   public static final String SIBLINGS_ASPECT_NAME = "siblings";
+  public static final String ORIGIN_ASPECT_NAME = "origin";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
   public static final String CORP_USER_EDITABLE_INFO_NAME = "corpUserEditableInfo";
   public static final String GROUP_MEMBERSHIP_ASPECT_NAME = "groupMembership";
+  public static final String NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME = "nativeGroupMembership";
   public static final String CORP_USER_EDITABLE_INFO_ASPECT_NAME = "corpUserEditableInfo";
   public static final String CORP_USER_INFO_ASPECT_NAME = "corpUserInfo";
   public static final String CORP_USER_STATUS_ASPECT_NAME = "corpUserStatus";
@@ -226,6 +228,10 @@ public class Constants {
 
   // Invite Token
   public static final String INVITE_TOKEN_ASPECT_NAME = "inviteToken";
+
+  // Relationships
+  public static final String IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME = "IsMemberOfGroup";
+  public static final String IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME = "IsMemberOfNativeGroup";
 
   // acryl-main only
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";

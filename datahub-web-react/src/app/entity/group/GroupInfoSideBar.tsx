@@ -1,7 +1,7 @@
-import { Divider, message, Space, Button, Typography, Row, Col } from 'antd';
+import { Divider, message, Space, Button, Typography, Row, Col, Tooltip } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { EditOutlined, MailOutlined, SlackOutlined } from '@ant-design/icons';
+import { EditOutlined, LockOutlined, MailOutlined, SlackOutlined } from '@ant-design/icons';
 import { useHistory, useRouteMatch } from 'react-router-dom';
 import { useUpdateCorpGroupPropertiesMutation } from '../../../graphql/group.generated';
 import { EntityRelationshipsResult, Ownership } from '../../../types.generated';
@@ -32,6 +32,8 @@ type SideBarData = {
     aboutText: string | undefined;
     groupMemberRelationships: EntityRelationshipsResult;
     groupOwnerShip: Ownership;
+    isExternalGroup: boolean;
+    externalGroupType: string | undefined;
     urn: string | undefined;
 };
 
@@ -78,6 +80,8 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
         photoUrl,
         slack,
         urn,
+        isExternalGroup,
+        externalGroupType,
         groupOwnerShip: ownership,
     } = sideBarData;
     const [updateCorpGroupPropertiesMutation] = useUpdateCorpGroupPropertiesMutation();
@@ -132,6 +136,15 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
                         </Col>
                         <Col>
                             <GroupName>{name}</GroupName>
+                        </Col>
+                        <Col>
+                            {isExternalGroup && (
+                                <Tooltip
+                                    title={`Membership for this group cannot be edited in DataHub as it originates from ${externalGroupType}.`}
+                                >
+                                    <LockOutlined />
+                                </Tooltip>
+                            )}
                         </Col>
                     </GroupNameHeader>
                     <Divider className="divider-infoSection" />
