@@ -6,6 +6,8 @@ import { getSourceConfigs, jsonToYaml, yamlToJson } from '../utils';
 import { YamlEditor } from './YamlEditor';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { IngestionSourceBuilderStep } from './steps';
+import RecipeBuilder from './RecipeBuilder';
+import { CONNECTORS_WITH_FORM } from './RecipeForm/utils';
 
 const LOOKML_DOC_LINK = 'https://datahubproject.io/docs/generated/ingestion/sources/looker#module-lookml';
 
@@ -37,17 +39,19 @@ const ControlsContainer = styled.div`
 export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) => {
     const existingRecipeJson = state.config?.recipe;
     const existingRecipeYaml = existingRecipeJson && jsonToYaml(existingRecipeJson);
+    const { type } = state;
+    const sourceConfigs = getSourceConfigs(type as string);
 
-    const [stagedRecipeYml, setStagedRecipeYml] = useState(existingRecipeYaml || '');
+    const [stagedRecipeYml, setStagedRecipeYml] = useState(existingRecipeYaml || sourceConfigs.placeholderRecipe);
 
     useEffect(() => {
-        setStagedRecipeYml(existingRecipeYaml || '');
+        if (existingRecipeYaml) {
+            setStagedRecipeYml(existingRecipeYaml);
+        }
     }, [existingRecipeYaml]);
 
     const [stepComplete, setStepComplete] = useState(false);
 
-    const { type } = state;
-    const sourceConfigs = getSourceConfigs(type as string);
     const isEditing: boolean = prev === undefined;
     const displayRecipe = stagedRecipeYml || sourceConfigs.placeholderRecipe;
     const sourceDisplayName = sourceConfigs.displayName;
@@ -84,6 +88,19 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
 
         goTo(IngestionSourceBuilderStep.CREATE_SCHEDULE);
     };
+
+    if (type && CONNECTORS_WITH_FORM.has(type)) {
+        return (
+            <RecipeBuilder
+                type={type}
+                isEditing={isEditing}
+                displayRecipe={displayRecipe}
+                setStagedRecipe={setStagedRecipeYml}
+                onClickNext={onClickNext}
+                goToPrevious={prev}
+            />
+        );
+    }
 
     return (
         <>

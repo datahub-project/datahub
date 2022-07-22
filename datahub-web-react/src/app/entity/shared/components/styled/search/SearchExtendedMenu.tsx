@@ -8,7 +8,7 @@ import DownloadAsCsvButton from './DownloadAsCsvButton';
 import DownloadAsCsvModal from './DownloadAsCsvModal';
 
 const MenuIcon = styled(MoreOutlined)`
-    font-size: 15px;
+    font-size: 20px;
     height: 20px;
 `;
 

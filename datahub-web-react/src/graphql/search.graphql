@@ -252,6 +252,33 @@ fragment searchResultFields on Entity {
                 }
             }
         }
+        lastProfile: datasetProfiles(limit: 1) {
+            rowCount
+            timestampMillis
+        }
+        lastOperation: operations(limit: 1) {
+            lastUpdatedTimestamp
+            timestampMillis
+        }
+        statsSummary {
+            queryCountLast30Days
+            uniqueUserCountLast30Days
+            topUsersLast30Days {
+                urn
+                type
+                username
+                properties {
+                    displayName
+                    firstName
+                    lastName
+                    fullName
+                }
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+            }
+        }
     }
     ... on CorpUser {
         username
@@ -327,6 +354,25 @@ fragment searchResultFields on Entity {
         parentContainers {
             ...parentContainersFields
         }
+        statsSummary {
+            viewCount
+            uniqueUserCountLast30Days
+            topUsersLast30Days {
+                urn
+                type
+                username
+                properties {
+                    displayName
+                    firstName
+                    lastName
+                    fullName
+                }
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+            }
+        }
     }
     ... on Chart {
         chartId
@@ -400,6 +446,9 @@ fragment searchResultFields on Entity {
         deprecation {
             ...deprecationFields
         }
+        childJobs: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 100 }) {
+            total
+        }
     }
     ... on DataJob {
         dataFlow {
@@ -430,6 +479,19 @@ fragment searchResultFields on Entity {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        lastRun: runs(start: 0, count: 1) {
+            count
+            start
+            total
+            runs {
+                urn
+                type
+                created {
+                    time
+                    actor
+                }
+            }
         }
     }
     ... on GlossaryTerm {

@@ -24,10 +24,10 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
     record_key = os.getenv("CYPRESS_RECORD_KEY")
     if record_key:
         print('Running Cypress tests with recording')
-        command = f"npx cypress run --record"
+        command = f"NO_COLOR=1 npx cypress run --record"
     else:
         print('Running Cypress tests without recording')
-        command = f"npx cypress run"
+        command = f"NO_COLOR=1 npx cypress run"
     proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd="tests/cypress")
     stdout = proc.stdout.read()
     stderr = proc.stderr.read()

@@ -1,10 +1,13 @@
+import asyncio
 import csv
+import functools
 import json
 import logging
 import os
 import pathlib
 import sys
 from datetime import datetime
+from typing import Optional
 
 import click
 from click_default_group import DefaultGroup
@@ -21,6 +24,7 @@ from datahub.cli.cli_utils import (
 )
 from datahub.configuration import SensitiveError
 from datahub.configuration.config_loader import load_config_file
+from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
@@ -81,8 +85,19 @@ def ingest() -> None:
     default=False,
     help="Suppress display of variable values in logs by suppressing elaborate stacktrace (stackprinter) during ingestion failures",
 )
+@click.option(
+    "--test-source-connection",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="When set, ingestion will only test the source connection details from the recipe",
+)
+@click.option(
+    "--report-to",
+    type=str,
+    help="Provide an output file to produce a structured report from the run",
+)
 @click.pass_context
-@upgrade.check_upgrade
 @telemetry.with_telemetry
 @memory_leak_detector.with_leak_detection
 def run(
@@ -93,17 +108,77 @@ def run(
     strict_warnings: bool,
     preview_workunits: int,
     suppress_error_logs: bool,
+    test_source_connection: bool,
+    report_to: str,
 ) -> None:
     """Ingest metadata into DataHub."""
 
+    def run_pipeline_to_completion(
+        pipeline: Pipeline, structured_report: Optional[str] = None
+    ) -> int:
+        logger.info("Starting metadata ingestion")
+        try:
+            pipeline.run()
+        except Exception as e:
+            logger.info(
+                f"Source ({pipeline.config.source.type}) report:\n{pipeline.source.get_report().as_string()}"
+            )
+            logger.info(
+                f"Sink ({pipeline.config.sink.type}) report:\n{pipeline.sink.get_report().as_string()}"
+            )
+            # We dont want to log sensitive information in variables if the pipeline fails due to
+            # an unexpected error. Disable printing sensitive info to logs if ingestion is running
+            # with `--suppress-error-logs` flag.
+            if suppress_error_logs:
+                raise SensitiveError() from e
+            else:
+                raise e
+        else:
+            logger.info("Finished metadata ingestion")
+            pipeline.log_ingestion_stats()
+            pipeline.write_structured_report()
+            ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
+            return ret
+
+    async def run_pipeline_async(pipeline: Pipeline) -> int:
+        loop = asyncio._get_running_loop()
+        return await loop.run_in_executor(
+            None, functools.partial(run_pipeline_to_completion, pipeline)
+        )
+
+    async def run_func_check_upgrade(pipeline: Pipeline) -> None:
+        version_stats_future = asyncio.ensure_future(
+            upgrade.retrieve_version_stats(pipeline.ctx.graph)
+        )
+        the_one_future = asyncio.ensure_future(run_pipeline_async(pipeline))
+        ret = await the_one_future
+
+        # the one future has returned
+        if ret == 0:
+            try:
+                # we check the other futures quickly on success
+                version_stats = await asyncio.wait_for(version_stats_future, 0.5)
+                upgrade.maybe_print_upgrade_message(version_stats=version_stats)
+            except Exception as e:
+                logger.debug(
+                    f"timed out with {e} waiting for version stats to be computed... skipping ahead."
+                )
+
+        sys.exit(ret)
+
+    # main function begins
     logger.info("DataHub CLI version: %s", datahub_package.nice_version_name())
 
     config_file = pathlib.Path(config)
     pipeline_config = load_config_file(config_file)
+    if test_source_connection:
+        _test_source_connection(report_to, pipeline_config)
 
     try:
         logger.debug(f"Using config: {pipeline_config}")
-        pipeline = Pipeline.create(pipeline_config, dry_run, preview, preview_workunits)
+        pipeline = Pipeline.create(
+            pipeline_config, dry_run, preview, preview_workunits, report_to
+        )
     except ValidationError as e:
         click.echo(e, err=True)
         sys.exit(1)
@@ -112,29 +187,24 @@ def run(
         # in a SensitiveError to prevent detailed variable-level information from being logged.
         raise SensitiveError() from e
 
-    logger.info("Starting metadata ingestion")
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(run_func_check_upgrade(pipeline))
+
+
+def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> None:
     try:
-        pipeline.run()
+        connection_report = ConnectionManager().test_source_connection(pipeline_config)
+        logger.info(connection_report.as_json())
+        if report_to:
+            with open(report_to, "w") as out_fp:
+                out_fp.write(connection_report.as_json())
+            logger.info(f"Wrote report successfully to {report_to}")
+        sys.exit(0)
     except Exception as e:
-        logger.info(
-            f"Source ({pipeline.config.source.type}) report:\n{pipeline.source.get_report().as_string()}"
-        )
-        logger.info(
-            f"Sink ({pipeline.config.sink.type}) report:\n{pipeline.sink.get_report().as_string()}"
-        )
-        # We dont want to log sensitive information in variables if the pipeline fails due to
-        # an unexpected error. Disable printing sensitive info to logs if ingestion is running
-        # with `--suppress-error-logs` flag.
-        if suppress_error_logs:
-            raise SensitiveError() from e
-        else:
-            raise e
-    else:
-        logger.info("Finished metadata pipeline")
-        pipeline.log_ingestion_stats()
-        ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
-        upgrade.maybe_print_upgrade_message(pipeline.ctx.graph)
-        sys.exit(ret)
+        logger.error(f"Failed to test connection due to {e}")
+        if connection_report:
+            logger.error(connection_report.as_json())
+        sys.exit(1)
 
 
 def get_runs_url(gms_host: str) -> str:

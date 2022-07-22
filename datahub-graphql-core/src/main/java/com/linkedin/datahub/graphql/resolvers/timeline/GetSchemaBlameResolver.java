@@ -3,7 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.timeline;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.GetSchemaBlameInput;
 import com.linkedin.datahub.graphql.generated.GetSchemaBlameResult;
-import com.linkedin.datahub.graphql.types.timeline.mappers.SchemaFieldBlameMapper;
+import com.linkedin.datahub.graphql.types.timeline.mappers.SchemaBlameMapper;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
@@ -46,7 +46,7 @@ public class GetSchemaBlameResolver implements DataFetcher<CompletableFuture<Get
         Urn datasetUrn = Urn.createFromString(datasetUrnString);
         List<ChangeTransaction> changeTransactionList =
             _timelineService.getTimeline(datasetUrn, changeCategorySet, startTime, endTime, null, null, false);
-        return SchemaFieldBlameMapper.map(changeTransactionList, version);
+        return SchemaBlameMapper.map(changeTransactionList, version);
       } catch (URISyntaxException u) {
         log.error(
             String.format("Failed to list schema blame data, likely due to the Urn %s being invalid", datasetUrnString),

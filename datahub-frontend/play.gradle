@@ -48,6 +48,7 @@ dependencies {
   implementation externalDependency.playPac4j
   implementation externalDependency.shiroCore
   implementation externalDependency.playCache
+  implementation externalDependency.playEhcache
   implementation externalDependency.playWs
   implementation externalDependency.playServer
   implementation externalDependency.playAkkaHttpServer
