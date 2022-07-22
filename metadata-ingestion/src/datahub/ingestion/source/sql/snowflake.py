@@ -25,6 +25,11 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source import (
+    CapabilityReport,
+    TestableSource,
+    TestConnectionReport,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.sql.sql_common import (
@@ -34,7 +39,10 @@ from datahub.ingestion.source.sql.sql_common import (
     TimeTypeClass,
     register_custom_type,
 )
-from datahub.ingestion.source_config.sql.snowflake import SnowflakeConfig
+from datahub.ingestion.source_config.sql.snowflake import (
+    APPLICATION_NAME,
+    SnowflakeConfig,
+)
 from datahub.ingestion.source_report.sql.snowflake import SnowflakeReport
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
@@ -64,7 +72,7 @@ snowdialect.ischema_names["GEOGRAPHY"] = sqltypes.NullType
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
-class SnowflakeSource(SQLAlchemySource):
+class SnowflakeSource(SQLAlchemySource, TestableSource):
     def __init__(self, config: SnowflakeConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "snowflake")
         self._lineage_map: Optional[Dict[str, List[Tuple[str, str, str]]]] = None
@@ -78,6 +86,49 @@ class SnowflakeSource(SQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = SnowflakeConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        try:
+            SnowflakeConfig.Config.extra = (
+                pydantic.Extra.allow
+            )  # we are okay with extra fields during this stage
+            connection_conf = SnowflakeConfig.parse_obj(config_dict)
+            if connection_conf.authentication_type == "DEFAULT_AUTHENTICATOR":
+                connection: snowflake.connector.SnowflakeConnection = (
+                    snowflake.connector.connect(
+                        user=connection_conf.username,
+                        password=connection_conf.password.get_secret_value()
+                        if connection_conf.password
+                        else None,
+                        account=connection_conf.account_id,
+                        warehouse=connection_conf.warehouse,
+                        role=connection_conf.role,
+                        application=APPLICATION_NAME,
+                        **connection_conf.connect_args or {},
+                    )
+                )
+                assert connection
+                return TestConnectionReport(
+                    basic_connectivity=CapabilityReport(capable=True)
+                )
+            else:
+                raise NotImplementedError(
+                    "Don't support testing connections for non DEFAULT AUTHENTICATED modes"
+                )
+
+        except Exception as e:
+            # TODO - do we need sensitive error logging ?
+            logger.error(f"Failed to test connection due to {e}", exc_info=e)
+            return TestConnectionReport(
+                basic_connectivity=CapabilityReport(
+                    capable=False, failure_reason=f"{e}"
+                )
+            )
+        finally:
+            SnowflakeConfig.Config.extra = (
+                pydantic.Extra.forbid
+            )  # set config flexibility back to strict
 
     def get_metadata_engine(
         self, database: Optional[str] = None

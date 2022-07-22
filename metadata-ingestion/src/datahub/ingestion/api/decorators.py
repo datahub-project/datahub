@@ -3,7 +3,7 @@ from enum import Enum, auto
 from typing import Callable, Dict, Optional, Type
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import Source
+from datahub.ingestion.api.source import Source, SourceCapability
 
 
 def config_class(config_cls: Type) -> Callable[[Type], Type]:
@@ -79,20 +79,6 @@ def support_status(
         return cls
 
     return wrapper
-
-
-class SourceCapability(Enum):
-    PLATFORM_INSTANCE = "Platform Instance"
-    DOMAINS = "Domains"
-    DATA_PROFILING = "Data Profiling"
-    USAGE_STATS = "Dataset Usage"
-    PARTITION_SUPPORT = "Partition Support"
-    DESCRIPTIONS = "Descriptions"
-    LINEAGE_COARSE = "Table-Level Lineage"
-    LINEAGE_FINE = "Column-level Lineage"
-    OWNERSHIP = "Extract Ownership"
-    DELETION_DETECTION = "Detect Deleted Entities"
-    TAGS = "Extract Tags"
 
 
 @dataclass
