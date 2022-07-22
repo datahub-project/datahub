@@ -25,7 +25,7 @@
    bigquery.tables.getData
    bigquery.tables.list
 
-   # requirements if table lineage enabled
+   # requirements if table lineage enabled via GDP logging
 
    logging.logEntries.list
    logging.privateLogEntries.list
