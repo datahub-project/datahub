@@ -8,7 +8,7 @@ FROM acryldata/datahub-ingestion-base as base
 #     && curl -L https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz | tar -C /usr/local/bin -xzv
 
 
-FROM openjdk:8 as prod-build
+FROM anshbansal/datahub-ingestion-base:latest-jdk8 as prod-build
 COPY . /datahub-src
 RUN cd /datahub-src && ./gradlew :metadata-events:mxe-schemas:build -Djavax.net.debug=ssl,handshake -d
 
