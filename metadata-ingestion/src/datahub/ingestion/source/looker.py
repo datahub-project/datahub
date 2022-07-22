@@ -1097,6 +1097,7 @@ class LookerDashboardSource(Source):
                 user=user_urn,
                 executionsCount=row["history.dashboard_run_count"],
                 usageCount=row["history.dashboard_run_count"],
+                userEmail=user.email,
             )
 
             usage_mcp_prev = dashboard_usages.get(
