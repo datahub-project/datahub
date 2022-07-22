@@ -72,7 +72,7 @@ jobs:
         run: ./gradlew :metadata-ingestion:build :metadata-ingestion:${{ matrix.command }} -x:metadata-ingestion:testQuick -x:metadata-ingestion:check
       - name: pip freeze show list installed
         if: always()
-        run: pip freeze
+        run: source metadata-ingestion/venv/bin/activate &&pip freeze
       - uses: actions/upload-artifact@v2
         if: always()
         with:
