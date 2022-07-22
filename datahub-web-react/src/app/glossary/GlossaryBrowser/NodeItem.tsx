@@ -123,7 +123,7 @@ function NodeItem(props: Props) {
                 {areChildrenVisible && <StyledDownOutlined onClick={() => setAreChildrenVisible(false)} />}
                 {!isSelecting && (
                     <NodeLink
-                        to={`/${entityRegistry.getPathName(node.type)}/${node.urn}`}
+                        to={`/data-catalogue/${entityRegistry.getPathName(node.type)}/${node.urn}`}
                         isSelected={entityData?.urn === node.urn}
                     >
                         <StyledFolderOutlined />

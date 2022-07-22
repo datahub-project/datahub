@@ -94,7 +94,10 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                 <Link
                     target="_blank"
                     rel="noopener noreferrer"
-                    to={() => `/${entityRegistry.getPathName(criterionValue.entity!.type)}/${criterionValue.value}`}
+                    to={() =>
+                        `/data-catalogue/${entityRegistry.getPathName(criterionValue.entity!.type)}/
+                        ${criterionValue.value}`
+                    }
                 >
                     {getDisplayName(criterionValue.entity)}
                 </Link>
