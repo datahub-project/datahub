@@ -1,8 +1,9 @@
+import { LockOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
-import { List, Tag, Typography } from 'antd';
+import { List, Tag, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
-import { CorpGroup, EntityType } from '../../../types.generated';
+import { CorpGroup, EntityType, OriginType } from '../../../types.generated';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import EntityDropdown from '../../entity/shared/EntityDropdown';
@@ -27,9 +28,18 @@ const GroupHeaderContainer = styled.div`
     align-items: center;
 `;
 
+const GroupItemButtonGroup = styled.div`
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+`;
+
 export default function GroupListItem({ group, onDelete }: Props) {
     const entityRegistry = useEntityRegistry();
     const displayName = entityRegistry.getDisplayName(EntityType.CorpGroup, group);
+    const isExternalGroup: boolean = group.origin?.type === OriginType.External;
+    const externalGroupType: string = group.origin?.externalType || 'outside DataHub';
+
     return (
         <List.Item>
             <GroupItemContainer>
@@ -47,14 +57,23 @@ export default function GroupListItem({ group, onDelete }: Props) {
                         <Tag>{(group as any).memberCount?.total || 0} members</Tag>
                     </GroupHeaderContainer>
                 </Link>
-                <EntityDropdown
-                    urn={group.urn}
-                    entityType={EntityType.CorpGroup}
-                    entityData={group}
-                    menuItems={new Set([EntityMenuItems.DELETE])}
-                    size={20}
-                    onDeleteEntity={onDelete}
-                />
+                <GroupItemButtonGroup>
+                    {isExternalGroup && (
+                        <Tooltip
+                            title={`Membership for this group cannot be edited as it is synced from ${externalGroupType}.`}
+                        >
+                            <LockOutlined />
+                        </Tooltip>
+                    )}
+                    <EntityDropdown
+                        urn={group.urn}
+                        entityType={EntityType.CorpGroup}
+                        entityData={group}
+                        menuItems={new Set([EntityMenuItems.DELETE])}
+                        size={20}
+                        onDeleteEntity={onDelete}
+                    />
+                </GroupItemButtonGroup>
             </GroupItemContainer>
         </List.Item>
     );

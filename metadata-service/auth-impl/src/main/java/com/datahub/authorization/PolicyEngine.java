@@ -8,6 +8,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.GroupMembership;
+import com.linkedin.identity.NativeGroupMembership;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
@@ -30,9 +31,7 @@ import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.CORP_GROUP_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 
 @Slf4j
@@ -327,8 +326,12 @@ public class PolicyEngine {
     }
 
     Set<Urn> groups = new HashSet<>();
-    Optional<GroupMembership> maybeGroups = resolveGroupMembership(actor);
-    maybeGroups.ifPresent(groupMembership -> groups.addAll(groupMembership.getGroups()));
+    Optional<GroupMembership> maybeGroupMembership = resolveGroupMembership(actor);
+    maybeGroupMembership.ifPresent(groupMembership -> groups.addAll(groupMembership.getGroups()));
+
+    Optional<NativeGroupMembership> maybeNativeGroupMembership = resolveNativeGroupMembership(actor);
+    maybeNativeGroupMembership.ifPresent(
+        nativeGroupMembership -> groups.addAll(nativeGroupMembership.getNativeGroups()));
     context.setGroups(groups); // Cache the groups.
     return groups;
   }
@@ -342,7 +345,22 @@ public class PolicyEngine {
       if (aspectMap.containsKey(GROUP_MEMBERSHIP_ASPECT_NAME)) {
         return Optional.of(new GroupMembership(aspectMap.get(GROUP_MEMBERSHIP_ASPECT_NAME).getValue().data()));
       }
+    } catch (RemoteInvocationException | URISyntaxException e) {
+      throw new RuntimeException(String.format("Failed to fetch corpUser for urn %s", actor), e);
+    }
+    return Optional.empty();
+  }
 
+  private Optional<NativeGroupMembership> resolveNativeGroupMembership(final Urn actor) {
+    try {
+      final EntityResponse corpUser =
+          _entityClient.batchGetV2(CORP_USER_ENTITY_NAME, Collections.singleton(actor), null, _systemAuthentication)
+              .get(actor);
+      final EnvelopedAspectMap aspectMap = corpUser.getAspects();
+      if (aspectMap.containsKey(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)) {
+        return Optional.of(
+            new NativeGroupMembership(aspectMap.get(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME).getValue().data()));
+      }
     } catch (RemoteInvocationException | URISyntaxException e) {
       throw new RuntimeException(String.format("Failed to fetch corpUser for urn %s", actor), e);
     }
@@ -354,6 +372,7 @@ public class PolicyEngine {
    */
   static class PolicyEvaluationContext {
     private Set<Urn> groups;
+
     public void setGroups(Set<Urn> groups) {
       this.groups = groups;
     }

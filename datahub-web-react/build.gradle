@@ -74,7 +74,7 @@ clean {
   delete 'build'
   delete 'just'
   delete 'src/types.generated.ts'
-  delete 'src/graphql/*.generated.ts'
+  delete fileTree(dir: 'src/graphql', include: '*.generated.ts')
 }
 
 configurations {

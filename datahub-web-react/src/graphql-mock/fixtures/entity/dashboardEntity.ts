@@ -42,6 +42,7 @@ export const dashboardEntity = (tool): Dashboard => {
                 owner: datahubUser,
                 type: OwnershipType.Stakeholder,
                 __typename: 'Owner',
+                associatedUrn: `urn:li:dashboard:(${tool},${name})`,
             },
         ],
         lastModified: { time: 1619993818664, __typename: 'AuditStamp' },
@@ -53,6 +54,7 @@ export const dashboardEntity = (tool): Dashboard => {
                 owner: kafkaUser,
                 type: OwnershipType.Stakeholder,
                 __typename: 'Owner',
+                associatedUrn: `urn:li:dashboard:(${tool},${name})`,
             },
         ],
         lastModified: { time: 1619993818664, __typename: 'AuditStamp' },
@@ -83,16 +85,19 @@ export const dashboardEntity = (tool): Dashboard => {
                 {
                     owner: datahubUser,
                     type: OwnershipType.Stakeholder,
+                    associatedUrn: `urn:li:dashboard:(${tool},${name})`,
                     __typename: 'Owner',
                 },
                 {
                     owner: kafkaUser,
                     type: OwnershipType.Developer,
+                    associatedUrn: `urn:li:dashboard:(${tool},${name})`,
                     __typename: 'Owner',
                 },
                 {
                     owner: lookerUser,
                     type: OwnershipType.Developer,
+                    associatedUrn: `urn:li:dashboard:(${tool},${name})`,
                     __typename: 'Owner',
                 },
             ],
@@ -103,10 +108,12 @@ export const dashboardEntity = (tool): Dashboard => {
             tags: [
                 {
                     tag: generateTag(datahubOwnership),
+                    associatedUrn: `urn:li:dashboard:(${tool},${name})`,
                     __typename: 'TagAssociation',
                 },
                 {
                     tag: generateTag(kafkaOwnership),
+                    associatedUrn: `urn:li:dashboard:(${tool},${name})`,
                     __typename: 'TagAssociation',
                 },
             ],

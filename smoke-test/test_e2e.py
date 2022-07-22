@@ -1,19 +1,20 @@
 import time
 import urllib
-from contextlib import contextmanager
-from typing import Optional
+from typing import Any, Optional
 
 import pytest
 import requests
-from datahub.cli.docker import check_local_docker_containers
+import tenacity
 from datahub.ingestion.run.pipeline import Pipeline
 
 from tests.utils import (
     get_frontend_url,
     get_gms_url,
     get_kafka_broker_url,
+    get_kafka_schema_registry,
     get_sleep_info,
     ingest_file_via_rest,
+    wait_for_healthcheck_util,
 )
 
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
@@ -26,11 +27,12 @@ restli_default_headers = {
 }
 kafka_post_ingestion_wait_sec = 60
 
+sleep_sec, sleep_times = get_sleep_info()
+
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
-    # Simply assert that everything is healthy, but don't wait.
-    assert not check_local_docker_containers()
+    wait_for_healthcheck_util()
     yield
 
 
@@ -54,71 +56,52 @@ def frontend_session(wait_for_healthchecks):
     yield session
 
 
-@contextmanager
-def with_sleep_times(
-    sleep_between: Optional[int] = None, sleep_times: Optional[int] = None
-):
-    _sleep_between, _sleep_times = get_sleep_info()
-    if sleep_times is None:
-        sleep_times = _sleep_times
-    while True:
-        try:
-            yield
-        except Exception as e:
-            if sleep_times > 0:
-                sleep_time = sleep_between or _sleep_between
-                sleep_times -= 1
-                print(
-                    f"Sleeping for {sleep_time}. Will sleep for {sleep_times} more if needed"
-                )
-                time.sleep(sleep_time)
-            else:
-                raise e
-        finally:
-            break
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
+)
+def _ensure_user_present(urn: str):
+    response = requests.get(
+        f"{get_gms_url()}/entities/{urllib.parse.quote(urn)}",
+        headers={
+            **restli_default_headers,
+        },
+    )
+    response.raise_for_status()
+    data = response.json()
+
+    user_key = "com.linkedin.metadata.snapshot.CorpUserSnapshot"
+    assert data["value"]
+    assert data["value"][user_key]
+    assert data["value"][user_key]["urn"] == urn
+    return data
 
 
-def _ensure_user_present(
-    urn: str, sleep_between: Optional[int] = None, sleep_times: Optional[int] = None
-):
-    with with_sleep_times(sleep_between, sleep_times):
-        response = requests.get(
-            f"{get_gms_url()}/entities/{urllib.parse.quote(urn)}",
-            headers={
-                **restli_default_headers,
-            },
-        )
-        response.raise_for_status()
-        data = response.json()
-
-        user_key = "com.linkedin.metadata.snapshot.CorpUserSnapshot"
-        assert data["value"]
-        assert data["value"][user_key]
-        assert data["value"][user_key]["urn"] == urn
-
-
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
+)
 def _ensure_dataset_present(
-    urn: str, sleep_between: Optional[int] = None, sleep_times: Optional[int] = None
-):
-    with with_sleep_times(sleep_between, sleep_times):
-        response = requests.get(
-            f"{get_gms_url()}/entitiesV2?ids=List({urllib.parse.quote(urn)})&aspects=List(datasetProperties)",
-            headers={
-                **restli_default_headers,
-                "X-RestLi-Method": "batch_get",
-            },
-        )
-        response.raise_for_status()
-        res_data = response.json()
-        assert res_data["results"]
-        assert res_data["results"][urn]
-        assert res_data["results"][urn]["aspects"]["datasetProperties"]
+    urn: str,
+    aspects: Optional[str] = "datasetProperties",
+) -> Any:
+    response = requests.get(
+        f"{get_gms_url()}/entitiesV2?ids=List({urllib.parse.quote(urn)})&aspects=List({aspects})",
+        headers={
+            **restli_default_headers,
+            "X-RestLi-Method": "batch_get",
+        },
+    )
+    response.raise_for_status()
+    res_data = response.json()
+    assert res_data["results"]
+    assert res_data["results"][urn]
+    assert res_data["results"][urn]["aspects"]["datasetProperties"]
+    return res_data
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_ingestion_via_rest(wait_for_healthchecks):
     ingest_file_via_rest(bootstrap_sample_data)
-    _ensure_user_present(urn="urn:li:corpuser:datahub", sleep_between=10, sleep_times=6)
+    _ensure_user_present(urn="urn:li:corpuser:datahub")
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
@@ -139,6 +122,7 @@ def test_ingestion_via_kafka(wait_for_healthchecks):
                 "config": {
                     "connection": {
                         "bootstrap": get_kafka_broker_url(),
+                        "schema_registry_url": get_kafka_schema_registry(),
                     }
                 },
             },
@@ -227,25 +211,12 @@ def test_gms_batch_get_v2():
     urn1 = f"urn:li:dataset:({platform},{name_1},{env})"
     urn2 = f"urn:li:dataset:({platform},{name_2},{env})"
 
-    response = requests.get(
-        f"{get_gms_url()}/entitiesV2?ids=List({urllib.parse.quote(urn1)},{urllib.parse.quote(urn2)})&aspects=List(datasetProperties,ownership)",
-        headers={
-            **restli_default_headers,
-            "X-RestLi-Method": "batch_get",
-        },
-    )
-    response.raise_for_status()
-    res_data = response.json()
+    resp1 = _ensure_dataset_present(urn1, aspects="datasetProperties,ownership")
+    assert resp1["results"][urn1]["aspects"]["ownership"]
 
-    # Verify both urns exist and have correct aspects
-    assert res_data["results"]
-    assert res_data["results"][urn1]
-    assert res_data["results"][urn1]["aspects"]["datasetProperties"]
-    assert res_data["results"][urn1]["aspects"]["ownership"]
-    assert res_data["results"][urn2]
-    assert res_data["results"][urn2]["aspects"]["datasetProperties"]
+    resp2 = _ensure_dataset_present(urn2, aspects="datasetProperties,ownership")
     assert (
-        "ownership" not in res_data["results"][urn2]["aspects"]
+        "ownership" not in resp2["results"][urn2]["aspects"]
     )  # Aspect does not exist.
 
 
@@ -636,210 +607,6 @@ def test_ingest_without_system_metadata():
 
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_frontend_list_policies(frontend_session):
-
-    json = {
-        "query": """query listPolicies($input: ListPoliciesInput!) {\n
-            listPolicies(input: $input) {\n
-                start\n
-                count\n
-                total\n
-                policies {\n
-                    urn\n
-                    type\n
-                    name\n
-                    description\n
-                    state\n
-                    resources {\n
-                      type\n
-                      allResources\n
-                      resources\n
-                    }\n
-                    privileges\n
-                    actors {\n
-                      users\n
-                      groups\n
-                      allUsers\n
-                      allGroups\n
-                      resourceOwners\n
-                    }\n
-                    editable\n
-                }\n
-            }\n
-        }""",
-        "variables": {
-            "input": {
-                "start": "0",
-                "count": "20",
-            }
-        },
-    }
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["listPolicies"]
-    assert res_data["data"]["listPolicies"]["start"] == 0
-    assert res_data["data"]["listPolicies"]["count"] > 0
-    assert len(res_data["data"]["listPolicies"]["policies"]) > 0
-
-
-@pytest.mark.dependency(
-    depends=[
-        "test_healthchecks",
-        "test_run_ingestion",
-        "test_frontend_list_policies",
-    ]
-)
-def test_frontend_create_update_delete_policy(frontend_session):
-
-    # Policy tests are not idempotent. If you rerun this test it will be wrong.
-    json = {
-        "query": """mutation createPolicy($input: PolicyUpdateInput!) {\n
-            createPolicy(input: $input) }""",
-        "variables": {
-            "input": {
-                "type": "METADATA",
-                "name": "Test Metadata Policy",
-                "description": "My Metadaata Policy",
-                "state": "ACTIVE",
-                "resources": {"type": "dataset", "allResources": True},
-                "privileges": ["EDIT_ENTITY_TAGS"],
-                "actors": {
-                    "users": ["urn:li:corpuser:datahub"],
-                    "resourceOwners": False,
-                    "allUsers": False,
-                    "allGroups": False,
-                },
-            }
-        },
-    }
-
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["createPolicy"]
-
-    new_urn = res_data["data"]["createPolicy"]
-
-    # Sleep for eventual consistency
-    time.sleep(3)
-
-    # Now verify the policy has been added.
-    json = {
-        "query": """query listPolicies($input: ListPoliciesInput!) {\n
-            listPolicies(input: $input) {\n
-                start\n
-                count\n
-                total\n
-                policies {\n
-                    urn\n
-                }\n
-            }\n
-        }""",
-        "variables": {
-            "input": {
-                "start": "0",
-                "count": "20",
-            }
-        },
-    }
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["listPolicies"]
-
-    # Verify that the URN appears in the list
-    result = filter(
-        lambda x: x["urn"] == new_urn, res_data["data"]["listPolicies"]["policies"]
-    )
-    assert len(list(result)) == 1
-
-    # update policy
-    json = {
-        "query": """mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {\n
-            updatePolicy(urn: $urn, input: $input) }""",
-        "variables": {
-            "urn": new_urn,
-            "input": {
-                "type": "PLATFORM",
-                "state": "INACTIVE",
-                "name": "Updated Platform Policy",
-                "description": "My Metadaata Policy",
-                "privileges": ["MANAGE_POLICIES"],
-                "actors": {
-                    "users": ["urn:li:corpuser:datahub"],
-                    "resourceOwners": False,
-                    "allUsers": False,
-                    "allGroups": False,
-                },
-            },
-        },
-    }
-
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["updatePolicy"]
-    assert res_data["data"]["updatePolicy"] == new_urn
-
-    # Remove policy
-    json = {
-        "query": """mutation deletePolicy($urn: String!) {\n
-            deletePolicy(urn: $urn) }""",
-        "variables": {"urn": new_urn},
-    }
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
-
-    # Now verify the policy has been removed.
-    json = {
-        "query": """query listPolicies($input: ListPoliciesInput!) {\n
-            listPolicies(input: $input) {\n
-                start\n
-                count\n
-                total\n
-                policies {\n
-                    urn\n
-                }\n
-            }\n
-        }""",
-        "variables": {
-            "input": {
-                "start": "0",
-                "count": "20",
-            }
-        },
-    }
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["listPolicies"]
-
-    # Verify that the URN is no longer in the list
-    result = filter(
-        lambda x: x["urn"] == new_urn,
-        res_data["data"]["listPolicies"]["policies"],
-    )
-    assert len(list(result)) == 0
-
-
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_frontend_app_config(frontend_session):
 
     json = {
@@ -1018,7 +785,7 @@ def test_add_remove_members_from_group(frontend_session):
         "query": """query corpUser($urn: String!) {\n
             corpUser(urn: $urn) {\n
                 urn\n
-                relationships(input: { types: ["IsMemberOfGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
+                relationships(input: { types: ["IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
                     total\n
                 }\n
             }\n
@@ -1057,7 +824,7 @@ def test_add_remove_members_from_group(frontend_session):
         "query": """query corpUser($urn: String!) {\n
             corpUser(urn: $urn) {\n
                 urn\n
-                relationships(input: { types: ["IsMemberOfGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
+                relationships(input: { types: ["IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
                     total\n
                 }\n
             }\n
@@ -1097,7 +864,7 @@ def test_add_remove_members_from_group(frontend_session):
         "query": """query corpUser($urn: String!) {\n
             corpUser(urn: $urn) {\n
                 urn\n
-                relationships(input: { types: ["IsMemberOfGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
+                relationships(input: { types: ["IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
                     total\n
                 }\n
             }\n
@@ -1171,8 +938,8 @@ def test_update_corp_group_properties(frontend_session):
 
     # Reset the editable properties
     json = {
-        "query": """mutation updateCorpGroupProperties($urn: String!, $input: UpdateCorpGroupPropertiesInput!) {\n
-            updateCorpGroupProperties(urn: $urn, input: $input) }""",
+        "query": """mutation updateCorpGroupProperties($urn: String!, $input: CorpGroupUpdateInput!) {\n
+            updateCorpGroupProperties(urn: $urn, input: $input) { urn } }""",
         "variables": {
             "urn": group_urn,
             "input": {"description": "", "slack": "", "email": ""},
@@ -1466,7 +1233,9 @@ def test_generate_personal_access_token(frontend_session):
     # Test unauthenticated case
     json = {
         "query": """query getAccessToken($input: GetAccessTokenInput!) {\n
-            accessToken\n
+            getAccessToken(input: $input) {\n
+              accessToken\n
+            }\n
         }""",
         "variables": {
             "input": {

@@ -116,6 +116,7 @@ project.ext.externalDependency = [
     'parquet': 'org.apache.parquet:parquet-avro:1.12.2',
     'picocli': 'info.picocli:picocli:4.5.0',
     'playCache': 'com.typesafe.play:play-cache_2.12:2.7.6',
+    'playEhcache': 'com.typesafe.play:play-ehcache_2.12:2.7.6',
     'playWs': 'com.typesafe.play:play-ahc-ws-standalone_2.12:2.0.8',
     'playDocs': 'com.typesafe.play:play-docs_2.12:2.7.6',
     'playGuice': 'com.typesafe.play:play-guice_2.12:2.7.6',
