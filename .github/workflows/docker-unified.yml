@@ -22,20 +22,15 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  DATAHUB_GMS_IMAGE: "acryldata/datahub-gms"
-  DATAHUB_FRONTEND_IMAGE: "acryldata/datahub-frontend-react"
-  DATAHUB_MAE_CONSUMER_IMAGE: "acryldata/datahub-mae-consumer"
-  DATAHUB_MCE_CONSUMER_IMAGE: "acryldata/datahub-mce-consumer"
-  DATAHUB_KAFKA_SETUP_IMAGE: "acryldata/datahub-kafka-setup"
-  DATAHUB_ELASTIC_SETUP_IMAGE: "acryldata/datahub-elasticsearch-setup"
-  DATAHUB_MYSQL_SETUP_IMAGE: "acryldata/datahub-mysql-setup"
-  DATAHUB_UPGRADE_IMAGE: "acryldata/datahub-upgrade"
-  DATAHUB_INGESTION_BASE_IMAGE: "acryldata/datahub-ingestion-base"
-  DATAHUB_INGESTION_IMAGE: "acryldata/datahub-ingestion"
-
-permissions:
-  contents: read
-  id-token: write
+  DATAHUB_GMS_IMAGE: 'acryldata/datahub-gms'
+  DATAHUB_FRONTEND_IMAGE: 'acryldata/datahub-frontend-react'
+  DATAHUB_MAE_CONSUMER_IMAGE: 'acryldata/datahub-mae-consumer'
+  DATAHUB_MCE_CONSUMER_IMAGE: 'acryldata/datahub-mce-consumer'
+  DATAHUB_KAFKA_SETUP_IMAGE: 'acryldata/datahub-kafka-setup'
+  DATAHUB_ELASTIC_SETUP_IMAGE: 'acryldata/datahub-elasticsearch-setup'
+  DATAHUB_MYSQL_SETUP_IMAGE: 'acryldata/datahub-mysql-setup'
+  DATAHUB_UPGRADE_IMAGE: 'acryldata/datahub-upgrade'
+  
 
 jobs:
   setup:
@@ -92,11 +87,7 @@ jobs:
       - name: Check whether publishing enabled
         id: publish
         env:
-          ENABLE_PUBLISH: >-
-             ${{
-                github.event_name != 'pull_request'
-                && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
-             }}
+          ENABLE_PUBLISH: ${{ secrets.ORG_DOCKER_PASSWORD }}
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH }}"
           echo "publish=${{ env.ENABLE_PUBLISH }}" >> "$GITHUB_OUTPUT"
@@ -167,7 +158,36 @@ jobs:
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-gms/Dockerfile
-          platforms: linux/amd64,linux/arm64/v8
+          platforms: linux/amd64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          load: true
+          push: false
+      - name: Upload image locally for testing (if not publishing)
+        uses: ishworkh/docker-image-artifact-upload@v1
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        with:
+          image: ${{ steps.docker_meta.outputs.tags }}
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.ORG_DOCKER_PASSWORD }}
+      - name: Build and Push MultiPlatform image
+        uses: docker/build-push-action@v2
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        with:
+          context: .
+          file: ./docker/datahub-gms/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          push: true
   gms_scan:
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -231,7 +251,36 @@ jobs:
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-mae-consumer/Dockerfile
-          platforms: linux/amd64,linux/arm64/v8
+          platforms: linux/amd64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          load: true
+          push: false
+      - name: Upload image locally for testing (if not publishing)
+        uses: ishworkh/docker-image-artifact-upload@v1
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        with:
+          image: ${{ steps.docker_meta.outputs.tags }}
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.ORG_DOCKER_PASSWORD }}
+      - name: Build and Push Platform image
+        uses: docker/build-push-action@v2
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        with:
+          context: .
+          file: ./docker/datahub-mae-consumer/Dockerfile
+          platforms: linux/amd64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          push: true
   mae_consumer_scan:
     name: "[Monitoring] Scan MAE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
@@ -295,7 +344,36 @@ jobs:
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-mce-consumer/Dockerfile
-          platforms: linux/amd64,linux/arm64/v8
+          platforms: linux/amd64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          load: true
+          push: false
+      - name: Upload image locally for testing (if not publishing)
+        uses: ishworkh/docker-image-artifact-upload@v1
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        with:
+          image: ${{ steps.docker_meta.outputs.tags }}
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.ORG_DOCKER_PASSWORD }}
+      - name: Build and Push Platform image
+        uses: docker/build-push-action@v2
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        with:
+          context: .
+          file: ./docker/datahub-mce-consumer/Dockerfile
+          platforms: linux/amd64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          push: true
   mce_consumer_scan:
     name: "[Monitoring] Scan MCE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
@@ -425,7 +503,36 @@ jobs:
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/datahub-frontend/Dockerfile
-          platforms: linux/amd64,linux/arm64/v8
+          platforms: linux/amd64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          load: true
+          push: false
+      - name: Upload image locally for testing (if not publishing)
+        uses: ishworkh/docker-image-artifact-upload@v1
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        with:
+          image: ${{ steps.docker_meta.outputs.tags }}
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.ORG_DOCKER_PASSWORD }}
+      - name: Build and Push MultiPlatform image
+        uses: docker/build-push-action@v2
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        with:
+          context: .
+          file: ./docker/datahub-frontend/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          push: true
   frontend_scan:
     name: "[Monitoring] Scan Frontend images for vulnerabilities"
     runs-on: ubuntu-latest
@@ -479,8 +586,36 @@ jobs:
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
           context: .
           file: ./docker/kafka-setup/Dockerfile
-          platforms: linux/amd64,linux/arm64/v8
-
+          platforms: linux/amd64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          load: true
+          push: false
+      - name: Upload image locally for testing (if not publishing)
+        uses: ishworkh/docker-image-artifact-upload@v1
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        with:
+          image: ${{ steps.docker_meta.outputs.tags }}
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.ORG_DOCKER_PASSWORD }}
+      - name: Build and Push MultiPlatform image
+        uses: docker/build-push-action@v2
+        if: ${{ needs.setup.outputs.publish == 'true' }}
+        with:
+          context: ./docker/kafka-setup
+          file: ./docker/kafka-setup/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          push: true
   mysql_setup_build:
     name: Build and Push DataHub MySQL Setup Docker Image
     runs-on: ubuntu-latest
@@ -570,11 +705,11 @@ jobs:
         uses: docker/login-action@v3
         if: ${{ needs.setup.outputs.docker-login == 'true' && needs.setup.outputs.publish == 'false' && needs.setup.outputs.pr-publish == 'false' && needs.setup.outputs.ingestion_base_change == 'false' }}
         with:
-          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-      - name: Build and push Base-Slim Image
-        if: ${{ needs.setup.outputs.ingestion_base_change == 'true' }}
-        uses: ./.github/actions/docker-custom-build-and-push
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.ORG_DOCKER_PASSWORD }}
+      - name: Build and Push MultiPlatform image
+        uses: docker/build-push-action@v2
+        if: ${{ needs.setup.outputs.publish == 'true' }}
         with:
           target: slim-install
           images: |
