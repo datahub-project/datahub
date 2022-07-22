@@ -1,5 +1,5 @@
 source:
-  type: powerbireportserver.report_server.PowerBiReportServerDashboardSource
+  type: powerbi-report-server
   config:
     # Your Power BI Report Server Windows username
     username: username
@@ -19,9 +19,6 @@ source:
     report_virtual_directory_name: Reports
     #  Your Power BI Report Server base virtual directory name for report server
     report_server_virtual_directory_name: ReportServer
-    # dataset_type_mapping is fixed mapping of Power BI datasources type to equivalent Datahub "data platform" dataset
-    dataset_type_mapping:
-        PostgreSql: postgres
-        Oracle: oracle
+
 sink:
   # sink configs

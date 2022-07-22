@@ -5,9 +5,9 @@ from unittest.mock import patch
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.powerbi_report_server.report_server_domain import (
+from datahub.ingestion.source.powerbi_report_server import (
+    CorpUser,
     PowerBiReport,
-    Report,
 )
 from tests.test_helpers import mce_helpers
 
@@ -27,10 +27,10 @@ def test_powerbi_report_server_ingest(pytestconfig, tmp_path, mock_time):
         # Mock the PowerBi Dashboard API response
         mocked_client.get_all_reports.return_value = [
             PowerBiReport(
-                Id="c2259cbb-472f-4ee4-897a-97cf24d943db",
-                Name="6B536811-2E00-4961-9845-8559BA16C122",
+                Id="ee56dc21-248a-4138-a446-ee5ab1fc938b",
+                Name="Test",
                 Description=None,
-                Path="/path/to/6B536811-2E00-4961-9845-8559BA16C122",
+                Path="/path/to/Test",
                 Type="PowerBIReport",
                 Hidden=False,
                 Size=1010101,
@@ -42,33 +42,22 @@ def test_powerbi_report_server_ingest(pytestconfig, tmp_path, mock_time):
                 ContentType=None,
                 Content="",
                 IsFavorite=False,
-                UserInfo=None,
+                UserInfo=CorpUser(
+                    active=True,
+                    display_name="User1",
+                    email="User1@foo.com",
+                    title=None,
+                    manager=None,
+                    department_id=None,
+                    department_name=None,
+                    first_name=None,
+                    last_name=None,
+                    full_name=None,
+                    country_code=None,
+                ),
                 DisplayName="TEST_USER",
                 HasDataSources=True,
                 DataSources=[],
-            ),
-            Report(
-                Id="ee56dc21-248a-4138-a446-ee5ab1fc938b",
-                Name="Test_rdl",
-                Description=None,
-                Path="/path/to/Test_rdl",
-                Type="Report",
-                Hidden=False,
-                Size=1010101,
-                ModifiedBy="TEST_USER",
-                ModifiedDate=datetime.now(),
-                CreatedBy="TEST_USER",
-                CreatedDate=datetime.now(),
-                ParentFolderId="47495172-89ab-455f-a446-fffd3cf239cb",
-                ContentType=None,
-                Content="",
-                IsFavorite=False,
-                UserInfo=None,
-                DisplayName="TEST_USER",
-                HasDataSources=True,
-                DataSources=[],
-                HasSharedDataSets=False,
-                HasParameters=False,
             ),
         ]
 
@@ -84,16 +73,12 @@ def test_powerbi_report_server_ingest(pytestconfig, tmp_path, mock_time):
                     "config": {
                         "username": "foo",
                         "password": "bar",
-                        "workstation_name": "0B0C960B-FCDF-4D0F-8C45-2E03BB59DDEB",
-                        "host_port": "64ED5CAD-7C10-4684-8180-826122881108",
-                        "server_alias": "64ED5CAD",
+                        "workstation_name": "workstation",
+                        "host_port": "host_port",
+                        "server_alias": "server_alias",
                         "graphql_url": "http://localhost:8080/api/graphql",
                         "report_virtual_directory_name": "Reports",
                         "report_server_virtual_directory_name": "ReportServer",
-                        "dataset_type_mapping": {
-                            "PostgreSql": "postgres",
-                            "Oracle": "oracle",
-                        },
                         "env": "DEV",
                     },
                 },
