@@ -493,7 +493,9 @@ class BigQuerySource(SQLAlchemySource):
         )
         _client: BigQueryClient = BigQueryClient(project=exec_project_id)
 
-        full_schema_name = f"{storage_project_id}.{schema}" if len(schema.split(".")) == 1 else schema
+        full_schema_name = (
+            f"{storage_project_id}.{schema}" if len(schema.split(".")) == 1 else schema
+        )
         # Reading all tables' metadata to report
         all_tables = _client.query(self.get_all_schema_tables_query(full_schema_name))
         report_tables: List[str] = [
