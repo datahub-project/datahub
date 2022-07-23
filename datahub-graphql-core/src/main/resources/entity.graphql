@@ -4139,7 +4139,7 @@ type Dashboard implements EntityWithRelationships & Entity {
     usageStats(startTimeMillis: Long, endTimeMillis: Long, limit: Int): DashboardUsageQueryResult
 
     """
-    Experimental - Summary operational & usage statistics about a Dataset
+    Experimental - Summary operational & usage statistics about a Dashboard
     """
     statsSummary: DashboardStatsSummary
 
@@ -4395,6 +4395,13 @@ type Chart implements EntityWithRelationships & Entity {
     The specific instance of the data platform that this entity belongs to
     """
     dataPlatformInstance: DataPlatformInstance
+
+    """
+    Not yet implemented.
+
+    Experimental - Summary operational & usage statistics about a Chart
+    """
+    statsSummary: ChartStatsSummary
 
     """
     Granular API for querying edges extending from this entity
@@ -5447,6 +5454,32 @@ Experimental - subject to change. A summary of usage metrics about a Dashboard.
 type DashboardStatsSummary {
     """
     The total view count for the dashboard
+    """
+    viewCount: Int
+
+    """
+    The view count in the last 30 days
+    """
+    viewCountLast30Days: Int
+
+    """
+    The unique user count in the past 30 days
+    """
+    uniqueUserCountLast30Days: Int
+
+    """
+    The top users in the past 30 days
+    """
+    topUsersLast30Days: [CorpUser!]
+}
+
+
+"""
+Experimental - subject to change. A summary of usage metrics about a Chart.
+"""
+type ChartStatsSummary {
+    """
+    The total view count for the chart
     """
     viewCount: Int
 
