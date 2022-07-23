@@ -492,7 +492,7 @@ class BigQuerySource(SQLAlchemySource):
             inspector, run_on_compute=True
         )
         _client: BigQueryClient = BigQueryClient(project=exec_project_id)
-        
+
         # if schema contains a bare dataset name, then add a project_id o/w dont modify it
         full_schema_name = (
             f"{storage_project_id}.{schema}" if len(schema.split(".")) == 1 else schema
