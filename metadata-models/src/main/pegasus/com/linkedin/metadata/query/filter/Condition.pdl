@@ -20,6 +20,11 @@ enum Condition {
    */
   EQUAL
 
+   /**
+   * Represent the relation: field is null, e.g. platform is null
+   */
+  IS_NULL
+
   /**
    * Represent the relation greater than, e.g. ownerCount > 5
    */

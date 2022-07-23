@@ -1,11 +1,25 @@
 #!/bin/bash -e
 
+#From https://stackoverflow.com/questions/4023830/how-to-compare-two-strings-in-dot-separated-version-format-in-bash
+verlte() {
+  [  "$1" == "$(echo -e "$1\n$2" | sort -V | head -n1)" ]
+}
+
 brew_install() {
-    printf '\n🔎 Checking if %s installed\n' "${1}"
-    if brew list "$1" &>/dev/null; then
-        printf '✅ %s is already installed\n' "${1}"
+    package=${1}
+    required_version=${2}
+    printf '\n🔎 Checking if %s installed\n' "${package}"
+    version=$(brew list --version|grep "$1"|awk '{ print $2 }')
+
+    if [ -n "${version}" ]; then
+      if [ -n "$2" ] && ! verlte "${required_version}" "${version}"; then
+        printf '🔽 %s is installed but its version %s is lower than the required %s\n' "${package}" "${version}" "${required_version}. Updating version..."
+        brew update && brew upgrade "$1" && printf '✅ %s is installed\n' "${package}"
+      else
+        printf '✅ %s is already installed\n' "${package} with version ${version}"
+      fi
     else
-        brew install "$1" && printf '✅ %s is installed\n' "${1}"
+        brew install "$1" && printf '✅ %s is installed\n' "${package}"
     fi
 }
 
@@ -32,7 +46,7 @@ arm64_darwin_preflight() {
   fi
 
   printf "✨ Setting up librdkafka prerequisities\n"
-  brew_install "librdkafka"
+  brew_install "librdkafka" "1.9.1"
   brew_install "openssl@1.1"
   brew install "postgresql"
 

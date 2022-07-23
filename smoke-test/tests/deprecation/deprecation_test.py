@@ -1,9 +1,6 @@
 import pytest
-import time
-from tests.utils import FRONTEND_ENDPOINT
-from tests.utils import GMS_ENDPOINT
-from tests.utils import ingest_file_via_rest
-from tests.utils import delete_urns_from_file
+from tests.utils import delete_urns_from_file, get_frontend_url, ingest_file_via_rest
+
 
 @pytest.fixture(scope="module", autouse=True)
 def ingest_cleanup_data(request):
@@ -13,14 +10,18 @@ def ingest_cleanup_data(request):
     print("removing deprecation test data")
     delete_urns_from_file("tests/deprecation/data.json")
 
+
 @pytest.mark.dependency()
 def test_healthchecks(wait_for_healthchecks):
     # Call to wait_for_healthchecks fixture will do the actual functionality.
     pass
 
+
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_update_deprecation_all_fields(frontend_session):
-    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-tags-terms-sample-kafka,PROD)"
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,test-tags-terms-sample-kafka,PROD)"
+    )
 
     dataset_json = {
         "query": """query getDataset($urn: String!) {\n
@@ -33,14 +34,12 @@ def test_update_deprecation_all_fields(frontend_session):
                 }\n
             }\n
         }""",
-        "variables": {
-            "urn": dataset_urn
-        }
+        "variables": {"urn": dataset_urn},
     }
 
     # Fetch tags
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_json
+        f"{get_frontend_url()}/api/v2/graphql", json=dataset_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -56,16 +55,16 @@ def test_update_deprecation_all_fields(frontend_session):
         }""",
         "variables": {
             "input": {
-              "urn": dataset_urn,
-              "deprecated": True,
-              "note": "My test note",
-              "decommissionTime": 0
+                "urn": dataset_urn,
+                "deprecated": True,
+                "note": "My test note",
+                "decommissionTime": 0,
             }
-        }
+        },
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=update_deprecation_json
+        f"{get_frontend_url()}/api/v2/graphql", json=update_deprecation_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -76,7 +75,7 @@ def test_update_deprecation_all_fields(frontend_session):
 
     # Refetch the dataset
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_json
+        f"{get_frontend_url()}/api/v2/graphql", json=dataset_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -85,30 +84,30 @@ def test_update_deprecation_all_fields(frontend_session):
     assert res_data["data"]
     assert res_data["data"]["dataset"]
     assert res_data["data"]["dataset"]["deprecation"] == {
-      'deprecated': True,
-      'decommissionTime': 0,
-      'note': 'My test note',
-      'actor': 'urn:li:corpuser:datahub'
+        "deprecated": True,
+        "decommissionTime": 0,
+        "note": "My test note",
+        "actor": "urn:li:corpuser:datahub",
     }
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_update_deprecation_all_fields"])
+
+@pytest.mark.dependency(
+    depends=["test_healthchecks", "test_update_deprecation_all_fields"]
+)
 def test_update_deprecation_partial_fields(frontend_session, ingest_cleanup_data):
-    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-tags-terms-sample-kafka,PROD)"
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,test-tags-terms-sample-kafka,PROD)"
+    )
 
     update_deprecation_json = {
         "query": """mutation updateDeprecation($input: UpdateDeprecationInput!) {\n
             updateDeprecation(input: $input)
         }""",
-        "variables": {
-            "input": {
-              "urn": dataset_urn,
-              "deprecated": False
-            }
-        }
+        "variables": {"input": {"urn": dataset_urn, "deprecated": False}},
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=update_deprecation_json
+        f"{get_frontend_url()}/api/v2/graphql", json=update_deprecation_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -129,13 +128,11 @@ def test_update_deprecation_partial_fields(frontend_session, ingest_cleanup_data
                 }\n
             }\n
         }""",
-        "variables": {
-            "urn": dataset_urn
-        }
+        "variables": {"urn": dataset_urn},
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=dataset_json
+        f"{get_frontend_url()}/api/v2/graphql", json=dataset_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -144,8 +141,8 @@ def test_update_deprecation_partial_fields(frontend_session, ingest_cleanup_data
     assert res_data["data"]
     assert res_data["data"]["dataset"]
     assert res_data["data"]["dataset"]["deprecation"] == {
-      'deprecated': False,
-      'note': '',
-      'actor': 'urn:li:corpuser:datahub',
-      'decommissionTime': None
+        "deprecated": False,
+        "note": "",
+        "actor": "urn:li:corpuser:datahub",
+        "decommissionTime": None,
     }

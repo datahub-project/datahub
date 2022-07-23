@@ -9,7 +9,7 @@ services:
     env_file: mysql/env/docker.env
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin
     ports:
-      - "3306:3306"
+      - ${DATAHUB_MAPPED_MYSQL_PORT:-3306}:3306
     volumes:
       - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
       - mysqldata:/var/lib/mysql

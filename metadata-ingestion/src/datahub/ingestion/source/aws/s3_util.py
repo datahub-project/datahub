@@ -1,6 +1,10 @@
+import logging
 import os
 
 S3_PREFIXES = ["s3://", "s3n://", "s3a://"]
+
+logging.getLogger("py4j").setLevel(logging.ERROR)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def is_s3_uri(uri: str) -> bool:
@@ -24,7 +28,6 @@ def get_bucket_relative_path(s3_uri: str) -> str:
 
 
 def make_s3_urn(s3_uri: str, env: str) -> str:
-
     s3_name = strip_s3_prefix(s3_uri)
 
     if s3_name.endswith("/"):

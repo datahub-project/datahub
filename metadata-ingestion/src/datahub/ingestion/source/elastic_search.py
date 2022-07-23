@@ -255,9 +255,7 @@ class ElasticsearchSourceConfig(DatasetSourceConfigBase):
 
     @property
     def http_auth(self) -> Optional[Tuple[str, str]]:
-        if self.username is None:
-            return None
-        return self.username, self.password or ""
+        return None if self.username is None else (self.username, self.password or "")
 
 
 @platform_name("Elastic Search")

@@ -67,6 +67,7 @@ DEBUG_INCLUDE_FULL_PAYLOADS = False
 PARTITIONED_TABLE_REGEX = re.compile(
     r"^(.+)[\$_](\d{4}|\d{6}|\d{8}|\d{10}|__PARTITIONS_SUMMARY__)$"
 )
+PARTITION_SUMMARY_REGEXP = re.compile(r"^(.+)\$__PARTITIONS_SUMMARY__$")
 
 # Handle table snapshots
 # See https://cloud.google.com/bigquery/docs/table-snapshots-intro.
@@ -154,7 +155,6 @@ AND
 timestamp < "{end_time}"
 """.strip(),
 }
-
 
 OPERATION_STATEMENT_TYPES = {
     "INSERT": OperationTypeClass.INSERT,
@@ -268,18 +268,42 @@ class BigQueryTableRef:
         # Temporary tables will have a dataset that begins with an underscore.
         return self.dataset.startswith(prefix)
 
-    def remove_extras(self) -> "BigQueryTableRef":
+    @staticmethod
+    def remove_suffix(input_string, suffix):
+        if suffix and input_string.endswith(suffix):
+            return input_string[: -len(suffix)]
+        return input_string
+
+    def remove_extras(self, sharded_table_regex: str) -> "BigQueryTableRef":
         # Handle partitioned and sharded tables.
-        matches = PARTITIONED_TABLE_REGEX.match(self.table)
+        table_name: Optional[str] = None
+        shortened_table_name = self.table
+        # if table name ends in _* or * then we strip it as that represents a query on a sharded table
+        shortened_table_name = self.remove_suffix(shortened_table_name, "_*")
+        shortened_table_name = self.remove_suffix(shortened_table_name, "*")
+
+        matches = re.match(sharded_table_regex, shortened_table_name)
         if matches:
-            table_name = matches.group(1)
+            table_name = matches.group(2)
+        else:
+            matches = PARTITION_SUMMARY_REGEXP.match(shortened_table_name)
+            if matches:
+                table_name = matches.group(1)
+        if matches:
+            if not table_name:
+                logger.debug(
+                    f"Using dataset id {self.dataset} as table name because table only contains date value {self.table}"
+                )
+                table_name = self.dataset
+
             logger.debug(
-                f"Found partitioned table {self.table}. Using {table_name} as the table name."
+                f"Found sharded table {self.table}. Using {table_name} as the table name."
             )
+
             return BigQueryTableRef(self.project, self.dataset, table_name)
 
         # Handle table snapshots.
-        matches = SNAPSHOT_TABLE_REGEX.match(self.table)
+        matches = SNAPSHOT_TABLE_REGEX.match(shortened_table_name)
         if matches:
             table_name = matches.group(1)
             logger.debug(
@@ -289,14 +313,14 @@ class BigQueryTableRef:
 
         # Handle exceptions
         invalid_chars_in_table_name: List[str] = [
-            c for c in {"$", "@"} if c in self.table
+            c for c in {"$", "@"} if c in shortened_table_name
         ]
         if invalid_chars_in_table_name:
             raise ValueError(
                 f"Cannot handle {self} - poorly formatted table name, contains {invalid_chars_in_table_name}"
             )
 
-        return self
+        return BigQueryTableRef(self.project, self.dataset, shortened_table_name)
 
     def __str__(self) -> str:
         return f"projects/{self.project}/datasets/{self.dataset}/tables/{self.table}"
@@ -488,7 +512,7 @@ class QueryEvent:
             if "queryOutputRowCount" in job["jobStatistics"]
             and job["jobStatistics"]["queryOutputRowCount"]
             else None,
-            statementType=job_query_conf["statementType"],
+            statementType=job_query_conf.get("statementType", "UNKNOWN"),
         )
         # destinationTable
         raw_dest_table = job_query_conf.get("destinationTable")
@@ -565,7 +589,7 @@ class QueryEvent:
             numAffectedRows=int(query_stats["outputRowCount"])
             if query_stats.get("outputRowCount")
             else None,
-            statementType=query_config["statementType"],
+            statementType=query_config.get("statementType", "UNKNOWN"),
         )
         # jobName
         query_event.job_name = job.get("jobName")
@@ -627,7 +651,7 @@ class QueryEvent:
             numAffectedRows=int(query_stats["outputRowCount"])
             if "outputRowCount" in query_stats and query_stats["outputRowCount"]
             else None,
-            statementType=query_config["statementType"],
+            statementType=query_config.get("statementType", "UNKNOWN"),
         )
         query_event.job_name = job.get("jobName")
         # destinationTable
@@ -1022,9 +1046,13 @@ class BigQueryUsageSource(Source):
             and event.query_event
             and event.query_event.destinationTable
         ):
-            destination_table = event.query_event.destinationTable.remove_extras()
+            destination_table = event.query_event.destinationTable.remove_extras(
+                self.config.sharded_table_pattern
+            )
         elif event.read_event:
-            destination_table = event.read_event.resource.remove_extras()
+            destination_table = event.read_event.resource.remove_extras(
+                self.config.sharded_table_pattern
+            )
         else:
             # TODO: CREATE_SCHEMA operation ends up here, maybe we should capture that as well
             # but it is tricky as we only get the query so it can't be tied to anything
@@ -1082,7 +1110,7 @@ class BigQueryUsageSource(Source):
                 try:
                     affected_datasets.append(
                         _table_ref_to_urn(
-                            table.remove_extras(),
+                            table.remove_extras(self.config.sharded_table_pattern),
                             self.config.env,
                         )
                     )
@@ -1119,7 +1147,7 @@ class BigQueryUsageSource(Source):
             aspect=operation_aspect,
         )
         return MetadataWorkUnit(
-            id=f"{datetime.fromtimestamp(last_updated_timestamp/1000).isoformat()}-operation-aspect-{destination_table}",
+            id=f"{datetime.fromtimestamp(last_updated_timestamp / 1000).isoformat()}-operation-aspect-{destination_table}",
             mcp=mcp,
         )
 
@@ -1325,7 +1353,9 @@ class BigQueryUsageSource(Source):
         )
         resource: Optional[BigQueryTableRef] = None
         try:
-            resource = event.read_event.resource.remove_extras()
+            resource = event.read_event.resource.remove_extras(
+                self.config.sharded_table_pattern
+            )
         except Exception as e:
             self.report.report_warning(
                 str(event.read_event.resource), f"Failed to clean up resource, {e}"

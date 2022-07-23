@@ -6,7 +6,7 @@ type Props = {
     urn: string;
     visible: boolean;
     onClose: () => void;
-    refetch?: () => Promise<any>;
+    refetch?: () => void;
 };
 
 export const AddDeprecationDetailsModal = ({ urn, visible, onClose, refetch }: Props) => {

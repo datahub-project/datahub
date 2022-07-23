@@ -60,6 +60,7 @@ export const chartEntity = (tool): Chart => {
                     owner: datahubUser,
                     type: OwnershipType.Stakeholder,
                     __typename: 'Owner',
+                    associatedUrn: `urn:li:chart:(${tool},${name})`,
                 },
             ],
             lastModified: { time: 1619717962718, __typename: 'AuditStamp' },

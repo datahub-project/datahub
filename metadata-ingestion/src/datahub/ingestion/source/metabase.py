@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Dict, Iterable, Optional
 
@@ -199,7 +199,7 @@ class MetabaseSource(Source):
         try:
             return int(dp.parse(ts_str).timestamp() * 1000)
         except (dp.ParserError, OverflowError):
-            return int(datetime.utcnow().timestamp() * 1000)
+            return int(datetime.now(timezone.utc).timestamp() * 1000)
 
     def construct_dashboard_from_api_data(
         self, dashboard_info: dict
@@ -449,7 +449,7 @@ class MetabaseSource(Source):
                 schema_name, table_name = self.get_source_table_from_id(source_table_id)
                 if table_name:
                     source_paths.add(
-                        f"{schema_name + '.' if schema_name else ''}{table_name}"
+                        f"{f'{schema_name}.' if schema_name else ''}{table_name}"
                     )
         else:
             try:
@@ -478,7 +478,7 @@ class MetabaseSource(Source):
 
         # Create dataset URNs
         dataset_urn = []
-        dbname = f"{database_name + '.' if database_name else ''}"
+        dbname = f"{f'{database_name}.' if database_name else ''}"
         source_tables = list(map(lambda tbl: f"{dbname}{tbl}", source_paths))
         dataset_urn = [
             builder.make_dataset_urn_with_platform_instance(

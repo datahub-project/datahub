@@ -1,4 +1,0 @@
-lkml==1.1.0
-avro-python3==1.8.2
-confluent-kafka[avro]==1.4.0
-sql-metadata==1.12.0

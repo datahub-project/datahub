@@ -64,7 +64,8 @@ export class DomainEntity implements Entity<Domain> {
             useEntityQuery={useGetDomainQuery}
             useUpdateQuery={undefined}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.COPY_URL])}
+            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.DELETE])}
+            isNameEditable
             tabs={[
                 {
                     name: 'Entities',
@@ -117,7 +118,7 @@ export class DomainEntity implements Entity<Domain> {
     };
 
     displayName = (data: Domain) => {
-        return data?.properties?.name || data?.id;
+        return data?.properties?.name || data?.id || data.urn;
     };
 
     getOverridePropertiesFromEntity = (data: Domain) => {
