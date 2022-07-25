@@ -88,21 +88,6 @@
                             "/prod/kafka/key_topic"
                         ]
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "clusterId": "0lzg-De_ThiYDHIAQwOVWw",
-                            "controllerId": "1001",
-                            "numberOfPartitions": "1"
-                        },
-                        "externalUrl": null,
-                        "name": "key_topic",
-                        "qualifiedName": "/prod/kafka/0lzg-De_ThiYDHIAQwOVWw/key_topic",
-                        "description": "Documentation- urn:li:dataPlatform:kafka.key_topic",
-                        "uri": null,
-                        "tags": []
-                    }
                 }
             ]
         }
@@ -284,21 +269,6 @@
                             "/prod/kafka/key_value_topic"
                         ]
                     }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "clusterId": "0lzg-De_ThiYDHIAQwOVWw",
-                            "controllerId": "1001",
-                            "numberOfPartitions": "1"
-                        },
-                        "externalUrl": null,
-                        "name": "key_value_topic",
-                        "qualifiedName": "/prod/kafka/0lzg-De_ThiYDHIAQwOVWw/key_value_topic",
-                        "description": "Documentation- urn:li:dataPlatform:kafka.key_value_topic",
-                        "uri": null,
-                        "tags": []
-                    }
                 }
             ]
         }
@@ -478,21 +448,6 @@
                         "paths": [
                             "/prod/kafka/value_topic"
                         ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "clusterId": "0lzg-De_ThiYDHIAQwOVWw",
-                            "controllerId": "1001",
-                            "numberOfPartitions": "1"
-                        },
-                        "externalUrl": null,
-                        "name": "value_topic",
-                        "qualifiedName": "/prod/kafka/0lzg-De_ThiYDHIAQwOVWw/value_topic",
-                        "description": "Documentation- urn:li:dataPlatform:kafka.value_topic",
-                        "uri": null,
-                        "tags": []
                     }
                 }
             ]
