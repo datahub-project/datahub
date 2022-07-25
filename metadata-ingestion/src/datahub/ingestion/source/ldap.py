@@ -338,31 +338,29 @@ class LDAPSource(Source):
         )
         manager_urn = f"urn:li:corpuser:{manager_ldap}" if manager_ldap else None
 
-        aspects = [
-            CorpUserInfoClass(
-                active=True,
-                email=email,
-                fullName=full_name,
-                firstName=first_name,
-                lastName=last_name,
-                departmentId=department_id,
-                departmentName=department_name,
-                displayName=display_name,
-                countryCode=country_code,
-                title=title,
-                managerUrn=manager_urn,
-            )
-        ]
+        user_snapshot = CorpUserSnapshotClass(
+            urn=f"urn:li:corpuser:{ldap_user}",
+            aspects=[
+                CorpUserInfoClass(
+                    active=True,
+                    email=email,
+                    fullName=full_name,
+                    firstName=first_name,
+                    lastName=last_name,
+                    departmentId=department_id,
+                    departmentName=department_name,
+                    displayName=display_name,
+                    countryCode=country_code,
+                    title=title,
+                    managerUrn=manager_urn,
+                )
+            ],
+        )
 
         if groups:
-            aspects.append(GroupMembershipClass(groups=groups))
+            user_snapshot.aspects.append(GroupMembershipClass(groups=groups))
 
-        return MetadataChangeEvent(
-            proposedSnapshot=CorpUserSnapshotClass(
-                urn=f"urn:li:corpuser:{ldap_user}",
-                aspects=aspects,
-            )
-        )
+        return MetadataChangeEvent(proposedSnapshot=user_snapshot)
 
     def build_corp_group_mce(self, attrs: dict) -> Optional[MetadataChangeEvent]:
         """Creates a MetadataChangeEvent for LDAP groups."""
