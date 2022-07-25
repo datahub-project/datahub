@@ -150,13 +150,58 @@ To stop DataHub's quickstart, you can issue the following command.
 datahub docker quickstart --stop
 ```
 
-### Resetting DataHub
+### Resetting DataHub (a.k.a factory reset)
 
 To cleanse DataHub of all of its state (e.g. before ingesting your own), you can use the CLI `nuke` command.
 
 ```
 datahub docker nuke
 ```
+
+### Backing up your DataHub Quickstart (experimental)
+
+The quickstart image is not recommended for use as a production instance. See [Moving to production](#move-to-production) for recommendations on setting up your production cluster. However, in case you want to take a backup of your current quickstart state (e.g. you have a demo to your company coming up and you want to create a copy of the quickstart data so you can restore it at a future date), you can supply the `--backup` flag to quickstart. 
+```
+datahub docker quickstart --backup
+```
+will take a backup of your MySQL image and write it by default to your `~/.datahub/quickstart/` directory as the file `backup.sql`. You can customize this by passing a `--backup-file` argument. 
+e.g. 
+```
+datahub docker quickstart --backup --backup-file /home/my_user/datahub_backups/quickstart_backup_2002_22_01.sql
+```
+:::note
+
+Note that the Quickstart backup does not include any timeseries data (dataset statistics, profiles, etc.), so you will lose that information if you delete all your indexes and restore from this backup. 
+
+
+### Restoring your DataHub Quickstart (experimental)
+As you might imagine, these backups are restore-able. The following section describes a few different options you have to restore your backup.
+
+#### Restoring a backup (primary + index) [most common]
+To restore a previous backup, run the following command:
+```
+datahub docker quickstart --restore
+```
+This command will pick up the `backup.sql` file located under `~/.datahub/quickstart` and restore your primary database as well as the elasticsearch indexes with it.
+
+To supply a specific backup file, use the `--restore-file` option. 
+```
+datahub docker quickstart --restore --restore-file /home/my_user/datahub_backups/quickstart_backup_2002_22_01.sql
+```
+
+#### Restoring only the index [to deal with index out of sync / corruption issues]
+Another situation that can come up is the index can get corrupt, or be missing some update. In order to re-bootstrap the index from the primary store, you can run this command to sync the index with the primary store. 
+```
+datahub docker quickstart --restore-indices
+```
+
+#### Restoring a backup (primary but NO index) [rarely used]
+Sometimes, you might want to just restore the state of your primary database (MySQL), but not re-index the data. To do this, you have to explicitly disable the restore-indices capability. 
+
+```
+datahub docker quickstart --restore --no-restore-indices
+```
+
 
 ### Upgrading your local DataHub
 
