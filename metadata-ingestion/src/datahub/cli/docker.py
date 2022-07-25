@@ -14,6 +14,7 @@ from typing import List, NoReturn, Optional
 import click
 import pydantic
 import requests
+from expandvars import expandvars
 
 from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
@@ -228,6 +229,20 @@ def _restore(
     restore_indices: Optional[bool],
     primary_restore_file: Optional[str],
 ) -> int:
+    assert (
+        restore_primary or restore_indices
+    ), "Either restore_primary or restore_indices must be set"
+    msg = "datahub> "
+    if restore_primary:
+        msg += f"Will restore primary database from {primary_restore_file}. "
+    if restore_indices is not False:
+        msg += (
+            f"Will {'also ' if restore_primary else ''}re-build indexes from scratch. "
+        )
+    else:
+        msg += "Will not re-build indexes. "
+    msg += "Press y to continue."
+    click.confirm(msg, abort=True)
     if restore_primary:
         assert primary_restore_file
         resolved_restore_file = os.path.expanduser(primary_restore_file)
@@ -254,24 +269,24 @@ def _restore(
             logger.info("Successfully restored primary backup.")
 
     # We run restore indices by default on primary restores, and also if the --restore-indices flag is explicitly set
-    if restore_primary or restore_indices is True:
-        logger.info("Running Index restore command")
+    if restore_indices is not False:
         with tempfile.NamedTemporaryFile() as env_fp:
             env_fp.write(
-                """
+                expandvars(
+                    """
             # Required Environment Variables
 EBEAN_DATASOURCE_USERNAME=datahub
 EBEAN_DATASOURCE_PASSWORD=datahub
-EBEAN_DATASOURCE_HOST=mysql:3306
-EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
+EBEAN_DATASOURCE_HOST=mysql:${DATAHUB_MAPPED_MYSQL_PORT:-3306}
+EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:${DATAHUB_MAPPED_MYSQL_PORT:-3306}/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
 EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
 ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
 
 KAFKA_BOOTSTRAP_SERVER=broker:29092
-KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
+KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}
 
 ELASTICSEARCH_HOST=elasticsearch
-ELASTICSEARCH_PORT=9200
+ELASTICSEARCH_PORT=${DATAHUB_MAPPED_ELASTIC_PORT:-9200}
 
 #NEO4J_HOST=http://<your-neo-host>:7474
 #NEO4J_URI=bolt://<your-neo-host>
@@ -279,7 +294,7 @@ ELASTICSEARCH_PORT=9200
 #NEO4J_PASSWORD=datahub
 
 DATAHUB_GMS_HOST=datahub-gms
-DATAHUB_GMS_PORT=8080
+DATAHUB_GMS_PORT=${DATAHUB_MAPPED_GMS_PORT:-8080}
 
 DATAHUB_MAE_CONSUMER_HOST=datahub-gms
 DATAHUB_MAE_CONSUMER_PORT=9091
@@ -296,17 +311,30 @@ DATAHUB_MAE_CONSUMER_PORT=9091
 # ELASTICSEARCH_SSL_KEYSTORE_FILE=
 # ELASTICSEARCH_SSL_KEYSTORE_TYPE=
 # ELASTICSEARCH_SSL_KEYSTORE_PASSWORD=
-            """.encode(
-                    "utf-8"
-                )
+            """
+                ).encode("utf-8")
             )
             env_fp.flush()
+            if logger.isEnabledFor(logging.DEBUG):
+                with open(env_fp.name, "r") as env_fp_reader:
+                    logger.debug(f"Env file contents: {env_fp_reader.read()}")
+
             # continue to issue the restore indices command
+            command = (
+                "docker pull acryldata/datahub-upgrade:${DATAHUB_VERSION:-head}"
+                + f" && docker run --network datahub_network --env-file {env_fp.name} "
+                + "acryldata/datahub-upgrade:${DATAHUB_VERSION:-head} -u RestoreIndices -a clean"
+            )
+            logger.info(f"Running index restore command: {command}")
             result = subprocess.run(
                 [
                     "bash",
                     "-c",
-                    f"docker run --network datahub_network --env-file {env_fp.name} acryldata/datahub-upgrade:head -u RestoreIndices -a clean",
+                    "docker pull acryldata/datahub-upgrade:"
+                    + "${DATAHUB_VERSION:-head}"
+                    + f" && docker run --network datahub_network --env-file {env_fp.name} "
+                    + "acryldata/datahub-upgrade:${DATAHUB_VERSION:-head}"
+                    + " -u RestoreIndices -a clean",
                 ],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
