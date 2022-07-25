@@ -341,7 +341,7 @@ jobs:
         with:
           context: .
           file: ./docker/datahub-upgrade/Dockerfile
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.docker_meta.outputs.tags }}
           push: true
   datahub_upgrade_scan:
