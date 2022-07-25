@@ -215,7 +215,7 @@ describe('schemaProposals', () => {
       cy.contains('TagToPropose');
 
       // Accepting proposal
-      cy.contains('My Requests').click({force: true});
+      cy.contains('Inbox').click({force: true});
       cy.get('.action-request-test-id').should('have.length', 1)
       cy.contains('Approve & Add').first().click({force: true});
       cy.contains('Yes').click({force: true});
@@ -267,7 +267,7 @@ describe('schemaProposals', () => {
       cy.contains('TermToPropose');
 
       // Accepting proposal
-      cy.contains('My Requests').click({force: true});
+      cy.contains('Inbox').click({force: true});
       cy.get('.action-request-test-id').should('have.length', 1)
       cy.contains('Approve & Add').first().click({force: true});
       cy.contains('Yes').click({force: true});
