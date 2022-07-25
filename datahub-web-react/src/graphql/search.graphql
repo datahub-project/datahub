@@ -426,7 +426,9 @@ fragment searchResultFields on Entity {
         }
         statsSummary {
             viewCount
+            viewCountPercentileLast30Days
             uniqueUserCountLast30Days
+            uniqueUserPercentileLast30Days
             topUsersLast30Days {
                 urn
                 type

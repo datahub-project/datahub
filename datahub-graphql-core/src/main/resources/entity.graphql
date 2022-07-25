@@ -5641,9 +5641,24 @@ type ChartStatsSummary {
     viewCountLast30Days: Int
 
     """
+    The relative percentile for view count in the past 30 days
+    """
+    viewCountPercentileLast30Days: Int
+
+    """
     The unique user count in the past 30 days
     """
     uniqueUserCountLast30Days: Int
+
+    """
+    The relative percentile for number of unique users in the last 30 days
+    """
+    uniqueUserPercentileLast30Days: Int
+
+    """
+    The relative rank for number of unique users in the last 30 days
+    """
+    uniqueUserRankLast30Days: Int
 
     """
     The top users in the past 30 days
