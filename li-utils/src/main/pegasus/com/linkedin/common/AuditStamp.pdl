@@ -21,7 +21,7 @@ record AuditStamp {
   impersonator: optional Urn
 
   /**
-   * Additional message to keep track of in the event
+   * Additional context to keep track of in the event
    */
-  message: optional string
+  context: optional string
 }
