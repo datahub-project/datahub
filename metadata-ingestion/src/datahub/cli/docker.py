@@ -260,7 +260,6 @@ def _restore(
                 stdin=fp,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True,
             )
         if result.returncode != 0:
             logger.error("Failed to run MySQL restore")
@@ -327,7 +326,7 @@ DATAHUB_MAE_CONSUMER_PORT=9091
             )
             logger.info(f"Running index restore command: {command}")
             result = subprocess.run(
-                [
+                args=[
                     "bash",
                     "-c",
                     "docker pull acryldata/datahub-upgrade:"
@@ -338,7 +337,6 @@ DATAHUB_MAE_CONSUMER_PORT=9091
                 ],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True,
             )
             logger.info(
                 f"Index restore command finished with status {result.returncode}"
