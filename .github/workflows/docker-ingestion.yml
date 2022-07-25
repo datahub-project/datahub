@@ -3,6 +3,11 @@ on:
   push:
     branches:
       - master
+    paths:
+      - "metadata-ingestion/**"
+      - "metadata-models/**"
+      - "docker/datahub-ingestion/**"
+      - ".github/workflows/docker-ingestion.yml"
     paths-ignore:
       - "docs/**"
       - "**.md"
@@ -10,7 +15,9 @@ on:
     branches:
       - master
     paths:
-      - "docker/**"
+      - "metadata-ingestion/**"
+      - "metadata-models/**"
+      - "docker/datahub-ingestion/**"
       - ".github/workflows/docker-ingestion.yml"
     paths_ignore:
       - "**.md"
