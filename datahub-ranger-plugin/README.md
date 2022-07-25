@@ -74,7 +74,7 @@ Now, you should have the DataHub plugin registered with Apache Ranger. Next, we'
 
    To do this performs below steps
       - Create a user  **datahub** 
-      - Create a policy under **ranger_datahub** service. To assign [Platform Privileges](https://datahubproject.io/docs/policies/) (e.g. Admin privileges), simply use the "platform" resource type which is defined. To test the flow, we can simply assign the **datahub** user all platform privileges that are available through the Ranger UI. This will enable the "datahub" to have full platform admin privileges. 
+      - Create a policy under **ranger_datahub** service. To assign [Platform Privileges](../docs/authorization/policies.md) (e.g. Admin privileges), simply use the "platform" resource type which is defined. To test the flow, we can simply assign the **datahub** user all platform privileges that are available through the Ranger UI. This will enable the "datahub" to have full platform admin privileges. 
 
      > To define fine-grained resource privileges, e.g. for DataHub Datasets, Dashboards, Charts, and more, you can simply select the appropriate Resource Type in the Ranger policy builder. You should also see a list of privileges that are supported for each resource type, which correspond to the actions that you can perform. To learn more about supported privileges, check out the DataHub [Policies Guide](https://datahubproject.io/docs/policies/). 
       
