@@ -1,5 +1,6 @@
 """LDAP Source"""
 import dataclasses
+import re
 from typing import Any, Dict, Iterable, List, Optional
 
 import ldap
@@ -337,25 +338,29 @@ class LDAPSource(Source):
         )
         manager_urn = f"urn:li:corpuser:{manager_ldap}" if manager_ldap else None
 
+        aspects = [
+            CorpUserInfoClass(
+                active=True,
+                email=email,
+                fullName=full_name,
+                firstName=first_name,
+                lastName=last_name,
+                departmentId=department_id,
+                departmentName=department_name,
+                displayName=display_name,
+                countryCode=country_code,
+                title=title,
+                managerUrn=manager_urn,
+            )
+        ]
+
+        if groups:
+            aspects.append(GroupMembershipClass(groups=groups))
+
         return MetadataChangeEvent(
             proposedSnapshot=CorpUserSnapshotClass(
                 urn=f"urn:li:corpuser:{ldap_user}",
-                aspects=[
-                    CorpUserInfoClass(
-                        active=True,
-                        email=email,
-                        fullName=full_name,
-                        firstName=first_name,
-                        lastName=last_name,
-                        departmentId=department_id,
-                        departmentName=department_name,
-                        displayName=display_name,
-                        countryCode=country_code,
-                        title=title,
-                        managerUrn=manager_urn,
-                    ),
-                    GroupMembershipClass(groups=groups),
-                ],
+                aspects=aspects,
             )
         )
 
@@ -434,6 +439,6 @@ def parse_groups(attrs: Dict[str, Any], filter_key: str) -> List[str]:
 
 
 def strip_ldap_group_cn(input_clean: bytes) -> str:
-    """Converts a b'CN=group_name,OU=Groups,DC=internal,DC=machines'
+    """Converts a b'cn=group_name,ou=Groups,dc=internal,dc=machines'
     format to group name"""
-    return input_clean.decode().split(",")[0].lstrip("CN=")
+    return re.sub("cn=", "", input_clean.decode().split(",")[0], flags=re.IGNORECASE)
