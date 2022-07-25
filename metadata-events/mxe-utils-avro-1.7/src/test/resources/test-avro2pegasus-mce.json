@@ -17,7 +17,7 @@
               "time": 0,
               "actor": "urn:li:corpuser:foobar",
               "impersonator": null,
-              "message": null
+              "context": null
             }
           }
         }
