@@ -1,8 +1,8 @@
+import React from 'react';
 import { set, get } from 'lodash';
 import { SNOWFLAKE } from '../../conf/snowflake/snowflake';
 import { BIGQUERY } from '../../conf/bigquery/bigquery';
 import { REDSHIFT } from '../../conf/redshift/redshift';
-import { TooltipWithLink } from './TooltipWithLink';
 
 export enum FieldType {
     TEXT,
@@ -266,10 +266,28 @@ export const UPSTREAM_LINEAGE_IN_REPORT: RecipeField = {
     rules: null,
 };
 
+const TableLineageModeTooltip = () => {
+    return (
+        <div>
+            <p>
+                Which table lineage collector mode to use. Check out{' '}
+                <a
+                    href="https://datahubproject.io/docs/generated/ingestion/sources/redshift/#config-details"
+                    target="_blank"
+                    rel="noreferrer"
+                >
+                    the documentation
+                </a>{' '}
+                explaining the difference between the three available modes.
+            </p>
+        </div>
+    );
+};
+
 export const TABLE_LINEAGE_MODE: RecipeField = {
     name: 'table_lineage_mode',
     label: 'Table Lineage Mode',
-    tooltip: TooltipWithLink,
+    tooltip: TableLineageModeTooltip,
     type: FieldType.SELECT,
     fieldPath: 'source.config.table_lineage_mode',
     rules: null,
