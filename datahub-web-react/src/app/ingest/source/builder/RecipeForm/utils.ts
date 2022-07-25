@@ -2,6 +2,7 @@ import { set, get } from 'lodash';
 import { SNOWFLAKE } from '../../conf/snowflake/snowflake';
 import { BIGQUERY } from '../../conf/bigquery/bigquery';
 import { REDSHIFT } from '../../conf/redshift/redshift';
+import { TooltipWithLink } from './TooltipWithLink';
 
 export enum FieldType {
     TEXT,
@@ -18,7 +19,7 @@ interface Option {
 export interface RecipeField {
     name: string;
     label: string;
-    tooltip: string;
+    tooltip: string | React.ReactNode;
     type: FieldType;
     fieldPath: string;
     rules: any[] | null;
@@ -268,8 +269,7 @@ export const UPSTREAM_LINEAGE_IN_REPORT: RecipeField = {
 export const TABLE_LINEAGE_MODE: RecipeField = {
     name: 'table_lineage_mode',
     label: 'Table Lineage Mode',
-    tooltip:
-        'Which table lineage collector mode to use. Check out the documentation explaining the difference between the three available modes.',
+    tooltip: TooltipWithLink,
     type: FieldType.SELECT,
     fieldPath: 'source.config.table_lineage_mode',
     rules: null,
