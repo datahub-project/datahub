@@ -14,8 +14,8 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    Source,
     SourceReport,
+    TestableSource,
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
@@ -66,7 +66,7 @@ class FileSourceConfig(ConfigModel):
 @config_class(FileSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @dataclass
-class GenericFileSource(Source):
+class GenericFileSource(TestableSource):
     """
     This plugin pulls metadata from a previously generated file. The [file sink](../../../../metadata-ingestion/sink_docs/file.md) can produce such files, and a number of samples are included in the [examples/mce_files](../../../../metadata-ingestion/examples/mce_files) directory.
     """

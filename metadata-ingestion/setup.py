@@ -69,7 +69,7 @@ kafka_common = {
     # At the same time, we use Kafka's AvroSerializer, which internally relies on
     # fastavro for serialization. We do not use confluent_kafka[avro], since it
     # is incompatible with its own dep on avro-python3.
-    "confluent_kafka>=1.5.0",
+    "confluent_kafka>=1.5.0,<1.9.0",
     "fastavro>=1.2.0",
 }
 

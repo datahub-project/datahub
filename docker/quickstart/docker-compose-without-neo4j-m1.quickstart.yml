@@ -127,7 +127,7 @@ services:
     hostname: kafka-setup
     image: linkedin/datahub-kafka-setup:${DATAHUB_VERSION:-head}
   mysql:
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin --default-authentication-plugin=mysql_native_password
     container_name: mysql
     environment:
     - MYSQL_DATABASE=datahub
@@ -136,6 +136,7 @@ services:
     - MYSQL_ROOT_PASSWORD=datahub
     hostname: mysql
     image: mariadb:10.5.8
+    # image: mysql:8
     ports:
     - ${DATAHUB_MAPPED_MYSQL_PORT:-3306}:3306
     volumes:

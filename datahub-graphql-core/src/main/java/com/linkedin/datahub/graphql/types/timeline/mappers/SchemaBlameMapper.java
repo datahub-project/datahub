@@ -6,13 +6,13 @@ import com.linkedin.datahub.graphql.generated.GetSchemaBlameResult;
 import com.linkedin.datahub.graphql.generated.SchemaFieldBlame;
 import com.linkedin.datahub.graphql.generated.SchemaFieldChange;
 import com.linkedin.datahub.graphql.generated.SemanticVersionStruct;
+import com.linkedin.datahub.graphql.types.timeline.utils.TimelineUtils;
 import com.linkedin.metadata.key.SchemaFieldKey;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.util.Pair;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -24,14 +24,17 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.parquet.SemanticVersion;
 
+import static com.linkedin.datahub.graphql.types.timeline.utils.TimelineUtils.*;
+
 
 // Class for converting ChangeTransactions received from the Timeline API to SchemaFieldBlame structs for every schema
 // at every semantic version.
 @Slf4j
-public class SchemaFieldBlameMapper {
+public class SchemaBlameMapper {
 
   public static GetSchemaBlameResult map(List<ChangeTransaction> changeTransactions, @Nullable String versionCutoff) {
     if (changeTransactions.isEmpty()) {
+      log.debug("Change transactions are empty");
       return null;
     }
 
@@ -40,10 +43,6 @@ public class SchemaFieldBlameMapper {
 
     String latestSemanticVersionString =
         truncateSemanticVersion(changeTransactions.get(changeTransactions.size() - 1).getSemVer());
-    long latestSemanticVersionTimestamp = changeTransactions.get(changeTransactions.size() - 1).getTimestamp();
-    String latestVersionStamp = changeTransactions.get(changeTransactions.size() - 1).getVersionStamp();
-    result.setLatestVersion(
-        new SemanticVersionStruct(latestSemanticVersionString, latestSemanticVersionTimestamp, latestVersionStamp));
 
     String semanticVersionFilterString = versionCutoff == null ? latestSemanticVersionString : versionCutoff;
     Optional<SemanticVersion> semanticVersionFilterOptional = createSemanticVersion(semanticVersionFilterString);
@@ -54,7 +53,7 @@ public class SchemaFieldBlameMapper {
     SemanticVersion semanticVersionFilter = semanticVersionFilterOptional.get();
 
     List<ChangeTransaction> reversedChangeTransactions = changeTransactions.stream()
-        .map(SchemaFieldBlameMapper::semanticVersionChangeTransactionPair)
+        .map(TimelineUtils::semanticVersionChangeTransactionPair)
         .filter(Optional::isPresent)
         .map(Optional::get)
         .filter(semanticVersionChangeTransactionPair ->
@@ -69,13 +68,7 @@ public class SchemaFieldBlameMapper {
     result.setVersion(
         new SemanticVersionStruct(selectedSemanticVersion, selectedSemanticVersionTimestamp, selectedVersionStamp));
 
-    List<SemanticVersionStruct> semanticVersionStructList = new ArrayList<>();
     for (ChangeTransaction changeTransaction : reversedChangeTransactions) {
-      SemanticVersionStruct semanticVersionStruct =
-          new SemanticVersionStruct(truncateSemanticVersion(changeTransaction.getSemVer()),
-              changeTransaction.getTimestamp(), changeTransaction.getVersionStamp());
-      semanticVersionStructList.add(semanticVersionStruct);
-
       for (ChangeEvent changeEvent : changeTransaction.getChangeEvents()) {
         if (changeEvent.getCategory() != ChangeCategory.TECHNICAL_SCHEMA) {
           continue;
@@ -115,71 +108,9 @@ public class SchemaFieldBlameMapper {
             .getChangeType()
             .equals(ChangeOperationType.REMOVE))
         .collect(Collectors.toList()));
-    result.setSemanticVersionList(semanticVersionStructList);
     return result;
   }
 
-  private static Optional<Pair<SemanticVersion, ChangeTransaction>> semanticVersionChangeTransactionPair(
-      ChangeTransaction changeTransaction) {
-    Optional<SemanticVersion> semanticVersion = createSemanticVersion(changeTransaction.getSemVer());
-    return semanticVersion.map(version -> Pair.of(version, changeTransaction));
-  }
-
-  private static Optional<SemanticVersion> createSemanticVersion(String semanticVersionString) {
-    String truncatedSemanticVersion = truncateSemanticVersion(semanticVersionString);
-    try {
-      SemanticVersion semanticVersion = SemanticVersion.parse(truncatedSemanticVersion);
-      return Optional.of(semanticVersion);
-    } catch (SemanticVersion.SemanticVersionParseException e) {
-      return Optional.empty();
-    }
-  }
-
-  // The SemanticVersion is currently returned from the ChangeTransactions in the format "x.y.z-computed". This function
-  // removes the suffix "computed".
-  private static String truncateSemanticVersion(String semanticVersion) {
-    String suffix = "-computed";
-    return semanticVersion.endsWith(suffix) ? semanticVersion.substring(0, semanticVersion.lastIndexOf(suffix))
-        : semanticVersion;
-  }
-
-  private static SchemaFieldChange getLastSchemaFieldChange(ChangeEvent changeEvent, long timestamp,
-      String semanticVersion, String versionStamp) {
-    SchemaFieldChange schemaFieldChange = new SchemaFieldChange();
-    schemaFieldChange.setTimestampMillis(timestamp);
-    schemaFieldChange.setLastSemanticVersion(truncateSemanticVersion(semanticVersion));
-    schemaFieldChange.setChangeType(
-        ChangeOperationType.valueOf(ChangeOperationType.class, changeEvent.getOperation().toString()));
-    schemaFieldChange.setVersionStamp(versionStamp);
-
-    String translatedChangeOperationType;
-    switch (changeEvent.getOperation()) {
-      case ADD:
-        translatedChangeOperationType = "Added";
-        break;
-      case MODIFY:
-        translatedChangeOperationType = "Modified";
-        break;
-      case REMOVE:
-        translatedChangeOperationType = "Removed";
-        break;
-      default:
-        translatedChangeOperationType = "Unknown change made";
-        log.warn(translatedChangeOperationType);
-        break;
-    }
-
-    String suffix = "-computed";
-    String translatedSemanticVersion =
-        semanticVersion.endsWith(suffix) ? semanticVersion.substring(0, semanticVersion.lastIndexOf(suffix))
-            : semanticVersion;
-
-    String lastSchemaFieldChange = String.format("%s in v%s", translatedChangeOperationType, translatedSemanticVersion);
-    schemaFieldChange.setLastSchemaFieldChange(lastSchemaFieldChange);
-
-    return schemaFieldChange;
-  }
-
-  private SchemaFieldBlameMapper() {
+  private SchemaBlameMapper() {
   }
 }

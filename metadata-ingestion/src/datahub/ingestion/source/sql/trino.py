@@ -71,8 +71,9 @@ def get_table_comment(self, connection, table_name: str, schema: str = None, **k
 
         # Generate properties dictionary.
         properties = {}
-        for col_name, col_value in row.items():
-            properties[col_name] = col_value
+        if row:
+            for col_name, col_value in row.items():
+                properties[col_name] = col_value
 
         return {"text": properties.get("comment", None), "properties": properties}
     except TrinoQueryError as e:
