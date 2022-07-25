@@ -3,18 +3,15 @@ on:
   push:
     branches:
       - master
-    paths-ignore:
-      - 'docs/**'
-      - '**.md'
+    paths:
+      - 'metadata-ingestion/src/datahub/ingestion/source/feast_image/**'
+      - '.github/workflows/docker-feast-source.yml'
   pull_request:
     branches:
       - master
     paths:
       - 'metadata-ingestion/src/datahub/ingestion/source/feast_image/**'
       - '.github/workflows/docker-feast-source.yml'
-    paths_ignore:
-      - '**.md'
-      - '**.env'
   release:
     types: [published, edited]
 

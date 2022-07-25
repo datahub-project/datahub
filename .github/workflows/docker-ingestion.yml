@@ -8,9 +8,6 @@ on:
       - "metadata-models/**"
       - "docker/datahub-ingestion/**"
       - ".github/workflows/docker-ingestion.yml"
-    paths-ignore:
-      - "docs/**"
-      - "**.md"
   pull_request:
     branches:
       - master
@@ -19,9 +16,6 @@ on:
       - "metadata-models/**"
       - "docker/datahub-ingestion/**"
       - ".github/workflows/docker-ingestion.yml"
-    paths_ignore:
-      - "**.md"
-      - "**.env"
   release:
     types: [published, edited]
 
