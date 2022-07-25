@@ -3281,18 +3281,5 @@
       "contentType": "application/json"
     },
     "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(looker,baz1)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "usageFeatures",
-    "aspect": {
-      "value": "{\n  \"viewCountLast30Days\": 20,\n  \"viewCountTotal\": 10,\n  \"viewCountPercentileLast30Days\": 99,\n  \"usageCountLast30Days\": 123,\n  \"uniqueUserCountLast30Days\": 15,\n  \"uniqueUserPercentileLast30Days\": 80,\n  \"topUsersLast30Days\": [\"urn:li:corpuser:datahub\"]\n}",
-      "contentType": "application/json"
-    },
-    "systemMetadata": null
   }
 ]
