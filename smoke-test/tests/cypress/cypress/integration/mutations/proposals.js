@@ -154,7 +154,7 @@ describe('proposals', () => {
     cy.wait(1000);
 
     // Rejecting the proposal
-    cy.contains('My Requests').click({force: true});
+    cy.contains('Inbox').click({force: true});
     cy.get('.action-request-test-id').should('have.length', 1)
     cy.contains('Decline').first().click({force: true});
     cy.contains('Yes').click({force: true});
@@ -198,7 +198,7 @@ describe('proposals', () => {
     cy.wait(1000);
 
     // Rejecting the proposal
-    cy.contains('My Requests').click({force: true});
+    cy.contains('Inbox').click({force: true});
     cy.get('.action-request-test-id').should('have.length', 1)
     cy.contains('Decline').first().click({force: true});
     cy.contains('Yes').click({force: true});
@@ -230,7 +230,7 @@ describe('proposals', () => {
     
     cy.get('[data-testid="proposed-tag-TagToPropose"]').should('exist');
 
-    cy.contains('My Requests').click({force: true});
+    cy.contains('Inbox').click({force: true});
 
     // Accepting the proposal
     cy.get('.action-request-test-id').should('have.length', 1)
@@ -278,7 +278,7 @@ describe('proposals', () => {
 
     cy.wait(1000)
 
-    cy.contains('My Requests').click({force: true});
+    cy.contains('Inbox').click({force: true});
 
     // Accepting the proposal
     cy.get('.action-request-test-id').should('have.length', 1)

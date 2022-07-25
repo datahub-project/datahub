@@ -393,6 +393,9 @@ fragment searchResultFields on Entity {
             lastModified {
                 time
             }
+            created {
+                time
+            }
         }
         ownership {
             ...ownershipFields
@@ -420,6 +423,25 @@ fragment searchResultFields on Entity {
         }
         parentContainers {
             ...parentContainersFields
+        }
+        statsSummary {
+            viewCount
+            uniqueUserCountLast30Days
+            topUsersLast30Days {
+                urn
+                type
+                username
+                properties {
+                    displayName
+                    firstName
+                    lastName
+                    fullName
+                }
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+            }
         }
     }
     ... on DataFlow {

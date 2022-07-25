@@ -1,5 +1,6 @@
 import datetime
 import itertools
+import json
 import logging
 import uuid
 from typing import Any, Dict, Iterable, List, Optional
@@ -131,11 +132,13 @@ class Pipeline:
         dry_run: bool = False,
         preview_mode: bool = False,
         preview_workunits: int = 10,
+        report_to: Optional[str] = None,
     ):
         self.config = config
         self.dry_run = dry_run
         self.preview_mode = preview_mode
         self.preview_workunits = preview_workunits
+        self.report_to = report_to
         self.ctx = PipelineContext(
             run_id=self.config.run_id,
             datahub_api=self.config.datahub_api,
@@ -238,6 +241,7 @@ class Pipeline:
         dry_run: bool = False,
         preview_mode: bool = False,
         preview_workunits: int = 10,
+        report_to: Optional[str] = None,
     ) -> "Pipeline":
         config = PipelineConfig.parse_obj(config_dict)
         return cls(
@@ -245,6 +249,7 @@ class Pipeline:
             dry_run=dry_run,
             preview_mode=preview_mode,
             preview_workunits=preview_workunits,
+            report_to=report_to,
         )
 
     def run(self) -> None:
@@ -415,3 +420,23 @@ class Pipeline:
                 bold=True,
             )
             return 0
+
+    def write_structured_report(self) -> None:
+        if not self.report_to:
+            return
+        report = {
+            "source": {
+                "type": self.config.source.type,
+                "report": self.source.get_report().as_obj(),
+            },
+            "sink": {
+                "type": self.config.sink.type,
+                "report": self.sink.get_report().as_obj(),
+            },
+        }
+        try:
+            with open(self.report_to, "w") as report_out:
+                json.dump(report, report_out)
+            logger.info(f"Wrote report successfully to {report_out}")
+        except Exception as e:
+            logger.error(f"Failed to write structured report due to {e}")

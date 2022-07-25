@@ -59,8 +59,8 @@ source:
   type: hive
   config:
     host_port: <databricks workspace URL>:443
-    username: token
-    password: <api token>
+    username: token / username
+    password: <api token> / password
     scheme: 'databricks+pyhive'
 
     options:

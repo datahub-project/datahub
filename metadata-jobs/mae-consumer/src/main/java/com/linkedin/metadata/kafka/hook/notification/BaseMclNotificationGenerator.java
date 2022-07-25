@@ -316,7 +316,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
       // At max send notifications to first 500 group members.
       final EntityRelationships groupMemberEdges = _graphClient.getRelatedEntities(
           groupUrn.toString(),
-          ImmutableList.of(Constants.GROUP_MEMBERSHIP_RELATIONSHIP_NAME),
+          ImmutableList.of(Constants.IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME, Constants.IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME),
           RelationshipDirection.INCOMING,
           0,
           500,
