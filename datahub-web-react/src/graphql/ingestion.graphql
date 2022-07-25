@@ -85,6 +85,10 @@ query getIngestionExecutionRequest($urn: String!) {
             startTimeMs
             durationMs
             report
+            structuredReport {
+                type
+                serializedValue
+            }
         }
     }
 }

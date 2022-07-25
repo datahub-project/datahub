@@ -51,11 +51,15 @@ const ResultsHeader = styled.div`
     justify-content: center;
     margin-bottom: 24px;
     font-size: 22px;
-    font-weight: bold;
 
     svg {
         margin-right: 6px;
     }
+`;
+
+const StatusWrapper = styled.span<{ color: string }>`
+    color: ${(props) => props.color};
+    font-weight: bold;
 `;
 
 const ResultsWrapper = styled.div`
@@ -126,10 +130,18 @@ function ConnectionRequest(props: Props) {
 
     useEffect(() => {
         if (resultData) {
-            if (pollingInterval) clearInterval(pollingInterval);
-            setIsLoading(false);
+            if (resultData.executionRequest?.result) {
+                if (pollingInterval) clearInterval(pollingInterval);
+                setIsLoading(false);
+            }
         }
     }, [resultData, pollingInterval]);
+
+    useEffect(() => {
+        if (!isModalVisible && pollingInterval) {
+            clearInterval(pollingInterval);
+        }
+    });
 
     function testConnection() {
         const recipeJson = getRecipeJson(recipe);
@@ -168,12 +180,13 @@ function ConnectionRequest(props: Props) {
                             <ResultsHeader>
                                 {areAllSuccessful ? (
                                     <>
-                                        <CheckCircleOutlined style={{ color: green[5] }} /> Success!
+                                        <CheckCircleOutlined style={{ color: green[5] }} /> Connection:&nbsp;
+                                        <StatusWrapper color={green[5]}>Success!</StatusWrapper>
                                     </>
                                 ) : (
                                     <>
-                                        <CloseCircleOutlined style={{ color: red[5] }} /> {numFailures} Failure
-                                        {numFailures !== 1 && 's'}
+                                        <CloseCircleOutlined style={{ color: red[5] }} /> Connection:&nbsp;
+                                        <StatusWrapper color={red[5]}>Failure</StatusWrapper>
                                     </>
                                 )}
                             </ResultsHeader>

@@ -8,6 +8,7 @@ import { jsonToYaml } from '../../utils';
 import { RecipeField, RECIPE_FIELDS, setFieldValueOnRecipe } from './utils';
 import FormField from './FormField';
 import ConnectionRequest from './ConnectionRequest';
+import { SNOWFLAKE } from '../../conf/snowflake/snowflake';
 
 export const ControlsContainer = styled.div`
     display: flex;
@@ -115,9 +116,11 @@ function RecipeForm(props: Props) {
                     {fields.map((field, i) => (
                         <FormField field={field} removeMargin={i === fields.length - 1} />
                     ))}
-                    <ConnectionRequestWrapper>
-                        <ConnectionRequest recipe={displayRecipe} />
-                    </ConnectionRequestWrapper>
+                    {type === SNOWFLAKE && (
+                        <ConnectionRequestWrapper>
+                            <ConnectionRequest recipe={displayRecipe} />
+                        </ConnectionRequestWrapper>
+                    )}
                 </Collapse.Panel>
             </StyledCollapse>
             <StyledCollapse>
