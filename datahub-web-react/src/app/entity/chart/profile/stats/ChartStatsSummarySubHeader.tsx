@@ -13,10 +13,18 @@ export const ChartStatsSummarySubHeader = () => {
     const lastUpdatedMs = chart?.properties?.lastModified?.time;
     const createdMs = chart?.properties?.created?.time;
 
+    // acryl-main only
+    const viewCountLast30Days = maybeStatsSummary?.viewCountLast30Days;
+    const viewCountPercentileLast30Days = maybeStatsSummary?.viewCountPercentileLast30Days;
+    const uniqueUserPercentileLast30Days = maybeStatsSummary?.uniqueUserPercentileLast30Days;
+
     return (
         <ChartStatsSummary
             viewCount={viewCount}
+            viewCountLast30Days={viewCountLast30Days}
+            viewCountPercentileLast30Days={viewCountPercentileLast30Days}
             uniqueUserCountLast30Days={uniqueUserCountLast30Days}
+            uniqueUserPercentileLast30Days={uniqueUserPercentileLast30Days}
             lastUpdatedMs={lastUpdatedMs}
             createdMs={createdMs}
         />

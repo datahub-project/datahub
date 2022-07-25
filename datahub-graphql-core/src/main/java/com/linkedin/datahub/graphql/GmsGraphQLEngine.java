@@ -26,6 +26,7 @@ import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.ChartInfo;
+import com.linkedin.datahub.graphql.generated.ChartStatsSummary;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.generated.CorpUser;
@@ -1199,13 +1200,24 @@ public class GmsGraphQLEngine {
                 })
             )
             .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
-            .dataFetcher("statsSummary", new ChartStatsSummaryResolver(this.timeseriesAspectService))
+            .dataFetcher("statsSummary", new ChartStatsSummaryResolver(this.entityClient, this.timeseriesAspectService))
         );
         builder.type("ChartInfo", typeWiring -> typeWiring
             .dataFetcher("inputs", new LoadableTypeBatchResolver<>(datasetType,
                 (env) -> ((ChartInfo) env.getSource()).getInputs().stream()
                     .map(datasetType.getKeyProvider())
                     .collect(Collectors.toList())))
+        );
+        builder.type("ChartStatsSummary", typeWiring -> typeWiring
+            .dataFetcher("topUsersLast30Days", new LoadableTypeBatchResolver<>(corpUserType,
+                (env) -> {
+                    ChartStatsSummary summary = ((ChartStatsSummary) env.getSource());
+                    return summary.getTopUsersLast30Days() != null
+                        ? summary.getTopUsersLast30Days().stream()
+                        .map(CorpUser::getUrn)
+                        .collect(Collectors.toList())
+                        : null;
+                }))
         );
     }
 
