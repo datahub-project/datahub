@@ -73,6 +73,7 @@ query getChart($urn: String!) {
         }
         statsSummary {
             viewCount
+            viewCountLast30Days
             viewCountPercentileLast30Days
             uniqueUserCountLast30Days
             uniqueUserPercentileLast30Days
