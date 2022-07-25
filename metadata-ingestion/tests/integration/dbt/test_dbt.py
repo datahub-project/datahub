@@ -499,9 +499,7 @@ def test_dbt_state_backward_compatibility(
             sql_state = BaseSQLAlchemyCheckpointState()
 
             urn1 = "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD)"
-            urn2 = (
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)"
-            )
+            urn2 = "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)"
 
             sql_state.add_table_urn(urn1)
             sql_state.add_table_urn(urn2)
