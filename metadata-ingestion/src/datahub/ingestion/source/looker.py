@@ -51,7 +51,11 @@ from datahub.ingestion.source.looker_common import (
     LookerExplore,
     LookerUtil,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps, Status
+from datahub.metadata.com.linkedin.pegasus2avro.common import (
+    AuditStamp,
+    ChangeAuditStamps,
+    Status,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     ChartSnapshot,
     DashboardSnapshot,
@@ -59,15 +63,47 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
+    CalendarIntervalClass,
+    ChangeTypeClass,
     ChartInfoClass,
     ChartTypeClass,
     DashboardInfoClass,
+    DashboardUsageStatisticsClass,
+    DashboardUserUsageCountsClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    TimeWindowSizeClass,
 )
 
 logger = logging.getLogger(__name__)
+
+usage_queries: Dict[str, Dict] = {
+    # Query - group by dashboard and date, find unique users, dashboard runs count
+    "counts_per_day_per_dashboard": {
+        "model": "system__activity",
+        "view": "history",
+        "fields": [
+            "history.dashboard_id",
+            "history.created_date",
+            "history.dashboard_user",
+            "history.dashboard_run_count",
+        ],
+        "filters": {},
+    },
+    # Query - group by user, dashboard and date, find runs count
+    "counts_per_day_per_user_per_dashboard": {
+        "model": "system__activity",
+        "view": "history",
+        "fields": [
+            "history.created_date",
+            "history.dashboard_id",
+            "history.dashboard_run_count",
+            "user.id",
+        ],
+        "filters": {},
+    },
+}
 
 
 class TransportOptionsConfig(ConfigModel):
@@ -154,12 +190,21 @@ class LookerDashboardSourceConfig(LookerAPIConfig, LookerCommonConfig):
         None,
         description="Optional URL to use when constructing external URLs to Looker if the `base_url` is not the correct one to use. For example, `https://looker-public.company.com`. If not provided, the external base URL will default to `base_url`.",
     )
+    extract_usage_history: bool = Field(
+        False,
+        description="Experimental (Subject to breaking change) -- Whether to ingest usage statistics for dashboards. Setting this to True will query looker system activity explores to fetch historical dashboard usage.",
+    )
+    # TODO - stateful ingestion to autodetect usage history interval
+    extract_usage_history_for_interval: str = Field(
+        "1 day ago",
+        description="Experimental (Subject to breaking change) -- Used only if extract_usage_history is set to True. Interval to extract looker dashboard usage history for . https://docs.looker.com/reference/filter-expressions#date_and_time",
+    )
 
     @validator("external_base_url", pre=True, always=True)
     def external_url_defaults_to_api_config_base_url(
         cls, v: Optional[str], *, values: Dict[str, Any], **kwargs: Dict[str, Any]
-    ) -> str:
-        return v or values["base_url"]
+    ) -> Optional[str]:
+        return v or values.get("base_url")
 
     @validator("platform_instance")
     def platform_instance_not_supported(cls, v: str) -> str:
@@ -216,11 +261,11 @@ class LookerDashboardElement:
         # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
         m = re.match("^(.*):([0-9]+)$", base_url)
         if m is not None:
-            base_url = m.group(1)
+            base_url = m[1]
         if self.look_id is not None:
-            return base_url + "/looks/" + self.look_id
+            return f"{base_url}/looks/{self.look_id}"
         else:
-            return base_url + "/x/" + self.query_slug
+            return f"{base_url}/x/{self.query_slug}"
 
     def get_urn_element_id(self):
         # A dashboard element can use a look or just a raw query against an explore
@@ -270,23 +315,22 @@ class LookerUserRegistry:
     def get_by_id(
         self, id: int, transport_options: Optional[TransportOptions]
     ) -> Optional[LookerUser]:
-        logger.debug("Will get user {}".format(id))
+        logger.debug(f"Will get user {id}")
         if id in self.user_map:
             return self.user_map[id]
-        else:
-            try:
-                raw_user: User = self.client.user(
-                    id,
-                    fields=self.fields,
-                    transport_options=transport_options,
-                )
-                looker_user = LookerUser._from_user(raw_user)
-                self.user_map[id] = looker_user
-                return looker_user
-            except SDKError as e:
-                logger.warn("Could not find user with id {}".format(id))
-                logger.warn("Failure was {}".format(e))
-                return None
+        try:
+            raw_user: User = self.client.user(
+                id,
+                fields=self.fields,
+                transport_options=transport_options,
+            )
+            looker_user = LookerUser._from_user(raw_user)
+            self.user_map[id] = looker_user
+            return looker_user
+        except SDKError as e:
+            logger.warning(f"Could not find user with id {id}")
+            logger.warning(f"Failure was {e}")
+            return None
 
 
 @dataclass
@@ -301,13 +345,20 @@ class LookerDashboard:
     is_hidden: bool = False
     owner: Optional[LookerUser] = None
     strip_user_ids_from_email: Optional[bool] = True
+    last_updated_at: Optional[datetime.datetime] = None
+    last_updated_by: Optional[LookerUser] = None
+    deleted_at: Optional[datetime.datetime] = None
+    deleted_by: Optional[LookerUser] = None
+    favorite_count: Optional[int] = None
+    view_count: Optional[int] = None
+    last_viewed_at: Optional[datetime.datetime] = None
 
     def url(self, base_url):
         # If the base_url contains a port number (like https://company.looker.com:19999) remove the port number
         m = re.match("^(.*):([0-9]+)$", base_url)
         if m is not None:
-            base_url = m.group(1)
-        return base_url + "/dashboards/" + self.id
+            base_url = m[1]
+        return f"{base_url}/dashboards/{self.id}"
 
     def get_urn_dashboard_id(self):
         return f"dashboards.{self.id}"
@@ -350,8 +401,7 @@ class LookerDashboardSource(Source):
         assert (
             field.count(".") == 1
         ), f"Error: A field must be prefixed by a view name, field is: {field}"
-        view_name = field.split(".")[0]
-        return view_name
+        return field.split(".")[0]
 
     def _get_views_from_fields(self, fields: List[str]) -> List[str]:
         field_set = set(fields)
@@ -441,7 +491,7 @@ class LookerDashboardSource(Source):
     def _get_looker_dashboard_element(  # noqa: C901
         self, element: DashboardElement
     ) -> Optional[LookerDashboardElement]:
-        # Dashboard elements can use raw queries against explores
+        # Dashboard elements can use raw usage_queries against explores
         explores: List[str]
         fields: List[str]
 
@@ -449,17 +499,15 @@ class LookerDashboardSource(Source):
             raise ValueError("Element ID can't be None")
 
         if element.query is not None:
-            explores = []
             fields = self._get_fields_from_query(element.query)
-            if element.query.view is not None:
-                # Get the explore from the view directly
-                explores = [element.query.view]
-
+            # Get the explore from the view directly
+            explores = [element.query.view] if element.query.view is not None else []
             logger.debug(
                 "Element {}: Explores added: {}".format(element.title, explores)
             )
             for exp in explores:
                 self.explore_set.add((element.query.model, exp))
+
             return LookerDashboardElement(
                 id=element.id,
                 title=element.title if element.title is not None else "",
@@ -693,12 +741,14 @@ class LookerDashboardSource(Source):
 
     def _make_dashboard_and_chart_mces(
         self, looker_dashboard: LookerDashboard
-    ) -> List[MetadataChangeEvent]:
+    ) -> Iterable[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]:
         chart_mces = [
             self._make_chart_mce(element, looker_dashboard)
             for element in looker_dashboard.dashboard_elements
             if element.type == "vis"
         ]
+        for chart_mce in chart_mces:
+            yield chart_mce
 
         dashboard_urn = builder.make_dashboard_urn(
             self.source_config.platform_name, looker_dashboard.get_urn_dashboard_id()
@@ -712,7 +762,7 @@ class LookerDashboardSource(Source):
             description=looker_dashboard.description or "",
             title=looker_dashboard.title,
             charts=[mce.proposedSnapshot.urn for mce in chart_mces],
-            lastModified=ChangeAuditStamps(),
+            lastModified=self._get_change_audit_stamps(looker_dashboard),
             dashboardUrl=looker_dashboard.url(self.source_config.external_base_url),
         )
 
@@ -730,8 +780,27 @@ class LookerDashboardSource(Source):
         dashboard_snapshot.aspects.append(Status(removed=looker_dashboard.is_deleted))
 
         dashboard_mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
+        yield dashboard_mce
 
-        return chart_mces + [dashboard_mce]
+        if self.source_config.extract_usage_history:
+            # Emit snapshot values of dashboard usage - do this always ?
+            dashboard_usage_mcp = MetadataChangeProposalWrapper(
+                entityType="dashboard",
+                entityUrn=dashboard_urn,
+                changeType=ChangeTypeClass.UPSERT,
+                aspectName="dashboardUsageStatistics",
+                aspect=DashboardUsageStatisticsClass(
+                    timestampMillis=round(datetime.datetime.now().timestamp() * 1000),
+                    favoritesCount=looker_dashboard.favorite_count,
+                    viewsCount=looker_dashboard.view_count,
+                    lastViewedAt=round(
+                        looker_dashboard.last_viewed_at.timestamp() * 1000
+                    )
+                    if looker_dashboard.last_viewed_at
+                    else None,
+                ),
+            )
+            yield dashboard_usage_mcp
 
     def get_ownership(
         self, looker_dashboard: LookerDashboard
@@ -751,6 +820,46 @@ class LookerDashboardSource(Source):
                 )
                 return ownership
         return None
+
+    def _get_change_audit_stamps(
+        self, looker_dashboard: LookerDashboard
+    ) -> ChangeAuditStamps:
+        change_audit_stamp: ChangeAuditStamps = ChangeAuditStamps()
+        if looker_dashboard.created_at is not None:
+            change_audit_stamp.created.time = round(
+                looker_dashboard.created_at.timestamp() * 1000
+            )
+        if looker_dashboard.owner is not None:
+            owner_urn = looker_dashboard.owner._get_urn(
+                self.source_config.strip_user_ids_from_email
+            )
+            if owner_urn:
+                change_audit_stamp.created.actor = owner_urn
+        if looker_dashboard.last_updated_at is not None:
+            change_audit_stamp.lastModified.time = round(
+                looker_dashboard.last_updated_at.timestamp() * 1000
+            )
+        if looker_dashboard.last_updated_by is not None:
+            updated_by_urn = looker_dashboard.last_updated_by._get_urn(
+                self.source_config.strip_user_ids_from_email
+            )
+            if updated_by_urn:
+                change_audit_stamp.lastModified.actor = updated_by_urn
+        if (
+            looker_dashboard.is_deleted
+            and looker_dashboard.deleted_by is not None
+            and looker_dashboard.deleted_at is not None
+        ):
+            deleter_urn = looker_dashboard.deleted_by._get_urn(
+                self.source_config.strip_user_ids_from_email
+            )
+            if deleter_urn:
+                change_audit_stamp.deleted = AuditStamp(
+                    actor=deleter_urn,
+                    time=round(looker_dashboard.deleted_at.timestamp() * 1000),
+                )
+
+        return change_audit_stamp
 
     folder_path_cache: Dict[str, str] = {}
 
@@ -800,23 +909,6 @@ class LookerDashboardSource(Source):
         if dashboard.id is None or dashboard.title is None:
             raise ValueError("Both dashboard ID and title are None")
 
-        dashboard_owner = (
-            self.user_registry.get_by_id(
-                dashboard.user_id,
-                self.source_config.transport_options.get_transport_options()
-                if self.source_config.transport_options is not None
-                else None,
-            )
-            if self.source_config.extract_owners and dashboard.user_id is not None
-            else None
-        )
-
-        if dashboard_owner is not None and self.source_config.extract_owners:
-            # Keep track of how many user ids we were able to resolve
-            self.resolved_user_ids += 1
-            if dashboard_owner.email is None:
-                self.email_ids_missing += 1
-
         looker_dashboard = LookerDashboard(
             id=dashboard.id,
             title=dashboard.title,
@@ -824,12 +916,39 @@ class LookerDashboardSource(Source):
             dashboard_elements=dashboard_elements,
             created_at=dashboard.created_at,
             is_deleted=dashboard.deleted if dashboard.deleted is not None else False,
-            is_hidden=dashboard.deleted if dashboard.deleted is not None else False,
+            is_hidden=dashboard.hidden if dashboard.hidden is not None else False,
             folder_path=dashboard_folder_path,
-            owner=dashboard_owner,
+            owner=self._get_looker_user(dashboard.user_id),
             strip_user_ids_from_email=self.source_config.strip_user_ids_from_email,
+            last_updated_at=dashboard.updated_at,
+            last_updated_by=self._get_looker_user(dashboard.last_updater_id),
+            deleted_at=dashboard.deleted_at,
+            deleted_by=self._get_looker_user(dashboard.deleter_id),
+            favorite_count=dashboard.favorite_count,
+            view_count=dashboard.view_count,
+            last_viewed_at=dashboard.last_viewed_at,
         )
         return looker_dashboard
+
+    def _get_looker_user(self, user_id: Optional[int]) -> Optional[LookerUser]:
+        user = (
+            self.user_registry.get_by_id(
+                user_id,
+                self.source_config.transport_options.get_transport_options()
+                if self.source_config.transport_options is not None
+                else None,
+            )
+            if self.source_config.extract_owners and user_id is not None
+            else None
+        )
+
+        if user is not None and self.source_config.extract_owners:
+            # Keep track of how many user ids we were able to resolve
+            self.resolved_user_ids += 1
+            if user.email is None:
+                self.email_ids_missing += 1
+
+        return user
 
     def process_dashboard(
         self, dashboard_id: str
@@ -847,11 +966,23 @@ class LookerDashboardSource(Source):
                 "dashboard_elements",
                 "dashboard_filters",
                 "deleted",
+                "hidden",
                 "description",
                 "folder",
                 "user_id",
+                "created_at",
+                "updated_at",
+                "last_updater_id",
+                "deleted_at",
+                "deleter_id",
             ]
-            dashboard_object = self.client.dashboard(
+            if self.source_config.extract_usage_history:
+                fields += [
+                    "favorite_count",
+                    "view_count",
+                    "last_viewed_at",
+                ]
+            dashboard_object: Dashboard = self.client.dashboard(
                 dashboard_id=dashboard_id,
                 fields=",".join(fields),
                 transport_options=self.source_config.transport_options.get_transport_options()
@@ -882,9 +1013,129 @@ class LookerDashboardSource(Source):
         # for mce in mces:
         workunits = [
             MetadataWorkUnit(id=f"looker-{mce.proposedSnapshot.urn}", mce=mce)
+            if isinstance(mce, MetadataChangeEvent)
+            else MetadataWorkUnit(
+                id=f"looker-{mce.aspectName}-{mce.entityUrn}", mcp=mce
+            )
             for mce in mces
         ]
         return workunits, dashboard_id, start_time, datetime.datetime.now()
+
+    def extract_usage_history_from_system_activity(
+        self, dashboard_ids: List[str]
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+
+        dashboard_ids_allowed = [
+            dashboard_id
+            for dashboard_id in dashboard_ids
+            if self.source_config.dashboard_pattern.allowed(dashboard_id)
+        ]
+
+        # key tuple (dashboard_id, date)
+        dashboard_usages: Dict[tuple, DashboardUsageStatisticsClass] = dict()
+
+        common_filters = {
+            "history.dashboard_id": ",".join(dashboard_ids_allowed),
+            "history.created_date": self.source_config.extract_usage_history_for_interval,
+        }
+        for query in usage_queries.values():
+            query["filters"].update(common_filters)
+
+        self._populate_dashboard_counts(dashboard_usages)
+
+        self._populate_userwise_runs_counts(dashboard_usages)
+
+        for key, val in dashboard_usages.items():
+            yield MetadataChangeProposalWrapper(
+                entityType="dashboard",
+                entityUrn=builder.make_dashboard_urn(
+                    self.source_config.platform_name,
+                    f"dashboards.{key[0]}",  # in sync with LookerDashboard.get_urn_dashboard_id
+                ),
+                changeType=ChangeTypeClass.UPSERT,
+                aspectName="dashboardUsageStatistics",
+                aspect=val,
+            )
+
+    def _populate_userwise_runs_counts(self, dashboard_usages):
+        userwise_count_rows = LookerUtil.run_inline_query(
+            self.client,
+            usage_queries["counts_per_day_per_user_per_dashboard"],
+            transport_options=self.source_config.transport_options.get_transport_options()
+            if self.source_config.transport_options is not None
+            else None,
+        )
+
+        for row in userwise_count_rows:
+            user: Optional[LookerUser] = (
+                self.user_registry.get_by_id(
+                    row["user.id"],
+                    self.source_config.transport_options.get_transport_options()
+                    if self.source_config.transport_options is not None
+                    else None,
+                )
+                if row["user.id"] is not None
+                else None
+            )
+            if user is None:
+                logger.warning(
+                    f"Unable to resolve user with id {row['user.id']}, skipping"
+                )
+                continue
+
+            user_urn: Optional[str] = user._get_urn(
+                self.source_config.strip_user_ids_from_email
+            )
+
+            if user_urn is None:
+                logger.warning(
+                    f"Unable to resolve urn for user with id {row['user.id']}, skipping"
+                )
+                continue
+
+            user_usage: DashboardUserUsageCountsClass = DashboardUserUsageCountsClass(
+                user=user_urn,
+                executionsCount=row["history.dashboard_run_count"],
+                usageCount=row["history.dashboard_run_count"],
+            )
+
+            usage_mcp_prev = dashboard_usages.get(
+                (row["history.dashboard_id"], row["history.created_date"])
+            )
+            if usage_mcp_prev is None:
+                # Unreachable
+                logger.warning(
+                    f"User counts found but no users for {row['history.dashboard_id']} on date {row['history.created_date']}"
+                )
+                continue
+
+            if usage_mcp_prev.userCounts is None:
+                usage_mcp_prev.userCounts = [user_usage]
+            else:
+                usage_mcp_prev.userCounts.append(user_usage)
+
+    def _populate_dashboard_counts(self, dashboard_usages):
+        count_rows = LookerUtil.run_inline_query(
+            self.client,
+            usage_queries["counts_per_day_per_dashboard"],
+            transport_options=self.source_config.transport_options.get_transport_options()
+            if self.source_config.transport_options is not None
+            else None,
+        )
+        for row in count_rows:
+            dashboard_usages[
+                (row["history.dashboard_id"], row["history.created_date"])
+            ] = DashboardUsageStatisticsClass(
+                timestampMillis=round(
+                    datetime.datetime.strptime(row["history.created_date"], "%Y-%m-%d")
+                    .replace(tzinfo=datetime.timezone.utc)
+                    .timestamp()
+                    * 1000
+                ),
+                eventGranularity=TimeWindowSizeClass(unit=CalendarIntervalClass.DAY),
+                uniqueUserCount=row["history.dashboard_user"],
+                executionsCount=row["history.dashboard_run_count"],
+            )
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         dashboards = self.client.all_dashboards(
@@ -957,7 +1208,7 @@ class LookerDashboardSource(Source):
                     else False,
                 )
             else:
-                raise Exception("Unexpected type of event {}".format(event))
+                raise Exception(f"Unexpected type of event {event}")
 
             self.reporter.report_workunit(workunit)
             yield workunit
@@ -968,6 +1219,18 @@ class LookerDashboardSource(Source):
                 workunit = MetadataWorkUnit(
                     id=f"tag-{tag_mce.proposedSnapshot.urn}",
                     mce=tag_mce,
+                )
+                self.reporter.report_workunit(workunit)
+                yield workunit
+
+        if self.source_config.extract_usage_history and dashboard_ids is not None:
+            usage_mcps = self.extract_usage_history_from_system_activity(
+                dashboard_ids  # type:ignore
+            )
+            for usage_mcp in usage_mcps:
+                workunit = MetadataWorkUnit(
+                    id=f"looker-{usage_mcp.aspectName}-{usage_mcp.entityUrn}-{usage_mcp.aspect.timestampMillis}",  # type:ignore
+                    mcp=usage_mcp,
                 )
                 self.reporter.report_workunit(workunit)
                 yield workunit

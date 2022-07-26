@@ -61,6 +61,7 @@ framework_common = {
     "types-Deprecated",
     "humanfriendly",
     "packaging",
+    "aiohttp<4",
 }
 
 kafka_common = {
@@ -69,7 +70,7 @@ kafka_common = {
     # At the same time, we use Kafka's AvroSerializer, which internally relies on
     # fastavro for serialization. We do not use confluent_kafka[avro], since it
     # is incompatible with its own dep on avro-python3.
-    "confluent_kafka>=1.5.0,<1.9.0",
+    "confluent_kafka>=1.5.0",
     "fastavro>=1.2.0",
 }
 
@@ -194,6 +195,10 @@ plugins: Dict[str, Set[str]] = {
     "airflow": {
         "apache-airflow >= 1.10.2",
     },
+    "circuit-breaker": {
+        "gql>=3.3.0",
+        "gql[requests]>=3.3.0",
+    },
     "great-expectations": sql_common | {"sqllineage==1.3.5"},
     # Source plugins
     # PyAthena is pinned with exact version because we use private method in PyAthena
@@ -264,6 +269,7 @@ plugins: Dict[str, Set[str]] = {
     "redshift": sql_common | redshift_common,
     "redshift-usage": sql_common | usage_common | redshift_common,
     "sagemaker": aws_common,
+    "salesforce": {"simple-salesforce"},
     "snowflake": snowflake_common,
     "snowflake-usage": snowflake_common
     | usage_common
@@ -344,6 +350,7 @@ base_dev_requirements = {
             "bigquery-usage",
             "clickhouse",
             "clickhouse-usage",
+            "delta-lake",
             "druid",
             "elasticsearch",
             "ldap",
@@ -360,7 +367,6 @@ base_dev_requirements = {
             "redshift",
             "redshift-usage",
             "data-lake",
-            "delta-lake",
             "s3",
             "tableau",
             "trino",
@@ -368,6 +374,7 @@ base_dev_requirements = {
             "starburst-trino-usage",
             "powerbi",
             "vertica",
+            "salesforce"
             # airflow is added below
         ]
         for dependency in plugins[plugin]
@@ -422,11 +429,13 @@ full_test_dev_requirements = {
     *list(
         dependency
         for plugin in [
+            "circuit-breaker",
             "clickhouse",
             "druid",
             "feast-legacy",
             "hana",
             "hive",
+            "kafka-connect",
             "ldap",
             "mongodb",
             "mssql",
@@ -434,7 +443,6 @@ full_test_dev_requirements = {
             "mariadb",
             "snowflake",
             "redash",
-            "kafka-connect",
             "vertica",
         ]
         for dependency in plugins[plugin]
@@ -513,6 +521,7 @@ entry_points = {
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
         "presto-on-hive = datahub.ingestion.source.sql.presto_on_hive:PrestoOnHiveSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
+        "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
     ],
     "datahub.ingestion.sink.plugins": [
         "file = datahub.ingestion.sink.file:FileSink",

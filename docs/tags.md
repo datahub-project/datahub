@@ -17,7 +17,7 @@ DataHub supports Tags, Glossary Terms, & Domains as distinct types of Metadata t
 ## Adding a Tag
 
 Users must have the Metadata Privilege called `Edit Tags` to add tags at the entity level, and the Privilege called `Edit Dataset Column Tags` to edit tags at the column level. These Privileges
-can be granted by creating a new Metadata [Policy](./policies.md).
+can be granted by creating a new Metadata [Policy](authorization/policies.md).
 
 To add a tag at the dataset or container level, simply navigate to the page for that entity and click on the "Add Tag" button. 
 

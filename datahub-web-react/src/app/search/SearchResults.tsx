@@ -24,7 +24,11 @@ import { SearchResultsRecommendations } from './SearchResultsRecommendations';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { SearchResultsInterface } from '../entity/shared/components/styled/search/types';
 import SearchExtendedMenu from '../entity/shared/components/styled/search/SearchExtendedMenu';
-import { CombinedSearchResult, combineSiblingsInSearchResults } from '../entity/shared/siblingUtils';
+import {
+    CombinedSearchResult,
+    combineSiblingsInSearchResults,
+    SEPARATE_SIBLINGS_URL_PARAM,
+} from '../entity/shared/siblingUtils';
 import { CompactEntityNameList } from '../recommendations/renderer/component/CompactEntityNameList';
 
 const ResultList = styled(List)`
@@ -255,7 +259,10 @@ export const SearchResults = ({
                                             </List.Item>
                                             {item.matchedEntities && item.matchedEntities.length > 0 && (
                                                 <SiblingResultContainer className="test-search-result-sibling-section">
-                                                    <CompactEntityNameList entities={item.matchedEntities} />
+                                                    <CompactEntityNameList
+                                                        linkUrlParams={{ [SEPARATE_SIBLINGS_URL_PARAM]: true }}
+                                                        entities={item.matchedEntities}
+                                                    />
                                                 </SiblingResultContainer>
                                             )}
                                             <ThinDivider />

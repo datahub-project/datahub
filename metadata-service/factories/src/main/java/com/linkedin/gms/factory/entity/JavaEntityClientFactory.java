@@ -8,6 +8,7 @@ import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -36,6 +37,10 @@ public class JavaEntityClientFactory {
   private EntitySearchService _entitySearchService;
 
   @Autowired
+  @Qualifier("cachingEntitySearchService")
+  private CachingEntitySearchService _cachingEntitySearchService;
+
+  @Autowired
   @Qualifier("timeseriesAspectService")
   private TimeseriesAspectService _timeseriesAspectService;
 
@@ -52,10 +57,11 @@ public class JavaEntityClientFactory {
     return new JavaEntityClient(
         _entityService,
         _deleteEntityService,
-        _eventProducer,
         _entitySearchService,
+        _cachingEntitySearchService,
         _searchService,
+        _lineageSearchService,
         _timeseriesAspectService,
-        _lineageSearchService);
+        _eventProducer);
   }
 }

@@ -166,6 +166,7 @@ FROM `{project_id}.{schema}.INFORMATION_SCHEMA.TABLES`
 where REGEXP_CONTAINS(table_name, r'^\\d{{{date_length}}}$')
 """.strip()
 
+
 # The existing implementation of this method can be found here:
 # https://github.com/googleapis/python-bigquery-sqlalchemy/blob/main/sqlalchemy_bigquery/base.py#L1018-L1025.
 # The existing implementation does not use the schema parameter and hence
@@ -339,20 +340,33 @@ class BigQuerySource(SQLAlchemySource):
         self.partition_info: Dict[str, str] = dict()
         atexit.register(cleanup, config)
 
-    def get_db_name(
-        self, inspector: Inspector = None, for_sql_queries: bool = True
-    ) -> str:
+    def get_multiproject_project_id(
+        self, inspector: Optional[Inspector] = None, run_on_compute: bool = False
+    ) -> Optional[str]:
         """
-        for_sql_queries - Used mainly for multi-project setups with different permissions
-            - should be set to True if this is to be used to run sql queries
-            - should be set to False if this is to inspect contents and not run sql queries
+        Use run_on_compute = true when running queries on storage project
+        where you don't have job create rights
         """
-        if for_sql_queries and self.config.storage_project_id:
+        if self.config.storage_project_id and (not run_on_compute):
             return self.config.storage_project_id
         elif self.config.project_id:
             return self.config.project_id
         else:
-            return self._get_project_id(inspector)
+            if inspector:
+                return self._get_project_id(inspector)
+            else:
+                return None
+
+    def get_db_name(self, inspector: Inspector) -> str:
+        """
+        DO NOT USE this to get project name when running queries.
+            That can cause problems with multi-project setups.
+            Use get_multiproject_project_id with run_on_compute = True
+        """
+        db_name = self.get_multiproject_project_id(inspector)
+        # db name can't be empty here as we pass in inpector to get_multiproject_project_id
+        assert db_name
+        return db_name
 
     def _compute_big_query_lineage(self) -> None:
         if not self.config.include_table_lineage:
@@ -373,7 +387,7 @@ class BigQuerySource(SQLAlchemySource):
         logger.debug(f"lineage metadata is {self.lineage_metadata}")
 
     def _compute_bigquery_lineage_via_gcp_logging(self) -> None:
-        project_id = self.get_db_name()
+        project_id = self.get_multiproject_project_id()
         logger.info("Populating lineage info via GCP audit logs")
         try:
             _clients: List[GCPLoggingClient] = self._make_gcp_logging_client(project_id)
@@ -397,7 +411,7 @@ class BigQuerySource(SQLAlchemySource):
             )
 
     def _compute_bigquery_lineage_via_exported_bigquery_audit_metadata(self) -> None:
-        project_id = self.get_db_name(for_sql_queries=True)
+        project_id = self.get_multiproject_project_id(run_on_compute=True)
         logger.info("Populating lineage info via exported GCP audit logs")
         try:
             _client: BigQueryClient = BigQueryClient(project=project_id)
@@ -428,6 +442,92 @@ class BigQuerySource(SQLAlchemySource):
             return [GCPLoggingClient(**client_options, project=project_id)]
         else:
             return [GCPLoggingClient(**client_options)]
+
+    @staticmethod
+    def get_all_schema_tables_query(schema: str) -> str:
+        base_query = (
+            f"SELECT "
+            f"table_id, "
+            f"size_bytes, "
+            f"last_modified_time, "
+            f"row_count, "
+            f"FROM {schema}.__TABLES__"
+        )
+        return base_query
+
+    def generate_profile_candidate_query(
+        self, threshold_time: Optional[datetime.datetime], schema: str
+    ) -> str:
+        row_condition = (
+            f"row_count<{self.config.profiling.profile_table_row_limit} and "
+            if self.config.profiling.profile_table_row_limit
+            else ""
+        )
+        size_condition = (
+            f"ROUND(size_bytes/POW(10,9),2)<{self.config.profiling.profile_table_size_limit} and "
+            if self.config.profiling.profile_table_size_limit
+            else ""
+        )
+        time_condition = (
+            f"last_modified_time>={round(threshold_time.timestamp() * 1000)} and "
+            if threshold_time
+            else ""
+        )
+        c = f"{row_condition}{size_condition}{time_condition}"
+        profile_clause = c if c == "" else f" WHERE {c}"[:-4]
+        if profile_clause == "":
+            return ""
+        query = f"{self.get_all_schema_tables_query(schema)}{profile_clause}"
+        logger.debug(f"Profiling via {query}")
+        return query
+
+    def generate_profile_candidates(
+        self,
+        inspector: Inspector,
+        threshold_time: Optional[datetime.datetime],
+        schema: str,
+    ) -> Optional[List[str]]:
+        storage_project_id = self.get_multiproject_project_id(inspector)
+        exec_project_id = self.get_multiproject_project_id(
+            inspector, run_on_compute=True
+        )
+        _client: BigQueryClient = BigQueryClient(project=exec_project_id)
+
+        full_schema_name = f"{storage_project_id}.{schema}"
+        # Reading all tables' metadata to report
+        all_tables = _client.query(self.get_all_schema_tables_query(full_schema_name))
+        report_tables: List[str] = [
+            "table_id, size_bytes, last_modified_time, row_count"
+        ]
+        for table_row in all_tables:
+            report_tables.append(
+                f"{table_row.table_id}, {table_row.size_bytes}, {table_row.last_modified_time}, {table_row.row_count}"
+            )
+        report_key = f"{self._get_project_id(inspector)}.{full_schema_name}"
+        self.report.table_metadata[report_key] = report_tables
+
+        query = self.generate_profile_candidate_query(threshold_time, full_schema_name)
+        self.report.profile_table_selection_criteria[report_key] = (
+            "no constraint" if query == "" else query.split(" WHERE")[1]
+        )
+        if query == "":
+            return None
+
+        query_job = _client.query(query)
+        _profile_candidates = []
+        for row in query_job:
+            _profile_candidates.append(
+                self.get_identifier(
+                    schema=full_schema_name,
+                    entity=row.table_id,
+                    inspector=inspector,
+                )
+            )
+        logger.debug(
+            f"Generated profiling candidates for {schema}: {_profile_candidates}"
+        )
+        self.report.selected_profile_tables[report_key] = _profile_candidates
+        return _profile_candidates
 
     def _get_bigquery_log_entries(
         self,
@@ -660,30 +760,34 @@ class BigQuerySource(SQLAlchemySource):
     def is_table_partitioned(
         self, database: Optional[str], schema: str, table: str
     ) -> bool:
-        project_id: str
+        project_id: Optional[str]
         if database:
             project_id = database
         else:
-            engine = self._get_engine(for_run_sql=False)
+            engine = self._get_engine(run_on_compute=True)
             with engine.connect() as con:
                 inspector = inspect(con)
-                project_id = self.get_db_name(inspector)
+                project_id = self.get_multiproject_project_id(inspector=inspector)
+                assert project_id
         return f"{project_id}.{schema}.{table}" in self.partition_info
 
     def get_latest_partition(
         self, schema: str, table: str
     ) -> Optional[BigQueryPartitionColumn]:
         logger.debug(f"get_latest_partition for {schema} and {table}")
-        engine = self._get_engine(for_run_sql=True)
+        engine = self._get_engine(run_on_compute=True)
         with engine.connect() as con:
             inspector = inspect(con)
-            project_id = self.get_db_name(inspector)
+            project_id = self.get_multiproject_project_id(inspector=inspector)
+            assert project_id
             if not self.is_table_partitioned(
                 database=project_id, schema=schema, table=table
             ):
                 return None
+            project_id = self.get_multiproject_project_id(inspector=inspector)
+            assert project_id
             sql = BQ_GET_LATEST_PARTITION_TEMPLATE.format(
-                project_id=self.get_db_name(inspector, for_sql_queries=True),
+                project_id=self.get_multiproject_project_id(inspector=inspector),
                 schema=schema,
                 table=table,
             )
@@ -709,7 +813,7 @@ class BigQuerySource(SQLAlchemySource):
         table_name, shard = self.get_shard_from_table(table)
         if shard:
             logger.debug(f"{table_name} is sharded and shard id is: {shard}")
-            engine = self._get_engine(for_run_sql=True)
+            engine = self._get_engine(run_on_compute=True)
             if f"{project_id}.{schema}.{table_name}" not in self.maximum_shard_ids:
                 with engine.connect() as con:
                     if table_name is not None:
@@ -738,14 +842,15 @@ class BigQuerySource(SQLAlchemySource):
         else:
             return True
 
-    def _get_engine(self, for_run_sql: bool) -> Engine:
-        url = self.config.get_sql_alchemy_url(for_run_sql=for_run_sql)
+    def _get_engine(self, run_on_compute: bool = True) -> Engine:
+        url = self.config.get_sql_alchemy_url(run_on_compute=run_on_compute)
         logger.debug(f"sql_alchemy_url={url}")
         return create_engine(url, **self.config.options)
 
     def add_information_for_schema(self, inspector: Inspector, schema: str) -> None:
-        engine = self._get_engine(for_run_sql=True)
-        project_id = self.get_db_name(inspector)
+        engine = self._get_engine(run_on_compute=True)
+        project_id = self.get_multiproject_project_id(inspector=inspector)
+        assert project_id
         with engine.connect() as con:
             inspector = inspect(con)
             sql = f"""
@@ -764,7 +869,8 @@ class BigQuerySource(SQLAlchemySource):
         self, inspector: Inspector, schema: str, table: str
     ) -> Dict[str, List[str]]:
         extra_tags: Dict[str, List[str]] = {}
-        project_id = self.get_db_name(inspector)
+        project_id = self.get_multiproject_project_id(inspector=inspector)
+        assert project_id
 
         partition_lookup_key = f"{project_id}.{schema}.{table}"
         if partition_lookup_key in self.partition_info:
@@ -781,17 +887,29 @@ class BigQuerySource(SQLAlchemySource):
         partitioned table.
         See more about partitioned tables at https://cloud.google.com/bigquery/docs/partitioned-tables
         """
-
+        logger.debug(
+            f"generate partition profiler query for schema: {schema} and table {table}, partition_datetime: {partition_datetime}"
+        )
         partition = self.get_latest_partition(schema, table)
         if partition:
             partition_where_clause: str
             logger.debug(f"{table} is partitioned and partition column is {partition}")
-            (
-                partition_datetime,
-                upper_bound_partition_datetime,
-            ) = get_partition_range_from_partition_id(
-                partition.partition_id, partition_datetime
-            )
+            try:
+                (
+                    partition_datetime,
+                    upper_bound_partition_datetime,
+                ) = get_partition_range_from_partition_id(
+                    partition.partition_id, partition_datetime
+                )
+            except ValueError as e:
+                logger.error(
+                    f"Unable to get partition range for partition id: {partition.partition_id} it failed with exception {e}"
+                )
+                self.report.invalid_partition_ids[
+                    f"{schema}.{table}"
+                ] = partition.partition_id
+                return None, None
+
             if partition.data_type in ("TIMESTAMP", "DATETIME"):
                 partition_where_clause = "{column_name} BETWEEN '{partition_id}' AND '{upper_bound_partition_id}'".format(
                     column_name=partition.column_name,
@@ -831,7 +949,7 @@ WHERE
 
     def get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
         logger.debug("Getting profiler instance from bigquery")
-        engine = self._get_engine(for_run_sql=True)
+        engine = self._get_engine(run_on_compute=True)
         with engine.connect() as conn:
             inspector = inspect(conn)
 
@@ -996,13 +1114,16 @@ WHERE
 
     def prepare_profiler_args(
         self,
+        inspector: Inspector,
         schema: str,
         table: str,
         partition: Optional[str],
         custom_sql: Optional[str] = None,
     ) -> dict:
+        project_id = self._get_project_id(inspector=inspector)
+        assert project_id
         return dict(
-            schema=self.get_db_name(for_sql_queries=True),
+            schema=project_id,
             table=f"{schema}.{table}",
             partition=partition,
             custom_sql=custom_sql,

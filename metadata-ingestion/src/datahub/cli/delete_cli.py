@@ -182,7 +182,7 @@ def delete(
     else:
         # log warn include_removed + hard is the only way to work
         if include_removed and soft:
-            logger.warn(
+            logger.warning(
                 "A filtered delete including soft deleted entities is redundant, because it is a soft delete by default. Please use --include-removed in conjunction with --hard"
             )
         # Filter based delete
@@ -234,16 +234,16 @@ def delete_with_filters(
     logger.info(f"datahub configured with {gms_host}")
     emitter = rest_emitter.DatahubRestEmitter(gms_server=gms_host, token=token)
     batch_deletion_result = DeletionResult()
-    urns = [
-        u
-        for u in cli_utils.get_urns_by_filter(
+    urns = list(
+        cli_utils.get_urns_by_filter(
             env=env,
             platform=platform,
             search_query=search_query,
             entity_type=entity_type,
             include_removed=include_removed,
         )
-    ]
+    )
+
     logger.info(
         f"Filter matched {len(urns)} entities. Sample: {choices(urns, k=min(5, len(urns)))}"
     )
@@ -284,12 +284,12 @@ def _delete_one_urn(
 
     if soft:
         # Add removed aspect
-        if not cached_emitter:
+        if cached_emitter:
+            emitter = cached_emitter
+        else:
             _, gms_host = cli_utils.get_session_and_host()
             token = cli_utils.get_token()
             emitter = rest_emitter.DatahubRestEmitter(gms_server=gms_host, token=token)
-        else:
-            emitter = cached_emitter
         if not dry_run:
             emitter.emit_mcp(
                 MetadataChangeProposalWrapper(
@@ -305,18 +305,19 @@ def _delete_one_urn(
             )
         else:
             logger.info(f"[Dry-run] Would soft-delete {urn}")
+    elif not dry_run:
+        payload_obj = {"urn": urn}
+        urn, rows_affected = cli_utils.post_delete_endpoint(
+            payload_obj,
+            "/entities?action=delete",
+            cached_session_host=cached_session_host,
+        )
+        deletion_result.num_records = rows_affected
     else:
-        if not dry_run:
-            payload_obj = {"urn": urn}
-            urn, rows_affected = cli_utils.post_delete_endpoint(
-                payload_obj,
-                "/entities?action=delete",
-                cached_session_host=cached_session_host,
-            )
-            deletion_result.num_records = rows_affected
-        else:
-            logger.info(f"[Dry-run] Would hard-delete {urn}")
-            deletion_result.num_records = UNKNOWN_NUM_RECORDS  # since we don't know how many rows will be affected
+        logger.info(f"[Dry-run] Would hard-delete {urn}")
+        deletion_result.num_records = (
+            UNKNOWN_NUM_RECORDS  # since we don't know how many rows will be affected
+        )
 
     deletion_result.end()
     return deletion_result

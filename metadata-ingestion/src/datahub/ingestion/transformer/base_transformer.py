@@ -132,8 +132,8 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
                     return True
             # fall through, no entity type matched
             return False
-        elif isinstance(record, MetadataChangeProposalWrapper) or isinstance(
-            record, MetadataChangeProposalClass
+        elif isinstance(
+            record, (MetadataChangeProposalWrapper, MetadataChangeProposalClass)
         ):
             return record.entityType in entity_types
 

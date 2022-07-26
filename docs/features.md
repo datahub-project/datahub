@@ -4,7 +4,7 @@ title: "Features"
 
 # DataHub Features Overview
 
-DataHub is a modern data catalog built to enable end-to-end data discovery, data observability, and data governance. This extensible metadata platform is built for developers to tame the complexity of their rapidly evolving data ecosystems, and for data practitioners to leverage the full value of data within their organization.
+DataHub is a modern data catalog built to enable end-to-end data discovery, data observability, and data governance. This extensible metadata platform is built for developers to tame the complexity of their rapidly evolving data ecosystems and for data practitioners to leverage the total value of data within their organization.
 
 Here’s an overview of DataHub’s current functionality. Check out our [roadmap](https://feature-requests.datahubproject.io/roadmap) to see what's to come.
 
@@ -14,7 +14,7 @@ Here’s an overview of DataHub’s current functionality. Check out our [roadma
 
 ### **Search All Corners of Your Data Stack**
 
-DataHub's unified search experience surfaces results across across databases, datalakes, BI platforms, ML feature stores, orchestration tools, and more.
+DataHub's unified search experience surfaces results across databases, data lakes, BI platforms, ML feature stores, orchestration tools, and more.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/feature-search-all-corners-of-your-datastack.gif"/>
@@ -22,7 +22,7 @@ DataHub's unified search experience surfaces results across across databases, da
 
 ### **Trace End-to-End Lineage**
 
-Easily understand the end-to-end journey of data by tracing lineage across platforms, datasets, ETL/ELT pipelines, charts, and dashboards, and beyond.
+Quickly understand the end-to-end journey of data by tracing lineage across platforms, datasets, ETL/ELT pipelines, charts, dashboards, and beyond.
 
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/feature-end-to-end-lineage.png"/>
@@ -38,7 +38,7 @@ Proactively identify which entities may be impacted by a breaking change using I
 
 ### **View Metadata 360 at a Glance**
 
-Combine *technical* and *logical* metadata to provide a robust 360º view of your data entities.
+Combine *technical* and *logical* metadata to provide a 360º view of your data entities.
 
 Generate **Dataset Stats** to understand the shape & distribution of the data
 
@@ -68,7 +68,7 @@ Leverage DataHub's **Schema Version History** to track changes to the physical s
 
 * **Notifications:** Generate organization-specific notifications when a change is made on DataHub. For example, send an email to the governance team when a "PII" tag is added to any data asset.
 * **Workflow Integration:** Integrate DataHub into your organization's internal workflows. For example, create a Jira ticket when specific Tags or Terms are proposed on a Dataset.
-* **Synchronization:** Syncing changes made in DataHub into a 3rd party system. For example, reflecting Tag additions in DataHub into Snowflake.
+* **Synchronization:** Sync changes made in DataHub into a 3rd party system. For example, reflect Tag additions in DataHub into Snowflake.
 * **Auditing:** Audit who is making what changes on DataHub through time.
 
 <p align="center">
@@ -76,7 +76,7 @@ Leverage DataHub's **Schema Version History** to track changes to the physical s
 </p>
 
 ### **Manage Entity Ownership**
-Quickly and easily assign entitiy ownership to users and/or user groups.
+Quickly and easily assign entity ownership to users and user groups.
 
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/feature-entity-owner.png"/>
@@ -86,8 +86,8 @@ Quickly and easily assign entitiy ownership to users and/or user groups.
 Empower data owners to govern their data entities with:
 
 1. **Tags:** Informal, loosely controlled labels that serve as a tool for search & discovery. No formal, central management.
-2. **Glossary Terms:** A controlled vocabulary with optional hierarchy, commonly used to describe core business concepts and/or measurements.
-3. **Domains:** Curated, top-level folders or categories, commonly used in Data Mesh to organize entities by department (i.e., Finance, Marketing) and/or Data Products.
+2. **Glossary Terms:** A controlled vocabulary with optional hierarchy, commonly used to describe core business concepts and measurements.
+3. **Domains:** Curated, top-level folders or categories, widely used in Data Mesh to organize entities by department (i.e., Finance, Marketing) or Data Products.
 
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/feature-tags-terms-domains.png"/>
@@ -100,10 +100,10 @@ Empower data owners to govern their data entities with:
 
 DataHub admins can create Policies to define who can perform what action against which resource(s). When you create a new Policy, you will be able to define the following:
 
-* **Policy Type Platform** (top-level DataHub Platform privileges, i.e. managing users, groups, and policies) or Metadata (ability to manipulate ownership, tags, documentation, & more)
-* **Resource Type** - Specify the type of resource, such as Datasets, Dashboards, Pipelines, etc.
+* **Policy Type** - Platform (top-level DataHub Platform privileges, i.e., managing users, groups, and policies) or Metadata (ability to manipulate ownership, tags, documentation, and more)
+* **Resource Type** - Specify the type of resources, such as Datasets, Dashboards, Pipelines, and beyond
 * **Privileges** - Choose the set of permissions, such as Edit Owners, Edit Documentation, Edit Links
-* **Users and/or Groups** - Assign relevant Users and/or Groups; you can also assign the Policy to Resource Owners, regardless of which Group they belong to
+* **Users and/or Groups** - Assign relevant Users and Groups; you can also assign the Policy to Resource Owners, regardless of which Group they belong
 
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/feature-manage-policies.png"/>

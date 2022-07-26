@@ -28,3 +28,7 @@ mutation updateTag($urn: String!, $input: TagUpdateInput!) {
 mutation deleteTag($urn: String!) {
     deleteTag(urn: $urn)
 }
+
+mutation createTag($input: CreateTagInput!) {
+    createTag(input: $input)
+}
