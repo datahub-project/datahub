@@ -118,7 +118,11 @@ def delete(
             "You must provide either an urn or a platform or an env or a query for me to delete anything"
         )
 
-    if not soft:
+    if soft:
+        # For soft-delete include-removed does not make any sense
+        include_removed = False
+    else:
+        # For hard-delete we always include the soft-deleted items
         include_removed = True
 
     # default query is set to "*" if not provided
@@ -183,11 +187,6 @@ def delete(
             registry_id=registry_id, soft=soft, dry_run=dry_run
         )
     else:
-        # log warn include_removed + hard is the only way to work
-        if include_removed and soft:
-            logger.warning(
-                "A filtered delete including soft deleted entities is redundant, because it is a soft delete by default. Please use --include-removed in conjunction with --hard"
-            )
         # Filter based delete
         deletion_result = delete_with_filters(
             env=env,
@@ -247,6 +246,7 @@ def delete_with_filters(
         )
     )
     soft_deleted_msg: str = ""
+    soft_deleted_urns: List[str] = []
     if include_removed:
         soft_deleted_urns = list(
             cli_utils.get_urns_by_filter(
@@ -257,7 +257,8 @@ def delete_with_filters(
                 only_removed=True,
             )
         )
-        soft_deleted_msg = f" and {len(soft_deleted_urns)} (soft-deleted) "
+        if len(soft_deleted_urns) > 0:
+            soft_deleted_msg = f" and {len(soft_deleted_urns)} (soft-deleted) "
 
     logger.info(
         f"Filter matched {len(urns)} {soft_deleted_msg} {entity_type} entities of {platform}. Sample: {choices(urns, k=min(5, len(urns)))}"
