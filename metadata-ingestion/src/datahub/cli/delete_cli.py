@@ -254,7 +254,7 @@ def delete_with_filters(
         )
 
     soft_deleted_urns: List[str] = []
-    if include_removed:
+    if include_removed or only_removed:
         soft_deleted_urns = list(
             cli_utils.get_urns_by_filter(
                 env=env,
