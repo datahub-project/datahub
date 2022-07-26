@@ -1,7 +1,6 @@
 import React from 'react';
 import { Pagination, Typography } from 'antd';
 import styled from 'styled-components';
-import type { CheckboxValueType } from 'antd/es/checkbox/Group';
 import { FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '../../../../../../types.generated';
 import { SearchFilters } from '../../../../../search/SearchFilters';
 import { SearchCfg } from '../../../../../../conf';
@@ -96,8 +95,10 @@ interface Props {
     onChangeFilters: (filters: Array<FacetFilterInput>) => void;
     onChangePage: (page: number) => void;
     showSelectMode: boolean;
-    setCheckedSearchResults: (checkedSearchResults: Array<CheckboxValueType>) => any;
-    checkedSearchResults: CheckboxValueType[];
+    setSelectedEntityUrns: (checkedSearchResults: Array<string>) => any;
+    selectedEntityUrns: string[];
+    numResultsPerPage: number;
+    setNumResultsPerPage: (numResults: number) => void;
 }
 
 export const EmbeddedListSearchResults = ({
@@ -110,8 +111,10 @@ export const EmbeddedListSearchResults = ({
     onChangeFilters,
     onChangePage,
     showSelectMode,
-    setCheckedSearchResults,
-    checkedSearchResults,
+    setSelectedEntityUrns,
+    selectedEntityUrns,
+    numResultsPerPage,
+    setNumResultsPerPage,
 }: Props) => {
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
@@ -120,6 +123,10 @@ export const EmbeddedListSearchResults = ({
 
     const onFilterSelect = (newFilters) => {
         onChangeFilters(newFilters);
+    };
+
+    const updateNumResults = (_currentNum: number, newNum: number) => {
+        setNumResultsPerPage(newNum);
     };
 
     return (
@@ -159,8 +166,8 @@ export const EmbeddedListSearchResults = ({
                                     })) || []
                                 }
                                 showSelectMode={showSelectMode}
-                                setCheckedSearchResults={setCheckedSearchResults}
-                                checkedSearchResults={checkedSearchResults}
+                                setSelectedEntityUrns={setSelectedEntityUrns}
+                                selectedEntityUrns={selectedEntityUrns}
                             />
                         </>
                     )}
@@ -173,11 +180,13 @@ export const EmbeddedListSearchResults = ({
                         </PaginationInfo>
                         <StyledPagination
                             current={page}
-                            pageSize={SearchCfg.RESULTS_PER_PAGE}
+                            pageSize={numResultsPerPage}
                             total={totalResults}
                             showLessItems
                             onChange={onChangePage}
-                            showSizeChanger={false}
+                            showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
+                            onShowSizeChange={updateNumResults}
+                            pageSizeOptions={['10', '20', '50', '100']}
                         />
                         <span />
                     </PaginationInfoContainer>

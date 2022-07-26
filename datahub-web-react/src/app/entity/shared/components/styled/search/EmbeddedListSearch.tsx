@@ -4,8 +4,6 @@ import { useHistory, useLocation, useParams } from 'react-router';
 import { message } from 'antd';
 import styled from 'styled-components';
 import { ApolloError } from '@apollo/client';
-import type { CheckboxValueType } from 'antd/es/checkbox/Group';
-
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { EntityType, FacetFilterInput } from '../../../../../../types.generated';
 import useFilters from '../../../../../search/utils/useFilters';
@@ -97,9 +95,9 @@ export const EmbeddedListSearch = ({
         .map((filter) => filter.value.toUpperCase() as EntityType);
 
     const [showFilters, setShowFilters] = useState(defaultShowFilters || false);
-
     const [showSelectMode, setShowSelectMode] = useState(false);
-    const [checkedSearchResults, setCheckedSearchResults] = useState<CheckboxValueType[]>([]);
+    const [selectedEntityUrns, setSelectedEntityUrns] = useState<string[]>([]);
+    const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
 
     const { refetch } = useGetSearchResults({
         variables: {
@@ -123,8 +121,8 @@ export const EmbeddedListSearch = ({
             input: {
                 types: entityFilters,
                 query,
-                start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
-                count: SearchCfg.RESULTS_PER_PAGE,
+                start: (page - 1) * numResultsPerPage,
+                count: numResultsPerPage,
                 filters: finalFilters,
             },
         },
@@ -170,6 +168,14 @@ export const EmbeddedListSearch = ({
         setShowFilters(!showFilters);
     };
 
+    const onToggleSelectAll = (selected: boolean) => {
+        if (selected) {
+            setSelectedEntityUrns(data?.searchResults?.map((result) => result.entity?.urn) || []);
+        } else {
+            setSelectedEntityUrns([]);
+        }
+    };
+
     useEffect(() => {
         if (defaultFilters) {
             onChangeFilters(defaultFilters);
@@ -194,7 +200,8 @@ export const EmbeddedListSearch = ({
                 query={query}
                 showSelectMode={showSelectMode}
                 setShowSelectMode={setShowSelectMode}
-                checkedSearchResults={checkedSearchResults}
+                checkedSearchResults={selectedEntityUrns}
+                onToggleSelectAll={onToggleSelectAll}
             />
             <EmbeddedListSearchResults
                 loading={loading}
@@ -206,8 +213,10 @@ export const EmbeddedListSearch = ({
                 page={page}
                 showFilters={showFilters}
                 showSelectMode={showSelectMode}
-                setCheckedSearchResults={setCheckedSearchResults}
-                checkedSearchResults={checkedSearchResults}
+                setSelectedEntityUrns={setSelectedEntityUrns}
+                selectedEntityUrns={selectedEntityUrns}
+                numResultsPerPage={numResultsPerPage}
+                setNumResultsPerPage={setNumResultsPerPage}
             />
         </Container>
     );

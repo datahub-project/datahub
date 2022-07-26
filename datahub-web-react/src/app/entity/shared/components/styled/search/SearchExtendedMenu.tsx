@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Dropdown, Menu } from 'antd';
-import { MoreOutlined } from '@ant-design/icons';
+import { Button, Dropdown, Menu } from 'antd';
+import { MoreOutlined, SelectOutlined } from '@ant-design/icons';
 // import { Button, Dropdown, Menu } from 'antd';
 // import { MoreOutlined, SelectOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
@@ -14,11 +14,11 @@ const MenuIcon = styled(MoreOutlined)`
     height: 20px;
 `;
 
-// const SelectButton = styled(Button)`
-//     font-size: 12px;
-//     padding-left: 12px;
-//     padding-right: 12px;
-// `;
+const SelectButton = styled(Button)`
+    font-size: 12px;
+    padding-left: 12px;
+    padding-right: 12px;
+`;
 
 type Props = {
     callSearchOnVariables: (variables: {
@@ -51,14 +51,14 @@ export default function SearchExtendedMenu({
                     setShowDownloadAsCsvModal={setShowDownloadAsCsvModal}
                 />
             </Menu.Item>
-            {/* <Menu.Item key="1">
+            <Menu.Item key="1">
                 {setShowSelectMode && (
                     <SelectButton type="text" onClick={() => setShowSelectMode(true)}>
                         <SelectOutlined />
                         Select...
                     </SelectButton>
                 )}
-            </Menu.Item> */}
+            </Menu.Item>
         </Menu>
     );
 
