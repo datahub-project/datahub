@@ -390,8 +390,8 @@ public class RestEmitterTest {
     RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().disableSslVerification(true).build());
     final String hostWithSsl = "https://self-signed.badssl.com";
     final HttpGet request = new HttpGet(hostWithSsl);
-    final Future<HttpResponse> future = restEmitter.execute(request, null);
-    final HttpResponse response = future.get();
+
+    final HttpResponse response = restEmitter.getHttpClient().execute(request, null).get();
     restEmitter.close();
     Assert.assertEquals(200, response.getStatusLine().getStatusCode());
   }
@@ -402,8 +402,7 @@ public class RestEmitterTest {
     final String hostWithSsl = "https://self-signed.badssl.com";
     final HttpGet request = new HttpGet(hostWithSsl);
     try {
-      final Future<HttpResponse> future = restEmitter.execute(request, null);
-      future.get();
+      HttpResponse response = restEmitter.getHttpClient().execute(request, null).get();
       Assert.fail();
     } catch (Exception e) {
       Assert.assertTrue(e instanceof ExecutionException);

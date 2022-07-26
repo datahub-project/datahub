@@ -1,5 +1,6 @@
 package datahub.client.rest;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,7 +18,6 @@ import org.apache.http.HttpStatus;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.concurrent.FutureCallback;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
@@ -40,6 +40,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.TrustAllStrategy;
+import org.apache.http.nio.client.HttpAsyncClient;
 import org.apache.http.ssl.SSLContextBuilder;
 
 import java.security.KeyManagementException;
@@ -95,7 +96,6 @@ public class RestEmitter implements Emitter {
           .setSocketTimeout(config.getTimeoutSec() * 1000)
           .build());
     }
-
     if (config.isDisableSslVerification()) {
       HttpAsyncClientBuilder httpClientBuilder = this.config.getAsyncHttpClientBuilder();
       try {
@@ -335,7 +335,9 @@ public class RestEmitter implements Emitter {
     return new MetadataResponseFuture(requestFuture, responseAtomicReference, responseLatch);
   }
 
-  Future<HttpResponse> execute(HttpUriRequest request, FutureCallback<HttpResponse> callback) {
-    return this.httpClient.execute(request, callback);
+  @VisibleForTesting
+  HttpAsyncClient getHttpClient() {
+    return this.httpClient;
   }
+
 }
