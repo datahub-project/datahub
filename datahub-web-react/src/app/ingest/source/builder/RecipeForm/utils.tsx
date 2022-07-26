@@ -207,6 +207,52 @@ export const REDSHIFT_PASSWORD: RecipeField = {
     rules: null,
 };
 
+export const TABLEAU_CONNECTION_URI: RecipeField = {
+    name: 'connection_uri',
+    label: 'Connection URI',
+    tooltip: 'Tableau host URL.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.connection_uri',
+    rules: null,
+};
+
+export const TABLEAU_PROJECT: RecipeField = {
+    name: 'projects',
+    label: 'Projects',
+    tooltip: 'List of projects',
+    type: FieldType.LIST,
+    fieldPath: 'source.config.projects',
+    rules: null,
+};
+
+export const TABLEAU_SITE: RecipeField = {
+    name: 'site',
+    label: 'Tableau Site',
+    tooltip:
+        'Tableau Site. Always required for Tableau Online. Use empty string to connect with Default site on Tableau Server.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.site',
+    rules: null,
+};
+
+export const TABLEAU_USERNAME: RecipeField = {
+    name: 'tableau.username',
+    label: 'Username',
+    tooltip: 'Tableau username, must be set if authenticating using username/password.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.username',
+    rules: null,
+};
+
+export const TABLEAU_PASSWORD: RecipeField = {
+    name: 'tableau.password',
+    label: 'Password',
+    tooltip: 'Tableau password, must be set if authenticating using username/password.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.password',
+    rules: null,
+};
+
 export const LOOKER_BASE_URL: RecipeField = {
     name: 'base_url',
     label: 'Base URL',
@@ -338,6 +384,24 @@ export const TABLE_LINEAGE_MODE: RecipeField = {
         { label: 'sql_based', value: 'sql_based' },
         { label: 'mixed', value: 'mixed' },
     ],
+};
+
+export const INGEST_TAGS: RecipeField = {
+    name: 'ingest_tags',
+    label: 'Ingest Tags',
+    tooltip: 'Ingest Tags from source. This will override Tags entered from UI',
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.ingest_tags',
+    rules: null,
+};
+
+export const INGEST_OWNER: RecipeField = {
+    name: 'ingest_owner',
+    label: 'Ingest Owner',
+    tooltip: 'Ingest Owner from source. This will override Owner info entered from UI',
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.ingest_owner',
+    rules: null,
 };
 
 export const GITHUB_INFO_REPO: RecipeField = {
@@ -519,6 +583,8 @@ export const CHART_DENY: RecipeField = {
         setListValuesOnRecipe(recipe, values, chartDenyFieldPath),
 };
 
+export const TABLEAU = 'tableau';
+
 export const RECIPE_FIELDS = {
     [SNOWFLAKE]: {
         fields: [SNOWFLAKE_ACCOUNT_ID, SNOWFLAKE_WAREHOUSE, SNOWFLAKE_USERNAME, SNOWFLAKE_PASSWORD, SNOWFLAKE_ROLE],
@@ -556,6 +622,11 @@ export const RECIPE_FIELDS = {
         fields: [REDSHIFT_HOST_PORT, REDSHIFT_DATABASE, REDSHIFT_USERNAME, REDSHIFT_PASSWORD],
         advancedFields: [INCLUDE_LINEAGE, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED, TABLE_LINEAGE_MODE],
         filterFields: [TABLE_ALLOW, TABLE_DENY, SCHEMA_ALLOW, SCHEMA_DENY, VIEW_ALLOW, VIEW_DENY],
+    },
+    [TABLEAU]: {
+        fields: [TABLEAU_CONNECTION_URI, TABLEAU_PROJECT, TABLEAU_SITE, TABLEAU_USERNAME, TABLEAU_PASSWORD],
+        filterFields: [],
+        advancedFields: [INGEST_TAGS, INGEST_OWNER],
     },
     [LOOKER]: {
         fields: [LOOKER_BASE_URL, LOOKER_CLIENT_ID, LOOKER_CLIENT_SECRET],
