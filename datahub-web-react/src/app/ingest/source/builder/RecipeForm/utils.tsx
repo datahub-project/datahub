@@ -4,6 +4,7 @@ import { SNOWFLAKE } from '../../conf/snowflake/snowflake';
 import { BIGQUERY } from '../../conf/bigquery/bigquery';
 import { REDSHIFT } from '../../conf/redshift/redshift';
 import { LOOKER } from '../../conf/looker/looker';
+import { TABLEAU } from '../../conf/tableau/tableau';
 
 export enum FieldType {
     TEXT,
@@ -259,15 +260,8 @@ export const LOOKER_BASE_URL: RecipeField = {
     tooltip: (
         <TableLineageModeTooltip>
             <p>
-                Url to your Looker instance:{' '}
-                <a href="https://company.looker.com:19999" target="_blank" rel="noreferrer">
-                    https://company.looker.com:19999
-                </a>{' '}
-                or{' '}
-                <a href="https://looker.company.com" target="_blank" rel="noreferrer">
-                    https://looker.company.com
-                </a>
-                , or similar. Used for making API calls to Looker and constructing clickable dashboard and chart urls.
+                Url to your Looker instance: https://company.looker.com:19999 or https://looker.company.com, or similar.
+                Used for making API calls to Looker and constructing clickable dashboard and chart urls.
             </p>
         </TableLineageModeTooltip>
     ),
@@ -418,7 +412,7 @@ export const GITHUB_INFO_REPO: RecipeField = {
             </p>
         </TableLineageModeTooltip>
     ),
-    type: FieldType.BOOLEAN,
+    type: FieldType.TEXT,
     fieldPath: 'source.config.github_info.repo',
     rules: null,
 };
@@ -583,7 +577,31 @@ export const CHART_DENY: RecipeField = {
         setListValuesOnRecipe(recipe, values, chartDenyFieldPath),
 };
 
-export const TABLEAU = 'tableau';
+const dashboardAllowFieldPath = 'source.config.dashboard_pattern.allow';
+export const DASHBOARD_ALLOW: RecipeField = {
+    name: 'dashboard_pattern.allow',
+    label: 'Allow Patterns',
+    tooltip: 'Use regex here.',
+    type: FieldType.LIST,
+    fieldPath: 'source.config.dashboard_pattern.allow',
+    rules: null,
+    section: 'Dashboards',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, dashboardAllowFieldPath),
+};
+
+const dashboardDenyFieldPath = 'source.config.dashboard_pattern.deny';
+export const DASHBOARD_DENY: RecipeField = {
+    name: 'dashboard_pattern.deny',
+    label: 'Deny Patterns',
+    tooltip: 'Use regex here.',
+    type: FieldType.LIST,
+    fieldPath: 'source.config.dashboard_pattern.deny',
+    rules: null,
+    section: 'Dashboards',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, dashboardDenyFieldPath),
+};
 
 export const RECIPE_FIELDS = {
     [SNOWFLAKE]: {
@@ -630,7 +648,7 @@ export const RECIPE_FIELDS = {
     },
     [LOOKER]: {
         fields: [LOOKER_BASE_URL, LOOKER_CLIENT_ID, LOOKER_CLIENT_SECRET],
-        filterFields: [DATABASE_ALLOW, DATABASE_DENY, CHART_ALLOW, CHART_DENY],
+        filterFields: [DASHBOARD_ALLOW, DASHBOARD_DENY, CHART_ALLOW, CHART_DENY],
         advancedFields: [GITHUB_INFO_REPO, EXTRACT_USAGE_HISTORY, EXTRACT_OWNERS, SKIP_PERSONAL_FOLDERS],
     },
 };

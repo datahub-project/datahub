@@ -110,20 +110,26 @@ function RecipeForm(props: Props) {
                     ))}
                 </Collapse.Panel>
             </StyledCollapse>
-            <StyledCollapse>
-                <Collapse.Panel forceRender header={<SectionHeader icon={<FilterOutlined />} text="Filter" />} key="1">
-                    {filterFields.map((field, i) => (
-                        <>
-                            {shouldRenderFilterSectionHeader(field, i, filterFields) && (
-                                <Typography.Title level={4}>{field.section}</Typography.Title>
-                            )}
-                            <MarginWrapper>
-                                <FormField field={field} removeMargin={i === filterFields.length - 1} />
-                            </MarginWrapper>
-                        </>
-                    ))}
-                </Collapse.Panel>
-            </StyledCollapse>
+            {filterFields.length > 0 && (
+                <StyledCollapse>
+                    <Collapse.Panel
+                        forceRender
+                        header={<SectionHeader icon={<FilterOutlined />} text="Filter" />}
+                        key="1"
+                    >
+                        {filterFields.map((field, i) => (
+                            <>
+                                {shouldRenderFilterSectionHeader(field, i, filterFields) && (
+                                    <Typography.Title level={4}>{field.section}</Typography.Title>
+                                )}
+                                <MarginWrapper>
+                                    <FormField field={field} removeMargin={i === filterFields.length - 1} />
+                                </MarginWrapper>
+                            </>
+                        ))}
+                    </Collapse.Panel>
+                </StyledCollapse>
+            )}
             <StyledCollapse>
                 <Collapse.Panel
                     forceRender
