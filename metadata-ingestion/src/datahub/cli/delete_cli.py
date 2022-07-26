@@ -95,6 +95,7 @@ def delete_for_registry(
 @click.option("--registry-id", required=False, type=str)
 @click.option("-n", "--dry-run", required=False, is_flag=True)
 @click.option("--include-removed", required=False, is_flag=True)
+@click.option("--only-removed", required=False, is_flag=True, default=False)
 @upgrade.check_upgrade
 @telemetry.with_telemetry
 def delete(
@@ -108,6 +109,7 @@ def delete(
     registry_id: str,
     dry_run: bool,
     include_removed: bool,
+    only_removed: bool,
 ) -> None:
     """Delete metadata from datahub using a single urn or a combination of filters"""
 
@@ -197,6 +199,7 @@ def delete(
             search_query=query,
             force=force,
             include_removed=include_removed,
+            only_removed=only_removed,
         )
 
     if not dry_run:
@@ -228,6 +231,7 @@ def delete_with_filters(
     entity_type: str = "dataset",
     env: Optional[str] = None,
     platform: Optional[str] = None,
+    only_removed: Optional[bool] = False,
 ) -> DeletionResult:
 
     session, gms_host = cli_utils.get_session_and_host()
@@ -236,16 +240,19 @@ def delete_with_filters(
     logger.info(f"datahub configured with {gms_host}")
     emitter = rest_emitter.DatahubRestEmitter(gms_server=gms_host, token=token)
     batch_deletion_result = DeletionResult()
-    urns = list(
-        cli_utils.get_urns_by_filter(
-            env=env,
-            platform=platform,
-            search_query=search_query,
-            entity_type=entity_type,
-            include_removed=False,
+
+    urns: List[str] = []
+    if not only_removed:
+        urns = list(
+            cli_utils.get_urns_by_filter(
+                env=env,
+                platform=platform,
+                search_query=search_query,
+                entity_type=entity_type,
+                include_removed=False,
+            )
         )
-    )
-    soft_deleted_msg: str = ""
+
     soft_deleted_urns: List[str] = []
     if include_removed:
         soft_deleted_urns = list(
@@ -257,11 +264,17 @@ def delete_with_filters(
                 only_removed=True,
             )
         )
-        if len(soft_deleted_urns) > 0:
-            soft_deleted_msg = f" and {len(soft_deleted_urns)} (soft-deleted) "
+
+    final_message = ""
+    if len(urns) > 0:
+        final_message = f"{len(urns)} "
+    if len(urns) > 0 and len(soft_deleted_urns) > 0:
+        final_message += "and "
+    if len(soft_deleted_urns) > 0:
+        final_message = f"{len(soft_deleted_urns)} (soft-deleted) "
 
     logger.info(
-        f"Filter matched {len(urns)} {soft_deleted_msg} {entity_type} entities of {platform}. Sample: {choices(urns, k=min(5, len(urns)))}"
+        f"Filter matched {final_message} {entity_type} entities of {platform}. Sample: {choices(urns, k=min(5, len(urns)))}"
     )
     if len(urns) == 0 and len(soft_deleted_urns) == 0:
         click.echo(
@@ -276,16 +289,17 @@ def delete_with_filters(
             abort=True,
         )
 
-    for urn in progressbar.progressbar(urns, redirect_stdout=True):
-        one_result = _delete_one_urn(
-            urn,
-            soft=soft,
-            entity_type=entity_type,
-            dry_run=dry_run,
-            cached_session_host=(session, gms_host),
-            cached_emitter=emitter,
-        )
-        batch_deletion_result.merge(one_result)
+    if len(urns) > 0:
+        for urn in progressbar.progressbar(urns, redirect_stdout=True):
+            one_result = _delete_one_urn(
+                urn,
+                soft=soft,
+                entity_type=entity_type,
+                dry_run=dry_run,
+                cached_session_host=(session, gms_host),
+                cached_emitter=emitter,
+            )
+            batch_deletion_result.merge(one_result)
 
     if len(soft_deleted_urns) > 0 and not soft:
         click.echo("Starting to delete soft-deleted URNs")
