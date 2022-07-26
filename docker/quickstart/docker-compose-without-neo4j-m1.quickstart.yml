@@ -52,7 +52,7 @@ services:
     - ELASTIC_CLIENT_HOST=elasticsearch
     - ELASTIC_CLIENT_PORT=9200
     hostname: datahub-frontend-react
-    image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_FRONTEND_IMAGE:-linkedin/datahub-frontend-react}:${DATAHUB_VERSION:-head}
     ports:
     - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002
     volumes:
@@ -81,7 +81,7 @@ services:
     - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
     - PE_CONSUMER_ENABLED=true
     hostname: datahub-gms
-    image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_GMS_IMAGE:-linkedin/datahub-gms}:${DATAHUB_VERSION:-head}
     ports:
     - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
     volumes:
@@ -115,7 +115,7 @@ services:
     - ELASTICSEARCH_PORT=9200
     - ELASTICSEARCH_PROTOCOL=http
     hostname: elasticsearch-setup
-    image: linkedin/datahub-elasticsearch-setup:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-linkedin/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
   kafka-setup:
     container_name: kafka-setup
     depends_on:
@@ -125,7 +125,7 @@ services:
     - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     hostname: kafka-setup
-    image: linkedin/datahub-kafka-setup:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-linkedin/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
   mysql:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin --default-authentication-plugin=mysql_native_password
     container_name: mysql
