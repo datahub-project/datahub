@@ -3,6 +3,7 @@ import { set, get } from 'lodash';
 import { SNOWFLAKE } from '../../conf/snowflake/snowflake';
 import { BIGQUERY } from '../../conf/bigquery/bigquery';
 import { REDSHIFT } from '../../conf/redshift/redshift';
+import { LOOKER } from '../../conf/looker/looker';
 
 export enum FieldType {
     TEXT,
@@ -66,6 +67,10 @@ export function setListValuesOnRecipe(recipe: any, values: string[] | undefined,
     }
     return updatedRecipe;
 }
+
+const TableLineageModeTooltip = ({ children }: { children: React.ReactNode }) => {
+    return <div>{children}</div>;
+};
 
 export const SNOWFLAKE_ACCOUNT_ID: RecipeField = {
     name: 'account_id',
@@ -202,6 +207,47 @@ export const REDSHIFT_PASSWORD: RecipeField = {
     rules: null,
 };
 
+export const LOOKER_BASE_URL: RecipeField = {
+    name: 'base_url',
+    label: 'Base URL',
+    tooltip: (
+        <TableLineageModeTooltip>
+            <p>
+                Url to your Looker instance:{' '}
+                <a href="https://company.looker.com:19999" target="_blank" rel="noreferrer">
+                    https://company.looker.com:19999
+                </a>{' '}
+                or{' '}
+                <a href="https://looker.company.com" target="_blank" rel="noreferrer">
+                    https://looker.company.com
+                </a>
+                , or similar. Used for making API calls to Looker and constructing clickable dashboard and chart urls.
+            </p>
+        </TableLineageModeTooltip>
+    ),
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.base_url',
+    rules: null,
+};
+
+export const LOOKER_CLIENT_ID: RecipeField = {
+    name: 'client_id',
+    label: 'Client ID',
+    tooltip: 'Looker API client id.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.client_id',
+    rules: null,
+};
+
+export const LOOKER_CLIENT_SECRET: RecipeField = {
+    name: 'client_secret',
+    label: 'Client Secret',
+    tooltip: 'Looker API client secret.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.client_secret',
+    rules: null,
+};
+
 const includeLineageFieldPathA = 'source.config.include_table_lineage';
 const includeLineageFieldPathB = 'source.config.include_view_lineage';
 export const INCLUDE_LINEAGE: RecipeField = {
@@ -266,9 +312,11 @@ export const UPSTREAM_LINEAGE_IN_REPORT: RecipeField = {
     rules: null,
 };
 
-const TableLineageModeTooltip = () => {
-    return (
-        <div>
+export const TABLE_LINEAGE_MODE: RecipeField = {
+    name: 'table_lineage_mode',
+    label: 'Table Lineage Mode',
+    tooltip: (
+        <TableLineageModeTooltip>
             <p>
                 Which table lineage collector mode to use. Check out{' '}
                 <a
@@ -280,14 +328,8 @@ const TableLineageModeTooltip = () => {
                 </a>{' '}
                 explaining the difference between the three available modes.
             </p>
-        </div>
-    );
-};
-
-export const TABLE_LINEAGE_MODE: RecipeField = {
-    name: 'table_lineage_mode',
-    label: 'Table Lineage Mode',
-    tooltip: TableLineageModeTooltip,
+        </TableLineageModeTooltip>
+    ),
     type: FieldType.SELECT,
     fieldPath: 'source.config.table_lineage_mode',
     rules: null,
@@ -296,6 +338,55 @@ export const TABLE_LINEAGE_MODE: RecipeField = {
         { label: 'sql_based', value: 'sql_based' },
         { label: 'mixed', value: 'mixed' },
     ],
+};
+
+export const GITHUB_INFO_REPO: RecipeField = {
+    name: 'github_info.repo',
+    label: 'GitHub Repo',
+    tooltip: (
+        <TableLineageModeTooltip>
+            <p>
+                Name of your github repo. e.g. repo for{' '}
+                <a href="https://github.com/datahub-project/datahub" target="_blank" rel="noreferrer">
+                    https://github.com/datahub-project/datahub
+                </a>{' '}
+                is datahub-project/datahub.
+            </p>
+        </TableLineageModeTooltip>
+    ),
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.github_info.repo',
+    rules: null,
+};
+
+export const EXTRACT_USAGE_HISTORY: RecipeField = {
+    name: 'extract_usage_history',
+    label: 'Extract Usage History',
+    tooltip:
+        'Experimental (Subject to breaking change) -- Whether to ingest usage statistics for dashboards. Setting this to True will query looker system activity explores to fetch historical dashboard usage.',
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.extract_usage_history',
+    rules: null,
+};
+
+export const EXTRACT_OWNERS: RecipeField = {
+    name: 'extract_owners',
+    label: 'Extract Owners',
+    tooltip:
+        'When enabled, extracts ownership from Looker directly. When disabled, ownership is left empty for dashboards and charts.',
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.extract_owners',
+    rules: null,
+};
+
+export const SKIP_PERSONAL_FOLDERS: RecipeField = {
+    name: 'skip_personal_folders',
+    label: 'Skip Personal Folders',
+    tooltip:
+        'Whether to skip ingestion of dashboards in personal folders. Setting this to True will only ingest dashboards in the Shared folder space.',
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.skip_personal_folders',
+    rules: null,
 };
 
 const databaseAllowFieldPath = 'source.config.database_pattern.allow';
@@ -402,6 +493,32 @@ export const TABLE_DENY: RecipeField = {
         setListValuesOnRecipe(recipe, values, tableDenyFieldPath),
 };
 
+const chartAllowFieldPath = 'source.config.chart_pattern.allow';
+export const CHART_ALLOW: RecipeField = {
+    name: 'chart_pattern.allow',
+    label: 'Allow Patterns',
+    tooltip: 'Use regex here.',
+    type: FieldType.LIST,
+    fieldPath: 'source.config.chart_pattern.allow',
+    rules: null,
+    section: 'Charts',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, chartAllowFieldPath),
+};
+
+const chartDenyFieldPath = 'source.config.chart_pattern.deny';
+export const CHART_DENY: RecipeField = {
+    name: 'chart_pattern.deny',
+    label: 'Deny Patterns',
+    tooltip: 'Use regex here.',
+    type: FieldType.LIST,
+    fieldPath: 'source.config.chart_pattern.deny',
+    rules: null,
+    section: 'Charts',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, chartDenyFieldPath),
+};
+
 export const RECIPE_FIELDS = {
     [SNOWFLAKE]: {
         fields: [SNOWFLAKE_ACCOUNT_ID, SNOWFLAKE_WAREHOUSE, SNOWFLAKE_USERNAME, SNOWFLAKE_PASSWORD, SNOWFLAKE_ROLE],
@@ -439,6 +556,11 @@ export const RECIPE_FIELDS = {
         fields: [REDSHIFT_HOST_PORT, REDSHIFT_DATABASE, REDSHIFT_USERNAME, REDSHIFT_PASSWORD],
         advancedFields: [INCLUDE_LINEAGE, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED, TABLE_LINEAGE_MODE],
         filterFields: [TABLE_ALLOW, TABLE_DENY, SCHEMA_ALLOW, SCHEMA_DENY, VIEW_ALLOW, VIEW_DENY],
+    },
+    [LOOKER]: {
+        fields: [LOOKER_BASE_URL, LOOKER_CLIENT_ID, LOOKER_CLIENT_SECRET],
+        filterFields: [DATABASE_ALLOW, DATABASE_DENY, CHART_ALLOW, CHART_DENY],
+        advancedFields: [GITHUB_INFO_REPO, EXTRACT_USAGE_HISTORY, EXTRACT_OWNERS, SKIP_PERSONAL_FOLDERS],
     },
 };
 
