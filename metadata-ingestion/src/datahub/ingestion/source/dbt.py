@@ -218,6 +218,10 @@ class DBTConfig(StatefulIngestionConfigBase):
         False,
         description="Prior to version 0.8.38, dbt tests were represented as datasets. If you ingested dbt tests before, set this flag to True (just needed once) to soft-delete tests that were generated as datasets by previous ingestion.",
     )
+    enable_only_assertions: bool = Field(
+        False,
+        description="When enabled, inserts only assertion results generated from run_results.json file rather than creating the assertion object",
+    )
     backcompat_skip_source_on_lineage_edge: bool = Field(
         False,
         description="Prior to version 0.8.41, lineage edges to sources were directed to the target platform node rather than the dbt source node. This contradicted the established pattern for other lineage edges to point to upstream dbt nodes. To revert lineage logic to this legacy approach, set this flag to true.",
@@ -1316,14 +1320,6 @@ class DBTSource(StatefulIngestionSourceBase):
                 self.report.report_workunit(soft_delete_wu)
                 yield soft_delete_wu
 
-        if self.config.test_results_path:
-            yield from DBTTest.load_test_results(
-                self.config,
-                self.load_file_as_json(self.config.test_results_path),
-                test_nodes,
-                manifest_nodes,
-            )
-
     # create workunits from dbt nodes
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         if self.config.write_semantics == "PATCH" and not self.ctx.graph:
@@ -1371,7 +1367,10 @@ class DBTSource(StatefulIngestionSourceBase):
         ]
         test_nodes = [test_node for test_node in nodes if test_node.node_type == "test"]
 
-        if not self.config.disable_dbt_node_creation:
+        if (
+            not self.config.disable_dbt_node_creation
+            and not self.config.enable_only_assertions
+        ):
             yield from self.create_platform_mces(
                 non_test_nodes,
                 additional_custom_props_filtered,
@@ -1380,19 +1379,31 @@ class DBTSource(StatefulIngestionSourceBase):
                 self.config.platform_instance,
             )
 
-        yield from self.create_platform_mces(
-            non_test_nodes,
-            additional_custom_props_filtered,
-            manifest_nodes_raw,
-            self.config.target_platform,
-            self.config.target_platform_instance,
-        )
+        if not self.config.enable_only_assertions:
+            yield from self.create_platform_mces(
+                non_test_nodes,
+                additional_custom_props_filtered,
+                manifest_nodes_raw,
+                self.config.target_platform,
+                self.config.target_platform_instance,
+            )
+            yield from self.create_test_entity_mcps(
+                test_nodes,
+                additional_custom_props_filtered,
+                manifest_nodes_raw,
+            )
 
-        yield from self.create_test_entity_mcps(
-            test_nodes,
-            additional_custom_props_filtered,
-            manifest_nodes_raw,
-        )
+        if (
+            self.config.test_results_path
+            and self.config.enable_only_assertions
+            or self.config.test_results_path
+        ):
+            yield from DBTTest.load_test_results(
+                self.config,
+                self.load_file_as_json(self.config.test_results_path),
+                test_nodes,
+                manifest_nodes_raw,
+            )
 
         if self.is_stateful_ingestion_configured():
             # Clean up stale entities.
