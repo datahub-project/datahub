@@ -23,8 +23,10 @@ source:
             enabled: false
 `;
 
+export const REDSHIFT = 'redshift';
+
 const redshiftConfig: SourceConfig = {
-    type: 'redshift',
+    type: REDSHIFT,
     placeholderRecipe,
     displayName: 'Redshift',
     docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/redshift/',

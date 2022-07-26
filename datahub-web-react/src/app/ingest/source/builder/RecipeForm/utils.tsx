@@ -1,20 +1,30 @@
+import React from 'react';
 import { set, get } from 'lodash';
 import { SNOWFLAKE } from '../../conf/snowflake/snowflake';
+import { BIGQUERY } from '../../conf/bigquery/bigquery';
+import { REDSHIFT } from '../../conf/redshift/redshift';
 
 export enum FieldType {
     TEXT,
     BOOLEAN,
     LIST,
+    SELECT,
+}
+
+interface Option {
+    label: string;
+    value: string;
 }
 
 export interface RecipeField {
     name: string;
     label: string;
-    tooltip: string;
+    tooltip: string | React.ReactNode;
     type: FieldType;
     fieldPath: string;
     rules: any[] | null;
     section?: string;
+    options?: Option[];
     getValueFromRecipeOverride?: (recipe: any) => any;
     setValueOnRecipeOverride?: (recipe: any, value: any) => any;
 }
@@ -102,6 +112,96 @@ export const SNOWFLAKE_ROLE: RecipeField = {
     rules: null,
 };
 
+export const BIGQUERY_PROJECT_ID: RecipeField = {
+    name: 'project_id',
+    label: 'BigQuery Project ID',
+    tooltip: 'Project ID where you have rights to run queries and create tables.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.project_id',
+    rules: null,
+};
+
+export const BIGQUERY_CREDENTIAL_PROJECT_ID: RecipeField = {
+    name: 'credential.project_id',
+    label: 'Credentials Project ID',
+    tooltip: 'Project id to set the credentials.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.credential.project_id',
+    rules: null,
+};
+
+export const BIGQUERY_PRIVATE_KEY_ID: RecipeField = {
+    name: 'credential.private_key_id',
+    label: 'Private Key Id',
+    tooltip: 'Private key id.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.credential.private_key_id',
+    rules: null,
+};
+
+export const BIGQUERY_PRIVATE_KEY: RecipeField = {
+    name: 'credential.private_key',
+    label: 'Private Key',
+    tooltip: 'Private key in a form of "-----BEGIN PRIVATE KEY-----\nprivate-key\n-----END PRIVATE KEY-----\n".',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.credential.private_key',
+    rules: null,
+};
+
+export const BIGQUERY_CLIENT_EMAIL: RecipeField = {
+    name: 'credential.client_email',
+    label: 'Client Email',
+    tooltip: 'Client email.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.credential.client_email',
+    rules: null,
+};
+
+export const BIGQUERY_CLIENT_ID: RecipeField = {
+    name: 'credential.client_id',
+    label: 'Client ID',
+    tooltip: 'Client ID.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.credential.client_id',
+    rules: null,
+};
+
+export const REDSHIFT_HOST_PORT: RecipeField = {
+    name: 'host_port',
+    label: 'Host Port',
+    tooltip: 'Host URL.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.host_port',
+    rules: null,
+};
+
+export const REDSHIFT_DATABASE: RecipeField = {
+    name: 'database',
+    label: 'Database',
+    tooltip: 'Database (catalog).',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.database',
+    rules: null,
+};
+
+export const REDSHIFT_USERNAME: RecipeField = {
+    name: 'redshift.username',
+    label: 'Redshift username',
+    tooltip: 'Username',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.username',
+    rules: null,
+};
+
+export const REDSHIFT_PASSWORD: RecipeField = {
+    name: 'redshift.password',
+    label: 'Redshift password',
+    tooltip: 'Password',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.password',
+    rules: null,
+};
+
 const includeLineageFieldPathA = 'source.config.include_table_lineage';
 const includeLineageFieldPathB = 'source.config.include_view_lineage';
 export const INCLUDE_LINEAGE: RecipeField = {
@@ -155,6 +255,47 @@ export const STATEFUL_INGESTION_ENABLED: RecipeField = {
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.stateful_ingestion.enabled',
     rules: null,
+};
+
+export const UPSTREAM_LINEAGE_IN_REPORT: RecipeField = {
+    name: 'upstream_lineage_in_report',
+    label: 'Include Upstream Lineage In Report.',
+    tooltip: 'Useful for debugging lineage information. Set to True to see the raw lineage created internally.',
+    type: FieldType.BOOLEAN,
+    fieldPath: 'source.config.upstream_lineage_in_report',
+    rules: null,
+};
+
+const TableLineageModeTooltip = () => {
+    return (
+        <div>
+            <p>
+                Which table lineage collector mode to use. Check out{' '}
+                <a
+                    href="https://datahubproject.io/docs/generated/ingestion/sources/redshift/#config-details"
+                    target="_blank"
+                    rel="noreferrer"
+                >
+                    the documentation
+                </a>{' '}
+                explaining the difference between the three available modes.
+            </p>
+        </div>
+    );
+};
+
+export const TABLE_LINEAGE_MODE: RecipeField = {
+    name: 'table_lineage_mode',
+    label: 'Table Lineage Mode',
+    tooltip: TableLineageModeTooltip,
+    type: FieldType.SELECT,
+    fieldPath: 'source.config.table_lineage_mode',
+    rules: null,
+    options: [
+        { label: 'stl_scan_based', value: 'stl_scan_based' },
+        { label: 'sql_based', value: 'sql_based' },
+        { label: 'mixed', value: 'mixed' },
+    ],
 };
 
 const databaseAllowFieldPath = 'source.config.database_pattern.allow';
@@ -281,6 +422,23 @@ export const RECIPE_FIELDS = {
             VIEW_ALLOW,
             VIEW_DENY,
         ],
+    },
+    [BIGQUERY]: {
+        fields: [
+            BIGQUERY_PROJECT_ID,
+            BIGQUERY_CREDENTIAL_PROJECT_ID,
+            BIGQUERY_PRIVATE_KEY,
+            BIGQUERY_PRIVATE_KEY_ID,
+            BIGQUERY_CLIENT_EMAIL,
+            BIGQUERY_CLIENT_ID,
+        ],
+        advancedFields: [INCLUDE_LINEAGE, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED, UPSTREAM_LINEAGE_IN_REPORT],
+        filterFields: [TABLE_ALLOW, TABLE_DENY, SCHEMA_ALLOW, SCHEMA_DENY, VIEW_ALLOW, VIEW_DENY],
+    },
+    [REDSHIFT]: {
+        fields: [REDSHIFT_HOST_PORT, REDSHIFT_DATABASE, REDSHIFT_USERNAME, REDSHIFT_PASSWORD],
+        advancedFields: [INCLUDE_LINEAGE, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED, TABLE_LINEAGE_MODE],
+        filterFields: [TABLE_ALLOW, TABLE_DENY, SCHEMA_ALLOW, SCHEMA_DENY, VIEW_ALLOW, VIEW_DENY],
     },
 };
 
