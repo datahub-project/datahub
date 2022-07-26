@@ -85,7 +85,8 @@ class SnowflakeSource(SQLAlchemySource, TestableSource):
 
     @staticmethod
     def check_capabilities(  # noqa: C901
-        conn: connector.SnowflakeConnection, connection_conf: SnowflakeConfig
+        conn: connector.SnowflakeConnection,  # noqa: C901
+        connection_conf: SnowflakeConfig,  # noqa: C901
     ) -> Dict[Union[SourceCapability, str], CapabilityReport]:  # noqa: C901
 
         # Currently only overall capabilities are reported.
