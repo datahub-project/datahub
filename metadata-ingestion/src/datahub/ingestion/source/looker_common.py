@@ -552,7 +552,7 @@ class LookerExplore:
             joins=joins,
         )
 
-    @classmethod
+    @classmethod  # noqa: C901
     def from_api(  # noqa: C901
         cls,
         model: str,
