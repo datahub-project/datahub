@@ -243,14 +243,26 @@ def delete_with_filters(
             platform=platform,
             search_query=search_query,
             entity_type=entity_type,
-            include_removed=include_removed,
+            include_removed=False,
         )
     )
+    soft_deleted_msg: str = ""
+    if include_removed:
+        soft_deleted_urns = list(
+            cli_utils.get_urns_by_filter(
+                env=env,
+                platform=platform,
+                search_query=search_query,
+                entity_type=entity_type,
+                only_removed=True,
+            )
+        )
+        soft_deleted_msg = f" and {len(soft_deleted_urns)} (soft-deleted) "
 
     logger.info(
-        f"Filter matched {len(urns)} {entity_type} entities of {platform}. Sample: {choices(urns, k=min(5, len(urns)))}"
+        f"Filter matched {len(urns)} {soft_deleted_msg} {entity_type} entities of {platform}. Sample: {choices(urns, k=min(5, len(urns)))}"
     )
-    if len(urns) == 0:
+    if len(urns) == 0 and len(soft_deleted_urns) == 0:
         click.echo(
             f"No urns to delete. Maybe you want to change entity_type={entity_type} or platform={platform} to be something different?"
         )
@@ -273,18 +285,23 @@ def delete_with_filters(
             cached_emitter=emitter,
         )
         batch_deletion_result.merge(one_result)
+
+    if len(soft_deleted_urns) > 0 and not soft:
+        click.echo("Starting to delete soft-deleted URNs")
+        for urn in progressbar.progressbar(soft_deleted_urns, redirect_stdout=True):
+            one_result = _delete_one_urn(
+                urn,
+                soft=soft,
+                entity_type=entity_type,
+                dry_run=dry_run,
+                cached_session_host=(session, gms_host),
+                cached_emitter=emitter,
+                is_soft_deleted=True,
+            )
+            batch_deletion_result.merge(one_result)
     batch_deletion_result.end()
 
     return batch_deletion_result
-
-
-def is_soft_deleted(urn: str) -> bool:
-    try:
-        return cli_utils.get_entity(urn=urn, aspect=["status"])["aspects"]["status"][
-            "value"
-        ]["removed"]
-    except KeyError:
-        return False
 
 
 def _delete_one_urn(
@@ -296,10 +313,11 @@ def _delete_one_urn(
     cached_emitter: Optional[rest_emitter.DatahubRestEmitter] = None,
     run_id: str = "delete-run-id",
     deletion_timestamp: int = _get_current_time(),
+    is_soft_deleted: Optional[bool] = None,
 ) -> DeletionResult:
 
     soft_delete_msg: str = ""
-    if dry_run and is_soft_deleted(urn):
+    if dry_run and is_soft_deleted:
         soft_delete_msg = "(soft-deleted)"
 
     deletion_result = DeletionResult()
