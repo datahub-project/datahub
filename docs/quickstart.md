@@ -173,6 +173,7 @@ datahub docker quickstart --backup --backup-file /home/my_user/datahub_backups/q
 
 Note that the Quickstart backup does not include any timeseries data (dataset statistics, profiles, etc.), so you will lose that information if you delete all your indexes and restore from this backup. 
 
+:::
 
 ### Restoring your DataHub Quickstart (experimental)
 As you might imagine, these backups are restore-able. The following section describes a few different options you have to restore your backup.
