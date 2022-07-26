@@ -1,13 +1,13 @@
 name: datahub-airflow docker acryl
 on:
   workflow_run:
-    workflows: ["pypi-release metadata-ingestion"]
+    workflows: ["pypi-release"]
     types:
       - completed
 
 jobs:
   setup:
-    # if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
