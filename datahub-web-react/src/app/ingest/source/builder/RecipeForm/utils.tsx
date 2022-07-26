@@ -217,13 +217,16 @@ export const TABLEAU_CONNECTION_URI: RecipeField = {
     rules: null,
 };
 
+const tableauProjectFieldPath = 'source.config.projects';
 export const TABLEAU_PROJECT: RecipeField = {
     name: 'projects',
     label: 'Projects',
     tooltip: 'List of projects',
     type: FieldType.LIST,
-    fieldPath: 'source.config.projects',
+    fieldPath: tableauProjectFieldPath,
     rules: null,
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, tableauProjectFieldPath),
 };
 
 export const TABLEAU_SITE: RecipeField = {
