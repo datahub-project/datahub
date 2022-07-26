@@ -1,4 +1,4 @@
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Optional, Union, cast
 
 from datahub.configuration.common import (
     ConfigurationError,
@@ -78,10 +78,11 @@ class AddDatasetDomain(DatasetDomainTransformer):
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
     ) -> Optional[Aspect]:
 
+        in_domain_aspect: DomainsClass = cast(DomainsClass, aspect)
         domain_aspect = DomainsClass(domains=[])
         # Check if we have received existing aspect
-        if aspect is not None and self.config.replace_existing is False:
-            domain_aspect.domains.extend(aspect.domains)  # type: ignore[attr-defined]
+        if in_domain_aspect is not None and self.config.replace_existing is False:
+            domain_aspect.domains.extend(in_domain_aspect.domains)
 
         domain_to_add = self.config.get_domains_to_add(entity_urn)
 
@@ -105,6 +106,7 @@ class SimpleAddDatasetDomain(AddDatasetDomain):
         generic_config = AddDatasetDomainConfig(
             get_domains_to_add=lambda _: domain,
             semantics=config.semantics,
+            replace_existing=config.replace_existing,
         )
         super().__init__(generic_config, ctx)
 
