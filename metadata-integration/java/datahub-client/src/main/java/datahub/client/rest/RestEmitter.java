@@ -17,6 +17,7 @@ import org.apache.http.HttpStatus;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.concurrent.FutureCallback;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
@@ -36,6 +37,14 @@ import datahub.event.EventFormatter;
 import datahub.event.MetadataChangeProposalWrapper;
 import datahub.event.UpsertAspectRequest;
 import lombok.extern.slf4j.Slf4j;
+
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.TrustAllStrategy;
+import org.apache.http.ssl.SSLContextBuilder;
+
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
 
 
 @ThreadSafe
@@ -86,6 +95,18 @@ public class RestEmitter implements Emitter {
           .setSocketTimeout(config.getTimeoutSec() * 1000)
           .build());
     }
+
+    if (config.isDisableSslVerification()) {
+      HttpAsyncClientBuilder httpClientBuilder = this.config.getAsyncHttpClientBuilder();
+      try {
+        httpClientBuilder
+            .setSSLContext(new SSLContextBuilder().loadTrustMaterial(null, TrustAllStrategy.INSTANCE).build())
+            .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
+      } catch (KeyManagementException | NoSuchAlgorithmException | KeyStoreException e) {
+        throw new RuntimeException("Error while creating insecure http client", e);
+      }
+    }
+
     this.httpClient = this.config.getAsyncHttpClientBuilder().build();
     this.httpClient.start();
     this.ingestProposalUrl = this.config.getServer() + "/aspects?action=ingestProposal";
@@ -312,5 +333,9 @@ public class RestEmitter implements Emitter {
     };
     Future<HttpResponse> requestFuture = httpClient.execute(httpPost, httpCallback);
     return new MetadataResponseFuture(requestFuture, responseAtomicReference, responseLatch);
+  }
+
+  Future<HttpResponse> execute(HttpUriRequest request, FutureCallback<HttpResponse> callback) {
+    return this.httpClient.execute(request, callback);
   }
 }
