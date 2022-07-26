@@ -84,10 +84,9 @@ class SnowflakeSource(SQLAlchemySource, TestableSource):
         self.profile_candidates: Dict[str, List[str]] = {}
 
     @staticmethod
-    def check_capabilities(  # noqa: C901
-        conn: connector.SnowflakeConnection,  # noqa: C901
-        connection_conf: SnowflakeConfig,  # noqa: C901
-    ) -> Dict[Union[SourceCapability, str], CapabilityReport]:  # noqa: C901
+    def check_capabilities(
+        conn: connector.SnowflakeConnection, connection_conf: SnowflakeConfig
+    ) -> Dict[Union[SourceCapability, str], CapabilityReport]:
 
         # Currently only overall capabilities are reported.
         # Resource level variations in capabilities are not considered.
@@ -126,11 +125,8 @@ class SnowflakeSource(SQLAlchemySource, TestableSource):
         while i < len(roles):
             role = roles[i]
             i = i + 1
-            try:
-                cur = query(f"show grants to role {role}")
-            except connector.errors.ProgrammingError:
-                # for some roles, quoting is necessary. for example test-role
-                cur = query(f'show grants to role "{role}"')
+            # for some roles, quoting is necessary. for example test-role
+            cur = query(f'show grants to role "{role}"')
             for row in cur:
                 privilege = SnowflakePrivilege(
                     privilege=row[1], object_type=row[2], object_name=row[3]
@@ -180,16 +176,16 @@ class SnowflakeSource(SQLAlchemySource, TestableSource):
                 ):
                     roles.append(privilege.object_name)
 
-        # If Some capabilities are missing, then mark them as not capable
-
         cur = query("select current_warehouse()")
         current_warehouse = [row[0] for row in cur][0]
-        if current_warehouse is None:
-            failure_message = (
-                f"Current role does not have permissions to use warehouse {connection_conf.warehouse}"
-                if connection_conf.warehouse is not None
-                else "No default warehouse set for user. Either set default warehouse for user or configure warehouse in recipe"
-            )
+
+        default_failure_messages = {
+            SourceCapability.SCHEMA_METADATA: "Either no tables exist or current role does not have permissions to access them",
+            SourceCapability.DESCRIPTIONS: "Either no tables exist or current role does not have permissions to access them",
+            SourceCapability.DATA_PROFILING: "Either no tables exist or current role does not have permissions to access them",
+            SourceCapability.CONTAINERS: "Current role does not have permissions to use any database",
+            SourceCapability.LINEAGE_COARSE: "Current role does not have permissions to snowflake account usage views",
+        }
 
         for c in capabilities:  # type:ignore
 
@@ -209,28 +205,16 @@ class SnowflakeSource(SQLAlchemySource, TestableSource):
                     capable=False,
                     failure_reason=failure_message,
                 )
+
             if c in _report.keys():
                 continue
-            if c in (SourceCapability.SCHEMA_METADATA, SourceCapability.DESCRIPTIONS):
-                _report[c] = CapabilityReport(
-                    capable=False,
-                    failure_reason="Either no tables exist or current role does not have permissions to access them",
-                )
-            elif c == SourceCapability.DATA_PROFILING:
-                _report[c] = CapabilityReport(
-                    capable=False,
-                    failure_reason="Either no tables exist or current role does not have permissions to access them",
-                )
-            elif c == SourceCapability.CONTAINERS:
-                _report[c] = CapabilityReport(
-                    capable=False,
-                    failure_reason="Current role does not have permissions to use any database",
-                )
-            elif c == SourceCapability.LINEAGE_COARSE:
-                _report[c] = CapabilityReport(
-                    capable=False,
-                    failure_reason="Current role does not have permissions to snowflake account usage views",
-                )
+
+            # If some capabilities are missing, then mark them as not capable
+            _report[c] = CapabilityReport(
+                capable=False,
+                failure_reason=default_failure_messages[c],
+            )
+
         return _report
 
     @classmethod

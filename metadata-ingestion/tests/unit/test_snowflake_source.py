@@ -231,13 +231,13 @@ def test_test_connection_no_warehouse(mock_connect):
             return [('{"roles":"","value":""}',)]
         elif query == "select current_warehouse()":
             return [(None,)]
-        elif query == "show grants to role TEST_ROLE":
+        elif query == 'show grants to role "TEST_ROLE"':
             return [
                 ("", "USAGE", "DATABASE", "DB1"),
                 ("", "USAGE", "SCHEMA", "DB1.SCHEMA1"),
                 ("", "REFERENCES", "TABLE", "DB1.SCHEMA1.TABLE1"),
             ]
-        elif query == "show grants to role PUBLIC":
+        elif query == 'show grants to role "PUBLIC"':
             return []
         # Unreachable code
         raise Exception()
@@ -278,9 +278,9 @@ def test_test_connection_capability_schema_failure(mock_connect):
             return [('{"roles":"","value":""}',)]
         elif query == "select current_warehouse()":
             return [("TEST_WAREHOUSE",)]
-        elif query == "show grants to role TEST_ROLE":
+        elif query == 'show grants to role "TEST_ROLE"':
             return [("", "USAGE", "DATABASE", "DB1")]
-        elif query == "show grants to role PUBLIC":
+        elif query == 'show grants to role "PUBLIC"':
             return []
         # Unreachable code
         raise Exception()
@@ -318,13 +318,13 @@ def test_test_connection_capability_schema_success(mock_connect):
             return [('{"roles":"","value":""}',)]
         elif query == "select current_warehouse()":
             return [("TEST_WAREHOUSE")]
-        elif query == "show grants to role TEST_ROLE":
+        elif query == 'show grants to role "TEST_ROLE"':
             return [
                 ["", "USAGE", "DATABASE", "DB1"],
                 ["", "USAGE", "SCHEMA", "DB1.SCHEMA1"],
                 ["", "REFERENCES", "TABLE", "DB1.SCHEMA1.TABLE1"],
             ]
-        elif query == "show grants to role PUBLIC":
+        elif query == 'show grants to role "PUBLIC"':
             return []
         # Unreachable code
         raise Exception()
@@ -369,16 +369,16 @@ def test_test_connection_capability_all_success(mock_connect):
             return [('{"roles":"","value":""}',)]
         elif query == "select current_warehouse()":
             return [("TEST_WAREHOUSE")]
-        elif query == "show grants to role TEST_ROLE":
+        elif query == 'show grants to role "TEST_ROLE"':
             return [
                 ("", "USAGE", "DATABASE", "DB1"),
                 ("", "USAGE", "SCHEMA", "DB1.SCHEMA1"),
                 ("", "SELECT", "TABLE", "DB1.SCHEMA1.TABLE1"),
                 ("", "USAGE", "ROLE", "TEST_USAGE_ROLE"),
             ]
-        elif query == "show grants to role PUBLIC":
+        elif query == 'show grants to role "PUBLIC"':
             return []
-        elif query == "show grants to role TEST_USAGE_ROLE":
+        elif query == 'show grants to role "TEST_USAGE_ROLE"':
             return [
                 ["", "USAGE", "DATABASE", "SNOWFLAKE"],
                 ["", "USAGE", "SCHEMA", "ACCOUNT_USAGE"],
