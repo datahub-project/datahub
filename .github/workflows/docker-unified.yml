@@ -664,13 +664,13 @@ jobs:
           echo "$DATAHUB_VERSION"
           ./smoke-test/smoke.sh
       - name: store logs
-        if: always()
+        if: failure()
         run: |
           docker ps -a
           docker logs datahub-gms >& gms.log
       - name: Upload logs
         uses: actions/upload-artifact@v2
-        if: always()
+        if: failure()
         with:
           name: docker logs
           path: "*.log"
