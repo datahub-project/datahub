@@ -388,7 +388,7 @@ public class RestEmitterTest {
   @Test
   public void testDisableSslVerification() throws IOException, InterruptedException, ExecutionException {
     RestEmitter restEmitter = new RestEmitter(RestEmitterConfig.builder().disableSslVerification(true).build());
-    final String hostWithSsl ="https://self-signed.badssl.com";
+    final String hostWithSsl = "https://self-signed.badssl.com";
     final HttpGet request = new HttpGet(hostWithSsl);
     final Future<HttpResponse> future = restEmitter.execute(request, null);
     final HttpResponse response = future.get();
