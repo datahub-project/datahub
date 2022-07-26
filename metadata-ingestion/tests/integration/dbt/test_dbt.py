@@ -475,7 +475,6 @@ def test_dbt_tests(pytestconfig, tmp_path, mock_time, **kwargs):
         ignore_paths=[],
     )
 
-
 @pytest.mark.integration
 @pytest.mark.parametrize(
     "data_type, expected_data_type",
@@ -488,4 +487,47 @@ def test_resolve_trino_modified_type(data_type, expected_data_type):
     assert (
         resolve_trino_modified_type(data_type)
         == TRINO_SQL_TYPES_MAP[expected_data_type]
+    )
+
+@pytest.mark.integration
+@freeze_time(FROZEN_TIME)
+def test_dbt_tests_only_assertions(pytestconfig, tmp_path, mock_time, **kwargs):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
+
+    # Run the metadata ingestion pipeline.
+    output_file = tmp_path / "test.json"
+    golden_path = test_resources_dir / "dbt_test_events_golden_only_assertions.json"
+
+    pipeline = Pipeline(
+        config=PipelineConfig(
+            source=SourceConfig(
+                type="dbt",
+                config=DBTConfig(
+                    manifest_path=str(
+                        (test_resources_dir / "jaffle_shop_manifest.json").resolve()
+                    ),
+                    catalog_path=str(
+                        (test_resources_dir / "jaffle_shop_catalog.json").resolve()
+                    ),
+                    target_platform="postgres",
+                    delete_tests_as_datasets=True,
+                    test_results_path=str(
+                        (test_resources_dir / "jaffle_shop_test_results.json").resolve()
+                    ),
+                    # this is just here to avoid needing to access datahub server
+                    write_semantics="OVERRIDE",
+                    enable_only_assertions=True,
+                ),
+            ),
+            sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+    # Verify the output.
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_file,
+        golden_path=golden_path,
+        ignore_paths=[],
     )
