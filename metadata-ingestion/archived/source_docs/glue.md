@@ -17,11 +17,14 @@ This plugin extracts the following:
 - Table metadata, such as owner, description and parameters
 - Jobs and their component transformations, data sources, and data sinks
 
-| Capability        | Status | Details                                  |
-| ----------------- | ------ | ---------------------------------------- |
-| Platform Instance | ✔      | [link](../../docs/platform-instances.md) |
-| Data Containers   | ✔️     |                                          |
-| Data Domains      | ✔️     | [link](../../docs/domains.md)            |
+| Capability          | Status | Details                                  |
+|---------------------| ------ |------------------------------------------|
+| Platform Instance   | ✔️     | [link](../../docs/platform-instances.md) |
+| Data Containers     | ✔️     |                                          |
+| Data Domains        | ✔️     | [link](../../docs/domains.md)            |
+| Stateful Ingestion  | ✔️     | [link](./stateful_ingestion.md)          |
+
+Stateful Ingestion is available only when a Platform Instance is assigned to this source.
 
 ## Quickstart recipe
 
