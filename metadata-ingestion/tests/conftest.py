@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+import unittest.mock
 
 import pytest
 
@@ -29,6 +30,14 @@ def mock_time(monkeypatch):
     monkeypatch.setattr(time, "time", fake_time)
 
     yield
+
+
+@pytest.fixture(autouse=True, scope="session")
+def reduce_gms_retries():
+    with unittest.mock.patch(
+        "datahub.emitter.rest_emitter.DataHubRestEmitter._retry_max_times", 1
+    ):
+        yield
 
 
 def pytest_addoption(parser):
