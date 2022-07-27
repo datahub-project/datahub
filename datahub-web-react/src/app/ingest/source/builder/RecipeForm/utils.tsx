@@ -69,10 +69,6 @@ export function setListValuesOnRecipe(recipe: any, values: string[] | undefined,
     return updatedRecipe;
 }
 
-const TableLineageModeTooltip = ({ children }: { children: React.ReactNode }) => {
-    return <div>{children}</div>;
-};
-
 export const SNOWFLAKE_ACCOUNT_ID: RecipeField = {
     name: 'account_id',
     label: 'Account ID',
@@ -209,11 +205,11 @@ export const REDSHIFT_PASSWORD: RecipeField = {
 };
 
 export const TABLEAU_CONNECTION_URI: RecipeField = {
-    name: 'connection_uri',
+    name: 'connect_uri',
     label: 'Connection URI',
     tooltip: 'Tableau host URL.',
     type: FieldType.TEXT,
-    fieldPath: 'source.config.connection_uri',
+    fieldPath: 'source.config.connect_uri',
     rules: null,
 };
 
@@ -260,14 +256,8 @@ export const TABLEAU_PASSWORD: RecipeField = {
 export const LOOKER_BASE_URL: RecipeField = {
     name: 'base_url',
     label: 'Base URL',
-    tooltip: (
-        <TableLineageModeTooltip>
-            <p>
-                Url to your Looker instance: https://company.looker.com:19999 or https://looker.company.com, or similar.
-                Used for making API calls to Looker and constructing clickable dashboard and chart urls.
-            </p>
-        </TableLineageModeTooltip>
-    ),
+    tooltip:
+        'Url to your Looker instance: https://company.looker.com:19999 or https://looker.company.com, or similar.Used for making API calls to Looker and constructing clickable dashboard and chart urls.',
     type: FieldType.TEXT,
     fieldPath: 'source.config.base_url',
     rules: null,
@@ -298,7 +288,7 @@ export const INCLUDE_LINEAGE: RecipeField = {
     label: 'Include Lineage',
     tooltip: 'Include Table and View lineage in your ingestion.',
     type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.include_table_lineage',
+    fieldPath: includeLineageFieldPathA,
     rules: null,
     getValueFromRecipeOverride: (recipe: any) =>
         get(recipe, includeLineageFieldPathA) && get(recipe, includeLineageFieldPathB),
@@ -359,7 +349,7 @@ export const TABLE_LINEAGE_MODE: RecipeField = {
     name: 'table_lineage_mode',
     label: 'Table Lineage Mode',
     tooltip: (
-        <TableLineageModeTooltip>
+        <div>
             <p>
                 Which table lineage collector mode to use. Check out{' '}
                 <a
@@ -371,7 +361,7 @@ export const TABLE_LINEAGE_MODE: RecipeField = {
                 </a>{' '}
                 explaining the difference between the three available modes.
             </p>
-        </TableLineageModeTooltip>
+        </div>
     ),
     type: FieldType.SELECT,
     fieldPath: 'source.config.table_lineage_mode',
@@ -405,7 +395,7 @@ export const GITHUB_INFO_REPO: RecipeField = {
     name: 'github_info.repo',
     label: 'GitHub Repo',
     tooltip: (
-        <TableLineageModeTooltip>
+        <div>
             <p>
                 Name of your github repo. e.g. repo for{' '}
                 <a href="https://github.com/datahub-project/datahub" target="_blank" rel="noreferrer">
@@ -413,7 +403,7 @@ export const GITHUB_INFO_REPO: RecipeField = {
                 </a>{' '}
                 is datahub-project/datahub.
             </p>
-        </TableLineageModeTooltip>
+        </div>
     ),
     type: FieldType.TEXT,
     fieldPath: 'source.config.github_info.repo',
@@ -456,7 +446,7 @@ export const DATABASE_ALLOW: RecipeField = {
     label: 'Allow Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
-    fieldPath: 'source.config.database_pattern.allow',
+    fieldPath: databaseAllowFieldPath,
     rules: null,
     section: 'Databases',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
@@ -469,7 +459,7 @@ export const DATABASE_DENY: RecipeField = {
     label: 'Deny Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
-    fieldPath: 'source.config.database_pattern.deny',
+    fieldPath: databaseDenyFieldPath,
     rules: null,
     section: 'Databases',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
@@ -482,7 +472,7 @@ export const SCHEMA_ALLOW: RecipeField = {
     label: 'Allow Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
-    fieldPath: 'source.config.schema_pattern.allow',
+    fieldPath: schemaAllowFieldPath,
     rules: null,
     section: 'Schemas',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
@@ -495,7 +485,7 @@ export const SCHEMA_DENY: RecipeField = {
     label: 'Deny Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
-    fieldPath: 'source.config.schema_pattern.deny',
+    fieldPath: schemaDenyFieldPath,
     rules: null,
     section: 'Schemas',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
@@ -508,7 +498,7 @@ export const VIEW_ALLOW: RecipeField = {
     label: 'Allow Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
-    fieldPath: 'source.config.view_pattern.allow',
+    fieldPath: viewAllowFieldPath,
     rules: null,
     section: 'Views',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
@@ -521,7 +511,7 @@ export const VIEW_DENY: RecipeField = {
     label: 'Deny Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
-    fieldPath: 'source.config.view_pattern.deny',
+    fieldPath: viewDenyFieldPath,
     rules: null,
     section: 'Views',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
@@ -534,7 +524,7 @@ export const TABLE_ALLOW: RecipeField = {
     label: 'Allow Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
-    fieldPath: 'source.config.table_pattern.allow',
+    fieldPath: tableAllowFieldPath,
     rules: null,
     section: 'Tables',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
@@ -547,7 +537,7 @@ export const TABLE_DENY: RecipeField = {
     label: 'Deny Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
-    fieldPath: 'source.config.table_pattern.deny',
+    fieldPath: tableDenyFieldPath,
     rules: null,
     section: 'Tables',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
@@ -560,7 +550,7 @@ export const CHART_ALLOW: RecipeField = {
     label: 'Allow Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
-    fieldPath: 'source.config.chart_pattern.allow',
+    fieldPath: chartAllowFieldPath,
     rules: null,
     section: 'Charts',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
@@ -573,7 +563,7 @@ export const CHART_DENY: RecipeField = {
     label: 'Deny Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
-    fieldPath: 'source.config.chart_pattern.deny',
+    fieldPath: chartDenyFieldPath,
     rules: null,
     section: 'Charts',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
@@ -586,7 +576,7 @@ export const DASHBOARD_ALLOW: RecipeField = {
     label: 'Allow Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
-    fieldPath: 'source.config.dashboard_pattern.allow',
+    fieldPath: dashboardAllowFieldPath,
     rules: null,
     section: 'Dashboards',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
@@ -599,7 +589,7 @@ export const DASHBOARD_DENY: RecipeField = {
     label: 'Deny Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
-    fieldPath: 'source.config.dashboard_pattern.deny',
+    fieldPath: dashboardDenyFieldPath,
     rules: null,
     section: 'Dashboards',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
