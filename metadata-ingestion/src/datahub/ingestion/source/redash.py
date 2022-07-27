@@ -553,7 +553,7 @@ class RedashSource(Source):
         )
 
         dashboard_url = (
-            f"{self.config.connect_uri}/dashboard/{dashboard_data.get('slug', '')}"
+            f"{self.config.connect_uri}/dashboards/{dashboard_data.get('id')}-{dashboard_data.get('slug', '')}"
         )
 
         widgets = dashboard_data.get("widgets", [])
