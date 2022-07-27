@@ -20,12 +20,12 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  DATAHUB_GMS_IMAGE: 'linkedin/datahub-gms'
-  DATAHUB_FRONTEND_IMAGE: 'linkedin/datahub-frontend-react'
-  DATAHUB_MAE_CONSUMER_IMAGE: 'linkedin/datahub-mae-consumer'
-  DATAHUB_MCE_CONSUMER_IMAGE: 'linkedin/datahub-mce-consumer'
-  DATAHUB_KAFKA_SETUP_IMAGE: 'linkedin/datahub-kafka-setup'
-  DATAHUB_ELASTIC_SETUP_IMAGE: 'linkedin/datahub-elasticsearch-setup'
+  DATAHUB_GMS_IMAGE: 'acryldata/datahub-gms'
+  DATAHUB_FRONTEND_IMAGE: 'acryldata/datahub-frontend-react'
+  DATAHUB_MAE_CONSUMER_IMAGE: 'acryldata/datahub-mae-consumer'
+  DATAHUB_MCE_CONSUMER_IMAGE: 'acryldata/datahub-mce-consumer'
+  DATAHUB_KAFKA_SETUP_IMAGE: 'acryldata/datahub-kafka-setup'
+  DATAHUB_ELASTIC_SETUP_IMAGE: 'acryldata/datahub-elasticsearch-setup'
   DATAHUB_MYSQL_SETUP_IMAGE: 'acryldata/datahub-mysql-setup'
   DATAHUB_UPGRADE_IMAGE: 'acryldata/datahub-upgrade'
   
@@ -54,7 +54,7 @@ jobs:
       - name: Check whether publishing enabled
         id: publish
         env:
-          ENABLE_PUBLISH: ${{ secrets.DOCKER_PASSWORD }}
+          ENABLE_PUBLISH: ${{ secrets.ORG_DOCKER_PASSWORD }}
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
           echo "::set-output name=publish::${{ env.ENABLE_PUBLISH != '' }}"
@@ -78,7 +78,7 @@ jobs:
             ${{ env.DATAHUB_GMS_IMAGE }}
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          password: ${{ secrets.ORG_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-gms/Dockerfile
@@ -121,7 +121,7 @@ jobs:
             ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          password: ${{ secrets.ORG_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-mae-consumer/Dockerfile
@@ -164,7 +164,7 @@ jobs:
             ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          password: ${{ secrets.ORG_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-mce-consumer/Dockerfile
@@ -250,7 +250,7 @@ jobs:
             ${{ env.DATAHUB_FRONTEND_IMAGE }}
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          password: ${{ secrets.ORG_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-frontend/Dockerfile
@@ -293,7 +293,7 @@ jobs:
             ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          password: ${{ secrets.ORG_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
           context: ./docker/kafka-setup
           file: ./docker/kafka-setup/Dockerfile
@@ -343,7 +343,7 @@ jobs:
             ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          password: ${{ secrets.ORG_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/elasticsearch-setup/Dockerfile
