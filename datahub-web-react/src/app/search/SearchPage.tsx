@@ -12,6 +12,7 @@ import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.genera
 import { SearchCfg } from '../../conf';
 import { ENTITY_FILTER_NAME } from './utils/constants';
 import { GetSearchResultsParams } from '../entity/shared/components/styled/search/types';
+import { EntityAndType } from '../entity/shared/types';
 
 type SearchPageParams = {
     type?: string;
@@ -38,6 +39,8 @@ export const SearchPage = () => {
         .map((filter) => filter.value.toUpperCase() as EntityType);
 
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
+    const [isSelectMode, setIsSelectMode] = useState(false);
+    const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
 
     const { data, loading, error } = useGetSearchResultsForMultipleQuery({
         variables: {
@@ -50,6 +53,13 @@ export const SearchPage = () => {
             },
         },
     });
+
+    const searchResultEntities =
+        data?.searchAcrossEntities?.searchResults?.map((result) => ({
+            urn: result.entity.urn,
+            type: result.entity.type,
+        })) || [];
+    const searchResultUrns = searchResultEntities.map((entity) => entity.urn);
 
     // we need to extract refetch on its own so paging thru results for csv download
     // doesnt also update search results
@@ -69,6 +79,36 @@ export const SearchPage = () => {
         return refetch(variables).then((res) => res.data.searchAcrossEntities);
     };
 
+    const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
+        navigateToSearchUrl({ type: activeType, query, page: 1, filters: newFilters, history });
+    };
+
+    const onChangePage = (newPage: number) => {
+        navigateToSearchUrl({ type: activeType, query, page: newPage, filters, history });
+    };
+
+    /**
+     * Invoked when the "select all" checkbox is clicked.
+     *
+     * This method either adds the entire current page of search results to
+     * the list of selected entities, or removes the current page from the set of selected entities.
+     */
+    const onChangeSelectAll = (selected: boolean) => {
+        if (selected) {
+            // Add current page of urns to the master selected entity list
+            const entitiesToAdd = searchResultEntities.filter(
+                (entity) =>
+                    selectedEntities.findIndex(
+                        (element) => element.urn === entity.urn && element.type === entity.type,
+                    ) < 0,
+            );
+            setSelectedEntities(Array.from(new Set(selectedEntities.concat(entitiesToAdd))));
+        } else {
+            // Filter out the current page of entity urns from the list
+            setSelectedEntities(selectedEntities.filter((entity) => searchResultUrns.indexOf(entity.urn) === -1));
+        }
+    };
+
     useEffect(() => {
         if (!loading) {
             analytics.event({
@@ -79,13 +119,16 @@ export const SearchPage = () => {
         }
     }, [query, data, loading]);
 
-    const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
-        navigateToSearchUrl({ type: activeType, query, page: 1, filters: newFilters, history });
-    };
+    useEffect(() => {
+        // When the query changes, then clear the select mode state
+        setIsSelectMode(false);
+    }, [query]);
 
-    const onChangePage = (newPage: number) => {
-        navigateToSearchUrl({ type: activeType, query, page: newPage, filters, history });
-    };
+    useEffect(() => {
+        if (!isSelectMode) {
+            setSelectedEntities([]);
+        }
+    }, [isSelectMode]);
 
     return (
         <>
@@ -106,6 +149,11 @@ export const SearchPage = () => {
                 onChangePage={onChangePage}
                 numResultsPerPage={numResultsPerPage}
                 setNumResultsPerPage={setNumResultsPerPage}
+                isSelectMode={isSelectMode}
+                selectedEntities={selectedEntities}
+                setSelectedEntities={setSelectedEntities}
+                setIsSelectMode={setIsSelectMode}
+                onChangeSelectAll={onChangeSelectAll}
             />
         </>
     );

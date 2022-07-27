@@ -4,8 +4,6 @@ import { useHistory, useLocation, useParams } from 'react-router';
 import { message } from 'antd';
 import styled from 'styled-components';
 import { ApolloError } from '@apollo/client';
-import type { CheckboxValueType } from 'antd/es/checkbox/Group';
-
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { EntityType, FacetFilterInput } from '../../../../../../types.generated';
 import useFilters from '../../../../../search/utils/useFilters';
@@ -17,11 +15,14 @@ import EmbeddedListSearchHeader from './EmbeddedListSearchHeader';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/search.generated';
 import { GetSearchResultsParams, SearchResultsInterface } from './types';
 import { useEntityQueryParams } from '../../../containers/profile/utils';
+import { isListSubset } from '../../../utils';
+import { EntityAndType } from '../../../types';
 
 const Container = styled.div`
     display: flex;
     flex-direction: column;
     height: 100%;
+    overflow-y: hidden;
 `;
 
 // this extracts the response from useGetSearchResultsForMultipleQuery into a common interface other search endpoints can also produce
@@ -97,9 +98,9 @@ export const EmbeddedListSearch = ({
         .map((filter) => filter.value.toUpperCase() as EntityType);
 
     const [showFilters, setShowFilters] = useState(defaultShowFilters || false);
-
-    const [showSelectMode, setShowSelectMode] = useState(false);
-    const [checkedSearchResults, setCheckedSearchResults] = useState<CheckboxValueType[]>([]);
+    const [isSelectMode, setIsSelectMode] = useState(false);
+    const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
+    const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
 
     const { refetch } = useGetSearchResults({
         variables: {
@@ -123,12 +124,17 @@ export const EmbeddedListSearch = ({
             input: {
                 types: entityFilters,
                 query,
-                start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
-                count: SearchCfg.RESULTS_PER_PAGE,
+                start: (page - 1) * numResultsPerPage,
+                count: numResultsPerPage,
                 filters: finalFilters,
             },
         },
     });
+
+    const searchResultEntities =
+        data?.searchResults?.map((result) => ({ urn: result.entity.urn, type: result.entity.type })) || [];
+    const searchResultUrns = searchResultEntities.map((entity) => entity.urn);
+    const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
 
     const onSearch = (q: string) => {
         const finalQuery = addFixedQuery(q as string, fixedQuery as string, emptySearchQuery as string);
@@ -166,8 +172,30 @@ export const EmbeddedListSearch = ({
         });
     };
 
-    const toggleFilters = () => {
+    const onToggleFilters = () => {
         setShowFilters(!showFilters);
+    };
+
+    /**
+     * Invoked when the "select all" checkbox is clicked.
+     *
+     * This method either adds the entire current page of search results to
+     * the list of selected entities, or removes the current page from the set of selected entities.
+     */
+    const onChangeSelectAll = (selected: boolean) => {
+        if (selected) {
+            // Add current page of urns to the master selected entity list
+            const entitiesToAdd = searchResultEntities.filter(
+                (entity) =>
+                    selectedEntities.findIndex(
+                        (element) => element.urn === entity.urn && element.type === entity.type,
+                    ) < 0,
+            );
+            setSelectedEntities(Array.from(new Set(selectedEntities.concat(entitiesToAdd))));
+        } else {
+            // Filter out the current page of entity urns from the list
+            setSelectedEntities(selectedEntities.filter((entity) => searchResultUrns.indexOf(entity.urn) === -1));
+        }
     };
 
     useEffect(() => {
@@ -178,6 +206,12 @@ export const EmbeddedListSearch = ({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    useEffect(() => {
+        if (!isSelectMode) {
+            setSelectedEntities([]);
+        }
+    }, [isSelectMode]);
+
     // Filter out the persistent filter values
     const filteredFilters = data?.facets?.filter((facet) => facet.field !== fixedFilter?.field) || [];
 
@@ -187,14 +221,16 @@ export const EmbeddedListSearch = ({
             <EmbeddedListSearchHeader
                 onSearch={onSearch}
                 placeholderText={placeholderText}
-                onToggleFilters={toggleFilters}
+                onToggleFilters={onToggleFilters}
                 callSearchOnVariables={callSearchOnVariables}
                 entityFilters={entityFilters}
                 filters={finalFilters}
                 query={query}
-                showSelectMode={showSelectMode}
-                setShowSelectMode={setShowSelectMode}
-                checkedSearchResults={checkedSearchResults}
+                isSelectMode={isSelectMode}
+                isSelectAll={selectedEntities.length > 0 && isListSubset(searchResultUrns, selectedEntityUrns)}
+                setIsSelectMode={setIsSelectMode}
+                selectedEntities={selectedEntities}
+                onChangeSelectAll={onChangeSelectAll}
             />
             <EmbeddedListSearchResults
                 loading={loading}
@@ -205,9 +241,11 @@ export const EmbeddedListSearch = ({
                 onChangePage={onChangePage}
                 page={page}
                 showFilters={showFilters}
-                showSelectMode={showSelectMode}
-                setCheckedSearchResults={setCheckedSearchResults}
-                checkedSearchResults={checkedSearchResults}
+                numResultsPerPage={numResultsPerPage}
+                setNumResultsPerPage={setNumResultsPerPage}
+                isSelectMode={isSelectMode}
+                selectedEntities={selectedEntities}
+                setSelectedEntities={setSelectedEntities}
             />
         </Container>
     );

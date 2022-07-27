@@ -31,6 +31,7 @@ import GlossaryBrowser from '../../../../glossary/GlossaryBrowser/GlossaryBrowse
 import GlossarySearch from '../../../../glossary/GlossarySearch';
 import { BrowserWrapper, MAX_BROWSER_WIDTH, MIN_BROWSWER_WIDTH } from '../../../../glossary/BusinessGlossaryPage';
 import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../siblingUtils';
+import { EntityActionItem } from '../../entity/EntityActions';
 
 type Props<T, U> = {
     urn: string;
@@ -57,6 +58,7 @@ type Props<T, U> = {
     customNavBar?: React.ReactNode;
     subHeader?: EntitySubHeaderSection;
     headerDropdownItems?: Set<EntityMenuItems>;
+    headerActionItems?: Set<EntityActionItem>;
     displayGlossaryBrowser?: boolean;
     isNameEditable?: boolean;
 };
@@ -141,6 +143,7 @@ export const EntityProfile = <T, U>({
     sidebarSections,
     customNavBar,
     headerDropdownItems,
+    headerActionItems,
     displayGlossaryBrowser,
     isNameEditable,
     subHeader,
@@ -262,7 +265,11 @@ export const EntityProfile = <T, U>({
                     )}
                     {!loading && (
                         <>
-                            <EntityHeader headerDropdownItems={headerDropdownItems} subHeader={subHeader} />
+                            <EntityHeader
+                                headerDropdownItems={headerDropdownItems}
+                                headerActionItems={headerActionItems}
+                                subHeader={subHeader}
+                            />
                             <Divider />
                             <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
                         </>
@@ -330,6 +337,7 @@ export const EntityProfile = <T, U>({
                                     <Header>
                                         <EntityHeader
                                             headerDropdownItems={headerDropdownItems}
+                                            headerActionItems={headerActionItems}
                                             isNameEditable={isNameEditable}
                                             subHeader={subHeader}
                                             refreshBrowser={refreshBrowser}
