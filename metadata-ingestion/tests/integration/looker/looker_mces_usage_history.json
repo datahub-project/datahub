@@ -335,7 +335,7 @@
     "changeType": "UPSERT",
     "aspectName": "dashboardUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 14, \"uniqueUserCount\": 1, \"userCounts\": [{\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 14, \"usageCount\": 14}]}",
+        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 14, \"uniqueUserCount\": 1, \"userCounts\": [{\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 14, \"usageCount\": 14, \"userEmail\": \"test@looker.com\"}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -354,7 +354,7 @@
     "changeType": "UPSERT",
     "aspectName": "dashboardUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 14, \"uniqueUserCount\": 1, \"userCounts\": [{\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 14, \"usageCount\": 14}]}",
+        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 14, \"uniqueUserCount\": 1, \"userCounts\": [{\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 14, \"usageCount\": 14, \"userEmail\": \"test@looker.com\"}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {
@@ -373,7 +373,7 @@
     "changeType": "UPSERT",
     "aspectName": "dashboardUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 5, \"uniqueUserCount\": 1, \"userCounts\": [{\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 5, \"usageCount\": 5}]}",
+        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 5, \"uniqueUserCount\": 1, \"userCounts\": [{\"user\": \"urn:li:corpuser:test@looker.com\", \"executionsCount\": 5, \"usageCount\": 5, \"userEmail\": \"test@looker.com\"}]}",
         "contentType": "application/json"
     },
     "systemMetadata": {

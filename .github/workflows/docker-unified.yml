@@ -663,6 +663,23 @@ jobs:
         run: |
           echo "$DATAHUB_VERSION"
           ./smoke-test/smoke.sh
+      - name: store logs
+        if: failure()
+        run: |
+          docker ps -a
+          docker logs datahub-gms >& gms.log
+      - name: Upload logs
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: docker logs
+          path: "*.log"
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: cypress-snapshots
+          path: smoke-test/tests/cypress/cypress/screenshots/
       - uses: actions/upload-artifact@v2
         if: always()
         with:

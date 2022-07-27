@@ -1,5 +1,5 @@
-import { Button, Checkbox, Form, Input, Tooltip } from 'antd';
 import React from 'react';
+import { Button, Checkbox, Form, Input, Select, Tooltip } from 'antd';
 import styled from 'styled-components/macro';
 import { MinusCircleOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { FieldType, RecipeField } from './utils';
@@ -22,6 +22,10 @@ const StyledQuestion = styled(QuestionCircleOutlined)`
 
 const StyledRemoveIcon = styled(MinusCircleOutlined)`
     font-size: 14px;
+    margin-left: 10px;
+`;
+
+const StyledSelectField = styled(Select)`
     margin-left: 10px;
 `;
 
@@ -52,6 +56,10 @@ interface ListFieldProps {
     removeMargin?: boolean;
 }
 
+interface SelectFieldProps {
+    field: RecipeField;
+}
+
 function ListField({ field, removeMargin }: ListFieldProps) {
     return (
         <Form.List name={field.name}>
@@ -80,6 +88,25 @@ function ListField({ field, removeMargin }: ListFieldProps) {
     );
 }
 
+function SelectField({ field }: SelectFieldProps) {
+    return (
+        <Form.Item
+            name={field.name}
+            label={field.label}
+            tooltip={field.tooltip}
+            style={{ flexDirection: 'row', width: '80%', display: 'flex', alignItems: 'baseline' }}
+        >
+            {field.options && (
+                <StyledSelectField>
+                    {field.options.map((option) => (
+                        <Select.Option value={option.value}>{option.label}</Select.Option>
+                    ))}
+                </StyledSelectField>
+            )}
+        </Form.Item>
+    );
+}
+
 interface Props {
     field: RecipeField;
     removeMargin?: boolean;
@@ -89,6 +116,8 @@ function FormField(props: Props) {
     const { field, removeMargin } = props;
 
     if (field.type === FieldType.LIST) return <ListField field={field} removeMargin={removeMargin} />;
+
+    if (field.type === FieldType.SELECT) return <SelectField field={field} />;
 
     const isBoolean = field.type === FieldType.BOOLEAN;
     const input = isBoolean ? <Checkbox /> : <Input />;

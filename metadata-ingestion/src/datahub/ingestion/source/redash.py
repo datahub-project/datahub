@@ -1,4 +1,3 @@
-import importlib
 import logging
 import math
 import sys
@@ -22,6 +21,7 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -378,11 +378,10 @@ class RedashSource(Source):
     @classmethod
     def _import_sql_parser_cls(cls, sql_parser_path: str) -> Type[SQLParser]:
         assert "." in sql_parser_path, "sql_parser-path must contain a ."
-        module_name, cls_name = sql_parser_path.rsplit(".", 1)
-        parser_cls = getattr(importlib.import_module(module_name), cls_name)
+        parser_cls = import_path(sql_parser_path)
+
         if not issubclass(parser_cls, SQLParser):
             raise ValueError(f"must be derived from {SQLParser}; got {parser_cls}")
-
         return parser_cls
 
     @classmethod

@@ -33,6 +33,7 @@
                             "catalog_type": "view",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
+                            "manifest_adapter": "bigquery",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "1.1.0"
                         },
@@ -209,6 +210,7 @@
                             "catalog_type": "view",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
+                            "manifest_adapter": "bigquery",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "1.1.0"
                         },
@@ -405,6 +407,7 @@
                             "catalog_type": "view",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
+                            "manifest_adapter": "bigquery",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "1.1.0"
                         },
@@ -601,6 +604,7 @@
                             "catalog_type": "table",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
+                            "manifest_adapter": "bigquery",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "1.1.0"
                         },
@@ -754,6 +758,7 @@
                             "catalog_type": "table",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
+                            "manifest_adapter": "bigquery",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "1.1.0"
                         },
@@ -927,6 +932,7 @@
                             "catalog_type": "table",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
+                            "manifest_adapter": "bigquery",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "1.1.0"
                         },
@@ -1100,6 +1106,7 @@
                             "catalog_type": "table",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
+                            "manifest_adapter": "bigquery",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "1.1.0"
                         },
@@ -1374,6 +1381,7 @@
                             "catalog_type": "table",
                             "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v5.json",
                             "manifest_version": "1.1.0",
+                            "manifest_adapter": "bigquery",
                             "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
                             "catalog_version": "1.1.0"
                         },
@@ -1920,6 +1928,1393 @@
 {
     "auditHeader": null,
     "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:591d8dc8939e0cf9bf0fd03264ad1a0e",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:591d8dc8939e0cf9bf0fd03264ad1a0e",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_ROWS\", \"aggregation\": \"_NATIVE_\", \"operator\": \"_NATIVE_\", \"nativeType\": \"assert_total_payment_amount_is_positive\", \"nativeParameters\": {}, \"logic\": \"-- Refunds have a negative amount, so the total amount should always be >= 0.\\n-- Therefore return records where this isn't true to make the test fail\\nselect\\n    order_id,\\n    sum(amount) as total_amount\\nfrom `calm-pagoda-323403`.`jaffle_shop`.`orders`\\ngroup by 1\\nhaving not(total_amount >= 0)\"}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.assert_total_payment_amount_is_positive,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:54bac90e6785bdefd8685ebf8814c429",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:54bac90e6785bdefd8685ebf8814c429",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_customers,PROD),customer_id)\"], \"aggregation\": \"UNIQUE_PROPOTION\", \"operator\": \"EQUAL_TO\", \"parameters\": {\"value\": {\"value\": \"1.0\", \"type\": \"NUMBER\"}}, \"nativeType\": \"unique_stg_customers_customer_id\", \"nativeParameters\": {\"column_name\": \"customer_id\", \"model\": \"{{ get_where_subquery(ref('stg_customers')) }}\"}}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.unique_stg_customers_customer_id,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:25ebf4faa9b1654ef54c46d975ca0a81",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:25ebf4faa9b1654ef54c46d975ca0a81",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_customers,PROD),customer_id)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"not_null_stg_customers_customer_id\", \"nativeParameters\": {\"column_name\": \"customer_id\", \"model\": \"{{ get_where_subquery(ref('stg_customers')) }}\"}}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.not_null_stg_customers_customer_id,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:815963e1332b46a203504ba46ebfab24",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:815963e1332b46a203504ba46ebfab24",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD),order_id)\"], \"aggregation\": \"UNIQUE_PROPOTION\", \"operator\": \"EQUAL_TO\", \"parameters\": {\"value\": {\"value\": \"1.0\", \"type\": \"NUMBER\"}}, \"nativeType\": \"unique_stg_orders_order_id\", \"nativeParameters\": {\"column_name\": \"order_id\", \"model\": \"{{ get_where_subquery(ref('stg_orders')) }}\"}}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.unique_stg_orders_order_id,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:b03abcc447aac70bbebb22a8a9d7dbbe",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:b03abcc447aac70bbebb22a8a9d7dbbe",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD),order_id)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"not_null_stg_orders_order_id\", \"nativeParameters\": {\"column_name\": \"order_id\", \"model\": \"{{ get_where_subquery(ref('stg_orders')) }}\"}}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.not_null_stg_orders_order_id,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:da743330013b7e3e3707ac6e526ab408",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:da743330013b7e3e3707ac6e526ab408",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD),status)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"IN\", \"parameters\": {\"value\": {\"value\": \"[\\\"placed\\\", \\\"shipped\\\", \\\"completed\\\", \\\"return_pending\\\", \\\"returned\\\"]\", \"type\": \"SET\"}}, \"nativeType\": \"accepted_values_stg_orders_status__placed__shipped__completed__return_pending__returned\", \"nativeParameters\": {\"values\": \"['placed', 'shipped', 'completed', 'return_pending', 'returned']\", \"column_name\": \"status\", \"model\": \"{{ get_where_subquery(ref('stg_orders')) }}\"}}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.accepted_values_stg_orders_4f514bf94b77b7ea437830eec4421c58,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:fac27f352406b941125292413afa8096",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:fac27f352406b941125292413afa8096",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD),payment_id)\"], \"aggregation\": \"UNIQUE_PROPOTION\", \"operator\": \"EQUAL_TO\", \"parameters\": {\"value\": {\"value\": \"1.0\", \"type\": \"NUMBER\"}}, \"nativeType\": \"unique_stg_payments_payment_id\", \"nativeParameters\": {\"column_name\": \"payment_id\", \"model\": \"{{ get_where_subquery(ref('stg_payments')) }}\"}}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.unique_stg_payments_payment_id,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:c1eebc71f36690e4523adca30314e927",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:c1eebc71f36690e4523adca30314e927",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD),payment_id)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"not_null_stg_payments_payment_id\", \"nativeParameters\": {\"column_name\": \"payment_id\", \"model\": \"{{ get_where_subquery(ref('stg_payments')) }}\"}}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.not_null_stg_payments_payment_id,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2887b9c826e0be6296a37833bdc380bd",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2887b9c826e0be6296a37833bdc380bd",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD),payment_method)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"IN\", \"parameters\": {\"value\": {\"value\": \"[\\\"credit_card\\\", \\\"coupon\\\", \\\"bank_transfer\\\", \\\"gift_card\\\"]\", \"type\": \"SET\"}}, \"nativeType\": \"accepted_values_stg_payments_payment_method__credit_card__coupon__bank_transfer__gift_card\", \"nativeParameters\": {\"values\": \"['credit_card', 'coupon', 'bank_transfer', 'gift_card']\", \"column_name\": \"payment_method\", \"model\": \"{{ get_where_subquery(ref('stg_payments')) }}\"}}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.accepted_values_stg_payments_c7909fb19b1f0177c2bf99c7912f06ef,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:c51ca9c4b5a1f964bef748f0b8968e71",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:c51ca9c4b5a1f964bef748f0b8968e71",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD),customer_id)\"], \"aggregation\": \"UNIQUE_PROPOTION\", \"operator\": \"EQUAL_TO\", \"parameters\": {\"value\": {\"value\": \"1.0\", \"type\": \"NUMBER\"}}, \"nativeType\": \"unique_customers_customer_id\", \"nativeParameters\": {\"column_name\": \"customer_id\", \"model\": \"{{ get_where_subquery(ref('customers')) }}\"}}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.unique_customers_customer_id,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:44519aa345bf3ea896179f9f352ae946",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:44519aa345bf3ea896179f9f352ae946",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD),customer_id)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"not_null_customers_customer_id\", \"nativeParameters\": {\"column_name\": \"customer_id\", \"model\": \"{{ get_where_subquery(ref('customers')) }}\"}}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.not_null_customers_customer_id,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2ff754df689ea951ed2e12cbe356708f",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2ff754df689ea951ed2e12cbe356708f",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD),customer_id)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"BETWEEN\", \"parameters\": {\"maxValue\": {\"value\": \"2000000\", \"type\": \"NUMBER\"}, \"minValue\": {\"value\": \"0\", \"type\": \"NUMBER\"}}, \"nativeType\": \"dbt_expectations_expect_column_values_to_be_between_customers_customer_id__2000000__0__customer_id_is_not_null__False\", \"nativeParameters\": {\"min_value\": \"0\", \"max_value\": \"2000000\", \"row_condition\": \"customer_id is not null\", \"strictly\": \"False\", \"column_name\": \"customer_id\", \"model\": \"{{ get_where_subquery(ref('customers')) }}\"}}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.dbt_expectations_expect_column_24b3791150378f1941309a295b2320de,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:bf7fd2b46d2c32ee9bb036acd1559782",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:bf7fd2b46d2c32ee9bb036acd1559782",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD),customer_id)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"IN\", \"parameters\": {\"value\": {\"value\": \"[\\\"0\\\", \\\"1\\\", \\\"2\\\"]\", \"type\": \"SET\"}}, \"nativeType\": \"dbt_expectations_expect_column_values_to_be_in_set_customers_customer_id__customer_id_is_not_null__0__1__2\", \"nativeParameters\": {\"value_set\": \"['0', '1', '2']\", \"row_condition\": \"customer_id is not null\", \"column_name\": \"customer_id\", \"model\": \"{{ get_where_subquery(ref('customers')) }}\"}}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.dbt_expectations_expect_column_e42202dc29e1149de0f5c3966219796d,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:caa9b8060e214cecab88a92dc39c2e60",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:caa9b8060e214cecab88a92dc39c2e60",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),order_id)\"], \"aggregation\": \"UNIQUE_PROPOTION\", \"operator\": \"EQUAL_TO\", \"parameters\": {\"value\": {\"value\": \"1.0\", \"type\": \"NUMBER\"}}, \"nativeType\": \"unique_orders_order_id\", \"nativeParameters\": {\"column_name\": \"order_id\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.unique_orders_order_id,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2e9117138dcc9facda66f1efd55a8cd7",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2e9117138dcc9facda66f1efd55a8cd7",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),order_id)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"not_null_orders_order_id\", \"nativeParameters\": {\"column_name\": \"order_id\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.not_null_orders_order_id,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:11087a3d7ae178df22c42922ac8ef8ad",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:11087a3d7ae178df22c42922ac8ef8ad",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),customer_id)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"not_null_orders_customer_id\", \"nativeParameters\": {\"column_name\": \"customer_id\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.not_null_orders_customer_id,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD),customer_id)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"_NATIVE_\", \"parameters\": {\"value\": {\"value\": \"null\", \"type\": \"SET\"}}, \"nativeType\": \"relationships_orders_customer_id__customer_id__ref_customers_\", \"nativeParameters\": {\"to\": \"ref('customers')\", \"field\": \"customer_id\", \"column_name\": \"customer_id\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}, \"logic\": \"orders.customer_id referential integrity to customers.customer_id\"}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),customer_id)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"_NATIVE_\", \"parameters\": {\"value\": {\"value\": \"null\", \"type\": \"SET\"}}, \"nativeType\": \"relationships_orders_customer_id__customer_id__ref_customers_\", \"nativeParameters\": {\"to\": \"ref('customers')\", \"field\": \"customer_id\", \"column_name\": \"customer_id\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}, \"logic\": \"orders.customer_id referential integrity to customers.customer_id\"}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.relationships_orders_customer_id__customer_id__ref_customers_,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:b052a324c05327985f3b579a19ad7579",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:b052a324c05327985f3b579a19ad7579",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),status)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"IN\", \"parameters\": {\"value\": {\"value\": \"[\\\"placed\\\", \\\"shipped\\\", \\\"completed\\\", \\\"return_pending\\\", \\\"returned\\\"]\", \"type\": \"SET\"}}, \"nativeType\": \"accepted_values_orders_status__placed__shipped__completed__return_pending__returned\", \"nativeParameters\": {\"values\": \"['placed', 'shipped', 'completed', 'return_pending', 'returned']\", \"column_name\": \"status\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.accepted_values_orders_1ce6ab157c285f7cd2ac656013faf758,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:bbd78a070092f54313153abec49f6f31",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:bbd78a070092f54313153abec49f6f31",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),amount)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"not_null_orders_amount\", \"nativeParameters\": {\"column_name\": \"amount\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.not_null_orders_amount,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:7a305acc5fc049dc9bbd141b814461d0",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:7a305acc5fc049dc9bbd141b814461d0",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),credit_card_amount)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"not_null_orders_credit_card_amount\", \"nativeParameters\": {\"column_name\": \"credit_card_amount\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.not_null_orders_credit_card_amount,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:1c217b7587a0cad47a07a09bfe154055",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:1c217b7587a0cad47a07a09bfe154055",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),credit_card_amount)\"], \"aggregation\": \"_NATIVE_\", \"operator\": \"_NATIVE_\", \"nativeType\": \"dbt_expectations_expect_column_values_to_not_be_in_set_orders_credit_card_amount__credit_card_amount_is_not_null__0\", \"nativeParameters\": {\"value_set\": \"['0']\", \"row_condition\": \"credit_card_amount is not null\", \"column_name\": \"credit_card_amount\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}, \"logic\": \"\\n\\nwith all_values as (\\n\\n    select\\n        credit_card_amount as value_field\\n\\n    from `calm-pagoda-323403`.`jaffle_shop`.`orders`\\n    \\n    where credit_card_amount is not null\\n    \\n\\n),\\nset_values as (\\n\\n    select\\n        cast('0' as \\n    string\\n) as value_field\\n    \\n    \\n),\\nvalidation_errors as (\\n    -- values from the model that match the set\\n    select\\n        v.value_field\\n    from\\n        all_values v\\n        join\\n        set_values s on v.value_field = s.value_field\\n\\n)\\n\\nselect *\\nfrom validation_errors\\n\\n\"}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.dbt_expectations_expect_column_fdf581b1071168614662824120d65b90,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ca065a99637630468f688717590beeab",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ca065a99637630468f688717590beeab",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),coupon_amount)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"not_null_orders_coupon_amount\", \"nativeParameters\": {\"column_name\": \"coupon_amount\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.not_null_orders_coupon_amount,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:52d06197762e3608d94609e96f03a0a7",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:52d06197762e3608d94609e96f03a0a7",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),bank_transfer_amount)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"not_null_orders_bank_transfer_amount\", \"nativeParameters\": {\"column_name\": \"bank_transfer_amount\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.not_null_orders_bank_transfer_amount,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:b301bb47cc4ebce4e78a194b3de11f25",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:b301bb47cc4ebce4e78a194b3de11f25",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"manifest_adapter\": \"bigquery\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),gift_card_amount)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"not_null_orders_gift_card_amount\", \"nativeParameters\": {\"column_name\": \"gift_card_amount\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}}}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.not_null_orders_gift_card_amount,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "value": "{\"removed\": true}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-2022_02_03-07_00_00",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
+    "entityType": "assertion",
     "entityUrn": "urn:li:assertion:da743330013b7e3e3707ac6e526ab408",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
@@ -2363,1393 +3758,6 @@
     "aspectName": "assertionRunEvent",
     "aspect": {
         "value": "{\"timestampMillis\": 1655565136719, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"runId\": \"c7a6b778-0e0f-4789-b567-ca7e124a6840\", \"assertionUrn\": \"urn:li:assertion:fac27f352406b941125292413afa8096\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)\", \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"nativeResults\": {}}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:591d8dc8939e0cf9bf0fd03264ad1a0e",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:591d8dc8939e0cf9bf0fd03264ad1a0e",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_ROWS\", \"aggregation\": \"_NATIVE_\", \"operator\": \"_NATIVE_\", \"nativeType\": \"assert_total_payment_amount_is_positive\", \"nativeParameters\": {}, \"logic\": \"-- Refunds have a negative amount, so the total amount should always be >= 0.\\n-- Therefore return records where this isn't true to make the test fail\\nselect\\n    order_id,\\n    sum(amount) as total_amount\\nfrom `calm-pagoda-323403`.`jaffle_shop`.`orders`\\ngroup by 1\\nhaving not(total_amount >= 0)\"}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.assert_total_payment_amount_is_positive,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:54bac90e6785bdefd8685ebf8814c429",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:54bac90e6785bdefd8685ebf8814c429",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_customers,PROD),customer_id)\"], \"aggregation\": \"UNIQUE_PROPOTION\", \"operator\": \"EQUAL_TO\", \"parameters\": {\"value\": {\"value\": \"1.0\", \"type\": \"NUMBER\"}}, \"nativeType\": \"unique_stg_customers_customer_id\", \"nativeParameters\": {\"column_name\": \"customer_id\", \"model\": \"{{ get_where_subquery(ref('stg_customers')) }}\"}}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.unique_stg_customers_customer_id,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:25ebf4faa9b1654ef54c46d975ca0a81",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:25ebf4faa9b1654ef54c46d975ca0a81",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_customers,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_customers,PROD),customer_id)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"not_null_stg_customers_customer_id\", \"nativeParameters\": {\"column_name\": \"customer_id\", \"model\": \"{{ get_where_subquery(ref('stg_customers')) }}\"}}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.not_null_stg_customers_customer_id,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:815963e1332b46a203504ba46ebfab24",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:815963e1332b46a203504ba46ebfab24",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD),order_id)\"], \"aggregation\": \"UNIQUE_PROPOTION\", \"operator\": \"EQUAL_TO\", \"parameters\": {\"value\": {\"value\": \"1.0\", \"type\": \"NUMBER\"}}, \"nativeType\": \"unique_stg_orders_order_id\", \"nativeParameters\": {\"column_name\": \"order_id\", \"model\": \"{{ get_where_subquery(ref('stg_orders')) }}\"}}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.unique_stg_orders_order_id,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:b03abcc447aac70bbebb22a8a9d7dbbe",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:b03abcc447aac70bbebb22a8a9d7dbbe",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD),order_id)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"not_null_stg_orders_order_id\", \"nativeParameters\": {\"column_name\": \"order_id\", \"model\": \"{{ get_where_subquery(ref('stg_orders')) }}\"}}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.not_null_stg_orders_order_id,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:da743330013b7e3e3707ac6e526ab408",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:da743330013b7e3e3707ac6e526ab408",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_orders,PROD),status)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"IN\", \"parameters\": {\"value\": {\"value\": \"[\\\"placed\\\", \\\"shipped\\\", \\\"completed\\\", \\\"return_pending\\\", \\\"returned\\\"]\", \"type\": \"SET\"}}, \"nativeType\": \"accepted_values_stg_orders_status__placed__shipped__completed__return_pending__returned\", \"nativeParameters\": {\"values\": \"['placed', 'shipped', 'completed', 'return_pending', 'returned']\", \"column_name\": \"status\", \"model\": \"{{ get_where_subquery(ref('stg_orders')) }}\"}}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.accepted_values_stg_orders_4f514bf94b77b7ea437830eec4421c58,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:fac27f352406b941125292413afa8096",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:fac27f352406b941125292413afa8096",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD),payment_id)\"], \"aggregation\": \"UNIQUE_PROPOTION\", \"operator\": \"EQUAL_TO\", \"parameters\": {\"value\": {\"value\": \"1.0\", \"type\": \"NUMBER\"}}, \"nativeType\": \"unique_stg_payments_payment_id\", \"nativeParameters\": {\"column_name\": \"payment_id\", \"model\": \"{{ get_where_subquery(ref('stg_payments')) }}\"}}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.unique_stg_payments_payment_id,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:c1eebc71f36690e4523adca30314e927",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:c1eebc71f36690e4523adca30314e927",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD),payment_id)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"not_null_stg_payments_payment_id\", \"nativeParameters\": {\"column_name\": \"payment_id\", \"model\": \"{{ get_where_subquery(ref('stg_payments')) }}\"}}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.not_null_stg_payments_payment_id,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:2887b9c826e0be6296a37833bdc380bd",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:2887b9c826e0be6296a37833bdc380bd",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.stg_payments,PROD),payment_method)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"IN\", \"parameters\": {\"value\": {\"value\": \"[\\\"credit_card\\\", \\\"coupon\\\", \\\"bank_transfer\\\", \\\"gift_card\\\"]\", \"type\": \"SET\"}}, \"nativeType\": \"accepted_values_stg_payments_payment_method__credit_card__coupon__bank_transfer__gift_card\", \"nativeParameters\": {\"values\": \"['credit_card', 'coupon', 'bank_transfer', 'gift_card']\", \"column_name\": \"payment_method\", \"model\": \"{{ get_where_subquery(ref('stg_payments')) }}\"}}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.accepted_values_stg_payments_c7909fb19b1f0177c2bf99c7912f06ef,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:c51ca9c4b5a1f964bef748f0b8968e71",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:c51ca9c4b5a1f964bef748f0b8968e71",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD),customer_id)\"], \"aggregation\": \"UNIQUE_PROPOTION\", \"operator\": \"EQUAL_TO\", \"parameters\": {\"value\": {\"value\": \"1.0\", \"type\": \"NUMBER\"}}, \"nativeType\": \"unique_customers_customer_id\", \"nativeParameters\": {\"column_name\": \"customer_id\", \"model\": \"{{ get_where_subquery(ref('customers')) }}\"}}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.unique_customers_customer_id,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:44519aa345bf3ea896179f9f352ae946",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:44519aa345bf3ea896179f9f352ae946",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD),customer_id)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"not_null_customers_customer_id\", \"nativeParameters\": {\"column_name\": \"customer_id\", \"model\": \"{{ get_where_subquery(ref('customers')) }}\"}}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.not_null_customers_customer_id,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:2ff754df689ea951ed2e12cbe356708f",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:2ff754df689ea951ed2e12cbe356708f",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD),customer_id)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"BETWEEN\", \"parameters\": {\"maxValue\": {\"value\": \"2000000\", \"type\": \"NUMBER\"}, \"minValue\": {\"value\": \"0\", \"type\": \"NUMBER\"}}, \"nativeType\": \"dbt_expectations_expect_column_values_to_be_between_customers_customer_id__2000000__0__customer_id_is_not_null__False\", \"nativeParameters\": {\"min_value\": \"0\", \"max_value\": \"2000000\", \"row_condition\": \"customer_id is not null\", \"strictly\": \"False\", \"column_name\": \"customer_id\", \"model\": \"{{ get_where_subquery(ref('customers')) }}\"}}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.dbt_expectations_expect_column_24b3791150378f1941309a295b2320de,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:bf7fd2b46d2c32ee9bb036acd1559782",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:bf7fd2b46d2c32ee9bb036acd1559782",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD),customer_id)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"IN\", \"parameters\": {\"value\": {\"value\": \"[\\\"0\\\", \\\"1\\\", \\\"2\\\"]\", \"type\": \"SET\"}}, \"nativeType\": \"dbt_expectations_expect_column_values_to_be_in_set_customers_customer_id__customer_id_is_not_null__0__1__2\", \"nativeParameters\": {\"value_set\": \"['0', '1', '2']\", \"row_condition\": \"customer_id is not null\", \"column_name\": \"customer_id\", \"model\": \"{{ get_where_subquery(ref('customers')) }}\"}}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.dbt_expectations_expect_column_e42202dc29e1149de0f5c3966219796d,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:caa9b8060e214cecab88a92dc39c2e60",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:caa9b8060e214cecab88a92dc39c2e60",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),order_id)\"], \"aggregation\": \"UNIQUE_PROPOTION\", \"operator\": \"EQUAL_TO\", \"parameters\": {\"value\": {\"value\": \"1.0\", \"type\": \"NUMBER\"}}, \"nativeType\": \"unique_orders_order_id\", \"nativeParameters\": {\"column_name\": \"order_id\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.unique_orders_order_id,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:2e9117138dcc9facda66f1efd55a8cd7",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:2e9117138dcc9facda66f1efd55a8cd7",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),order_id)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"not_null_orders_order_id\", \"nativeParameters\": {\"column_name\": \"order_id\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.not_null_orders_order_id,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:11087a3d7ae178df22c42922ac8ef8ad",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:11087a3d7ae178df22c42922ac8ef8ad",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),customer_id)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"not_null_orders_customer_id\", \"nativeParameters\": {\"column_name\": \"customer_id\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.not_null_orders_customer_id,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD),customer_id)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"_NATIVE_\", \"parameters\": {\"value\": {\"value\": \"null\", \"type\": \"SET\"}}, \"nativeType\": \"relationships_orders_customer_id__customer_id__ref_customers_\", \"nativeParameters\": {\"to\": \"ref('customers')\", \"field\": \"customer_id\", \"column_name\": \"customer_id\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}, \"logic\": \"orders.customer_id referential integrity to customers.customer_id\"}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:b210dbd31c2ee4efc0c24a9e4cf125ef",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),customer_id)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"_NATIVE_\", \"parameters\": {\"value\": {\"value\": \"null\", \"type\": \"SET\"}}, \"nativeType\": \"relationships_orders_customer_id__customer_id__ref_customers_\", \"nativeParameters\": {\"to\": \"ref('customers')\", \"field\": \"customer_id\", \"column_name\": \"customer_id\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}, \"logic\": \"orders.customer_id referential integrity to customers.customer_id\"}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.relationships_orders_customer_id__customer_id__ref_customers_,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:b052a324c05327985f3b579a19ad7579",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:b052a324c05327985f3b579a19ad7579",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),status)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"IN\", \"parameters\": {\"value\": {\"value\": \"[\\\"placed\\\", \\\"shipped\\\", \\\"completed\\\", \\\"return_pending\\\", \\\"returned\\\"]\", \"type\": \"SET\"}}, \"nativeType\": \"accepted_values_orders_status__placed__shipped__completed__return_pending__returned\", \"nativeParameters\": {\"values\": \"['placed', 'shipped', 'completed', 'return_pending', 'returned']\", \"column_name\": \"status\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.accepted_values_orders_1ce6ab157c285f7cd2ac656013faf758,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:bbd78a070092f54313153abec49f6f31",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:bbd78a070092f54313153abec49f6f31",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),amount)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"not_null_orders_amount\", \"nativeParameters\": {\"column_name\": \"amount\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.not_null_orders_amount,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:7a305acc5fc049dc9bbd141b814461d0",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:7a305acc5fc049dc9bbd141b814461d0",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),credit_card_amount)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"not_null_orders_credit_card_amount\", \"nativeParameters\": {\"column_name\": \"credit_card_amount\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.not_null_orders_credit_card_amount,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:1c217b7587a0cad47a07a09bfe154055",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:1c217b7587a0cad47a07a09bfe154055",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),credit_card_amount)\"], \"aggregation\": \"_NATIVE_\", \"operator\": \"_NATIVE_\", \"nativeType\": \"dbt_expectations_expect_column_values_to_not_be_in_set_orders_credit_card_amount__credit_card_amount_is_not_null__0\", \"nativeParameters\": {\"value_set\": \"['0']\", \"row_condition\": \"credit_card_amount is not null\", \"column_name\": \"credit_card_amount\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}, \"logic\": \"\\n\\nwith all_values as (\\n\\n    select\\n        credit_card_amount as value_field\\n\\n    from `calm-pagoda-323403`.`jaffle_shop`.`orders`\\n    \\n    where credit_card_amount is not null\\n    \\n\\n),\\nset_values as (\\n\\n    select\\n        cast('0' as \\n    string\\n) as value_field\\n    \\n    \\n),\\nvalidation_errors as (\\n    -- values from the model that match the set\\n    select\\n        v.value_field\\n    from\\n        all_values v\\n        join\\n        set_values s on v.value_field = s.value_field\\n\\n)\\n\\nselect *\\nfrom validation_errors\\n\\n\"}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.dbt_expectations_expect_column_fdf581b1071168614662824120d65b90,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:ca065a99637630468f688717590beeab",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:ca065a99637630468f688717590beeab",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),coupon_amount)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"not_null_orders_coupon_amount\", \"nativeParameters\": {\"column_name\": \"coupon_amount\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.not_null_orders_coupon_amount,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:52d06197762e3608d94609e96f03a0a7",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:52d06197762e3608d94609e96f03a0a7",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),bank_transfer_amount)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"not_null_orders_bank_transfer_amount\", \"nativeParameters\": {\"column_name\": \"bank_transfer_amount\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.not_null_orders_bank_transfer_amount,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:b301bb47cc4ebce4e78a194b3de11f25",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:dbt\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:b301bb47cc4ebce4e78a194b3de11f25",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "assertionInfo",
-    "aspect": {
-        "value": "{\"customProperties\": {\"manifest_schema\": \"https://schemas.getdbt.com/dbt/manifest/v5.json\", \"manifest_version\": \"1.1.0\", \"catalog_schema\": \"https://schemas.getdbt.com/dbt/catalog/v1.json\", \"catalog_version\": \"1.1.0\"}, \"type\": \"DATASET\", \"datasetAssertion\": {\"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD)\", \"scope\": \"DATASET_COLUMN\", \"fields\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.orders,PROD),gift_card_amount)\"], \"aggregation\": \"IDENTITY\", \"operator\": \"NOT_NULL\", \"nativeType\": \"not_null_orders_gift_card_amount\", \"nativeParameters\": {\"column_name\": \"gift_card_amount\", \"model\": \"{{ get_where_subquery(ref('orders')) }}\"}}}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-2022_02_03-07_00_00",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
-    }
-},
-{
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop_dbt_test__audit.not_null_orders_gift_card_amount,PROD)",
-    "entityKeyAspect": null,
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": true}",
         "contentType": "application/json"
     },
     "systemMetadata": {

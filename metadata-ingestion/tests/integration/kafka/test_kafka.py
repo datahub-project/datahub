@@ -18,7 +18,6 @@ def test_kafka_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "kafka"
     ) as docker_services:
-
         wait_for_port(docker_services, "test_broker", 59092, timeout=120)
         wait_for_port(docker_services, "test_schema_registry", 8081, timeout=120)
 
@@ -31,9 +30,10 @@ def test_kafka_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
         run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
         # Verify the output.
+        randomClusterID: str = "root.*['customProperties'].['clusterId']"
         mce_helpers.check_golden_file(
             pytestconfig,
             output_path=tmp_path / "kafka_mces.json",
             golden_path=test_resources_dir / "kafka_mces_golden.json",
-            ignore_paths=[],
+            ignore_paths=[randomClusterID],
         )
