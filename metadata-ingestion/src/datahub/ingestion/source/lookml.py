@@ -1,5 +1,4 @@
 import glob
-import importlib
 import itertools
 import logging
 import pathlib
@@ -25,6 +24,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.source.looker_common import (
     LookerCommonConfig,
     LookerExplore,
@@ -515,14 +515,10 @@ class LookerView:
     @classmethod
     def _import_sql_parser_cls(cls, sql_parser_path: str) -> Type[SQLParser]:
         assert "." in sql_parser_path, "sql_parser-path must contain a ."
-        module_name, cls_name = sql_parser_path.rsplit(".", 1)
-        import sys
+        parser_cls = import_path(sql_parser_path)
 
-        logger.debug(sys.path)
-        parser_cls = getattr(importlib.import_module(module_name), cls_name)
         if not issubclass(parser_cls, SQLParser):
             raise ValueError(f"must be derived from {SQLParser}; got {parser_cls}")
-
         return parser_cls
 
     @classmethod
