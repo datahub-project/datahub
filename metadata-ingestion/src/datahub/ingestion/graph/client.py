@@ -15,11 +15,12 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
+    DomainPropertiesClass,
     DomainsClass,
     GlobalTagsClass,
     GlossaryTermsClass,
     OwnershipClass,
-    TelemetryClientIdClass, DomainPropertiesClass,
+    TelemetryClientIdClass,
 )
 from datahub.utilities.urns.urn import Urn
 
