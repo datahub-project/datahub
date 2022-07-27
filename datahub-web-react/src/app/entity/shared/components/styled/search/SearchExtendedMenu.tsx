@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { Button, Dropdown, Menu } from 'antd';
 import { FormOutlined, MoreOutlined } from '@ant-design/icons';
-// import { Button, Dropdown, Menu } from 'antd';
-// import { MoreOutlined, SelectOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { EntityType, FacetFilterInput, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
 import { SearchResultsInterface } from './types';
@@ -49,14 +47,14 @@ export default function SearchExtendedMenu({
                     setShowDownloadAsCsvModal={setShowDownloadAsCsvModal}
                 />
             </Menu.Item>
-            <Menu.Item key="1">
-                {setShowSelectMode && (
+            {setShowSelectMode && (
+                <Menu.Item key="1">
                     <SelectButton type="text" onClick={() => setShowSelectMode(true)}>
                         <FormOutlined />
                         Edit...
                     </SelectButton>
-                )}
-            </Menu.Item>
+                </Menu.Item>
+            )}
         </Menu>
     );
 

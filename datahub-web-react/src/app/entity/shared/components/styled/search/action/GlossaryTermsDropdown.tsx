@@ -6,8 +6,8 @@ type Props = {
     disabled: boolean;
 };
 
+// eslint-disable-next-line
 export default function GlossaryTermsDropdown({ urns, disabled = false }: Props) {
-    console.log(urns);
     return (
         <ActionDropdown
             name="Glossary Terms"

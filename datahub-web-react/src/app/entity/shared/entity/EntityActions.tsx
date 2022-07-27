@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Button, message } from 'antd';
 import { LinkOutlined } from '@ant-design/icons';
-import { EntityType, PlatformPrivileges } from '../../../../types.generated';
 import { SearchSelectModal } from '../components/styled/search/SearchSelectModal';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { EntityCapabilityType } from '../../Entity';
@@ -18,35 +17,26 @@ export enum EntityActionItem {
 }
 
 interface Props {
-    urn: string;
-    entityType: EntityType;
-    entityData?: any;
     actionItems: Set<EntityActionItem>;
-    platformPrivileges?: PlatformPrivileges;
     refetchForEntity?: () => void;
 }
 
 function EntityActions(props: Props) {
     // eslint ignore react/no-unused-prop-types
     const entityRegistry = useEntityRegistry();
-    const { urn, entityType, entityData, actionItems, platformPrivileges, refetchForEntity } = props;
-    console.log(platformPrivileges);
-    console.log(urn);
-    console.log(entityType);
-    console.log(entityData);
-
+    const { actionItems, refetchForEntity } = props;
     const [isBatchAddGlossaryTermModalVisible, setIsBatchAddGlossaryTermModalVisible] = useState(false);
     const [isBatchSetDomainModalVisible, setIsBatchSetDomainModalVisible] = useState(false);
 
+    // eslint-disable-next-line
     const batchAddGlossaryTerms = (entityUrns: Array<string>) => {
-        console.log(`Should be adding terms ${entityUrns}`);
         refetchForEntity?.();
         setIsBatchAddGlossaryTermModalVisible(false);
         message.success('Successfully added glossary terms!');
     };
 
+    // eslint-disable-next-line
     const batchSetDomains = (entityUrns: Array<string>) => {
-        console.log(`Should be setting domain ${entityUrns}`);
         refetchForEntity?.();
         setIsBatchSetDomainModalVisible(false);
         message.success('Successfully added assets!');

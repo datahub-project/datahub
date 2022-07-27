@@ -6,9 +6,8 @@ type Props = {
     disabled: boolean;
 };
 
+// eslint-disable-next-line
 export default function TagsDropdown({ urns, disabled = false }: Props) {
-    console.log(urns);
-    console.log(disabled);
     return (
         <ActionDropdown
             name="Tags"

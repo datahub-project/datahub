@@ -8,9 +8,8 @@ type Props = {
     disabled: boolean;
 };
 
+// eslint-disable-next-line
 export default function OwnersDropdown({ urns, disabled = false }: Props) {
-    console.log(urns);
-
     const [showAddModal, setShowAddModal] = useState(false);
     return (
         <>

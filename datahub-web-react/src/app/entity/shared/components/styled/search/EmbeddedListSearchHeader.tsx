@@ -92,7 +92,7 @@ export default function EmbeddedListSearchHeader({
                                 entityFilters={entityFilters}
                                 filters={filters}
                                 query={query}
-                                setShowSelectMode={setIsSelectMode}
+                                // setShowSelectMode={setIsSelectMode}
                             />
                         </SearchMenuContainer>
                     </SearchAndDownloadContainer>

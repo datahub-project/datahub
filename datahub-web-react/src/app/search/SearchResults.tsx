@@ -183,7 +183,7 @@ export const SearchResults = ({
                                         entityFilters={entityFilters}
                                         filters={filtersWithoutEntities}
                                         query={query}
-                                        setShowSelectMode={setIsSelectMode}
+                                        // setShowSelectMode={setIsSelectMode}
                                     />
                                 </SearchMenuContainer>
                             </>
