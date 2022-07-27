@@ -70,52 +70,18 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Docker meta
-        id: docker_meta
-        uses: crazy-max/ghaction-docker-meta@v1
-        with:
-          # list of Docker images to use as base name for tags
-          images: |
-            ${{ env.DATAHUB_GMS_IMAGE }}
-          # add git short SHA as Docker tag
-          tag-custom: ${{ needs.setup.outputs.tag }}
-          tag-custom-only: true
-      - name: Build and Load image for testing (if not publishing)
-        uses: docker/build-push-action@v2
-        if: ${{ needs.setup.outputs.publish != 'true' }}
-        with:
-          context: .
-          file: ./docker/datahub-gms/Dockerfile
-          platforms: linux/amd64
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          load: true
-          push: false
-      - name: Upload image locally for testing (if not publishing)
-        uses: ishworkh/docker-image-artifact-upload@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}
-        with:
-          image: ${{ steps.docker_meta.outputs.tags }}
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-      - name: Login to DockerHub
-        uses: docker/login-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
+      - name: Build and push
+        uses: ./.github/actions/docker-custom-build-and-push
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-      - name: Build and Push MultiPlatform image
-        uses: docker/build-push-action@v2
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
+          publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-gms/Dockerfile
           platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          push: true
+          images: |
+            ${{ env.DATAHUB_GMS_IMAGE }}
+          tags: ${{ needs.setup.outputs.tag }}
   gms_scan:
     name: "[Monitoring] Scan GMS images for vulnerabilities"
     runs-on: ubuntu-latest
