@@ -14,7 +14,7 @@ import {
 } from '../../graphql/search.generated';
 import { EntityType } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
-import { AdminHeaderLinks } from '../shared/admin/AdminHeaderLinks';
+import { HeaderLinks } from '../shared/admin/HeaderLinks';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { useAppConfig } from '../useAppConfig';
 import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
@@ -188,7 +188,7 @@ export const HomePageHeader = () => {
                     )}
                 </WelcomeText>
                 <NavGroup>
-                    <AdminHeaderLinks />
+                    <HeaderLinks />
                     <ManageAccount
                         urn={user?.urn || ''}
                         pictureLink={user?.editableProperties?.pictureLink || ''}
