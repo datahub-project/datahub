@@ -970,30 +970,24 @@ def test_add_dataset_properties(mock_time):
 
 
 def test_simple_add_dataset_properties(mock_time):
-    dataset_mce = make_dataset_with_properties()
-
     new_properties = {"new-simple-property": "new-value"}
-    transformer = SimpleAddDatasetProperties.create(
-        {
+    outputs = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetProperties,
+        aspect=models.DatasetPropertiesClass(
+            customProperties=EXISTING_PROPERTIES.copy()
+        ),
+        config={
             "properties": new_properties,
         },
-        PipelineContext(run_id="test-simple-properties"),
     )
 
-    outputs = list(
-        transformer.transform(
-            [RecordEnvelope(input, metadata={}) for input in [dataset_mce]]
-        )
+    assert len(outputs) == 2
+    assert outputs[0].record
+    assert outputs[0].record.aspect
+    custom_properties_aspect: models.DatasetPropertiesClass = cast(
+        models.DatasetPropertiesClass, outputs[0].record.aspect
     )
-    assert len(outputs) == 1
-
-    custom_properties = builder.get_aspect_if_available(
-        outputs[0].record, models.DatasetPropertiesClass
-    )
-
-    print(str(custom_properties))
-    assert custom_properties is not None
-    assert custom_properties.customProperties == {
+    assert custom_properties_aspect.customProperties == {
         **EXISTING_PROPERTIES,
         **new_properties,
     }
@@ -1563,14 +1557,20 @@ def run_dataset_transformer_pipeline(
     return outputs
 
 
-def test_simple_add_dataset_domain():
+def test_simple_add_dataset_domain(mock_datahub_graph):
     acryl_domain = builder.make_domain_urn("acryl.io")
     gslab_domain = builder.make_domain_urn("gslab.io")
+
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_simple_add_dataset_domain"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
 
     output = run_dataset_transformer_pipeline(
         transformer_type=SimpleAddDatasetDomain,
         aspect=models.DomainsClass(domains=[gslab_domain]),
         config={"domain_urns": [acryl_domain]},
+        pipeline_context=pipeline_context,
     )
 
     assert len(output) == 2
@@ -1585,14 +1585,20 @@ def test_simple_add_dataset_domain():
     assert acryl_domain in transformed_aspect.domains
 
 
-def test_simple_add_dataset_domain_replace_existing():
+def test_simple_add_dataset_domain_replace_existing(mock_datahub_graph):
     acryl_domain = builder.make_domain_urn("acryl.io")
     gslab_domain = builder.make_domain_urn("gslab.io")
+
+    pipeline_context: PipelineContext = PipelineContext(
+        run_id="test_simple_add_dataset_domain"
+    )
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig)
 
     output = run_dataset_transformer_pipeline(
         transformer_type=SimpleAddDatasetDomain,
         aspect=models.DomainsClass(domains=[gslab_domain]),
         config={"replace_existing": True, "domain_urns": [acryl_domain]},
+        pipeline_context=pipeline_context,
     )
 
     assert len(output) == 2

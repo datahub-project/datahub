@@ -16,13 +16,13 @@ from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     DatasetUsageStatisticsClass,
+    DomainPropertiesClass,
     DomainsClass,
     GlobalTagsClass,
     GlossaryTermsClass,
     OwnershipClass,
     SchemaMetadataClass,
     TelemetryClientIdClass,
-    DomainPropertiesClass,
 )
 from datahub.utilities.urns.urn import Urn
 

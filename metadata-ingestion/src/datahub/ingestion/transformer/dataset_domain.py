@@ -53,7 +53,9 @@ class AddDatasetDomain(DatasetDomainTransformer):
         domain_registry: DomainRegistry = DomainRegistry(
             cached_domains=[k for k in domains], graph=graph
         )
-        domain_class = DomainsClass(domains=[domain_registry.get_domain_urn(domain) for domain in domains])
+        domain_class = DomainsClass(
+            domains=[domain_registry.get_domain_urn(domain) for domain in domains]
+        )
         return domain_class
 
     @staticmethod
