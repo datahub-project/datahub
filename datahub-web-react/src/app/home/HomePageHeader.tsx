@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useHistory } from 'react-router';
 import { Typography, Image, Row, Button, Tag } from 'antd';
 import styled, { useTheme } from 'styled-components';
@@ -9,6 +9,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
 import { SearchBar } from '../search/SearchBar';
 import {
+    GetAutoCompleteMultipleResultsQuery,
     useGetAutoCompleteMultipleResultsLazyQuery,
     useGetSearchResultsForMultipleQuery,
 } from '../../graphql/search.generated';
@@ -119,6 +120,13 @@ export const HomePageHeader = () => {
     const user = useGetAuthenticatedUser()?.corpUser;
     const themeConfig = useTheme();
     const appConfig = useAppConfig();
+    const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
+
+    useEffect(() => {
+        if (suggestionsData !== undefined) {
+            setNewSuggestionData(suggestionsData);
+        }
+    }, [suggestionsData]);
 
     const onSearch = (query: string, type?: EntityType) => {
         if (!query || query.trim().length === 0) {
@@ -212,7 +220,7 @@ export const HomePageHeader = () => {
                 <SearchBarContainer>
                     <SearchBar
                         placeholderText={themeConfig.content.search.searchbarMessage}
-                        suggestions={suggestionsData?.autoCompleteForMultiple?.suggestions || []}
+                        suggestions={newSuggestionData?.autoCompleteForMultiple?.suggestions || []}
                         onSearch={onSearch}
                         onQueryChange={onAutoComplete}
                         autoCompleteStyle={styles.searchBox}
