@@ -6,8 +6,15 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { IconStyleType } from '../../../entity/Entity';
 import { capitalizeFirstLetter } from '../../../shared/textUtil';
+import { EntityAndType } from '../../../entity/shared/types';
+
+const StyledCheckbox = styled(Checkbox)`
+    margin-right: 12px;
+`;
 
 const StyledList = styled(List)`
+    overflow-y: scroll;
+    height: 100%;
     margin-top: -1px;
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
     flex: 1;
@@ -62,20 +69,24 @@ type Props = {
     additionalPropertiesList?: Array<AdditionalProperties>;
     entities: Array<Entity>;
     onClick?: (index: number) => void;
-    showSelectMode?: boolean;
-    setSelectedEntityUrns?: (checkedSearchResults: Array<string>) => any;
-    selectedEntityUrns?: string[];
+    isSelectMode?: boolean;
+    selectedEntities?: EntityAndType[];
+    setSelectedEntities?: (entities: EntityAndType[]) => any;
+    bordered?: boolean;
 };
 
 export const EntityNameList = ({
     additionalPropertiesList,
     entities,
     onClick,
-    showSelectMode,
-    setSelectedEntityUrns,
-    selectedEntityUrns,
+    isSelectMode,
+    selectedEntities = [],
+    setSelectedEntities,
+    bordered = true,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const selectedEntityUrns = selectedEntities?.map((entity) => entity.urn) || [];
+
     if (
         additionalPropertiesList?.length !== undefined &&
         additionalPropertiesList.length > 0 &&
@@ -87,65 +98,65 @@ export const EntityNameList = ({
         );
     }
 
-    const onSelectEntityUrn = (entityUrn: any, selected: boolean) => {
-        if (showSelectMode) {
-            if (selectedEntityUrns && selected) {
-                setSelectedEntityUrns?.([...selectedEntityUrns, entityUrn]);
-            } else {
-                setSelectedEntityUrns?.(selectedEntityUrns?.filter((urn) => urn !== entityUrn) || []);
-            }
+    /**
+     * Invoked when a new entity is selected. Simply updates the state of the list of selected entities.
+     */
+    const onSelectEntity = (selectedEntity: EntityAndType, selected: boolean) => {
+        if (selected) {
+            setSelectedEntities?.([...selectedEntities, selectedEntity]);
+        } else {
+            setSelectedEntities?.(selectedEntities?.filter((entity) => entity.urn !== selectedEntity.urn) || []);
         }
     };
 
     return (
-        <>
-            <StyledList
-                bordered
-                dataSource={entities}
-                renderItem={(entity, index) => {
-                    const additionalProperties = additionalPropertiesList?.[index];
-                    const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
-                    const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
-                    const platformName =
-                        genericProps?.platform?.properties?.displayName ||
-                        capitalizeFirstLetter(genericProps?.platform?.name);
-                    const entityTypeName = entityRegistry.getEntityName(entity.type);
-                    const displayName = entityRegistry.getDisplayName(entity.type, entity);
-                    const url = entityRegistry.getEntityUrl(entity.type, entity.urn);
-                    const fallbackIcon = entityRegistry.getIcon(entity.type, 18, IconStyleType.ACCENT);
-                    const subType = genericProps?.subTypes?.typeNames?.length && genericProps?.subTypes?.typeNames[0];
-                    const entityCount = genericProps?.entityCount;
-                    return (
-                        <>
-                            <ListItem isSelectMode={showSelectMode || false}>
-                                {showSelectMode && (
-                                    <Checkbox
-                                        style={{ marginRight: 12 }}
-                                        checked={(selectedEntityUrns || []).indexOf(entity.urn) >= 0}
-                                        onChange={(e) => onSelectEntityUrn(entity.urn, e.target.checked)}
-                                    />
-                                )}
-                                <DefaultPreviewCard
-                                    name={displayName}
-                                    logoUrl={platformLogoUrl || undefined}
-                                    logoComponent={fallbackIcon}
-                                    url={url}
-                                    platform={platformName || undefined}
-                                    type={subType || entityTypeName}
-                                    titleSizePx={14}
-                                    tags={genericProps?.globalTags || undefined}
-                                    glossaryTerms={genericProps?.glossaryTerms || undefined}
-                                    domain={genericProps?.domain?.domain}
-                                    onClick={() => onClick?.(index)}
-                                    entityCount={entityCount}
-                                    degree={additionalProperties?.degree}
+        <StyledList
+            bordered={bordered}
+            dataSource={entities}
+            renderItem={(entity, index) => {
+                const additionalProperties = additionalPropertiesList?.[index];
+                const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
+                const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
+                const platformName =
+                    genericProps?.platform?.properties?.displayName ||
+                    capitalizeFirstLetter(genericProps?.platform?.name);
+                const entityTypeName = entityRegistry.getEntityName(entity.type);
+                const displayName = entityRegistry.getDisplayName(entity.type, entity);
+                const url = entityRegistry.getEntityUrl(entity.type, entity.urn);
+                const fallbackIcon = entityRegistry.getIcon(entity.type, 18, IconStyleType.ACCENT);
+                const subType = genericProps?.subTypes?.typeNames?.length && genericProps?.subTypes?.typeNames[0];
+                const entityCount = genericProps?.entityCount;
+                return (
+                    <>
+                        <ListItem isSelectMode={isSelectMode || false}>
+                            {isSelectMode && (
+                                <StyledCheckbox
+                                    checked={selectedEntityUrns.indexOf(entity.urn) >= 0}
+                                    onChange={(e) =>
+                                        onSelectEntity({ urn: entity.urn, type: entity.type }, e.target.checked)
+                                    }
                                 />
-                            </ListItem>
-                            <ThinDivider />
-                        </>
-                    );
-                }}
-            />
-        </>
+                            )}
+                            <DefaultPreviewCard
+                                name={displayName}
+                                logoUrl={platformLogoUrl || undefined}
+                                logoComponent={fallbackIcon}
+                                url={url}
+                                platform={platformName || undefined}
+                                type={subType || entityTypeName}
+                                titleSizePx={14}
+                                tags={genericProps?.globalTags || undefined}
+                                glossaryTerms={genericProps?.glossaryTerms || undefined}
+                                domain={genericProps?.domain?.domain}
+                                onClick={() => onClick?.(index)}
+                                entityCount={entityCount}
+                                degree={additionalProperties?.degree}
+                            />
+                        </ListItem>
+                        <ThinDivider />
+                    </>
+                );
+            }}
+        />
     );
 };

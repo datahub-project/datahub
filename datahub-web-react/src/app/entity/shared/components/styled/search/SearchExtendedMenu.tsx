@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button, Dropdown, Menu } from 'antd';
-import { MoreOutlined, SelectOutlined } from '@ant-design/icons';
+import { FormOutlined, MoreOutlined } from '@ant-design/icons';
 // import { Button, Dropdown, Menu } from 'antd';
 // import { MoreOutlined, SelectOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
@@ -41,8 +41,6 @@ export default function SearchExtendedMenu({
     const [isDownloadingCsv, setIsDownloadingCsv] = useState(false);
     const [showDownloadAsCsvModal, setShowDownloadAsCsvModal] = useState(false);
 
-    // TO DO: Need to implement Select Mode
-    console.log('setShowSelectMode:', setShowSelectMode);
     const menu = (
         <Menu>
             <Menu.Item key="0">
@@ -54,8 +52,8 @@ export default function SearchExtendedMenu({
             <Menu.Item key="1">
                 {setShowSelectMode && (
                     <SelectButton type="text" onClick={() => setShowSelectMode(true)}>
-                        <SelectOutlined />
-                        Select...
+                        <FormOutlined />
+                        Edit...
                     </SelectButton>
                 )}
             </Menu.Item>

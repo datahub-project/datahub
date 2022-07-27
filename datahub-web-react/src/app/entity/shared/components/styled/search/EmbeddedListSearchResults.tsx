@@ -6,12 +6,14 @@ import { SearchFilters } from '../../../../../search/SearchFilters';
 import { SearchCfg } from '../../../../../../conf';
 import { EntityNameList } from '../../../../../recommendations/renderer/component/EntityNameList';
 import { ReactComponent as LoadingSvg } from '../../../../../../images/datahub-logo-color-loading_pendulum.svg';
+import { EntityAndType } from '../../../types';
+
+// const TAB_TOOLBAR_HEIGHT = 47; // px
 
 const SearchBody = styled.div`
+    height: 100%;
+    overflow-y: scroll;
     display: flex;
-    flex-direction: row;
-    flex: 1 1 auto;
-    overflow-y: hidden;
 `;
 
 const PaginationInfo = styled(Typography.Text)`
@@ -29,16 +31,15 @@ const FiltersContainer = styled.div`
 `;
 
 const ResultContainer = styled.div`
-    flex: 1;
+    height: auto;
     overflow: auto;
-    display: flex;
-    flex-direction: column;
+    flex: 1;
 `;
 
-const PaginationInfoContainer = styled.div`
+const PaginationInfoContainer = styled.span`
     padding: 8px;
     padding-left: 16px;
-    border-bottom: 1px solid;
+    border-top: 1px solid;
     border-color: ${(props) => props.theme.styles['border-color-base']};
     display: flex;
     justify-content: space-between;
@@ -72,11 +73,6 @@ const SearchFilterContainer = styled.div`
     overflow: hidden;
 `;
 
-const LoadingText = styled.div`
-    margin-top: 18px;
-    font-size: 12px;
-`;
-
 const LoadingContainer = styled.div`
     padding-top: 40px;
     padding-bottom: 40px;
@@ -94,9 +90,9 @@ interface Props {
     showFilters?: boolean;
     onChangeFilters: (filters: Array<FacetFilterInput>) => void;
     onChangePage: (page: number) => void;
-    showSelectMode: boolean;
-    setSelectedEntityUrns: (checkedSearchResults: Array<string>) => any;
-    selectedEntityUrns: string[];
+    isSelectMode: boolean;
+    selectedEntities: EntityAndType[];
+    setSelectedEntities: (entities: EntityAndType[]) => any;
     numResultsPerPage: number;
     setNumResultsPerPage: (numResults: number) => void;
 }
@@ -110,9 +106,9 @@ export const EmbeddedListSearchResults = ({
     showFilters,
     onChangeFilters,
     onChangePage,
-    showSelectMode,
-    setSelectedEntityUrns,
-    selectedEntityUrns,
+    isSelectMode,
+    selectedEntities,
+    setSelectedEntities,
     numResultsPerPage,
     setNumResultsPerPage,
 }: Props) => {
@@ -120,14 +116,6 @@ export const EmbeddedListSearchResults = ({
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
-
-    const onFilterSelect = (newFilters) => {
-        onChangeFilters(newFilters);
-    };
-
-    const updateNumResults = (_currentNum: number, newNum: number) => {
-        setNumResultsPerPage(newNum);
-    };
 
     return (
         <>
@@ -140,7 +128,7 @@ export const EmbeddedListSearchResults = ({
                                 loading={loading}
                                 facets={filters || []}
                                 selectedFilters={selectedFilters}
-                                onFilterSelect={onFilterSelect}
+                                onFilterSelect={(newFilters) => onChangeFilters(newFilters)}
                             />
                         </SearchFilterContainer>
                     </FiltersContainer>
@@ -149,49 +137,45 @@ export const EmbeddedListSearchResults = ({
                     {loading && (
                         <LoadingContainer>
                             <LoadingSvg height={80} width={80} />
-                            <LoadingText>Searching for related entities...</LoadingText>
                         </LoadingContainer>
                     )}
                     {!loading && (
-                        <>
-                            <EntityNameList
-                                entities={
-                                    searchResponse?.searchResults?.map((searchResult) => searchResult.entity) || []
-                                }
-                                additionalPropertiesList={
-                                    searchResponse?.searchResults?.map((searchResult) => ({
-                                        // when we add impact analysis, we will want to pipe the path to each element to the result this
-                                        // eslint-disable-next-line @typescript-eslint/dot-notation
-                                        degree: searchResult['degree'],
-                                    })) || []
-                                }
-                                showSelectMode={showSelectMode}
-                                setSelectedEntityUrns={setSelectedEntityUrns}
-                                selectedEntityUrns={selectedEntityUrns}
-                            />
-                        </>
-                    )}
-                    <PaginationInfoContainer>
-                        <PaginationInfo>
-                            <b>
-                                {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
-                            </b>{' '}
-                            of <b>{totalResults}</b>
-                        </PaginationInfo>
-                        <StyledPagination
-                            current={page}
-                            pageSize={numResultsPerPage}
-                            total={totalResults}
-                            showLessItems
-                            onChange={onChangePage}
-                            showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
-                            onShowSizeChange={updateNumResults}
-                            pageSizeOptions={['10', '20', '50', '100']}
+                        <EntityNameList
+                            entities={searchResponse?.searchResults?.map((searchResult) => searchResult.entity) || []}
+                            additionalPropertiesList={
+                                searchResponse?.searchResults?.map((searchResult) => ({
+                                    // when we add impact analysis, we will want to pipe the path to each element to the result this
+                                    // eslint-disable-next-line @typescript-eslint/dot-notation
+                                    degree: searchResult['degree'],
+                                })) || []
+                            }
+                            isSelectMode={isSelectMode}
+                            selectedEntities={selectedEntities}
+                            setSelectedEntities={setSelectedEntities}
+                            bordered={false}
                         />
-                        <span />
-                    </PaginationInfoContainer>
+                    )}
                 </ResultContainer>
             </SearchBody>
+            <PaginationInfoContainer>
+                <PaginationInfo>
+                    <b>
+                        {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
+                    </b>{' '}
+                    of <b>{totalResults}</b>
+                </PaginationInfo>
+                <StyledPagination
+                    current={page}
+                    pageSize={numResultsPerPage}
+                    total={totalResults}
+                    showLessItems
+                    onChange={onChangePage}
+                    showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
+                    onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
+                    pageSizeOptions={['10', '20', '50', '100']}
+                />
+                <span />
+            </PaginationInfoContainer>
         </>
     );
 };

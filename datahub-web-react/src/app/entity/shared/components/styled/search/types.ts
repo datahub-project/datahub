@@ -35,3 +35,15 @@ export type SearchResultsInterface = {
     /** Candidate facet aggregations used for search filtering */
     facets?: Maybe<Array<FacetMetadata>>;
 };
+
+/**
+ * Supported Action Groups for search-select feature.
+ */
+export enum SelectActionGroups {
+    CHANGE_OWNERS,
+    CHANGE_TAGS,
+    CHANGE_GLOSSARY_TERMS,
+    CHANGE_DOMAINS,
+    CHANGE_DEPRECATION,
+    DELETE,
+}
