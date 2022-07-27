@@ -10,11 +10,11 @@ import {
     GlossaryTerms,
     SearchInsight,
     Container,
-    Domain,
     ParentContainersResult,
     Maybe,
     CorpUser,
     Deprecation,
+    Domain,
 } from '../../types.generated';
 import TagTermGroup from '../shared/tags/TagTermGroup';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -176,7 +176,7 @@ interface Props {
     insights?: Array<SearchInsight> | null;
     glossaryTerms?: GlossaryTerms;
     container?: Container;
-    domain?: Domain | null;
+    domain?: Domain | undefined | null;
     entityCount?: number;
     dataTestID?: string;
     titleSizePx?: number;
@@ -239,8 +239,13 @@ export default function DefaultPreviewCard({
 
     const { parentContainersRef, areContainersTruncated } = useParentContainersTruncation(container);
 
+    const onPreventMouseDown = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+    };
+
     return (
-        <PreviewContainer data-testid={dataTestID}>
+        <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
             <LeftColumn>
                 <TitleContainer>
                     <PlatformContentView

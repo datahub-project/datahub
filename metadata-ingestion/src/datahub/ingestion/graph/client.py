@@ -22,6 +22,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     SchemaMetadataClass,
     TelemetryClientIdClass,
+    DomainPropertiesClass,
 )
 from datahub.utilities.urns.urn import Urn
 
@@ -190,6 +191,13 @@ class DataHubGraph(DatahubRestEmitter):
             entity_urn=entity_urn,
             aspect="schemaMetadata",
             aspect_type=SchemaMetadataClass,
+        )
+
+    def get_domain_properties(self, entity_urn: str) -> Optional[DomainPropertiesClass]:
+        return self.get_aspect_v2(
+            entity_urn=entity_urn,
+            aspect="domainProperties",
+            aspect_type=DomainPropertiesClass,
         )
 
     def get_tags(self, entity_urn: str) -> Optional[GlobalTagsClass]:

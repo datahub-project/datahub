@@ -14,6 +14,9 @@ import java.time.Clock;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 
+import static com.linkedin.datahub.graphql.resolvers.AuthUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 
 public class AuthorizationUtils {
 
@@ -89,6 +92,15 @@ public class AuthorizationUtils {
 
   public static boolean canManageUserCredentials(@Nonnull QueryContext context) {
     return isAuthorized(context, Optional.empty(), PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE);
+  }
+
+  public static boolean canEditGroupMembers(@Nonnull String groupUrnStr, @Nonnull QueryContext context) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(
+        ImmutableList.of(ALL_PRIVILEGES_GROUP,
+            new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_GROUP_MEMBERS_PRIVILEGE.getType()))));
+
+    return AuthorizationUtils.isAuthorized(context.getAuthorizer(), context.getActorUrn(), CORP_GROUP_ENTITY_NAME,
+        groupUrnStr, orPrivilegeGroups);
   }
 
   public static boolean isAuthorized(

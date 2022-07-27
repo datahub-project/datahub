@@ -17,8 +17,8 @@ query getSchemaBlame($input: GetSchemaBlameInput!) {
     }
 }
 
-query getSchemaBlameVersions($input: GetSchemaBlameInput!) {
-    getSchemaBlame(input: $input) {
+query getSchemaVersionList($input: GetSchemaVersionListInput!) {
+    getSchemaVersionList(input: $input) {
         latestVersion {
             semanticVersion
             semanticVersionTimestamp
