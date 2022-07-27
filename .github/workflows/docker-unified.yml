@@ -74,15 +74,15 @@ jobs:
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
+          images: |
+            ${{ env.DATAHUB_GMS_IMAGE }}
+          tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-gms/Dockerfile
           platforms: linux/amd64,linux/arm64
-          images: |
-            ${{ env.DATAHUB_GMS_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
   gms_scan:
     name: "[Monitoring] Scan GMS images for vulnerabilities"
     runs-on: ubuntu-latest
@@ -117,15 +117,15 @@ jobs:
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
+          images: |
+            ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}
+          tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-mae-consumer/Dockerfile
           platforms: linux/amd64
-          images: |
-            ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
   mae_consumer_scan:
     name: "[Monitoring] Scan MAE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
@@ -160,15 +160,15 @@ jobs:
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
+          images: |
+            ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}
+          tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-mce-consumer/Dockerfile
           platforms: linux/amd64
-          images: |
-            ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
   mce_consumer_scan:
     name: "[Monitoring] Scan MCE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
@@ -203,15 +203,15 @@ jobs:
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          images: |
+            ${{ env.DATAHUB_UPGRADE_IMAGE }}
+          tags: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-upgrade/Dockerfile
           platforms: linux/amd64,linux/arm64
-          images: |
-            ${{ env.DATAHUB_UPGRADE_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
   datahub_upgrade_scan:
     name: "[Monitoring] Scan DataHub Upgrade images for vulnerabilities"
     runs-on: ubuntu-latest
@@ -246,15 +246,15 @@ jobs:
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
+          images: |
+            ${{ env.DATAHUB_FRONTEND_IMAGE }}
+          tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-frontend/Dockerfile
           platforms: linux/amd64,linux/arm64
-          images: |
-            ${{ env.DATAHUB_FRONTEND_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
   frontend_scan:
     name: "[Monitoring] Scan Frontend images for vulnerabilities"
     runs-on: ubuntu-latest
@@ -289,15 +289,15 @@ jobs:
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
+          images: |
+            ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}
+          tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
           context: ./docker/kafka-setup
           file: ./docker/kafka-setup/Dockerfile
           platforms: linux/amd64,linux/arm64
-          images: |
-            ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
 
   mysql_setup_build:
     name: Build and Push DataHub MySQL Setup Docker Image
@@ -314,15 +314,15 @@ jobs:
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          images: |
+            ${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}
+          tags: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/mysql-setup/Dockerfile
           platforms: linux/amd64,linux/arm64
-          images: |
-            ${{ env.datahub_mysql_setup_image }}
-          tags: ${{ needs.setup.outputs.tag }}
 
   elasticsearch_setup_build:
     name: Build and Push DataHub Elasticsearch Setup Docker Image
@@ -339,15 +339,15 @@ jobs:
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
+          images: |
+            ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}
+          tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/elasticsearch-setup/Dockerfile
           platforms: linux/amd64,linux/arm64
-          images: |
-            ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}
-          tags: ${{ needs.setup.outputs.tag }}
 
   smoke_test:
     name: Run Smoke Tests
