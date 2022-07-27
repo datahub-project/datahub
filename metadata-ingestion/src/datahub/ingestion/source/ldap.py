@@ -97,6 +97,7 @@ class LDAPSourceConfig(ConfigModel):
     # Extraction configuration.
     base_dn: str = Field(description="LDAP DN.")
     filter: str = Field(default="(objectClass=*)", description="LDAP extractor filter.")
+    attrs_list: List[str] = Field(default=None, description="Retrieved attributes list")
 
     # If set to true, any users without first and last names will be dropped.
     drop_missing_first_last_name: bool = Field(
@@ -204,6 +205,7 @@ class LDAPSource(Source):
                     self.config.base_dn,
                     ldap.SCOPE_SUBTREE,
                     self.config.filter,
+                    self.config.attrs_list,
                     serverctrls=[self.lc],
                 )
                 _rtype, rdata, _rmsgid, serverctrls = self.ldap_client.result3(msgid)
@@ -231,6 +233,7 @@ class LDAPSource(Source):
                 elif (
                     b"posixGroup" in attrs["objectClass"]
                     or b"organizationalUnit" in attrs["objectClass"]
+                    or b"groupOfNames" in attrs["objectClass"]
                     or b"group" in attrs["objectClass"]
                 ):
                     yield from self.handle_group(dn, attrs)
