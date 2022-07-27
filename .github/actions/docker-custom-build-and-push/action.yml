@@ -18,7 +18,6 @@ inputs:
   platforms:
     description: "Same as docker/build-push-action"
     required: false
-  # needs_buildx: TODO
 
   images:
     # e.g. linkedin/datahub-gms
@@ -56,6 +55,7 @@ runs:
         context: ${{ inputs.context }}
         file: ${{ inputs.file }}
         # TODO this only does single-platform builds in testing?
+        # leaving it for now since it matches the previous behavior
         platforms: linux/amd64
         tags: ${{ steps.docker_meta.outputs.tags }}
         load: true
@@ -89,4 +89,4 @@ runs:
         tags: ${{ steps.docker_meta.outputs.tags }}
         push: true
 
-    # TODO add code for vuln scanning
+    # TODO add code for vuln scanning?
