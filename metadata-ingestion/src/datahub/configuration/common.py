@@ -2,13 +2,13 @@ import re
 from abc import ABC, abstractmethod
 from typing import IO, Any, Dict, List, Optional, Pattern, cast
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Extra
 from pydantic.fields import Field
 
 
 class ConfigModel(BaseModel):
     class Config:
-        extra = "forbid"
+        extra = Extra.forbid
 
 
 class DynamicTypedConfig(ConfigModel):
@@ -105,11 +105,11 @@ class AllowDenyPattern(ConfigModel):
 
     allow: List[str] = Field(
         default=[".*"],
-        description="List of regex patterns for process groups to include in ingestion",
+        description="List of regex patterns to include in ingestion",
     )
     deny: List[str] = Field(
         default=[],
-        description="List of regex patterns for process groups to exclude from ingestion.",
+        description="List of regex patterns to exclude from ingestion.",
     )
     ignoreCase: Optional[bool] = Field(
         default=True,

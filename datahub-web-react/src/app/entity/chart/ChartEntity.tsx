@@ -17,6 +17,7 @@ import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
+import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
 
 /**
  * Definition of the DataHub Chart entity.
@@ -71,6 +72,9 @@ export class ChartEntity implements Entity<Chart> {
             useUpdateQuery={useUpdateChartMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
+            subHeader={{
+                component: ChartStatsSummarySubHeader,
+            }}
             tabs={[
                 {
                     name: 'Documentation',
@@ -153,7 +157,7 @@ export class ChartEntity implements Entity<Chart> {
                 tags={data?.globalTags || undefined}
                 glossaryTerms={data?.glossaryTerms}
                 logoUrl={data?.platform?.properties?.logoUrl}
-                domain={data.domain}
+                domain={data.domain?.domain}
                 parentContainers={data.parentContainers}
             />
         );
@@ -174,7 +178,12 @@ export class ChartEntity implements Entity<Chart> {
                 glossaryTerms={data?.glossaryTerms}
                 insights={result.insights}
                 logoUrl={data?.platform?.properties?.logoUrl || ''}
-                domain={data.domain}
+                domain={data.domain?.domain}
+                deprecation={data.deprecation}
+                statsSummary={data.statsSummary}
+                lastUpdatedMs={data.properties?.lastModified?.time}
+                createdMs={data.properties?.created?.time}
+                externalUrl={data.properties?.externalUrl}
             />
         );
     };

@@ -118,6 +118,9 @@ def delete(
             "You must provide either an urn or a platform or an env or a query for me to delete anything"
         )
 
+    if not soft:
+        include_removed = True
+
     # default query is set to "*" if not provided
     query = "*" if query is None else query
 
@@ -245,11 +248,19 @@ def delete_with_filters(
     )
 
     logger.info(
-        f"Filter matched {len(urns)} entities. Sample: {choices(urns, k=min(5, len(urns)))}"
+        f"Filter matched {len(urns)} {entity_type} entities of {platform}. Sample: {choices(urns, k=min(5, len(urns)))}"
     )
-    if not force:
+    if len(urns) == 0:
+        click.echo(
+            f"No urns to delete. Maybe you want to change entity_type={entity_type} or platform={platform} to be something different?"
+        )
+        return DeletionResult(end_time_millis=int(time.time() * 1000.0))
+
+    if not force and not dry_run:
+        type_delete = "soft" if soft else "permanently"
         click.confirm(
-            f"This will delete {len(urns)} entities. Are you sure?", abort=True
+            f"This will {type_delete} delete {len(urns)} entities. Are you sure?",
+            abort=True,
         )
 
     for urn in progressbar.progressbar(urns, redirect_stdout=True):
@@ -267,6 +278,15 @@ def delete_with_filters(
     return batch_deletion_result
 
 
+def is_soft_deleted(urn: str) -> bool:
+    try:
+        return cli_utils.get_entity(urn=urn, aspect=["status"])["aspects"]["status"][
+            "value"
+        ]["removed"]
+    except KeyError:
+        return False
+
+
 def _delete_one_urn(
     urn: str,
     soft: bool = False,
@@ -277,6 +297,10 @@ def _delete_one_urn(
     run_id: str = "delete-run-id",
     deletion_timestamp: int = _get_current_time(),
 ) -> DeletionResult:
+
+    soft_delete_msg: str = ""
+    if dry_run and is_soft_deleted(urn):
+        soft_delete_msg = "(soft-deleted)"
 
     deletion_result = DeletionResult()
     deletion_result.num_entities = 1
@@ -314,7 +338,7 @@ def _delete_one_urn(
         )
         deletion_result.num_records = rows_affected
     else:
-        logger.info(f"[Dry-run] Would hard-delete {urn}")
+        logger.info(f"[Dry-run] Would hard-delete {urn} {soft_delete_msg}")
         deletion_result.num_records = (
             UNKNOWN_NUM_RECORDS  # since we don't know how many rows will be affected
         )

@@ -1,10 +1,13 @@
 name: ingestion base
 on:
+  release:
+    types: [published, edited]
   push:
     branches:
       - master
     paths:
       - "docker/datahub-ingestion/**"
+      - "gradle*"
   workflow_dispatch:
 
 concurrency:

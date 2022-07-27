@@ -13,6 +13,7 @@ import { ProfileSidebarResizer } from '../entity/shared/containers/profile/sideb
 import EmptyGlossarySection from './EmptyGlossarySection';
 import CreateGlossaryEntityModal from '../entity/shared/EntityDropdown/CreateGlossaryEntityModal';
 import { EntityType } from '../../types.generated';
+import { Message } from '../shared/Message';
 
 export const HeaderWrapper = styled(TabToolbar)`
     padding: 15px 45px 10px 24px;
@@ -41,8 +42,8 @@ export const MIN_BROWSWER_WIDTH = 200;
 
 function BusinessGlossaryPage() {
     const [browserWidth, setBrowserWidth] = useState(window.innerWidth * 0.2);
-    const { data: termsData, refetch: refetchForTerms } = useGetRootGlossaryTermsQuery();
-    const { data: nodesData, refetch: refetchForNodes } = useGetRootGlossaryNodesQuery();
+    const { data: termsData, refetch: refetchForTerms, loading: termsLoading } = useGetRootGlossaryTermsQuery();
+    const { data: nodesData, refetch: refetchForNodes, loading: nodesLoading } = useGetRootGlossaryNodesQuery();
 
     const terms = termsData?.getRootGlossaryTerms?.terms;
     const nodes = nodesData?.getRootGlossaryNodes?.nodes;
@@ -55,6 +56,9 @@ function BusinessGlossaryPage() {
     return (
         <>
             <GlossaryWrapper>
+                {(termsLoading || nodesLoading) && (
+                    <Message type="loading" content="Loading Glossary..." style={{ marginTop: '10%' }} />
+                )}
                 <BrowserWrapper width={browserWidth}>
                     <GlossarySearch />
                     <GlossaryBrowser rootNodes={nodes} rootTerms={terms} />
@@ -80,7 +84,7 @@ function BusinessGlossaryPage() {
                         </div>
                     </HeaderWrapper>
                     {hasTermsOrNodes && <GlossaryEntitiesList nodes={nodes || []} terms={terms || []} />}
-                    {!hasTermsOrNodes && (
+                    {!(termsLoading || nodesLoading) && !hasTermsOrNodes && (
                         <EmptyGlossarySection refetchForTerms={refetchForTerms} refetchForNodes={refetchForNodes} />
                     )}
                 </MainContentWrapper>

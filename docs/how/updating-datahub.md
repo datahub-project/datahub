@@ -5,7 +5,28 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ## Next
 
 ### Breaking Changes
+- #5451 `GMS_HOST` and `GMS_PORT` environment variables deprecated in `v0.8.39` have been removed. Use `DATAHUB_GMS_HOST` and `DATAHUB_GMS_PORT` instead.
+- #5478 DataHub CLI `delete` command when used with `--hard` option will delete soft-deleted entities which match the other filters given.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other notable Changes
+
+## `v0.8.41`
+
+### Breaking Changes
 - The `should_overwrite` flag in `csv-enricher` has been replaced with `write_semantics` to match the format used for other sources. See the [documentation](https://datahubproject.io/docs/generated/ingestion/sources/csv/) for more details
+- Closing an authorization hole in creating tags adding a Platform Privilege called `Create Tags` for creating tags. This is assigned to `datahub` root user, along 
+with default All Users policy. Notice: You may need to add this privilege (or `Manage Tags`) to existing users that need the ability to create tags on the platform. 
+- #5329 Below profiling config parameters are now supported in `BigQuery`:
+  - profiling.profile_if_updated_since_days (default=1)
+  - profiling.profile_table_size_limit (default=1GB)
+  - profiling.profile_table_row_limit (default=50000)
+  
+  Set above parameters to `null` if you want older behaviour.
+
 ### Potential Downtime
 
 ### Deprecations

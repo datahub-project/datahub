@@ -3,7 +3,7 @@ import { Alert, Col, Row } from 'antd';
 import styled from 'styled-components';
 import { useGetGroupQuery } from '../../../graphql/group.generated';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
-import { EntityRelationshipsResult, Ownership } from '../../../types.generated';
+import { OriginType, EntityRelationshipsResult, Ownership } from '../../../types.generated';
 import { Message } from '../../shared/Message';
 import GroupMembers from './GroupMembers';
 import { decodeUrn } from '../shared/utils';
@@ -53,6 +53,8 @@ export default function GroupProfile() {
     }
 
     const groupMemberRelationships = data?.corpGroup?.relationships as EntityRelationshipsResult;
+    const isExternalGroup: boolean = data?.corpGroup?.origin?.type === OriginType.External;
+    const externalGroupType: string = data?.corpGroup?.origin?.externalType || 'outside DataHub';
 
     const getTabs = () => {
         return [
@@ -71,6 +73,7 @@ export default function GroupProfile() {
                     <GroupMembers
                         urn={urn}
                         pageSize={MEMBER_PAGE_SIZE}
+                        isExternalGroup={isExternalGroup}
                         onChangeMembers={() => {
                             setTimeout(() => refetch(), 2000);
                         }}
@@ -105,6 +108,8 @@ export default function GroupProfile() {
             data?.corpGroup?.editableProperties?.description || data?.corpGroup?.properties?.description || undefined,
         groupMemberRelationships: groupMemberRelationships as EntityRelationshipsResult,
         groupOwnerShip: data?.corpGroup?.ownership as Ownership,
+        isExternalGroup,
+        externalGroupType,
         urn,
     };
 
