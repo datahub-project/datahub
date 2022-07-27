@@ -94,8 +94,7 @@ def delete_for_registry(
 @click.option("--query", required=False, type=str)
 @click.option("--registry-id", required=False, type=str)
 @click.option("-n", "--dry-run", required=False, is_flag=True)
-@click.option("--include-removed", required=False, is_flag=True)
-@click.option("--only-removed", required=False, is_flag=True, default=False)
+@click.option("--only-soft-deleted", required=False, is_flag=True, default=False)
 @upgrade.check_upgrade
 @telemetry.with_telemetry
 def delete(
@@ -108,8 +107,7 @@ def delete(
     query: str,
     registry_id: str,
     dry_run: bool,
-    include_removed: bool,
-    only_removed: bool,
+    only_soft_deleted: bool,
 ) -> None:
     """Delete metadata from datahub using a single urn or a combination of filters"""
 
@@ -120,6 +118,7 @@ def delete(
             "You must provide either an urn or a platform or an env or a query for me to delete anything"
         )
 
+    include_removed: bool
     if soft:
         # For soft-delete include-removed does not make any sense
         include_removed = False
@@ -199,7 +198,7 @@ def delete(
             search_query=query,
             force=force,
             include_removed=include_removed,
-            only_removed=only_removed,
+            only_soft_deleted=only_soft_deleted,
         )
 
     if not dry_run:
@@ -231,7 +230,7 @@ def delete_with_filters(
     entity_type: str = "dataset",
     env: Optional[str] = None,
     platform: Optional[str] = None,
-    only_removed: Optional[bool] = False,
+    only_soft_deleted: Optional[bool] = False,
 ) -> DeletionResult:
 
     session, gms_host = cli_utils.get_session_and_host()
@@ -242,7 +241,7 @@ def delete_with_filters(
     batch_deletion_result = DeletionResult()
 
     urns: List[str] = []
-    if not only_removed:
+    if not only_soft_deleted:
         urns = list(
             cli_utils.get_urns_by_filter(
                 env=env,
@@ -254,14 +253,14 @@ def delete_with_filters(
         )
 
     soft_deleted_urns: List[str] = []
-    if include_removed or only_removed:
+    if include_removed or only_soft_deleted:
         soft_deleted_urns = list(
             cli_utils.get_urns_by_filter(
                 env=env,
                 platform=platform,
                 search_query=search_query,
                 entity_type=entity_type,
-                only_removed=True,
+                only_soft_deleted=True,
             )
         )
 

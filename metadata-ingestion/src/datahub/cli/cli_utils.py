@@ -370,7 +370,7 @@ def get_urns_by_filter(
     entity_type: str = "dataset",
     search_query: str = "*",
     include_removed: bool = False,
-    only_removed: Optional[bool] = None,
+    only_soft_deleted: Optional[bool] = None,
 ) -> Iterable[str]:
     session, gms_host = get_session_and_host()
     endpoint: str = "/entities?action=search"
@@ -402,7 +402,7 @@ def get_urns_by_filter(
             }
         )
 
-    if only_removed:
+    if only_soft_deleted:
         filter_criteria.append(
             {
                 "field": "removed",
