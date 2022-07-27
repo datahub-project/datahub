@@ -9,6 +9,10 @@ from freezegun import freeze_time
 from datahub.configuration.common import DynamicTypedConfig
 from datahub.ingestion.run.pipeline import Pipeline, PipelineConfig, SourceConfig
 from datahub.ingestion.source.dbt import DBTConfig, DBTSource
+from datahub.ingestion.source.sql.sql_types import (
+    TRINO_SQL_TYPES_MAP,
+    resolve_trino_modified_type,
+)
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
@@ -469,4 +473,19 @@ def test_dbt_tests(pytestconfig, tmp_path, mock_time, **kwargs):
         output_path=output_file,
         golden_path=golden_path,
         ignore_paths=[],
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "data_type, expected_data_type",
+    [
+        ("timestamp(3)", "timestamp"),
+        ("varchar(20)", "varchar"),
+    ],
+)
+def test_resolve_trino_modified_type(data_type, expected_data_type):
+    assert (
+        resolve_trino_modified_type(data_type)
+        == TRINO_SQL_TYPES_MAP[expected_data_type]
     )

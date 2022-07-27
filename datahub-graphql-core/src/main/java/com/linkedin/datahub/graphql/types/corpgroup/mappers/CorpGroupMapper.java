@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.corpgroup.mappers;
 
+import com.linkedin.common.Origin;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -44,6 +45,14 @@ public class CorpGroupMapper implements ModelMapper<EntityResponse, CorpGroup> {
         mappingHelper.mapToResult(CORP_GROUP_INFO_ASPECT_NAME, this::mapCorpGroupInfo);
         mappingHelper.mapToResult(CORP_GROUP_EDITABLE_INFO_ASPECT_NAME, this::mapCorpGroupEditableInfo);
         mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (entity, dataMap) -> this.mapOwnership(entity, dataMap, entityUrn));
+        if (aspectMap.containsKey(ORIGIN_ASPECT_NAME)) {
+            mappingHelper.mapToResult(ORIGIN_ASPECT_NAME, this::mapEntityOriginType);
+        } else {
+            com.linkedin.datahub.graphql.generated.Origin mappedGroupOrigin =
+                new com.linkedin.datahub.graphql.generated.Origin();
+            mappedGroupOrigin.setType(com.linkedin.datahub.graphql.generated.OriginType.UNKNOWN);
+            result.setOrigin(mappedGroupOrigin);
+        }
         return mappingHelper.getResult();
     }
 
@@ -64,5 +73,21 @@ public class CorpGroupMapper implements ModelMapper<EntityResponse, CorpGroup> {
 
     private void mapOwnership(@Nonnull CorpGroup corpGroup, @Nonnull DataMap dataMap, @Nonnull Urn entityUrn) {
         corpGroup.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn));
+    }
+
+    private void mapEntityOriginType(@Nonnull CorpGroup corpGroup, @Nonnull DataMap dataMap) {
+        Origin groupOrigin = new Origin(dataMap);
+        com.linkedin.datahub.graphql.generated.Origin mappedGroupOrigin =
+            new com.linkedin.datahub.graphql.generated.Origin();
+        if (groupOrigin.hasType()) {
+            mappedGroupOrigin.setType(
+                com.linkedin.datahub.graphql.generated.OriginType.valueOf(groupOrigin.getType().toString()));
+        } else {
+            mappedGroupOrigin.setType(com.linkedin.datahub.graphql.generated.OriginType.UNKNOWN);
+        }
+        if (groupOrigin.hasExternalType()) {
+            mappedGroupOrigin.setExternalType(groupOrigin.getExternalType());
+        }
+        corpGroup.setOrigin(mappedGroupOrigin);
     }
 }

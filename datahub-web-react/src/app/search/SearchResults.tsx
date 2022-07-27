@@ -112,7 +112,7 @@ const SearchResultsRecommendationsContainer = styled.div`
 `;
 
 const SearchMenuContainer = styled.div`
-    margin-right: 10px;
+    margin-right: 32px;
 `;
 
 const SiblingResultContainer = styled.div`

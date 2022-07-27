@@ -1,5 +1,6 @@
 import React from 'react';
-import { Divider, List } from 'antd';
+import { Divider, List, Checkbox } from 'antd';
+import type { CheckboxValueType } from 'antd/es/checkbox/Group';
 import styled from 'styled-components';
 import { Entity } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -53,6 +54,34 @@ type AdditionalProperties = {
     degree?: number;
 };
 
+const CheckBoxGroup = styled(Checkbox.Group)`
+    flex: 1;
+    width: 100%;
+    background-color: rgb(255, 255, 255);
+    padding-right: 32px;
+    padding-left: 32px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    > .ant-checkbox-group-item {
+        display: block;
+        margin-right: 0;
+    }
+    &&& .ant-checkbox {
+        display: inline-block;
+        position: relative;
+        top: 48px;
+    }
+`;
+
+const LabelContainer = styled.span`
+    position: relative;
+    left: 24px;
+    bottom: 6px;
+    * {
+        pointer-events: none;
+    }
+`;
+
 type Props = {
     // additional data about the search result that is not part of the entity used to enrich the
     // presentation of the entity. For example, metadata about how the entity is related for the case
@@ -60,9 +89,19 @@ type Props = {
     additionalPropertiesList?: Array<AdditionalProperties>;
     entities: Array<Entity>;
     onClick?: (index: number) => void;
+    showSelectMode?: boolean;
+    setCheckedSearchResults?: (checkedSearchResults: Array<CheckboxValueType>) => any;
+    checkedSearchResults?: CheckboxValueType[];
 };
 
-export const EntityNameList = ({ additionalPropertiesList, entities, onClick }: Props) => {
+export const EntityNameList = ({
+    additionalPropertiesList,
+    entities,
+    onClick,
+    showSelectMode,
+    setCheckedSearchResults,
+    checkedSearchResults,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
     if (
         additionalPropertiesList?.length !== undefined &&
@@ -74,46 +113,95 @@ export const EntityNameList = ({ additionalPropertiesList, entities, onClick }: 
             { additionalPropertiesList, entities },
         );
     }
+
+    const onChange = (checkedValues: CheckboxValueType[]) => {
+        setCheckedSearchResults?.(checkedValues);
+    };
+
+    const options = entities.map((entity, index) => {
+        const additionalProperties = additionalPropertiesList?.[index];
+        const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
+        const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
+        const platformName =
+            genericProps?.platform?.properties?.displayName || capitalizeFirstLetter(genericProps?.platform?.name);
+        const entityTypeName = entityRegistry.getEntityName(entity.type);
+        const displayName = entityRegistry.getDisplayName(entity.type, entity);
+        const url = entityRegistry.getEntityUrl(entity.type, entity.urn);
+        const fallbackIcon = entityRegistry.getIcon(entity.type, 18, IconStyleType.ACCENT);
+        const subType = genericProps?.subTypes?.typeNames?.length && genericProps?.subTypes?.typeNames[0];
+        const entityCount = genericProps?.entityCount;
+        return {
+            label: (
+                <LabelContainer>
+                    <DefaultPreviewCard
+                        name={displayName}
+                        logoUrl={platformLogoUrl || undefined}
+                        logoComponent={fallbackIcon}
+                        url={url}
+                        platform={platformName || undefined}
+                        type={subType || entityTypeName}
+                        titleSizePx={14}
+                        tags={genericProps?.globalTags || undefined}
+                        glossaryTerms={genericProps?.glossaryTerms || undefined}
+                        domain={genericProps?.domain?.domain}
+                        onClick={() => onClick?.(index)}
+                        entityCount={entityCount}
+                        degree={additionalProperties?.degree}
+                    />
+                    <ThinDivider />
+                </LabelContainer>
+            ),
+            value: entity.urn,
+        };
+    });
+
     return (
-        <StyledList
-            bordered
-            dataSource={entities}
-            renderItem={(entity, index) => {
-                const additionalProperties = additionalPropertiesList?.[index];
-                const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
-                const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
-                const platformName =
-                    genericProps?.platform?.properties?.displayName ||
-                    capitalizeFirstLetter(genericProps?.platform?.name);
-                const entityTypeName = entityRegistry.getEntityName(entity.type);
-                const displayName = entityRegistry.getDisplayName(entity.type, entity);
-                const url = entityRegistry.getEntityUrl(entity.type, entity.urn);
-                const fallbackIcon = entityRegistry.getIcon(entity.type, 18, IconStyleType.ACCENT);
-                const subType = genericProps?.subTypes?.typeNames?.length && genericProps?.subTypes?.typeNames[0];
-                const entityCount = genericProps?.entityCount;
-                return (
-                    <>
-                        <ListItem>
-                            <DefaultPreviewCard
-                                name={displayName}
-                                logoUrl={platformLogoUrl || undefined}
-                                logoComponent={fallbackIcon}
-                                url={url}
-                                platform={platformName || undefined}
-                                type={subType || entityTypeName}
-                                titleSizePx={14}
-                                tags={genericProps?.globalTags || undefined}
-                                glossaryTerms={genericProps?.glossaryTerms || undefined}
-                                domain={genericProps?.domain?.domain}
-                                onClick={() => onClick?.(index)}
-                                entityCount={entityCount}
-                                degree={additionalProperties?.degree}
-                            />
-                        </ListItem>
-                        <ThinDivider />
-                    </>
-                );
-            }}
-        />
+        <>
+            {showSelectMode ? (
+                <CheckBoxGroup options={options} onChange={onChange} value={checkedSearchResults} />
+            ) : (
+                <StyledList
+                    bordered
+                    dataSource={entities}
+                    renderItem={(entity, index) => {
+                        const additionalProperties = additionalPropertiesList?.[index];
+                        const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
+                        const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
+                        const platformName =
+                            genericProps?.platform?.properties?.displayName ||
+                            capitalizeFirstLetter(genericProps?.platform?.name);
+                        const entityTypeName = entityRegistry.getEntityName(entity.type);
+                        const displayName = entityRegistry.getDisplayName(entity.type, entity);
+                        const url = entityRegistry.getEntityUrl(entity.type, entity.urn);
+                        const fallbackIcon = entityRegistry.getIcon(entity.type, 18, IconStyleType.ACCENT);
+                        const subType =
+                            genericProps?.subTypes?.typeNames?.length && genericProps?.subTypes?.typeNames[0];
+                        const entityCount = genericProps?.entityCount;
+                        return (
+                            <>
+                                <ListItem>
+                                    <DefaultPreviewCard
+                                        name={displayName}
+                                        logoUrl={platformLogoUrl || undefined}
+                                        logoComponent={fallbackIcon}
+                                        url={url}
+                                        platform={platformName || undefined}
+                                        type={subType || entityTypeName}
+                                        titleSizePx={14}
+                                        tags={genericProps?.globalTags || undefined}
+                                        glossaryTerms={genericProps?.glossaryTerms || undefined}
+                                        domain={genericProps?.domain?.domain}
+                                        onClick={() => onClick?.(index)}
+                                        entityCount={entityCount}
+                                        degree={additionalProperties?.degree}
+                                    />
+                                </ListItem>
+                                <ThinDivider />
+                            </>
+                        );
+                    }}
+                />
+            )}
+        </>
     );
 };

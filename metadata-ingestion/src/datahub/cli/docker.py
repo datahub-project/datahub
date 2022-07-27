@@ -14,6 +14,7 @@ from typing import List, NoReturn, Optional
 import click
 import pydantic
 import requests
+from expandvars import expandvars
 
 from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
@@ -204,6 +205,148 @@ def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
         return
 
 
+def _backup(backup_file: str) -> int:
+    resolved_backup_file = os.path.expanduser(backup_file)
+    dirname = os.path.dirname(resolved_backup_file)
+    logger.info(f"Creating directory {dirname} if it doesn't exist")
+    os.makedirs(dirname, exist_ok=True)
+    logger.info("Executing backup command")
+    result = subprocess.run(
+        [
+            "bash",
+            "-c",
+            f"docker exec mysql mysqldump -u root -pdatahub datahub > {resolved_backup_file}",
+        ]
+    )
+    logger.info(
+        f"Backup written to {resolved_backup_file} with status {result.returncode}"
+    )
+    return result.returncode
+
+
+def _restore(
+    restore_primary: bool,
+    restore_indices: Optional[bool],
+    primary_restore_file: Optional[str],
+) -> int:
+    assert (
+        restore_primary or restore_indices
+    ), "Either restore_primary or restore_indices must be set"
+    msg = "datahub> "
+    if restore_primary:
+        msg += f"Will restore primary database from {primary_restore_file}. "
+    if restore_indices is not False:
+        msg += (
+            f"Will {'also ' if restore_primary else ''}re-build indexes from scratch. "
+        )
+    else:
+        msg += "Will not re-build indexes. "
+    msg += "Press y to continue."
+    click.confirm(msg, abort=True)
+    if restore_primary:
+        assert primary_restore_file
+        resolved_restore_file = os.path.expanduser(primary_restore_file)
+        logger.info(f"Restoring primary db from backup at {resolved_restore_file}")
+        assert os.path.exists(
+            resolved_restore_file
+        ), f"File {resolved_restore_file} does not exist"
+        with open(resolved_restore_file, "r") as fp:
+            result = subprocess.run(
+                [
+                    "bash",
+                    "-c",
+                    "docker exec -i mysql bash -c 'mysql -uroot -pdatahub datahub '",
+                ],
+                stdin=fp,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        if result.returncode != 0:
+            logger.error("Failed to run MySQL restore")
+            return result.returncode
+        else:
+            logger.info("Successfully restored primary backup.")
+
+    # We run restore indices by default on primary restores, and also if the --restore-indices flag is explicitly set
+    if restore_indices is not False:
+        with tempfile.NamedTemporaryFile() as env_fp:
+            env_fp.write(
+                expandvars(
+                    """
+            # Required Environment Variables
+EBEAN_DATASOURCE_USERNAME=datahub
+EBEAN_DATASOURCE_PASSWORD=datahub
+EBEAN_DATASOURCE_HOST=mysql:${DATAHUB_MAPPED_MYSQL_PORT:-3306}
+EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:${DATAHUB_MAPPED_MYSQL_PORT:-3306}/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
+EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
+ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
+
+KAFKA_BOOTSTRAP_SERVER=broker:29092
+KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}
+
+ELASTICSEARCH_HOST=elasticsearch
+ELASTICSEARCH_PORT=${DATAHUB_MAPPED_ELASTIC_PORT:-9200}
+
+#NEO4J_HOST=http://<your-neo-host>:7474
+#NEO4J_URI=bolt://<your-neo-host>
+#NEO4J_USERNAME=neo4j
+#NEO4J_PASSWORD=datahub
+
+DATAHUB_GMS_HOST=datahub-gms
+DATAHUB_GMS_PORT=${DATAHUB_MAPPED_GMS_PORT:-8080}
+
+DATAHUB_MAE_CONSUMER_HOST=datahub-gms
+DATAHUB_MAE_CONSUMER_PORT=9091
+
+# Optional Arguments
+
+# Uncomment and set these to support SSL connection to Elasticsearch
+# ELASTICSEARCH_USE_SSL=
+# ELASTICSEARCH_SSL_PROTOCOL=
+# ELASTICSEARCH_SSL_SECURE_RANDOM_IMPL=
+# ELASTICSEARCH_SSL_TRUSTSTORE_FILE=
+# ELASTICSEARCH_SSL_TRUSTSTORE_TYPE=
+# ELASTICSEARCH_SSL_TRUSTSTORE_PASSWORD=
+# ELASTICSEARCH_SSL_KEYSTORE_FILE=
+# ELASTICSEARCH_SSL_KEYSTORE_TYPE=
+# ELASTICSEARCH_SSL_KEYSTORE_PASSWORD=
+            """
+                ).encode("utf-8")
+            )
+            env_fp.flush()
+            if logger.isEnabledFor(logging.DEBUG):
+                with open(env_fp.name, "r") as env_fp_reader:
+                    logger.debug(f"Env file contents: {env_fp_reader.read()}")
+
+            # continue to issue the restore indices command
+            command = (
+                "docker pull acryldata/datahub-upgrade:${DATAHUB_VERSION:-head}"
+                + f" && docker run --network datahub_network --env-file {env_fp.name} "
+                + "acryldata/datahub-upgrade:${DATAHUB_VERSION:-head} -u RestoreIndices -a clean"
+            )
+            logger.info(f"Running index restore command: {command}")
+            result = subprocess.run(
+                args=[
+                    "bash",
+                    "-c",
+                    "docker pull acryldata/datahub-upgrade:"
+                    + "${DATAHUB_VERSION:-head}"
+                    + f" && docker run --network datahub_network --env-file {env_fp.name} "
+                    + "acryldata/datahub-upgrade:${DATAHUB_VERSION:-head}"
+                    + " -u RestoreIndices -a clean",
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            logger.info(
+                f"Index restore command finished with status {result.returncode}"
+            )
+        if result.returncode != 0:
+            logger.info(result.stderr)
+        logger.debug(result.stdout)
+    return result.returncode
+
+
 @docker.command()
 @click.option(
     "--version",
@@ -219,6 +362,7 @@ def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
     help="Attempt to build the containers locally before starting",
 )
 @click.option(
+    "-f",
     "--quickstart-compose-file",
     type=click.Path(exists=True, dir_okay=False, readable=True),
     default=[],
@@ -281,6 +425,49 @@ def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
     default=False,
     help="Use this flag to stop the running containers",
 )
+@click.option(
+    "--backup",
+    required=False,
+    is_flag=True,
+    default=False,
+    help="Run this to backup a running quickstart instance",
+)
+@click.option(
+    "--backup-file",
+    required=False,
+    type=click.Path(exists=False, dir_okay=False, readable=True, writable=True),
+    default=os.path.expanduser("~/.datahub/quickstart/backup.sql"),
+    show_default=True,
+    help="Run this to backup data from a running quickstart instance",
+)
+@click.option(
+    "--restore",
+    required=False,
+    is_flag=True,
+    default=False,
+    help="Run this to restore a running quickstart instance from a previous backup (see --backup)",
+)
+@click.option(
+    "--restore-file",
+    required=False,
+    type=str,
+    default="~/.datahub/quickstart/backup.sql",
+    help="Set this to provide a custom restore file",
+)
+@click.option(
+    "--restore-indices",
+    required=False,
+    is_flag=True,
+    default=False,
+    help="Enable the restoration of indices of a running quickstart instance. Note: Using --restore will automatically restore-indices unless you use the --no-restore-indices flag.",
+)
+@click.option(
+    "--no-restore-indices",
+    required=False,
+    is_flag=True,
+    default=False,
+    help="Disables the restoration of indices of a running quickstart instance when used in conjunction with --restore.",
+)
 @upgrade.check_upgrade
 @telemetry.with_telemetry
 def quickstart(
@@ -295,6 +482,12 @@ def quickstart(
     schema_registry_port: Optional[pydantic.PositiveInt],
     elastic_port: Optional[pydantic.PositiveInt],
     stop: bool,
+    backup: bool,
+    backup_file: str,
+    restore: bool,
+    restore_file: str,
+    restore_indices: bool,
+    no_restore_indices: bool,
 ) -> None:
     """Start an instance of DataHub locally using docker-compose.
 
@@ -303,6 +496,24 @@ def quickstart(
     There are options to override the docker-compose config file, build the containers
     locally, and dump logs to the console or to a file if something goes wrong.
     """
+    if backup:
+        _backup(backup_file)
+        return
+    if restore or restore_indices or no_restore_indices:
+        if not valid_restore_options(restore, restore_indices, no_restore_indices):
+            return
+        # execute restore
+        restore_indices_flag: Optional[bool] = None
+        if restore_indices:
+            restore_indices_flag = True
+        if no_restore_indices:
+            restore_indices_flag = False
+        _restore(
+            restore_primary=restore,
+            primary_restore_file=restore_file,
+            restore_indices=restore_indices_flag,
+        )
+        return
 
     running_on_m1 = is_m1()
     if running_on_m1:
@@ -456,6 +667,29 @@ def quickstart(
         "Need support? Get in touch on Slack: https://slack.datahubproject.io/",
         fg="magenta",
     )
+
+
+def valid_restore_options(
+    restore: bool, restore_indices: bool, no_restore_indices: bool
+) -> bool:
+    if no_restore_indices and not restore:
+        click.secho(
+            "Using --no-restore-indices without a --restore isn't defined", fg="red"
+        )
+        return False
+    if no_restore_indices and restore_indices:
+        click.secho(
+            "Using --restore-indices in conjunction with --no-restore-indices is undefined",
+            fg="red",
+        )
+        return False
+    if restore and restore_indices:
+        click.secho(
+            "Using --restore automatically implies using --restore-indices, you don't need to set both. Continuing...",
+            fg="yellow",
+        )
+        return True
+    return True
 
 
 @docker.command()

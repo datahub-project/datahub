@@ -2,7 +2,8 @@ import json
 import pprint
 import sys
 from dataclasses import dataclass
-from typing import Dict
+from enum import Enum
+from typing import Any, Dict
 
 # The sort_dicts option was added in Python 3.8.
 if sys.version_info >= (3, 8):
@@ -13,17 +14,36 @@ else:
 
 @dataclass
 class Report:
+    @staticmethod
+    def to_str(some_val: Any) -> str:
+        if isinstance(some_val, Enum):
+            return some_val.name
+        else:
+            return str(some_val)
+
+    @staticmethod
+    def to_dict(some_val: Any) -> Any:
+        """A cheap way to generate a dictionary."""
+        if hasattr(some_val, "as_obj"):
+            return some_val.as_obj()
+        if hasattr(some_val, "dict"):
+            return some_val.dict()
+        elif isinstance(some_val, list):
+            return [Report.to_dict(v) for v in some_val if v is not None]
+        elif isinstance(some_val, dict):
+            return {
+                Report.to_str(k): Report.to_dict(v)
+                for k, v in some_val.items()
+                if v is not None
+            }
+        else:
+            return Report.to_str(some_val)
+
     def as_obj(self) -> dict:
         return {
-            key: value.as_obj()
-            if hasattr(value, "as_obj")
-            else value.dict()
-            if hasattr(value, "dict")  # BaseModel extensions
-            else value
-            if isinstance(value, list) or isinstance(value, dict)  # simple collections
-            else str(value)  # stringify everything else
+            str(key): Report.to_dict(value)
             for (key, value) in self.__dict__.items()
-            if value  # ignore nulls
+            if value is not None  # ignore nulls
         }
 
     def as_string(self) -> str:

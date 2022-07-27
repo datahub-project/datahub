@@ -4,6 +4,7 @@ import { useHistory, useLocation, useParams } from 'react-router';
 import { message } from 'antd';
 import styled from 'styled-components';
 import { ApolloError } from '@apollo/client';
+import type { CheckboxValueType } from 'antd/es/checkbox/Group';
 
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { EntityType, FacetFilterInput } from '../../../../../../types.generated';
@@ -97,6 +98,9 @@ export const EmbeddedListSearch = ({
 
     const [showFilters, setShowFilters] = useState(defaultShowFilters || false);
 
+    const [showSelectMode, setShowSelectMode] = useState(false);
+    const [checkedSearchResults, setCheckedSearchResults] = useState<CheckboxValueType[]>([]);
+
     const { refetch } = useGetSearchResults({
         variables: {
             input: {
@@ -184,11 +188,13 @@ export const EmbeddedListSearch = ({
                 onSearch={onSearch}
                 placeholderText={placeholderText}
                 onToggleFilters={toggleFilters}
-                showDownloadCsvButton
                 callSearchOnVariables={callSearchOnVariables}
                 entityFilters={entityFilters}
                 filters={finalFilters}
                 query={query}
+                showSelectMode={showSelectMode}
+                setShowSelectMode={setShowSelectMode}
+                checkedSearchResults={checkedSearchResults}
             />
             <EmbeddedListSearchResults
                 loading={loading}
@@ -199,6 +205,9 @@ export const EmbeddedListSearch = ({
                 onChangePage={onChangePage}
                 page={page}
                 showFilters={showFilters}
+                showSelectMode={showSelectMode}
+                setCheckedSearchResults={setCheckedSearchResults}
+                checkedSearchResults={checkedSearchResults}
             />
         </Container>
     );
