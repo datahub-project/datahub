@@ -969,6 +969,89 @@ def test_add_dataset_properties(mock_time):
     }
 
 
+def run_simple_add_dataset_properties_transformer_semantics(
+    semantics: Semantics,
+    new_properties: dict,
+    server_properties: dict,
+    mock_datahub_graph: Callable[[DatahubClientConfig], DataHubGraph],
+) -> List[RecordEnvelope]:
+    pipeline_context = PipelineContext(run_id="test_pattern_dataset_schema_terms")
+    pipeline_context.graph = mock_datahub_graph(DatahubClientConfig())
+
+    # fake the server response
+    def fake_dataset_properties(entity_urn: str) -> models.DatasetPropertiesClass:
+        return DatasetPropertiesClass(customProperties=server_properties)
+
+    pipeline_context.graph.get_dataset_properties = fake_dataset_properties  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetProperties,
+        pipeline_context=pipeline_context,
+        aspect=models.DatasetPropertiesClass(
+            customProperties=EXISTING_PROPERTIES.copy()
+        ),
+        config={
+            "semantics": semantics,
+            "properties": new_properties,
+        },
+    )
+
+    return output
+
+
+def test_simple_add_dataset_properties_overwrite(mock_datahub_graph):
+    new_properties = {"new-simple-property": "new-value"}
+    server_properties = {"p1": "value1"}
+
+    output = run_simple_add_dataset_properties_transformer_semantics(
+        semantics=Semantics.OVERWRITE,
+        new_properties=new_properties,
+        server_properties=server_properties,
+        mock_datahub_graph=mock_datahub_graph,
+    )
+
+    assert len(output) == 2
+    assert output[0].record
+    assert output[0].record.aspect
+    custom_properties_aspect: models.DatasetPropertiesClass = cast(
+        models.DatasetPropertiesClass, output[0].record.aspect
+    )
+    assert custom_properties_aspect.customProperties != {
+        **EXISTING_PROPERTIES,
+        **new_properties,
+        **server_properties,
+    }
+
+    assert custom_properties_aspect.customProperties == {
+        **EXISTING_PROPERTIES,
+        **new_properties,
+    }
+
+
+def test_simple_add_dataset_properties_patch(mock_datahub_graph):
+    new_properties = {"new-simple-property": "new-value"}
+    server_properties = {"p1": "value1"}
+
+    output = run_simple_add_dataset_properties_transformer_semantics(
+        semantics=Semantics.PATCH,
+        new_properties=new_properties,
+        server_properties=server_properties,
+        mock_datahub_graph=mock_datahub_graph,
+    )
+
+    assert len(output) == 2
+    assert output[0].record
+    assert output[0].record.aspect
+    custom_properties_aspect: models.DatasetPropertiesClass = cast(
+        models.DatasetPropertiesClass, output[0].record.aspect
+    )
+    assert custom_properties_aspect.customProperties == {
+        **EXISTING_PROPERTIES,
+        **new_properties,
+        **server_properties,
+    }
+
+
 def test_simple_add_dataset_properties(mock_time):
     new_properties = {"new-simple-property": "new-value"}
     outputs = run_dataset_transformer_pipeline(
@@ -989,6 +1072,36 @@ def test_simple_add_dataset_properties(mock_time):
     )
     assert custom_properties_aspect.customProperties == {
         **EXISTING_PROPERTIES,
+        **new_properties,
+    }
+
+
+def test_simple_add_dataset_properties_replace_existing(mock_time):
+    new_properties = {"new-simple-property": "new-value"}
+    outputs = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetProperties,
+        aspect=models.DatasetPropertiesClass(
+            customProperties=EXISTING_PROPERTIES.copy()
+        ),
+        config={
+            "replace_existing": True,
+            "properties": new_properties,
+        },
+    )
+
+    assert len(outputs) == 2
+    assert outputs[0].record
+    assert outputs[0].record.aspect
+    custom_properties_aspect: models.DatasetPropertiesClass = cast(
+        models.DatasetPropertiesClass, outputs[0].record.aspect
+    )
+
+    assert custom_properties_aspect.customProperties != {
+        **EXISTING_PROPERTIES,
+        **new_properties,
+    }
+
+    assert custom_properties_aspect.customProperties == {
         **new_properties,
     }
 

@@ -49,6 +49,13 @@ class AddDatasetDomain(DatasetDomainTransformer):
         return cls(config, ctx)
 
     @staticmethod
+    def raise_ctx_configuration_error(ctx: PipelineContext) -> None:
+        if ctx.graph is None:
+            raise ConfigurationError(
+                "AddDatasetDomain requires a datahub_api to connect to. Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe"
+            )
+
+    @staticmethod
     def get_domain_class(
         graph: Optional[DataHubGraph], domains: List[str]
     ) -> DomainsClass:
@@ -110,11 +117,7 @@ class SimpleAddDatasetDomain(AddDatasetDomain):
     """Transformer that adds a specified set of domains to each dataset."""
 
     def __init__(self, config: SimpleDatasetDomainConfig, ctx: PipelineContext):
-        if ctx.graph is None:
-            raise ConfigurationError(
-                "AddDatasetDomain requires a datahub_api to connect to. Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe"
-            )
-
+        AddDatasetDomain.raise_ctx_configuration_error(ctx)
         domains = AddDatasetDomain.get_domain_class(ctx.graph, config.domain_urns)
         generic_config = AddDatasetDomainConfig(
             get_domains_to_add=lambda _: domains,
@@ -135,10 +138,7 @@ class PatternAddDatasetDomain(AddDatasetDomain):
     """Transformer that adds a specified set of domains to each dataset."""
 
     def __init__(self, config: PatternDatasetDomainConfig, ctx: PipelineContext):
-        if ctx.graph is None:
-            raise ConfigurationError(
-                "AddDatasetDomain requires a datahub_api to connect to. Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe"
-            )
+        AddDatasetDomain.raise_ctx_configuration_error(ctx)
 
         domain_pattern = config.domain_pattern
 

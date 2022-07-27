@@ -58,9 +58,9 @@ class AddDatasetProperties(DatasetPropertiesTransformer):
     ) -> Optional[DatasetPropertiesClass]:
         assert dataset_properties_aspect
 
-        server_dataset_properties_aspect: DatasetPropertiesClass = (
-            graph.get_domain_properties(entity_urn)
-        )
+        server_dataset_properties_aspect: Optional[
+            DatasetPropertiesClass
+        ] = graph.get_dataset_properties(entity_urn)
         # No need to take any action if server properties is None or there is not customProperties in server properties
         if (
             server_dataset_properties_aspect is None
@@ -104,10 +104,15 @@ class AddDatasetProperties(DatasetPropertiesTransformer):
         out_dataset_properties_aspect.customProperties.update(properties_to_add)
         if self.config.semantics == Semantics.PATCH:
             assert self.ctx.graph
-            out_dataset_properties_aspect = (
+            patch_dataset_properties_aspect = (
                 AddDatasetProperties.get_patch_dataset_properties_aspect(
                     self.ctx.graph, entity_urn, out_dataset_properties_aspect
                 )
+            )
+            out_dataset_properties_aspect = (
+                patch_dataset_properties_aspect
+                if patch_dataset_properties_aspect is not None
+                else out_dataset_properties_aspect
             )
 
         return cast(Aspect, out_dataset_properties_aspect)
