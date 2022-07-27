@@ -6,12 +6,14 @@ on:
     paths:
       - "metadata-ingestion/**"
       - "metadata-models/**"
+      - ".github/workflows/metadata-ingestion.yml"
   pull_request:
     branches:
       - master
     paths:
       - "metadata-ingestion/**"
       - "metadata-models/**"
+      - ".github/workflows/metadata-ingestion.yml"
   release:
     types: [published, edited]
 
