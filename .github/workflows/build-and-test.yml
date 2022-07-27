@@ -48,15 +48,7 @@ jobs:
             **/build/test-results/test/**
             **/junit.*.xml
       - name: Ensure codegen is updated
-        run: |
-          if output=$(git status --porcelain) && [ ! -z "$output" ]; then
-            # See https://unix.stackexchange.com/a/155077/378179.
-            echo 'There are uncommitted changes:'
-            echo $output
-            exit 1
-          else
-            echo 'All good!'
-          fi
+        uses: ./.github/actions/ensure-codegen-updated
       - name: Slack failure notification
         if: failure() && github.event_name == 'push'
         uses: kpritam/slack-job-status-action@v1
