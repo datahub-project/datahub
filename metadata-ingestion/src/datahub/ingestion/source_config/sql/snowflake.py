@@ -239,35 +239,6 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
             )
         return v
 
-    def get_oauth_connection(self):
-        assert (
-            self.oauth_config
-        ), "oauth_config should be provided if using oauth based authentication"
-        generator = OauthTokenGenerator(
-            self.oauth_config.client_id,
-            self.oauth_config.authority_url,
-            self.oauth_config.provider,
-        )
-        if self.oauth_config.use_certificate is True:
-            response = generator.get_token_with_certificate(
-                private_key_content=str(self.oauth_config.encoded_oauth_public_key),
-                public_key_content=str(self.oauth_config.encoded_oauth_private_key),
-                scopes=self.oauth_config.scopes,
-            )
-        else:
-            response = generator.get_token_with_secret(
-                secret=str(self.oauth_config.client_secret),
-                scopes=self.oauth_config.scopes,
-            )
-        token = response["access_token"]
-        return snowflake.connector.connect(
-            user=self.username,
-            account=self.account_id,
-            authenticator="oauth",
-            token=token,
-            warehouse=self.warehouse,
-        )
-
     def get_sql_alchemy_url(
         self,
         database: Optional[str] = None,
@@ -349,3 +320,79 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
         options_connect_args.update(self.options.get("connect_args", {}))
         self.options["connect_args"] = options_connect_args
         return self.options
+
+    def get_oauth_connection(self):
+        assert (
+            self.oauth_config
+        ), "oauth_config should be provided if using oauth based authentication"
+        generator = OauthTokenGenerator(
+            self.oauth_config.client_id,
+            self.oauth_config.authority_url,
+            self.oauth_config.provider,
+        )
+        if self.oauth_config.use_certificate is True:
+            response = generator.get_token_with_certificate(
+                private_key_content=str(self.oauth_config.encoded_oauth_public_key),
+                public_key_content=str(self.oauth_config.encoded_oauth_private_key),
+                scopes=self.oauth_config.scopes,
+            )
+        else:
+            response = generator.get_token_with_secret(
+                secret=str(self.oauth_config.client_secret),
+                scopes=self.oauth_config.scopes,
+            )
+        token = response["access_token"]
+        connect_args = self.get_options()["connect_args"]
+        return snowflake.connector.connect(
+            user=self.username,
+            account=self.account_id,
+            token=token,
+            warehouse=self.warehouse,
+            authenticator=VALID_AUTH_TYPES.get(self.authentication_type),
+            application=APPLICATION_NAME,
+            **connect_args,
+        )
+
+    def get_key_pair_connection(self) -> snowflake.connector.SnowflakeConnection:
+        connect_args = self.get_options()["connect_args"]
+
+        return snowflake.connector.connect(
+            user=self.username,
+            account=self.account_id,
+            warehouse=self.warehouse,
+            role=self.role,
+            authenticator=VALID_AUTH_TYPES.get(self.authentication_type),
+            application=APPLICATION_NAME,
+            **connect_args,
+        )
+
+    def get_connection(self) -> snowflake.connector.SnowflakeConnection:
+        connect_args = self.get_options()["connect_args"]
+        if self.authentication_type == "DEFAULT_AUTHENTICATOR":
+            return snowflake.connector.connect(
+                user=self.username,
+                password=self.password.get_secret_value() if self.password else None,
+                account=self.account_id,
+                warehouse=self.warehouse,
+                role=self.role,
+                application=APPLICATION_NAME,
+                **connect_args,
+            )
+        elif self.authentication_type == "OAUTH_AUTHENTICATOR":
+            return self.get_oauth_connection()
+        elif self.authentication_type == "KEY_PAIR_AUTHENTICATOR":
+            return self.get_key_pair_connection()
+        elif self.authentication_type == "EXTERNAL_BROWSER_AUTHENTICATOR":
+            return snowflake.connector.connect(
+                user=self.username,
+                password=self.password.get_secret_value() if self.password else None,
+                account=self.account_id,
+                warehouse=self.warehouse,
+                role=self.role,
+                authenticator=VALID_AUTH_TYPES.get(self.authentication_type),
+                application=APPLICATION_NAME,
+                **connect_args,
+            )
+        else:
+            # not expected to be here
+            raise Exception("Not expected to be here.")

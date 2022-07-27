@@ -21,8 +21,10 @@ source:
             client_id: # Your BQ client id, e.g. "123456678890"
 `;
 
+export const BIGQUERY = 'bigquery';
+
 const bigqueryConfig: SourceConfig = {
-    type: 'bigquery',
+    type: BIGQUERY,
     placeholderRecipe,
     displayName: 'BigQuery',
     docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/bigquery/',
