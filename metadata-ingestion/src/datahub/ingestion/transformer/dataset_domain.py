@@ -49,7 +49,9 @@ class AddDatasetDomain(DatasetDomainTransformer):
         return cls(config, ctx)
 
     @staticmethod
-    def get_domain_class(graph: DataHubGraph, domains: List[str]) -> DomainsClass:
+    def get_domain_class(
+        graph: Optional[DataHubGraph], domains: List[str]
+    ) -> DomainsClass:
         domain_registry: DomainRegistry = DomainRegistry(
             cached_domains=[k for k in domains], graph=graph
         )
