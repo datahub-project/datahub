@@ -5,71 +5,77 @@ set -e
 : ${DATAHUB_ANALYTICS_ENABLED:=true}
 : ${USE_AWS_ELASTICSEARCH:=false}
 
+# protocol: http or https?
 if [[ $ELASTICSEARCH_USE_SSL == true ]]; then
     ELASTICSEARCH_PROTOCOL=https
 else
     ELASTICSEARCH_PROTOCOL=http
 fi
 
-if [[ ! -z $ELASTICSEARCH_USERNAME ]] && [[ -z $ELASTICSEARCH_AUTH_HEADER ]]; then
-  AUTH_TOKEN=$(echo -ne "$ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD" | base64 --wrap 0)
-  ELASTICSEARCH_AUTH_HEADER="Authorization:Basic $AUTH_TOKEN"
-fi
+# Elasticsearch URL to be suffixed with a resource address
+ELASTICSEARCH_URL="$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT"
 
-# Add default header if needed
+# set auth header if none is given
 if [[ -z $ELASTICSEARCH_AUTH_HEADER ]]; then
-  ELASTICSEARCH_AUTH_HEADER="Accept: */*"
+  if [[ ! -z $ELASTICSEARCH_USERNAME ]]; then
+    # no auth header given, but username is defined -> use it to create the auth header
+    AUTH_TOKEN=$(echo -ne "$ELASTICSEARCH_USERNAME:$ELASTICSEARCH_PASSWORD" | base64 --wrap 0)
+    ELASTICSEARCH_AUTH_HEADER="Authorization:Basic $AUTH_TOKEN"
+  else
+    # no auth header or username given -> use default auth header
+    ELASTICSEARCH_AUTH_HEADER="Accept: */*"
+  fi
 fi
 
-function create_datahub_usage_event_datastream() {
-  if [[ -z "$INDEX_PREFIX" ]]; then
-    PREFIX=''
-  else
-    PREFIX="${INDEX_PREFIX}_"
-  fi
+# index prefix used throughout the script
+if [[ -z "$INDEX_PREFIX" ]]; then
+  PREFIX=''
+else
+  PREFIX="${INDEX_PREFIX}_"
+fi
 
-  if [ $(curl -o /dev/null -s -w "%{http_code}" --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/_ilm/policy/${PREFIX}datahub_usage_event_policy") -eq 404 ]
-  then
-    echo -e "\ncreating datahub_usage_event_policy"
-    sed -e "s/PREFIX/${PREFIX}/g" /index/usage-event/policy.json | tee -a /tmp/policy.json
-    curl -XPUT --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/_ilm/policy/${PREFIX}datahub_usage_event_policy" -H 'Content-Type: application/json' --data @/tmp/policy.json
+# path where index definitions are stored
+INDEX_DEFINITIONS_ROOT=/index/usage-event
+
+
+# check Elasticsearch for given index/resource (first argument)
+# if it doesn't exist (http code 404), use the given file (second argument) to create it
+function create_if_not_exists {
+  RESOURCE_ADDRESS="$1"
+  RESOURCE_DEFINITION_NAME="$2"
+
+  # query ES to see if the resource already exists
+  RESOURCE_STATUS=$(curl -o /dev/null -s -w "%{http_code}\n" --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS")
+
+  if [ $RESOURCE_STATUS -eq 200 ]; then
+    # resource already exists -> nothing to do
+    echo -e "\n>>> $RESOURCE_ADDRESS already exists ✓"
+
+  elif [ $RESOURCE_STATUS -eq 404 ]; then
+    # resource doesn't exist -> need to create it
+    echo -e "\n>>> creating $RESOURCE_ADDRESS ..."
+    # use the given path as definition, but first replace all occurences of PREFIX with the actual prefix
+    TMP_SOURCE_PATH="/tmp/$RESOURCE_DEFINITION_NAME"
+    sed -e "s/PREFIX/$PREFIX/g" "$INDEX_DEFINITIONS_ROOT/$RESOURCE_DEFINITION_NAME" | tee -a "$TMP_SOURCE_PATH"
+    curl -XPUT --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS" -H 'Content-Type: application/json' --data "@$TMP_SOURCE_PATH"
+
   else
-    echo -e "\ndatahub_usage_event_policy exists"
-  fi
-  if [ $(curl -o /dev/null -s -w "%{http_code}" --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/_index_template/${PREFIX}datahub_usage_event_index_template") -eq 404 ]
-  then
-    echo -e "\ncreating datahub_usage_event_index_template"
-    sed -e "s/PREFIX/${PREFIX}/g" /index/usage-event/index_template.json | tee -a /tmp/index_template.json
-    curl -XPUT --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/_index_template/${PREFIX}datahub_usage_event_index_template" -H 'Content-Type: application/json' --data @/tmp/index_template.json
-  else
-    echo -e "\ndatahub_usage_event_index_template exists"
+    echo -e "\n>>> unexpected $RESOURCE_ADDRESS status $RESOURCE_STATUS !"
+    exit 1
   fi
 }
 
-function create_datahub_usage_event_aws_elasticsearch() {
-  if [[ -z "$INDEX_PREFIX" ]]; then
-    PREFIX=''
-  else
-    PREFIX="${INDEX_PREFIX}_"
-  fi
+# create indices for ES (non-AWS)
+function create_datahub_usage_event_datastream() {
+  create_if_not_exists "_ilm/policy/${PREFIX}datahub_usage_event_policy" policy.json
+  create_if_not_exists "_index_template/${PREFIX}datahub_usage_event_index_template" index_template.json
+}
 
-  if [ $(curl -o /dev/null -s -w "%{http_code}" --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/_opendistro/_ism/policies/${PREFIX}datahub_usage_event_policy") -eq 404 ]
-  then
-    echo -e "\ncreating datahub_usage_event_policy"
-    sed -e "s/PREFIX/${PREFIX}/g" /index/usage-event/aws_es_ism_policy.json | tee -a /tmp/aws_es_ism_policy.json
-    curl -XPUT --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/_opendistro/_ism/policies/${PREFIX}datahub_usage_event_policy" -H 'Content-Type: application/json' --data @/tmp/aws_es_ism_policy.json
-  else
-    echo -e "\ndatahub_usage_event_policy exists"
-  fi
-  if [ $(curl -o /dev/null -s -w "%{http_code}" --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/_template/${PREFIX}datahub_usage_event_index_template") -eq 404 ]
-  then
-    echo -e "\ncreating datahub_usage_event_index_template"
-    sed -e "s/PREFIX/${PREFIX}/g" /index/usage-event/aws_es_index_template.json | tee -a /tmp/aws_es_index_template.json
-    curl -XPUT --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/_template/${PREFIX}datahub_usage_event_index_template" -H 'Content-Type: application/json' --data @/tmp/aws_es_index_template.json
-    curl -XPUT --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_PROTOCOL://$ELASTICSEARCH_HOST:$ELASTICSEARCH_PORT/${PREFIX}datahub_usage_event-000001"  -H 'Content-Type: application/json' --data "{\"aliases\":{\"${PREFIX}datahub_usage_event\":{\"is_write_index\":true}}}"
-  else
-    echo -e "\ndatahub_usage_event_index_template exists"
-  fi
+# create indices for ES OSS (AWS)
+function create_datahub_usage_event_aws_elasticsearch() {
+  create_if_not_exists "_opendistro/_ism/policies/${PREFIX}datahub_usage_event_policy" aws_es_ism_policy.json
+  create_if_not_exists "_template/${PREFIX}datahub_usage_event_index_template" aws_es_index_template.json
+  create_if_not_exists "${PREFIX}datahub_usage_event-000001" aws_es_usage_event.json
 }
 
 if [[ $DATAHUB_ANALYTICS_ENABLED == true ]]; then
