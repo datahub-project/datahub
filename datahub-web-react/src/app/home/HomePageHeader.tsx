@@ -120,12 +120,12 @@ export const HomePageHeader = () => {
     const user = useGetAuthenticatedUser()?.corpUser;
     const themeConfig = useTheme();
     const appConfig = useAppConfig();
-    const [data, setData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
+    const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
 
     useEffect(() => {
-        setData((prevData) => {
-            return prevData !== suggestionsData ? suggestionsData : prevData;
-        });
+        if (suggestionsData !== undefined) {
+            setNewSuggestionData(suggestionsData);
+        }
     }, [suggestionsData]);
 
     const onSearch = (query: string, type?: EntityType) => {
@@ -220,7 +220,7 @@ export const HomePageHeader = () => {
                 <SearchBarContainer>
                     <SearchBar
                         placeholderText={themeConfig.content.search.searchbarMessage}
-                        suggestions={data?.autoCompleteForMultiple?.suggestions || []}
+                        suggestions={newSuggestionData?.autoCompleteForMultiple?.suggestions || []}
                         onSearch={onSearch}
                         onQueryChange={onAutoComplete}
                         autoCompleteStyle={styles.searchBox}
