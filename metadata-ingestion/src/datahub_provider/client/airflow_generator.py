@@ -32,7 +32,7 @@ class AirflowGenerator:
             upstream_task = dag.task_dict[upstream_task_id]
 
             # if upstream task is not a subdag, then skip it
-            if getattr(upstream_task, 'subdag', None):
+            if getattr(upstream_task, 'subdag', None) is None:
                 continue
 
             # else, link the leaf tasks of the upstream subdag as upstream tasks
