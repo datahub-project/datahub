@@ -161,11 +161,18 @@ def make_sqlalchemy_uri(
     uri_opts: Optional[Dict[str, Any]] = None,
 ) -> str:
     url = f"{scheme}://"
-    if username is not None:
-        url += f"{quote_plus(username)}"
-        if password is not None:
-            url += f":{quote_plus(password)}"
-        url += "@"
+    if scheme == "clickhouse":
+        if username is not None:
+            url += f"{quote_plus(username)}:"
+            if password is not None:
+                url += f"{quote_plus(password)}"
+            url += "@"
+    else:
+        if username is not None:
+            url += f"{quote_plus(username)}"
+            if password is not None:
+                url += f":{quote_plus(password)}"
+            url += "@"
     if at is not None:
         url += f"{at}"
     if db is not None:
