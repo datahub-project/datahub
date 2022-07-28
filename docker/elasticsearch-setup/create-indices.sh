@@ -59,6 +59,11 @@ function create_if_not_exists {
     sed -e "s/PREFIX/$PREFIX/g" "$INDEX_DEFINITIONS_ROOT/$RESOURCE_DEFINITION_NAME" | tee -a "$TMP_SOURCE_PATH"
     curl -XPUT --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS" -H 'Content-Type: application/json' --data "@$TMP_SOURCE_PATH"
 
+  elif [ $RESOURCE_STATUS -eq 401 ] || [ $RESOURCE_STATUS -eq 405 ]; then
+    echo -e "\n>>> failed to GET $RESOURCE_ADDRESS ($RESOURCE_STATUS) !"
+    echo "... make sure you have correct USE_AWS_ELASTICSEARCH env value set (current=$USE_AWS_ELASTICSEARCH)"
+    exit 1
+
   else
     echo -e "\n>>> unexpected $RESOURCE_ADDRESS status $RESOURCE_STATUS !"
     exit 1
