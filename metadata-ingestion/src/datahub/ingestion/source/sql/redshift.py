@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 
 # These imports verify that the dependencies are available.
 import psycopg2  # noqa: F401
-import pydantic  # noqa: F401
+import pydantic
 import sqlalchemy
 import sqlalchemy_redshift  # noqa: F401
 from pydantic.fields import Field
