@@ -1,4 +1,5 @@
 import datetime
+import functools
 import json
 import logging
 from json.decoder import JSONDecodeError
@@ -130,6 +131,13 @@ class DataHubRestEmitter:
         self._session.mount("http://", adapter)
         self._session.mount("https://", adapter)
 
+        # Shim session.request to apply default timeout values.
+        # Via https://stackoverflow.com/a/59317604.
+        self._session.request = functools.partial(  # type: ignore
+            self._session.request,
+            timeout=(self._connect_timeout_sec, self._read_timeout_sec),
+        )
+
     def test_connection(self) -> dict:
         response = self._session.get(f"{self._gms_server}/config")
         if response.status_code == 200:
@@ -226,12 +234,7 @@ class DataHubRestEmitter:
             curl_command,
         )
         try:
-            response = self._session.post(
-                url,
-                data=payload,
-                timeout=(self._connect_timeout_sec, self._read_timeout_sec),
-            )
-
+            response = self._session.post(url, data=payload)
             response.raise_for_status()
         except HTTPError as e:
             try:
