@@ -113,7 +113,7 @@ class AirflowGenerator:
             [
                 DataJobUrn.create_from_ids(job_id=task_id, data_flow_urn=str(flow_urn))
                 for task_id in task.upstream_task_ids
-                if getattr(dag.task_dict[task_id], 'subdag', None)
+                if getattr(dag.task_dict[task_id], 'subdag', None) is None
             ]
             + upstream_subdag_task_urns
             + upstream_subdag_triggers
