@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pagination, Typography } from 'antd';
 import styled from 'styled-components';
+import type { CheckboxValueType } from 'antd/es/checkbox/Group';
 import { FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '../../../../../../types.generated';
 import { SearchFilters } from '../../../../../search/SearchFilters';
 import { SearchCfg } from '../../../../../../conf';
@@ -94,6 +95,9 @@ interface Props {
     showFilters?: boolean;
     onChangeFilters: (filters: Array<FacetFilterInput>) => void;
     onChangePage: (page: number) => void;
+    showSelectMode: boolean;
+    setCheckedSearchResults: (checkedSearchResults: Array<CheckboxValueType>) => any;
+    checkedSearchResults: CheckboxValueType[];
 }
 
 export const EmbeddedListSearchResults = ({
@@ -105,6 +109,9 @@ export const EmbeddedListSearchResults = ({
     showFilters,
     onChangeFilters,
     onChangePage,
+    showSelectMode,
+    setCheckedSearchResults,
+    checkedSearchResults,
 }: Props) => {
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
@@ -151,6 +158,9 @@ export const EmbeddedListSearchResults = ({
                                         degree: searchResult['degree'],
                                     })) || []
                                 }
+                                showSelectMode={showSelectMode}
+                                setCheckedSearchResults={setCheckedSearchResults}
+                                checkedSearchResults={checkedSearchResults}
                             />
                         </>
                     )}

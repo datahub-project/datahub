@@ -3,6 +3,10 @@ query getGroup($urn: String!, $membersCount: Int!) {
         urn
         type
         name
+        origin {
+            type
+            externalType
+        }
         info {
             displayName
             description
@@ -21,7 +25,14 @@ query getGroup($urn: String!, $membersCount: Int!) {
         ownership {
             ...ownershipFields
         }
-        relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING, start: 0, count: $membersCount }) {
+        relationships(
+            input: {
+                types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
+                direction: INCOMING
+                start: 0
+                count: $membersCount
+            }
+        ) {
             start
             count
             total
@@ -37,6 +48,47 @@ query getGroup($urn: String!, $membersCount: Int!) {
                             firstName
                             lastName
                             fullName
+                        }
+                        editableProperties {
+                            displayName
+                            title
+                            pictureLink
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+query getAllGroupMembers($urn: String!, $start: Int!, $count: Int!) {
+    corpGroup(urn: $urn) {
+        relationships(
+            input: {
+                types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
+                direction: INCOMING
+                start: $start
+                count: $count
+            }
+        ) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ... on CorpUser {
+                        urn
+                        username
+                        info {
+                            active
+                            displayName
+                            title
+                            firstName
+                            lastName
+                            fullName
+                        }
+                        properties {
+                            displayName
                         }
                         editableProperties {
                             displayName
@@ -84,6 +136,40 @@ query getGroupMembers($urn: String!, $start: Int!, $count: Int!) {
     }
 }
 
+query getNativeGroupMembers($urn: String!, $start: Int!, $count: Int!) {
+    corpGroup(urn: $urn) {
+        relationships(input: { types: ["IsMemberOfNativeGroup"], direction: INCOMING, start: $start, count: $count }) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ... on CorpUser {
+                        urn
+                        username
+                        info {
+                            active
+                            displayName
+                            title
+                            firstName
+                            lastName
+                            fullName
+                        }
+                        properties {
+                            displayName
+                        }
+                        editableProperties {
+                            displayName
+                            title
+                            pictureLink
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 query listGroups($input: ListGroupsInput!) {
     listGroups(input: $input) {
         start
@@ -93,12 +179,18 @@ query listGroups($input: ListGroupsInput!) {
             urn
             type
             name
+            origin {
+                type
+                externalType
+            }
             info {
                 displayName
                 description
                 email
             }
-            memberCount: relationships(input: { types: ["IsMemberOfGroup"], direction: INCOMING, start: 0, count: 1 }) {
+            memberCount: relationships(
+                input: { types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"], direction: INCOMING, start: 0, count: 1 }
+            ) {
                 total
             }
         }

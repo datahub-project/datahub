@@ -55,7 +55,7 @@ class StatefulCommittable(
         super(_CommittableConcrete, self).__init__(state_to_commit=state_to_commit)
 
     def has_successfully_committed(self) -> bool:
-        return True if not self.state_to_commit or self.committed else False
+        return bool(not self.state_to_commit or self.committed)
 
     @abstractmethod
     def get_previous_states(

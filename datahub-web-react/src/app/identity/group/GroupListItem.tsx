@@ -1,12 +1,13 @@
+import { LockOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
-import { Button, List, message, Modal, Tag, Typography } from 'antd';
+import { List, Tag, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
-import { DeleteOutlined } from '@ant-design/icons';
-import { CorpGroup, EntityType } from '../../../types.generated';
+import { CorpGroup, EntityType, OriginType } from '../../../types.generated';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { useRemoveGroupMutation } from '../../../graphql/group.generated';
+import EntityDropdown from '../../entity/shared/EntityDropdown';
+import { EntityMenuItems } from '../../entity/shared/EntityDropdown/EntityDropdown';
 
 type Props = {
     group: CorpGroup;
@@ -27,40 +28,17 @@ const GroupHeaderContainer = styled.div`
     align-items: center;
 `;
 
+const GroupItemButtonGroup = styled.div`
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+`;
+
 export default function GroupListItem({ group, onDelete }: Props) {
     const entityRegistry = useEntityRegistry();
     const displayName = entityRegistry.getDisplayName(EntityType.CorpGroup, group);
-
-    const [removeGroupMutation] = useRemoveGroupMutation();
-
-    const onRemoveGroup = async (urn: string) => {
-        try {
-            await removeGroupMutation({
-                variables: { urn },
-            });
-            message.success({ content: 'Removed group.', duration: 2 });
-        } catch (e: unknown) {
-            message.destroy();
-            if (e instanceof Error) {
-                message.error({ content: `Failed to remove group: \n ${e.message || ''}`, duration: 3 });
-            }
-        }
-        onDelete?.();
-    };
-
-    const handleRemoveGroup = (urn: string) => {
-        Modal.confirm({
-            title: `Confirm Group Removal`,
-            content: `Are you sure you want to remove this group?`,
-            onOk() {
-                onRemoveGroup(urn);
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    };
+    const isExternalGroup: boolean = group.origin?.type === OriginType.External;
+    const externalGroupType: string = group.origin?.externalType || 'outside DataHub';
 
     return (
         <List.Item>
@@ -79,11 +57,23 @@ export default function GroupListItem({ group, onDelete }: Props) {
                         <Tag>{(group as any).memberCount?.total || 0} members</Tag>
                     </GroupHeaderContainer>
                 </Link>
-                <div>
-                    <Button onClick={() => handleRemoveGroup(group.urn)} type="text" shape="circle" danger>
-                        <DeleteOutlined />
-                    </Button>
-                </div>
+                <GroupItemButtonGroup>
+                    {isExternalGroup && (
+                        <Tooltip
+                            title={`Membership for this group cannot be edited as it is synced from ${externalGroupType}.`}
+                        >
+                            <LockOutlined />
+                        </Tooltip>
+                    )}
+                    <EntityDropdown
+                        urn={group.urn}
+                        entityType={EntityType.CorpGroup}
+                        entityData={group}
+                        menuItems={new Set([EntityMenuItems.DELETE])}
+                        size={20}
+                        onDeleteEntity={onDelete}
+                    />
+                </GroupItemButtonGroup>
             </GroupItemContainer>
         </List.Item>
     );

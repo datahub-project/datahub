@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button, Typography } from 'antd';
-import { FilterOutlined } from '@ant-design/icons';
+import { CloseCircleOutlined, FilterOutlined } from '@ant-design/icons';
+import type { CheckboxValueType } from 'antd/es/checkbox/Group';
 import styled from 'styled-components';
 import TabToolbar from '../TabToolbar';
 import { SearchBar } from '../../../../../search/SearchBar';
@@ -8,6 +9,7 @@ import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { EntityType, FacetFilterInput, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
 import { SearchResultsInterface } from './types';
 import SearchExtendedMenu from './SearchExtendedMenu';
+// import SearchActionMenu from './SearchActionMenu';
 
 const HeaderContainer = styled.div`
     display: flex;
@@ -25,28 +27,38 @@ const SearchMenuContainer = styled.div`
     margin-left: 10px;
 `;
 
+const SelectedText = styled(Typography.Text)`
+    width: 70px;
+    top: 5px;
+    position: relative;
+`;
+
 type Props = {
     onSearch: (q: string) => void;
     onToggleFilters: () => void;
     placeholderText?: string | null;
-    showDownloadCsvButton?: boolean;
     callSearchOnVariables: (variables: {
         input: SearchAcrossEntitiesInput;
     }) => Promise<SearchResultsInterface | null | undefined>;
     entityFilters: EntityType[];
     filters: FacetFilterInput[];
     query: string;
+    setShowSelectMode: (showSelectMode: boolean) => any;
+    showSelectMode: boolean;
+    checkedSearchResults: CheckboxValueType[];
 };
 
 export default function EmbeddedListSearchHeader({
     onSearch,
     onToggleFilters,
     placeholderText,
-    showDownloadCsvButton,
     callSearchOnVariables,
     entityFilters,
     filters,
     query,
+    setShowSelectMode,
+    showSelectMode,
+    checkedSearchResults,
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
@@ -62,6 +74,7 @@ export default function EmbeddedListSearchHeader({
                     <Typography.Text>Filters</Typography.Text>
                 </Button>
                 <SearchAndDownloadContainer>
+                    {showSelectMode && <SelectedText>{`${checkedSearchResults.length} selected`}</SelectedText>}
                     <SearchBar
                         initialQuery=""
                         placeholderText={placeholderText || 'Search entities...'}
@@ -79,13 +92,29 @@ export default function EmbeddedListSearchHeader({
                         entityRegistry={entityRegistry}
                     />
                     {/* TODO: in the future, when we add more menu items, we'll show this always */}
-                    {showDownloadCsvButton && (
+                    {showSelectMode ? (
+                        <>
+                            <Button
+                                style={{
+                                    marginLeft: '5px',
+                                }}
+                                onClick={() => setShowSelectMode(false)}
+                                type="text"
+                            >
+                                <CloseCircleOutlined /> Cancel
+                            </Button>
+                            {/* <SearchMenuContainer>
+                                <SearchActionMenu checkedSearchResults={checkedSearchResults} />
+                            </SearchMenuContainer> */}
+                        </>
+                    ) : (
                         <SearchMenuContainer>
                             <SearchExtendedMenu
                                 callSearchOnVariables={callSearchOnVariables}
                                 entityFilters={entityFilters}
                                 filters={filters}
                                 query={query}
+                                setShowSelectMode={setShowSelectMode}
                             />
                         </SearchMenuContainer>
                     )}

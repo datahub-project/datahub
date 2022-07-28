@@ -11,15 +11,15 @@ import { useUnsetDomainMutation } from '../../../../../../../graphql/mutations.g
 import { DomainLink } from '../../../../../../shared/tags/DomainLink';
 
 export const SidebarDomainSection = () => {
-    const { urn, entityData } = useEntityData();
+    const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const refetch = useRefetch();
     const [unsetDomainMutation] = useUnsetDomainMutation();
     const [showModal, setShowModal] = useState(false);
-    const domain = entityData?.domain;
+    const domain = entityData?.domain?.domain;
 
-    const removeDomain = () => {
-        unsetDomainMutation({ variables: { entityUrn: urn } })
+    const removeDomain = (urnToRemoveFrom) => {
+        unsetDomainMutation({ variables: { entityUrn: urnToRemoveFrom } })
             .then(() => {
                 message.success({ content: 'Removed Domain.', duration: 2 });
                 refetch?.();
@@ -32,12 +32,12 @@ export const SidebarDomainSection = () => {
             });
     };
 
-    const onRemoveDomain = () => {
+    const onRemoveDomain = (urnToRemoveFrom) => {
         Modal.confirm({
             title: `Confirm Domain Removal`,
             content: `Are you sure you want to remove this domain?`,
             onOk() {
-                removeDomain();
+                removeDomain(urnToRemoveFrom);
             },
             onCancel() {},
             okText: 'Yes',
@@ -52,12 +52,12 @@ export const SidebarDomainSection = () => {
             <div>
                 {domain && (
                     <DomainLink
-                        urn={domain.urn}
+                        urn={domain?.urn}
                         name={entityRegistry.getDisplayName(EntityType.Domain, domain)}
                         closable
                         onClose={(e) => {
                             e.preventDefault();
-                            onRemoveDomain();
+                            onRemoveDomain(entityData?.domain?.associatedUrn);
                         }}
                     />
                 )}
@@ -72,13 +72,14 @@ export const SidebarDomainSection = () => {
                     </>
                 )}
             </div>
-            <SetDomainModal
-                visible={showModal}
-                refetch={refetch}
-                onClose={() => {
-                    setShowModal(false);
-                }}
-            />
+            {showModal && (
+                <SetDomainModal
+                    refetch={refetch}
+                    onCloseModal={() => {
+                        setShowModal(false);
+                    }}
+                />
+            )}
         </div>
     );
 };

@@ -1,9 +1,6 @@
 import pytest
-import time
-from tests.utils import FRONTEND_ENDPOINT
-from tests.utils import GMS_ENDPOINT
-from tests.utils import ingest_file_via_rest
-from tests.utils import delete_urns_from_file
+from tests.utils import delete_urns_from_file, get_frontend_url, ingest_file_via_rest
+
 
 @pytest.fixture(scope="module", autouse=False)
 def ingest_cleanup_data(request):
@@ -13,10 +10,12 @@ def ingest_cleanup_data(request):
     print("removing containers test data")
     delete_urns_from_file("tests/containers/data.json")
 
+
 @pytest.mark.dependency()
 def test_healthchecks(wait_for_healthchecks):
     # Call to wait_for_healthchecks fixture will do the actual functionality.
     pass
+
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_get_full_container(frontend_session, ingest_cleanup_data):
@@ -96,13 +95,11 @@ def test_get_full_container(frontend_session, ingest_cleanup_data):
               }\n
             }\n
         }""",
-        "variables": {
-          "urn": container_urn
-        }
+        "variables": {"urn": container_urn},
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=get_container_json
+        f"{get_frontend_url()}/api/v2/graphql", json=get_container_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -119,11 +116,14 @@ def test_get_full_container(frontend_session, ingest_cleanup_data):
     assert container["properties"]["name"] == container_name
     assert container["properties"]["description"] == container_description
     assert container["subTypes"]["typeNames"][0] == "Schema"
-    assert container["editableProperties"]["description"] == editable_container_description
+    assert (
+        container["editableProperties"]["description"] == editable_container_description
+    )
     assert container["ownership"] is None
     assert container["institutionalMemory"] is None
     assert container["tags"] is None
     assert container["glossaryTerms"] is None
+
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_get_full_container"])
 def test_get_parent_container(frontend_session, ingest_cleanup_data):
@@ -143,13 +143,11 @@ def test_get_parent_container(frontend_session, ingest_cleanup_data):
             }\n
           }\n
         }""",
-        "variables": {
-          "urn": dataset_urn
-        }
+        "variables": {"urn": dataset_urn},
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=get_dataset_json
+        f"{get_frontend_url()}/api/v2/graphql", json=get_dataset_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -161,6 +159,7 @@ def test_get_parent_container(frontend_session, ingest_cleanup_data):
 
     dataset = res_data["data"]["dataset"]
     assert dataset["container"]["properties"]["name"] == "datahub_schema"
+
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_get_full_container"])
 def test_update_container(frontend_session, ingest_cleanup_data):
@@ -175,14 +174,14 @@ def test_update_container(frontend_session, ingest_cleanup_data):
         }""",
         "variables": {
             "input": {
-              "tagUrn": new_tag,
-              "resourceUrn": container_urn,
+                "tagUrn": new_tag,
+                "resourceUrn": container_urn,
             }
-        }
+        },
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=add_tag_json
+        f"{get_frontend_url()}/api/v2/graphql", json=add_tag_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -199,14 +198,14 @@ def test_update_container(frontend_session, ingest_cleanup_data):
         }""",
         "variables": {
             "input": {
-              "termUrn": new_term,
-              "resourceUrn": container_urn,
+                "termUrn": new_term,
+                "resourceUrn": container_urn,
             }
-        }
+        },
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=add_term_json
+        f"{get_frontend_url()}/api/v2/graphql", json=add_term_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -223,15 +222,15 @@ def test_update_container(frontend_session, ingest_cleanup_data):
         }""",
         "variables": {
             "input": {
-              "ownerUrn": new_owner,
-              "resourceUrn": container_urn,
-              "ownerEntityType": "CORP_USER"
+                "ownerUrn": new_owner,
+                "resourceUrn": container_urn,
+                "ownerEntityType": "CORP_USER",
             }
-        }
+        },
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=add_owner_json
+        f"{get_frontend_url()}/api/v2/graphql", json=add_owner_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -248,15 +247,15 @@ def test_update_container(frontend_session, ingest_cleanup_data):
         }""",
         "variables": {
             "input": {
-              "linkUrl": new_link,
-              "resourceUrn": container_urn,
-              "label": "Label"
+                "linkUrl": new_link,
+                "resourceUrn": container_urn,
+                "label": "Label",
             }
-        }
+        },
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=add_link_json
+        f"{get_frontend_url()}/api/v2/graphql", json=add_link_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -273,14 +272,14 @@ def test_update_container(frontend_session, ingest_cleanup_data):
         }""",
         "variables": {
             "input": {
-              "description": new_description,
-              "resourceUrn": container_urn,
+                "description": new_description,
+                "resourceUrn": container_urn,
             }
-        }
+        },
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=update_description_json
+        f"{get_frontend_url()}/api/v2/graphql", json=update_description_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -290,7 +289,7 @@ def test_update_container(frontend_session, ingest_cleanup_data):
     assert res_data["data"]["updateDescription"] is True
 
     # Now fetch the container to ensure it was updated
-   # Get the container
+    # Get the container
     get_container_json = {
         "query": """query container($urn: String!) {\n
            container(urn: $urn) {\n
@@ -327,13 +326,11 @@ def test_update_container(frontend_session, ingest_cleanup_data):
               }\n
             }\n
         }""",
-        "variables": {
-          "urn": container_urn
-        }
+        "variables": {"urn": container_urn},
     }
 
     response = frontend_session.post(
-        f"{FRONTEND_ENDPOINT}/api/v2/graphql", json=get_container_json
+        f"{get_frontend_url()}/api/v2/graphql", json=get_container_json
     )
     response.raise_for_status()
     res_data = response.json()

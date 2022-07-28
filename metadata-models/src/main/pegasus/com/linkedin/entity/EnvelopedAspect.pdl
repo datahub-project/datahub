@@ -37,4 +37,9 @@ record EnvelopedAspect {
    * The audit stamp detailing who the aspect was created by and when
    **/
   created: AuditStamp
+
+  /**
+   * The system metadata for this aspect
+   **/
+  systemMetadata: optional SystemMetadata
 }

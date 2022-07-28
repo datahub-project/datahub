@@ -2,6 +2,8 @@ package io.datahubproject.openapi.entities;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -104,9 +106,12 @@ public class EntitiesController {
       @RequestBody @Nonnull List<UpsertAspectRequest> aspectRequests) {
     log.info("INGEST PROPOSAL proposal: {}", aspectRequests);
 
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    String actorUrnStr = authentication.getActor().toUrnStr();
+
     List<Pair<String, Boolean>> responses = aspectRequests.stream()
         .map(MappingUtil::mapToProposal)
-        .map(proposal -> MappingUtil.ingestProposal(proposal, _entityService, _objectMapper))
+        .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr,  _entityService, _objectMapper))
         .collect(Collectors.toList());
     if (responses.stream().anyMatch(Pair::getSecond)) {
       return ResponseEntity.status(HttpStatus.CREATED)
@@ -140,10 +145,14 @@ public class EntitiesController {
         List<UpsertAspectRequest> deleteRequests = entityUrns.stream()
             .map(entityUrn -> MappingUtil.createStatusRemoval(entityUrn, _entityService))
             .collect(Collectors.toList());
+
+        Authentication authentication = AuthenticationContext.getAuthentication();
+        String actorUrnStr = authentication.getActor().toUrnStr();
+
         return ResponseEntity.ok(Collections.singletonList(RollbackRunResultDto.builder()
             .rowsRolledBack(deleteRequests.stream()
                 .map(MappingUtil::mapToProposal)
-                .map(proposal -> MappingUtil.ingestProposal(proposal, _entityService, _objectMapper))
+                .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService, _objectMapper))
                 .filter(Pair::getSecond)
                 .map(Pair::getFirst)
                 .map(urnString -> new AspectRowSummary().urn(urnString))

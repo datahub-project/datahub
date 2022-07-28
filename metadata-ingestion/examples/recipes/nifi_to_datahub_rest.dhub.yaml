@@ -1,0 +1,27 @@
+---
+# see https://datahubproject.io/docs/generated/ingestion/sources/nifi for complete documentation
+source:
+  type: "nifi"
+  config:
+    site_url: https://localhost:9443/nifi/
+    site_name: site1
+    auth: CLIENT_CERT
+    client_cert_file: ./ssl_files/client-cert.pem
+    client_key_file: ./ssl_files/client-private-key.pem
+    client_key_password: datahub
+    ca_file: ./ssl_files/server_certfile.pem
+    provenance_days: 30
+    process_group_pattern: 
+      deny:
+        - "^WIP"
+    site_url_to_site_name:
+      https://localhost:9080/nifi/ : site2
+      https://localhost:9081/nifi/ : site2
+      https://localhost:9082/nifi/ : site2
+    
+
+# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

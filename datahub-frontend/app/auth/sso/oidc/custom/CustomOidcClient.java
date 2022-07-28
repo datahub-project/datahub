@@ -9,7 +9,6 @@ import org.pac4j.oidc.profile.OidcProfile;
 import org.pac4j.oidc.profile.creator.OidcProfileCreator;
 import org.pac4j.oidc.redirect.OidcRedirectActionBuilder;
 
-
 public class CustomOidcClient extends OidcClient<OidcProfile, OidcConfiguration> {
 
   public CustomOidcClient(final OidcConfiguration configuration) {

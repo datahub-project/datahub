@@ -4,7 +4,7 @@ import pytest
 
 if sys.version_info < (3, 7):
     pytest.skip("iceberg not available for python < 3.7", allow_module_level=True)
-from typing import Any
+from typing import Any, Optional
 
 from iceberg.api import types as IcebergTypes
 from iceberg.api.types.types import NestedField
@@ -13,18 +13,13 @@ from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.azure.azure_common import AdlsSourceConfig
 from datahub.ingestion.source.iceberg.iceberg import IcebergSource, IcebergSourceConfig
-from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    ArrayType,
-    MapType,
-    SchemaField,
-)
+from datahub.metadata.com.linkedin.pegasus2avro.schema import ArrayType, SchemaField
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
     DateTypeClass,
     FixedTypeClass,
-    MapTypeClass,
     NumberTypeClass,
     RecordTypeClass,
     StringTypeClass,
@@ -44,7 +39,7 @@ def with_iceberg_source() -> IcebergSource:
 
 def assert_field(
     schema_field: SchemaField,
-    expected_description: str,
+    expected_description: Optional[str],
     expected_nullable: bool,
     expected_type: Any,
 ) -> None:
@@ -267,64 +262,62 @@ def test_iceberg_list_to_schema_field(
 
 
 @pytest.mark.parametrize(
-    "iceberg_type, expected_map_value_type",
+    "iceberg_type, expected_map_type",
     [
-        (IcebergTypes.BinaryType.get(), "bytes"),
-        (IcebergTypes.BooleanType.get(), "boolean"),
-        (IcebergTypes.DateType.get(), "date"),
+        (IcebergTypes.BinaryType.get(), BytesTypeClass),
+        (IcebergTypes.BooleanType.get(), BooleanTypeClass),
+        (IcebergTypes.DateType.get(), DateTypeClass),
         (
             IcebergTypes.DecimalType.of(3, 2),
-            "decimal",
+            NumberTypeClass,
         ),
-        (IcebergTypes.DoubleType.get(), "double"),
-        (IcebergTypes.FixedType.of_length(4), "fixed"),
-        (IcebergTypes.FloatType.get(), "float"),
-        (IcebergTypes.IntegerType.get(), "int"),
-        (IcebergTypes.LongType.get(), "long"),
-        (IcebergTypes.StringType.get(), "string"),
+        (IcebergTypes.DoubleType.get(), NumberTypeClass),
+        (IcebergTypes.FixedType.of_length(4), FixedTypeClass),
+        (IcebergTypes.FloatType.get(), NumberTypeClass),
+        (IcebergTypes.IntegerType.get(), NumberTypeClass),
+        (IcebergTypes.LongType.get(), NumberTypeClass),
+        (IcebergTypes.StringType.get(), StringTypeClass),
         (
             IcebergTypes.TimestampType.with_timezone(),
-            "timestamp-micros",
+            TimeTypeClass,
         ),
         (
             IcebergTypes.TimestampType.without_timezone(),
-            "timestamp-micros",
+            TimeTypeClass,
         ),
-        (IcebergTypes.TimeType.get(), "time-micros"),
+        (IcebergTypes.TimeType.get(), TimeTypeClass),
         (
             IcebergTypes.UUIDType.get(),
-            "uuid",
+            StringTypeClass,
         ),
     ],
 )
 def test_iceberg_map_to_schema_field(
-    iceberg_type: IcebergTypes.PrimitiveType, expected_map_value_type: Any
+    iceberg_type: IcebergTypes.PrimitiveType, expected_map_type: Any
 ) -> None:
     """
-    Test converting a map typed Iceberg field to a MapType SchemaField, including the map value type.
+    Test converting a map typed Iceberg field to a MapType SchemaField, where the key is the same type as the value.
     """
     map_column: NestedField = NestedField.required(
         1,
         "mapField",
-        IcebergTypes.MapType.of_required(
-            11, 12, IcebergTypes.StringType.get(), iceberg_type
-        ),
+        IcebergTypes.MapType.of_required(11, 12, iceberg_type, iceberg_type),
         "documentation",
     )
     iceberg_source_instance = with_iceberg_source()
     schema_fields = iceberg_source_instance._get_schema_fields_for_column(map_column)
-    assert len(schema_fields) == 1, f"Expected 1 field, but got {len(schema_fields)}"
-    assert_field(schema_fields[0], map_column.doc, map_column.is_optional, MapTypeClass)
-    assert isinstance(
-        schema_fields[0].type.type, MapType
-    ), f"Field type {schema_fields[0].type.type} was expected to be {MapType}"
-    mapType: MapType = schema_fields[0].type.type
-    assert (
-        mapType.keyType == "string"
-    ), f"Map key type {mapType.keyType} should always be a string"
-    assert (
-        mapType.valueType == expected_map_value_type
-    ), f"Map value type {mapType.valueType} was expected to be {expected_map_value_type}"
+    # Converting an Iceberg Map type will be done by creating an array of struct(key, value) records.
+    # The first field will be the array.
+    assert len(schema_fields) == 3, f"Expected 3 fields, but got {len(schema_fields)}"
+    assert_field(
+        schema_fields[0], map_column.doc, map_column.is_optional, ArrayTypeClass
+    )
+
+    # The second field will be the key type
+    assert_field(schema_fields[1], None, False, expected_map_type)
+
+    # The third field will be the value type
+    assert_field(schema_fields[2], None, True, expected_map_type)
 
 
 @pytest.mark.parametrize(

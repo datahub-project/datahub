@@ -2,6 +2,7 @@ apply plugin: 'java'
 
 dependencies {
 
+  compile project(':metadata-service:auth-api')
   compile project(':metadata-service:factories')
 
   compile externalDependency.reflections

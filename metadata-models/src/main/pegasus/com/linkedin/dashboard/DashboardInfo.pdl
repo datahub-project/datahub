@@ -5,6 +5,7 @@ import com.linkedin.common.ChangeAuditStamps
 import com.linkedin.common.ChartUrn
 import com.linkedin.common.Time
 import com.linkedin.common.Url
+import com.linkedin.common.Urn
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
 
@@ -46,6 +47,18 @@ record DashboardInfo includes CustomProperties, ExternalReference {
     }
   }
   charts: array[ChartUrn] = [ ]
+
+  /**
+   * Datasets consumed by a dashboard
+   */
+  @Relationship = {
+    "/*": {
+      "name": "Consumes",
+      "entityTypes": [ "dataset" ],
+      "isLineage": true
+    }
+  }
+  datasets: array[Urn] = [ ]
 
   /**
    * Captures information about who created/last modified/deleted this dashboard and when

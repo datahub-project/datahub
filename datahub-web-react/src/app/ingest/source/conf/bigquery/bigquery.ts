@@ -1,8 +1,6 @@
 import { SourceConfig } from '../types';
 import bigqueryLogo from '../../../../../images/bigquerylogo.png';
 
-const baseUrl = window.location.origin;
-
 const placeholderRecipe = `\
 source:
     type: bigquery
@@ -21,15 +19,12 @@ source:
 
             client_email: # Your BQ client email, e.g. "test@suppproject-id-1234567.iam.gserviceaccount.com"
             client_id: # Your BQ client id, e.g. "123456678890"
-sink: 
-    type: datahub-rest
-    config: 
-        server: "${baseUrl}/api/gms"
-        # Add a secret in secrets Tab
-        token: "\${GMS_TOKEN}"`;
+`;
+
+export const BIGQUERY = 'bigquery';
 
 const bigqueryConfig: SourceConfig = {
-    type: 'bigquery',
+    type: BIGQUERY,
     placeholderRecipe,
     displayName: 'BigQuery',
     docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/bigquery/',

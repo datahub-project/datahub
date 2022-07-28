@@ -66,6 +66,12 @@ extend type Mutation {
   Cancel a running execution request, provided the urn of the original execution request
   """
   cancelIngestionExecutionRequest(input: CancelIngestionExecutionRequestInput!): String
+
+  """
+  Create a request to execute a test ingestion connection job
+  input: Input required for creating a test connection request
+  """
+  createTestConnectionRequest(input: CreateTestConnectionRequestInput!): String
 }
 
 """
@@ -158,6 +164,16 @@ input CreateIngestionExecutionRequestInput {
   Urn of the ingestion source to execute
   """
   ingestionSourceUrn: String!
+}
+
+"""
+Input for creating a test connection request
+"""
+input CreateTestConnectionRequestInput {
+  """
+  A JSON-encoded recipe
+  """
+  recipe: String!
 }
 
 """

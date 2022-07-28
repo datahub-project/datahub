@@ -18,6 +18,11 @@ record ExecutionRequestResult {
   report: optional string
 
   /**
+  * A structured report if available.
+  */
+  structuredReport: optional StructuredExecutionReport
+
+  /**
   * Time at which the request was created
   */
   @Searchable = {
