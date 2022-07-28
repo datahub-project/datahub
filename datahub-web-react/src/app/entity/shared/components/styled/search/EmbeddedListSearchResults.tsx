@@ -8,8 +8,6 @@ import { EntityNameList } from '../../../../../recommendations/renderer/componen
 import { ReactComponent as LoadingSvg } from '../../../../../../images/datahub-logo-color-loading_pendulum.svg';
 import { EntityAndType } from '../../../types';
 
-// const TAB_TOOLBAR_HEIGHT = 47; // px
-
 const SearchBody = styled.div`
     height: 100%;
     overflow-y: scroll;
