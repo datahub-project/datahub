@@ -18,6 +18,7 @@ concurrency:
 jobs:
   test-quickstart:
     strategy:
+      fail-fast: false
       matrix:
         os: [macos-11, ubuntu-20.04]
     runs-on: ${{ matrix.os }}
