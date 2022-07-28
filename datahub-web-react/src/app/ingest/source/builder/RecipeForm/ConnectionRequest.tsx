@@ -1,11 +1,5 @@
-import {
-    CheckCircleOutlined,
-    CheckOutlined,
-    CloseCircleOutlined,
-    CloseOutlined,
-    QuestionCircleOutlined,
-} from '@ant-design/icons';
-import { Button, message, Modal, Tooltip, Typography } from 'antd';
+import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { Button, message, Modal, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { green, red } from '@ant-design/colors';
 import styled from 'styled-components/macro';
@@ -16,6 +10,7 @@ import {
     useGetIngestionExecutionRequestLazyQuery,
 } from '../../../../../graphql/ingestion.generated';
 import { RUNNING, yamlToJson } from '../../utils';
+import ConnectionCapabilityView from './ConnectionCapabilityView';
 
 const LoadingWrapper = styled.div`
     display: flex;
@@ -27,29 +22,6 @@ const LoadingSubheader = styled.div`
     display: flex;
     justify-content: center;
     font-size: 12px;
-`;
-
-const CapabilityWrapper = styled.div<{ success: boolean }>`
-    align-items: center;
-    background-color: ${(props) => (props.success ? green[1] : red[1])};
-    border-radius: 2px;
-    display: flex;
-    font-size: 14px;
-    margin-bottom: 15px;
-    min-height: 60px;
-    padding: 5px 10px;
-`;
-
-const CapabilityName = styled.span`
-    font-weight: bold;
-    margin: 0 10px;
-    flex: 1;
-`;
-
-const CapabilityMessage = styled.span`
-    font-size: 12px;
-    flex: 2;
-    padding-left: 4px;
 `;
 
 const LoadingHeader = styled(Typography.Title)`
@@ -80,37 +52,6 @@ const ResultsWrapper = styled.div`
     padding: 16px 24px;
 `;
 
-const StyledQuestion = styled(QuestionCircleOutlined)`
-    color: rgba(0, 0, 0, 0.45);
-    margin-left: 4px;
-`;
-
-interface ConnectionProps {
-    success: boolean;
-    capability: string;
-    displayMessage: string | null;
-    tooltipMessage: string | null;
-}
-
-function ConnectionCapabilityView({ success, capability, displayMessage, tooltipMessage }: ConnectionProps) {
-    return (
-        <CapabilityWrapper success={success}>
-            {success ? <CheckOutlined style={{ color: green[6] }} /> : <CloseOutlined style={{ color: red[6] }} />}
-            <CapabilityName>{capability}</CapabilityName>
-            <CapabilityMessage>
-                {displayMessage}
-                {tooltipMessage && (
-                    <Tooltip overlay={tooltipMessage}>
-                        <StyledQuestion />
-                    </Tooltip>
-                )}
-            </CapabilityMessage>
-        </CapabilityWrapper>
-    );
-}
-
-// interface Conn
-
 enum SourceCapability {
     PLATFORM_INSTANCE = 'Platform Instance',
     DOMAINS = 'Domains',
@@ -123,8 +64,8 @@ enum SourceCapability {
     OWNERSHIP = 'Extract Ownership',
     DELETION_DETECTION = 'Detect Deleted Entities',
     TAGS = 'Extract Tags',
-    CONTAINERS = 'Containers',
     SCHEMA_METADATA = 'Schema Metadata',
+    CONTAINERS = 'Asset Containers',
 }
 
 interface ConnectionCapability {
@@ -143,63 +84,6 @@ interface TestConnectionResult {
     basic_connectivity?: ConnectionCapability;
     capability_report?: CapabilityReport;
 }
-
-const mockSuccessResult = {
-    executionRequest: {
-        input: {
-            source: { type: 'MANUAL_TEST_CONNECTION', __typename: 'ExecutionRequestSource' },
-            __typename: 'ExecutionRequestInput',
-        },
-        result: {
-            status: 'SUCCESS',
-            report: 'test',
-            structuredReport: `{
-                "contentType": "application/json",
-                "serializedValue": {
-                    "basic_connectivity": {"capable": false, "failure_reason": "Connecting to snowflake failed due to authentication issues.", "mitigation_message": "Please ensure your credentials are correct and try again."}
-                },
-                "type": "TEST_CONNECTION"
-              }`,
-        },
-        urn: 'urn:li:dataHubExecutionRequest:cd03a52a-9f9b-4164-bd33-41f93a269f4a',
-        __typename: 'ExecutionRequest',
-    },
-};
-
-// "capability_report": {
-//     "CONTAINERS": {"capable": true, "failure_reason": null, "mitigation_message": null},
-//     "SCHEMA_METADATA": {"capable": true, "failure_reason": null, "mitigation_message": null},
-//     "DESCRIPTIONS": {"capable": false, "failure_reason": "You need different permissions to ingest descriptions.", "mitigation_message": "Check your credentials and talk to an admin."},
-//     "DATA_PROFILING": {"capable": true, "failure_reason": null, "mitigation_message": null},
-//     "LINEAGE_COARSE": {"capable": true, "failure_reason": null, "mitigation_message": null}
-// }
-
-// "DESCRIPTIONS": {"capable": false, "failure_reason": "You need different permissions to ingest descriptions.", "mitigation_message": "Check your credentials and talk to an admin."},
-
-// "basic_connectivity": {"capable": true, "failure_reason": null, "mitigation_message": null}
-// "basic_connectivity": {"capable": false, "failure_reason": "Connecting to snowflake failed due to authentication issues.", "mitigation_message": "Please ensure your credentials are correct and try again."}
-
-// "internal_failure": True,"internal_failure_reason": "datahub library doesn't have test_connection feature. You are likely running an old version."
-
-// serializedValue: "{\"basic_connectivity\": {\"capable\": true, \"failure_reason\": null, \"mitigation_message\": null}, \"capability_report\": {\"CONTAINERS\": {\"capable\": true, \"failure_reason\": null, \"mitigation_message\": null}, \"SCHEMA_METADATA\": {\"capable\": true, \"failure_reason\": null, \"mitigation_message\": null}, \"DESCRIPTIONS\": {\"capable\": true, \"failure_reason\": null, \"mitigation_message\": null}, \"DATA_PROFILING\": {\"capable\": true, \"failure_reason\": null, \"mitigation_message\": null}, \"LINEAGE_COARSE\": {\"capable\": true, \"failure_reason\": null, \"mitigation_message\": null}}}"
-
-// const mockData = [
-//     { capability: 'Data Profiling', success: true, failureMessage: null },
-//     { capability: 'Descriptions', success: true, failureMessage: null },
-//     {
-//         capability: 'Detect Deleted Entities',
-//         success: true,
-//         failureMessage: null,
-//     },
-//     { capability: 'Domains', success: true, failureMessage: null },
-//     {
-//         capability: 'Table-Level Lineage',
-//         success: false,
-//         // failureMessage: null,
-//         failureMessage: 'You do not have permissions to get Table-Level Lineage.',
-//     },
-//     { capability: 'Platform Instance', success: true, failureMessage: null },
-// ];
 
 const BASIC_CONNECTIVITY_SUCCESS = "You're able to connect to this source with your given recipe.";
 
@@ -229,18 +113,16 @@ function ConnectionRequest(props: Props) {
     const [pollingInterval, setPollingInterval] = useState<null | NodeJS.Timeout>(null);
     const [testConnectionResult, setTestConnectionResult] = useState<null | TestConnectionResult>(null);
     const [createTestConnectionRequest, { data: requestData }] = useCreateTestConnectionRequestMutation();
-    const [getIngestionExecutionRequest, { data: resultData }] = useGetIngestionExecutionRequestLazyQuery();
+    const [getIngestionExecutionRequest, { data: resultData, loading }] = useGetIngestionExecutionRequestLazyQuery();
 
     useEffect(() => {
         if (requestData && requestData.createTestConnectionRequest) {
             const interval = setInterval(
-                () => {},
+                () =>
+                    getIngestionExecutionRequest({
+                        variables: { urn: requestData.createTestConnectionRequest as string },
+                    }),
                 1000,
-                // () =>
-                //     getIngestionExecutionRequest({
-                //         variables: { urn: requestData.createTestConnectionRequest as string },
-                //     }),
-                // 1000,
             );
             setIsLoading(true);
             setIsModalVisible(true);
@@ -249,30 +131,18 @@ function ConnectionRequest(props: Props) {
     }, [requestData, getIngestionExecutionRequest]);
 
     useEffect(() => {
-        // if (resultData) {
-        const testConnectionReport = JSON.parse(mockSuccessResult.executionRequest.result.structuredReport);
-        const { serializedValue } = testConnectionReport;
-        setTestConnectionResult(serializedValue);
-        console.log(testConnectionReport);
-        // const result = resultData.executionRequest?.result;
-        // if (result?.status !== RUNNING) {
-        //     if (result && result.structuredReport) {
-        //         const testConnectionReport = JSON.parse(result.structuredReport.serializedValue);
-        //         setTestConnectionResult(testConnectionReport);
-        //     }
-        //     if (pollingInterval) clearInterval(pollingInterval);
-        //     setIsLoading(false);
-        // }
-        setTimeout(() => {
-            if (pollingInterval) clearInterval(pollingInterval);
-            setIsLoading(false);
-        }, 2000);
-        // }
-        // }, [pollingInterval]);
-    }, [resultData, pollingInterval]);
-
-    console.log(resultData);
-    console.log(RUNNING);
+        if (!loading && resultData) {
+            const result = resultData.executionRequest?.result;
+            if (result && result.status !== RUNNING) {
+                if (result && result.structuredReport) {
+                    const testConnectionReport = JSON.parse(result.structuredReport.serializedValue);
+                    setTestConnectionResult(testConnectionReport);
+                }
+                if (pollingInterval) clearInterval(pollingInterval);
+                setIsLoading(false);
+            }
+        }
+    }, [resultData, pollingInterval, loading]);
 
     useEffect(() => {
         if (!isModalVisible) {
@@ -286,32 +156,23 @@ function ConnectionRequest(props: Props) {
     function testConnection() {
         const recipeJson = getRecipeJson(recipe);
         if (recipeJson) {
-            // createTestConnectionRequest({ variables: { input: { recipe: recipeJson } } }).catch(() => {
-            //     message.error('There was an unexpected error when trying to test your connection. Please try again.');
-            // });
+            createTestConnectionRequest({ variables: { input: { recipe: recipeJson } } })
+                .then((res) =>
+                    getIngestionExecutionRequest({
+                        variables: { urn: res.data?.createTestConnectionRequest as string },
+                    }),
+                )
+                .catch(() => {
+                    message.error(
+                        'There was an unexpected error when trying to test your connection. Please try again.',
+                    );
+                });
+
             console.log(createTestConnectionRequest);
-            const interval = setInterval(
-                () => {},
-                1000,
-                // () =>
-                //     getIngestionExecutionRequest({
-                //         variables: { urn: requestData.createTestConnectionRequest as string },
-                //     }),
-                // 1000,
-            );
             setIsLoading(true);
             setIsModalVisible(true);
-            setPollingInterval(interval);
         }
     }
-
-    // let numFailures = 0;
-    // mockData.forEach((data) => {
-    //     if (!data.success) numFailures += 1;
-    // });
-    // const areAllSuccessful = numFailures === 0;
-
-    console.log('testConnectionResult', testConnectionResult);
 
     const internalFailure = !!testConnectionResult?.internal_failure;
     const basicConnectivityFailure = testConnectionResult?.basic_connectivity?.capable === false;
