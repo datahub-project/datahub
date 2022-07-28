@@ -102,7 +102,7 @@ public class IngestionResolverUtils {
     final EnvelopedAspect envelopedInfo = aspects.get(Constants.INGESTION_INFO_ASPECT_NAME);
 
     if (envelopedInfo == null) {
-      throw new IllegalStateException("No info aspect exists for urn: " + entityUrn);
+      throw new IllegalStateException("No ingestion source info aspect exists for urn: " + entityUrn);
     }
 
     // Bind into a strongly typed object.
