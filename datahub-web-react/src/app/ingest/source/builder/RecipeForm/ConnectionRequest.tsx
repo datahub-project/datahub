@@ -122,7 +122,7 @@ function ConnectionRequest(props: Props) {
                     getIngestionExecutionRequest({
                         variables: { urn: requestData.createTestConnectionRequest as string },
                     }),
-                1000,
+                2000,
             );
             setIsLoading(true);
             setIsModalVisible(true);
