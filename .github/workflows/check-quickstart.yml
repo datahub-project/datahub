@@ -39,12 +39,12 @@ jobs:
       run: |
         docker ps -a
     - name: store logs
-        if: failure()
-        run: |
-          docker logs datahub-gms >& quickstart-gms.log
+      if: failure()
+      run: |
+        docker logs datahub-gms >& quickstart-gms.log
     - name: Upload logs
-        uses: actions/upload-artifact@v2
-        if: failure()
-        with:
-          name: docker-qucikstart-logs-${{ matrix.os }}
-          path: "*.log"
+      uses: actions/upload-artifact@v2
+      if: failure()
+      with:
+        name: docker-qucikstart-logs-${{ matrix.os }}
+        path: "*.log"
