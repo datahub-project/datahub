@@ -1,0 +1,14 @@
+---
+version: '3.5'
+services:
+  ingestion:
+    build:
+      context: ../../
+      dockerfile: docker/infobip-ingestion/Dockerfile
+    image: infobip/datahub-ingestion:${DATAHUB_VERSION:-head}
+    hostname: ingestion
+    container_name: ingestion
+
+networks:
+  default:
+    name: datahub_network
