@@ -125,9 +125,14 @@ module.exports = {
           },
         ],
       },
-      "metadata-ingestion/transformers",
       {
-        Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
+        Transformers: [
+          "metadata-ingestion/docs/transformer/intro",
+          "metadata-ingestion/docs/transformer/dataset_transformer",
+        ]
+      },
+      {
+        Sinks: list_ids_in_directory("metadata-ingestion/sink_docs")
       },
       {
         Scheduling: [
