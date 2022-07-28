@@ -57,7 +57,7 @@ function create_if_not_exists {
     # use the given path as definition, but first replace all occurences of PREFIX with the actual prefix
     TMP_SOURCE_PATH="/tmp/$RESOURCE_DEFINITION_NAME"
     sed -e "s/PREFIX/$PREFIX/g" "$INDEX_DEFINITIONS_ROOT/$RESOURCE_DEFINITION_NAME" | tee -a "$TMP_SOURCE_PATH"
-    curl -XPUT --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS" -H 'Content-Type: application/json' --data "@$TMP_SOURCE_PATH"
+    curl -s -XPUT --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_URL/$RESOURCE_ADDRESS" -H 'Content-Type: application/json' --data "@$TMP_SOURCE_PATH"
 
   elif [ $RESOURCE_STATUS -eq 401 ] || [ $RESOURCE_STATUS -eq 405 ]; then
     echo -e "\n>>> failed to GET $RESOURCE_ADDRESS ($RESOURCE_STATUS) !"
@@ -89,7 +89,7 @@ function create_datahub_usage_event_aws_elasticsearch() {
     if [[ $USAGE_EVENT_DEFINITION != *"datahub_usage_event-000001"* ]]; then
       # ... if it doesn't, we need to drop it
       echo -e "\n>>> deleting invalid datahub_usage_event ..."
-      curl -XDELETE --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_URL/${PREFIX}datahub_usage_event"
+      curl -s -XDELETE --header "$ELASTICSEARCH_AUTH_HEADER" "$ELASTICSEARCH_URL/${PREFIX}datahub_usage_event"
       # ... and then recreate it below
     fi
   fi
