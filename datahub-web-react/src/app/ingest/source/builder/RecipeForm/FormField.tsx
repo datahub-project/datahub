@@ -80,7 +80,7 @@ function ListField({ field, removeMargin }: ListFieldProps) {
                         </Form.Item>
                     ))}
                     <StyledButton type="dashed" onClick={() => add()} style={{ width: '80%' }} icon={<PlusOutlined />}>
-                        Add pattern
+                        {field.buttonLabel}
                     </StyledButton>
                 </ListWrapper>
             )}

@@ -27,6 +27,7 @@ export interface RecipeField {
     rules: any[] | null;
     section?: string;
     options?: Option[];
+    buttonLabel?: string;
     getValueFromRecipeOverride?: (recipe: any) => any;
     setValueOnRecipeOverride?: (recipe: any, value: any) => any;
 }
@@ -219,6 +220,7 @@ export const TABLEAU_PROJECT: RecipeField = {
     label: 'Projects',
     tooltip: 'List of projects',
     type: FieldType.LIST,
+    buttonLabel: 'Add project',
     fieldPath: tableauProjectFieldPath,
     rules: null,
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
@@ -446,6 +448,7 @@ export const DATABASE_ALLOW: RecipeField = {
     label: 'Allow Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
     fieldPath: databaseAllowFieldPath,
     rules: null,
     section: 'Databases',
@@ -459,6 +462,7 @@ export const DATABASE_DENY: RecipeField = {
     label: 'Deny Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
     fieldPath: databaseDenyFieldPath,
     rules: null,
     section: 'Databases',
@@ -472,6 +476,7 @@ export const SCHEMA_ALLOW: RecipeField = {
     label: 'Allow Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
     fieldPath: schemaAllowFieldPath,
     rules: null,
     section: 'Schemas',
@@ -485,6 +490,7 @@ export const SCHEMA_DENY: RecipeField = {
     label: 'Deny Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
     fieldPath: schemaDenyFieldPath,
     rules: null,
     section: 'Schemas',
@@ -498,6 +504,7 @@ export const VIEW_ALLOW: RecipeField = {
     label: 'Allow Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
     fieldPath: viewAllowFieldPath,
     rules: null,
     section: 'Views',
@@ -511,6 +518,7 @@ export const VIEW_DENY: RecipeField = {
     label: 'Deny Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
     fieldPath: viewDenyFieldPath,
     rules: null,
     section: 'Views',
@@ -524,6 +532,7 @@ export const TABLE_ALLOW: RecipeField = {
     label: 'Allow Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
     fieldPath: tableAllowFieldPath,
     rules: null,
     section: 'Tables',
@@ -537,6 +546,7 @@ export const TABLE_DENY: RecipeField = {
     label: 'Deny Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
     fieldPath: tableDenyFieldPath,
     rules: null,
     section: 'Tables',
@@ -550,6 +560,7 @@ export const CHART_ALLOW: RecipeField = {
     label: 'Allow Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
     fieldPath: chartAllowFieldPath,
     rules: null,
     section: 'Charts',
@@ -563,6 +574,7 @@ export const CHART_DENY: RecipeField = {
     label: 'Deny Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
     fieldPath: chartDenyFieldPath,
     rules: null,
     section: 'Charts',
@@ -576,6 +588,7 @@ export const DASHBOARD_ALLOW: RecipeField = {
     label: 'Allow Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
     fieldPath: dashboardAllowFieldPath,
     rules: null,
     section: 'Dashboards',
@@ -589,6 +602,7 @@ export const DASHBOARD_DENY: RecipeField = {
     label: 'Deny Patterns',
     tooltip: 'Use regex here.',
     type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
     fieldPath: dashboardDenyFieldPath,
     rules: null,
     section: 'Dashboards',
