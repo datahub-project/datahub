@@ -4,8 +4,6 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.authenticator.DataHubTokenAuthenticator;
 import java.util.Map;
-import java.util.Optional;
-
 import org.testng.annotations.Test;
 
 import static com.datahub.authentication.token.TokenClaims.*;
@@ -41,7 +39,7 @@ public class StatelessTokenServiceTest {
     assertEquals(claims.getTokenType(), TokenType.PERSONAL);
     assertEquals(claims.getActorType(), ActorType.USER);
     assertEquals(claims.getActorId(), "datahub");
-    assertTrue(claims.getExpirationInMs().get() > System.currentTimeMillis());
+    assertTrue(claims.getExpirationInMs() > System.currentTimeMillis());
 
     Map<String, Object> claimsMap = claims.asMap();
     assertEquals(claimsMap.get(TOKEN_VERSION_CLAIM_NAME), 1);
@@ -55,7 +53,7 @@ public class StatelessTokenServiceTest {
     StatelessTokenService statelessTokenService = new StatelessTokenService(TEST_SIGNING_KEY, "HS256");
     String token = statelessTokenService.generateAccessToken(TokenType.PERSONAL,
             new Actor(ActorType.USER, "datahub"),
-            Optional.empty());
+            null);
     assertNotNull(token);
 
     // Verify token claims
@@ -65,7 +63,7 @@ public class StatelessTokenServiceTest {
     assertEquals(claims.getTokenType(), TokenType.PERSONAL);
     assertEquals(claims.getActorType(), ActorType.USER);
     assertEquals(claims.getActorId(), "datahub");
-    assertFalse(claims.getExpirationInMs().isPresent());
+    assertNull(claims.getExpirationInMs());
 
     Map<String, Object> claimsMap = claims.asMap();
     assertEquals(claimsMap.get(TOKEN_VERSION_CLAIM_NAME), 1);
@@ -87,7 +85,7 @@ public class StatelessTokenServiceTest {
     assertEquals(claims.getTokenType(), TokenType.SESSION);
     assertEquals(claims.getActorType(), ActorType.USER);
     assertEquals(claims.getActorId(), "datahub");
-    assertTrue(claims.getExpirationInMs().get() > System.currentTimeMillis());
+    assertTrue(claims.getExpirationInMs() > System.currentTimeMillis());
 
     Map<String, Object> claimsMap = claims.asMap();
     assertEquals(claimsMap.get(TOKEN_VERSION_CLAIM_NAME), 1);
@@ -97,23 +95,10 @@ public class StatelessTokenServiceTest {
   }
 
   @Test
-  public void testGenerateAccessTokenSessionTokenEternalFails() throws Exception {
-    StatelessTokenService statelessTokenService = new StatelessTokenService(TEST_SIGNING_KEY, "HS256");
-    try {
-      String token = statelessTokenService.generateAccessToken(TokenType.SESSION,
-              new Actor(ActorType.USER, "datahub"),
-              Optional.empty());
-    } catch (UnsupportedOperationException e) {
-      return;
-    }
-    fail();
-  }
-
-  @Test
   public void testValidateAccessTokenFailsDueToExpiration() {
     StatelessTokenService statelessTokenService = new StatelessTokenService(TEST_SIGNING_KEY, "HS256");
     // Generate token that expires immediately.
-    String token = statelessTokenService.generateAccessToken(TokenType.PERSONAL, new Actor(ActorType.USER, "datahub"), Optional.of(0L));
+    String token = statelessTokenService.generateAccessToken(TokenType.PERSONAL, new Actor(ActorType.USER, "datahub"), 0L);
     assertNotNull(token);
 
     // Validation should fail.

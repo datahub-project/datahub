@@ -8,19 +8,9 @@ public enum TokenType {
   /**
    * A UI-initiated session token
    */
-  SESSION(true),
+  SESSION,
   /**
    * A personal token for programmatic use
    */
-  PERSONAL(false);
-
-  private final boolean expirationMandatory;
-
-  private TokenType(boolean expirationMandatory) {
-    this.expirationMandatory = expirationMandatory;
-  }
-
-  public boolean isExpirationMandatory() {
-    return expirationMandatory;
-  }
+  PERSONAL;
 }

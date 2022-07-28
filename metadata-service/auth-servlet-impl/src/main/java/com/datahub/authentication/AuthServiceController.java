@@ -100,7 +100,7 @@ public class AuthServiceController {
           final String token = _statelessTokenService.generateAccessToken(
               TokenType.SESSION,
               new Actor(ActorType.USER, userId.asText()),
-              Optional.of(_configProvider.getAuthentication().getSessionTokenDurationMs()));
+              _configProvider.getAuthentication().getSessionTokenDurationMs());
           return new ResponseEntity<>(buildTokenResponse(token), HttpStatus.OK);
         } catch (Exception e) {
           log.error("Failed to generate session token for user", e);

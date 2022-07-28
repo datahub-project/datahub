@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 
 /**
@@ -45,14 +46,17 @@ public class TokenClaims {
    */
   private final String actorId;
 
-  private final Optional<Long> expirationInMs;
+  /**
+   * The expiration time in milliseconds if one exists, null otherwise.
+   */
+  private final Long expirationInMs;
 
   public TokenClaims(
           @Nonnull TokenVersion tokenVersion,
           @Nonnull TokenType tokenType,
           @Nonnull final ActorType actorType,
           @Nonnull final String actorId,
-          @Nonnull Optional<Long> expirationInMs) {
+          @Nullable Long expirationInMs) {
     Objects.requireNonNull(tokenVersion);
     Objects.requireNonNull(tokenType);
     Objects.requireNonNull(actorType);
@@ -86,9 +90,9 @@ public class TokenClaims {
   }
 
   /**
-   * Returns the type of an authenticated DataHub actor.
+   * Returns the expiration time in milliseconds if one exists, null otherwise.
    */
-  public Optional<Long> getExpirationInMs() {
+  public Long getExpirationInMs() {
     return this.expirationInMs;
   }
 
@@ -108,7 +112,7 @@ public class TokenClaims {
         TOKEN_TYPE_CLAIM_NAME, this.tokenType.toString(),
         ACTOR_TYPE_CLAIM_NAME, this.actorType.toString(),
         ACTOR_ID_CLAIM_NAME, this.actorId,
-        EXPIRATION_CLAIM, this.expirationInMs
+        EXPIRATION_CLAIM, Optional.ofNullable(this.expirationInMs)
     );
   }
 }

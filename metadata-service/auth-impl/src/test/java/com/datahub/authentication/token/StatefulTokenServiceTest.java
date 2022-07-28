@@ -13,8 +13,6 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import java.util.Date;
 import java.util.Map;
-import java.util.Optional;
-
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -55,7 +53,7 @@ public class StatefulTokenServiceTest {
     assertEquals(claims.getTokenType(), TokenType.PERSONAL);
     assertEquals(claims.getActorType(), ActorType.USER);
     assertEquals(claims.getActorId(), "datahub");
-    assertTrue(claims.getExpirationInMs().get() > System.currentTimeMillis());
+    assertTrue(claims.getExpirationInMs() > System.currentTimeMillis());
 
     Map<String, Object> claimsMap = claims.asMap();
     assertEquals(claimsMap.get(TOKEN_VERSION_CLAIM_NAME), 2);
@@ -69,7 +67,7 @@ public class StatefulTokenServiceTest {
     StatefulTokenService tokenService = new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
     Actor datahub = new Actor(ActorType.USER, "datahub");
     String token = tokenService.generateAccessToken(TokenType.PERSONAL, datahub,
-            Optional.empty(), System.currentTimeMillis(),
+            null, System.currentTimeMillis(),
             "some token",
             "A token description",
             datahub.toUrnStr());
@@ -82,7 +80,7 @@ public class StatefulTokenServiceTest {
     assertEquals(claims.getTokenType(), TokenType.PERSONAL);
     assertEquals(claims.getActorType(), ActorType.USER);
     assertEquals(claims.getActorId(), "datahub");
-    assertFalse(claims.getExpirationInMs().isPresent());
+    assertNull(claims.getExpirationInMs());
 
     Map<String, Object> claimsMap = claims.asMap();
     assertEquals(claimsMap.get(TOKEN_VERSION_CLAIM_NAME), 2);
@@ -108,7 +106,7 @@ public class StatefulTokenServiceTest {
     assertEquals(claims.getTokenType(), TokenType.SESSION);
     assertEquals(claims.getActorType(), ActorType.USER);
     assertEquals(claims.getActorId(), "datahub");
-    assertTrue(claims.getExpirationInMs().get() > System.currentTimeMillis());
+    assertTrue(claims.getExpirationInMs() > System.currentTimeMillis());
 
     Map<String, Object> claimsMap = claims.asMap();
     assertEquals(claimsMap.get(TOKEN_VERSION_CLAIM_NAME), 2);
@@ -118,29 +116,13 @@ public class StatefulTokenServiceTest {
   }
 
   @Test
-  public void testGenerateAccessTokenSessionTokenEternalFails() throws Exception {
-    StatefulTokenService tokenService = new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
-    Actor datahub = new Actor(ActorType.USER, "datahub");
-    try {
-      String token = tokenService.generateAccessToken(TokenType.SESSION, datahub,
-              Optional.empty(), System.currentTimeMillis(),
-              "some token",
-              "A token description",
-              datahub.toUrnStr());
-    } catch (UnsupportedOperationException e) {
-      return;
-    }
-    fail();
-  }
-
-  @Test
   public void testValidateAccessTokenFailsDueToExpiration() {
     StatefulTokenService tokenService = new StatefulTokenService(TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
     // Generate token that expires immediately.
     Date date = new Date();
     //This method returns the time in millis
     long createdAtInMs = date.getTime();
-    String token = tokenService.generateAccessToken(TokenType.PERSONAL, new Actor(ActorType.USER, "datahub"), Optional.of(0L),
+    String token = tokenService.generateAccessToken(TokenType.PERSONAL, new Actor(ActorType.USER, "datahub"), 0L,
         createdAtInMs, "token", "", "urn:li:corpuser:datahub");
     assertNotNull(token);
 

@@ -65,7 +65,7 @@ public class StatelessTokenService {
    *
    */
   public String generateAccessToken(@Nonnull final TokenType type, @Nonnull final Actor actor) {
-    return generateAccessToken(type, actor, Optional.of(DEFAULT_EXPIRES_IN_MS));
+    return generateAccessToken(type, actor, DEFAULT_EXPIRES_IN_MS);
   }
 
   /**
@@ -78,12 +78,10 @@ public class StatelessTokenService {
   public String generateAccessToken(
       @Nonnull final TokenType type,
       @Nonnull final Actor actor,
-      final Optional<Long> expiresInMs) {
+      @Nullable final Long expiresInMs) {
     Objects.requireNonNull(type);
     Objects.requireNonNull(actor);
-    if (type.isExpirationMandatory() && !expiresInMs.isPresent()) {
-      throw new UnsupportedOperationException("Expiration is mandatory for token of type " + type);
-    }
+
     Map<String, Object> claims = new HashMap<>();
     claims.put(TOKEN_VERSION_CLAIM_NAME, String.valueOf(TokenVersion.ONE.numericValue)); // Hardcode version 1 for now.
     claims.put(TOKEN_TYPE_CLAIM_NAME, type.toString());
@@ -98,7 +96,7 @@ public class StatelessTokenService {
    * Note that the caller of this method is expected to authorize the action of generating a token.
    */
   @Nonnull
-  public String generateAccessToken(@Nonnull final String sub, @Nonnull final Map<String, Object> claims, final Optional<Long> expiresInMs) {
+  public String generateAccessToken(@Nonnull final String sub, @Nonnull final Map<String, Object> claims, final Long expiresInMs) {
     Objects.requireNonNull(sub);
     Objects.requireNonNull(claims);
     final JwtBuilder builder = Jwts.builder()
@@ -106,8 +104,8 @@ public class StatelessTokenService {
       .setId(UUID.randomUUID().toString())
       .setSubject(sub);
 
-    if (expiresInMs.isPresent()) {
-      builder.setExpiration(new Date(System.currentTimeMillis() + expiresInMs.get()));
+    if (expiresInMs != null) {
+      builder.setExpiration(new Date(System.currentTimeMillis() + expiresInMs));
     }
     if (this.iss != null) {
       builder.setIssuer(this.iss);
@@ -143,7 +141,7 @@ public class StatelessTokenService {
               TokenType.valueOf(tokenType),
               ActorType.valueOf(actorType),
               actorId,
-              claims.getExpiration() == null ? Optional.empty() : Optional.of(claims.getExpiration().getTime()));
+              claims.getExpiration() == null ? null : claims.getExpiration().getTime());
       }
     } catch (io.jsonwebtoken.ExpiredJwtException e) {
       throw new TokenExpiredException("Failed to validate DataHub token. Token has expired.", e);

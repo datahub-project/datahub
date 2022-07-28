@@ -45,7 +45,7 @@ public class GetAccessTokenResolver implements DataFetcher<CompletableFuture<Acc
         final String actorUrn = input.getActorUrn();
         final Optional<Long> expiresInMs = AccessTokenUtil.mapDurationToMs(input.getDuration());
         final String accessToken =
-            _tokenService.generateAccessToken(type, createActor(input.getType(), actorUrn), expiresInMs);
+            _tokenService.generateAccessToken(type, createActor(input.getType(), actorUrn), expiresInMs.orElse(null));
         AccessToken result = new AccessToken();
         result.setAccessToken(accessToken);
         return result;
