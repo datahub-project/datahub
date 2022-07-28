@@ -122,11 +122,6 @@ public class CorpUserType implements SearchableEntityType<CorpUser, String>, Mut
     }
 
     @Override
-    public Class<CorpUserUpdateInput[]> arrayInputClass() {
-        return CorpUserUpdateInput[].class;
-    }
-
-    @Override
     public CorpUser update(@Nonnull String urn, @Nonnull CorpUserUpdateInput input, @Nonnull QueryContext context) throws Exception {
         if (isAuthorizedToUpdate(urn, input, context)) {
             // Get existing editable info to merge with

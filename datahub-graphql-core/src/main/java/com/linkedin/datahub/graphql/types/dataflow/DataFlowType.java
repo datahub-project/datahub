@@ -100,10 +100,6 @@ public class DataFlowType implements SearchableEntityType<DataFlow, String>, Bro
     }
 
     @Override
-    public Class<DataFlowUpdateInput[]> arrayInputClass() {
-        return DataFlowUpdateInput[].class;
-    }
-    @Override
     public List<DataFetcherResult<DataFlow>> batchLoad(final List<String> urnStrs, @Nonnull final QueryContext context)
         throws Exception {
         final List<Urn> urns = urnStrs.stream()

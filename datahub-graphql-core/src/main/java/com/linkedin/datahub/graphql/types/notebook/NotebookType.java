@@ -164,11 +164,6 @@ public class NotebookType implements SearchableEntityType<Notebook, String>, Bro
   }
 
   @Override
-  public Class<NotebookUpdateInput[]> arrayInputClass() {
-    return NotebookUpdateInput[].class;
-  }
-
-  @Override
   public Notebook update(@Nonnull String urn, @Nonnull NotebookUpdateInput input, @Nonnull QueryContext context)
       throws Exception {
     if (!isAuthorized(urn, input, context)) {

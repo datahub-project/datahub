@@ -2,7 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 
 import com.codahale.metrics.Timer;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.types.MutableType;
+import com.linkedin.datahub.graphql.types.BatchMutableType;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -21,30 +21,25 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
  * @param <I> the generated GraphQL POJO corresponding to the input type.
  * @param <T> the generated GraphQL POJO corresponding to the return type.
  */
-public class MutableTypeBatchResolver<I, T> implements DataFetcher<CompletableFuture<List<T>>> {
+public class MutableTypeBatchResolver<I, B, T> implements DataFetcher<CompletableFuture<List<T>>> {
 
   private static final Logger _logger = LoggerFactory.getLogger(MutableTypeBatchResolver.class.getName());
 
-  private final MutableType<I, T> _mutableType;
+  private final BatchMutableType<I, B, T> _batchMutableType;
 
-  public MutableTypeBatchResolver(final MutableType<I, T> mutableType) {
-    _mutableType = mutableType;
+  public MutableTypeBatchResolver(final BatchMutableType<I, B, T> batchMutableType) {
+    _batchMutableType = batchMutableType;
   }
 
   @Override
   public CompletableFuture<List<T>> get(DataFetchingEnvironment environment) throws Exception {
-    final String[] urns = bindArgument(environment.getArgument("urns"), String[].class);
-    final I[] inputs = bindArgument(environment.getArgument("inputs"), _mutableType.arrayInputClass());
-
-    if (urns.length != inputs.length) {
-      throw new IllegalArgumentException("Batch updates must contain as many URNs as inputs.");
-    }
+    final B[] input = bindArgument(environment.getArgument("input"), _batchMutableType.batchInputClass());
 
     return CompletableFuture.supplyAsync(() -> {
       Timer.Context timer = MetricUtils.timer(this.getClass(), "batchMutate").time();
 
       try {
-        return _mutableType.batchUpdate(urns, inputs, environment.getContext());
+        return _batchMutableType.batchUpdate(input, environment.getContext());
       } catch (AuthorizationException e) {
         throw e;
       } catch (Exception e) {

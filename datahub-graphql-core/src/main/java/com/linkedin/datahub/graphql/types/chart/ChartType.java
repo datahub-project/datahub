@@ -87,11 +87,6 @@ public class ChartType implements SearchableEntityType<Chart, String>, Browsable
     }
 
     @Override
-    public Class<ChartUpdateInput[]> arrayInputClass() {
-        return ChartUpdateInput[].class;
-    }
-
-    @Override
     public EntityType type() {
         return EntityType.CHART;
     }

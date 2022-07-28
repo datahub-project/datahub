@@ -88,11 +88,6 @@ public class DashboardType implements SearchableEntityType<Dashboard, String>, B
     }
 
     @Override
-    public Class<DashboardUpdateInput[]> arrayInputClass() {
-        return DashboardUpdateInput[].class;
-    }
-
-    @Override
     public EntityType type() {
         return EntityType.DASHBOARD;
     }
