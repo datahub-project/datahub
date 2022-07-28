@@ -145,11 +145,8 @@ function ConnectionRequest(props: Props) {
     }, [resultData, pollingInterval, loading]);
 
     useEffect(() => {
-        if (!isModalVisible) {
-            if (pollingInterval) {
-                clearInterval(pollingInterval);
-            }
-            setTestConnectionResult(null);
+        if (!isModalVisible && pollingInterval) {
+            clearInterval(pollingInterval);
         }
     }, [isModalVisible, pollingInterval]);
 
@@ -168,7 +165,6 @@ function ConnectionRequest(props: Props) {
                     );
                 });
 
-            console.log(createTestConnectionRequest);
             setIsLoading(true);
             setIsModalVisible(true);
         }
