@@ -119,7 +119,12 @@ export const EmbeddedListSearch = ({
         return refetch(variables);
     };
 
-    const { data, loading, error } = useGetSearchResults({
+    const {
+        data,
+        loading,
+        error,
+        refetch: realRefetch,
+    } = useGetSearchResults({
         variables: {
             input: {
                 types: entityFilters,
@@ -231,6 +236,7 @@ export const EmbeddedListSearch = ({
                 setIsSelectMode={setIsSelectMode}
                 selectedEntities={selectedEntities}
                 onChangeSelectAll={onChangeSelectAll}
+                refetch={realRefetch as any}
             />
             <EmbeddedListSearchResults
                 loading={loading}

@@ -142,6 +142,7 @@ export class ContainerEntity implements Entity<Container> {
                 domain={data.domain?.domain}
                 parentContainers={data.parentContainers}
                 externalUrl={data.properties?.externalUrl}
+                tags={data.tags}
             />
         );
     };
