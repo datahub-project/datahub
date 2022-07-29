@@ -25,7 +25,7 @@ export const BIGQUERY = 'bigquery';
 
 const bigqueryConfig: SourceConfig = {
     type: BIGQUERY,
-    placeholderRecipe,
+    placeholderRecipe: () => placeholderRecipe,
     displayName: 'BigQuery',
     docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/bigquery/',
     logoUrl: bigqueryLogo,

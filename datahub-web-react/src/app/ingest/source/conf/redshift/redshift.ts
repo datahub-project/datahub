@@ -27,7 +27,7 @@ export const REDSHIFT = 'redshift';
 
 const redshiftConfig: SourceConfig = {
     type: REDSHIFT,
-    placeholderRecipe,
+    placeholderRecipe: () => placeholderRecipe,
     displayName: 'Redshift',
     docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/redshift/',
     logoUrl: redshiftLogo,

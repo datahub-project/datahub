@@ -1,6 +1,7 @@
 import { Alert, Button, message, Space, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+import { v4 as uuidv4 } from 'uuid';
 import { StepProps } from './types';
 import { getSourceConfigs, jsonToYaml, yamlToJson } from '../utils';
 import { YamlEditor } from './YamlEditor';
@@ -42,7 +43,9 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
     const { type } = state;
     const sourceConfigs = getSourceConfigs(type as string);
 
-    const [stagedRecipeYml, setStagedRecipeYml] = useState(existingRecipeYaml || sourceConfigs.placeholderRecipe);
+    const [stagedRecipeYml, setStagedRecipeYml] = useState(
+        existingRecipeYaml || sourceConfigs.placeholderRecipe({ pipelineName: uuidv4() }),
+    );
 
     useEffect(() => {
         if (existingRecipeYaml) {
@@ -53,7 +56,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
     const [stepComplete, setStepComplete] = useState(false);
 
     const isEditing: boolean = prev === undefined;
-    const displayRecipe = stagedRecipeYml || sourceConfigs.placeholderRecipe;
+    const displayRecipe = stagedRecipeYml || sourceConfigs.placeholderRecipe({ pipelineName: uuidv4() });
     const sourceDisplayName = sourceConfigs.displayName;
     const sourceDocumentationUrl = sourceConfigs.docsUrl; // Maybe undefined (in case of "custom")
 

@@ -25,7 +25,7 @@ source:
 
 const kafkaConfig: SourceConfig = {
     type: 'kafka',
-    placeholderRecipe,
+    placeholderRecipe: () => placeholderRecipe,
     displayName: 'Kafka',
     docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/kafka/',
     logoUrl: kafkaLogo,

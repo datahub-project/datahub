@@ -48,7 +48,7 @@ export const SOURCE_TEMPLATE_CONFIGS: Array<SourceConfig> = [
     hiveConfig,
     {
         type: 'custom',
-        placeholderRecipe: DEFAULT_PLACEHOLDER_RECIPE,
+        placeholderRecipe: () => DEFAULT_PLACEHOLDER_RECIPE,
         displayName: 'Custom',
         docsUrl: 'https://datahubproject.io/docs/metadata-ingestion/',
         logoComponent: <FormOutlined style={{ color: ANTD_GRAY[8], fontSize: 28 }} />,

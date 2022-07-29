@@ -25,7 +25,7 @@ source:
 
 const postgresConfig: SourceConfig = {
     type: 'postgres',
-    placeholderRecipe,
+    placeholderRecipe: () => placeholderRecipe,
     displayName: 'Postgres',
     docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/postgres/',
     logoUrl: postgresLogo,

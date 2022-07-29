@@ -33,7 +33,7 @@ source:
 
 const oktaConfig: SourceConfig = {
     type: 'okta',
-    placeholderRecipe,
+    placeholderRecipe: () => placeholderRecipe,
     displayName: 'Okta',
     docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/okta',
     logoUrl: oktaLogo,

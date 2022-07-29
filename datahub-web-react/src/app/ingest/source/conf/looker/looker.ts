@@ -18,7 +18,7 @@ export const LOOKER = 'looker';
 
 const lookerConfig: SourceConfig = {
     type: LOOKER,
-    placeholderRecipe,
+    placeholderRecipe: () => placeholderRecipe,
     displayName: 'Looker',
     docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/looker/',
     logoUrl: lookerLogo,
