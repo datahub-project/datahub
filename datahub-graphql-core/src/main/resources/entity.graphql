@@ -3566,7 +3566,15 @@ input DatasetUpdateInput {
 Arguments provided to batch update Dataset entities
 """
 input BatchDatasetUpdateInput {
+
+    """
+    Primary key of the Dataset to which the update will be applied
+    """
     urn: String!
+
+    """
+    Arguments provided to update the Dataset
+    """
     update: DatasetUpdateInput!
 }
 
