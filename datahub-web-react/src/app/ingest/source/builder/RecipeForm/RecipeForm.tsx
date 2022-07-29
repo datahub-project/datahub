@@ -7,7 +7,7 @@ import styled from 'styled-components/macro';
 import { jsonToYaml } from '../../utils';
 import { RecipeField, RECIPE_FIELDS, setFieldValueOnRecipe } from './utils';
 import FormField from './FormField';
-import TestConnectionButton from './TestConnectionButton';
+import TestConnectionButton from './TestConnection/TestConnectionButton';
 import { SNOWFLAKE } from '../../conf/snowflake/snowflake';
 
 export const ControlsContainer = styled.div`
@@ -118,7 +118,7 @@ function RecipeForm(props: Props) {
                     ))}
                     {type === SNOWFLAKE && (
                         <TestConnectionWrapper>
-                            <TestConnectionButton recipe={displayRecipe} />
+                            <TestConnectionButton type={type} recipe={displayRecipe} />
                         </TestConnectionWrapper>
                     )}
                 </Collapse.Panel>
