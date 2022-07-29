@@ -96,7 +96,10 @@ public class StatelessTokenService {
    * Note that the caller of this method is expected to authorize the action of generating a token.
    */
   @Nonnull
-  public String generateAccessToken(@Nonnull final String sub, @Nonnull final Map<String, Object> claims, final Long expiresInMs) {
+  public String generateAccessToken(
+      @Nonnull final String sub,
+      @Nonnull final Map<String, Object> claims,
+      @Nullable final Long expiresInMs) {
     Objects.requireNonNull(sub);
     Objects.requireNonNull(claims);
     final JwtBuilder builder = Jwts.builder()
