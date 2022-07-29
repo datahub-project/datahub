@@ -194,7 +194,7 @@ public class DatasetType implements SearchableEntityType<Dataset, String>, Brows
 
     @Override
     public List<Dataset> batchUpdate(@Nonnull BatchDatasetUpdateInput[] input, @Nonnull QueryContext context) throws Exception {
-        final CorpuserUrn actor = CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
+        final Urn actor = Urn.createFromString(context.getAuthentication().getActor().toUrnStr());
 
         final Collection<MetadataChangeProposal> proposals = Arrays.stream(input).map(updateInput -> {
             if (isAuthorized(updateInput.getUrn(), updateInput.getUpdate(), context)) {
