@@ -365,11 +365,7 @@ def _schema_fields_from_dag(
 
     if generations and generations[0]:
         roots = generations[0]
-        leafs: List = []
-        for node in graph:
-            if graph.out_degree(node) == 0:
-                leafs.append(node)
-
+        leafs: List = [node for node in graph if graph.out_degree(node) == 0]
         type_of_nodes: Dict = nx.get_node_attributes(graph, "node_type")
 
         for root in roots:

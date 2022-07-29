@@ -115,6 +115,13 @@
       } ],
       "returns" : "com.linkedin.metadata.run.DeleteReferencesResponse"
     }, {
+      "name" : "exists",
+      "parameters" : [ {
+        "name" : "urn",
+        "type" : "string"
+      } ],
+      "returns" : "boolean"
+    }, {
       "name" : "filter",
       "parameters" : [ {
         "name" : "entity",

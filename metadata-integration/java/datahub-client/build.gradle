@@ -66,7 +66,6 @@ if (project.hasProperty("releaseVersion")) {
   try {
       // apply this plugin in a try-catch block so that we can handle cases without .git directory
       apply plugin: "com.palantir.git-version"
-      println("In else section")
       def details = versionDetails()
       detailedVersionString = gitVersion()
       version = details.lastTag

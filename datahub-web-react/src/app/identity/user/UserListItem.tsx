@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, Dropdown, List, Menu, message, Modal, Tag, Tooltip, Typography } from 'antd';
+import { Dropdown, List, Menu, Tag, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import { DeleteOutlined, MoreOutlined, UnlockOutlined } from '@ant-design/icons';
 import { CorpUser, CorpUserStatus, EntityType } from '../../../types.generated';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { useRemoveUserMutation } from '../../../graphql/user.generated';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../entity/shared/constants';
 import ViewResetTokenModal from './ViewResetTokenModal';
+import useDeleteEntity from '../../entity/shared/EntityDropdown/useDeleteEntity';
 
 type Props = {
     user: CorpUser;
@@ -36,6 +36,15 @@ const ButtonGroup = styled.div`
     align-items: center;
 `;
 
+const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: ${(props) => props.fontSize || '24'}px;
+    height: 32px;
+    margin-left: 5px;
+`;
+
 export default function UserListItem({ user, canManageUserCredentials, onDelete }: Props) {
     const entityRegistry = useEntityRegistry();
     const [isViewingResetToken, setIsViewingResetToken] = useState(false);
@@ -43,36 +52,7 @@ export default function UserListItem({ user, canManageUserCredentials, onDelete 
     const isNativeUser: boolean = user.isNativeUser as boolean;
     const shouldShowPasswordReset: boolean = canManageUserCredentials && isNativeUser;
 
-    const [removeUserMutation] = useRemoveUserMutation();
-
-    const onRemoveUser = async (urn: string) => {
-        try {
-            await removeUserMutation({
-                variables: { urn },
-            });
-            message.success({ content: 'Removed user.', duration: 2 });
-        } catch (e: unknown) {
-            message.destroy();
-            if (e instanceof Error) {
-                message.error({ content: `Failed to remove user: \n ${e.message || ''}`, duration: 3 });
-            }
-        }
-        onDelete?.();
-    };
-
-    const handleRemoveUser = (urn: string) => {
-        Modal.confirm({
-            title: `Confirm User Removal`,
-            content: `Are you sure you want to remove this user? Note that if you have SSO auto provisioning enabled, this user will be created when they log in again.`,
-            onOk() {
-                onRemoveUser(urn);
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    };
+    const { onDeleteEntity } = useDeleteEntity(user.urn, EntityType.CorpUser, user, onDelete);
 
     const getUserStatusToolTip = (userStatus: CorpUserStatus) => {
         switch (userStatus) {
@@ -130,14 +110,14 @@ export default function UserListItem({ user, canManageUserCredentials, onDelete 
                             <Menu.Item disabled={!shouldShowPasswordReset} onClick={() => setIsViewingResetToken(true)}>
                                 <UnlockOutlined /> &nbsp; Reset user password
                             </Menu.Item>
+                            <Menu.Item onClick={onDeleteEntity}>
+                                <DeleteOutlined /> &nbsp;Delete
+                            </Menu.Item>
                         </Menu>
                     }
                 >
-                    <MoreOutlined />
+                    <MenuIcon fontSize={20} />
                 </Dropdown>
-                <Button onClick={() => handleRemoveUser(user.urn)} type="text" shape="circle" danger>
-                    <DeleteOutlined />
-                </Button>
             </ButtonGroup>
             <ViewResetTokenModal
                 visible={isViewingResetToken}

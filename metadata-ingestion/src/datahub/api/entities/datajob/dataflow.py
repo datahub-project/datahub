@@ -142,7 +142,7 @@ class DataFlow:
         """
         Emit the DataFlow entity to Datahub
 
-        :param emitter: Datahub Emitter to emit the proccess event
+        :param emitter: Datahub Emitter to emit the process event
         :param callback: (Optional[Callable[[Exception, str], None]]) the callback method for KafkaEmitter if it is used
         """
         for mcp in self.generate_mcp():

@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.corpuser.mappers;
 
 import com.linkedin.common.GlobalTags;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.generated.CorpUser;
@@ -36,6 +37,8 @@ public class CorpUserMapper implements ModelMapper<EntityResponse, CorpUser> {
     @Override
     public CorpUser apply(@Nonnull final EntityResponse entityResponse) {
         final CorpUser result = new CorpUser();
+        Urn entityUrn = entityResponse.getUrn();
+
         result.setUrn(entityResponse.getUrn().toString());
         result.setType(EntityType.CORP_USER);
         EnvelopedAspectMap aspectMap = entityResponse.getAspects();
@@ -45,7 +48,7 @@ public class CorpUserMapper implements ModelMapper<EntityResponse, CorpUser> {
         mappingHelper.mapToResult(CORP_USER_EDITABLE_INFO_ASPECT_NAME, (corpUser, dataMap) ->
             corpUser.setEditableProperties(CorpUserEditableInfoMapper.map(new CorpUserEditableInfo(dataMap))));
         mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, (corpUser, dataMap) ->
-            corpUser.setGlobalTags(GlobalTagsMapper.map(new GlobalTags(dataMap))));
+            corpUser.setGlobalTags(GlobalTagsMapper.map(new GlobalTags(dataMap), entityUrn)));
         mappingHelper.mapToResult(CORP_USER_STATUS_ASPECT_NAME,
             (corpUser, dataMap) -> corpUser.setStatus(CorpUserStatusMapper.map(new CorpUserStatus(dataMap))));
         mappingHelper.mapToResult(CORP_USER_CREDENTIALS_ASPECT_NAME, this::mapIsNativeUser);

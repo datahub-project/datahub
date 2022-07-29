@@ -8,7 +8,7 @@ import { SidebarHeader } from '../SidebarHeader';
 import { AddOwnersModal } from './AddOwnersModal';
 
 export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
-    const { urn, entityType, entityData } = useEntityData();
+    const { entityType, entityData } = useEntityData();
     const mutationUrn = useMutationUrn();
 
     const refetch = useRefetch();
@@ -20,7 +20,12 @@ export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
             <SidebarHeader title="Owners" />
             <div>
                 {entityData?.ownership?.owners?.map((owner) => (
-                    <ExpandedOwner key={owner.owner.urn} entityUrn={urn} owner={owner} refetch={refetch} />
+                    <ExpandedOwner
+                        key={owner.owner.urn}
+                        entityUrn={owner.associatedUrn || mutationUrn}
+                        owner={owner}
+                        refetch={refetch}
+                    />
                 ))}
                 {ownersEmpty && (
                     <Typography.Paragraph type="secondary">
@@ -32,17 +37,18 @@ export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
                     <PlusOutlined /> Add Owners
                 </Button>
             </div>
-            <AddOwnersModal
-                urn={mutationUrn}
-                defaultOwnerType={properties?.defaultOwnerType}
-                hideOwnerType={properties?.hideOwnerType || false}
-                type={entityType}
-                visible={showAddModal}
-                refetch={refetch}
-                onCloseModal={() => {
-                    setShowAddModal(false);
-                }}
-            />
+            {showAddModal && (
+                <AddOwnersModal
+                    urn={mutationUrn}
+                    defaultOwnerType={properties?.defaultOwnerType}
+                    hideOwnerType={properties?.hideOwnerType || false}
+                    type={entityType}
+                    refetch={refetch}
+                    onCloseModal={() => {
+                        setShowAddModal(false);
+                    }}
+                />
+            )}
         </div>
     );
 };

@@ -6,6 +6,7 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import { Container } from '../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../constants';
 import ContainerLink from './ContainerLink';
+import { capitalizeFirstLetterOnly } from '../../../../../../shared/textUtil';
 
 const LogoIcon = styled.span`
     display: flex;
@@ -119,7 +120,7 @@ function PlatformContentView(props: Props) {
     return (
         <PlatformContentWrapper>
             {typeIcon && <LogoIcon>{typeIcon}</LogoIcon>}
-            <PlatformText>{entityType}</PlatformText>
+            <PlatformText>{capitalizeFirstLetterOnly(entityType)}</PlatformText>
             {(!!platformName || !!instanceId || !!parentContainers?.length) && <PlatformDivider />}
             {platformName && (
                 <LogoIcon>
@@ -127,12 +128,12 @@ function PlatformContentView(props: Props) {
                     {!!platformLogoUrl && !platformLogoUrls && (
                         <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />
                     )}
-                    {!!platformLogoUrls && (
-                        <>
-                            <PreviewImage preview={false} src={platformLogoUrls[0] || ''} alt={platformName} />
-                            <PreviewImage preview={false} src={platformLogoUrls[1] || ''} alt={platformName} />
-                        </>
-                    )}
+                    {!!platformLogoUrls &&
+                        platformLogoUrls.slice(0, 2).map((platformLogoUrlsEntry) => (
+                            <>
+                                <PreviewImage preview={false} src={platformLogoUrlsEntry || ''} alt={platformName} />
+                            </>
+                        ))}
                 </LogoIcon>
             )}
             <PlatformText>

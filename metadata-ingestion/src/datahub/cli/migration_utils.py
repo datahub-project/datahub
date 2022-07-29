@@ -218,8 +218,8 @@ def modify_urn_list_for_aspect(
     new_urn: str,
 ) -> DictWrapper:
 
-    if hasattr(UrnListModifier, aspect_name + "_modifier"):
-        modifier = getattr(UrnListModifier, aspect_name + "_modifier")
+    if hasattr(UrnListModifier, f"{aspect_name}_modifier"):
+        modifier = getattr(UrnListModifier, f"{aspect_name}_modifier")
         return modifier(
             aspect=aspect,
             relationship_type=relationship_type,

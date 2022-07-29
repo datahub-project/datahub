@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from json.decoder import JSONDecodeError
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, Iterable, List, Optional, Type
 
 from avro.schema import RecordSchema
 from deprecated import deprecated
@@ -15,6 +15,7 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
+    DomainsClass,
     GlobalTagsClass,
     GlossaryTermsClass,
     OwnershipClass,
@@ -196,6 +197,13 @@ class DataHubGraph(DatahubRestEmitter):
             aspect_type=GlossaryTermsClass,
         )
 
+    def get_domain(self, entity_urn: str) -> Optional[DomainsClass]:
+        return self.get_aspect_v2(
+            entity_urn=entity_urn,
+            aspect="domains",
+            aspect_type=DomainsClass,
+        )
+
     def get_usage_aspects_from_urn(
         self, entity_urn: str, start_timestamp: int, end_timestamp: int
     ) -> Optional[List[DatasetUsageStatisticsClass]]:
@@ -287,3 +295,137 @@ class DataHubGraph(DatahubRestEmitter):
                     f"Failed to find {aspect_type} in response {aspect_json}"
                 )
         return None
+
+    def get_aspects_for_entity(
+        self,
+        entity_urn: str,
+        aspects: List[str],
+        aspect_types: List[Type[Aspect]],
+    ) -> Optional[Dict[str, Optional[Aspect]]]:
+        """
+        Get multiple aspects for an entity. To get a single aspect for an entity, use the `get_aspect_v2` method.
+        Warning: Do not use this method to determine if an entity exists!
+        This method will always return an entity, even if it doesn't exist. This is an issue with how DataHub server
+        responds to these calls, and will be fixed automatically when the server-side issue is fixed.
+
+        :param str entity_urn: The urn of the entity
+        :param List[Type[Aspect]] aspect_type_list: List of aspect type classes being requested (e.g. [datahub.metadata.schema_classes.DatasetProperties])
+        :param List[str] aspects_list: List of aspect names being requested (e.g. [schemaMetadata, datasetProperties])
+        :return: Optionally, a map of aspect_name to aspect_value as a dictionary if present, aspect_value will be set to None if that aspect was not found. Returns None on HTTP status 404.
+        :rtype: Optional[Dict[str, Optional[Aspect]]]
+        :raises HttpError: if the HTTP response is not a 200 or a 404
+        """
+        assert len(aspects) == len(
+            aspect_types
+        ), f"number of aspects requested ({len(aspects)}) should be the same as number of aspect types provided ({len(aspect_types)})"
+        aspects_list = ",".join(aspects)
+        url: str = f"{self._gms_server}/entitiesV2/{Urn.url_encode(entity_urn)}?aspects=List({aspects_list})"
+
+        response = self._session.get(url)
+        if response.status_code == 404:
+            # not found
+            return None
+        response.raise_for_status()
+        response_json = response.json()
+
+        result: Dict[str, Optional[Aspect]] = {}
+        for aspect_type in aspect_types:
+            record_schema: RecordSchema = aspect_type.__getattribute__(
+                aspect_type, "RECORD_SCHEMA"
+            )
+            if not record_schema:
+                logger.warning(
+                    f"Failed to infer type name of the aspect from the aspect type class {aspect_type}. Continuing, but this will fail."
+                )
+            else:
+                aspect_type_name = record_schema.props["Aspect"]["name"]
+            aspect_json = response_json.get("aspects", {}).get(aspect_type_name)
+            if aspect_json:
+                # need to apply a transform to the response to match rest.li and avro serialization
+                post_json_obj = post_json_transform(aspect_json)
+                result[aspect_type_name] = aspect_type.from_obj(post_json_obj["value"])
+            else:
+                result[aspect_type_name] = None
+
+        return result
+
+    def _get_search_endpoint(self):
+        return f"{self.config.server}/entities?action=search"
+
+    def get_domain_urn_by_name(self, domain_name: str) -> Optional[str]:
+        """Retrieve a domain urn based on its name. Returns None if there is no match found"""
+
+        filters = []
+        filter_criteria = [
+            {
+                "field": "name",
+                "value": domain_name,
+                "condition": "EQUAL",
+            }
+        ]
+
+        filters.append({"and": filter_criteria})
+        search_body = {
+            "input": "*",
+            "entity": "domain",
+            "start": 0,
+            "count": 10,
+            "filter": {"or": filters},
+        }
+        results: Dict = self._post_generic(self._get_search_endpoint(), search_body)
+        num_entities = results.get("value", {}).get("numEntities", 0)
+        if num_entities > 1:
+            logger.warning(
+                f"Got {num_entities} results for domain name {domain_name}. Will return the first match."
+            )
+        entities_yielded: int = 0
+        entities = []
+        for x in results["value"]["entities"]:
+            entities_yielded += 1
+            logger.debug(f"yielding {x['entity']}")
+            entities.append(x["entity"])
+        return entities[0] if entities_yielded else None
+
+    def get_container_urns_by_filter(
+        self,
+        env: Optional[str] = None,
+        search_query: str = "*",
+    ) -> Iterable[str]:
+        """Return container urns that match based on query"""
+        url = self._get_search_endpoint()
+
+        container_filters = []
+        for container_subtype in ["Database", "Schema", "Project", "Dataset"]:
+            filter_criteria = []
+
+            filter_criteria.append(
+                {
+                    "field": "customProperties",
+                    "value": f"instance={env}",
+                    "condition": "EQUAL",
+                }
+            )
+
+            filter_criteria.append(
+                {
+                    "field": "typeNames",
+                    "value": container_subtype,
+                    "condition": "EQUAL",
+                }
+            )
+            container_filters.append({"and": filter_criteria})
+        search_body = {
+            "input": search_query,
+            "entity": "container",
+            "start": 0,
+            "count": 10000,
+            "filter": {"or": container_filters},
+        }
+        results: Dict = self._post_generic(url, search_body)
+        num_entities = results["value"]["numEntities"]
+        logger.debug(f"Matched {num_entities} containers")
+        entities_yielded: int = 0
+        for x in results["value"]["entities"]:
+            entities_yielded += 1
+            logger.debug(f"yielding {x['entity']}")
+            yield x["entity"]

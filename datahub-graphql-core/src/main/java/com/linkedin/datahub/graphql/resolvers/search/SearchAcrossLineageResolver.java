@@ -15,6 +15,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -59,7 +60,8 @@ public class SearchAcrossLineageResolver
 
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
-    final Integer maxHops = getMaxHops(input.getFilters());
+    final List<FacetFilterInput> filters = input.getFilters() != null ? input.getFilters() : new ArrayList<>();
+    final Integer maxHops = getMaxHops(filters);
 
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
@@ -67,18 +69,18 @@ public class SearchAcrossLineageResolver
       try {
         log.debug(
             "Executing search across relationships: source urn {}, direction {}, entity types {}, query {}, filters: {}, start: {}, count: {}",
-            urn, resolvedDirection, input.getTypes(), input.getQuery(), input.getFilters(), start, count);
+            urn, resolvedDirection, input.getTypes(), input.getQuery(), filters, start, count);
         return UrnSearchAcrossLineageResultsMapper.map(
             _entityClient.searchAcrossLineage(urn, resolvedDirection, entityNames, sanitizedQuery,
-                maxHops, ResolverUtils.buildFilter(input.getFilters()), null, start, count,
+                maxHops, ResolverUtils.buildFilter(filters), null, start, count,
                 ResolverUtils.getAuthentication(environment)));
       } catch (RemoteInvocationException e) {
         log.error(
             "Failed to execute search across relationships: source urn {}, direction {}, entity types {}, query {}, filters: {}, start: {}, count: {}",
-            urn, resolvedDirection, input.getTypes(), input.getQuery(), input.getFilters(), start, count);
+            urn, resolvedDirection, input.getTypes(), input.getQuery(), filters, start, count);
         throw new RuntimeException("Failed to execute search across relationships: " + String.format(
             "source urn %s, direction %s, entity types %s, query %s, filters: %s, start: %s, count: %s", urn,
-            resolvedDirection, input.getTypes(), input.getQuery(), input.getFilters(), start, count), e);
+            resolvedDirection, input.getTypes(), input.getQuery(), filters, start, count), e);
       }
     });
   }

@@ -47,7 +47,7 @@ def emitAssertionResult(assertionResult: AssertionRunEvent) -> None:
         aspect=assertionResult,
     )
 
-    # Emit BatchAssertion Result! (timseries aspect)
+    # Emit BatchAssertion Result! (timeseries aspect)
     emitter.emit_mcp(dataset_assertionRunEvent_mcp)
 
 

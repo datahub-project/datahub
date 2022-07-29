@@ -1,24 +1,23 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureTableProperties;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
-import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
-import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import lombok.NonNull;
 
 import java.util.stream.Collectors;
 
-public class MLFeatureTablePropertiesMapper implements ModelMapper<com.linkedin.ml.metadata.MLFeatureTableProperties, MLFeatureTableProperties> {
+public class MLFeatureTablePropertiesMapper {
 
     public static final MLFeatureTablePropertiesMapper INSTANCE = new MLFeatureTablePropertiesMapper();
 
-    public static MLFeatureTableProperties map(@NonNull final com.linkedin.ml.metadata.MLFeatureTableProperties mlFeatureTableProperties) {
-        return INSTANCE.apply(mlFeatureTableProperties);
+    public static MLFeatureTableProperties map(@NonNull final com.linkedin.ml.metadata.MLFeatureTableProperties mlFeatureTableProperties, Urn entityUrn) {
+        return INSTANCE.apply(mlFeatureTableProperties, entityUrn);
     }
 
-    @Override
-    public MLFeatureTableProperties apply(@NonNull final com.linkedin.ml.metadata.MLFeatureTableProperties mlFeatureTableProperties) {
+    public MLFeatureTableProperties apply(@NonNull final com.linkedin.ml.metadata.MLFeatureTableProperties mlFeatureTableProperties, Urn entityUrn) {
         final MLFeatureTableProperties result = new MLFeatureTableProperties();
 
         result.setDescription(mlFeatureTableProperties.getDescription());
@@ -43,7 +42,7 @@ public class MLFeatureTablePropertiesMapper implements ModelMapper<com.linkedin.
         }
 
         if (mlFeatureTableProperties.hasCustomProperties()) {
-            result.setCustomProperties(StringMapMapper.map(mlFeatureTableProperties.getCustomProperties()));
+            result.setCustomProperties(CustomPropertiesMapper.map(mlFeatureTableProperties.getCustomProperties(), entityUrn));
         }
 
         return result;

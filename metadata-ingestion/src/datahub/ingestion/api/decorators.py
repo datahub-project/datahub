@@ -3,7 +3,7 @@ from enum import Enum, auto
 from typing import Callable, Dict, Optional, Type
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import Source
+from datahub.ingestion.api.source import Source, SourceCapability
 
 
 def config_class(config_cls: Type) -> Callable[[Type], Type]:
@@ -37,8 +37,9 @@ def platform_name(
         setattr(
             cls,
             "get_platform_id",
-            lambda: id if id else platform_name.lower().replace(" ", "-"),
+            lambda: id or platform_name.lower().replace(" ", "-"),
         )
+
         return cls
 
     if id and " " in id:
@@ -56,7 +57,7 @@ class SupportStatus(Enum):
     """
     INCUBATING = auto()
     """
-    Incubating Sources are ready for DataHub Community adoption but have not been tested for a wide variety of edge-cases. We eagerly solicit feedback from the Community to streghten the connector; minor version changes may arise in future releases.
+    Incubating Sources are ready for DataHub Community adoption but have not been tested for a wide variety of edge-cases. We eagerly solicit feedback from the Community to strengthen the connector; minor version changes may arise in future releases.
     """
     TESTING = auto()
     """
@@ -78,20 +79,6 @@ def support_status(
         return cls
 
     return wrapper
-
-
-class SourceCapability(Enum):
-    PLATFORM_INSTANCE = "Platform Instance"
-    DOMAINS = "Domains"
-    DATA_PROFILING = "Data Profiling"
-    USAGE_STATS = "Dataset Usage"
-    PARTITION_SUPPORT = "Partition Support"
-    DESCRIPTIONS = "Descriptions"
-    LINEAGE_COARSE = "Table-Level Lineage"
-    LINEAGE_FINE = "Column-level Lineage"
-    OWNERSHIP = "Extract Ownership"
-    DELETION_DETECTION = "Detect Deleted Entities"
-    TAGS = "Extract Tags"
 
 
 @dataclass

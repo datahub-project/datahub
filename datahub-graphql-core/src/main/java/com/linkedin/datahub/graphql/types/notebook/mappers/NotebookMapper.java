@@ -7,12 +7,12 @@ import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.SubTypes;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.ChartCell;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
-import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Notebook;
 import com.linkedin.datahub.graphql.generated.NotebookCell;
@@ -28,8 +28,9 @@ import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAsp
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
-import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
@@ -54,23 +55,28 @@ public class NotebookMapper implements ModelMapper<EntityResponse, Notebook> {
   @Override
   public Notebook apply(EntityResponse response) {
     final Notebook convertedNotebook = new Notebook();
+    Urn entityUrn = response.getUrn();
+
     convertedNotebook.setUrn(response.getUrn().toString());
     convertedNotebook.setType(EntityType.NOTEBOOK);
     EnvelopedAspectMap aspectMap = response.getAspects();
     MappingHelper<Notebook> mappingHelper = new MappingHelper<>(aspectMap, convertedNotebook);
     mappingHelper.mapToResult(NOTEBOOK_KEY_ASPECT_NAME, this::mapNotebookKey);
-    mappingHelper.mapToResult(NOTEBOOK_INFO_ASPECT_NAME, this::mapNotebookInfo);
+    mappingHelper.mapToResult(NOTEBOOK_INFO_ASPECT_NAME, (entity, dataMap) -> this.mapNotebookInfo(entity, dataMap, entityUrn));
     mappingHelper.mapToResult(NOTEBOOK_CONTENT_ASPECT_NAME, this::mapNotebookContent);
     mappingHelper.mapToResult(EDITABLE_NOTEBOOK_PROPERTIES_ASPECT_NAME, this::mapEditableNotebookProperties);
-    mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (notebook, dataMap) -> notebook.setOwnership(OwnershipMapper.map(new Ownership(dataMap))));
+    mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (notebook, dataMap) -> notebook.setOwnership(
+        OwnershipMapper.map(new Ownership(dataMap), entityUrn)
+    ));
     mappingHelper.mapToResult(STATUS_ASPECT_NAME, (notebook, dataMap) -> notebook.setStatus(StatusMapper.map(new Status(dataMap))));
-    mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, (notebook, dataMap) -> notebook.setTags(GlobalTagsMapper.map(new GlobalTags(dataMap))));
+    mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, (notebook, dataMap) ->
+        notebook.setTags(GlobalTagsMapper.map(new GlobalTags(dataMap), entityUrn)));
     mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (notebook, dataMap) -> 
       notebook.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
     mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
     mappingHelper.mapToResult(SUB_TYPES_ASPECT_NAME, this::mapSubTypes);
     mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (notebook, dataMap) -> 
-      notebook.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap))));
+      notebook.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap), entityUrn)));
     mappingHelper.mapToResult(DATA_PLATFORM_INSTANCE_ASPECT_NAME, this::mapDataPlatformInstance);
     return mappingHelper.getResult();
   }
@@ -100,7 +106,7 @@ public class NotebookMapper implements ModelMapper<EntityResponse, Notebook> {
     notebook.setTool(notebookKey.getNotebookTool());
   }
 
-  private void mapNotebookInfo(@Nonnull Notebook notebook, @Nonnull DataMap dataMap) {
+  private void mapNotebookInfo(@Nonnull Notebook notebook, @Nonnull DataMap dataMap, Urn entityUrn) {
     final com.linkedin.notebook.NotebookInfo gmsNotebookInfo = new com.linkedin.notebook.NotebookInfo(dataMap);
     final NotebookInfo notebookInfo = new NotebookInfo();
     notebookInfo.setTitle(gmsNotebookInfo.getTitle());
@@ -112,7 +118,7 @@ public class NotebookMapper implements ModelMapper<EntityResponse, Notebook> {
     }
 
     if (gmsNotebookInfo.hasCustomProperties()) {
-      notebookInfo.setCustomProperties(StringMapMapper.map(gmsNotebookInfo.getCustomProperties()));
+      notebookInfo.setCustomProperties(CustomPropertiesMapper.map(gmsNotebookInfo.getCustomProperties(), entityUrn));
     }
     notebook.setInfo(notebookInfo);
   }
@@ -188,10 +194,6 @@ public class NotebookMapper implements ModelMapper<EntityResponse, Notebook> {
   private void mapDomains(@Nonnull Notebook notebook, @Nonnull DataMap dataMap) {
     final Domains domains = new Domains(dataMap);
     // Currently we only take the first domain if it exists.
-    if (domains.getDomains().size() > 0) {
-      notebook.setDomain(Domain.builder()
-          .setType(EntityType.DOMAIN)
-          .setUrn(domains.getDomains().get(0).toString()).build());
-    }
+    notebook.setDomain(DomainAssociationMapper.map(domains, notebook.getUrn()));
   }
 }
