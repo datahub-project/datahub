@@ -1,6 +1,7 @@
 package com.linkedin.metadata.models.registry;
 
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import java.util.ArrayList;
@@ -25,9 +26,11 @@ import org.apache.commons.lang3.tuple.Triple;
 public class LineageRegistry {
 
   private final Map<String, LineageSpec> _lineageSpecMap;
+  private final EntityRegistry _entityRegistry;
 
   public LineageRegistry(EntityRegistry entityRegistry) {
     _lineageSpecMap = buildLineageSpecs(entityRegistry);
+    _entityRegistry = entityRegistry;
   }
 
   private Map<String, LineageSpec> buildLineageSpecs(EntityRegistry entityRegistry) {
@@ -84,6 +87,12 @@ public class LineageRegistry {
 
   public LineageSpec getLineageSpec(String entityName) {
     return _lineageSpecMap.get(entityName.toLowerCase());
+  }
+
+  public Set<String> getEntitiesWithLineage() {
+    Map<String, EntitySpec> specs = _entityRegistry.getEntitySpecs();
+    return _lineageSpecMap.keySet().stream().filter(key -> !_lineageSpecMap.get(key).getUpstreamEdges().isEmpty() ||
+        !_lineageSpecMap.get(key).getDownstreamEdges().isEmpty()).map(key -> specs.get(key).getName()).collect(Collectors.toSet());
   }
 
   public List<EdgeInfo> getLineageRelationships(String entityName, LineageDirection direction) {

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph.dgraph;
 
+import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableList;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
 import com.linkedin.metadata.graph.RelatedEntity;
@@ -638,12 +639,12 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
     private void doTestGetQueryForRelatedEntitiesDirection(@Nonnull RelationshipDirection direction, @Nonnull String expectedQuery) {
         assertEquals(
                 DgraphGraphService.getQueryForRelatedEntities(
-                        "sourceType",
+                        ImmutableList.of("sourceType"),
                         newFilter(new HashMap<String, String>() {{
                             put("urn", "urn:ns:type:source-key");
                             put("key", "source-key");
                         }}),
-                        "destinationType",
+                        ImmutableList.of("destinationType"),
                         newFilter(new HashMap<String, String>() {{
                             put("urn", "urn:ns:type:dest-key");
                             put("key", "dest-key");

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph.elastic;
 
+import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableList;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -50,7 +51,7 @@ public class ESGraphWriteDAO {
       @Nullable final String destinationType, @Nonnull final Filter destinationEntityFilter,
       @Nonnull final List<String> relationshipTypes, @Nonnull final RelationshipFilter relationshipFilter) {
     BoolQueryBuilder finalQuery =
-        buildQuery(sourceType, sourceEntityFilter, destinationType, destinationEntityFilter, relationshipTypes,
+        buildQuery(ImmutableList.of(sourceType), sourceEntityFilter, ImmutableList.of(destinationType), destinationEntityFilter, relationshipTypes,
             relationshipFilter);
 
     DeleteByQueryRequest deleteByQueryRequest = new DeleteByQueryRequest();

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph;
 
+import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableList;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
@@ -38,10 +39,9 @@ public class JavaGraphClient implements GraphClient {
     count = count == null ? DEFAULT_PAGE_SIZE : count;
 
     RelatedEntitiesResult relatedEntitiesResult =
-        _graphService.findRelatedEntities(
-            "",
+        _graphService.findRelatedEntities(ImmutableList.of(),
             QueryUtils.newFilter("urn", rawUrn),
-            "",
+            ImmutableList.of(),
             EMPTY_FILTER,
             relationshipTypes,
             QueryUtils.newRelationshipFilter(EMPTY_FILTER, direction),

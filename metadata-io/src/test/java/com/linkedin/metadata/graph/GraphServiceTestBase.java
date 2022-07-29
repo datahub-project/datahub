@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph;
 
+import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableList;
 import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.Urn;
@@ -71,8 +72,8 @@ abstract public class GraphServiceTestBase {
   /**
    * Some test URN types.
    */
-  protected static String datasetType = "dataset";
-  protected static String userType = "user";
+  protected static List<String> datasetType = ImmutableList.of("dataset");
+  protected static List<String> userType = ImmutableList.of("user");
 
   /**
    * Some test datasets.
@@ -144,7 +145,7 @@ abstract public class GraphServiceTestBase {
   /**
    * Any source and destination type value.
    */
-  protected static @Nullable String anyType = null;
+  protected static @Nullable List<String> anyType = ImmutableList.of();
 
   /**
    * Timeout used to test concurrent ops in doTestConcurrentOp.
@@ -735,7 +736,7 @@ abstract public class GraphServiceTestBase {
   }
 
   @Test(dataProvider = "FindRelatedEntitiesSourceTypeTests")
-  public void testFindRelatedEntitiesSourceType(String datasetType,
+  public void testFindRelatedEntitiesSourceType(List<String> datasetType,
                                                 List<String> relationshipTypes,
                                                 RelationshipFilter relationships,
                                                 List<RelatedEntity> expectedRelatedEntities) throws Exception {
@@ -861,7 +862,7 @@ abstract public class GraphServiceTestBase {
   }
 
   @Test(dataProvider = "FindRelatedEntitiesDestinationTypeTests")
-  public void testFindRelatedEntitiesDestinationType(String datasetType,
+  public void testFindRelatedEntitiesDestinationType(List<String> datasetType,
                                                      List<String> relationshipTypes,
                                                      RelationshipFilter relationships,
                                                      List<RelatedEntity> expectedRelatedEntities) throws Exception {
@@ -875,8 +876,8 @@ abstract public class GraphServiceTestBase {
   }
 
   private void doTestFindRelatedEntities(
-          final String sourceType,
-          final String destinationType,
+          final List<String> sourceType,
+          final List<String> destinationType,
           final List<String> relationshipTypes,
           final RelationshipFilter relationshipFilter,
           List<RelatedEntity> expectedRelatedEntities
@@ -893,8 +894,8 @@ abstract public class GraphServiceTestBase {
     assertEqualsAnyOrder(relatedEntities, expectedRelatedEntities);
   }
 
-  private void doTestFindRelatedEntitiesEntityType(@Nullable String sourceType,
-                                                   @Nullable String destinationType,
+  private void doTestFindRelatedEntitiesEntityType(@Nullable List<String> sourceType,
+                                                   @Nullable List<String> destinationType,
                                                    @Nonnull String relationshipType,
                                                    @Nonnull RelationshipFilter relationshipFilter,
                                                    @Nonnull GraphService service,
@@ -916,17 +917,17 @@ abstract public class GraphServiceTestBase {
     assertNotNull(nullUrn);
     RelatedEntity nullRelatedEntity = new RelatedEntity(downstreamOf, nullUrn.toString());
 
-    doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service);
+    doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of(), downstreamOf, outgoingRelationships, service);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service);
 
     service.addEdge(new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf));
     syncAfterWrite();
-    doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service);
+    doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of(), downstreamOf, outgoingRelationships, service);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, downstreamOfDatasetOneRelatedEntity);
 
     service.addEdge(new Edge(datasetOneUrn, nullUrn, downstreamOf));
     syncAfterWrite();
-    doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service, nullRelatedEntity);
+    doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of(), downstreamOf, outgoingRelationships, service, nullRelatedEntity);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, nullRelatedEntity, downstreamOfDatasetOneRelatedEntity);
   }
 
@@ -938,17 +939,17 @@ abstract public class GraphServiceTestBase {
     assertNotNull(nullUrn);
     RelatedEntity nullRelatedEntity = new RelatedEntity(downstreamOf, nullUrn.toString());
 
-    doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service);
+    doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of(), downstreamOf, outgoingRelationships, service);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service);
 
     service.addEdge(new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf));
     syncAfterWrite();
-    doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service);
+    doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of(), downstreamOf, outgoingRelationships, service);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, downstreamOfDatasetOneRelatedEntity);
 
     service.addEdge(new Edge(datasetOneUrn, nullUrn, downstreamOf));
     syncAfterWrite();
-    doTestFindRelatedEntitiesEntityType(anyType, "null", downstreamOf, outgoingRelationships, service, nullRelatedEntity);
+    doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of(), downstreamOf, outgoingRelationships, service, nullRelatedEntity);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, nullRelatedEntity, downstreamOfDatasetOneRelatedEntity);
   }
 

@@ -1,5 +1,7 @@
 package com.linkedin.metadata.graph;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.Filter;
@@ -7,6 +9,7 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -79,10 +82,11 @@ public interface GraphService {
    *   - RelatedEntity("DownstreamOf", "dataset three")
    */
   @Nonnull
-  RelatedEntitiesResult findRelatedEntities(@Nullable final String sourceType, @Nonnull final Filter sourceEntityFilter,
-      @Nullable final String destinationType, @Nonnull final Filter destinationEntityFilter,
+  RelatedEntitiesResult findRelatedEntities(@Nullable final List<String> sourceTypes, @Nonnull final Filter sourceEntityFilter,
+      @Nullable final List<String> destinationTypes, @Nonnull final Filter destinationEntityFilter,
       @Nonnull final List<String> relationshipTypes, @Nonnull final RelationshipFilter relationshipFilter,
       final int offset, final int count);
+
 
   /**
    * Traverse from the entityUrn towards the input direction up to maxHops number of hops
@@ -93,6 +97,19 @@ public interface GraphService {
   @Nonnull
   default EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction, int offset,
       int count, int maxHops) {
+    return getLineage(entityUrn, direction, new GraphFilters(new ArrayList(getLineageRegistry().getEntitiesWithLineage())), offset, count, maxHops);
+  }
+
+  /**
+   * Traverse from the entityUrn towards the input direction up to maxHops number of hops. If entityTypes is not empty,
+   * will only return edges to entities that are within the entity types set.
+   * Abstracts away the concept of relationship types
+   *
+   * Unless overridden, it uses the lineage registry to fetch valid edge types and queries for them
+   */
+  @Nonnull
+  default EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction,
+      GraphFilters graphFilters, int offset, int count, int maxHops) {
     if (maxHops > 1) {
       maxHops = 1;
     }
@@ -112,7 +129,8 @@ public interface GraphService {
           edgesByDirection.get(true).stream().map(LineageRegistry.EdgeInfo::getType).collect(Collectors.toList());
       // Fetch outgoing edges
       RelatedEntitiesResult outgoingEdges =
-          findRelatedEntities(null, newFilter("urn", entityUrn.toString()), null, QueryUtils.EMPTY_FILTER,
+          findRelatedEntities(null, newFilter("urn", entityUrn.toString()), graphFilters.getAllowedEntityTypes(),
+              QueryUtils.EMPTY_FILTER,
               relationshipTypes, newRelationshipFilter(QueryUtils.EMPTY_FILTER, RelationshipDirection.OUTGOING), offset,
               count);
 
@@ -137,7 +155,8 @@ public interface GraphService {
       List<String> relationshipTypes =
           edgesByDirection.get(false).stream().map(LineageRegistry.EdgeInfo::getType).collect(Collectors.toList());
       RelatedEntitiesResult incomingEdges =
-          findRelatedEntities(null, newFilter("urn", entityUrn.toString()), null, QueryUtils.EMPTY_FILTER,
+          findRelatedEntities(null, newFilter("urn", entityUrn.toString()), graphFilters.getAllowedEntityTypes(),
+              QueryUtils.EMPTY_FILTER,
               relationshipTypes, newRelationshipFilter(QueryUtils.EMPTY_FILTER, RelationshipDirection.INCOMING), offset,
               count);
       result.setTotal(result.getTotal() + incomingEdges.getTotal());
