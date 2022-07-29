@@ -9,7 +9,7 @@ import {
     useCreateTestConnectionRequestMutation,
     useGetIngestionExecutionRequestLazyQuery,
 } from '../../../../../graphql/ingestion.generated';
-import { RUNNING, yamlToJson } from '../../utils';
+import { FAILURE, RUNNING, yamlToJson } from '../../utils';
 import ConnectionCapabilityView from './ConnectionCapabilityView';
 
 const LoadingWrapper = styled.div`
@@ -134,6 +134,12 @@ function TestConnectionButton(props: Props) {
         if (!loading && resultData) {
             const result = resultData.executionRequest?.result;
             if (result && result.status !== RUNNING) {
+                if (result.status === FAILURE) {
+                    message.error(
+                        'Something went wrong with your connection test. Please check your recipe and try again.',
+                    );
+                    setIsModalVisible(false);
+                }
                 if (result.structuredReport) {
                     const testConnectionReport = JSON.parse(result.structuredReport.serializedValue);
                     setTestConnectionResult(testConnectionReport);
