@@ -5,7 +5,6 @@ import org.apache.log4j.Logger;
 import org.apache.ranger.plugin.service.RangerBaseService;
 import org.apache.ranger.plugin.service.ResourceLookupContext;
 
-//import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,8 +26,6 @@ public class DataHubRangerAuthPlugin extends RangerBaseService {
     @Override
     public Map<String, Object> validateConfig() throws Exception {
         throw new UnsupportedOperationException("validateConfig is not supported.");
-//        // We don't have any config to validate
-//        return returnSuccessMap();
     }
 
     /**
@@ -40,9 +37,6 @@ public class DataHubRangerAuthPlugin extends RangerBaseService {
     @Override
     public List<String> lookupResource(ResourceLookupContext resourceLookupContext) throws Exception {
         throw new UnsupportedOperationException("lookupResource is not supported.");
-
-        //        // Not supporting resource lookup
-//        return Arrays.asList("");
     }
 
     private Map<String, Object>  returnSuccessMap() {
