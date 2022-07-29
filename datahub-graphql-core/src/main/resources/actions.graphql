@@ -27,6 +27,18 @@ enum ActionRequestType {
     Requests to associate a term with an entity or sub resource
     """
     TERM_ASSOCIATION
+    """
+    Requests to create a glossary term
+    """
+    CREATE_GLOSSARY_TERM
+    """
+    Requests to create a glossary node
+    """
+    CREATE_GLOSSARY_NODE
+    """
+    Requests to update a description
+    """
+    UPDATE_DESCRIPTION
 }
 enum ActionRequestStatus {
     """
@@ -228,6 +240,18 @@ type ActionRequestParams {
     Tag-proposal specific arguments
     """
     tagProposal: TagProposalParams
+    """
+    Creating a Glossary Term specific arguments
+    """
+    createGlossaryTermProposal: CreateGlossaryTermProposalParams
+    """
+    Creating a Glossary Node specific arguments
+    """
+    createGlossaryNodeProposal: CreateGlossaryNodeProposalParams
+    """
+    Updating a Description specific arguments
+    """
+    updateDescriptionProposal: UpdateDescriptionProposalParams
 }
 
 enum AssigneeType {
@@ -247,6 +271,39 @@ type GlossaryTermProposalParams {
     The urn of the proposed term
     """
     glossaryTerm: GlossaryTerm!
+}
+
+type CreateGlossaryTermProposalParams {
+    """
+    The info for a proposed Glossary Term
+    """
+    glossaryTerm: CreateGlossaryEntityProposalProperties!
+}
+
+type CreateGlossaryNodeProposalParams {
+    """
+    The info for a proposed Glossary Node
+    """
+    glossaryNode: CreateGlossaryEntityProposalProperties!
+}
+
+type CreateGlossaryEntityProposalProperties {
+    """
+    The name for a proposed Glossary Entity
+    """
+    name: String!
+
+    """
+    The optional parent node for a proposed Glossary Entity
+    """
+    parentNode: GlossaryNode
+}
+
+type UpdateDescriptionProposalParams {
+    """
+    The proposed updated description
+    """
+    description: String!
 }
 
 """

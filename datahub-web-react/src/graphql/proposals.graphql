@@ -5,3 +5,15 @@ mutation proposeTag($input: TagAssociationInput!) {
 mutation proposeTerm($input: TermAssociationInput!) {
     proposeTerm(input: $input)
 }
+
+mutation proposeCreateGlossaryTerm($input: CreateGlossaryEntityInput!) {
+    proposeCreateGlossaryTerm(input: $input)
+}
+
+mutation proposeCreateGlossaryNode($input: CreateGlossaryEntityInput!) {
+    proposeCreateGlossaryNode(input: $input)
+}
+
+mutation proposeUpdateDescription($input: DescriptionUpdateInput!) {
+    proposeUpdateDescription(input: $input)
+}

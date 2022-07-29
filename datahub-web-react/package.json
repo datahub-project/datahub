@@ -73,6 +73,7 @@
         "rc-table": "^7.13.1",
         "react": "^17.0.0",
         "react-color": "^2.19.3",
+        "react-diff-viewer": "^3.1.1",
         "react-dom": "^17.0.0",
         "react-icons": "4.3.1",
         "react-router": "^5.2.0",

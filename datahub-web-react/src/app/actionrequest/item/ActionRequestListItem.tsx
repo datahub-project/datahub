@@ -4,6 +4,9 @@ import { List } from 'antd';
 import { ActionRequest, ActionRequestType } from '../../../types.generated';
 import TermAssociationRequestItem from './TermAssociationRequestItem';
 import TagAssociationRequestItem from './TagAssociationRequestItem';
+import CreateTermRequestItem from './CreateTermRequestItem';
+import CreateNodeRequestItem from './CreateNodeRequestItem';
+import UpdateDescriptionRequestItem from './updateDescription/UpdateDescriptionRequestItem';
 
 const ActionRequestItemContainer = styled.div`
     display: flex;
@@ -38,6 +41,30 @@ export default function ActionRequestListItem({ actionRequest, onUpdate, showAct
             case ActionRequestType.TagAssociation:
                 return (
                     <TagAssociationRequestItem
+                        actionRequest={request}
+                        onUpdate={onUpdate}
+                        showActionsButtons={showActionsButtons}
+                    />
+                );
+            case ActionRequestType.CreateGlossaryTerm:
+                return (
+                    <CreateTermRequestItem
+                        actionRequest={request}
+                        onUpdate={onUpdate}
+                        showActionsButtons={showActionsButtons}
+                    />
+                );
+            case ActionRequestType.CreateGlossaryNode:
+                return (
+                    <CreateNodeRequestItem
+                        actionRequest={request}
+                        onUpdate={onUpdate}
+                        showActionsButtons={showActionsButtons}
+                    />
+                );
+            case ActionRequestType.UpdateDescription:
+                return (
+                    <UpdateDescriptionRequestItem
                         actionRequest={request}
                         onUpdate={onUpdate}
                         showActionsButtons={showActionsButtons}

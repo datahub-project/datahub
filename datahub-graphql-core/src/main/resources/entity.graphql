@@ -331,6 +331,21 @@ type Mutation {
     proposeTag(input: TagAssociationInput!): Boolean
 
     """
+    Adds a proposal to create a new Glossary Term
+    """
+    proposeCreateGlossaryTerm(input: CreateGlossaryEntityInput!): Boolean
+
+    """
+    Adds a proposal to create a new Glossary Node
+    """
+    proposeCreateGlossaryNode(input: CreateGlossaryEntityInput!): Boolean
+
+    """
+    Adds a proposal to update a Description
+    """
+    proposeUpdateDescription(input: DescriptionUpdateInput!): Boolean
+
+    """
     Remove a user. Requires Manage Users & Groups Platform Privilege
     """
     removeUser(urn: String!): Boolean

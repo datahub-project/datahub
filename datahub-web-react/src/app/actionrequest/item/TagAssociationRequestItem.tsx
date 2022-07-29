@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ActionRequest, EntityType } from '../../../types.generated';
 import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import AddContentView from './AddContentView';
 import MetadataAssociationRequestItem from './MetadataAssociationRequestItem';
 
 type Props = {
@@ -32,10 +33,18 @@ export default function TagAssociationRequestItem({ actionRequest, onUpdate, sho
         </Link>
     );
 
+    const contentView = (
+        <AddContentView
+            showActionsButtons={showActionsButtons}
+            requestMetadataView={tagView}
+            actionRequest={actionRequest}
+        />
+    );
+
     return (
         <MetadataAssociationRequestItem
             requestTypeDisplayName={REQUEST_TYPE_DISPLAY_NAME}
-            requestMetadataView={tagView}
+            requestContentView={contentView}
             actionRequest={actionRequest}
             onUpdate={onUpdate}
             showActionsButtons={showActionsButtons}

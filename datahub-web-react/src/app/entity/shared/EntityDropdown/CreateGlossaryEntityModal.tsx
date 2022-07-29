@@ -9,6 +9,10 @@ import { EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import NodeParentSelect from './NodeParentSelect';
 import { useEntityData, useRefetch } from '../EntityContext';
+import {
+    useProposeCreateGlossaryNodeMutation,
+    useProposeCreateGlossaryTermMutation,
+} from '../../../../graphql/proposals.generated';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -22,10 +26,11 @@ interface Props {
     entityType: EntityType;
     onClose: () => void;
     refetchData?: () => void;
+    canManageGlossaries: boolean;
 }
 
 function CreateGlossaryEntityModal(props: Props) {
-    const { entityType, onClose, refetchData } = props;
+    const { entityType, onClose, refetchData, canManageGlossaries } = props;
     const entityData = useEntityData();
     const [form] = Form.useForm();
     const entityRegistry = useEntityRegistry();
@@ -36,6 +41,8 @@ function CreateGlossaryEntityModal(props: Props) {
 
     const [createGlossaryTermMutation] = useCreateGlossaryTermMutation();
     const [createGlossaryNodeMutation] = useCreateGlossaryNodeMutation();
+    const [proposeCreateGlossaryTermMutation] = useProposeCreateGlossaryTermMutation();
+    const [proposeCreateGlossaryNodeMutation] = useProposeCreateGlossaryNodeMutation();
 
     function createGlossaryEntity() {
         const mutation =
@@ -69,6 +76,30 @@ function CreateGlossaryEntityModal(props: Props) {
         onClose();
     }
 
+    function proposeGlossaryEntity() {
+        const mutation =
+            entityType === EntityType.GlossaryTerm
+                ? proposeCreateGlossaryTermMutation
+                : proposeCreateGlossaryNodeMutation;
+
+        mutation({
+            variables: {
+                input: {
+                    name: stagedName,
+                    parentNode: selectedParentUrn || null,
+                },
+            },
+        })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to propose: \n ${e.message || ''}`, duration: 3 });
+            })
+            .finally(() => {
+                message.success({ content: `Proposed ${entityRegistry.getEntityName(entityType)}!`, duration: 2 });
+            });
+        onClose();
+    }
+
     return (
         <Modal
             title={`Create ${entityRegistry.getEntityName(entityType)}`}
@@ -79,7 +110,10 @@ function CreateGlossaryEntityModal(props: Props) {
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button onClick={createGlossaryEntity} disabled={createButtonDisabled}>
+                    <Button onClick={proposeGlossaryEntity} disabled={createButtonDisabled}>
+                        Propose
+                    </Button>
+                    <Button onClick={createGlossaryEntity} disabled={createButtonDisabled || !canManageGlossaries}>
                         Create
                     </Button>
                 </>

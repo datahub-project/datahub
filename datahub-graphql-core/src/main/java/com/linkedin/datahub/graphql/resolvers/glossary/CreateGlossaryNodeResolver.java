@@ -33,7 +33,6 @@ public class CreateGlossaryNodeResolver implements DataFetcher<CompletableFuture
 
   @Override
   public CompletableFuture<String> get(DataFetchingEnvironment environment) throws Exception {
-
     final QueryContext context = environment.getContext();
     final CreateGlossaryEntityInput input = bindArgument(environment.getArgument("input"), CreateGlossaryEntityInput.class);
 

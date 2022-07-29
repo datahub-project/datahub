@@ -14,6 +14,7 @@ import EmptyGlossarySection from './EmptyGlossarySection';
 import CreateGlossaryEntityModal from '../entity/shared/EntityDropdown/CreateGlossaryEntityModal';
 import { EntityType } from '../../types.generated';
 import { Message } from '../shared/Message';
+import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 
 export const HeaderWrapper = styled(TabToolbar)`
     padding: 15px 45px 10px 24px;
@@ -42,6 +43,7 @@ export const MIN_BROWSWER_WIDTH = 200;
 
 function BusinessGlossaryPage() {
     const [browserWidth, setBrowserWidth] = useState(window.innerWidth * 0.2);
+    const me = useGetAuthenticatedUser();
     const { data: termsData, refetch: refetchForTerms, loading: termsLoading } = useGetRootGlossaryTermsQuery();
     const { data: nodesData, refetch: refetchForNodes, loading: nodesLoading } = useGetRootGlossaryNodesQuery();
 
@@ -49,6 +51,7 @@ function BusinessGlossaryPage() {
     const nodes = nodesData?.getRootGlossaryNodes?.nodes;
 
     const hasTermsOrNodes = !!nodes?.length || !!terms?.length;
+    const canManageGlossaries = me?.platformPrivileges.manageGlossaries;
 
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
@@ -85,7 +88,11 @@ function BusinessGlossaryPage() {
                     </HeaderWrapper>
                     {hasTermsOrNodes && <GlossaryEntitiesList nodes={nodes || []} terms={terms || []} />}
                     {!(termsLoading || nodesLoading) && !hasTermsOrNodes && (
-                        <EmptyGlossarySection refetchForTerms={refetchForTerms} refetchForNodes={refetchForNodes} />
+                        <EmptyGlossarySection
+                            refetchForTerms={refetchForTerms}
+                            refetchForNodes={refetchForNodes}
+                            canManageGlossaries={!!canManageGlossaries}
+                        />
                     )}
                 </MainContentWrapper>
             </GlossaryWrapper>
@@ -94,6 +101,7 @@ function BusinessGlossaryPage() {
                     entityType={EntityType.GlossaryTerm}
                     onClose={() => setIsCreateTermModalVisible(false)}
                     refetchData={refetchForTerms}
+                    canManageGlossaries={!!canManageGlossaries}
                 />
             )}
             {isCreateNodeModalVisible && (
@@ -101,6 +109,7 @@ function BusinessGlossaryPage() {
                     entityType={EntityType.GlossaryNode}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetchForNodes}
+                    canManageGlossaries={!!canManageGlossaries}
                 />
             )}
         </>

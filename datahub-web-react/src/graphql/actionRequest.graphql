@@ -13,6 +13,12 @@ query listActionRequests($input: ListActionRequestsInput!) {
                 type
                 ... on Dataset {
                     name
+                    properties {
+                        description
+                    }
+                    editableProperties {
+                        description
+                    }
                     platform {
                         name
                         info {
@@ -25,22 +31,46 @@ query listActionRequests($input: ListActionRequestsInput!) {
                     info {
                         name
                     }
+                    properties {
+                        description
+                    }
+                    editableProperties {
+                        description
+                    }
                 }
                 ... on Chart {
                     tool
                     info {
                         name
                     }
+                    properties {
+                        description
+                    }
+                    editableProperties {
+                        description
+                    }
                 }
                 ... on DataJob {
                     info {
                         name
+                    }
+                    properties {
+                        description
+                    }
+                    editableProperties {
+                        description
                     }
                 }
                 ... on DataFlow {
                     orchestrator
                     info {
                         name
+                    }
+                    properties {
+                        description
+                    }
+                    editableProperties {
+                        description
                     }
                 }
                 ... on MLFeatureTable {
@@ -51,6 +81,12 @@ query listActionRequests($input: ListActionRequestsInput!) {
                             logoUrl
                         }
                     }
+                    properties {
+                        description
+                    }
+                    editableProperties {
+                        description
+                    }
                 }
                 ... on MLModel {
                     name
@@ -60,6 +96,12 @@ query listActionRequests($input: ListActionRequestsInput!) {
                             logoUrl
                         }
                     }
+                    properties {
+                        description
+                    }
+                    editableProperties {
+                        description
+                    }
                 }
                 ... on MLModelGroup {
                     name
@@ -68,6 +110,24 @@ query listActionRequests($input: ListActionRequestsInput!) {
                         info {
                             logoUrl
                         }
+                    }
+                    properties {
+                        description
+                    }
+                    editableProperties {
+                        description
+                    }
+                }
+                ... on GlossaryNode {
+                    properties {
+                        name
+                        description
+                    }
+                }
+                ... on GlossaryTerm {
+                    properties {
+                        name
+                        description
                     }
                 }
             }
@@ -79,6 +139,9 @@ query listActionRequests($input: ListActionRequestsInput!) {
                         urn
                         type
                         name
+                        properties {
+                            name
+                        }
                     }
                 }
                 tagProposal {
@@ -87,6 +150,31 @@ query listActionRequests($input: ListActionRequestsInput!) {
                         type
                         name
                     }
+                }
+                createGlossaryTermProposal {
+                    glossaryTerm {
+                        name
+                        parentNode {
+                            urn
+                            properties {
+                                name
+                            }
+                        }
+                    }
+                }
+                createGlossaryNodeProposal {
+                    glossaryNode {
+                        name
+                        parentNode {
+                            urn
+                            properties {
+                                name
+                            }
+                        }
+                    }
+                }
+                updateDescriptionProposal {
+                    description
                 }
             }
             created {

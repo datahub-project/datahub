@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.resolvers.mutate;
+package com.linkedin.datahub.graphql.resolvers.proposal;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthorizedActors;

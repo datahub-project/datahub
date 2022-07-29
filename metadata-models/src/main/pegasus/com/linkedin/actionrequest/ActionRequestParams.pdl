@@ -26,4 +26,42 @@ record ActionRequestParams {
      */
     tag: Urn
   }
+
+  /**
+   * An optional set of information specific to proposals for creating new Glossary Terms.
+   */
+  createGlossaryTermProposal: optional record CreateGlossaryTermProposal {
+    /**
+     * Name of the proposed Glossary Term
+     */
+    name: string
+    /**
+     * The urn of the parent node of the Proposed Term
+     */
+    parentNode: optional Urn
+  }
+
+  /**
+   * An optional set of information specific to proposals for creating new Glossary Nodes.
+   */
+  createGlossaryNodeProposal: optional record CreateGlossaryNodeProposal {
+    /**
+     * Name of the proposed Glossary Node
+     */
+    name: string
+    /**
+     * The urn of the parent node of the Proposed Node
+     */
+    parentNode: optional Urn
+  }
+
+  /**
+   * An optional set of information specific to proposals for updating Descriptions.
+   */
+  updateDescriptionProposal: optional record DescriptionProposal {
+    /**
+     * The text of the description.
+     */
+    description: string
+  }
 }

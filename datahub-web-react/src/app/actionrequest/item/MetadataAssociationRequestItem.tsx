@@ -12,7 +12,7 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 type Props = {
     actionRequest: ActionRequest;
     requestTypeDisplayName: string;
-    requestMetadataView: React.ReactNode;
+    requestContentView: React.ReactNode;
     onUpdate: () => void;
     showActionsButtons: boolean;
 };
@@ -54,15 +54,13 @@ const RightContentContainer = styled.div`
     align-items: middle;
 `;
 
-const RequestContentContainer = styled.span``;
-
 /**
  * Base list item for showing metadata association proposals.
  */
 export default function MetadataAssociationRequestItem({
     actionRequest,
     requestTypeDisplayName,
-    requestMetadataView,
+    requestContentView,
     onUpdate,
     showActionsButtons,
 }: Props) {
@@ -133,56 +131,8 @@ export default function MetadataAssociationRequestItem({
         </RequestTypeContainer>
     );
 
-    /**
-     * Build the request content column view.
-     */
-    // 1. Build the author view.
     const createdBy = actionRequest.created.actor;
-    const createdByDisplayName =
-        (createdBy && entityRegistry.getDisplayName(EntityType.CorpUser, createdBy)) || 'Anonymous';
     const createdByDisplayImage = createdBy && createdBy.editableInfo?.pictureLink;
-    const createdByProfileUrl = `/${entityRegistry.getPathName(EntityType.CorpUser)}/${createdBy?.urn}`;
-    const createdByView = (
-        <AuthorView>
-            <CustomAvatar
-                name={createdByDisplayName}
-                url={createdByProfileUrl}
-                photoUrl={createdByDisplayImage || undefined}
-            />
-            <Link to={createdByProfileUrl}>
-                <AuthorText strong>{createdByDisplayName}</AuthorText>
-            </Link>
-        </AuthorView>
-    );
-
-    // 2. Build the target entity view.
-    const requestTargetEntityType = actionRequest.entity?.type;
-    const requestTargetDisplayName =
-        requestTargetEntityType && entityRegistry.getDisplayName(requestTargetEntityType, actionRequest.entity);
-    const requestTargetEntityView = requestTargetEntityType && (
-        <>
-            <Link to={`/${entityRegistry.getPathName(requestTargetEntityType)}/${actionRequest.entity?.urn}`}>
-                <Typography.Text strong>{requestTargetDisplayName}</Typography.Text>
-            </Link>
-            {!!actionRequest.subResource && (
-                <>
-                    {' '}
-                    field <Typography.Text strong>{actionRequest.subResource}</Typography.Text>
-                </>
-            )}
-        </>
-    );
-
-    // 3. Combine author, metadata, target entity view to create full request content view.
-    const requestContentView = (
-        <RequestContentContainer>
-            {createdByView}
-            <Typography.Text> requests to add </Typography.Text>
-            {requestMetadataView}
-            {showActionsButtons && <Typography.Text>{` to `}</Typography.Text>}
-            {showActionsButtons && requestTargetEntityView}
-        </RequestContentContainer>
-    );
 
     /**
      * Create the request action / result view. (right side)
@@ -220,7 +170,7 @@ export default function MetadataAssociationRequestItem({
             <>
                 <Button onClick={acceptRequest}>
                     <CheckOutlined />
-                    Approve & Add
+                    Approve
                 </Button>
                 <Button type="text" onClick={rejectRequest}>
                     <CloseCircleOutlined />

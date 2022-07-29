@@ -8,7 +8,7 @@ import com.linkedin.datahub.graphql.generated.ActionRequest;
 import com.linkedin.datahub.graphql.generated.ActionRequestStatus;
 import com.linkedin.datahub.graphql.generated.ActionRequestType;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ActionRequestUtils;
-import com.linkedin.datahub.graphql.resolvers.mutate.ProposalUtils;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposalUtils;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;

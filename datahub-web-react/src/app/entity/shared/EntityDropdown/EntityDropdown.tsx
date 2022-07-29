@@ -52,7 +52,7 @@ const MenuItem = styled.div`
     color: #262626;
 `;
 
-const StyledMenuItem = styled(Menu.Item)<{ disabled: boolean }>`
+const StyledMenuItem = styled(Menu.Item)<{ disabled?: boolean }>`
     ${(props) =>
         props.disabled
             ? `
@@ -173,22 +173,14 @@ function EntityDropdown(props: Props) {
                             </Menu.Item>
                         )}
                         {menuItems.has(EntityMenuItems.ADD_TERM) && (
-                            <StyledMenuItem
-                                key="2"
-                                disabled={!canManageGlossaries}
-                                onClick={() => setIsCreateTermModalVisible(true)}
-                            >
+                            <StyledMenuItem key="2" onClick={() => setIsCreateTermModalVisible(true)}>
                                 <MenuItem>
                                     <PlusOutlined /> &nbsp;Add Term
                                 </MenuItem>
                             </StyledMenuItem>
                         )}
                         {menuItems.has(EntityMenuItems.ADD_TERM_GROUP) && (
-                            <StyledMenuItem
-                                key="3"
-                                disabled={!canManageGlossaries}
-                                onClick={() => setIsCreateNodeModalVisible(true)}
-                            >
+                            <StyledMenuItem key="3" onClick={() => setIsCreateNodeModalVisible(true)}>
                                 <MenuItem>
                                     <FolderAddOutlined /> &nbsp;Add Term Group
                                 </MenuItem>
@@ -242,6 +234,7 @@ function EntityDropdown(props: Props) {
                     entityType={EntityType.GlossaryTerm}
                     onClose={() => setIsCreateTermModalVisible(false)}
                     refetchData={refetchForTerms}
+                    canManageGlossaries={!!canManageGlossaries}
                 />
             )}
             {isCreateNodeModalVisible && (
@@ -249,6 +242,7 @@ function EntityDropdown(props: Props) {
                     entityType={EntityType.GlossaryNode}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetchForNodes}
+                    canManageGlossaries={!!canManageGlossaries}
                 />
             )}
             {isDeprecationModalVisible && (

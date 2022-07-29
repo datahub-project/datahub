@@ -2,6 +2,9 @@ package com.linkedin.datahub.graphql.resolvers.actionrequest;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.actionrequest.ActionRequestInfo;
+import com.linkedin.actionrequest.CreateGlossaryNodeProposal;
+import com.linkedin.actionrequest.CreateGlossaryTermProposal;
+import com.linkedin.actionrequest.DescriptionProposal;
 import com.linkedin.actionrequest.GlossaryTermProposal;
 import com.linkedin.actionrequest.TagProposal;
 import com.linkedin.common.GlobalTags;
@@ -16,12 +19,17 @@ import com.linkedin.datahub.graphql.generated.ActionRequestStatus;
 import com.linkedin.datahub.graphql.generated.ActionRequestSubResourceProperties;
 import com.linkedin.datahub.graphql.generated.ActionRequestType;
 import com.linkedin.datahub.graphql.generated.CorpUser;
+import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityProposalProperties;
+import com.linkedin.datahub.graphql.generated.CreateGlossaryNodeProposalParams;
+import com.linkedin.datahub.graphql.generated.CreateGlossaryTermProposalParams;
 import com.linkedin.datahub.graphql.generated.EditableSchemaFieldInfo;
+import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.GlossaryTermProposalParams;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.generated.TagProposalParams;
+import com.linkedin.datahub.graphql.generated.UpdateDescriptionProposalParams;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.EditableSchemaMetadataMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
@@ -214,6 +222,15 @@ public class ActionRequestUtils {
     if (params.hasTagProposal()) {
       result.setTagProposal(mapTagProposal(params.getTagProposal()));
     }
+    if (params.hasCreateGlossaryTermProposal()) {
+      result.setCreateGlossaryTermProposal(mapCreateGlossaryTermProposal(params.getCreateGlossaryTermProposal()));
+    }
+    if (params.hasCreateGlossaryNodeProposal()) {
+      result.setCreateGlossaryNodeProposal(mapCreateGlossaryNodeProposal(params.getCreateGlossaryNodeProposal()));
+    }
+    if (params.hasUpdateDescriptionProposal()) {
+      result.setUpdateDescriptionProposal(mapUpdateDescriptionProposal(params.getUpdateDescriptionProposal()));
+    }
     return result;
   }
 
@@ -230,6 +247,38 @@ public class ActionRequestUtils {
     final Tag emptyTag = new Tag();
     emptyTag.setUrn(proposal.getTag().toString());
     params.setTag(emptyTag);
+    return params;
+  }
+
+  public static CreateGlossaryTermProposalParams mapCreateGlossaryTermProposal(final CreateGlossaryTermProposal proposal) {
+    final CreateGlossaryTermProposalParams params = new CreateGlossaryTermProposalParams();
+    final CreateGlossaryEntityProposalProperties glossaryEntity = new CreateGlossaryEntityProposalProperties();
+    glossaryEntity.setName(proposal.getName());
+    if (proposal.hasParentNode()) {
+      final GlossaryNode parentNode = new GlossaryNode();
+      parentNode.setUrn(proposal.getParentNode().toString());
+      glossaryEntity.setParentNode(parentNode);
+    }
+    params.setGlossaryTerm(glossaryEntity);
+    return params;
+  }
+
+  public static CreateGlossaryNodeProposalParams mapCreateGlossaryNodeProposal(final CreateGlossaryNodeProposal proposal) {
+    final CreateGlossaryNodeProposalParams params = new CreateGlossaryNodeProposalParams();
+    final CreateGlossaryEntityProposalProperties glossaryEntity = new CreateGlossaryEntityProposalProperties();
+    glossaryEntity.setName(proposal.getName());
+    if (proposal.hasParentNode()) {
+      final GlossaryNode parentNode = new GlossaryNode();
+      parentNode.setUrn(proposal.getParentNode().toString());
+      glossaryEntity.setParentNode(parentNode);
+    }
+    params.setGlossaryNode(glossaryEntity);
+    return params;
+  }
+
+  public static UpdateDescriptionProposalParams mapUpdateDescriptionProposal(final DescriptionProposal proposal) {
+    final UpdateDescriptionProposalParams params = new UpdateDescriptionProposalParams();
+    params.setDescription(proposal.getDescription());
     return params;
   }
 

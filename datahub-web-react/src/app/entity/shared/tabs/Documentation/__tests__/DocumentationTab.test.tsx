@@ -6,6 +6,7 @@ import { mocks } from '../../../../../../Mocks';
 import { EntityType } from '../../../../../../types.generated';
 import TestPageContainer from '../../../../../../utils/test-utils/TestPageContainer';
 import EntityContext from '../../../EntityContext';
+import { getShouldShowProposeButton } from '../components/DescriptionEditor';
 import { DocumentationTab } from '../DocumentationTab';
 
 describe('SchemaDescriptionField', () => {
@@ -85,5 +86,22 @@ describe('markdown sanitization', () => {
         const sanitizedText = DOMPurify.sanitize(text);
 
         expect(sanitizedText).toBe(text);
+    });
+});
+
+describe('DescriptionEditor', () => {
+    it('should show the propose button for Glossary Terms', () => {
+        const shouldShowProposeButton = getShouldShowProposeButton(EntityType.GlossaryTerm);
+        expect(shouldShowProposeButton).toBe(true);
+    });
+
+    it('should show the propose button for Glossary Nodes', () => {
+        const shouldShowProposeButton = getShouldShowProposeButton(EntityType.GlossaryNode);
+        expect(shouldShowProposeButton).toBe(true);
+    });
+
+    it('should not show the propose button for non-Glossary entities', () => {
+        const shouldShowProposeButton = getShouldShowProposeButton(EntityType.Dataset);
+        expect(shouldShowProposeButton).toBe(false);
     });
 });

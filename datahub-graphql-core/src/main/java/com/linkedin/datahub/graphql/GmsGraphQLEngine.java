@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql;
 
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.group.GroupService;
+import com.datahub.authentication.proposal.ProposalService;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.authorization.AuthorizationConfiguration;
@@ -31,6 +32,7 @@ import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserInfo;
+import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityProposalProperties;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
 import com.linkedin.datahub.graphql.generated.DashboardStatsSummary;
@@ -151,7 +153,7 @@ import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.ProposalsResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.AcceptProposalResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnerResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnersResolver;
@@ -160,9 +162,12 @@ import com.linkedin.datahub.graphql.resolvers.mutate.AddTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.ProposeTagResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.ProposeTermResolver;
-import com.linkedin.datahub.graphql.resolvers.mutate.RejectProposalResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryNodeResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryTermResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTagResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTermResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposeUpdateDescriptionResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.RejectProposalResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveOwnerResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTagResolver;
@@ -346,6 +351,9 @@ public class GmsGraphQLEngine {
     private final AccessTokenMetadataType accessTokenMetadataType;
     private final TestType testType;
 
+    // SaaS only
+    private final ProposalService proposalService;
+
     /**
      * Configures the graph objects that can be fetched primary key.
      */
@@ -373,25 +381,20 @@ public class GmsGraphQLEngine {
 
     public GmsGraphQLEngine(
         final EntityClient entityClient,
-        final GraphClient graphClient,
-        final UsageClient usageClient,
-        final AnalyticsService analyticsService,
-        final EntityService entityService,
-        final EntitySearchService entitySearchService,
-        final RecommendationsService recommendationsService,
-        final StatefulTokenService statefulTokenService,
-        final TimeseriesAspectService timeseriesAspectService,
-        final EntityRegistry entityRegistry,
-        final SecretService secretService,
-        final TestEngine testEngine,
-        final NativeUserService nativeUserService,
+        final GraphClient graphClient, final UsageClient usageClient, final AnalyticsService analyticsService,
+        final EntityService entityService, final EntitySearchService entitySearchService,
+        final RecommendationsService recommendationsService, final StatefulTokenService statefulTokenService,
+        final TimeseriesAspectService timeseriesAspectService, final EntityRegistry entityRegistry,
+        final SecretService secretService, final TestEngine testEngine, final NativeUserService nativeUserService,
         final IngestionConfiguration ingestionConfiguration,
         final AuthenticationConfiguration authenticationConfiguration,
         final AuthorizationConfiguration authorizationConfiguration, final GitVersion gitVersion,
         final TimelineService timelineService, final boolean supportsImpactAnalysis,
         final VisualConfiguration visualConfiguration, final TelemetryConfiguration telemetryConfiguration,
         final TestsConfiguration testsConfiguration, final DatahubConfiguration datahubConfiguration,
-        final SiblingGraphService siblingGraphService, final GroupService groupService) {
+        final SiblingGraphService siblingGraphService, final GroupService groupService,
+        // SaaS only
+        final ProposalService proposalService) {
 
         this.entityClient = entityClient;
         this.graphClient = graphClient;
@@ -484,6 +487,9 @@ public class GmsGraphQLEngine {
             .filter(type -> (type instanceof BrowsableEntityType<?, ?>))
             .map(type -> (BrowsableEntityType<?, ?>) type)
             .collect(Collectors.toList());
+
+        // SaaS only
+        this.proposalService = proposalService;
     }
 
     /**
@@ -634,6 +640,14 @@ public class GmsGraphQLEngine {
                 new LoadableTypeResolver<>(tagType,
                     (env) -> ((TagProposalParams) env.getSource()).getTag().getUrn()))
         );
+        builder.type("CreateGlossaryEntityProposalProperties", typeWiring -> typeWiring
+            .dataFetcher("parentNode",
+                new LoadableTypeResolver<>(glossaryNodeType,
+                    (env) -> {
+                        final CreateGlossaryEntityProposalProperties proposalProperties = env.getSource();
+                        return proposalProperties.getParentNode() != null ? proposalProperties.getParentNode().getUrn() : null;
+                    }))
+        );
     }
 
     private void configureGlobalSettingsResolvers(final RuntimeWiring.Builder builder) {
@@ -771,8 +785,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("createPolicy", new UpsertPolicyResolver(this.entityClient))
             .dataFetcher("updatePolicy", new UpsertPolicyResolver(this.entityClient))
             .dataFetcher("deletePolicy", new DeletePolicyResolver(this.entityClient))
-            .dataFetcher("acceptProposal", new AcceptProposalResolver(entityService))
-            .dataFetcher("rejectProposal", new RejectProposalResolver(entityService))
+            .dataFetcher("acceptProposal", new AcceptProposalResolver(entityService, proposalService))
+            .dataFetcher("rejectProposal", new RejectProposalResolver(entityService, proposalService))
             .dataFetcher("updateDescription", new UpdateDescriptionResolver(entityService))
             .dataFetcher("addOwner", new AddOwnerResolver(entityService))
             .dataFetcher("addOwners", new AddOwnersResolver(entityService))
@@ -820,6 +834,9 @@ public class GmsGraphQLEngine {
             // Proposals not in OSS
             .dataFetcher("proposeTag", new ProposeTagResolver(entityService, entityClient))
             .dataFetcher("proposeTerm", new ProposeTermResolver(entityService, entityClient))
+            .dataFetcher("proposeCreateGlossaryTerm", new ProposeCreateGlossaryTermResolver(proposalService))
+            .dataFetcher("proposeCreateGlossaryNode", new ProposeCreateGlossaryNodeResolver(proposalService))
+            .dataFetcher("proposeUpdateDescription", new ProposeUpdateDescriptionResolver(proposalService))
             // Incidents not in OSS
             .dataFetcher("raiseIncident", new RaiseIncidentResolver(this.entityClient))
             .dataFetcher("updateIncidentStatus", new UpdateIncidentStatusResolver(this.entityClient, this.entityService))

@@ -103,6 +103,55 @@
           },
           "doc" : "An optional set of information specific to tag proposals.",
           "optional" : true
+        }, {
+          "name" : "createGlossaryTermProposal",
+          "type" : {
+            "type" : "record",
+            "name" : "CreateGlossaryTermProposal",
+            "fields" : [ {
+              "name" : "name",
+              "type" : "string",
+              "doc" : "Name of the proposed Glossary Term"
+            }, {
+              "name" : "parentNode",
+              "type" : "com.linkedin.common.Urn",
+              "doc" : "The urn of the parent node of the Proposed Term",
+              "optional" : true
+            } ]
+          },
+          "doc" : "An optional set of information specific to proposals for creating new Glossary Terms.",
+          "optional" : true
+        }, {
+          "name" : "createGlossaryNodeProposal",
+          "type" : {
+            "type" : "record",
+            "name" : "CreateGlossaryNodeProposal",
+            "fields" : [ {
+              "name" : "name",
+              "type" : "string",
+              "doc" : "Name of the proposed Glossary Node"
+            }, {
+              "name" : "parentNode",
+              "type" : "com.linkedin.common.Urn",
+              "doc" : "The urn of the parent node of the Proposed Node",
+              "optional" : true
+            } ]
+          },
+          "doc" : "An optional set of information specific to proposals for creating new Glossary Nodes.",
+          "optional" : true
+        }, {
+          "name" : "updateDescriptionProposal",
+          "type" : {
+            "type" : "record",
+            "name" : "DescriptionProposal",
+            "fields" : [ {
+              "name" : "description",
+              "type" : "string",
+              "doc" : "The text of the description."
+            } ]
+          },
+          "doc" : "An optional set of information specific to proposals for updating Descriptions.",
+          "optional" : true
         } ]
       },
       "doc" : "Parameters specific for a particular Action Request type",
@@ -193,7 +242,7 @@
     "Aspect" : {
       "name" : "actionRequestStatus"
     }
-  }, "com.linkedin.actionrequest.GlossaryTermProposal", "com.linkedin.actionrequest.TagProposal", {
+  }, "com.linkedin.actionrequest.CreateGlossaryNodeProposal", "com.linkedin.actionrequest.CreateGlossaryTermProposal", "com.linkedin.actionrequest.DescriptionProposal", "com.linkedin.actionrequest.GlossaryTermProposal", "com.linkedin.actionrequest.TagProposal", {
     "type" : "typeref",
     "name" : "ChartDataSourceType",
     "namespace" : "com.linkedin.chart",

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { message, Button } from 'antd';
-import { CheckOutlined } from '@ant-design/icons';
+import { CheckOutlined, MailOutlined } from '@ant-design/icons';
 import DOMPurify from 'dompurify';
+import styled from 'styled-components/macro';
 
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 
@@ -13,6 +14,16 @@ import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '../.
 import { useUpdateDescriptionMutation } from '../../../../../../graphql/mutations.generated';
 import { DiscardDescriptionModal } from './DiscardDescriptionModal';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../../utils';
+import { useProposeUpdateDescriptionMutation } from '../../../../../../graphql/proposals.generated';
+import { EntityType } from '../../../../../../types.generated';
+
+const ProposeButton = styled(Button)`
+    margin-right: 10px;
+`;
+
+export function getShouldShowProposeButton(entityType: EntityType) {
+    return entityType === EntityType.GlossaryTerm || entityType === EntityType.GlossaryNode;
+}
 
 export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) => {
     const mutationUrn = useMutationUrn();
@@ -20,6 +31,7 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
     const refetch = useRefetch();
     const updateEntity = useEntityUpdate<GenericEntityUpdate>();
     const [updateDescriptionMutation] = useUpdateDescriptionMutation();
+    const [proposeUpdateDescription] = useProposeUpdateDescriptionMutation();
 
     const localStorageDictionary = localStorage.getItem(EDITED_DESCRIPTIONS_CACHE_NAME);
     const editedDescriptions = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
@@ -85,6 +97,29 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
         refetch?.();
     };
 
+    function proposeUpdate() {
+        const sanitizedDescription = DOMPurify.sanitize(updatedDescription);
+        proposeUpdateDescription({
+            variables: {
+                input: {
+                    description: sanitizedDescription,
+                    resourceUrn: mutationUrn,
+                },
+            },
+        })
+            .then(() => {
+                message.success({ content: `Proposed description update!`, duration: 2 });
+                setIsDescriptionUpdated(false);
+                const editedDescriptionsLocal = (localStorageDictionary && JSON.parse(localStorageDictionary)) || {};
+                delete editedDescriptionsLocal[mutationUrn];
+                localStorage.setItem(EDITED_DESCRIPTIONS_CACHE_NAME, JSON.stringify(editedDescriptionsLocal));
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to propose: \n ${e.message || ''}`, duration: 3 });
+            });
+    }
+
     // Function to handle all changes in Editor
     const handleEditorChange = (editedDescription: string) => {
         setUpdatedDescription(editedDescription);
@@ -130,15 +165,24 @@ export const DescriptionEditor = ({ onComplete }: { onComplete?: () => void }) =
         if (onComplete) onComplete();
     };
 
+    const shouldShowProposeButton = getShouldShowProposeButton(entityType);
+
     return entityData ? (
         <>
             <TabToolbar>
                 <Button type="text" onClick={showModal}>
                     Back
                 </Button>
-                <Button onClick={handleSaveDescription} disabled={!isDescriptionUpdated}>
-                    <CheckOutlined /> Save
-                </Button>
+                <div>
+                    {shouldShowProposeButton && (
+                        <ProposeButton onClick={proposeUpdate} disabled={!isDescriptionUpdated}>
+                            <MailOutlined /> Propose
+                        </ProposeButton>
+                    )}
+                    <Button onClick={handleSaveDescription} disabled={!isDescriptionUpdated}>
+                        <CheckOutlined /> Save
+                    </Button>
+                </div>
             </TabToolbar>
             <StyledMDEditor
                 value={updatedDescription}
