@@ -1,5 +1,5 @@
 import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
-import { Divider, Modal, Typography } from 'antd';
+import { Button, Divider, Modal, Typography } from 'antd';
 import React from 'react';
 import { green, red } from '@ant-design/colors';
 import styled from 'styled-components/macro';
@@ -100,7 +100,7 @@ function TestConnectionModal({
         <Modal
             visible
             onCancel={hideModal}
-            footer={null}
+            footer={<Button onClick={hideModal}>Done</Button>}
             title={
                 <ModalHeader style={{ margin: 0 }}>
                     <SourceIcon alt="source logo" src={sourceConfig.logoUrl} />
