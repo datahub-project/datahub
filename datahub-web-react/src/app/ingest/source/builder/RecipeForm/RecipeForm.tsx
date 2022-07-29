@@ -80,15 +80,15 @@ function RecipeForm(props: Props) {
     const { fields, advancedFields, filterFields } = RECIPE_FIELDS[type];
     const allFields = [...fields, ...advancedFields, ...filterFields];
 
-    function updateFormValues(changedValues: any) {
+    function updateFormValues(changedValues: any, allValues: any) {
         let updatedValues = YAML.parse(displayRecipe);
 
         Object.keys(changedValues).forEach((fieldName) => {
             const recipeField = allFields.find((f) => f.name === fieldName);
             if (recipeField) {
                 updatedValues =
-                    recipeField.setValueOnRecipeOverride?.(updatedValues, changedValues[fieldName]) ||
-                    setFieldValueOnRecipe(updatedValues, changedValues[fieldName], recipeField.fieldPath);
+                    recipeField.setValueOnRecipeOverride?.(updatedValues, allValues[fieldName]) ||
+                    setFieldValueOnRecipe(updatedValues, allValues[fieldName], recipeField.fieldPath);
             }
         });
 
@@ -110,20 +110,26 @@ function RecipeForm(props: Props) {
                     ))}
                 </Collapse.Panel>
             </StyledCollapse>
-            <StyledCollapse>
-                <Collapse.Panel forceRender header={<SectionHeader icon={<FilterOutlined />} text="Filter" />} key="1">
-                    {filterFields.map((field, i) => (
-                        <>
-                            {shouldRenderFilterSectionHeader(field, i, filterFields) && (
-                                <Typography.Title level={4}>{field.section}</Typography.Title>
-                            )}
-                            <MarginWrapper>
-                                <FormField field={field} removeMargin={i === filterFields.length - 1} />
-                            </MarginWrapper>
-                        </>
-                    ))}
-                </Collapse.Panel>
-            </StyledCollapse>
+            {filterFields.length > 0 && (
+                <StyledCollapse>
+                    <Collapse.Panel
+                        forceRender
+                        header={<SectionHeader icon={<FilterOutlined />} text="Filter" />}
+                        key="1"
+                    >
+                        {filterFields.map((field, i) => (
+                            <>
+                                {shouldRenderFilterSectionHeader(field, i, filterFields) && (
+                                    <Typography.Title level={4}>{field.section}</Typography.Title>
+                                )}
+                                <MarginWrapper>
+                                    <FormField field={field} removeMargin={i === filterFields.length - 1} />
+                                </MarginWrapper>
+                            </>
+                        ))}
+                    </Collapse.Panel>
+                </StyledCollapse>
+            )}
             <StyledCollapse>
                 <Collapse.Panel
                     forceRender

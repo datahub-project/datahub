@@ -1,7 +1,6 @@
 import React from 'react';
 import { Button, Typography } from 'antd';
-import { CloseCircleOutlined, FilterOutlined } from '@ant-design/icons';
-import type { CheckboxValueType } from 'antd/es/checkbox/Group';
+import { FilterOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import TabToolbar from '../TabToolbar';
 import { SearchBar } from '../../../../../search/SearchBar';
@@ -9,28 +8,24 @@ import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { EntityType, FacetFilterInput, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
 import { SearchResultsInterface } from './types';
 import SearchExtendedMenu from './SearchExtendedMenu';
-// import SearchActionMenu from './SearchActionMenu';
+import { SearchSelectBar } from './SearchSelectBar';
+import { EntityAndType } from '../../../types';
 
 const HeaderContainer = styled.div`
     display: flex;
     justify-content: space-between;
-    padding-bottom: 16px;
     width: 100%;
+    padding-right: 4px;
+    padding-left: 4px;
 `;
 
 const SearchAndDownloadContainer = styled.div`
     display: flex;
+    align-items: center;
 `;
 
 const SearchMenuContainer = styled.div`
-    margin-top: 7px;
     margin-left: 10px;
-`;
-
-const SelectedText = styled(Typography.Text)`
-    width: 70px;
-    top: 5px;
-    position: relative;
 `;
 
 type Props = {
@@ -43,9 +38,11 @@ type Props = {
     entityFilters: EntityType[];
     filters: FacetFilterInput[];
     query: string;
-    setShowSelectMode: (showSelectMode: boolean) => any;
-    showSelectMode: boolean;
-    checkedSearchResults: CheckboxValueType[];
+    isSelectMode: boolean;
+    isSelectAll: boolean;
+    selectedEntities: EntityAndType[];
+    setIsSelectMode: (showSelectMode: boolean) => any;
+    onChangeSelectAll: (selected: boolean) => void;
 };
 
 export default function EmbeddedListSearchHeader({
@@ -56,70 +53,63 @@ export default function EmbeddedListSearchHeader({
     entityFilters,
     filters,
     query,
-    setShowSelectMode,
-    showSelectMode,
-    checkedSearchResults,
+    isSelectMode,
+    isSelectAll,
+    selectedEntities,
+    setIsSelectMode,
+    onChangeSelectAll,
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
-    const onQueryChange = (newQuery: string) => {
-        onSearch(newQuery);
-    };
-
     return (
-        <TabToolbar>
-            <HeaderContainer>
-                <Button type="text" onClick={onToggleFilters}>
-                    <FilterOutlined />
-                    <Typography.Text>Filters</Typography.Text>
-                </Button>
-                <SearchAndDownloadContainer>
-                    {showSelectMode && <SelectedText>{`${checkedSearchResults.length} selected`}</SelectedText>}
-                    <SearchBar
-                        initialQuery=""
-                        placeholderText={placeholderText || 'Search entities...'}
-                        suggestions={[]}
-                        style={{
-                            maxWidth: 220,
-                            padding: 0,
-                        }}
-                        inputStyle={{
-                            height: 32,
-                            fontSize: 12,
-                        }}
-                        onSearch={onSearch}
-                        onQueryChange={onQueryChange}
-                        entityRegistry={entityRegistry}
-                    />
-                    {/* TODO: in the future, when we add more menu items, we'll show this always */}
-                    {showSelectMode ? (
-                        <>
-                            <Button
-                                style={{
-                                    marginLeft: '5px',
-                                }}
-                                onClick={() => setShowSelectMode(false)}
-                                type="text"
-                            >
-                                <CloseCircleOutlined /> Cancel
-                            </Button>
-                            {/* <SearchMenuContainer>
-                                <SearchActionMenu checkedSearchResults={checkedSearchResults} />
-                            </SearchMenuContainer> */}
-                        </>
-                    ) : (
+        <>
+            <TabToolbar>
+                <HeaderContainer>
+                    <Button type="text" onClick={onToggleFilters}>
+                        <FilterOutlined />
+                        <Typography.Text>Filters</Typography.Text>
+                    </Button>
+                    <SearchAndDownloadContainer>
+                        <SearchBar
+                            initialQuery=""
+                            placeholderText={placeholderText || 'Search entities...'}
+                            suggestions={[]}
+                            style={{
+                                maxWidth: 220,
+                                padding: 0,
+                            }}
+                            inputStyle={{
+                                height: 32,
+                                fontSize: 12,
+                            }}
+                            onSearch={onSearch}
+                            onQueryChange={onSearch}
+                            entityRegistry={entityRegistry}
+                        />
                         <SearchMenuContainer>
                             <SearchExtendedMenu
                                 callSearchOnVariables={callSearchOnVariables}
                                 entityFilters={entityFilters}
                                 filters={filters}
                                 query={query}
-                                setShowSelectMode={setShowSelectMode}
+                                // setShowSelectMode={setIsSelectMode}
                             />
                         </SearchMenuContainer>
-                    )}
-                </SearchAndDownloadContainer>
-            </HeaderContainer>
-        </TabToolbar>
+                    </SearchAndDownloadContainer>
+                </HeaderContainer>
+            </TabToolbar>
+            {isSelectMode && (
+                <TabToolbar>
+                    <SearchSelectBar
+                        isSelectAll={isSelectAll}
+                        onChangeSelectAll={onChangeSelectAll}
+                        selectedEntities={selectedEntities}
+                        onCancel={() => {
+                            setIsSelectMode(false);
+                        }}
+                    />
+                </TabToolbar>
+            )}
+        </>
     );
 }
