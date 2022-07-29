@@ -522,7 +522,7 @@ class S3Source(Source):
         table = None
         try:
             table = self.read_file_spark(
-                table_data.table_path, os.path.splitext(table_data.full_path)[1]
+                table_data.full_path, os.path.splitext(table_data.full_path)[1]
             )
         except Exception as e:
             logger.error(e)
