@@ -1211,7 +1211,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 columns,
                 canonical_schema=schema_fields,
             )
-        _, description, properties = self.get_table_properties(inspector, schema, view)
+        description, properties, _ = self.get_table_properties(inspector, schema, view)
         try:
             view_definition = inspector.get_view_definition(view, schema)
             if view_definition is None:
