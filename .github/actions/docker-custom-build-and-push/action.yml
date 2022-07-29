@@ -1,0 +1,92 @@
+name: Custom Docker build and push
+description: "Build and push a Docker image to Docker Hub"
+
+inputs:
+  username:
+    description: "Docker Hub username"
+  password:
+    description: "Docker Hub password"
+  publish:
+    description: "Set to true to actually publish the image to Docker Hub"
+
+  context:
+    description: "Same as docker/build-push-action"
+    required: false
+  file:
+    description: "Same as docker/build-push-action"
+    required: false
+  platforms:
+    description: "Same as docker/build-push-action"
+    required: false
+
+  images:
+    # e.g. linkedin/datahub-gms
+    description: "List of Docker images to use as base name for tags"
+    required: true
+  tags:
+    # e.g. latest,head,sha12345
+    description: "List of tags to use for the Docker image"
+    required: true
+outputs:
+  image_tag:
+    description: "Docker image tags"
+    value: ${{ steps.docker_meta.outputs.tags }}
+  # image_name: ${{ env.DATAHUB_GMS_IMAGE }}
+
+runs:
+  using: "composite"
+
+  steps:
+    - name: Docker meta
+      id: docker_meta
+      uses: crazy-max/ghaction-docker-meta@v1
+      with:
+        # list of Docker images to use as base name for tags
+        images: ${{ inputs.images }}
+        # add git short SHA as Docker tag
+        tag-custom: ${{ inputs.tags }}
+        tag-custom-only: true
+    
+    # Code for testing the build when not pushing to Docker Hub.
+    - name: Build and Load image for testing (if not publishing)
+      uses: docker/build-push-action@v2
+      if: ${{ inputs.publish != 'true' }}
+      with:
+        context: ${{ inputs.context }}
+        file: ${{ inputs.file }}
+        # TODO this only does single-platform builds in testing?
+        # leaving it for now since it matches the previous behavior
+        platforms: linux/amd64
+        tags: ${{ steps.docker_meta.outputs.tags }}
+        load: true
+        push: false
+    - name: Upload image locally for testing (if not publishing)
+      uses: ishworkh/docker-image-artifact-upload@v1
+      if: ${{ inputs.publish != 'true' }}
+      with:
+        image: ${{ steps.docker_meta.outputs.tags }}
+    
+    # Code for building multi-platform images and pushing to Docker Hub.
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v1
+      if: ${{ inputs.publish == 'true' }}
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+      if: ${{ inputs.publish == 'true' }}
+    - name: Login to DockerHub
+      uses: docker/login-action@v1
+      if: ${{ inputs.publish == 'true' }}
+      with:
+        username: ${{ inputs.username }}
+        password: ${{ inputs.password }}
+    - name: Build and Push Multi-Platform image
+      uses: docker/build-push-action@v2
+      if: ${{ inputs.publish == 'true' }}
+      with:
+        context: ${{ inputs.context }}
+        file: ${{ inputs.file }}
+        platforms: ${{ inputs.platforms }}
+        tags: ${{ steps.docker_meta.outputs.tags }}
+        push: true
+
+    # TODO add code for vuln scanning?

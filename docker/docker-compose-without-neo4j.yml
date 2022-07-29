@@ -31,7 +31,7 @@ services:
   kafka-setup:
     build:
       context: kafka-setup
-    image: linkedin/datahub-kafka-setup:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-linkedin/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
     env_file: kafka-setup/env/docker.env
     hostname: kafka-setup
     container_name: kafka-setup
@@ -72,7 +72,7 @@ services:
     build:
       context: ../
       dockerfile: docker/elasticsearch-setup/Dockerfile
-    image: linkedin/datahub-elasticsearch-setup:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-linkedin/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
     env_file: elasticsearch-setup/env/docker.env
     hostname: elasticsearch-setup
     container_name: elasticsearch-setup
@@ -83,7 +83,7 @@ services:
     build:
         context: ../
         dockerfile: docker/datahub-gms/Dockerfile
-    image: linkedin/datahub-gms:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_GMS_IMAGE:-linkedin/datahub-gms}:${DATAHUB_VERSION:-head}
     env_file: datahub-gms/env/docker-without-neo4j.env
     hostname: datahub-gms
     container_name: datahub-gms
@@ -98,7 +98,7 @@ services:
     build:
       context: ../
       dockerfile: docker/datahub-frontend/Dockerfile
-    image: linkedin/datahub-frontend-react:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_FRONTEND_IMAGE:-linkedin/datahub-frontend-react}:${DATAHUB_VERSION:-head}
     env_file: datahub-frontend/env/docker.env
     hostname: datahub-frontend-react
     container_name: datahub-frontend-react
