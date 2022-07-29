@@ -8,7 +8,7 @@ import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { IngestionSourceBuilderStep } from './steps';
 import RecipeBuilder from './RecipeBuilder';
 import { CONNECTORS_WITH_FORM } from './RecipeForm/utils';
-import { getRecipeJson } from './RecipeForm/ConnectionRequest';
+import { getRecipeJson } from './RecipeForm/TestConnectionButton';
 
 const LOOKML_DOC_LINK = 'https://datahubproject.io/docs/generated/ingestion/sources/looker#module-lookml';
 

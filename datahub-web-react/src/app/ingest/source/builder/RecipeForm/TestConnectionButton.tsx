@@ -56,7 +56,7 @@ enum SourceCapability {
     PLATFORM_INSTANCE = 'Platform Instance',
     DOMAINS = 'Domains',
     DATA_PROFILING = 'Data Profiling',
-    USAGE_STATS = 'Dataset Usage',
+    USAGE_STATS = 'Usage Stats',
     PARTITION_SUPPORT = 'Partition Support',
     DESCRIPTIONS = 'Descriptions',
     LINEAGE_COARSE = 'Table-Level Lineage',
@@ -106,7 +106,7 @@ interface Props {
     recipe: string;
 }
 
-function ConnectionRequest(props: Props) {
+function TestConnectionButton(props: Props) {
     const { recipe } = props;
     const [isLoading, setIsLoading] = useState(false);
     const [isModalVisible, setIsModalVisible] = useState(false);
@@ -134,7 +134,7 @@ function ConnectionRequest(props: Props) {
         if (!loading && resultData) {
             const result = resultData.executionRequest?.result;
             if (result && result.status !== RUNNING) {
-                if (result && result.structuredReport) {
+                if (result.structuredReport) {
                     const testConnectionReport = JSON.parse(result.structuredReport.serializedValue);
                     setTestConnectionResult(testConnectionReport);
                 }
@@ -263,4 +263,4 @@ function ConnectionRequest(props: Props) {
     );
 }
 
-export default ConnectionRequest;
+export default TestConnectionButton;

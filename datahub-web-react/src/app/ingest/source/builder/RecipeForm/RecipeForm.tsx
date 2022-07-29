@@ -7,7 +7,7 @@ import styled from 'styled-components/macro';
 import { jsonToYaml } from '../../utils';
 import { RecipeField, RECIPE_FIELDS, setFieldValueOnRecipe } from './utils';
 import FormField from './FormField';
-import ConnectionRequest from './ConnectionRequest';
+import TestConnectionButton from './TestConnectionButton';
 import { SNOWFLAKE } from '../../conf/snowflake/snowflake';
 
 export const ControlsContainer = styled.div`
@@ -34,7 +34,7 @@ const MarginWrapper = styled.div`
     margin-left: 20px;
 `;
 
-const ConnectionRequestWrapper = styled.div`
+const TestConnectionWrapper = styled.div`
     display: flex;
     justify-content: flex-end;
     margin-top: 16px;
@@ -117,9 +117,9 @@ function RecipeForm(props: Props) {
                         <FormField field={field} removeMargin={i === fields.length - 1} />
                     ))}
                     {type === SNOWFLAKE && (
-                        <ConnectionRequestWrapper>
-                            <ConnectionRequest recipe={displayRecipe} />
-                        </ConnectionRequestWrapper>
+                        <TestConnectionWrapper>
+                            <TestConnectionButton recipe={displayRecipe} />
+                        </TestConnectionWrapper>
                     )}
                 </Collapse.Panel>
             </StyledCollapse>
