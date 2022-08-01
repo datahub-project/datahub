@@ -135,7 +135,7 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
   private String optionallySetPipelineName(String recipe, String ingestionSourceUrn) {
     try {
       JSONObject jsonRecipe = new JSONObject(recipe);
-      boolean hasPipelineName = jsonRecipe.has("pipeline_name") && jsonRecipe.get("pipeline_name") != null && jsonRecipe.get("pipeline_name") != "";
+      boolean hasPipelineName = jsonRecipe.has("pipeline_name") && jsonRecipe.get("pipeline_name") != null && !jsonRecipe.get("pipeline_name").equals("");
 
       if (!hasPipelineName) {
         jsonRecipe.put("pipeline_name", ingestionSourceUrn);
