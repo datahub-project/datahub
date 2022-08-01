@@ -98,21 +98,23 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
     });
   }
 
-  private DataHubIngestionSourceInfo mapIngestionSourceInfo(final UpdateIngestionSourceInput input, final String ingestionSourceUrnString) {
+  private DataHubIngestionSourceInfo mapIngestionSourceInfo(final UpdateIngestionSourceInput input, final String ingestionSourceUrn) {
     final DataHubIngestionSourceInfo result = new DataHubIngestionSourceInfo();
     result.setType(input.getType());
     result.setName(input.getName());
-    result.setConfig(mapConfig(input.getConfig(), ingestionSourceUrnString));
+    result.setConfig(mapConfig(input.getConfig(), ingestionSourceUrn));
     if (input.getSchedule() != null) {
       result.setSchedule(mapSchedule(input.getSchedule()));
     }
     return result;
   }
 
-  private DataHubIngestionSourceConfig mapConfig(final UpdateIngestionSourceConfigInput input, final String ingestionSourceUrnString) {
+  private DataHubIngestionSourceConfig mapConfig(final UpdateIngestionSourceConfigInput input, final String ingestionSourceUrn) {
     final DataHubIngestionSourceConfig result = new DataHubIngestionSourceConfig();
     String recipe = input.getRecipe();
-    recipe = optionallySetPipelineName(recipe, ingestionSourceUrnString);
+    if (recipe != null) {
+      recipe = optionallySetPipelineName(recipe, ingestionSourceUrn);
+    }
     result.setRecipe(recipe);
     if (input.getVersion() != null) {
       result.setVersion(input.getVersion());
@@ -130,24 +132,13 @@ public class UpsertIngestionSourceResolver implements DataFetcher<CompletableFut
     return result;
   }
 
-  private String optionallySetPipelineName(String recipe, String ingestionSourceUrnString) {
+  private String optionallySetPipelineName(String recipe, String ingestionSourceUrn) {
     try {
       JSONObject jsonRecipe = new JSONObject(recipe);
-      boolean isStatefulIngestionEnabled = false;
-      if (jsonRecipe.has("source")) {
-        JSONObject source = jsonRecipe.getJSONObject("source");
-        if (source.has("config")) {
-          JSONObject config = source.getJSONObject("config");
-          if (config.has("stateful_ingestion")) {
-            JSONObject statefulIngestion = config.getJSONObject("stateful_ingestion");
-            isStatefulIngestionEnabled = statefulIngestion.has("enabled") && statefulIngestion.get("enabled").equals(true);
-          }
-        }
-      }
       boolean hasPipelineName = jsonRecipe.has("pipeline_name") && jsonRecipe.get("pipeline_name") != null && jsonRecipe.get("pipeline_name") != "";
 
-      if (isStatefulIngestionEnabled && !hasPipelineName) {
-        jsonRecipe.put("pipeline_name", ingestionSourceUrnString);
+      if (!hasPipelineName) {
+        jsonRecipe.put("pipeline_name", ingestionSourceUrn);
         recipe = jsonRecipe.toString();
       }
     } catch (JSONException e) {
