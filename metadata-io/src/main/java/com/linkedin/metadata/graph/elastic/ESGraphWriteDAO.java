@@ -51,8 +51,9 @@ public class ESGraphWriteDAO {
       @Nullable final String destinationType, @Nonnull final Filter destinationEntityFilter,
       @Nonnull final List<String> relationshipTypes, @Nonnull final RelationshipFilter relationshipFilter) {
     BoolQueryBuilder finalQuery =
-        buildQuery(ImmutableList.of(sourceType), sourceEntityFilter, ImmutableList.of(destinationType), destinationEntityFilter, relationshipTypes,
-            relationshipFilter);
+        buildQuery(sourceType == null ? ImmutableList.of() : ImmutableList.of(sourceType), sourceEntityFilter,
+            destinationType == null ? ImmutableList.of() : ImmutableList.of(destinationType), destinationEntityFilter,
+            relationshipTypes, relationshipFilter);
 
     DeleteByQueryRequest deleteByQueryRequest = new DeleteByQueryRequest();
 

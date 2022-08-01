@@ -129,14 +129,14 @@ public class ESGraphQueryDAO {
     // set source filter
     String sourceNode = relationshipDirection == RelationshipDirection.OUTGOING ? SOURCE : DESTINATION;
     if (sourceTypes != null && sourceTypes.size() > 0) {
-      finalQuery.must(QueryBuilders.termQuery(sourceNode + ".entityType", sourceTypes));
+      finalQuery.must(QueryBuilders.termsQuery(sourceNode + ".entityType", sourceTypes));
     }
     addFilterToQueryBuilder(sourceEntityFilter, sourceNode, finalQuery);
 
     // set destination filter
     String destinationNode = relationshipDirection == RelationshipDirection.OUTGOING ? DESTINATION : SOURCE;
     if (destinationTypes != null && destinationTypes.size() > 0) {
-      finalQuery.must(QueryBuilders.termQuery(destinationNode + ".entityType", destinationTypes));
+      finalQuery.must(QueryBuilders.termsQuery(destinationNode + ".entityType", destinationTypes));
     }
     addFilterToQueryBuilder(destinationEntityFilter, destinationNode, finalQuery);
 

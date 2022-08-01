@@ -72,7 +72,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
   }
 
   @Override
-  public void testFindRelatedEntitiesSourceType(List<String> datasetType,
+  public void testFindRelatedEntitiesSourceType(String datasetType,
                                                 List<String> relationshipTypes,
                                                 RelationshipFilter relationships,
                                                 List<RelatedEntity> expectedRelatedEntities) throws Exception {
@@ -89,7 +89,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBase {
   }
 
   @Override
-  public void testFindRelatedEntitiesDestinationType(List<String> datasetType,
+  public void testFindRelatedEntitiesDestinationType(String datasetType,
                                                      List<String> relationshipTypes,
                                                      RelationshipFilter relationships,
                                                      List<RelatedEntity> expectedRelatedEntities) throws Exception {

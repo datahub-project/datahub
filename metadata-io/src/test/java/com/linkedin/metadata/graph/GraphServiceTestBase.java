@@ -72,8 +72,8 @@ abstract public class GraphServiceTestBase {
   /**
    * Some test URN types.
    */
-  protected static List<String> datasetType = ImmutableList.of("dataset");
-  protected static List<String> userType = ImmutableList.of("user");
+  protected static String datasetType = "dataset";
+  protected static String userType = "user";
 
   /**
    * Some test datasets.
@@ -736,12 +736,12 @@ abstract public class GraphServiceTestBase {
   }
 
   @Test(dataProvider = "FindRelatedEntitiesSourceTypeTests")
-  public void testFindRelatedEntitiesSourceType(List<String> datasetType,
+  public void testFindRelatedEntitiesSourceType(String entityTypeFilter,
                                                 List<String> relationshipTypes,
                                                 RelationshipFilter relationships,
                                                 List<RelatedEntity> expectedRelatedEntities) throws Exception {
     doTestFindRelatedEntities(
-            datasetType,
+            entityTypeFilter != null ? ImmutableList.of(entityTypeFilter) : ImmutableList.of(),
             anyType,
             relationshipTypes,
             relationships,
@@ -862,13 +862,13 @@ abstract public class GraphServiceTestBase {
   }
 
   @Test(dataProvider = "FindRelatedEntitiesDestinationTypeTests")
-  public void testFindRelatedEntitiesDestinationType(List<String> datasetType,
+  public void testFindRelatedEntitiesDestinationType(String entityTypeFilter,
                                                      List<String> relationshipTypes,
                                                      RelationshipFilter relationships,
                                                      List<RelatedEntity> expectedRelatedEntities) throws Exception {
     doTestFindRelatedEntities(
             anyType,
-            datasetType,
+            entityTypeFilter != null ? ImmutableList.of(entityTypeFilter) : ImmutableList.of(),
             relationshipTypes,
             relationships,
             expectedRelatedEntities
@@ -917,17 +917,17 @@ abstract public class GraphServiceTestBase {
     assertNotNull(nullUrn);
     RelatedEntity nullRelatedEntity = new RelatedEntity(downstreamOf, nullUrn.toString());
 
-    doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of(), downstreamOf, outgoingRelationships, service);
+    doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of("null"), downstreamOf, outgoingRelationships, service);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service);
 
     service.addEdge(new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf));
     syncAfterWrite();
-    doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of(), downstreamOf, outgoingRelationships, service);
+    doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of("null"), downstreamOf, outgoingRelationships, service);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, downstreamOfDatasetOneRelatedEntity);
 
     service.addEdge(new Edge(datasetOneUrn, nullUrn, downstreamOf));
     syncAfterWrite();
-    doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of(), downstreamOf, outgoingRelationships, service, nullRelatedEntity);
+    doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of("null"), downstreamOf, outgoingRelationships, service, nullRelatedEntity);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, nullRelatedEntity, downstreamOfDatasetOneRelatedEntity);
   }
 
@@ -939,17 +939,17 @@ abstract public class GraphServiceTestBase {
     assertNotNull(nullUrn);
     RelatedEntity nullRelatedEntity = new RelatedEntity(downstreamOf, nullUrn.toString());
 
-    doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of(), downstreamOf, outgoingRelationships, service);
+    doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of("null"), downstreamOf, outgoingRelationships, service);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service);
 
     service.addEdge(new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf));
     syncAfterWrite();
-    doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of(), downstreamOf, outgoingRelationships, service);
+    doTestFindRelatedEntitiesEntityType(anyType,ImmutableList.of("null"), downstreamOf, outgoingRelationships, service);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, downstreamOfDatasetOneRelatedEntity);
 
     service.addEdge(new Edge(datasetOneUrn, nullUrn, downstreamOf));
     syncAfterWrite();
-    doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of(), downstreamOf, outgoingRelationships, service, nullRelatedEntity);
+    doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of("null"), downstreamOf, outgoingRelationships, service, nullRelatedEntity);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, nullRelatedEntity, downstreamOfDatasetOneRelatedEntity);
   }
 
@@ -1039,8 +1039,8 @@ abstract public class GraphServiceTestBase {
     GraphService service = getPopulatedGraphService();
 
     RelatedEntitiesResult relatedEntities = service.findRelatedEntities(
-            datasetType, newFilter("urn", datasetOneUrnString),
-            userType, newFilter("urn", userOneUrnString),
+            ImmutableList.of(datasetType), newFilter("urn", datasetOneUrnString),
+            ImmutableList.of(userType), newFilter("urn", userOneUrnString),
             Arrays.asList(hasOwner), outgoingRelationships,
             0, 10
     );
@@ -1048,10 +1048,33 @@ abstract public class GraphServiceTestBase {
     assertEquals(relatedEntities.entities, Arrays.asList(hasOwnerUserOneRelatedEntity));
 
     relatedEntities = service.findRelatedEntities(
-            datasetType, newFilter("urn", datasetOneUrnString),
-            userType, newFilter("urn", userTwoUrnString),
+            ImmutableList.of(datasetType), newFilter("urn", datasetOneUrnString),
+            ImmutableList.of(userType), newFilter("urn", userTwoUrnString),
             Arrays.asList(hasOwner), incomingRelationships,
             0, 10
+    );
+
+    assertEquals(relatedEntities.entities, Collections.emptyList());
+  }
+
+  @Test
+  public void testFindRelatedEntitiesMultipleEntityTypes() throws Exception {
+    GraphService service = getPopulatedGraphService();
+
+    RelatedEntitiesResult relatedEntities = service.findRelatedEntities(
+        ImmutableList.of(datasetType, userType), newFilter("urn", datasetOneUrnString),
+        ImmutableList.of(datasetType, userType), newFilter("urn", userOneUrnString),
+        Arrays.asList(hasOwner), outgoingRelationships,
+        0, 10
+    );
+
+    assertEquals(relatedEntities.entities, Arrays.asList(hasOwnerUserOneRelatedEntity));
+
+    relatedEntities = service.findRelatedEntities(
+        ImmutableList.of(datasetType, userType), newFilter("urn", datasetOneUrnString),
+        ImmutableList.of(datasetType, userType), newFilter("urn", userTwoUrnString),
+        Arrays.asList(hasOwner), incomingRelationships,
+        0, 10
     );
 
     assertEquals(relatedEntities.entities, Collections.emptyList());
@@ -1063,7 +1086,7 @@ abstract public class GraphServiceTestBase {
 
     // populated graph asserted in testPopulatedGraphService
     RelatedEntitiesResult allRelatedEntities = service.findRelatedEntities(
-            datasetType, EMPTY_FILTER,
+            ImmutableList.of(datasetType), EMPTY_FILTER,
             anyType, EMPTY_FILTER,
             Arrays.asList(downstreamOf, hasOwner, knowsUser), outgoingRelationships,
             0, 100
@@ -1073,7 +1096,7 @@ abstract public class GraphServiceTestBase {
     IntStream.range(0, allRelatedEntities.entities.size())
             .forEach(idx -> individualRelatedEntities.addAll(
                     service.findRelatedEntities(
-                    datasetType, EMPTY_FILTER,
+                        ImmutableList.of(datasetType), EMPTY_FILTER,
                     anyType, EMPTY_FILTER,
                     Arrays.asList(downstreamOf, hasOwner, knowsUser), outgoingRelationships,
                     idx, 1
@@ -1361,7 +1384,7 @@ abstract public class GraphServiceTestBase {
     // assert the modified graph: check all nodes related to upstreamOf and nextVersionOf edges again
     assertEqualsAnyOrder(
             service.findRelatedEntities(
-                    datasetType, EMPTY_FILTER,
+                ImmutableList.of(datasetType), EMPTY_FILTER,
                     anyType, EMPTY_FILTER,
                     Arrays.asList(downstreamOf), outgoingRelationships,
                     0, 100
@@ -1370,7 +1393,7 @@ abstract public class GraphServiceTestBase {
     );
     assertEqualsAnyOrder(
             service.findRelatedEntities(
-                    userType, EMPTY_FILTER,
+                ImmutableList.of(userType), EMPTY_FILTER,
                     anyType, EMPTY_FILTER,
                     Arrays.asList(hasOwner), outgoingRelationships,
                     0, 100
@@ -1380,7 +1403,7 @@ abstract public class GraphServiceTestBase {
     assertEqualsAnyOrder(
             service.findRelatedEntities(
                     anyType, EMPTY_FILTER,
-                    userType, EMPTY_FILTER,
+                ImmutableList.of(userType), EMPTY_FILTER,
                     Arrays.asList(knowsUser), outgoingRelationships,
                     0, 100
             ),

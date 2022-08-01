@@ -533,8 +533,8 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
     public void testGetQueryForRelatedEntitiesOutgoing() {
         doTestGetQueryForRelatedEntitiesDirection(RelationshipDirection.OUTGOING,
                 "query {\n"
-                        + "  sourceType as var(func: eq(<type>, \"sourceType\"))\n"
-                        + "  destinationType as var(func: eq(<type>, \"destinationType\"))\n"
+                        + "  sourceType as var(func: eq(<type>, [\"sourceType\"]))\n"
+                        + "  destinationType as var(func: eq(<type>, [\"destinationType\"]))\n"
                         + "  sourceFilter1 as var(func: eq(<urn>, \"urn:ns:type:source-key\"))\n"
                         + "  sourceFilter2 as var(func: eq(<key>, \"source-key\"))\n"
                         + "  destinationFilter1 as var(func: eq(<urn>, \"urn:ns:type:dest-key\"))\n"
@@ -566,8 +566,8 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
     public void testGetQueryForRelatedEntitiesIncoming() {
         doTestGetQueryForRelatedEntitiesDirection(RelationshipDirection.INCOMING,
                 "query {\n"
-                        + "  sourceType as var(func: eq(<type>, \"sourceType\"))\n"
-                        + "  destinationType as var(func: eq(<type>, \"destinationType\"))\n"
+                        + "  sourceType as var(func: eq(<type>, [\"sourceType\"]))\n"
+                        + "  destinationType as var(func: eq(<type>, [\"destinationType\"]))\n"
                         + "  sourceFilter1 as var(func: eq(<urn>, \"urn:ns:type:source-key\"))\n"
                         + "  sourceFilter2 as var(func: eq(<key>, \"source-key\"))\n"
                         + "  destinationFilter1 as var(func: eq(<urn>, \"urn:ns:type:dest-key\"))\n"
@@ -599,8 +599,8 @@ public class DgraphGraphServiceTest extends GraphServiceTestBase {
     public void testGetQueryForRelatedEntitiesUndirected() {
         doTestGetQueryForRelatedEntitiesDirection(RelationshipDirection.UNDIRECTED,
                 "query {\n"
-                        + "  sourceType as var(func: eq(<type>, \"sourceType\"))\n"
-                        + "  destinationType as var(func: eq(<type>, \"destinationType\"))\n"
+                        + "  sourceType as var(func: eq(<type>, [\"sourceType\"]))\n"
+                        + "  destinationType as var(func: eq(<type>, [\"destinationType\"]))\n"
                         + "  sourceFilter1 as var(func: eq(<urn>, \"urn:ns:type:source-key\"))\n"
                         + "  sourceFilter2 as var(func: eq(<key>, \"source-key\"))\n"
                         + "  destinationFilter1 as var(func: eq(<urn>, \"urn:ns:type:dest-key\"))\n"

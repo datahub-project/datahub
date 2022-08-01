@@ -147,7 +147,7 @@ export const OperationsTab = () => {
             inputs: run?.inputs?.relationships.map((relationship) => relationship.entity),
             outputs: run?.outputs?.relationships.map((relationship) => relationship.entity),
             externalUrl: run?.externalUrl,
-            parentTemplate: run?.parentTemplate?.relationships?.[0].entity,
+            parentTemplate: run?.parentTemplate?.relationships?.[0]?.entity,
         }));
 
     return (

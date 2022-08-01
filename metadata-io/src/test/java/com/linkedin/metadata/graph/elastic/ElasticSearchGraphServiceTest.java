@@ -130,7 +130,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
   }
 
   @Override
-  public void testFindRelatedEntitiesSourceType(List<String> datasetType, List<String> relationshipTypes,
+  public void testFindRelatedEntitiesSourceType(String datasetType, List<String> relationshipTypes,
       RelationshipFilter relationships, List<RelatedEntity> expectedRelatedEntities) throws Exception {
     if (relationships.getDirection() == RelationshipDirection.UNDIRECTED) {
       // https://github.com/datahub-project/datahub/issues/3114
@@ -144,7 +144,7 @@ public class ElasticSearchGraphServiceTest extends GraphServiceTestBase {
   }
 
   @Override
-  public void testFindRelatedEntitiesDestinationType(List<String> datasetType, List<String> relationshipTypes,
+  public void testFindRelatedEntitiesDestinationType(String datasetType, List<String> relationshipTypes,
       RelationshipFilter relationships, List<RelatedEntity> expectedRelatedEntities) throws Exception {
     if (relationships.getDirection() == RelationshipDirection.UNDIRECTED) {
       // https://github.com/datahub-project/datahub/issues/3114

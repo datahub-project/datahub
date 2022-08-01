@@ -296,7 +296,7 @@ public class DgraphGraphService implements GraphService {
             // TODO: escape string value
             final StringJoiner joiner = new StringJoiner("\",\"", "[\"", "\"]");
             sourceTypes.forEach(type -> joiner.add(type));
-            filters.add(String.format("%s as var(func: eq(<type>, \"%s\"))", sourceTypeFilterName,  joiner.toString()));
+            filters.add(String.format("%s as var(func: eq(<type>, %s))", sourceTypeFilterName,  joiner.toString()));
         }
 
         if (destinationTypes != null && destinationTypes.size() > 0) {
@@ -304,7 +304,7 @@ public class DgraphGraphService implements GraphService {
             final StringJoiner joiner = new StringJoiner("\",\"", "[\"", "\"]");
             destinationTypes.forEach(type -> joiner.add(type));
             // TODO: escape string value
-            filters.add(String.format("%s as var(func: eq(<type>, \"%s\"))", destinationTypeFilterName,  joiner.toString()));
+            filters.add(String.format("%s as var(func: eq(<type>, %s))", destinationTypeFilterName,  joiner.toString()));
         }
 
         //noinspection ConstantConditions
