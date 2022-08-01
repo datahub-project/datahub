@@ -5,6 +5,7 @@ import com.linkedin.datahub.graphql.generated.ExecutionRequest;
 import com.linkedin.datahub.graphql.generated.IngestionConfig;
 import com.linkedin.datahub.graphql.generated.IngestionSchedule;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
+import com.linkedin.datahub.graphql.generated.StructuredReport;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -12,6 +13,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.execution.ExecutionRequestSource;
+import com.linkedin.execution.StructuredExecutionReport;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
@@ -77,7 +79,18 @@ public class IngestionResolverUtils {
     result.setStartTimeMs(execRequestResult.getStartTimeMs());
     result.setDurationMs(execRequestResult.getDurationMs());
     result.setReport(execRequestResult.getReport());
+    if (execRequestResult.hasStructuredReport()) {
+      result.setStructuredReport(mapStructuredReport(execRequestResult.getStructuredReport()));
+    }
     return result;
+  }
+
+  public static StructuredReport mapStructuredReport(final StructuredExecutionReport structuredReport) {
+    StructuredReport structuredReportResult = new StructuredReport();
+    structuredReportResult.setType(structuredReport.getType());
+    structuredReportResult.setSerializedValue(structuredReport.getSerializedValue());
+    structuredReportResult.setContentType(structuredReport.getContentType());
+    return structuredReportResult;
   }
 
   public static List<IngestionSource> mapIngestionSources(final Collection<EntityResponse> entities) {

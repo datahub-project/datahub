@@ -7,6 +7,8 @@ import styled from 'styled-components/macro';
 import { jsonToYaml } from '../../utils';
 import { RecipeField, RECIPE_FIELDS, setFieldValueOnRecipe } from './utils';
 import FormField from './FormField';
+import TestConnectionButton from './TestConnection/TestConnectionButton';
+import { SNOWFLAKE } from '../../conf/snowflake/snowflake';
 
 export const ControlsContainer = styled.div`
     display: flex;
@@ -30,6 +32,12 @@ const HeaderTitle = styled.span`
 
 const MarginWrapper = styled.div`
     margin-left: 20px;
+`;
+
+const TestConnectionWrapper = styled.div`
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 16px;
 `;
 
 function getInitialValues(displayRecipe: string, allFields: any[]) {
@@ -80,15 +88,15 @@ function RecipeForm(props: Props) {
     const { fields, advancedFields, filterFields } = RECIPE_FIELDS[type];
     const allFields = [...fields, ...advancedFields, ...filterFields];
 
-    function updateFormValues(changedValues: any) {
+    function updateFormValues(changedValues: any, allValues: any) {
         let updatedValues = YAML.parse(displayRecipe);
 
         Object.keys(changedValues).forEach((fieldName) => {
             const recipeField = allFields.find((f) => f.name === fieldName);
             if (recipeField) {
                 updatedValues =
-                    recipeField.setValueOnRecipeOverride?.(updatedValues, changedValues[fieldName]) ||
-                    setFieldValueOnRecipe(updatedValues, changedValues[fieldName], recipeField.fieldPath);
+                    recipeField.setValueOnRecipeOverride?.(updatedValues, allValues[fieldName]) ||
+                    setFieldValueOnRecipe(updatedValues, allValues[fieldName], recipeField.fieldPath);
             }
         });
 
@@ -108,22 +116,33 @@ function RecipeForm(props: Props) {
                     {fields.map((field, i) => (
                         <FormField field={field} removeMargin={i === fields.length - 1} />
                     ))}
+                    {type === SNOWFLAKE && (
+                        <TestConnectionWrapper>
+                            <TestConnectionButton type={type} recipe={displayRecipe} />
+                        </TestConnectionWrapper>
+                    )}
                 </Collapse.Panel>
             </StyledCollapse>
-            <StyledCollapse>
-                <Collapse.Panel forceRender header={<SectionHeader icon={<FilterOutlined />} text="Filter" />} key="1">
-                    {filterFields.map((field, i) => (
-                        <>
-                            {shouldRenderFilterSectionHeader(field, i, filterFields) && (
-                                <Typography.Title level={4}>{field.section}</Typography.Title>
-                            )}
-                            <MarginWrapper>
-                                <FormField field={field} removeMargin={i === filterFields.length - 1} />
-                            </MarginWrapper>
-                        </>
-                    ))}
-                </Collapse.Panel>
-            </StyledCollapse>
+            {filterFields.length > 0 && (
+                <StyledCollapse>
+                    <Collapse.Panel
+                        forceRender
+                        header={<SectionHeader icon={<FilterOutlined />} text="Filter" />}
+                        key="1"
+                    >
+                        {filterFields.map((field, i) => (
+                            <>
+                                {shouldRenderFilterSectionHeader(field, i, filterFields) && (
+                                    <Typography.Title level={4}>{field.section}</Typography.Title>
+                                )}
+                                <MarginWrapper>
+                                    <FormField field={field} removeMargin={i === filterFields.length - 1} />
+                                </MarginWrapper>
+                            </>
+                        ))}
+                    </Collapse.Panel>
+                </StyledCollapse>
+            )}
             <StyledCollapse>
                 <Collapse.Panel
                     forceRender
