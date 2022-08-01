@@ -323,6 +323,7 @@ export default function TagTermGroup({
                         {
                             resourceUrn: entityUrn,
                             subResource: entitySubresource,
+                            subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
                         },
                     ]}
                     entityType={entityType}
