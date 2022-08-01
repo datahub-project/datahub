@@ -1,5 +1,7 @@
 ---
 # see https://datahubproject.io/docs/generated/ingestion/sources/file for complete documentation
+run_id: "custom-run-id"
+
 source:
   type: "file"
   config:
