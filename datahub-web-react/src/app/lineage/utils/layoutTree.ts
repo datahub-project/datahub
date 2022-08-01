@@ -1,3 +1,4 @@
+import { SchemaFieldRef } from '../../../types.generated';
 import { CURVE_PADDING, HORIZONTAL_SPACE_PER_LAYER, VERTICAL_SPACE_BETWEEN_NODES } from '../constants';
 import { width as nodeWidth } from '../LineageEntityNode';
 import { Direction, NodeData, VizEdge, VizNode } from '../types';
@@ -18,6 +19,10 @@ export default function layoutTree(
     draggedNodes: Record<string, { x: number; y: number }>,
     canvasHeight: number,
     expandTitles: boolean,
+    showColumns: boolean,
+    expandedNodes: any,
+    hoveredField: SchemaFieldRef,
+    fineGrainedMap: any,
 ): {
     nodesToRender: VizNode[];
     edgesToRender: VizEdge[];
@@ -51,14 +56,25 @@ export default function layoutTree(
         const layerSize = filteredNodesInCurrentLayer.length;
 
         const layerHeight = filteredNodesInCurrentLayer
-            .map(({ node }) => nodeHeightFromTitleLength(expandTitles ? node.expandedName || node.name : undefined))
+            .map(({ node }) =>
+                nodeHeightFromTitleLength(
+                    expandTitles ? node.expandedName || node.name : undefined,
+                    node.schemaMetadata,
+                    showColumns,
+                    !!expandedNodes[node?.urn || 'no-op'],
+                ),
+            )
             .reduce((acc, height) => acc + height, 0);
 
         maxHeight = Math.max(maxHeight, layerHeight);
 
         // approximate the starting position assuming each node has a 1 line title (its ok to be a bit off here)
         let currentXPosition =
-            -((nodeHeightFromTitleLength(undefined) + VERTICAL_SPACE_BETWEEN_NODES) * (layerSize - 1)) / 2 +
+            -(
+                (nodeHeightFromTitleLength(undefined, undefined, showColumns, false) + VERTICAL_SPACE_BETWEEN_NODES) *
+                (layerSize - 1)
+            ) /
+                2 +
             canvasHeight / 2 +
             HEADER_HEIGHT;
 
@@ -87,8 +103,12 @@ export default function layoutTree(
                               y: HORIZONTAL_SPACE_PER_LAYER * currentLayer * xModifier,
                           };
                 currentXPosition +=
-                    nodeHeightFromTitleLength(expandTitles ? node.expandedName || node.name : undefined) +
-                    VERTICAL_SPACE_BETWEEN_NODES;
+                    nodeHeightFromTitleLength(
+                        expandTitles ? node.expandedName || node.name : undefined,
+                        node.schemaMetadata,
+                        showColumns,
+                        !!expandedNodes[node?.urn || 'no-op'],
+                    ) + VERTICAL_SPACE_BETWEEN_NODES;
 
                 nodesByUrn[node.urn] = vizNodeForNode;
                 nodesToRender.push(vizNodeForNode);
@@ -143,6 +163,48 @@ export default function layoutTree(
         nodesInCurrentLayer = nodesInNextLayer;
         nodesInNextLayer = [];
         currentLayer++;
+    }
+
+    if (hoveredField) {
+        const forwardEdges = fineGrainedMap.forward;
+        const hoveredFieldForwardEdges = forwardEdges[hoveredField.urn]?.[hoveredField.path];
+
+        const hoveredNode = nodesToRender.find((node) => node.data.urn === hoveredField.urn);
+        const hoveredFieldIndex =
+            hoveredNode?.data.schemaMetadata?.fields.findIndex(
+                (candidate) => candidate.fieldPath === hoveredField.path,
+            ) || 0;
+        const hoveredFieldX = (hoveredNode?.x || 0) + (hoveredFieldIndex + 1) * 30 + 1;
+        const hoveredFieldY = hoveredNode?.y || 0 + 1;
+
+        Object.keys(hoveredFieldForwardEdges || {}).forEach((targetUrn) => {
+            const targetNode = nodesToRender.find((node) => node.data.urn === targetUrn);
+            Object.keys(hoveredFieldForwardEdges[targetUrn] || {}).forEach((targetField) => {
+                const targetFieldIndex =
+                    targetNode?.data.schemaMetadata?.fields.findIndex(
+                        (candidate) => candidate.fieldPath === targetField,
+                    ) || -1;
+                const targetFieldX = (targetNode?.x || 0) + (targetFieldIndex + 3.1) * 30 + 1;
+                const targetFieldY = targetNode?.y || 0 + 1;
+                // if the nodes are inverted, we want to draw the edge slightly differently
+                if (hoveredNode && targetNode && hoveredFieldX && hoveredFieldY && targetFieldX && targetFieldY) {
+                    const curve = [
+                        { x: hoveredFieldX, y: hoveredFieldY - INSIDE_NODE_SHIFT * xModifier + directionShift },
+                        { x: hoveredFieldX, y: hoveredFieldY - (INSIDE_NODE_SHIFT + CURVE_PADDING) * xModifier },
+                        { x: targetFieldX, y: targetFieldY + (nodeWidth / 2 + CURVE_PADDING) * xModifier },
+                        { x: targetFieldX, y: targetFieldY + (nodeWidth / 2 - 15) * xModifier + directionShift },
+                    ];
+
+                    const vizEdgeForPair = {
+                        source: hoveredNode,
+                        target: targetNode,
+                        curve,
+                    };
+                    console.log('adding edge', vizEdgeForPair);
+                    edgesToRender.push(vizEdgeForPair);
+                }
+            });
+        });
     }
 
     return { nodesToRender, edgesToRender, height: maxHeight, layers: currentLayer - 1, nodesByUrn };

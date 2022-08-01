@@ -13,6 +13,7 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
 import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
 import { navigateToLineageUrl } from './utils/navigateToLineageUrl';
+import { SchemaFieldRef } from '../../types.generated';
 
 const ZoomContainer = styled.div`
     position: relative;
@@ -80,6 +81,7 @@ type Props = {
     };
     width: number;
     height: number;
+    fineGrainedMap?: any;
 };
 
 const HelpIcon = styled(QuestionCircleOutlined)`
@@ -98,14 +100,19 @@ export default function LineageVizInsideZoom({
     selectedEntity,
     width,
     height,
+    fineGrainedMap,
 }: Props) {
     const [draggedNodes, setDraggedNodes] = useState<Record<string, { x: number; y: number }>>({});
+    const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
+    const [hoveredField, setHoveredField] = useState<SchemaFieldRef | null>(null);
+
     const history = useHistory();
     const location = useLocation();
 
     const [hoveredEntity, setHoveredEntity] = useState<EntitySelectParams | undefined>(undefined);
     const [isDraggingNode, setIsDraggingNode] = useState(false);
     const [showExpandedTitles, setShowExpandedTitles] = useState(false);
+    const [showColumns, setShowColumns] = useState(false);
     const isHideSiblingMode = useIsSeparateSiblingsMode();
 
     const entityRegistry = useEntityRegistry();
@@ -132,7 +139,17 @@ export default function LineageVizInsideZoom({
     }, [entityAndType?.entity?.urn]);
 
     return (
-        <LineageExplorerContext.Provider value={{ expandTitles: showExpandedTitles }}>
+        <LineageExplorerContext.Provider
+            value={{
+                expandTitles: showExpandedTitles,
+                showColumns,
+                expandedNodes,
+                setExpandedNodes,
+                hoveredField,
+                setHoveredField,
+                fineGrainedMap,
+            }}
+        >
             <ZoomContainer>
                 <ZoomControls>
                     <ZoomButton onClick={() => zoom.scale({ scaleX: 1.2, scaleY: 1.2 })}>
@@ -170,6 +187,10 @@ export default function LineageVizInsideZoom({
                                 <HelpIcon />
                             </Tooltip>
                         </ControlLabel>
+                    </div>
+                    <div>
+                        <ControlsSwitch data-testid="column-toggle" checked={showColumns} onChange={setShowColumns} />{' '}
+                        <ControlLabel>Show Columns </ControlLabel>
                     </div>
                 </DisplayControls>
                 <RootSvg

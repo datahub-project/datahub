@@ -87,11 +87,13 @@ export default function LineageEntityNode({
     direction: Direction;
     nodesToRenderByUrn: Record<string, VizNode>;
 }) {
-    const { expandTitles } = useContext(LineageExplorerContext);
+    const { expandTitles, expandedNodes, setExpandedNodes, showColumns, hoveredField, setHoveredField } =
+        useContext(LineageExplorerContext);
     const [isExpanding, setIsExpanding] = useState(false);
     const [expandHover, setExpandHover] = useState(false);
     const [getAsyncEntityLineage, { data: asyncLineageData }] = useGetEntityLineageLazyQuery();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
+    const areColumnsExpanded = !!expandedNodes[node?.data?.urn || 'noop'];
 
     useEffect(() => {
         if (asyncLineageData && asyncLineageData.entity) {
@@ -127,7 +129,12 @@ export default function LineageEntityNode({
             .join(' & ');
     }
 
-    const nodeHeight = nodeHeightFromTitleLength(expandTitles ? node.data.expandedName || node.data.name : undefined);
+    const nodeHeight = nodeHeightFromTitleLength(
+        expandTitles ? node.data.expandedName || node.data.name : undefined,
+        node.data.schemaMetadata,
+        showColumns,
+        areColumnsExpanded,
+    );
 
     return (
         <PointerGroup data-testid={`node-${node.data.urn}-${direction}`} top={node.x} left={node.y}>
@@ -350,6 +357,132 @@ export default function LineageEntityNode({
                         {unexploredHiddenChildren > 1 ? 'dependencies' : 'dependency'}
                     </UnselectableText>
                 ) : null}
+                {showColumns && node.data.schemaMetadata && !areColumnsExpanded && (
+                    <Group>
+                        <Group>
+                            <rect
+                                x={iconX}
+                                y={centerY + 70}
+                                width="170"
+                                height="20"
+                                fill="white"
+                                stroke="black"
+                                strokeWidth="1"
+                                ry="10"
+                                rx="10"
+                            />
+                            <UnselectableText
+                                dy=".33em"
+                                x={iconX + 20}
+                                y={centerY + 70 + 10}
+                                fontSize={12}
+                                fontFamily="Arial"
+                                fill="black"
+                            >
+                                {node.data.schemaMetadata.fields[0].fieldPath}
+                            </UnselectableText>
+                        </Group>
+                        <Group
+                            onClick={(e) => {
+                                const newExpandedNodes = { ...expandedNodes, [node?.data?.urn || 'noop']: true };
+                                setExpandedNodes(newExpandedNodes);
+                                e.stopPropagation();
+                            }}
+                        >
+                            <rect
+                                x={iconX}
+                                y={centerY + 100}
+                                width="170"
+                                height="20"
+                                fill="white"
+                                stroke="black"
+                                strokeWidth="1"
+                                ry="10"
+                                rx="10"
+                            />
+                            <UnselectableText
+                                dy=".33em"
+                                x={iconX + 20}
+                                y={centerY + 100 + 10}
+                                fontSize={12}
+                                fontFamily="Arial"
+                                fill="#1890FF"
+                            >
+                                More +
+                            </UnselectableText>
+                        </Group>
+                    </Group>
+                )}
+                {showColumns && node.data.schemaMetadata && areColumnsExpanded && (
+                    <Group>
+                        {node.data.schemaMetadata.fields.map((field, idx) => (
+                            <Group
+                                onMouseOver={() => {
+                                    setHoveredField({ urn: node?.data?.urn, path: field.fieldPath });
+                                }}
+                                onMouseOut={() => {
+                                    setHoveredField(null);
+                                }}
+                            >
+                                <rect
+                                    x={iconX}
+                                    y={centerY + 70 + idx * 30}
+                                    width="170"
+                                    height="20"
+                                    fill="white"
+                                    stroke="black"
+                                    strokeWidth="1"
+                                    ry="10"
+                                    rx="10"
+                                />
+                                <UnselectableText
+                                    dy=".33em"
+                                    x={iconX + 20}
+                                    y={centerY + 70 + 10 + idx * 30}
+                                    fontSize={12}
+                                    fontFamily="Arial"
+                                    fill={
+                                        hoveredField?.urn === node?.data?.urn && hoveredField?.path === field.fieldPath
+                                            ? '#1890FF'
+                                            : 'black'
+                                    }
+                                >
+                                    {field.fieldPath}
+                                </UnselectableText>
+                            </Group>
+                        ))}
+                        <Group
+                            onClick={(e) => {
+                                const newExpandedNodes = { ...expandedNodes };
+                                delete newExpandedNodes[node.data.urn || 'noop'];
+                                setExpandedNodes(newExpandedNodes);
+                                e.stopPropagation();
+                            }}
+                        >
+                            <rect
+                                x={iconX}
+                                y={centerY + 70 + node.data.schemaMetadata.fields.length * 30}
+                                width="170"
+                                height="20"
+                                fill="white"
+                                stroke="black"
+                                strokeWidth="1"
+                                ry="10"
+                                rx="10"
+                            />
+                            <UnselectableText
+                                dy=".33em"
+                                x={iconX + 20}
+                                y={centerY + 80 + node.data.schemaMetadata.fields.length * 30}
+                                fontSize={12}
+                                fontFamily="Arial"
+                                fill="#1890FF"
+                            >
+                                Less -
+                            </UnselectableText>
+                        </Group>
+                    </Group>
+                )}
             </Group>
         </PointerGroup>
     );

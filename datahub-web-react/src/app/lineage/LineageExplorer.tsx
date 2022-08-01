@@ -65,6 +65,7 @@ type Props = {
 export default function LineageExplorer({ urn, type }: Props) {
     const previousUrn = usePrevious(urn);
     const history = useHistory();
+    const [fineGrainedMap] = useState<any>({ forward: {}, reverse: {} });
 
     const entityRegistry = useEntityRegistry();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
@@ -90,19 +91,37 @@ export default function LineageExplorer({ urn, type }: Props) {
         (entityAndType: EntityAndType) => {
             if (entityAndType?.entity.urn && !asyncEntities[entityAndType?.entity.urn]?.fullyFetched) {
                 // record that we have added this entity
-                let newAsyncEntities = extendAsyncEntities(asyncEntities, entityRegistry, entityAndType, true);
+                let newAsyncEntities = extendAsyncEntities(
+                    fineGrainedMap,
+                    asyncEntities,
+                    entityRegistry,
+                    entityAndType,
+                    true,
+                );
                 const config = entityRegistry.getLineageVizConfig(entityAndType.type, entityAndType.entity);
 
                 config?.downstreamChildren?.forEach((downstream) => {
-                    newAsyncEntities = extendAsyncEntities(newAsyncEntities, entityRegistry, downstream, false);
+                    newAsyncEntities = extendAsyncEntities(
+                        fineGrainedMap,
+                        newAsyncEntities,
+                        entityRegistry,
+                        downstream,
+                        false,
+                    );
                 });
                 config?.upstreamChildren?.forEach((downstream) => {
-                    newAsyncEntities = extendAsyncEntities(newAsyncEntities, entityRegistry, downstream, false);
+                    newAsyncEntities = extendAsyncEntities(
+                        fineGrainedMap,
+                        newAsyncEntities,
+                        entityRegistry,
+                        downstream,
+                        false,
+                    );
                 });
                 setAsyncEntities(newAsyncEntities);
             }
         },
-        [asyncEntities, setAsyncEntities, entityRegistry],
+        [asyncEntities, setAsyncEntities, entityRegistry, fineGrainedMap],
     );
 
     const handleClose = () => {
@@ -119,6 +138,8 @@ export default function LineageExplorer({ urn, type }: Props) {
     const drawerDistanceFromTop =
         drawerRef && drawerRef.current ? drawerRef.current.offsetTop : DEFAULT_DISTANCE_FROM_TOP;
 
+    console.log(fineGrainedMap);
+
     return (
         <>
             {error && <ErrorSection />}
@@ -126,6 +147,7 @@ export default function LineageExplorer({ urn, type }: Props) {
             {!!data && (
                 <div>
                     <LineageViz
+                        fineGrainedMap={fineGrainedMap}
                         selectedEntity={selectedEntity}
                         fetchedEntities={asyncEntities}
                         entityAndType={entityData}

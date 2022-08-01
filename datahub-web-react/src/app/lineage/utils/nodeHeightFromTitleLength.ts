@@ -1,3 +1,5 @@
+import { SchemaMetadata } from '../../../types.generated';
+
 interface OptionalOptions {
     font?: string;
     fontSize?: string;
@@ -83,6 +85,23 @@ const calcualteSize = (text: string, options: OptionalOptions = {}): Size => {
     return size;
 };
 
-export function nodeHeightFromTitleLength(title?: string) {
-    return Math.floor(calcualteSize(title || DEFAULT_TEXT_TO_GET_NON_ZERO_HEIGHT).height) + HEIGHT_WITHOUT_TEXT_HEIGHT;
+export function nodeHeightFromTitleLength(
+    title?: string,
+    schemaMetadata?: SchemaMetadata,
+    showColumns?: boolean,
+    expanded?: boolean,
+) {
+    let showColumnBuffer = 0;
+    if (showColumns && schemaMetadata) {
+        if (expanded) {
+            showColumnBuffer = (schemaMetadata?.fields?.length + 1) * 30;
+        } else {
+            showColumnBuffer = 50;
+        }
+    }
+    return (
+        Math.floor(calcualteSize(title || DEFAULT_TEXT_TO_GET_NON_ZERO_HEIGHT).height) +
+        HEIGHT_WITHOUT_TEXT_HEIGHT +
+        showColumnBuffer
+    );
 }
