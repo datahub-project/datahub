@@ -59,7 +59,7 @@ class SupersetConfig(ConfigModel):
     # See the Superset /security/login endpoint for details
     # https://superset.apache.org/docs/rest-api
     connect_uri: str = Field(default="localhost:8088", description="Superset host URL.")
-    base_uri: str = Field(
+    display_uri: str = Field(
         default=None,
         description="optional URL to use in links (if `connect_uri` is only for ingestion)",
     )
@@ -76,15 +76,15 @@ class SupersetConfig(ConfigModel):
         description="Can be used to change mapping for database names in superset to what you have in datahub",
     )
 
-    @validator("connect_uri", "base_uri")
+    @validator("connect_uri", "display_uri")
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
 
     @root_validator
-    def default_base_uri_to_connect_uri(cls, values):
-        base = values.get("base_uri")
+    def default_display_uri_to_connect_uri(cls, values):
+        base = values.get("display_uri")
         if base is None:
-            values.set("base_uri", values.get("connect_uri"))
+            values.set("display_uri", values.get("connect_uri"))
         return values
 
 
@@ -219,7 +219,7 @@ class SupersetSource(Source):
             created=AuditStamp(time=modified_ts, actor=modified_actor),
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
-        dashboard_url = f"{self.config.base_uri}{dashboard_data.get('url', '')}"
+        dashboard_url = f"{self.config.display_uri}{dashboard_data.get('url', '')}"
 
         chart_urns = []
         raw_position_data = dashboard_data.get("position_json", "{}")
@@ -291,7 +291,7 @@ class SupersetSource(Source):
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
         chart_type = chart_type_from_viz_type.get(chart_data.get("viz_type", ""))
-        chart_url = f"{self.config.base_uri}{chart_data.get('url', '')}"
+        chart_url = f"{self.config.display_uri}{chart_data.get('url', '')}"
 
         datasource_id = chart_data.get("datasource_id")
         datasource_urn = self.get_datasource_urn_from_id(datasource_id)
