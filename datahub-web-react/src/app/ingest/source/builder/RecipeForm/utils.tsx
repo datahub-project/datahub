@@ -341,7 +341,7 @@ export const STATEFUL_INGESTION_ENABLED: RecipeField = {
 export const UPSTREAM_LINEAGE_IN_REPORT: RecipeField = {
     name: 'upstream_lineage_in_report',
     label: 'Include Upstream Lineage In Report.',
-    tooltip: 'Useful for debugging lineage information. Set to True to see the raw lineage created internally.',
+    tooltip: 'Remove stale datasets from datahub once they have been deleted in the source.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.upstream_lineage_in_report',
     rules: null,
