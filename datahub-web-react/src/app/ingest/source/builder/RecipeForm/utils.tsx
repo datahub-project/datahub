@@ -301,25 +301,6 @@ export const INCLUDE_LINEAGE: RecipeField = {
     },
 };
 
-export const IGNORE_START_TIME_LINEAGE: RecipeField = {
-    name: 'ignore_start_time_lineage',
-    label: 'Ignore Start Time Lineage',
-    tooltip: 'Get all lineage by ignoring the start_time field. It is suggested to set to true initially.',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.ignore_start_time_lineage',
-    rules: null,
-};
-
-export const CHECK_ROLE_GRANTS: RecipeField = {
-    name: 'check_role_grants',
-    label: 'Check Role Grants',
-    tooltip:
-        'If set to True then checks role grants at the beginning of the ingestion run. To be used for debugging purposes. If you think everything is working fine then set it to False. In some cases this can take long depending on how many roles you might have.',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.check_role_grants',
-    rules: null,
-};
-
 export const PROFILING_ENABLED: RecipeField = {
     name: 'profiling.enabled',
     label: 'Enable Profiling',
@@ -341,7 +322,7 @@ export const STATEFUL_INGESTION_ENABLED: RecipeField = {
 export const UPSTREAM_LINEAGE_IN_REPORT: RecipeField = {
     name: 'upstream_lineage_in_report',
     label: 'Include Upstream Lineage In Report.',
-    tooltip: 'Useful for debugging lineage information. Set to True to see the raw lineage created internally.',
+    tooltip: 'Remove stale datasets from datahub once they have been deleted in the source.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.upstream_lineage_in_report',
     rules: null,
@@ -613,13 +594,7 @@ export const DASHBOARD_DENY: RecipeField = {
 export const RECIPE_FIELDS = {
     [SNOWFLAKE]: {
         fields: [SNOWFLAKE_ACCOUNT_ID, SNOWFLAKE_WAREHOUSE, SNOWFLAKE_USERNAME, SNOWFLAKE_PASSWORD, SNOWFLAKE_ROLE],
-        advancedFields: [
-            INCLUDE_LINEAGE,
-            IGNORE_START_TIME_LINEAGE,
-            CHECK_ROLE_GRANTS,
-            PROFILING_ENABLED,
-            STATEFUL_INGESTION_ENABLED,
-        ],
+        advancedFields: [INCLUDE_LINEAGE, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED],
         filterFields: [
             TABLE_ALLOW,
             TABLE_DENY,
