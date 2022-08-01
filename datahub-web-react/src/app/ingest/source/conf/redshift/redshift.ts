@@ -1,7 +1,7 @@
-import { SourceConfig } from '../types';
+import { SourceConfig, RecipeDefaults } from '../types';
 import redshiftLogo from '../../../../../images/redshiftlogo.png';
 
-const placeholderRecipe = `\
+const placeholderRecipe = (defaults: RecipeDefaults) => `\
 source: 
     type: redshift
     config:
@@ -21,13 +21,14 @@ source:
         # Profiling
         profiling:
             enabled: false
+pipeline_name: ${defaults.pipelineName}
 `;
 
 export const REDSHIFT = 'redshift';
 
 const redshiftConfig: SourceConfig = {
     type: REDSHIFT,
-    placeholderRecipe: () => placeholderRecipe,
+    placeholderRecipe: (defaults) => placeholderRecipe(defaults),
     displayName: 'Redshift',
     docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/redshift/',
     logoUrl: redshiftLogo,
