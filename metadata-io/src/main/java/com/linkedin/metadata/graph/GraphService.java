@@ -1,7 +1,5 @@
 package com.linkedin.metadata.graph;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.query.filter.Filter;

@@ -1,6 +1,6 @@
 package com.linkedin.metadata.graph.dgraph;
 
-import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
 import com.linkedin.metadata.graph.RelatedEntity;

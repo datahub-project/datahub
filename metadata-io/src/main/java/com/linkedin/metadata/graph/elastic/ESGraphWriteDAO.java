@@ -1,6 +1,6 @@
 package com.linkedin.metadata.graph.elastic;
 
-import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;

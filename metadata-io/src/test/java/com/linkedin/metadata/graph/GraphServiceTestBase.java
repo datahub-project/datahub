@@ -1,6 +1,6 @@
 package com.linkedin.metadata.graph;
 
-import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.Urn;

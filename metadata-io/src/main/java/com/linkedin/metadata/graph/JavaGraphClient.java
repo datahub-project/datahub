@@ -1,6 +1,6 @@
 package com.linkedin.metadata.graph;
 
-import com.datastax.oss.driver.shaded.guava.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
