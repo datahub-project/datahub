@@ -3,12 +3,13 @@ import { message, Button, Modal, Select, Typography, Tag as CustomTag } from 'an
 import styled from 'styled-components';
 
 import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
-import { EntityType, SubResourceType, Tag, Entity, ResourceRefInput } from '../../../types.generated';
+import { EntityType, Tag, Entity, ResourceRefInput } from '../../../types.generated';
 import CreateTagModal from './CreateTagModal';
 import {
-    useAddTermsMutation,
     useBatchAddTagsMutation,
+    useBatchAddTermsMutation,
     useBatchRemoveTagsMutation,
+    useBatchRemoveTermsMutation,
 } from '../../../graphql/mutations.generated';
 import { useEnterKeyListener } from '../useEnterKeyListener';
 import TermLabel from '../TermLabel';
@@ -91,7 +92,8 @@ export default function EditTagTermsModal({
 
     const [batchAddTagsMutation] = useBatchAddTagsMutation();
     const [batchRemoveTagsMutation] = useBatchRemoveTagsMutation();
-    const [addTermsMutation] = useAddTermsMutation();
+    const [batchAddTermsMutation] = useBatchAddTermsMutation();
+    const [batchRemoveTermsMutation] = useBatchRemoveTermsMutation();
 
     const [tagTermSearch, { data: tagTermSearchData }] = useGetSearchResultsLazyQuery();
     const tagSearchResults = tagTermSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
@@ -265,13 +267,11 @@ export default function EditTagTermsModal({
     };
 
     const batchAddTerms = () => {
-        addTermsMutation({
+        batchAddTermsMutation({
             variables: {
                 input: {
                     termUrns: urns,
-                    resourceUrn: resources[0].resourceUrn,
-                    subResource: resources[0].subResource,
-                    subResourceType: resources[0].subResource ? SubResourceType.DatasetField : null,
+                    resources,
                 },
             },
         })
@@ -323,7 +323,31 @@ export default function EditTagTermsModal({
     };
 
     const batchRemoveTerms = () => {
-        // Not yet supported
+        batchRemoveTermsMutation({
+            variables: {
+                input: {
+                    termUrns: urns,
+                    resources,
+                },
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    message.success({
+                        content: `Removed ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'}!`,
+                        duration: 2,
+                    });
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to remove: \n ${e.message || ''}`, duration: 3 });
+            })
+            .finally(() => {
+                setDisableAction(false);
+                onCloseModal();
+                setUrns([]);
+            });
     };
 
     const editTags = () => {

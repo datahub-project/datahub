@@ -11,7 +11,7 @@ import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { useGetDomainQuery } from '../../../graphql/domain.generated';
 import { DomainEntitiesTab } from './DomainEntitiesTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
-import { EntityActionItem } from '../shared/entity/EntityActions';
+// import { EntityActionItem } from '../shared/entity/EntityActions';
 
 /**
  * Definition of the DataHub Domain entity.
@@ -66,7 +66,7 @@ export class DomainEntity implements Entity<Domain> {
             useUpdateQuery={undefined}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.DELETE])}
-            headerActionItems={new Set([EntityActionItem.BATCH_ADD_DOMAIN])}
+            // headerActionItems={new Set([EntityActionItem.BATCH_ADD_DOMAIN])}
             isNameEditable
             tabs={[
                 {
