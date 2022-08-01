@@ -10,15 +10,17 @@ source:
         # Credentials
         credential:
             project_id: # Your BQ project id, e.g. sample_project_id
-            
-            # Add secret in Secrets Tab with the relevant names for each variable below
-            # Your BQ private key id, e.g. "d0121d0000882411234e11166c6aaa23ed5d74e0"
             private_key_id: "\${BQ_PRIVATE_KEY_ID}"
-            # Your BQ private key, e.g. "-----BEGIN PRIVATE KEY-----\\nMIIyourkey\\n-----END PRIVATE KEY-----\\n"
             private_key: "\${BQ_PRIVATE_KEY}"
-
             client_email: # Your BQ client email, e.g. "test@suppproject-id-1234567.iam.gserviceaccount.com"
             client_id: # Your BQ client id, e.g. "123456678890"
+            
+            include_table_lineage: true
+            include_view_lineage: true
+            profiling:
+                enabled: true
+            stateful_ingestion:
+                enabled: true
 `;
 
 export const BIGQUERY = 'bigquery';
