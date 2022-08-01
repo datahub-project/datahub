@@ -1,7 +1,7 @@
-import { RecipeDefaults, SourceConfig } from '../types';
+import { SourceConfig } from '../types';
 import snowflakeLogo from '../../../../../images/snowflakelogo.png';
 
-const placeholderRecipe = (defaults: RecipeDefaults) => `\
+const placeholderRecipe = `\
 source: 
     type: snowflake
     config:
@@ -16,14 +16,13 @@ source:
             enabled: true
         stateful_ingestion:
             enabled: true
-pipeline_name: ${defaults.pipelineName}
 `;
 
 export const SNOWFLAKE = 'snowflake';
 
 const snowflakeConfig: SourceConfig = {
     type: SNOWFLAKE,
-    placeholderRecipe: (defaults) => placeholderRecipe(defaults),
+    placeholderRecipe,
     displayName: 'Snowflake',
     docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/snowflake/',
     logoUrl: snowflakeLogo,

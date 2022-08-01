@@ -21,7 +21,7 @@ source:
 
 const mongoConfig: SourceConfig = {
     type: 'mongodb',
-    placeholderRecipe: () => placeholderRecipe,
+    placeholderRecipe,
     displayName: 'MongoDB',
     docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/mongodb/',
     logoUrl: mongodbLogo,

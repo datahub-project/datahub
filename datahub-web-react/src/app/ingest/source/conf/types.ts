@@ -1,7 +1,3 @@
-export interface RecipeDefaults {
-    pipelineName: string;
-}
-
 /**
  * Configs used to render the recipe builder experience for a particular source.
  */
@@ -14,7 +10,7 @@ export interface SourceConfig {
     /**
      * A placeholder recipe to show for the source.
      */
-    placeholderRecipe: (defaults: RecipeDefaults) => string;
+    placeholderRecipe: string;
 
     /**
      * TODO: A json schema for the 'source' block of the recipe to use for validation.

@@ -1,7 +1,7 @@
-import { RecipeDefaults, SourceConfig } from '../types';
+import { SourceConfig } from '../types';
 import bigqueryLogo from '../../../../../images/bigquerylogo.png';
 
-const placeholderRecipe = (defaults: RecipeDefaults) => `\
+const placeholderRecipe = `\
 source:
     type: bigquery
     config:
@@ -19,14 +19,13 @@ source:
 
             client_email: # Your BQ client email, e.g. "test@suppproject-id-1234567.iam.gserviceaccount.com"
             client_id: # Your BQ client id, e.g. "123456678890"
-pipeline_name: ${defaults.pipelineName}
 `;
 
 export const BIGQUERY = 'bigquery';
 
 const bigqueryConfig: SourceConfig = {
     type: BIGQUERY,
-    placeholderRecipe: (defaults) => placeholderRecipe(defaults),
+    placeholderRecipe,
     displayName: 'BigQuery',
     docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/bigquery/',
     logoUrl: bigqueryLogo,

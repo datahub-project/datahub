@@ -26,7 +26,7 @@ source:
 
 const glueConfig: SourceConfig = {
     type: 'glue',
-    placeholderRecipe: () => placeholderRecipe,
+    placeholderRecipe,
     displayName: 'Glue',
     docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/glue',
     logoUrl: glueLogo,
