@@ -115,7 +115,7 @@ public class Neo4jGraphService implements GraphService {
             offset, count)
     );
 
-    final String srcCriteria = filterToCriteria( sourceEntityFilter).trim();
+    final String srcCriteria = filterToCriteria(sourceEntityFilter).trim();
     final String destCriteria = filterToCriteria(destinationEntityFilter).trim();
     final String edgeCriteria = relationshipFilterToCriteria(relationshipFilter);
 
