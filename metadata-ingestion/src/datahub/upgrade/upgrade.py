@@ -181,7 +181,7 @@ async def retrieve_version_stats(
             tasks.remove(t)
 
     server_version_stats = None
-    if current_server_version and current_server_release_date:
+    if current_server_version:
         server_version_stats = ServerVersionStats(
             current=VersionStats(
                 version=current_server_version, release_date=current_server_release_date
