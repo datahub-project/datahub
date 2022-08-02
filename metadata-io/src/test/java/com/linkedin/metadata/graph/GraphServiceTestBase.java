@@ -944,7 +944,7 @@ abstract public class GraphServiceTestBase {
 
     service.addEdge(new Edge(datasetTwoUrn, datasetOneUrn, downstreamOf));
     syncAfterWrite();
-    doTestFindRelatedEntitiesEntityType(anyType,ImmutableList.of("null"), downstreamOf, outgoingRelationships, service);
+    doTestFindRelatedEntitiesEntityType(anyType, ImmutableList.of("null"), downstreamOf, outgoingRelationships, service);
     doTestFindRelatedEntitiesEntityType(anyType, null, downstreamOf, outgoingRelationships, service, downstreamOfDatasetOneRelatedEntity);
 
     service.addEdge(new Edge(datasetOneUrn, nullUrn, downstreamOf));
