@@ -40,6 +40,7 @@ public class DataHubAuthorizerFactory {
   @Nonnull
   protected DataHubAuthorizer getInstance() {
 
+    System.out.println(String.format("Policies: %s", policiesEnabled));
     final DataHubAuthorizer.AuthorizationMode mode = policiesEnabled ? DataHubAuthorizer.AuthorizationMode.DEFAULT
         : DataHubAuthorizer.AuthorizationMode.ALLOW_ALL;
 
