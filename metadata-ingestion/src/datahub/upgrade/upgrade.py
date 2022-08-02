@@ -115,7 +115,6 @@ async def get_server_config(gms_url: str, token: str) -> dict:
 async def get_server_version_stats(
     server: Optional[DataHubGraph] = None,
 ) -> Tuple[Any, Any, Any]:
-    server_version: Optional[Version] = None
     server_config = None
     if not server:
         try:
@@ -130,6 +129,8 @@ async def get_server_version_stats(
         server_config = server.server_config
 
     server_type = None
+    server_version: Optional[Version] = None
+    current_server_release_date = None
     if server_config:
         server_version_string = (
             server_config.get("versions", {}).get("linkedin/datahub", {}).get("version")
@@ -138,7 +139,6 @@ async def get_server_version_stats(
             server_config.get("versions", {}).get("linkedin/datahub", {}).get("commit")
         )
         server_type = server_config.get("datahub", {}).get("serverType", "unknown")
-        current_server_release_date = None
         if server_type == "quickstart" and commit_hash:
             async with aiohttp.ClientSession(
                 headers={"Accept": "application/vnd.github.v3+json"}

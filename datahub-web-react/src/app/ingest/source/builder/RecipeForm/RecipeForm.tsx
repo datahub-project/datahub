@@ -7,6 +7,8 @@ import styled from 'styled-components/macro';
 import { jsonToYaml } from '../../utils';
 import { RecipeField, RECIPE_FIELDS, setFieldValueOnRecipe } from './utils';
 import FormField from './FormField';
+import TestConnectionButton from './TestConnection/TestConnectionButton';
+import { SNOWFLAKE } from '../../conf/snowflake/snowflake';
 
 export const ControlsContainer = styled.div`
     display: flex;
@@ -30,6 +32,12 @@ const HeaderTitle = styled.span`
 
 const MarginWrapper = styled.div`
     margin-left: 20px;
+`;
+
+const TestConnectionWrapper = styled.div`
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 16px;
 `;
 
 function getInitialValues(displayRecipe: string, allFields: any[]) {
@@ -108,6 +116,11 @@ function RecipeForm(props: Props) {
                     {fields.map((field, i) => (
                         <FormField field={field} removeMargin={i === fields.length - 1} />
                     ))}
+                    {type === SNOWFLAKE && (
+                        <TestConnectionWrapper>
+                            <TestConnectionButton type={type} recipe={displayRecipe} />
+                        </TestConnectionWrapper>
+                    )}
                 </Collapse.Panel>
             </StyledCollapse>
             {filterFields.length > 0 && (

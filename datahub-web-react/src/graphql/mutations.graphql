@@ -2,8 +2,16 @@ mutation removeTag($input: TagAssociationInput!) {
     removeTag(input: $input)
 }
 
+mutation batchRemoveTags($input: BatchRemoveTagsInput!) {
+    batchRemoveTags(input: $input)
+}
+
 mutation addTag($input: TagAssociationInput!) {
     addTag(input: $input)
+}
+
+mutation batchAddTags($input: BatchAddTagsInput!) {
+    batchAddTags(input: $input)
 }
 
 mutation removeTerm($input: TermAssociationInput!) {

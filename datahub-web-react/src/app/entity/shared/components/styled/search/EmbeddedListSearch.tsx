@@ -102,7 +102,7 @@ export const EmbeddedListSearch = ({
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
 
-    const { refetch } = useGetSearchResults({
+    const { refetch: refetchForDownload } = useGetSearchResults({
         variables: {
             input: {
                 types: entityFilters,
@@ -116,10 +116,10 @@ export const EmbeddedListSearch = ({
     });
 
     const callSearchOnVariables = (variables: GetSearchResultsParams['variables']) => {
-        return refetch(variables);
+        return refetchForDownload(variables);
     };
 
-    const { data, loading, error } = useGetSearchResults({
+    const { data, loading, error, refetch } = useGetSearchResults({
         variables: {
             input: {
                 types: entityFilters,
@@ -231,6 +231,7 @@ export const EmbeddedListSearch = ({
                 setIsSelectMode={setIsSelectMode}
                 selectedEntities={selectedEntities}
                 onChangeSelectAll={onChangeSelectAll}
+                refetch={refetch as any}
             />
             <EmbeddedListSearchResults
                 loading={loading}

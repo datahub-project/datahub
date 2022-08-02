@@ -10,6 +10,10 @@ import lombok.Data;
 @Data
 public class AuthorizerConfiguration {
   /**
+   * Whether to enable this authorizer
+   */
+  private Boolean enabled = false;
+  /**
    * A fully-qualified class name for the {@link Authorizer} implementation to be registered.
    */
   private String type;
@@ -17,4 +21,5 @@ public class AuthorizerConfiguration {
    * A set of authorizer-specific configurations passed through during "init" of the authorizer.
    */
   private Map<String, Object> configs;
+
 }

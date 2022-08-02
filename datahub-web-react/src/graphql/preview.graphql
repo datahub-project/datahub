@@ -220,6 +220,12 @@ fragment entityPreview on Entity {
             ...deprecationFields
         }
     }
+    ... on GlossaryNode {
+        properties {
+            name
+            description
+        }
+    }
     ... on MLFeatureTable {
         urn
         type

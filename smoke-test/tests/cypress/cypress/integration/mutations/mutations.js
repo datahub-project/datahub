@@ -77,6 +77,55 @@ describe('mutations', () => {
     cy.contains('CypressTerm').should('not.exist');
   });
 
+    it('can add and remove tags from a dataset field', () => {
+      cy.login();
+      cy.viewport(2000, 800)
+      cy.visit('/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,cypress_logging_events,PROD)');
+      cy.get('[data-testid="schema-field-event_name-tags"]').trigger('mouseover', {force: true});
+      cy.get('[data-testid="schema-field-event_name-tags"]').within(() => cy.contains('Add Tag').click())
+
+      cy.focused().type('CypressTestAddTag2');
+
+      cy.contains('Create CypressTestAddTag2').click({force:true});
+
+      cy.get('textarea').type('CypressTestAddTag2 Test Description');
+
+      cy.contains(/Create$/).click({force:true});
+
+      // wait a breath for elasticsearch to index the tag being applied to the dataset- if we navigate too quick ES
+      // wont know and we'll see applied to 0 entities
+      cy.wait(2000);
+
+      // go to tag drawer
+      cy.contains('CypressTestAddTag2').click();
+
+      cy.wait(1000);
+
+      // Click the Tag Details to launch full profile
+      cy.contains('Tag Details').click();
+
+      cy.wait(1000);
+
+      // title of tag page
+      cy.contains('CypressTestAddTag2');
+
+      // description of tag page
+      cy.contains('CypressTestAddTag2 Test Description');
+
+      // used by panel - click to search
+      cy.contains('1 Datasets').click();
+
+      // verify dataset shows up in search now
+      cy.contains('of 1 result').click();
+      cy.contains('cypress_logging_events').click();
+      cy.contains('CypressTestAddTag2').within(() => cy.get('span[aria-label=close]').click());
+      cy.contains('Yes').click();
+
+      cy.contains('CypressTestAddTag2').should('not.exist');
+
+      cy.deleteUrn('urn:li:tag:CypressTestAddTag2')
+    });
+
   it('can add and remove terms from a dataset field', () => {
     cy.login();
     // make space for the glossary term column

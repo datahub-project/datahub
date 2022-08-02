@@ -261,9 +261,19 @@ type Mutation {
     addTags(input: AddTagsInput!): Boolean
 
     """
+    Add tags to multiple Entities or subresources
+    """
+    batchAddTags(input: BatchAddTagsInput!): Boolean
+
+    """
 		Remove a tag from a particular Entity or subresource
     """
     removeTag(input: TagAssociationInput!): Boolean
+
+    """
+		Remove tags from multiple Entity or subresource
+    """
+    batchRemoveTags(input: BatchRemoveTagsInput!): Boolean
 
     """
 		Add a glossary term to a particular Entity or subresource
@@ -6550,6 +6560,56 @@ input AddTagsInput {
 
     """
     The target Metadata Entity to add or remove the Tag to
+    """
+    resourceUrn: String!
+
+    """
+    An optional type of a sub resource to attach the Tag to
+    """
+    subResourceType: SubResourceType
+
+    """
+    An optional sub resource identifier to attach the Tag to
+    """
+    subResource: String
+}
+
+"""
+Input provided when adding tags to a batch of assets
+"""
+input BatchAddTagsInput {
+    """
+    The primary key of the Tags
+    """
+    tagUrns: [String!]!
+
+    """
+    The target assets to attach the tags to
+    """
+    resources: [ResourceRefInput]!
+}
+
+"""
+Input provided when removing tags from a batch of assets
+"""
+input BatchRemoveTagsInput {
+    """
+    The primary key of the Tags
+    """
+    tagUrns: [String!]!
+
+    """
+    The target assets to remove the tags from
+    """
+    resources: [ResourceRefInput]!
+}
+
+"""
+Reference to a resource to apply an action to
+"""
+input ResourceRefInput {
+    """
+    The urn of the resource being referenced
     """
     resourceUrn: String!
 

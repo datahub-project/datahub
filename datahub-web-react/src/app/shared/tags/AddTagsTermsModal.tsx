@@ -3,10 +3,13 @@ import { message, Button, Modal, Select, Typography, Tag as CustomTag } from 'an
 import styled from 'styled-components';
 
 import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
-import { EntityType, SubResourceType, Tag, Entity } from '../../../types.generated';
+import { EntityType, SubResourceType, Tag, Entity, ResourceRefInput } from '../../../types.generated';
 import CreateTagModal from './CreateTagModal';
-import { useAddTagsMutation, useAddTermsMutation } from '../../../graphql/mutations.generated';
-import analytics, { EventType, EntityActionType } from '../../analytics';
+import {
+    useAddTermsMutation,
+    useBatchAddTagsMutation,
+    useBatchRemoveTagsMutation,
+} from '../../../graphql/mutations.generated';
 import { useEnterKeyListener } from '../useEnterKeyListener';
 import TermLabel from '../TermLabel';
 import TagLabel from '../TagLabel';
@@ -16,13 +19,19 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 import { useGetRecommendations } from '../recommendation';
 import { FORBIDDEN_URN_CHARS_REGEX } from '../../entity/shared/utils';
 
-type AddTagsModalProps = {
+export enum OperationType {
+    ADD,
+    REMOVE,
+}
+
+type EditTagsModalProps = {
     visible: boolean;
     onCloseModal: () => void;
-    entityUrn: string;
+    resources: ResourceRefInput[];
+    // eslint-disable-next-line
     entityType: EntityType;
-    entitySubresource?: string;
     type?: EntityType;
+    operationType?: OperationType;
 };
 
 const TagSelect = styled(Select)`
@@ -64,24 +73,24 @@ const isValidTagName = (tagName: string) => {
     return tagName && tagName.length > 0 && !FORBIDDEN_URN_CHARS_REGEX.test(tagName);
 };
 
-export default function AddTagsTermsModal({
+export default function EditTagTermsModal({
     visible,
     onCloseModal,
-    entityUrn,
-    entityType,
-    entitySubresource,
+    resources,
     type = EntityType.Tag,
-}: AddTagsModalProps) {
+    operationType = OperationType.ADD,
+}: EditTagsModalProps) {
     const entityRegistry = useEntityRegistry();
     const [inputValue, setInputValue] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [disableAdd, setDisableAdd] = useState(false);
+    const [disableAction, setDisableAction] = useState(false);
     const [urns, setUrns] = useState<string[]>([]);
     const [selectedTerms, setSelectedTerms] = useState<any[]>([]);
     const [selectedTags, setSelectedTags] = useState<any[]>([]);
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
 
-    const [addTagsMutation] = useAddTagsMutation();
+    const [batchAddTagsMutation] = useBatchAddTagsMutation();
+    const [batchRemoveTagsMutation] = useBatchRemoveTagsMutation();
     const [addTermsMutation] = useAddTermsMutation();
 
     const [tagTermSearch, { data: tagTermSearchData }] = useGetSearchResultsLazyQuery();
@@ -136,7 +145,13 @@ export default function AddTagsTermsModal({
         return displayName.toLowerCase() === inputValue.toLowerCase();
     });
 
-    if (!inputExistsInTagSearch && isValidTagName(inputValue) && type === EntityType.Tag && urns.length === 0) {
+    if (
+        operationType === OperationType.ADD &&
+        !inputExistsInTagSearch &&
+        isValidTagName(inputValue) &&
+        type === EntityType.Tag &&
+        urns.length === 0
+    ) {
         tagSearchOptions?.push(
             <Select.Option value={CREATE_TAG_VALUE} key={CREATE_TAG_VALUE}>
                 <Typography.Link> Create {inputValue}</Typography.Link>
@@ -175,8 +190,7 @@ export default function AddTagsTermsModal({
                 onClose={onCloseModal}
                 onBack={() => setShowCreateModal(false)}
                 tagName={inputValue}
-                entityUrn={entityUrn}
-                entitySubresource={entitySubresource}
+                resources={resources}
             />
         );
     }
@@ -222,61 +236,13 @@ export default function AddTagsTermsModal({
         setSelectedTags(selectedTags.filter((term) => term.urn !== urn));
     };
 
-    // Function to handle the modal action's
-    const onOk = () => {
-        let mutation: ((input: any) => Promise<any>) | null = null;
-        if (type === EntityType.Tag) {
-            mutation = addTagsMutation;
-        }
-        if (type === EntityType.GlossaryTerm) {
-            mutation = addTermsMutation;
-        }
-
-        if (!entityUrn || !mutation) {
-            onCloseModal();
-            return;
-        }
-        setDisableAdd(true);
-
-        let input = {};
-        let actionType = EntityActionType.UpdateSchemaTags;
-        if (type === EntityType.Tag) {
-            input = {
-                tagUrns: urns,
-                resourceUrn: entityUrn,
-                subResource: entitySubresource,
-                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
-            };
-            if (entitySubresource) {
-                actionType = EntityActionType.UpdateSchemaTags;
-            } else {
-                actionType = EntityActionType.UpdateTags;
-            }
-        }
-        if (type === EntityType.GlossaryTerm) {
-            input = {
-                termUrns: urns,
-                resourceUrn: entityUrn,
-                subResource: entitySubresource,
-                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
-            };
-            if (entitySubresource) {
-                actionType = EntityActionType.UpdateSchemaTerms;
-            } else {
-                actionType = EntityActionType.UpdateTerms;
-            }
-        }
-
-        analytics.event({
-            type: EventType.EntityActionEvent,
-            entityType,
-            entityUrn,
-            actionType,
-        });
-
-        mutation({
+    const batchAddTags = () => {
+        batchAddTagsMutation({
             variables: {
-                input,
+                input: {
+                    tagUrns: urns,
+                    resources,
+                },
             },
         })
             .then(({ errors }) => {
@@ -292,10 +258,103 @@ export default function AddTagsTermsModal({
                 message.error({ content: `Failed to add: \n ${e.message || ''}`, duration: 3 });
             })
             .finally(() => {
-                setDisableAdd(false);
+                setDisableAction(false);
                 onCloseModal();
                 setUrns([]);
             });
+    };
+
+    const batchAddTerms = () => {
+        addTermsMutation({
+            variables: {
+                input: {
+                    termUrns: urns,
+                    resourceUrn: resources[0].resourceUrn,
+                    subResource: resources[0].subResource,
+                    subResourceType: resources[0].subResource ? SubResourceType.DatasetField : null,
+                },
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    message.success({
+                        content: `Added ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'}!`,
+                        duration: 2,
+                    });
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to add: \n ${e.message || ''}`, duration: 3 });
+            })
+            .finally(() => {
+                setDisableAction(false);
+                onCloseModal();
+                setUrns([]);
+            });
+    };
+
+    const batchRemoveTags = () => {
+        batchRemoveTagsMutation({
+            variables: {
+                input: {
+                    tagUrns: urns,
+                    resources,
+                },
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    message.success({
+                        content: `Removed ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'}!`,
+                        duration: 2,
+                    });
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to remove: \n ${e.message || ''}`, duration: 3 });
+            })
+            .finally(() => {
+                setDisableAction(false);
+                onCloseModal();
+                setUrns([]);
+            });
+    };
+
+    const batchRemoveTerms = () => {
+        // Not yet supported
+    };
+
+    const editTags = () => {
+        if (operationType === OperationType.ADD) {
+            batchAddTags();
+        } else {
+            batchRemoveTags();
+        }
+    };
+
+    const editTerms = () => {
+        if (operationType === OperationType.ADD) {
+            batchAddTerms();
+        } else {
+            batchRemoveTerms();
+        }
+    };
+
+    // Function to handle the modal action's
+    const onOk = () => {
+        if (!resources) {
+            onCloseModal();
+            return;
+        }
+        setDisableAction(true);
+
+        if (type === EntityType.Tag) {
+            editTags();
+        } else {
+            editTerms();
+        }
     };
 
     function selectTermFromBrowser(urn: string, displayName: string) {
@@ -318,11 +377,9 @@ export default function AddTagsTermsModal({
 
     return (
         <Modal
-            title={`Add ${entityRegistry.getEntityName(type)}s`}
+            title={`${operationType === OperationType.ADD ? 'Add' : 'Remove'} ${entityRegistry.getEntityName(type)}s`}
             visible={visible}
             onCancel={onCloseModal}
-            okButtonProps={{ disabled: urns.length === 0 }}
-            okText="Add"
             footer={
                 <>
                     <Button onClick={onCloseModal} type="text">
@@ -332,9 +389,9 @@ export default function AddTagsTermsModal({
                         id="addTagButton"
                         data-testid="add-tag-term-from-modal-btn"
                         onClick={onOk}
-                        disabled={urns.length === 0 || disableAdd}
+                        disabled={urns.length === 0 || disableAction}
                     >
-                        Add
+                        Done
                     </Button>
                 </>
             }
