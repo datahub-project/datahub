@@ -31,7 +31,7 @@ type EditTagsModalProps = {
     // eslint-disable-next-line
     entityType: EntityType;
     type?: EntityType;
-    operationType?: OperationType; // Whether to allow creating a new Tag
+    operationType?: OperationType;
 };
 
 const TagSelect = styled(Select)`
