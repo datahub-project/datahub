@@ -19,7 +19,7 @@ import { EMPTY_MESSAGES, ANTD_GRAY } from '../../entity/shared/constants';
 import { useRemoveTagMutation, useRemoveTermMutation } from '../../../graphql/mutations.generated';
 import { DomainLink } from './DomainLink';
 import { TagProfileDrawer } from './TagProfileDrawer';
-import AddTagsTermsModal from './AddTagsTermsModal';
+import EditTagTermsModal from './AddTagsTermsModal';
 
 type Props = {
     uneditableTags?: GlobalTags | null;
@@ -311,7 +311,7 @@ export default function TagTermGroup({
                     </NoElementButton>
                 )}
             {showAddModal && !!entityUrn && !!entityType && (
-                <AddTagsTermsModal
+                <EditTagTermsModal
                     type={addModalType}
                     visible
                     onCloseModal={() => {
@@ -319,9 +319,14 @@ export default function TagTermGroup({
                         setShowAddModal(false);
                         refetch?.();
                     }}
-                    entityUrn={entityUrn}
+                    resources={[
+                        {
+                            resourceUrn: entityUrn,
+                            subResource: entitySubresource,
+                            subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
+                        },
+                    ]}
                     entityType={entityType}
-                    entitySubresource={entitySubresource}
                 />
             )}
         </>

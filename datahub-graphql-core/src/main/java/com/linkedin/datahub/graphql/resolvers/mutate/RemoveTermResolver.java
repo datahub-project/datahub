@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.TermAssociationInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -32,12 +33,12 @@ public class RemoveTermResolver implements DataFetcher<CompletableFuture<Boolean
     }
 
     return CompletableFuture.supplyAsync(() -> {
-      LabelUtils.validateInput(
+      LabelUtils.validateResourceAndLabel(
           termUrn,
           targetUrn,
           input.getSubResource(),
           input.getSubResourceType(),
-          "glossaryTerm",
+          Constants.GLOSSARY_TERM_ENTITY_NAME,
           _entityService,
           true
       );
@@ -51,7 +52,7 @@ public class RemoveTermResolver implements DataFetcher<CompletableFuture<Boolean
 
         log.info(String.format("Removing Term. input: {}", input));
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
-        LabelUtils.removeTermFromTarget(
+        LabelUtils.removeTermFromResource(
             termUrn,
             targetUrn,
             input.getSubResource(),
