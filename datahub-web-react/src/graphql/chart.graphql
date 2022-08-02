@@ -71,6 +71,25 @@ query getChart($urn: String!) {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        statsSummary {
+            viewCount
+            uniqueUserCountLast30Days
+            topUsersLast30Days {
+                urn
+                type
+                username
+                properties {
+                    displayName
+                    firstName
+                    lastName
+                    fullName
+                }
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+            }
+        }
     }
 }
 

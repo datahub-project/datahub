@@ -99,6 +99,7 @@ public class Constants {
   public static final String CHART_INFO_ASPECT_NAME = "chartInfo";
   public static final String EDITABLE_CHART_PROPERTIES_ASPECT_NAME = "editableChartProperties";
   public static final String CHART_QUERY_ASPECT_NAME = "chartQuery";
+  public static final String CHART_USAGE_STATISTICS_ASPECT_NAME = "chartUsageStatistics";
 
   // Dashboard
   public static final String DASHBOARD_KEY_ASPECT_NAME = "dashboardKey";
