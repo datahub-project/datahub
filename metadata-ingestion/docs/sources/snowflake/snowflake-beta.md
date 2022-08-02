@@ -50,7 +50,7 @@ grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
 
 This represents the bare minimum privileges required to extract databases, schemas, views, tables from Snowflake.
 
-If you plan to enable extraction of table lineage, via the `include_table_lineage` config flag, you'll also need to grant access to the [Account Usage](https://docs.snowflake.com/en/sql-reference/account-usage.html) system tables, using which the DataHub source extracts information. This can be done by granting access to the `snowflake` database.
+If you plan to enable extraction of table lineage, via the `include_table_lineage` config flag or extraction of usage statistics, via the `include_usage_stats` config, you'll also need to grant access to the [Account Usage](https://docs.snowflake.com/en/sql-reference/account-usage.html) system tables, using which the DataHub source extracts information. This can be done by granting access to the `snowflake` database.
 ```sql
 grant imported privileges on database snowflake to role datahub_role;
 ```

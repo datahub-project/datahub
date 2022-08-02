@@ -290,7 +290,11 @@ plugins: Dict[str, Set[str]] = {
     | {
         "more-itertools>=8.12.0",
     },
-    "snowflake-beta": snowflake_common,
+    "snowflake-beta": snowflake_common
+    | usage_common
+    | {
+        "more-itertools>=8.12.0",
+    },
     "sqlalchemy": sql_common,
     "superset": {
         "requests",

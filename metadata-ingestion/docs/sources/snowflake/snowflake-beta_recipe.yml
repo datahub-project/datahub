@@ -17,14 +17,12 @@ source:
     password: "${SNOWFLAKE_PASS}"
     role: "datahub_role"
 
-    # Change these as per your database names. Remove to all all databases
+    # Change these as per your database names. Remove to get all databases
     database_pattern:
       allow:
         - "^ACCOUNTING_DB$"
         - "^MARKETING_DB$"
-    schema_pattern:
-      deny:
-        - "information_schema.*"
+
     table_pattern:
       allow:
         # If you want to ingest only few tables with name revenue and sales
@@ -39,8 +37,7 @@ source:
       allow:
         - 'ACCOUNTING_DB.*.*'
         - 'MARKETING_DB.*.*'
-      deny:
-        - '.*information_schema.*'
+
 
 sink:
 # sink configs

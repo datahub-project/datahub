@@ -3,7 +3,10 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from snowflake.connector import DictCursor, SnowflakeConnection
+from snowflake.connector import SnowflakeConnection
+
+from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeQueryMixin
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -51,9 +54,9 @@ class SnowflakeTable:
 class SnowflakeView:
     name: str
     created: datetime
-    last_altered: datetime
-    comment: str
+    comment: Optional[str]
     view_definition: str
+    last_altered: Optional[datetime] = None
     columns: List[SnowflakeColumn] = field(default_factory=list)
 
 
@@ -75,159 +78,9 @@ class SnowflakeDatabase:
     schemas: List[SnowflakeSchema] = field(default_factory=list)
 
 
-class SnowflakeQuery:
-    @staticmethod
-    def show_databases() -> str:
-        return "show databases"
-
-    @staticmethod
-    def use_database(db_name: str) -> str:
-        return f'use database "{db_name}"'
-
-    @staticmethod
-    def schemas_for_database(db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""
-        SELECT schema_name as "schema_name",
-        created as "created",
-        last_altered as "last_altered",
-        comment as "comment"
-        from {db_clause}information_schema.schemata
-        WHERE schema_name != 'INFORMATION_SCHEMA'
-        order by schema_name"""
-
-    @staticmethod
-    def tables_for_database(db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""
-        SELECT table_catalog as "table_catalog",
-        table_schema as "table_schema",
-        table_name as "table_name",
-        table_type as "table_type",
-        created as "created",
-        last_altered as "last_altered" ,
-        comment as "comment",
-        row_count as "row_count",
-        bytes as "bytes",
-        clustering_key as "clustering_key",
-        auto_clustering_on as "auto_clustering_on"
-        FROM {db_clause}information_schema.tables t
-        WHERE table_schema != 'INFORMATION_SCHEMA'
-        and table_type in ( 'BASE TABLE', 'EXTERNAL TABLE')
-        order by table_schema, table_name"""
-
-    @staticmethod
-    def tables_for_schema(schema_name: str, db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""
-        SELECT table_catalog as "table_catalog",
-        table_schema as "table_schema",
-        table_name as "table_name",
-        table_type as "table_type",
-        created as "created",
-        last_altered as "last_altered" ,
-        comment as "comment",
-        row_count as "row_count",
-        bytes as "bytes",
-        clustering_key as "clustering_key",
-        auto_clustering_on as "auto_clustering_on"
-        FROM {db_clause}information_schema.tables t
-        where schema_name='{schema_name}'
-        and table_type in ('BASE TABLE', 'EXTERNAL TABLE')
-        order by table_schema, table_name"""
-
-    @staticmethod
-    def views_for_database(db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""
-        SELECT table_catalog as "table_catalog",
-        table_schema as "table_schema",
-        table_name as "table_name",
-        created as "created",
-        last_altered as "last_altered",
-        comment as "comment",
-        view_definition as "view_definition"
-        FROM {db_clause}information_schema.views t
-        WHERE table_schema != 'INFORMATION_SCHEMA'
-        order by table_schema, table_name"""
-
-    @staticmethod
-    def views_for_schema(schema_name: str, db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""
-        SELECT table_catalog as "table_catalog",
-        table_schema as "table_schema",
-        table_name as "table_name",
-        created as "created",
-        last_altered as "last_altered",
-        comment as "comment",
-        view_definition as "view_definition"
-        FROM {db_clause}information_schema.views t
-        where schema_name='{schema_name}'
-        order by table_schema, table_name"""
-
-    @staticmethod
-    def columns_for_schema(schema_name: str, db_name: Optional[str]) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""
-        select
-        table_catalog as "table_catalog",
-        table_schema as "table_schema",
-        table_name as "table_name",
-        column_name as "column_name",
-        ordinal_position as "ordinal_position",
-        is_nullable as "is_nullable",
-        data_type as "data_type",
-        comment as "comment",
-        character_maximum_length as "character_maximum_length",
-        numeric_precision as "numeric_precision",
-        numeric_scale as "numeric_scale",
-        column_default as "column_default",
-        is_identity as "is_identity"
-        from {db_clause}information_schema.columns
-        WHERE table_schema='{schema_name}'
-        ORDER BY ordinal_position"""
-
-    @staticmethod
-    def columns_for_table(
-        table_name: str, schema_name: str, db_name: Optional[str]
-    ) -> str:
-        db_clause = f'"{db_name}".' if db_name is not None else ""
-        return f"""
-        select
-        table_catalog as "table_catalog",
-        table_schema as "table_schema",
-        table_name as "table_name",
-        column_name as "column_name",
-        ordinal_position as "ordinal_position",
-        is_nullable as "is_nullable",
-        data_type as "data_type",
-        comment as "comment",
-        character_maximum_length as "character_maximum_length",
-        numeric_precision as "numeric_precision",
-        numeric_scale as "numeric_scale",
-        column_default as "column_default",
-        is_identity as "is_identity"
-        from {db_clause}information_schema.columns
-        WHERE table_schema='{schema_name}' and table_name='{table_name}'
-        ORDER BY ordinal_position"""
-
-    @staticmethod
-    def show_primary_keys_for_schema(schema_name: str, db_name: str) -> str:
-        return f"""
-        show primary keys in schema "{db_name}"."{schema_name}" """
-
-    @staticmethod
-    def show_foreign_keys_for_schema(schema_name: str, db_name: str) -> str:
-        return f"""
-        show imported keys in schema "{db_name}"."{schema_name}" """
-
-
-class SnowflakeDataDictionary:
-    def query(self, conn, query):
-        logger.debug("Query : {}".format(query))
-        resp = conn.cursor(DictCursor).execute(query)
-        return resp
+class SnowflakeDataDictionary(SnowflakeQueryMixin):
+    def __init__(self) -> None:
+        self.logger = logger
 
     def get_databases(self, conn: SnowflakeConnection) -> List[SnowflakeDatabase]:
 
@@ -327,22 +180,22 @@ class SnowflakeDataDictionary:
     ) -> Optional[Dict[str, List[SnowflakeView]]]:
         views: Dict[str, List[SnowflakeView]] = {}
         try:
-            cur = self.query(conn, SnowflakeQuery.views_for_database(db_name))
+            cur = self.query(conn, SnowflakeQuery.show_views_for_database(db_name))
         except Exception as e:
             logger.debug(e)
             # Error - Information schema query returned too much data. Please repeat query with more selective predicates.
             return None
 
         for table in cur:
-            if table["table_schema"] not in views:
-                views[table["table_schema"]] = []
-            views[table["table_schema"]].append(
+            if table["schema_name"] not in views:
+                views[table["schema_name"]] = []
+            views[table["schema_name"]].append(
                 SnowflakeView(
-                    name=table["table_name"],
-                    created=table["created"],
-                    last_altered=table["last_altered"],
+                    name=table["name"],
+                    created=table["created_on"],
+                    # last_altered=table["last_altered"],
                     comment=table["comment"],
-                    view_definition=table["view_definition"],
+                    view_definition=table["text"],
                 )
             )
         return views
@@ -352,15 +205,17 @@ class SnowflakeDataDictionary:
     ) -> List[SnowflakeView]:
         views: List[SnowflakeView] = []
 
-        cur = self.query(conn, SnowflakeQuery.views_for_schema(schema_name, db_name))
+        cur = self.query(
+            conn, SnowflakeQuery.show_views_for_schema(schema_name, db_name)
+        )
         for table in cur:
             views.append(
                 SnowflakeView(
-                    name=table["table_name"],
-                    created=table["created"],
-                    last_altered=table["last_altered"],
+                    name=table["name"],
+                    created=table["created_on"],
+                    # last_altered=table["last_altered"],
                     comment=table["comment"],
-                    view_definition=table["view_definition"],
+                    view_definition=table["text"],
                 )
             )
         return views
