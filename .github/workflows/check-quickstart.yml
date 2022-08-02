@@ -43,5 +43,5 @@ jobs:
       uses: actions/upload-artifact@v2
       if: failure()
       with:
-        name: docker-qucikstart-logs-${{ matrix.os }}
+        name: docker-quickstart-logs-${{ matrix.os }}
         path: "*.log"
