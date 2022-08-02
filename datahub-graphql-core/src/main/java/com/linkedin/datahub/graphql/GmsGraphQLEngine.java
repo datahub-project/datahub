@@ -145,6 +145,8 @@ import com.linkedin.datahub.graphql.resolvers.mutate.AddTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeBatchResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddTagsResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveOwnerResolver;
@@ -688,7 +690,9 @@ public class GmsGraphQLEngine {
             .dataFetcher("updateCorpGroupProperties", new MutableTypeResolver<>(corpGroupType))
             .dataFetcher("addTag", new AddTagResolver(entityService))
             .dataFetcher("addTags", new AddTagsResolver(entityService))
+            .dataFetcher("batchAddTags", new BatchAddTagsResolver(entityService))
             .dataFetcher("removeTag", new RemoveTagResolver(entityService))
+            .dataFetcher("batchRemoveTags", new BatchRemoveTagsResolver(entityService))
             .dataFetcher("addTerm", new AddTermResolver(entityService))
             .dataFetcher("addTerms", new AddTermsResolver(entityService))
             .dataFetcher("removeTerm", new RemoveTermResolver(entityService))

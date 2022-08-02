@@ -13,7 +13,7 @@ from sqlalchemy.engine import reflection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.type_api import TypeEngine
-from trino.exceptions import TrinoQueryError  # noqa
+from trino.exceptions import TrinoQueryError
 from trino.sqlalchemy import datatype, error
 from trino.sqlalchemy.dialect import TrinoDialect
 

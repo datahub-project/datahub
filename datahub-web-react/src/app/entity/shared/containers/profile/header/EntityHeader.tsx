@@ -17,6 +17,7 @@ import CopyUrn from '../../../../../shared/CopyUrn';
 import { DeprecationPill } from '../../../components/styled/DeprecationPill';
 import CompactContext from '../../../../../shared/CompactContext';
 import { EntitySubHeaderSection } from '../../../types';
+import { EntityActionItem } from '../../../entity/EntityActions';
 
 const TitleWrapper = styled.div`
     display: flex;
@@ -83,11 +84,21 @@ export function getCanEditName(entityType: EntityType, privileges?: PlatformPriv
 type Props = {
     refreshBrowser?: () => void;
     headerDropdownItems?: Set<EntityMenuItems>;
+    headerActionItems?: Set<EntityActionItem>;
     isNameEditable?: boolean;
     subHeader?: EntitySubHeaderSection;
 };
 
-export const EntityHeader = ({ refreshBrowser, headerDropdownItems, isNameEditable, subHeader }: Props) => {
+export const EntityHeader = ({
+    refreshBrowser,
+    headerDropdownItems,
+    headerActionItems,
+    isNameEditable,
+    subHeader,
+}: Props) => {
+    // TODO: Uncomment once we support header-based actions flow.
+    console.log(headerActionItems);
+
     const { urn, entityType, entityData } = useEntityData();
     const refetch = useRefetch();
     const me = useGetAuthenticatedUser();
@@ -143,6 +154,9 @@ export const EntityHeader = ({ refreshBrowser, headerDropdownItems, isNameEditab
                                 </ExternalUrlButton>
                             </ExternalUrlContainer>
                         )}
+                        {/* headerActionItems && (
+                            <EntityActions actionItems={headerActionItems} refetchForEntity={refetch} />
+                        ) */}
                         <CopyUrn urn={urn} isActive={copiedUrn} onClick={() => setCopiedUrn(true)} />
                         {headerDropdownItems && (
                             <EntityDropdown

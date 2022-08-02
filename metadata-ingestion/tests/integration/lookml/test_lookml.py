@@ -10,7 +10,7 @@ from looker_sdk.sdk.api31.models import DBConnection
 
 from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers  # noqa: F401
+from tests.test_helpers import mce_helpers
 
 logging.getLogger("lkml").setLevel(logging.INFO)
 
@@ -229,7 +229,7 @@ def ingestion_test(
     tmp_path: pathlib.Path,
     mock_time: int,
     mock_connection: DBConnection,
-) -> None:  # noqa : No need for type annotations here
+) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
     mce_out_file = f"lookml_mces_api_{mock_connection.dialect_name}.json"
     mocked_client = mock.MagicMock()

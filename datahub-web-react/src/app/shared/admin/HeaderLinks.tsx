@@ -14,7 +14,7 @@ import { Button, Dropdown, Menu } from 'antd';
 import { useAppConfig } from '../../useAppConfig';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 
-const AdminLink = styled.span`
+const LinkWrapper = styled.span`
     margin-right: 0px;
 `;
 
@@ -40,7 +40,7 @@ interface Props {
     areLinksHidden?: boolean;
 }
 
-export function AdminHeaderLinks(props: Props) {
+export function HeaderLinks(props: Props) {
     const { areLinksHidden } = props;
     const me = useGetAuthenticatedUser();
     const { config } = useAppConfig();
@@ -52,66 +52,58 @@ export function AdminHeaderLinks(props: Props) {
     const showSettings = true;
     const showIngestion =
         isIngestionEnabled && me && me.platformPrivileges.manageIngestion && me.platformPrivileges.manageSecrets;
-    const showDomains = me?.platformPrivileges?.manageDomains || false;
-    const showGlossary = me?.platformPrivileges?.manageGlossaries || false;
 
     return (
         <LinksWrapper areLinksHidden={areLinksHidden}>
             {showAnalytics && (
-                <AdminLink>
+                <LinkWrapper>
                     <Link to="/analytics">
                         <Button type="text">
                             <BarChartOutlined /> Analytics
                         </Button>
                     </Link>
-                </AdminLink>
+                </LinkWrapper>
             )}
             {showIngestion && (
-                <AdminLink>
+                <LinkWrapper>
                     <Link to="/ingestion">
                         <Button type="text">
                             <ApiOutlined /> Ingestion
                         </Button>
                     </Link>
-                </AdminLink>
+                </LinkWrapper>
             )}
-            {(showGlossary || showDomains) && (
-                <Dropdown
-                    trigger={['click']}
-                    overlay={
-                        <Menu>
-                            {showGlossary && (
-                                <MenuItem key="0">
-                                    <Link to="/glossary">
-                                        <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} /> Glossary
-                                    </Link>
-                                </MenuItem>
-                            )}
-                            {showDomains && (
-                                <MenuItem key="1">
-                                    <Link to="/domains">
-                                        <FolderOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} /> Domains
-                                    </Link>
-                                </MenuItem>
-                            )}
-                        </Menu>
-                    }
-                >
-                    <AdminLink>
-                        <Button type="text">
-                            <SolutionOutlined /> Govern <DownOutlined style={{ fontSize: '6px' }} />
-                        </Button>
-                    </AdminLink>
-                </Dropdown>
-            )}
+            <Dropdown
+                trigger={['click']}
+                overlay={
+                    <Menu>
+                        <MenuItem key="0">
+                            <Link to="/glossary">
+                                <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} /> Glossary
+                            </Link>
+                        </MenuItem>
+                        <MenuItem key="1">
+                            <Link to="/domains">
+                                <FolderOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} /> Domains
+                            </Link>
+                        </MenuItem>
+                    </Menu>
+                }
+            >
+                <LinkWrapper>
+                    <Button type="text">
+                        <SolutionOutlined /> Govern <DownOutlined style={{ fontSize: '6px' }} />
+                    </Button>
+                </LinkWrapper>
+            </Dropdown>
             {showSettings && (
-                <AdminLink style={{ marginRight: 12 }}>
+                <LinkWrapper style={{ marginRight: 12 }}>
                     <Link to="/settings">
                         <Button type="text">
                             <SettingOutlined />
                         </Button>
                     </Link>
-                </AdminLink>
+                </LinkWrapper>
             )}
         </LinksWrapper>
     );
