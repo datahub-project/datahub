@@ -42,7 +42,9 @@ from datahub.ingestion.source.sql.sql_types import (
     POSTGRES_TYPES_MAP,
     SNOWFLAKE_TYPES_MAP,
     SPARK_SQL_TYPES_MAP,
+    TRINO_SQL_TYPES_MAP,
     resolve_postgres_modified_type,
+    resolve_trino_modified_type,
 )
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
@@ -216,6 +218,10 @@ class DBTConfig(StatefulIngestionConfigBase):
         False,
         description="Prior to version 0.8.38, dbt tests were represented as datasets. If you ingested dbt tests before, set this flag to True (just needed once) to soft-delete tests that were generated as datasets by previous ingestion.",
     )
+    backcompat_skip_source_on_lineage_edge: bool = Field(
+        False,
+        description="Prior to version 0.8.41, lineage edges to sources were directed to the target platform node rather than the dbt source node. This contradicted the established pattern for other lineage edges to point to upstream dbt nodes. To revert lineage logic to this legacy approach, set this flag to true.",
+    )
 
     @property
     def s3_client(self):
@@ -315,6 +321,7 @@ class DBTNode:
     description: str
     raw_sql: Optional[str]
 
+    dbt_adapter: str
     dbt_name: str
     dbt_file_path: str
 
@@ -371,6 +378,7 @@ def extract_dbt_entities(
     all_manifest_entities: Dict[str, Dict[str, Any]],
     all_catalog_entities: Dict[str, Dict[str, Any]],
     sources_results: List[Dict[str, Any]],
+    manifest_adapter: str,
     load_schemas: bool,
     use_identifiers: bool,
     tag_prefix: str,
@@ -446,6 +454,7 @@ def extract_dbt_entities(
             meta_props = manifest_node.get("config", {}).get("meta", {})
         dbtNode = DBTNode(
             dbt_name=key,
+            dbt_adapter=manifest_adapter,
             database=manifest_node["database"],
             schema=manifest_node["schema"],
             name=name,
@@ -544,6 +553,7 @@ def get_upstreams(
     environment: str,
     disable_dbt_node_creation: bool,
     platform_instance: Optional[str],
+    legacy_skip_source_lineage: Optional[bool],
 ) -> List[str]:
     upstream_urns = []
 
@@ -579,9 +589,8 @@ def get_upstreams(
             materialized = upstream_manifest_node.get("config", {}).get("materialized")
             resource_type = upstream_manifest_node["resource_type"]
 
-            if (
-                materialized in {"view", "table", "incremental"}
-                or resource_type == "source"
+            if materialized in {"view", "table", "incremental"} or (
+                resource_type == "source" and legacy_skip_source_lineage
             ):
                 # upstream urns point to the target platform
                 platform_value = target_platform
@@ -629,11 +638,12 @@ _field_type_mapping = {
     **SNOWFLAKE_TYPES_MAP,
     **BIGQUERY_TYPES_MAP,
     **SPARK_SQL_TYPES_MAP,
+    **TRINO_SQL_TYPES_MAP,
 }
 
 
 def get_column_type(
-    report: DBTSourceReport, dataset_name: str, column_type: str
+    report: DBTSourceReport, dataset_name: str, column_type: str, dbt_adapter: str
 ) -> SchemaFieldDataType:
     """
     Maps known DBT types to datahub types
@@ -641,8 +651,11 @@ def get_column_type(
     TypeClass: Any = _field_type_mapping.get(column_type)
 
     if TypeClass is None:
-        # attempt Postgres modified type
-        TypeClass = resolve_postgres_modified_type(column_type)
+        # resolve modified type
+        if dbt_adapter == "trino":
+            TypeClass = resolve_trino_modified_type(column_type)
+        elif dbt_adapter == "postgres":
+            TypeClass = resolve_postgres_modified_type(column_type)
 
     # if still not found, report the warning
     if TypeClass is None:
@@ -684,7 +697,9 @@ def get_schema_metadata(
         field = SchemaField(
             fieldPath=column.name,
             nativeDataType=column.data_type,
-            type=get_column_type(report, node.dbt_name, column.data_type),
+            type=get_column_type(
+                report, node.dbt_name, column.data_type, node.dbt_adapter
+            ),
             description=description,
             nullable=False,  # TODO: actually autodetect this
             recursive=False,
@@ -873,6 +888,7 @@ class DBTTest:
                         config.env,
                         config.disable_dbt_node_creation,
                         config.platform_instance,
+                        config.backcompat_skip_source_on_lineage_edge,
                     )
                     assertion_urn = mce_builder.make_assertion_urn(
                         mce_builder.datahub_guid(
@@ -1065,6 +1081,7 @@ class DBTSource(StatefulIngestionSourceBase):
         Optional[str],
         Optional[str],
         Optional[str],
+        Optional[str],
         Dict[str, Dict[str, Any]],
     ]:
         dbt_manifest_json = self.load_file_as_json(manifest_path)
@@ -1081,6 +1098,7 @@ class DBTSource(StatefulIngestionSourceBase):
             "dbt_schema_version"
         )
         manifest_version = dbt_manifest_json.get("metadata", {}).get("dbt_version")
+        manifest_adapter = dbt_manifest_json.get("metadata", {}).get("adapter_type")
 
         catalog_schema = dbt_catalog_json.get("metadata", {}).get("dbt_schema_version")
         catalog_version = dbt_catalog_json.get("metadata", {}).get("dbt_version")
@@ -1099,6 +1117,7 @@ class DBTSource(StatefulIngestionSourceBase):
             all_manifest_entities,
             all_catalog_entities,
             sources_results,
+            manifest_adapter,
             load_schemas,
             use_identifiers,
             tag_prefix,
@@ -1111,6 +1130,7 @@ class DBTSource(StatefulIngestionSourceBase):
             nodes,
             manifest_schema,
             manifest_version,
+            manifest_adapter,
             catalog_schema,
             catalog_version,
             all_manifest_entities,
@@ -1161,6 +1181,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 environment=self.config.env,
                 disable_dbt_node_creation=self.config.disable_dbt_node_creation,
                 platform_instance=None,
+                legacy_skip_source_lineage=self.config.backcompat_skip_source_on_lineage_edge,
             )
 
             raw_node = manifest_nodes.get(node.dbt_name)
@@ -1315,6 +1336,7 @@ class DBTSource(StatefulIngestionSourceBase):
             nodes,
             manifest_schema,
             manifest_version,
+            manifest_adapter,
             catalog_schema,
             catalog_version,
             manifest_nodes_raw,
@@ -1333,6 +1355,7 @@ class DBTSource(StatefulIngestionSourceBase):
         additional_custom_props = {
             "manifest_schema": manifest_schema,
             "manifest_version": manifest_version,
+            "manifest_adapter": manifest_adapter,
             "catalog_schema": catalog_schema,
             "catalog_version": catalog_version,
         }
@@ -1756,6 +1779,7 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.env,
             self.config.disable_dbt_node_creation,
             self.config.platform_instance,
+            self.config.backcompat_skip_source_on_lineage_edge,
         )
 
         # if a node is of type source in dbt, its upstream lineage should have the corresponding table/view
@@ -1791,6 +1815,7 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.env,
             self.config.disable_dbt_node_creation,
             self.config.platform_instance,
+            self.config.backcompat_skip_source_on_lineage_edge,
         )
         if upstream_urns:
             return get_upstream_lineage(upstream_urns)

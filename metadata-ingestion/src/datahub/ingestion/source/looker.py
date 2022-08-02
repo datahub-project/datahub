@@ -1025,11 +1025,17 @@ class LookerDashboardSource(Source):
         self, dashboard_ids: List[str]
     ) -> Iterable[MetadataChangeProposalWrapper]:
 
+        dashboard_ids_allowed = [
+            dashboard_id
+            for dashboard_id in dashboard_ids
+            if self.source_config.dashboard_pattern.allowed(dashboard_id)
+        ]
+
         # key tuple (dashboard_id, date)
         dashboard_usages: Dict[tuple, DashboardUsageStatisticsClass] = dict()
 
         common_filters = {
-            "history.dashboard_id": ",".join(dashboard_ids),
+            "history.dashboard_id": ",".join(dashboard_ids_allowed),
             "history.created_date": self.source_config.extract_usage_history_for_interval,
         }
         for query in usage_queries.values():
@@ -1053,7 +1059,11 @@ class LookerDashboardSource(Source):
 
     def _populate_userwise_runs_counts(self, dashboard_usages):
         userwise_count_rows = LookerUtil.run_inline_query(
-            self.client, usage_queries["counts_per_day_per_user_per_dashboard"]
+            self.client,
+            usage_queries["counts_per_day_per_user_per_dashboard"],
+            transport_options=self.source_config.transport_options.get_transport_options()
+            if self.source_config.transport_options is not None
+            else None,
         )
 
         for row in userwise_count_rows:
@@ -1087,6 +1097,7 @@ class LookerDashboardSource(Source):
                 user=user_urn,
                 executionsCount=row["history.dashboard_run_count"],
                 usageCount=row["history.dashboard_run_count"],
+                userEmail=user.email,
             )
 
             usage_mcp_prev = dashboard_usages.get(
@@ -1108,6 +1119,9 @@ class LookerDashboardSource(Source):
         count_rows = LookerUtil.run_inline_query(
             self.client,
             usage_queries["counts_per_day_per_dashboard"],
+            transport_options=self.source_config.transport_options.get_transport_options()
+            if self.source_config.transport_options is not None
+            else None,
         )
         for row in count_rows:
             dashboard_usages[

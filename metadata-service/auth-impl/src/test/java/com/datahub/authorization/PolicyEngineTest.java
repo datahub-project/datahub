@@ -33,23 +33,10 @@ import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.CORP_USER_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
-import static com.linkedin.metadata.authorization.PoliciesConfig.ACTIVE_POLICY_STATE;
-import static com.linkedin.metadata.authorization.PoliciesConfig.INACTIVE_POLICY_STATE;
-import static com.linkedin.metadata.authorization.PoliciesConfig.METADATA_POLICY_TYPE;
-import static com.linkedin.metadata.authorization.PoliciesConfig.PLATFORM_POLICY_TYPE;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.authorization.PoliciesConfig.*;
+import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
 
 
 public class PolicyEngineTest {
@@ -297,7 +284,7 @@ public class PolicyEngineTest {
     assertTrue(result1.isGranted());
 
     // Verify we are only calling for group during these requests.
-    verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
+    verify(_entityClient, times(2)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
         eq(null), any());
   }
 
@@ -334,7 +321,7 @@ public class PolicyEngineTest {
     assertFalse(result2.isGranted());
 
     // Verify we are only calling for group during these requests.
-    verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
+    verify(_entityClient, times(2)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
         eq(Collections.singleton(unauthorizedUserUrn)), eq(null), any());
   }
 
@@ -413,9 +400,9 @@ public class PolicyEngineTest {
     assertTrue(result2.isGranted());
 
     // Verify we are only calling for group during these requests.
-    verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
+    verify(_entityClient, times(2)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
         eq(null), any());
-    verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
+    verify(_entityClient, times(2)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
         eq(Collections.singleton(unauthorizedUserUrn)), eq(null), any());
   }
 
@@ -484,8 +471,9 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec));
     assertTrue(result1.isGranted());
 
-    // Ensure that caching of groups is working with 1 call to entity client for each principal.
-    verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
+    // Ensure that caching of groups is working with 2 calls (for groups and native groups) to entity client for each
+    // principal.
+    verify(_entityClient, times(2)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
         eq(null), any());
   }
 
@@ -517,8 +505,9 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec));
     assertFalse(result2.isGranted());
 
-    // Ensure that caching of groups is working with 1 call to entity client for each principal.
-    verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
+    // Ensure that caching of groups is working with 2 calls (for groups and native groups) to entity client for each
+    // principal.
+    verify(_entityClient, times(2)).batchGetV2(eq(CORP_USER_ENTITY_NAME),
         eq(Collections.singleton(unauthorizedUserUrn)), eq(null), any());
   }
 

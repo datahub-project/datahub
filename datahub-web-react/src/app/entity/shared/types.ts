@@ -51,6 +51,10 @@ export type EntitySidebarSection = {
     properties?: any;
 };
 
+export type EntitySubHeaderSection = {
+    component: React.FunctionComponent<{ properties?: any }>;
+};
+
 export type GenericEntityProperties = {
     urn?: string;
     name?: Maybe<string>;
@@ -127,4 +131,9 @@ export type EntityContextType = {
 
 export type RequiredAndNotNull<T> = {
     [P in keyof T]-?: Exclude<T[P], null | undefined>;
+};
+
+export type EntityAndType = {
+    urn: string;
+    type: EntityType;
 };

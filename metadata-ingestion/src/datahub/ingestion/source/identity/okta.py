@@ -14,6 +14,7 @@ from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -31,9 +32,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (  # GroupMembershipClass,
+    ChangeTypeClass,
     CorpGroupInfoClass,
     CorpUserInfoClass,
     GroupMembershipClass,
+    OriginClass,
+    OriginTypeClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -279,6 +283,24 @@ class OktaSource(Source):
                 self.report.report_workunit(wu)
                 yield wu
 
+                group_origin_mcp = MetadataChangeProposalWrapper(
+                    entityType="corpGroup",
+                    entityUrn=datahub_corp_group_snapshot.urn,
+                    changeType=ChangeTypeClass.UPSERT,
+                    aspectName="origin",
+                    aspect=OriginClass(OriginTypeClass.EXTERNAL, "OKTA"),
+                )
+                group_origin_wu_id = (
+                    f"group-origin-{group_count + 1}"
+                    if self.config.mask_group_id
+                    else datahub_corp_group_snapshot.urn
+                )
+                group_origin_wu = MetadataWorkUnit(
+                    id=group_origin_wu_id, mcp=group_origin_mcp
+                )
+                self.report.report_workunit(group_origin_wu)
+                yield group_origin_wu
+
         # Step 2: Populate GroupMembership Aspects for CorpUsers
         datahub_corp_user_urn_to_group_membership: Dict[str, GroupMembershipClass] = {}
         if self.config.ingest_group_membership and okta_groups is not None:
@@ -351,6 +373,24 @@ class OktaSource(Source):
                 wu = MetadataWorkUnit(id=wu_id, mce=mce)
                 self.report.report_workunit(wu)
                 yield wu
+
+                user_origin_mcp = MetadataChangeProposalWrapper(
+                    entityType="corpuser",
+                    entityUrn=datahub_corp_user_snapshot.urn,
+                    changeType=ChangeTypeClass.UPSERT,
+                    aspectName="origin",
+                    aspect=OriginClass(OriginTypeClass.EXTERNAL, "OKTA"),
+                )
+                user_origin_wu_id = (
+                    f"user-origin-{user_count + 1}"
+                    if self.config.mask_user_id
+                    else datahub_corp_user_snapshot.urn
+                )
+                user_origin_wu = MetadataWorkUnit(
+                    id=user_origin_wu_id, mcp=user_origin_mcp
+                )
+                self.report.report_workunit(user_origin_wu)
+                yield user_origin_wu
 
         # Step 4: Close the event loop
         event_loop.close()

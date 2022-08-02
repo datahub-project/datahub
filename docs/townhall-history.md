@@ -2,6 +2,29 @@
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
 
+## 7/28/2022
+[Full YouTube video](https://youtu.be/Zrkf3Mzcvc4)
+
+## Agenda
+
+- Community Updates
+- Project Updates
+- Improvements to UI-Based Ingestion
+- Sneak Preview - Bulk Edits via the UI
+- Streamlined Metadata Ingestion
+- DataHub 201: Metadata Enrichment
+
+## 6/30/2022
+[Full YouTube video](https://youtu.be/fAD53fEJ6m0)
+
+## Agenda
+
+- Community Updates
+- Project Updates
+- dbt Integration Updates
+- CSV Ingestion Support
+- DataHub 201 - Glossary Term Deep Dive
+
 ## 5/26/2022
 [Full YouTube video](https://youtu.be/taKb_zyowEE)
 

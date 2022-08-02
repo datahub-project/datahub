@@ -444,7 +444,7 @@ The following is a consolidated example for the possible field level term option
 
 ##### OWNER
 
-One or more owners can be specified and can be any combination of `corpUser` and `corpGroup` entities. The default entity type is `corpGroup`. By default, the ownership type is set to `producer`, see the second example for setting the ownership type.
+One or more owners can be specified and can be any combination of `corpUser` and `corpGroup` entities. The default entity type is `corpGroup`. By default, the ownership type is set to `technical_owner`, see the second example for setting the ownership type.
 
 The following example assigns the ownership to a group of `myGroup` and a user called `myName`.
 

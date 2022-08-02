@@ -2,7 +2,7 @@ import * as React from 'react';
 import { ShareAltOutlined } from '@ant-design/icons';
 import { DataFlow, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { useGetDataFlowQuery, useUpdateDataFlowMutation } from '../../../graphql/dataFlow.generated';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
@@ -140,6 +140,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 globalTags={data.globalTags}
                 insights={result.insights}
                 domain={data.domain?.domain}
+                externalUrl={data.properties?.externalUrl}
+                jobCount={(data as any).childJobs?.total}
+                deprecation={data.deprecation}
             />
         );
     };
@@ -154,5 +157,16 @@ export class DataFlowEntity implements Entity<DataFlow> {
             entityType: this.type,
             getOverrideProperties: this.getOverridePropertiesFromEntity,
         });
+    };
+
+    supportedCapabilities = () => {
+        return new Set([
+            EntityCapabilityType.OWNERS,
+            EntityCapabilityType.GLOSSARY_TERMS,
+            EntityCapabilityType.TAGS,
+            EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.DEPRECATION,
+            EntityCapabilityType.SOFT_DELETE,
+        ]);
     };
 }

@@ -5,6 +5,7 @@ on:
     branches:
       - master
     paths-ignore:
+      - "docker/**"
       - "docs/**"
       - "**.md"
   pull_request:
