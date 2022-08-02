@@ -71,7 +71,7 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
     const finalEntityTypes = (entityFilters.length > 0 && entityFilters) || fixedEntityTypes || [];
 
     // Execute search
-    const { data, loading, error } = useGetSearchResultsForMultipleQuery({
+    const { data, loading, error, refetch } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
                 types: finalEntityTypes,
@@ -154,6 +154,8 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
                     onChangeSelectAll={onChangeSelectAll}
                     showCancel={false}
                     showActions={false}
+                    refetch={refetch}
+                    selectedEntities={selectedEntities}
                 />
             </TabToolbar>
             <EmbeddedListSearchResults

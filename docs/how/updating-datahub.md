@@ -8,6 +8,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #5451 `GMS_HOST` and `GMS_PORT` environment variables deprecated in `v0.8.39` have been removed. Use `DATAHUB_GMS_HOST` and `DATAHUB_GMS_PORT` instead.
 - #5478 DataHub CLI `delete` command when used with `--hard` option will delete soft-deleted entities which match the other filters given.
 - #5471 Looker now populates `userEmail` in dashboard user usage stats. This version of looker connnector will not work with older version of  **datahub-gms** if you have `extract_usage_history` looker config enabled.
+- #5529 - `ANALYTICS_ENABLED` environment variable in **datahub-gms** is now deprecated. Use `DATAHUB_ANALYTICS_ENABLED` instead.
 
 ### Potential Downtime
 

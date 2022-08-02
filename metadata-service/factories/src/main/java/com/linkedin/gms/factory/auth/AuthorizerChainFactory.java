@@ -25,12 +25,12 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.Scope;
 
+
 @Slf4j
 @Configuration
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 @Import({DataHubAuthorizerFactory.class})
 public class AuthorizerChainFactory {
-
   @Autowired
   private ConfigurationProvider configurationProvider;
 
@@ -52,12 +52,17 @@ public class AuthorizerChainFactory {
   protected AuthorizerChain getInstance() {
     // Init authorizer context
     final AuthorizerContext ctx = initAuthorizerContext();
+
     // Extract + initialize customer authorizers from application configs.
     final List<Authorizer> authorizers = new ArrayList<>(initCustomAuthorizers(ctx));
-    // Add the DataHub core policies-based Authorizer - this one should always be enabled.
-    this.dataHubAuthorizer.init(Collections.emptyMap(), ctx);
-    authorizers.add(this.dataHubAuthorizer);
-    return new AuthorizerChain(authorizers);
+
+    if (Boolean.TRUE.equals(configurationProvider.getAuthorization().getDefaultAuthorizer().getEnabled())) {
+      this.dataHubAuthorizer.init(Collections.emptyMap(), ctx);
+      log.info("Default DataHubAuthorizer is enabled. Appending it to the authorization chain.");
+      authorizers.add(this.dataHubAuthorizer);
+    }
+
+    return new AuthorizerChain(authorizers, dataHubAuthorizer);
   }
 
   private AuthorizerContext initAuthorizerContext() {
@@ -75,6 +80,13 @@ public class AuthorizerChainFactory {
 
       for (AuthorizerConfiguration authorizer : authorizerConfigurations) {
         final String type = authorizer.getType();
+        // continue if authorizer is not enabled
+        // Boolean.FALSE.equals take care to map null to false and false to false
+        if (Boolean.FALSE.equals(authorizer.getEnabled())) {
+          log.info(String.format("Authorizer %s is not enabled", type));
+          continue;
+        }
+
         final Map<String, Object> configs =
             authorizer.getConfigs() != null ? authorizer.getConfigs() : Collections.emptyMap();
 
@@ -94,8 +106,10 @@ public class AuthorizerChainFactory {
           final Authorizer authorizerInstance = clazz.newInstance();
           authorizerInstance.init(configs, ctx);
           customAuthorizers.add(authorizerInstance);
+          log.info(String.format("Authorizer %s is initialized", type));
         } catch (Exception e) {
-          throw new RuntimeException(String.format("Failed to instantiate custom Authorizer with class name %s", clazz.getCanonicalName()), e);
+          throw new RuntimeException(
+              String.format("Failed to instantiate custom Authorizer with class name %s", clazz.getCanonicalName()), e);
         }
       }
     }
