@@ -390,7 +390,14 @@ class Mapper:
 
         # Dashboard browsePaths
         browse_path = BrowsePathsClass(
-            paths=[report.get_browse_path("powerbi_report_server", self.__config.host)]
+            paths=[
+                report.get_browse_path(
+                    "powerbi_report_server",
+                    self.__config.host,
+                    self.__config.env,
+                    self.__config.report_virtual_directory_name,
+                )
+            ]
         )
         browse_path_mcp = self.new_mcp(
             entity_type=Constant.DASHBOARD,
@@ -409,7 +416,7 @@ class Mapper:
 
     def to_datahub_user(self, user: CorpUser) -> List[MetadataChangeProposalWrapper]:
         """
-        Map PowerBi ReportServer user to datahub user
+        Map PowerBi Report Server user to datahub user
         """
         LOGGER.info("Converting user {} to datahub's user".format(user.username))
 
