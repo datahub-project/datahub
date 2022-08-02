@@ -306,6 +306,11 @@ type Mutation {
     addOwner(input: AddOwnerInput!): Boolean
 
     """
+    Add owners to multiple Entities
+    """
+    batchAddOwners(input: BatchAddOwnersInput!): Boolean
+
+    """
     Add multiple owners to a particular Entity
     """
     addOwners(input: AddOwnersInput!): Boolean
@@ -314,6 +319,11 @@ type Mutation {
     Remove an owner from a particular Entity
     """
     removeOwner(input: RemoveOwnerInput!): Boolean
+
+    """
+    Remove owners from multiple Entities
+    """
+    batchRemoveOwners(input: BatchRemoveOwnersInput!): Boolean
 
     """
     Add a link, or institutional memory, from a particular Entity
@@ -6737,6 +6747,36 @@ input AddOwnersInput {
     The urn of the resource or entity to attach or remove the owner from, for example a dataset urn
     """
     resourceUrn: String!
+}
+
+"""
+Input provided when adding owners to a batch of assets
+"""
+input BatchAddOwnersInput {
+    """
+    The primary key of the owners
+    """
+    owners: [OwnerInput!]!
+
+    """
+    The target assets to attach the owners to
+    """
+    resources: [ResourceRefInput]!
+}
+
+"""
+Input provided when removing owners from a batch of assets
+"""
+input BatchRemoveOwnersInput {
+    """
+    The primary key of the owners
+    """
+    ownerUrns: [String!]!
+
+    """
+    The target assets to remove the owners from
+    """
+    resources: [ResourceRefInput]!
 }
 
 """

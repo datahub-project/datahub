@@ -6,7 +6,10 @@ import { CorpUser, Entity, EntityType, OwnerEntityType, OwnershipType } from '..
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
 import { OWNERSHIP_DISPLAY_TYPES } from './ownershipUtils';
-import { useAddOwnersMutation } from '../../../../../../../graphql/mutations.generated';
+import {
+    useBatchAddOwnersMutation,
+    useBatchRemoveOwnersMutation,
+} from '../../../../../../../graphql/mutations.generated';
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { useGetRecommendations } from '../../../../../../shared/recommendation';
 import { OwnerLabel } from '../../../../../../shared/OwnerLabel';
@@ -25,11 +28,17 @@ const StyleTag = styled(Tag)`
     align-items: center;
 `;
 
+export enum OperationType {
+    ADD,
+    REMOVE,
+}
+
 type Props = {
-    urn: string;
+    urns: string[];
     type: EntityType;
     defaultOwnerType?: OwnershipType;
     hideOwnerType?: boolean | undefined;
+    operationType?: OperationType;
     onCloseModal: () => void;
     refetch?: () => Promise<any>;
 };
@@ -40,10 +49,19 @@ type SelectedOwner = {
     value;
 };
 
-export const AddOwnersModal = ({ urn, type, hideOwnerType, defaultOwnerType, onCloseModal, refetch }: Props) => {
+export const AddOwnersModal = ({
+    urns,
+    type,
+    hideOwnerType,
+    defaultOwnerType,
+    operationType = OperationType.ADD,
+    onCloseModal,
+    refetch,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
     const [inputValue, setInputValue] = useState('');
-    const [addOwnersMutation] = useAddOwnersMutation();
+    const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
+    const [batchRemoveOwnersMutation] = useBatchRemoveOwnersMutation();
     const ownershipTypes = OWNERSHIP_DISPLAY_TYPES;
     const [selectedOwners, setSelectedOwners] = useState<SelectedOwner[]>([]);
     const [selectedOwnerType, setSelectedOwnerType] = useState<OwnershipType>(defaultOwnerType || OwnershipType.None);
@@ -167,6 +185,62 @@ export const AddOwnersModal = ({ urn, type, hideOwnerType, defaultOwnerType, onC
         );
     };
 
+    const batchAddOwners = async (inputs) => {
+        try {
+            await batchAddOwnersMutation({
+                variables: {
+                    input: {
+                        owners: inputs,
+                        resources: urns.map((urn) => ({ resourceUrn: urn })),
+                    },
+                },
+            });
+            message.success({ content: 'Owners Added', duration: 2 });
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: EntityActionType.UpdateOwnership,
+                entityType: type,
+                entityUrn: urns[0],
+            });
+        } catch (e: unknown) {
+            message.destroy();
+            if (e instanceof Error) {
+                message.error({ content: `Failed to add owners: \n ${e.message || ''}`, duration: 3 });
+            }
+        } finally {
+            refetch?.();
+            onModalClose();
+        }
+    };
+
+    const batchRemoveOwners = async (inputs) => {
+        try {
+            await batchRemoveOwnersMutation({
+                variables: {
+                    input: {
+                        ownerUrns: inputs.map((input) => input.ownerUrn),
+                        resources: urns.map((urn) => ({ resourceUrn: urn })),
+                    },
+                },
+            });
+            message.success({ content: 'Owners Removed', duration: 2 });
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: EntityActionType.UpdateOwnership,
+                entityType: type,
+                entityUrn: urns[0],
+            });
+        } catch (e: unknown) {
+            message.destroy();
+            if (e instanceof Error) {
+                message.error({ content: `Failed to remove owners: \n ${e.message || ''}`, duration: 3 });
+            }
+        } finally {
+            refetch?.();
+            onModalClose();
+        }
+    };
+
     // Function to handle the modal action's
     const onOk = async () => {
         if (selectedOwners.length === 0) {
@@ -180,30 +254,11 @@ export const AddOwnersModal = ({ urn, type, hideOwnerType, defaultOwnerType, onC
             };
             return input;
         });
-        try {
-            await addOwnersMutation({
-                variables: {
-                    input: {
-                        owners: inputs,
-                        resourceUrn: urn,
-                    },
-                },
-            });
-            message.success({ content: 'Owners Added', duration: 2 });
-            analytics.event({
-                type: EventType.EntityActionEvent,
-                actionType: EntityActionType.UpdateOwnership,
-                entityType: type,
-                entityUrn: urn,
-            });
-        } catch (e: unknown) {
-            message.destroy();
-            if (e instanceof Error) {
-                message.error({ content: `Failed to add owners: \n ${e.message || ''}`, duration: 3 });
-            }
-        } finally {
-            refetch?.();
-            onModalClose();
+
+        if (operationType === OperationType.ADD) {
+            batchAddOwners(inputs);
+        } else {
+            batchRemoveOwners(inputs);
         }
     };
 

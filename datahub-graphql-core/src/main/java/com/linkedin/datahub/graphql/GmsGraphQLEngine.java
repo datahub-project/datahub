@@ -144,8 +144,10 @@ import com.linkedin.datahub.graphql.resolvers.mutate.AddTagResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermsResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddOwnersResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddTermsResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveOwnersResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
@@ -704,7 +706,9 @@ public class GmsGraphQLEngine {
             .dataFetcher("updateDescription", new UpdateDescriptionResolver(entityService))
             .dataFetcher("addOwner", new AddOwnerResolver(entityService))
             .dataFetcher("addOwners", new AddOwnersResolver(entityService))
+            .dataFetcher("batchAddOwners", new BatchAddOwnersResolver(entityService))
             .dataFetcher("removeOwner", new RemoveOwnerResolver(entityService))
+            .dataFetcher("batchRemoveOwners", new BatchRemoveOwnersResolver(entityService))
             .dataFetcher("addLink", new AddLinkResolver(entityService))
             .dataFetcher("removeLink", new RemoveLinkResolver(entityService))
             .dataFetcher("addGroupMembers", new AddGroupMembersResolver(this.groupService))

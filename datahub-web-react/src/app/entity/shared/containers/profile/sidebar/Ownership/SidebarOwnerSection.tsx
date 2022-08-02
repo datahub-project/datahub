@@ -39,7 +39,7 @@ export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
             </div>
             {showAddModal && (
                 <AddOwnersModal
-                    urn={mutationUrn}
+                    urns={[mutationUrn]}
                     defaultOwnerType={properties?.defaultOwnerType}
                     hideOwnerType={properties?.hideOwnerType || false}
                     type={entityType}

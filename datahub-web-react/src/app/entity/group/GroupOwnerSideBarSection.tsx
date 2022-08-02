@@ -52,7 +52,7 @@ export default function GroupOwnerSideBarSection({ urn, ownership, refetch }: Pr
             </SectionWrapper>
             {showAddModal && (
                 <AddOwnersModal
-                    urn={urn}
+                    urns={[urn]}
                     hideOwnerType
                     type={EntityType.CorpGroup}
                     refetch={refetch}
