@@ -12,7 +12,7 @@ public class AuthorizerConfiguration {
   /**
    * Whether to enable this authorizer
    */
-  private Boolean enabled = false;
+  private boolean enabled;
   /**
    * A fully-qualified class name for the {@link Authorizer} implementation to be registered.
    */

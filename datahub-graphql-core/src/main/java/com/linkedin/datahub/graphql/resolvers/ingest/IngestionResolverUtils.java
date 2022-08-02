@@ -21,8 +21,10 @@ import com.linkedin.metadata.Constants;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 
 
+@Slf4j
 public class IngestionResolverUtils {
 
   public static List<ExecutionRequest> mapExecutionRequests(final Collection<EntityResponse> requests) {
@@ -96,7 +98,11 @@ public class IngestionResolverUtils {
   public static List<IngestionSource> mapIngestionSources(final Collection<EntityResponse> entities) {
     final List<IngestionSource> results = new ArrayList<>();
     for (EntityResponse response : entities) {
-      results.add(mapIngestionSource(response));
+      try {
+        results.add(mapIngestionSource(response));
+      } catch (IllegalStateException e) {
+        log.error("Unable to map ingestion source, continuing to other sources.", e);
+      }
     }
     return results;
   }
@@ -107,6 +113,10 @@ public class IngestionResolverUtils {
 
     // There should ALWAYS be an info aspect.
     final EnvelopedAspect envelopedInfo = aspects.get(Constants.INGESTION_INFO_ASPECT_NAME);
+
+    if (envelopedInfo == null) {
+      throw new IllegalStateException("No ingestion source info aspect exists for urn: " + entityUrn);
+    }
 
     // Bind into a strongly typed object.
     final DataHubIngestionSourceInfo ingestionSourceInfo = new DataHubIngestionSourceInfo(envelopedInfo.getValue().data());

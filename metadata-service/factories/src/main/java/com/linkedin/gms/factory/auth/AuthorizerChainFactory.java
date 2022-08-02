@@ -56,7 +56,7 @@ public class AuthorizerChainFactory {
     // Extract + initialize customer authorizers from application configs.
     final List<Authorizer> authorizers = new ArrayList<>(initCustomAuthorizers(ctx));
 
-    if (Boolean.TRUE.equals(configurationProvider.getAuthorization().getDefaultAuthorizer().getEnabled())) {
+    if (configurationProvider.getAuthorization().getDefaultAuthorizer().isEnabled()) {
       this.dataHubAuthorizer.init(Collections.emptyMap(), ctx);
       log.info("Default DataHubAuthorizer is enabled. Appending it to the authorization chain.");
       authorizers.add(this.dataHubAuthorizer);
@@ -81,8 +81,7 @@ public class AuthorizerChainFactory {
       for (AuthorizerConfiguration authorizer : authorizerConfigurations) {
         final String type = authorizer.getType();
         // continue if authorizer is not enabled
-        // Boolean.FALSE.equals take care to map null to false and false to false
-        if (Boolean.FALSE.equals(authorizer.getEnabled())) {
+        if (!authorizer.isEnabled()) {
           log.info(String.format("Authorizer %s is not enabled", type));
           continue;
         }
