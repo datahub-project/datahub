@@ -91,8 +91,10 @@ public class LineageRegistry {
 
   public Set<String> getEntitiesWithLineage() {
     Map<String, EntitySpec> specs = _entityRegistry.getEntitySpecs();
-    return _lineageSpecMap.keySet().stream().filter(key -> !_lineageSpecMap.get(key).getUpstreamEdges().isEmpty() ||
-        !_lineageSpecMap.get(key).getDownstreamEdges().isEmpty()).map(key -> specs.get(key).getName()).collect(Collectors.toSet());
+    return _lineageSpecMap.keySet().stream().filter(key ->
+        !_lineageSpecMap.get(key).getUpstreamEdges().isEmpty()
+        || !_lineageSpecMap.get(key).getDownstreamEdges().isEmpty()
+    ).map(key -> specs.get(key).getName()).collect(Collectors.toSet());
   }
 
   public List<EdgeInfo> getLineageRelationships(String entityName, LineageDirection direction) {
