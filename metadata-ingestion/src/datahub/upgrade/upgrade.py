@@ -153,8 +153,6 @@ async def get_server_version_stats(
         if server_version_string and server_version_string.startswith("v"):
             server_version = Version(server_version_string[1:])
 
-    server_version = None
-    current_server_release_date = None
     return (server_type, server_version, current_server_release_date)
 
 
