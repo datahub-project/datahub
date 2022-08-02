@@ -1,7 +1,5 @@
 import logging
-import types
 from dataclasses import dataclass, field
-from importlib import import_module
 from typing import Dict, Iterable, List, Optional, Type, cast
 
 import confluent_kafka
@@ -26,6 +24,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka_schema_registry_base import KafkaSchemaRegistryBase
 from datahub.ingestion.source.state.checkpoint import Checkpoint
@@ -120,11 +119,7 @@ class KafkaSource(StatefulIngestionSourceBase):
         cls, config: KafkaSourceConfig, report: KafkaSourceReport
     ) -> KafkaSchemaRegistryBase:
         try:
-            module_path: str
-            class_name: str
-            module_path, class_name = config.schema_registry_class.rsplit(".", 1)
-            module: types.ModuleType = import_module(module_path)
-            schema_registry_class: Type = getattr(module, class_name)
+            schema_registry_class: Type = import_path(config.schema_registry_class)
             return schema_registry_class.create(config, report)
         except (ImportError, AttributeError):
             raise ImportError(config.schema_registry_class)

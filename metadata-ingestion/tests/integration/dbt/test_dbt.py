@@ -10,6 +10,10 @@ from datahub.configuration.common import DynamicTypedConfig
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.run.pipeline import Pipeline, PipelineConfig, SourceConfig
 from datahub.ingestion.source.dbt import DbtCheckpointState, DBTConfig, DBTSource
+from datahub.ingestion.source.sql.sql_types import (
+    TRINO_SQL_TYPES_MAP,
+    resolve_trino_modified_type,
+)
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
@@ -499,7 +503,9 @@ def test_dbt_state_backward_compatibility(
             sql_state = BaseSQLAlchemyCheckpointState()
 
             urn1 = "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD)"
-            urn2 = "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)"
+            urn2 = (
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)"
+            )
 
             sql_state.add_table_urn(urn1)
             sql_state.add_table_urn(urn2)
@@ -639,3 +645,17 @@ def test_dbt_stateful_tests(pytestconfig, tmp_path, mock_time, mock_datahub_grap
             golden_path=golden_path,
             ignore_paths=[],
         )
+
+
+@pytest.mark.parametrize(
+    "data_type, expected_data_type",
+    [
+        ("timestamp(3)", "timestamp"),
+        ("varchar(20)", "varchar"),
+    ],
+)
+def test_resolve_trino_modified_type(data_type, expected_data_type):
+    assert (
+        resolve_trino_modified_type(data_type)
+        == TRINO_SQL_TYPES_MAP[expected_data_type]
+    )

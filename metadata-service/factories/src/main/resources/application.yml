@@ -36,9 +36,11 @@ authorization:
 
   # Optional: A set of custom authorizers, serving in addition to the default DataHub policies-based authorizer.
   authorizers:
-  # - type: com.datahub.authorization.authorizer.CustomAuthorizer
-  #   configs:
-  #     config1: value1
+    - type: com.datahub.authorization.ranger.RangerAuthorizer
+      enabled: ${RANGER_AUTHORIZER_ENABLED:false}
+      configs:
+        username: ${RANGER_USERNAME}
+        password: ${RANGER_PASSWORD}
 
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}

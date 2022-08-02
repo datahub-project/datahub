@@ -366,10 +366,11 @@ def post_delete_endpoint_with_session_and_url(
 
 def get_urns_by_filter(
     platform: Optional[str],
-    env: Optional[str],
+    env: Optional[str] = None,
     entity_type: str = "dataset",
     search_query: str = "*",
     include_removed: bool = False,
+    only_soft_deleted: Optional[bool] = None,
 ) -> Iterable[str]:
     session, gms_host = get_session_and_host()
     endpoint: str = "/entities?action=search"
@@ -401,7 +402,15 @@ def get_urns_by_filter(
             }
         )
 
-    if include_removed:
+    if only_soft_deleted:
+        filter_criteria.append(
+            {
+                "field": "removed",
+                "value": "true",
+                "condition": "EQUAL",
+            }
+        )
+    elif include_removed:
         filter_criteria.append(
             {
                 "field": "removed",
