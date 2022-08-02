@@ -34,7 +34,7 @@ jobs:
         datahub docker ingest-sample-data
     - name: See status
       run: |
-        docker ps -a
+        docker ps -a && datahub docker check
     - name: store logs
       if: failure()
       run: |
