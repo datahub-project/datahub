@@ -48,6 +48,9 @@ class AthenaConfig(SQLAlchemyConfig):
     work_group: str = pydantic.Field(
         description="The name of your Amazon Athena Workgroups"
     )
+    catalog_name: str = pydantic.Field(
+        default="awsdatacatalog", description="Athena Catalog Name"
+    )
 
     include_views = False  # not supported for Athena
 
@@ -61,6 +64,7 @@ class AthenaConfig(SQLAlchemyConfig):
             uri_opts={
                 "s3_staging_dir": self.s3_staging_dir,
                 "work_group": self.work_group,
+                "catalog_name": self.catalog_name,
             },
         )
 
