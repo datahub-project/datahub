@@ -51,7 +51,7 @@ entities:
       - dataProcessInstanceProperties
       - dataProcessInstanceRelationships
       - dataProcessInstanceRunEvent
-  - name: charte
+  - name: chart
     keyAspect: chartKey
     aspects:
       - domains
