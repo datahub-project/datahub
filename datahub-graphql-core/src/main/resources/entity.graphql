@@ -261,7 +261,7 @@ type Mutation {
     addTags(input: AddTagsInput!): Boolean
 
     """
-		Add tags to multiple Entity or subresource
+    Add tags to multiple Entities or subresources
     """
     batchAddTags(input: BatchAddTagsInput!): Boolean
 

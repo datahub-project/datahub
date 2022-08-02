@@ -28,9 +28,10 @@ type EditTagsModalProps = {
     visible: boolean;
     onCloseModal: () => void;
     resources: ResourceRefInput[];
+    // eslint-disable-next-line
     entityType: EntityType;
     type?: EntityType;
-    operationType?: OperationType; // Whether to allow creating a new Tag
+    operationType?: OperationType;
 };
 
 const TagSelect = styled(Select)`
@@ -76,7 +77,6 @@ export default function EditTagTermsModal({
     visible,
     onCloseModal,
     resources,
-    entityType,
     type = EntityType.Tag,
     operationType = OperationType.ADD,
 }: EditTagsModalProps) {
@@ -344,7 +344,6 @@ export default function EditTagTermsModal({
 
     // Function to handle the modal action's
     const onOk = () => {
-        console.log(entityType); // TODO: Add analytics
         if (!resources) {
             onCloseModal();
             return;
