@@ -47,6 +47,7 @@ from datahub.metadata.schema_classes import (
     NumberTypeClass,
     OtherSchemaClass,
     RecordTypeClass,
+    SchemaFieldDataTypeClass,
     StringTypeClass,
     SubTypesClass,
 )
@@ -141,7 +142,7 @@ class ElasticToSchemaFieldConverter:
                 schema_field = SchemaField(
                     fieldPath=self._get_cur_field_path(),
                     nativeDataType="nested",
-                    type=SchemaFieldDataTypeClass(StringTypeClass()),
+                    type=SchemaFieldDataTypeClass(RecordTypeClass()),
                     description=None,
                     nullable=True,
                     recursive=False,
