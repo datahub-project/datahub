@@ -12,15 +12,15 @@ class ConfigModel(BaseModel):
         extra = Extra.forbid
 
 
-class Semantics(Enum):
+class TransformerSemantics(Enum):
     """Describes semantics for aspect changes"""
 
     OVERWRITE = "OVERWRITE"  # Apply changes blindly
     PATCH = "PATCH"  # Only apply differences from what exists already on the server
 
 
-class SemanticsTransformerConfigModel(ConfigModel):
-    semantics: Semantics = Semantics.OVERWRITE
+class TransformerSemanticsConfigModel(ConfigModel):
+    semantics: TransformerSemantics = TransformerSemantics.OVERWRITE
 
     @validator("semantics", pre=True)
     def ensure_semantics_is_upper_case(cls, v: str) -> str:
