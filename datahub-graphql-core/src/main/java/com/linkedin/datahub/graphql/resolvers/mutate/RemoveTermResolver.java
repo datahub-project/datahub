@@ -1,9 +1,11 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.generated.TermAssociationInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.metadata.Constants;
@@ -52,10 +54,9 @@ public class RemoveTermResolver implements DataFetcher<CompletableFuture<Boolean
 
         log.info(String.format("Removing Term. input: {}", input));
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
-        LabelUtils.removeTermFromResource(
-            termUrn,
-            targetUrn,
-            input.getSubResource(),
+        LabelUtils.removeTermsFromResources(
+            ImmutableList.of(termUrn),
+            ImmutableList.of(new ResourceRefInput(input.getResourceUrn(), input.getSubResourceType(), input.getSubResource())),
             actor,
             _entityService
         );

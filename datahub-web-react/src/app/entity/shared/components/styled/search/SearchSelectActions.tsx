@@ -16,7 +16,7 @@ import { SelectActionGroups } from './types';
  *
  * Currently, only the change tags action is implemented.
  */
-const DEFAULT_ACTION_GROUPS = [SelectActionGroups.CHANGE_TAGS];
+const DEFAULT_ACTION_GROUPS = [SelectActionGroups.CHANGE_TAGS, SelectActionGroups.CHANGE_GLOSSARY_TERMS];
 
 type Props = {
     selectedEntities: EntityAndType[];
@@ -69,6 +69,7 @@ export const SearchSelectActions = ({
                         selectedEntityUrns.length === 0 ||
                         !isEntityCapabilitySupported(EntityCapabilityType.GLOSSARY_TERMS, selectedEntityTypes)
                     }
+                    refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_TAGS) && (
