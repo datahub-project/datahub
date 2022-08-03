@@ -337,4 +337,5 @@ TRINO_SQL_TYPES_MAP = {
     "date": DateType,
     "time": TimeType,
     "timestamp": TimeType,
+    "row": RecordType,
 }

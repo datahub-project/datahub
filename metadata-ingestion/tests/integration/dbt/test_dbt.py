@@ -482,6 +482,8 @@ def test_dbt_tests(pytestconfig, tmp_path, mock_time, **kwargs):
     [
         ("timestamp(3)", "timestamp"),
         ("varchar(20)", "varchar"),
+        ("decimal(10,0)", "decimal"),
+        ("row(x bigint, y double)", "row"),
     ],
 )
 def test_resolve_trino_modified_type(data_type, expected_data_type):
