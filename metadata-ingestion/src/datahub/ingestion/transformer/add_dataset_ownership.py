@@ -1,7 +1,5 @@
 from typing import Callable, List, Optional, Union, cast
 
-from pydantic import validator
-
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
     ConfigurationError,
