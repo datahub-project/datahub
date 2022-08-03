@@ -42,7 +42,7 @@ export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
                     urns={[mutationUrn]}
                     defaultOwnerType={properties?.defaultOwnerType}
                     hideOwnerType={properties?.hideOwnerType || false}
-                    type={entityType}
+                    entityType={entityType}
                     refetch={refetch}
                     onCloseModal={() => {
                         setShowAddModal(false);

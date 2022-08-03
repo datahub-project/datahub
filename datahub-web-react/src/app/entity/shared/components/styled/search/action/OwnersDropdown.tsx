@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { EntityType } from '../../../../../../../types.generated';
 import { EditOwnersModal, OperationType } from '../../../../containers/profile/sidebar/Ownership/EditOwnersModal';
 import ActionDropdown from './ActionDropdown';
 
@@ -39,7 +38,6 @@ export default function OwnersDropdown({ urns, disabled = false, refetch }: Prop
             {isEditModalVisible && (
                 <EditOwnersModal
                     urns={urns}
-                    type={EntityType.Dataset} // TODO: Remove
                     operationType={operationType}
                     onCloseModal={() => {
                         setIsEditModalVisible(false);

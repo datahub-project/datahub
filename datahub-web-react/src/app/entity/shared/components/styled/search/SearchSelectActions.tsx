@@ -16,7 +16,11 @@ import { SelectActionGroups } from './types';
  *
  * Currently, only the change tags action is implemented.
  */
-const DEFAULT_ACTION_GROUPS = [SelectActionGroups.CHANGE_TAGS, SelectActionGroups.CHANGE_GLOSSARY_TERMS, SelectActionGroups.CHANGE_OWNERS];
+const DEFAULT_ACTION_GROUPS = [
+    SelectActionGroups.CHANGE_TAGS,
+    SelectActionGroups.CHANGE_GLOSSARY_TERMS,
+    SelectActionGroups.CHANGE_OWNERS,
+];
 
 type Props = {
     selectedEntities: EntityAndType[];

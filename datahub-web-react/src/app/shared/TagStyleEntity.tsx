@@ -427,7 +427,7 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                                     setShowAddModal(false);
                                 }}
                                 urns={[urn]}
-                                type={EntityType.Tag}
+                                entityType={EntityType.Tag}
                             />
                         )}
                     </div>

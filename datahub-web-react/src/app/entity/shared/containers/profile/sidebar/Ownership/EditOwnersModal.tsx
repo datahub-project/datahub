@@ -35,12 +35,12 @@ export enum OperationType {
 
 type Props = {
     urns: string[];
-    type: EntityType;
     defaultOwnerType?: OwnershipType;
     hideOwnerType?: boolean | undefined;
     operationType?: OperationType;
     onCloseModal: () => void;
     refetch?: () => Promise<any>;
+    entityType?: EntityType; // Only used for tracking events
 };
 
 // value: {ownerUrn: string, ownerEntityType: EntityType}
@@ -51,12 +51,12 @@ type SelectedOwner = {
 
 export const EditOwnersModal = ({
     urns,
-    type,
     hideOwnerType,
     defaultOwnerType,
     operationType = OperationType.ADD,
     onCloseModal,
     refetch,
+    entityType,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const [inputValue, setInputValue] = useState('');
@@ -82,12 +82,12 @@ export const EditOwnersModal = ({
     }, [ownershipTypes]);
 
     // Invokes the search API as the owner types
-    const handleSearch = (entityType: EntityType, text: string, searchQuery: any) => {
+    const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
         if (text.length > 2) {
             searchQuery({
                 variables: {
                     input: {
-                        type: entityType,
+                        type,
                         query: text,
                         start: 0,
                         count: 5,
@@ -185,6 +185,23 @@ export const EditOwnersModal = ({
         );
     };
 
+    const emitAnalytics = async () => {
+        if (urns.length > 1) {
+            analytics.event({
+                type: EventType.BatchEntityActionEvent,
+                actionType: EntityActionType.UpdateOwnership,
+                entityUrns: urns,
+            });
+        } else {
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: EntityActionType.UpdateOwnership,
+                entityType,
+                entityUrn: urns[0],
+            });
+        }
+    };
+
     const batchAddOwners = async (inputs) => {
         try {
             await batchAddOwnersMutation({
@@ -196,12 +213,7 @@ export const EditOwnersModal = ({
                 },
             });
             message.success({ content: 'Owners Added', duration: 2 });
-            analytics.event({
-                type: EventType.EntityActionEvent,
-                actionType: EntityActionType.UpdateOwnership,
-                entityType: type,
-                entityUrn: urns[0],
-            });
+            emitAnalytics();
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
@@ -224,12 +236,7 @@ export const EditOwnersModal = ({
                 },
             });
             message.success({ content: 'Owners Removed', duration: 2 });
-            analytics.event({
-                type: EventType.EntityActionEvent,
-                actionType: EntityActionType.UpdateOwnership,
-                entityType: type,
-                entityUrn: urns[0],
-            });
+            emitAnalytics();
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
