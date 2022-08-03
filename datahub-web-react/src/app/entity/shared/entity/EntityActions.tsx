@@ -75,7 +75,7 @@ function EntityActions(props: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     refetchForEntity?.();
-                    setIsBatchAddGlossaryTermModalVisible(false);
+                    setIsBatchSetDomainModalVisible(false);
                     message.success({
                         content: `Added assets to Domain!`,
                         duration: 2,
