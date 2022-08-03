@@ -106,11 +106,19 @@ class AddDatasetDomain(DatasetDomainTransformer):
 
         if self.config.semantics == TransformerSemantics.PATCH:
             assert self.ctx.graph
-            domain_aspect = AddDatasetDomain.get_domains_to_set(
+            patch_domain_aspect: Optional[
+                DomainsClass
+            ] = AddDatasetDomain.get_domains_to_set(
                 self.ctx.graph, entity_urn, domain_aspect
-            )  # type: ignore[assignment]
-        # ignore mypy errors as Aspect is not a concrete class
-        return domain_aspect  # type: ignore[return-value]
+            )
+            # This will pass the mypy lint
+            domain_aspect = (
+                patch_domain_aspect
+                if patch_domain_aspect is not None
+                else domain_aspect
+            )
+
+        return cast(Optional[Aspect], domain_aspect)
 
 
 class SimpleAddDatasetDomain(AddDatasetDomain):
