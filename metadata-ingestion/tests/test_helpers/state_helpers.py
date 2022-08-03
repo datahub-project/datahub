@@ -35,11 +35,6 @@ def run_and_get_pipeline(pipeline_config_dict: Dict[str, Any]) -> Pipeline:
     return pipeline
 
 
-def create_pipeline(pipeline_config_dict: Dict[str, Any]) -> Pipeline:
-    pipeline = Pipeline.create(pipeline_config_dict)
-    return pipeline
-
-
 @pytest.fixture
 def mock_datahub_graph():
     class MockDataHubGraphContext:

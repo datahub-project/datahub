@@ -21,7 +21,6 @@ from datahub.ingestion.source.state.sql_common_state import (
 )
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
-    create_pipeline,
     run_and_get_pipeline,
     validate_all_providers_have_committed_successfully,
 )
@@ -442,12 +441,11 @@ def test_dbt_state_backward_compatibility(
     pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
+    manifest_path = f"{test_resources_dir}/dbt_manifest.json"
+    catalog_path = f"{test_resources_dir}/dbt_catalog.json"
+    sources_path = f"{test_resources_dir}/dbt_sources.json"
 
-    manifest_path = "{}/dbt_manifest.json".format(test_resources_dir)
-    catalog_path = "{}/dbt_catalog.json".format(test_resources_dir)
-    sources_path = "{}/dbt_sources.json".format(test_resources_dir)
-
-    stateful_config = {
+    stateful_config: Dict[str, Any] = {
         "stateful_ingestion": {
             "enabled": True,
             "remove_stale_metadata": True,
@@ -488,9 +486,7 @@ def test_dbt_state_backward_compatibility(
         mock_datahub_graph,
     ) as mock_checkpoint:
         mock_checkpoint.return_value = mock_datahub_graph
-
-        pipeline = create_pipeline(pipeline_config_dict)
-
+        pipeline = Pipeline.create(pipeline_config_dict)
         dbt_source = cast(DBTSource, pipeline.source)
 
         def get_fake_base_sql_alchemy_checkpoint_state(
@@ -502,12 +498,10 @@ def test_dbt_state_backward_compatibility(
                 )
 
             sql_state = BaseSQLAlchemyCheckpointState()
-
             urn1 = "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.actor,PROD)"
             urn2 = (
                 "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.actor,PROD)"
             )
-
             sql_state.add_table_urn(urn1)
             sql_state.add_table_urn(urn2)
 
@@ -524,7 +518,6 @@ def test_dbt_state_backward_compatibility(
 
         # Set fake method to return BaseSQLAlchemyCheckpointState
         dbt_source.get_last_checkpoint = get_fake_base_sql_alchemy_checkpoint_state  # type: ignore[assignment]
-
         last_checkpoint = dbt_source.get_last_dbt_checkpoint(
             dbt_source.get_default_ingestion_job_id(), DbtCheckpointState
         )

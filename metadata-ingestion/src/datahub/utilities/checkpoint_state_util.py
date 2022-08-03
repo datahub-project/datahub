@@ -17,7 +17,6 @@ class CheckpointStateUtil:
     def get_encoded_urns_not_in(
         encoded_urns_1: List[str], encoded_urns_2: List[str]
     ) -> Set[str]:
-
         return set(encoded_urns_1) - set(encoded_urns_2)
 
     @staticmethod

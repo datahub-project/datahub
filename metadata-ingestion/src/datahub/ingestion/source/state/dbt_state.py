@@ -1,11 +1,11 @@
 import logging
-from typing import Iterable, List
+from typing import Callable, Dict, Iterable, List
 
 import pydantic
 
 from datahub.emitter.mce_builder import make_assertion_urn
 from datahub.ingestion.source.state.checkpoint import CheckpointStateBase
-from datahub.utilities.check_point_util import CheckpointStateUtil
+from datahub.utilities.checkpoint_state_util import CheckpointStateUtil
 from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
@@ -59,12 +59,12 @@ class DbtCheckpointState(CheckpointStateBase):
         )
 
     def set_checkpoint_urn(self, urn: str, entity_type: str) -> None:
-        supported_entities = {
+        supported_entities_add_handlers: Dict[str, Callable[[str], None]] = {
             "dataset": self.add_node_urn,
             "assertion": self.add_assertion_urn,
         }
 
-        if supported_entities.get(entity_type) is None:
+        if entity_type not in supported_entities_add_handlers:
             logger.error(f"Can not save Unknown entity {entity_type} to checkpoint.")
 
-        supported_entities[entity_type](urn)
+        supported_entities_add_handlers[entity_type](urn)

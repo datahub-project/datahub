@@ -46,7 +46,7 @@ from datahub.ingestion.source.sql.sql_types import (
     resolve_postgres_modified_type,
     resolve_trino_modified_type,
 )
-from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
+from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.dbt_state import DbtCheckpointState
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
@@ -1007,29 +1007,26 @@ class DBTSource(StatefulIngestionSourceBase):
             )
 
     def get_last_dbt_checkpoint(
-        self, job_id: JobId, checkpoint_state_class: Type[CheckpointStateBase]
+        self, job_id: JobId, checkpoint_state_class: Type[DbtCheckpointState]
     ) -> Optional[Checkpoint]:
 
-        last_checkpoint: Optional[Checkpoint] = cast(Checkpoint, None)
+        last_checkpoint: Optional[Checkpoint]
         is_conversion_required: bool = False
         try:
             # Best-case that last checkpoint state is DbtCheckpointState
-            last_checkpoint = self.get_last_checkpoint(
-                self.get_default_ingestion_job_id(), DbtCheckpointState
-            )
-        except Exception:
+            last_checkpoint = self.get_last_checkpoint(job_id, checkpoint_state_class)
+        except Exception as e:
             # Backward compatibility for old dbt ingestion source which was saving dbt-nodes in
             # BaseSQLAlchemyCheckpointState
             last_checkpoint = self.get_last_checkpoint(
-                self.get_default_ingestion_job_id(), BaseSQLAlchemyCheckpointState
+                job_id, BaseSQLAlchemyCheckpointState
             )
-            logger.debug("Found BaseSQLAlchemyCheckpointState as checkpoint state")
+            logger.debug(
+                f"Found BaseSQLAlchemyCheckpointState as checkpoint state (got {e})."
+            )
             is_conversion_required = True
 
-        if last_checkpoint is None:
-            return None
-
-        if is_conversion_required:
+        if last_checkpoint is not None and is_conversion_required:
             # Map the BaseSQLAlchemyCheckpointState to DbtCheckpointState
             dbt_checkpoint_state: DbtCheckpointState = DbtCheckpointState()
             dbt_checkpoint_state.encoded_node_urns = (
@@ -1061,7 +1058,7 @@ class DBTSource(StatefulIngestionSourceBase):
         ):
             logger.debug("Checking for stale entity removal.")
 
-            def soft_delete_item(urn: str, type: str) -> MetadataWorkUnit:
+            def get_soft_delete_item_workunit(urn: str, type: str) -> MetadataWorkUnit:
 
                 logger.info(f"Soft-deleting stale entity of type {type} - {urn}.")
                 mcp = MetadataChangeProposalWrapper(
@@ -1079,7 +1076,7 @@ class DBTSource(StatefulIngestionSourceBase):
             last_checkpoint_state = cast(DbtCheckpointState, last_checkpoint.state)
             cur_checkpoint_state = cast(DbtCheckpointState, cur_checkpoint.state)
 
-            soft_delete_urn: Dict = {
+            urns_to_soft_delete_by_type: Dict = {
                 "dataset": [
                     node_urn
                     for node_urn in last_checkpoint_state.get_node_urns_not_in(
@@ -1093,9 +1090,9 @@ class DBTSource(StatefulIngestionSourceBase):
                     )
                 ],
             }
-            for entity_type in soft_delete_urn:
-                for urn in soft_delete_urn[entity_type]:
-                    yield soft_delete_item(urn, entity_type)
+            for entity_type in urns_to_soft_delete_by_type:
+                for urn in urns_to_soft_delete_by_type[entity_type]:
+                    yield get_soft_delete_item_workunit(urn, entity_type)
 
     def load_file_as_json(self, uri: str) -> Any:
         if re.match("^https?://", uri):

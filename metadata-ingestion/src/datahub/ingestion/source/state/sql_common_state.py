@@ -4,7 +4,7 @@ import pydantic
 
 from datahub.emitter.mce_builder import container_urn_to_key, make_container_urn
 from datahub.ingestion.source.state.checkpoint import CheckpointStateBase
-from datahub.utilities.check_point_util import CheckpointStateUtil
+from datahub.utilities.checkpoint_state_util import CheckpointStateUtil
 
 
 class BaseSQLAlchemyCheckpointState(CheckpointStateBase):
@@ -44,10 +44,7 @@ class BaseSQLAlchemyCheckpointState(CheckpointStateBase):
     def get_table_urns_not_in(
         self, checkpoint: "BaseSQLAlchemyCheckpointState"
     ) -> Iterable[str]:
-        """
-        Tables are mapped to DataHub dataset concept
-        """
-
+        """Tables are mapped to DataHub dataset concept."""
         yield from CheckpointStateUtil.get_dataset_urns_not_in(
             self.encoded_table_urns, checkpoint.encoded_table_urns
         )
@@ -55,10 +52,7 @@ class BaseSQLAlchemyCheckpointState(CheckpointStateBase):
     def get_view_urns_not_in(
         self, checkpoint: "BaseSQLAlchemyCheckpointState"
     ) -> Iterable[str]:
-        """
-        Views are mapped to DataHub dataset concept
-        """
-
+        """Views are mapped to DataHub dataset concept."""
         yield from CheckpointStateUtil.get_dataset_urns_not_in(
             self.encoded_view_urns, checkpoint.encoded_view_urns
         )
