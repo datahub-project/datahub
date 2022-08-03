@@ -4,14 +4,14 @@ import styled from 'styled-components';
 
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { Entity, EntityType } from '../../../../../../../types.generated';
-import { useSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
+import { useBatchSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { useMutationUrn } from '../../../../EntityContext';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
 import { useGetRecommendations } from '../../../../../../shared/recommendation';
 import { DomainLabel } from '../../../../../../shared/DomainLabel';
 
 type Props = {
+    urns: string[];
     onCloseModal: () => void;
     refetch?: () => Promise<any>;
 };
@@ -30,15 +30,14 @@ const StyleTag = styled(Tag)`
     align-items: center;
 `;
 
-export const SetDomainModal = ({ onCloseModal, refetch }: Props) => {
+export const SetDomainModal = ({ urns, onCloseModal, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const urn = useMutationUrn();
     const [inputValue, setInputValue] = useState('');
     const [selectedDomain, setSelectedDomain] = useState<SelectedDomain | undefined>(undefined);
     const [domainSearch, { data: domainSearchData }] = useGetSearchResultsLazyQuery();
     const domainSearchResults =
         domainSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
-    const [setDomainMutation] = useSetDomainMutation();
+    const [batchSetDomainMutation] = useBatchSetDomainMutation();
     const [recommendedData] = useGetRecommendations([EntityType.Domain]);
     const inputEl = useRef(null);
 
@@ -104,10 +103,12 @@ export const SetDomainModal = ({ onCloseModal, refetch }: Props) => {
             return;
         }
         try {
-            await setDomainMutation({
+            await batchSetDomainMutation({
                 variables: {
-                    entityUrn: urn,
-                    domainUrn: selectedDomain.urn,
+                    input: {
+                        resources: [...urns.map((urn) => ({ resourceUrn: urn }))],
+                        domainUrn: selectedDomain.urn,
+                    },
                 },
             });
             message.success({ content: 'Updated Domain!', duration: 2 });
