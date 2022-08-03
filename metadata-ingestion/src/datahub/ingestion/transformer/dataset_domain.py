@@ -1,4 +1,4 @@
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Optional, Union, cast
 
 from datahub.configuration.common import (
     ConfigurationError,
@@ -86,10 +86,10 @@ class AddDatasetDomain(DatasetDomainTransformer):
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
     ) -> Optional[Aspect]:
 
-        domain_aspect = DomainsClass(domains=[])
+        domain_aspect: DomainsClass = DomainsClass(domains=[])
         # Check if we have received existing aspect
         if aspect is not None:
-            domain_aspect.domains.extend(aspect.domains)  # type: ignore[attr-defined]
+            domain_aspect.domains.extend(cast(DomainsClass, aspect).domains)
 
         domain_to_add = self.config.get_domains_to_add(entity_urn)
 
@@ -97,11 +97,19 @@ class AddDatasetDomain(DatasetDomainTransformer):
 
         if self.config.semantics == TransformerSemantics.PATCH:
             assert self.ctx.graph
-            domain_aspect = AddDatasetDomain.get_domains_to_set(
+            patch_domain_aspect: Optional[
+                DomainsClass
+            ] = AddDatasetDomain.get_domains_to_set(
                 self.ctx.graph, entity_urn, domain_aspect
-            )  # type: ignore[assignment]
-        # ignore mypy errors as Aspect is not a concrete class
-        return domain_aspect  # type: ignore[return-value]
+            )
+            # This will pass the mypy lint
+            domain_aspect = (
+                patch_domain_aspect
+                if patch_domain_aspect is not None
+                else domain_aspect
+            )
+
+        return cast(Optional[Aspect], domain_aspect)
 
 
 class SimpleAddDatasetDomain(AddDatasetDomain):
