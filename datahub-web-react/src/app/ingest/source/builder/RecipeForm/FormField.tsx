@@ -2,8 +2,8 @@ import React from 'react';
 import { Button, Checkbox, Form, Input, Select, Tooltip } from 'antd';
 import styled from 'styled-components/macro';
 import { MinusCircleOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
-import { FieldType, RecipeField } from './utils';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
+import { RecipeField, FieldType } from './common';
 
 const Label = styled.div`
     font-weight: bold;
@@ -74,7 +74,7 @@ function ListField({ field, removeMargin }: ListFieldProps) {
                     {fields.map((item) => (
                         <Form.Item key={item.fieldKey} style={{ marginBottom: '10px' }}>
                             <Form.Item {...item} noStyle>
-                                <Input style={{ width: '80%' }} />
+                                <Input style={{ width: '80%' }} placeholder={field?.placeholder} />
                             </Form.Item>
                             <StyledRemoveIcon onClick={() => remove(item.name)} />
                         </Form.Item>
@@ -97,7 +97,7 @@ function SelectField({ field }: SelectFieldProps) {
             style={{ flexDirection: 'row', width: '80%', display: 'flex', alignItems: 'baseline' }}
         >
             {field.options && (
-                <StyledSelectField>
+                <StyledSelectField placeholder={field?.placeholder}>
                     {field.options.map((option) => (
                         <Select.Option value={option.value}>{option.label}</Select.Option>
                     ))}
@@ -120,7 +120,7 @@ function FormField(props: Props) {
     if (field.type === FieldType.SELECT) return <SelectField field={field} />;
 
     const isBoolean = field.type === FieldType.BOOLEAN;
-    const input = isBoolean ? <Checkbox /> : <Input />;
+    const input = isBoolean ? <Checkbox /> : <Input placeholder={field?.placeholder} />;
     const valuePropName = isBoolean ? 'checked' : 'value';
     const getValueFromEvent = isBoolean ? undefined : (e) => (e.target.value === '' ? null : e.target.value);
 

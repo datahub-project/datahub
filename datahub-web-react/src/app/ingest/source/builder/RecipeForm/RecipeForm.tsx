@@ -5,10 +5,11 @@ import YAML from 'yamljs';
 import { ApiOutlined, FilterOutlined, SettingOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { jsonToYaml } from '../../utils';
-import { RecipeField, RECIPE_FIELDS, setFieldValueOnRecipe } from './utils';
+import { RECIPE_FIELDS } from './utils';
 import FormField from './FormField';
 import TestConnectionButton from './TestConnection/TestConnectionButton';
 import { SNOWFLAKE } from '../../conf/snowflake/snowflake';
+import { RecipeField, setFieldValueOnRecipe } from './common';
 
 export const ControlsContainer = styled.div`
     display: flex;
