@@ -18,8 +18,16 @@ mutation removeTerm($input: TermAssociationInput!) {
     removeTerm(input: $input)
 }
 
+mutation batchRemoveTerms($input: BatchRemoveTermsInput!) {
+    batchRemoveTerms(input: $input)
+}
+
 mutation addTerm($input: TermAssociationInput!) {
     addTerm(input: $input)
+}
+
+mutation batchAddTerms($input: BatchAddTermsInput!) {
+    batchAddTerms(input: $input)
 }
 
 mutation addLink($input: AddLinkInput!) {

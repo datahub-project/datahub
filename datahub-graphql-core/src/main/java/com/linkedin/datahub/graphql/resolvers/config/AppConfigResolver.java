@@ -87,7 +87,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     authConfig.setTokenAuthEnabled(_authenticationConfiguration.isEnabled());
 
     final PoliciesConfig policiesConfig = new PoliciesConfig();
-    policiesConfig.setEnabled(Boolean.TRUE.equals(_authorizationConfiguration.getDefaultAuthorizer().getEnabled()));
+    policiesConfig.setEnabled(_authorizationConfiguration.getDefaultAuthorizer().isEnabled());
 
     policiesConfig.setPlatformPrivileges(com.linkedin.metadata.authorization.PoliciesConfig.PLATFORM_PRIVILEGES
         .stream()
