@@ -56,7 +56,7 @@ const ItemDescriptionText = styled(Typography.Paragraph)``;
 const DAILY_MIDNIGHT_CRON_INTERVAL = '0 0 * * *';
 
 export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps) => {
-    const interval = state.schedule?.interval || DAILY_MIDNIGHT_CRON_INTERVAL;
+    const interval = state.schedule?.interval?.replaceAll(', ', ' ') || DAILY_MIDNIGHT_CRON_INTERVAL;
     const timezone = state.schedule?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     const setTimezone = (tz: string) => {
