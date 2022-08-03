@@ -60,6 +60,7 @@ export const SearchSelectActions = ({
                         selectedEntityUrns.length === 0 ||
                         !isEntityCapabilitySupported(EntityCapabilityType.OWNERS, selectedEntityTypes)
                     }
+                    refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_GLOSSARY_TERMS) && (

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { EntityType, Ownership } from '../../../types.generated';
 import { ExpandedOwner } from '../shared/components/styled/ExpandedOwner';
-import { AddOwnersModal } from '../shared/containers/profile/sidebar/Ownership/AddOwnersModal';
+import { EditOwnersModal } from '../shared/containers/profile/sidebar/Ownership/EditOwnersModal';
 import { DisplayCount, GroupSectionTitle, GroupSectionHeader } from '../shared/SidebarStyledComponents';
 
 const TITLE = 'Owners';
@@ -51,7 +51,7 @@ export default function GroupOwnerSideBarSection({ urn, ownership, refetch }: Pr
                 )}
             </SectionWrapper>
             {showAddModal && (
-                <AddOwnersModal
+                <EditOwnersModal
                     urns={[urn]}
                     hideOwnerType
                     type={EntityType.CorpGroup}
