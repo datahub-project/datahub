@@ -87,7 +87,7 @@ configEntityRegistry:
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
 
 platformAnalytics:
-  enabled: ${ANALYTICS_ENABLED:true}
+  enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
 
 visualConfig:
   assets:
