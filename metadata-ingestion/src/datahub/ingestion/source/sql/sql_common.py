@@ -1018,12 +1018,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
     ) -> Tuple[Optional[str], Optional[Dict[str, str]], Optional[str]]:
-        location: Optional[str] = None
         description: Optional[str] = None
         properties: Dict[str, str] = {}
 
+        # The location cannot be fetched generically, but subclasses may override
+        # this method and provide a location.
+        location: Optional[str] = None
+
         try:
-            location: Optional[str] = None
             # SQLALchemy stubs are incomplete and missing this method.
             # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
             table_info: dict = inspector.get_table_comment(table, schema)  # type: ignore
@@ -1037,10 +1039,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             )
             table_info: dict = inspector.get_table_comment(table, f'"{schema}"')  # type: ignore
 
-        description = table_info["text"]
-        #handling for value type tuple which is comming for dialect 'db2+ibm_db'
-        if type(table_info["text"]) is tuple:
+        description = table_info.get("text")
+        if type(description) is tuple:
+            # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
             description = table_info["text"][0]
+
         # The "properties" field is a non-standard addition to SQLAlchemy's interface.
         properties = table_info.get("properties", {})
         return description, properties, location
