@@ -107,7 +107,9 @@ class AddDatasetDomain(DatasetDomainTransformer):
 class SimpleAddDatasetDomain(AddDatasetDomain):
     """Transformer that adds a specified set of domains to each dataset."""
 
-    def __init__(self, config: SimpleDatasetDomainSemanticsConfig, ctx: PipelineContext):
+    def __init__(
+        self, config: SimpleDatasetDomainSemanticsConfig, ctx: PipelineContext
+    ):
         if ctx.graph is None:
             raise ConfigurationError(
                 "AddDatasetDomain requires a datahub_api to connect to. Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe"
@@ -131,7 +133,9 @@ class SimpleAddDatasetDomain(AddDatasetDomain):
 class PatternAddDatasetDomain(AddDatasetDomain):
     """Transformer that adds a specified set of domains to each dataset."""
 
-    def __init__(self, config: PatternDatasetDomainSemanticsConfig, ctx: PipelineContext):
+    def __init__(
+        self, config: PatternDatasetDomainSemanticsConfig, ctx: PipelineContext
+    ):
         if ctx.graph is None:
             raise ConfigurationError(
                 "AddDatasetDomain requires a datahub_api to connect to. Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe"
