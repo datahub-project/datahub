@@ -8,7 +8,7 @@ public class DefaultAuthorizerConfiguration {
   /**
    * Whether authorization via DataHub policies is enabled.
    */
-  private Boolean enabled;
+  private boolean enabled;
   /**
    * The duration between policies cache refreshes.
    */

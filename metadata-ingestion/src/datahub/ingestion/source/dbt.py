@@ -47,6 +47,7 @@ from datahub.ingestion.source.sql.sql_types import (
     resolve_trino_modified_type,
 )
 from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.ingestion.source.state.dbt_state import DbtCheckpointState
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
@@ -1005,15 +1006,48 @@ class DBTSource(StatefulIngestionSourceBase):
                 self.config.owner_extraction_pattern
             )
 
+    def get_last_dbt_checkpoint(
+        self, job_id: JobId, checkpoint_state_class: Type[DbtCheckpointState]
+    ) -> Optional[Checkpoint]:
+
+        last_checkpoint: Optional[Checkpoint]
+        is_conversion_required: bool = False
+        try:
+            # Best-case that last checkpoint state is DbtCheckpointState
+            last_checkpoint = self.get_last_checkpoint(job_id, checkpoint_state_class)
+        except Exception as e:
+            # Backward compatibility for old dbt ingestion source which was saving dbt-nodes in
+            # BaseSQLAlchemyCheckpointState
+            last_checkpoint = self.get_last_checkpoint(
+                job_id, BaseSQLAlchemyCheckpointState
+            )
+            logger.debug(
+                f"Found BaseSQLAlchemyCheckpointState as checkpoint state (got {e})."
+            )
+            is_conversion_required = True
+
+        if last_checkpoint is not None and is_conversion_required:
+            # Map the BaseSQLAlchemyCheckpointState to DbtCheckpointState
+            dbt_checkpoint_state: DbtCheckpointState = DbtCheckpointState()
+            dbt_checkpoint_state.encoded_node_urns = (
+                cast(BaseSQLAlchemyCheckpointState, last_checkpoint.state)
+            ).encoded_table_urns
+            # Old dbt source was not supporting the assertion
+            dbt_checkpoint_state.encoded_assertion_urns = []
+            last_checkpoint.state = dbt_checkpoint_state
+
+        return last_checkpoint
+
     # TODO: Consider refactoring this logic out for use across sources as it is leading to a significant amount of
     #  code duplication.
     def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
-        last_checkpoint = self.get_last_checkpoint(
-            self.get_default_ingestion_job_id(), BaseSQLAlchemyCheckpointState
+        last_checkpoint: Optional[Checkpoint] = self.get_last_dbt_checkpoint(
+            self.get_default_ingestion_job_id(), DbtCheckpointState
         )
         cur_checkpoint = self.get_current_checkpoint(
             self.get_default_ingestion_job_id()
         )
+
         if (
             self.config.stateful_ingestion
             and self.config.stateful_ingestion.remove_stale_metadata
@@ -1024,7 +1058,7 @@ class DBTSource(StatefulIngestionSourceBase):
         ):
             logger.debug("Checking for stale entity removal.")
 
-            def soft_delete_item(urn: str, type: str) -> Iterable[MetadataWorkUnit]:
+            def get_soft_delete_item_workunit(urn: str, type: str) -> MetadataWorkUnit:
 
                 logger.info(f"Soft-deleting stale entity of type {type} - {urn}.")
                 mcp = MetadataChangeProposalWrapper(
@@ -1037,19 +1071,28 @@ class DBTSource(StatefulIngestionSourceBase):
                 wu = MetadataWorkUnit(id=f"soft-delete-{type}-{urn}", mcp=mcp)
                 self.report.report_workunit(wu)
                 self.report.report_stale_entity_soft_deleted(urn)
-                yield wu
+                return wu
 
-            last_checkpoint_state = cast(
-                BaseSQLAlchemyCheckpointState, last_checkpoint.state
-            )
-            cur_checkpoint_state = cast(
-                BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-            )
+            last_checkpoint_state = cast(DbtCheckpointState, last_checkpoint.state)
+            cur_checkpoint_state = cast(DbtCheckpointState, cur_checkpoint.state)
 
-            for table_urn in last_checkpoint_state.get_table_urns_not_in(
-                cur_checkpoint_state
-            ):
-                yield from soft_delete_item(table_urn, "dataset")
+            urns_to_soft_delete_by_type: Dict = {
+                "dataset": [
+                    node_urn
+                    for node_urn in last_checkpoint_state.get_node_urns_not_in(
+                        cur_checkpoint_state
+                    )
+                ],
+                "assertion": [
+                    assertion_urn
+                    for assertion_urn in last_checkpoint_state.get_assertion_urns_not_in(
+                        cur_checkpoint_state
+                    )
+                ],
+            }
+            for entity_type in urns_to_soft_delete_by_type:
+                for urn in urns_to_soft_delete_by_type[entity_type]:
+                    yield get_soft_delete_item_workunit(urn, entity_type)
 
     def load_file_as_json(self, uri: str) -> Any:
         if re.match("^https?://", uri):
@@ -1155,7 +1198,7 @@ class DBTSource(StatefulIngestionSourceBase):
                     }
                 )
             )
-            self.save_checkpoint(node_datahub_urn)
+            self.save_checkpoint(node_datahub_urn, "assertion")
 
             dpi_mcp = MetadataChangeProposalWrapper(
                 entityType="assertion",
@@ -1412,10 +1455,12 @@ class DBTSource(StatefulIngestionSourceBase):
         )
 
         if cur_checkpoint is not None:
-            # Utilizing BaseSQLAlchemyCheckpointState class to save state
-            checkpoint_state = cast(BaseSQLAlchemyCheckpointState, cur_checkpoint.state)
-            checkpoint_state.encoded_table_urns = list(
-                set(checkpoint_state.encoded_table_urns)
+            checkpoint_state = cast(DbtCheckpointState, cur_checkpoint.state)
+            checkpoint_state.encoded_node_urns = list(
+                set(checkpoint_state.encoded_node_urns)
+            )
+            checkpoint_state.encoded_assertion_urns = list(
+                set(checkpoint_state.encoded_assertion_urns)
             )
 
     def create_platform_mces(
@@ -1458,7 +1503,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 self.config.env,
                 mce_platform_instance,
             )
-            self.save_checkpoint(node_datahub_urn)
+            self.save_checkpoint(node_datahub_urn, "dataset")
 
             meta_aspects: Dict[str, Any] = {}
             if self.config.enable_meta_mapping and node.meta:
@@ -1534,18 +1579,21 @@ class DBTSource(StatefulIngestionSourceBase):
             self.report.report_workunit(wu)
             yield wu
 
-    def save_checkpoint(self, node_datahub_urn: str) -> None:
-        if self.is_stateful_ingestion_configured():
-            cur_checkpoint = self.get_current_checkpoint(
-                self.get_default_ingestion_job_id()
-            )
+    def save_checkpoint(self, urn: str, entity_type: str) -> None:
+        # if stateful ingestion is not configured then return
+        if not self.is_stateful_ingestion_configured():
+            return
 
-            if cur_checkpoint is not None:
-                # Utilizing BaseSQLAlchemyCheckpointState class to save state
-                checkpoint_state = cast(
-                    BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-                )
-                checkpoint_state.add_table_urn(node_datahub_urn)
+        cur_checkpoint = self.get_current_checkpoint(
+            self.get_default_ingestion_job_id()
+        )
+        # if no checkpoint found then return
+        if cur_checkpoint is None:
+            return
+
+        # Cast and set the state
+        checkpoint_state = cast(DbtCheckpointState, cur_checkpoint.state)
+        checkpoint_state.set_checkpoint_urn(urn, entity_type)
 
     def extract_query_tag_aspects(
         self,
@@ -1900,8 +1948,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 platform_instance_id=self.get_platform_instance_id(),
                 run_id=self.ctx.run_id,
                 config=self.config,
-                # Reusing BaseSQLAlchemyCheckpointState as it has needed functionality to support statefulness of DBT
-                state=BaseSQLAlchemyCheckpointState(),
+                state=DbtCheckpointState(),
             )
         return None
 
