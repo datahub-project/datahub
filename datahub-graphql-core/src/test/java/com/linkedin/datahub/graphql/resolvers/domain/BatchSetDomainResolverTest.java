@@ -6,7 +6,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.BatchSetDomainsInput;
+import com.linkedin.datahub.graphql.generated.BatchSetDomainInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchSetDomainResolver;
 import com.linkedin.domain.Domains;
@@ -59,7 +59,7 @@ public class BatchSetDomainResolverTest {
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    BatchSetDomainsInput input = new BatchSetDomainsInput(TEST_DOMAIN_2_URN, ImmutableList.of(
+    BatchSetDomainInput input = new BatchSetDomainInput(TEST_DOMAIN_2_URN, ImmutableList.of(
         new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
         new ResourceRefInput(TEST_ENTITY_URN_2, null, null)));
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
@@ -129,7 +129,7 @@ public class BatchSetDomainResolverTest {
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    BatchSetDomainsInput input = new BatchSetDomainsInput(TEST_DOMAIN_2_URN, ImmutableList.of(
+    BatchSetDomainInput input = new BatchSetDomainInput(TEST_DOMAIN_2_URN, ImmutableList.of(
         new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
         new ResourceRefInput(TEST_ENTITY_URN_2, null, null)));
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
@@ -199,7 +199,7 @@ public class BatchSetDomainResolverTest {
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    BatchSetDomainsInput input = new BatchSetDomainsInput(null, ImmutableList.of(
+    BatchSetDomainInput input = new BatchSetDomainInput(null, ImmutableList.of(
         new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
         new ResourceRefInput(TEST_ENTITY_URN_2, null, null)));
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
@@ -251,7 +251,7 @@ public class BatchSetDomainResolverTest {
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    BatchSetDomainsInput input = new BatchSetDomainsInput(null, ImmutableList.of(
+    BatchSetDomainInput input = new BatchSetDomainInput(null, ImmutableList.of(
         new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
         new ResourceRefInput(TEST_ENTITY_URN_2, null, null)));
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
@@ -287,7 +287,7 @@ public class BatchSetDomainResolverTest {
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    BatchSetDomainsInput input = new BatchSetDomainsInput(null, ImmutableList.of(
+    BatchSetDomainInput input = new BatchSetDomainInput(null, ImmutableList.of(
         new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
         new ResourceRefInput(TEST_ENTITY_URN_2, null, null)));
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
@@ -307,7 +307,7 @@ public class BatchSetDomainResolverTest {
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    BatchSetDomainsInput input = new BatchSetDomainsInput(null, ImmutableList.of(
+    BatchSetDomainInput input = new BatchSetDomainInput(null, ImmutableList.of(
         new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
         new ResourceRefInput(TEST_ENTITY_URN_2, null, null)));
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
@@ -333,7 +333,7 @@ public class BatchSetDomainResolverTest {
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
-    BatchSetDomainsInput input = new BatchSetDomainsInput(null, ImmutableList.of(
+    BatchSetDomainInput input = new BatchSetDomainInput(null, ImmutableList.of(
         new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
         new ResourceRefInput(TEST_ENTITY_URN_2, null, null)));
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);

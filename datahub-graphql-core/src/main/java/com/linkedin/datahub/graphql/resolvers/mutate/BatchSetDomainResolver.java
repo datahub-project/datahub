@@ -4,7 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.generated.BatchSetDomainsInput;
+import com.linkedin.datahub.graphql.generated.BatchSetDomainInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
@@ -30,7 +30,7 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
-    final BatchSetDomainsInput input = bindArgument(environment.getArgument("input"), BatchSetDomainsInput.class);
+    final BatchSetDomainInput input = bindArgument(environment.getArgument("input"), BatchSetDomainInput.class);
     final String maybeDomainUrn = input.getDomainUrn();
     final List<ResourceRefInput> resources = input.getResources();
 
