@@ -9,12 +9,13 @@ from freezegun import freeze_time
 from datahub.configuration.common import DynamicTypedConfig
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.run.pipeline import Pipeline, PipelineConfig, SourceConfig
-from datahub.ingestion.source.dbt import DbtCheckpointState, DBTConfig, DBTSource
+from datahub.ingestion.source.dbt import DBTConfig, DBTSource
 from datahub.ingestion.source.sql.sql_types import (
     TRINO_SQL_TYPES_MAP,
     resolve_trino_modified_type,
 )
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
+from datahub.ingestion.source.state.dbt_state import DbtCheckpointState
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
