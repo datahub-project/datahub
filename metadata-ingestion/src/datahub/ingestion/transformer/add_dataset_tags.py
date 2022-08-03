@@ -2,8 +2,8 @@ from typing import Callable, List, Optional, Union, cast
 
 from datahub.configuration.common import (
     KeyValuePattern,
-    Semantics,
-    SemanticsTransformerConfigModel,
+    TransformerSemantics,
+    TransformerSemanticsConfigModel,
 )
 from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.emitter.mce_builder import Aspect
@@ -13,7 +13,7 @@ from datahub.ingestion.transformer.dataset_transformer import DatasetTagsTransfo
 from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
 
 
-class AddDatasetTagsConfig(SemanticsTransformerConfigModel):
+class AddDatasetTagsConfig(TransformerSemanticsConfigModel):
     # Workaround for https://github.com/python/mypy/issues/708.
     # Suggested by https://stackoverflow.com/a/64528725/5004662.
     get_tags_to_add: Union[
@@ -84,7 +84,7 @@ class AddDatasetTags(DatasetTagsTransformer):
             out_global_tags_aspect.tags.extend(tags_to_add)
 
         patch_global_tags_aspect: Optional[GlobalTagsClass] = None
-        if self.config.semantics == Semantics.PATCH:
+        if self.config.semantics == TransformerSemantics.PATCH:
             assert self.ctx.graph
             patch_global_tags_aspect = AddDatasetTags.get_patch_global_tags_aspect(
                 self.ctx.graph, entity_urn, out_global_tags_aspect
@@ -97,7 +97,7 @@ class AddDatasetTags(DatasetTagsTransformer):
         )
 
 
-class SimpleDatasetTagConfig(SemanticsTransformerConfigModel):
+class SimpleDatasetTagConfig(TransformerSemanticsConfigModel):
     tag_urns: List[str]
 
 
@@ -120,7 +120,7 @@ class SimpleAddDatasetTags(AddDatasetTags):
         return cls(config, ctx)
 
 
-class PatternDatasetTagsConfig(SemanticsTransformerConfigModel):
+class PatternDatasetTagsConfig(TransformerSemanticsConfigModel):
     tag_pattern: KeyValuePattern = KeyValuePattern.all()
 
 

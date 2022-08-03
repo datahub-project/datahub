@@ -3,8 +3,8 @@ from typing import Callable, Dict, List, Optional, Union, cast
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
     KeyValuePattern,
-    Semantics,
-    SemanticsTransformerConfigModel,
+    TransformerSemantics,
+    TransformerSemanticsConfigModel,
 )
 from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.ingestion.api.common import PipelineContext
@@ -20,7 +20,7 @@ from datahub.metadata.schema_classes import (
 )
 
 
-class AddDatasetSchemaTermsConfig(SemanticsTransformerConfigModel):
+class AddDatasetSchemaTermsConfig(TransformerSemanticsConfigModel):
     # Workaround for https://github.com/python/mypy/issues/708.
     # Suggested by https://stackoverflow.com/a/64528725/5004662.
     get_terms_to_add: Union[
@@ -103,7 +103,7 @@ class AddDatasetSchemaTerms(DatasetSchemaMetadataTransformer):
         server_field_map: Dict[
             str, SchemaFieldClass
         ] = {}  # Map to cache server field objects, where fieldPath is key
-        if self.config.semantics == Semantics.PATCH:
+        if self.config.semantics == TransformerSemantics.PATCH:
             assert self.ctx.graph
             server_schema_metadata_aspect: Optional[
                 SchemaMetadataClass
@@ -132,7 +132,7 @@ class AddDatasetSchemaTerms(DatasetSchemaMetadataTransformer):
         return schema_metadata_aspect  # type: ignore
 
 
-class PatternDatasetTermsConfig(SemanticsTransformerConfigModel):
+class PatternDatasetTermsConfig(TransformerSemanticsConfigModel):
     term_pattern: KeyValuePattern = KeyValuePattern.all()
 
 

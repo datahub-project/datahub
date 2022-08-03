@@ -2,7 +2,10 @@ import copy
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Type, cast
 
-from datahub.configuration.common import Semantics, SemanticsTransformerConfigModel
+from datahub.configuration.common import (
+    TransformerSemantics,
+    TransformerSemanticsConfigModel,
+)
 from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.emitter.mce_builder import Aspect
 from datahub.ingestion.api.common import PipelineContext
@@ -19,7 +22,7 @@ class AddDatasetPropertiesResolverBase(ABC):
         pass
 
 
-class AddDatasetPropertiesConfig(SemanticsTransformerConfigModel):
+class AddDatasetPropertiesConfig(TransformerSemanticsConfigModel):
     add_properties_resolver_class: Type[AddDatasetPropertiesResolverBase]
 
     class Config:
@@ -102,7 +105,7 @@ class AddDatasetProperties(DatasetPropertiesTransformer):
         ).get_properties_to_add(entity_urn)
 
         out_dataset_properties_aspect.customProperties.update(properties_to_add)
-        if self.config.semantics == Semantics.PATCH:
+        if self.config.semantics == TransformerSemantics.PATCH:
             assert self.ctx.graph
             patch_dataset_properties_aspect = (
                 AddDatasetProperties.get_patch_dataset_properties_aspect(
@@ -118,7 +121,7 @@ class AddDatasetProperties(DatasetPropertiesTransformer):
         return cast(Aspect, out_dataset_properties_aspect)
 
 
-class SimpleAddDatasetPropertiesConfig(SemanticsTransformerConfigModel):
+class SimpleAddDatasetPropertiesConfig(TransformerSemanticsConfigModel):
     properties: Dict[str, str]
 
 

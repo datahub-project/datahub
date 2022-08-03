@@ -3,8 +3,8 @@ from typing import Callable, List, Optional, Union, cast
 from datahub.configuration.common import (
     ConfigurationError,
     KeyValuePattern,
-    Semantics,
-    SemanticsTransformerConfigModel,
+    TransformerSemantics,
+    TransformerSemanticsConfigModel,
 )
 from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.emitter.mce_builder import Aspect
@@ -15,7 +15,7 @@ from datahub.metadata.schema_classes import DomainsClass
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 
-class AddDatasetDomainConfig(SemanticsTransformerConfigModel):
+class AddDatasetDomainSemanticsConfig(TransformerSemanticsConfigModel):
     get_domains_to_add: Union[
         Callable[[str], DomainsClass],
         Callable[[str], DomainsClass],
@@ -24,11 +24,11 @@ class AddDatasetDomainConfig(SemanticsTransformerConfigModel):
     _resolve_domain_fn = pydantic_resolve_key("get_domains_to_add")
 
 
-class SimpleDatasetDomainConfig(SemanticsTransformerConfigModel):
+class SimpleDatasetDomainSemanticsConfig(TransformerSemanticsConfigModel):
     domain_urns: List[str]
 
 
-class PatternDatasetDomainConfig(SemanticsTransformerConfigModel):
+class PatternDatasetDomainSemanticsConfig(TransformerSemanticsConfigModel):
     domain_pattern: KeyValuePattern = KeyValuePattern.all()
 
 
@@ -36,16 +36,16 @@ class AddDatasetDomain(DatasetDomainTransformer):
     """Transformer that adds domains to datasets according to a callback function."""
 
     ctx: PipelineContext
-    config: AddDatasetDomainConfig
+    config: AddDatasetDomainSemanticsConfig
 
-    def __init__(self, config: AddDatasetDomainConfig, ctx: PipelineContext):
+    def __init__(self, config: AddDatasetDomainSemanticsConfig, ctx: PipelineContext):
         super().__init__()
         self.ctx = ctx
         self.config = config
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AddDatasetDomain":
-        config = AddDatasetDomainConfig.parse_obj(config_dict)
+        config = AddDatasetDomainSemanticsConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
     @staticmethod
@@ -104,7 +104,7 @@ class AddDatasetDomain(DatasetDomainTransformer):
 
         domain_aspect.domains.extend(domain_to_add.domains)
 
-        if self.config.semantics == Semantics.PATCH:
+        if self.config.semantics == TransformerSemantics.PATCH:
             assert self.ctx.graph
             domain_aspect = AddDatasetDomain.get_domains_to_set(
                 self.ctx.graph, entity_urn, domain_aspect
@@ -116,10 +116,12 @@ class AddDatasetDomain(DatasetDomainTransformer):
 class SimpleAddDatasetDomain(AddDatasetDomain):
     """Transformer that adds a specified set of domains to each dataset."""
 
-    def __init__(self, config: SimpleDatasetDomainConfig, ctx: PipelineContext):
+    def __init__(
+        self, config: SimpleDatasetDomainSemanticsConfig, ctx: PipelineContext
+    ):
         AddDatasetDomain.raise_ctx_configuration_error(ctx)
         domains = AddDatasetDomain.get_domain_class(ctx.graph, config.domain_urns)
-        generic_config = AddDatasetDomainConfig(
+        generic_config = AddDatasetDomainSemanticsConfig(
             get_domains_to_add=lambda _: domains,
             semantics=config.semantics,
             replace_existing=config.replace_existing,
@@ -130,14 +132,16 @@ class SimpleAddDatasetDomain(AddDatasetDomain):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "SimpleAddDatasetDomain":
-        config = SimpleDatasetDomainConfig.parse_obj(config_dict)
+        config = SimpleDatasetDomainSemanticsConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
 
 class PatternAddDatasetDomain(AddDatasetDomain):
     """Transformer that adds a specified set of domains to each dataset."""
 
-    def __init__(self, config: PatternDatasetDomainConfig, ctx: PipelineContext):
+    def __init__(
+        self, config: PatternDatasetDomainSemanticsConfig, ctx: PipelineContext
+    ):
         AddDatasetDomain.raise_ctx_configuration_error(ctx)
 
         domain_pattern = config.domain_pattern
@@ -146,7 +150,7 @@ class PatternAddDatasetDomain(AddDatasetDomain):
             domains = domain_pattern.value(domain_urn)
             return self.get_domain_class(ctx.graph, domains)
 
-        generic_config = AddDatasetDomainConfig(
+        generic_config = AddDatasetDomainSemanticsConfig(
             get_domains_to_add=resolve_domain,
             semantics=config.semantics,
         )
@@ -156,5 +160,5 @@ class PatternAddDatasetDomain(AddDatasetDomain):
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "PatternAddDatasetDomain":
-        config = PatternDatasetDomainConfig.parse_obj(config_dict)
+        config = PatternDatasetDomainSemanticsConfig.parse_obj(config_dict)
         return cls(config, ctx)

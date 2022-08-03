@@ -1,6 +1,9 @@
 from typing import List, Optional
 
-from datahub.configuration.common import Semantics, SemanticsTransformerConfigModel
+from datahub.configuration.common import (
+    TransformerSemantics,
+    TransformerSemanticsConfigModel,
+)
 from datahub.emitter.mce_builder import Aspect
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
@@ -10,7 +13,7 @@ from datahub.ingestion.transformer.dataset_transformer import (
 from datahub.metadata.schema_classes import BrowsePathsClass
 
 
-class AddDatasetBrowsePathConfig(SemanticsTransformerConfigModel):
+class AddDatasetBrowsePathConfig(TransformerSemanticsConfigModel):
     path_templates: List[str]
 
 
@@ -77,7 +80,7 @@ class AddDatasetBrowsePathTransformer(DatasetBrowsePathsTransformer):
             )
             browse_paths.paths.append(browse_path)
 
-        if self.config.semantics == Semantics.PATCH:
+        if self.config.semantics == TransformerSemantics.PATCH:
             assert self.ctx.graph
             browse_paths = AddDatasetBrowsePathTransformer.get_browse_paths_to_set(
                 self.ctx.graph, entity_urn, browse_paths

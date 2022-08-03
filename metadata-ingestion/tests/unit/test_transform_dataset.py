@@ -18,7 +18,7 @@ import pytest
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
 import tests.test_helpers.mce_helpers
-from datahub.configuration.common import Semantics
+from datahub.configuration.common import TransformerSemantics
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api import workunit
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
@@ -970,7 +970,7 @@ def test_add_dataset_properties(mock_time):
 
 
 def run_simple_add_dataset_properties_transformer_semantics(
-    semantics: Semantics,
+    semantics: TransformerSemantics,
     new_properties: dict,
     server_properties: dict,
     mock_datahub_graph: Callable[[DatahubClientConfig], DataHubGraph],
@@ -1004,7 +1004,7 @@ def test_simple_add_dataset_properties_overwrite(mock_datahub_graph):
     server_properties = {"p1": "value1"}
 
     output = run_simple_add_dataset_properties_transformer_semantics(
-        semantics=Semantics.OVERWRITE,
+        semantics=TransformerSemantics.OVERWRITE,
         new_properties=new_properties,
         server_properties=server_properties,
         mock_datahub_graph=mock_datahub_graph,
@@ -1033,7 +1033,7 @@ def test_simple_add_dataset_properties_patch(mock_datahub_graph):
     server_properties = {"p1": "value1"}
 
     output = run_simple_add_dataset_properties_transformer_semantics(
-        semantics=Semantics.PATCH,
+        semantics=TransformerSemantics.PATCH,
         new_properties=new_properties,
         server_properties=server_properties,
         mock_datahub_graph=mock_datahub_graph,
@@ -1743,7 +1743,10 @@ def test_simple_add_dataset_domain_semantics_overwrite(mock_datahub_graph):
     output = run_dataset_transformer_pipeline(
         transformer_type=SimpleAddDatasetDomain,
         aspect=models.DomainsClass(domains=[gslab_domain]),
-        config={"semantics": Semantics.OVERWRITE, "domain_urns": [acryl_domain]},
+        config={
+            "semantics": TransformerSemantics.OVERWRITE,
+            "domain_urns": [acryl_domain],
+        },
         pipeline_context=pipeline_context,
     )
 
@@ -1781,7 +1784,7 @@ def test_simple_add_dataset_domain_semantics_patch(
         aspect=models.DomainsClass(domains=[gslab_domain]),
         config={
             "replace_existing": False,
-            "semantics": Semantics.PATCH,
+            "semantics": TransformerSemantics.PATCH,
             "domain_urns": [acryl_domain],
         },
         pipeline_context=pipeline_context,
@@ -1836,7 +1839,7 @@ def test_simple_dataset_ownership_transformer_semantics_patch(mock_datahub_graph
         ),
         config={
             "replace_existing": False,
-            "semantics": Semantics.PATCH,
+            "semantics": TransformerSemantics.PATCH,
             "owner_urns": [owner2],
         },
         pipeline_context=pipeline_context,
@@ -1861,7 +1864,7 @@ def test_simple_dataset_ownership_transformer_semantics_patch(mock_datahub_graph
 
 
 def run_pattern_dataset_schema_terms_transformation_semantics(
-    semantics: Semantics,
+    semantics: TransformerSemantics,
     mock_datahub_graph: Callable[[DatahubClientConfig], DataHubGraph],
 ) -> List[RecordEnvelope]:
     pipeline_context = PipelineContext(run_id="test_pattern_dataset_schema_terms")
@@ -1975,7 +1978,7 @@ def test_pattern_dataset_schema_terms_transformation_patch(
     mock_time, mock_datahub_graph
 ):
     output = run_pattern_dataset_schema_terms_transformation_semantics(
-        Semantics.PATCH, mock_datahub_graph
+        TransformerSemantics.PATCH, mock_datahub_graph
     )
     assert len(output) == 2
     # Check that glossary terms were added.
@@ -2008,7 +2011,7 @@ def test_pattern_dataset_schema_terms_transformation_overwrite(
     mock_time, mock_datahub_graph
 ):
     output = run_pattern_dataset_schema_terms_transformation_semantics(
-        Semantics.OVERWRITE, mock_datahub_graph
+        TransformerSemantics.OVERWRITE, mock_datahub_graph
     )
 
     assert len(output) == 2
@@ -2039,7 +2042,7 @@ def test_pattern_dataset_schema_terms_transformation_overwrite(
 
 
 def run_pattern_dataset_schema_tags_transformation_semantics(
-    semantics: Semantics,
+    semantics: TransformerSemantics,
     mock_datahub_graph: Callable[[DatahubClientConfig], DataHubGraph],
 ) -> List[RecordEnvelope]:
     pipeline_context = PipelineContext(run_id="test_pattern_dataset_schema_terms")
@@ -2146,7 +2149,7 @@ def test_pattern_dataset_schema_tags_transformation_overwrite(
     mock_time, mock_datahub_graph
 ):
     output = run_pattern_dataset_schema_tags_transformation_semantics(
-        Semantics.OVERWRITE, mock_datahub_graph
+        TransformerSemantics.OVERWRITE, mock_datahub_graph
     )
 
     assert len(output) == 2
@@ -2180,7 +2183,7 @@ def test_pattern_dataset_schema_tags_transformation_patch(
     mock_time, mock_datahub_graph
 ):
     output = run_pattern_dataset_schema_tags_transformation_semantics(
-        Semantics.PATCH, mock_datahub_graph
+        TransformerSemantics.PATCH, mock_datahub_graph
     )
 
     assert len(output) == 2

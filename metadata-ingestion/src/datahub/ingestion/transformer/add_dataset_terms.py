@@ -3,8 +3,8 @@ from typing import Callable, List, Optional, Union, cast
 
 from datahub.configuration.common import (
     KeyValuePattern,
-    Semantics,
-    SemanticsTransformerConfigModel,
+    TransformerSemantics,
+    TransformerSemanticsConfigModel,
 )
 from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.emitter.mce_builder import Aspect
@@ -18,7 +18,7 @@ from datahub.metadata.schema_classes import (
 )
 
 
-class AddDatasetTermsConfig(SemanticsTransformerConfigModel):
+class AddDatasetTermsConfig(TransformerSemanticsConfigModel):
     # Workaround for https://github.com/python/mypy/issues/708.
     # Suggested by https://stackoverflow.com/a/64528725/5004662.
     get_terms_to_add: Union[
@@ -103,7 +103,7 @@ class AddDatasetTerms(DatasetTermsTransformer):
             out_glossary_terms.terms.extend(terms_to_add)
 
         patch_glossary_terms: Optional[GlossaryTermsClass] = None
-        if self.config.semantics == Semantics.PATCH:
+        if self.config.semantics == TransformerSemantics.PATCH:
             assert self.ctx.graph
             patch_glossary_terms = AddDatasetTerms.get_patch_glossary_terms_aspect(
                 self.ctx.graph, entity_urn, out_glossary_terms
@@ -116,7 +116,7 @@ class AddDatasetTerms(DatasetTermsTransformer):
         )
 
 
-class SimpleDatasetTermsConfig(SemanticsTransformerConfigModel):
+class SimpleDatasetTermsConfig(TransformerSemanticsConfigModel):
     term_urns: List[str]
 
 
@@ -139,7 +139,7 @@ class SimpleAddDatasetTerms(AddDatasetTerms):
         return cls(config, ctx)
 
 
-class PatternDatasetTermsConfig(SemanticsTransformerConfigModel):
+class PatternDatasetTermsConfig(TransformerSemanticsConfigModel):
     term_pattern: KeyValuePattern = KeyValuePattern.all()
 
 

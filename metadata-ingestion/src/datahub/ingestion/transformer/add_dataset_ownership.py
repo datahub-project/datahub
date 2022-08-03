@@ -6,8 +6,8 @@ import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import (
     ConfigurationError,
     KeyValuePattern,
-    Semantics,
-    SemanticsTransformerConfigModel,
+    TransformerSemantics,
+    TransformerSemanticsConfigModel,
 )
 from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.emitter.mce_builder import Aspect
@@ -24,7 +24,7 @@ from datahub.metadata.schema_classes import (
 )
 
 
-class AddDatasetOwnershipConfig(SemanticsTransformerConfigModel):
+class AddDatasetOwnershipConfig(TransformerSemanticsConfigModel):
     # Workaround for https://github.com/python/mypy/issues/708.
     # Suggested by https://stackoverflow.com/a/64528725/5004662.
     get_owners_to_add: Union[
@@ -34,12 +34,6 @@ class AddDatasetOwnershipConfig(SemanticsTransformerConfigModel):
     default_actor: str = builder.make_user_urn("etl")
 
     _resolve_owner_fn = pydantic_resolve_key("get_owners_to_add")
-
-    @validator("semantics", pre=True)
-    def ensure_semantics_is_upper_case(cls, v):
-        if isinstance(v, str):
-            return v.upper()
-        return v
 
 
 class AddDatasetOwnership(DatasetOwnershipTransformer):
@@ -52,9 +46,12 @@ class AddDatasetOwnership(DatasetOwnershipTransformer):
         super().__init__()
         self.ctx = ctx
         self.config = config
-        if self.config.semantics == Semantics.PATCH and self.ctx.graph is None:
+        if (
+            self.config.semantics == TransformerSemantics.PATCH
+            and self.ctx.graph is None
+        ):
             raise ConfigurationError(
-                "With PATCH semantics, AddDatasetOwnership requires a datahub_api to connect to. Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe"
+                "With PATCH TransformerSemantics, AddDatasetOwnership requires a datahub_api to connect to. Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe"
             )
 
     @classmethod
@@ -120,7 +117,7 @@ class AddDatasetOwnership(DatasetOwnershipTransformer):
             out_ownership_aspect.owners.extend(owners_to_add)
 
         patch_ownership: Optional[OwnershipClass] = None
-        if self.config.semantics == Semantics.PATCH:
+        if self.config.semantics == TransformerSemantics.PATCH:
             assert self.ctx.graph
             patch_ownership = AddDatasetOwnership.get_patch_ownership_aspect(
                 self.ctx.graph, entity_urn, out_ownership_aspect
@@ -133,19 +130,13 @@ class AddDatasetOwnership(DatasetOwnershipTransformer):
         )
 
 
-class DatasetOwnershipBaseConfig(SemanticsTransformerConfigModel):
+class DatasetOwnershipBaseConfig(TransformerSemanticsConfigModel):
     ownership_type: Optional[str] = OwnershipTypeClass.DATAOWNER
 
 
 class SimpleDatasetOwnershipConfig(DatasetOwnershipBaseConfig):
     owner_urns: List[str]
     default_actor: str = builder.make_user_urn("etl")
-
-    @validator("semantics", pre=True)
-    def upper_case_semantics(cls, v):
-        if isinstance(v, str):
-            return v.upper()
-        return v
 
 
 class SimpleAddDatasetOwnership(AddDatasetOwnership):

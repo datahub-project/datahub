@@ -2,6 +2,7 @@ import datetime
 import functools
 import json
 import logging
+import os
 from json.decoder import JSONDecodeError
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -35,7 +36,9 @@ class DataHubRestEmitter:
         504,
     ]
     DEFAULT_RETRY_METHODS = ["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"]
-    DEFAULT_RETRY_MAX_TIMES = 3
+    DEFAULT_RETRY_MAX_TIMES = int(
+        os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "3")
+    )
 
     _gms_server: str
     _token: Optional[str]
