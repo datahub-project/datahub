@@ -24,7 +24,7 @@ public class ConfigurationProvider {
    */
   private AuthenticationConfiguration authentication;
   /**
-   * Authentication related configs
+   * Authorizer related configs
    */
   private AuthorizationConfiguration authorization;
   /**

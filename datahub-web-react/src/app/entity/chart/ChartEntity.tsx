@@ -1,7 +1,7 @@
 import { LineChartOutlined } from '@ant-design/icons';
 import * as React from 'react';
 import { Chart, EntityType, SearchResult } from '../../../types.generated';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { ChartPreview } from './preview/ChartPreview';
 import { GetChartQuery, useGetChartQuery, useUpdateChartMutation } from '../../../graphql/chart.generated';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
@@ -208,5 +208,16 @@ export class ChartEntity implements Entity<Chart> {
             entityType: this.type,
             getOverrideProperties: this.getOverridePropertiesFromEntity,
         });
+    };
+
+    supportedCapabilities = () => {
+        return new Set([
+            EntityCapabilityType.OWNERS,
+            EntityCapabilityType.GLOSSARY_TERMS,
+            EntityCapabilityType.TAGS,
+            EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.DEPRECATION,
+            EntityCapabilityType.SOFT_DELETE,
+        ]);
     };
 }
