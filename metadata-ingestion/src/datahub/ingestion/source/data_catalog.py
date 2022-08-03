@@ -63,7 +63,10 @@ def map_snapshot(table: OrientRecord) -> MetadataWorkUnit:
     external_type = table.oRecordData.get("externalType")
     if external_type == "kafka_topic":
         platform = "kafka"
-        parents = [table.oRecordData.get("location").lower(), table.oRecordData.get("db")]
+        parents = [
+            table.oRecordData.get("location").lower(),
+            table.oRecordData.get("db"),
+        ]
     elif external_type == "mssql_table":
         platform = "mssql"
         parents = [

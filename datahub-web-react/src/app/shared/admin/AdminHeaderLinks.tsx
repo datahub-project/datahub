@@ -4,6 +4,7 @@ import {
     ApiOutlined,
     BarChartOutlined,
     BookOutlined,
+    CommentOutlined,
     SettingOutlined,
     FolderOutlined,
     SolutionOutlined,
@@ -104,6 +105,13 @@ export function AdminHeaderLinks(props: Props) {
                     </AdminLink>
                 </Dropdown>
             )}
+            <AdminLink>
+                <Link to={{ pathname: 'https://jira.infobip.com/ideas' }} target="_blank">
+                    <Button type="text">
+                        <CommentOutlined /> Feedback
+                    </Button>
+                </Link>
+            </AdminLink>
             {showSettings && (
                 <AdminLink style={{ marginRight: 12 }}>
                     <Link to="/settings">
