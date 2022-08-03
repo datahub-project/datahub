@@ -5,6 +5,7 @@ import { BIGQUERY } from '../../conf/bigquery/bigquery';
 import { REDSHIFT } from '../../conf/redshift/redshift';
 import { LOOKER } from '../../conf/looker/looker';
 import { TABLEAU } from '../../conf/tableau/tableau';
+import { KAFKA } from '../../conf/kafka/kafka';
 
 export enum FieldType {
     TEXT,
@@ -281,6 +282,66 @@ export const LOOKER_CLIENT_SECRET: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: 'source.config.client_secret',
     rules: null,
+};
+
+export const KAFKA_SASL_USERNAME: RecipeField = {
+    name: 'connection.consumer_config.sasl.username',
+    label: 'Username',
+    tooltip: 'SASL username. You can get (in the Confluent UI) from your cluster -> Data Integration -> API Keys.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.connection.consumer_config.sasl.username',
+    rules: null,
+};
+
+export const KAFKA_SASL_PASSWORD: RecipeField = {
+    name: 'connection.consumer_config.sasl.password',
+    label: 'Password',
+    tooltip: 'SASL password. You can get (in the Confluent UI) from your cluster -> Data Integration -> API Keys.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.connection.consumer_config.sasl.password',
+    rules: null,
+};
+
+export const KAFKA_BOOTSTRAP: RecipeField = {
+    name: 'connection.bootstrap',
+    label: 'Connection Bootstrap',
+    tooltip: 'Bootstrap URL.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.connection.bootstrap',
+    rules: null,
+};
+
+export const KAFKA_SCHEMA_REGISTRY_URL: RecipeField = {
+    name: 'connection.schema_registry_url',
+    label: 'Schema Registry URL',
+    tooltip: 'URL where your Confluent Cloud Schema Registry is hosted.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.connection.schema_registry_url',
+    rules: null,
+};
+
+export const KAFKA_SCHEMA_REGISTRY_USER_CREDENTIAL: RecipeField = {
+    name: 'schema_registry_config.basic.auth.user.info',
+    label: 'Schema Registry Credentials',
+    tooltip:
+        'API credentials for Confluent schema registry which you get (in Confluent UI) from Schema Registry -> API credentials.',
+    type: FieldType.TEXT,
+    fieldPath: 'source.config.schema_registry_config.basic.auth.user.info',
+    rules: null,
+};
+
+export const KAFKA_SECURITY_PROTOCOL: RecipeField = {
+    name: 'security.protocol',
+    label: 'Security Protocol',
+    tooltip: 'Security Protocol',
+    type: FieldType.SELECT,
+    fieldPath: 'source.config.security.protocol',
+    rules: null,
+    options: [
+        { label: 'SASL_SSL', value: 'SASL_SSL' },
+        { label: 'SCRAM-SHA-256', value: 'SCRAM-SHA-256' },
+        { label: 'SCRAM-SHA-512', value: 'SCRAM-SHA-512' },
+    ],
 };
 
 const includeLineageFieldPathA = 'source.config.include_table_lineage';
@@ -591,6 +652,34 @@ export const DASHBOARD_DENY: RecipeField = {
         setListValuesOnRecipe(recipe, values, dashboardDenyFieldPath),
 };
 
+const topicAllowFieldPath = 'source.config.topic_patterns.allow';
+export const TOPIC_ALLOW: RecipeField = {
+    name: 'topic_patterns.allow',
+    label: 'Allow Patterns',
+    tooltip: 'Use regex here.',
+    type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
+    fieldPath: topicAllowFieldPath,
+    rules: null,
+    section: 'Topics',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, topicAllowFieldPath),
+};
+
+const topicDenyFieldPath = 'source.config.topic_patterns.deny';
+export const TOPIC_DENY: RecipeField = {
+    name: 'topic_patterns.deny',
+    label: 'Deny Patterns',
+    tooltip: 'Use regex here.',
+    type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
+    fieldPath: topicDenyFieldPath,
+    rules: null,
+    section: 'Topics',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, topicDenyFieldPath),
+};
+
 export const RECIPE_FIELDS = {
     [SNOWFLAKE]: {
         fields: [SNOWFLAKE_ACCOUNT_ID, SNOWFLAKE_WAREHOUSE, SNOWFLAKE_USERNAME, SNOWFLAKE_PASSWORD, SNOWFLAKE_ROLE],
@@ -632,6 +721,18 @@ export const RECIPE_FIELDS = {
         fields: [LOOKER_BASE_URL, LOOKER_CLIENT_ID, LOOKER_CLIENT_SECRET],
         filterFields: [DASHBOARD_ALLOW, DASHBOARD_DENY, CHART_ALLOW, CHART_DENY],
         advancedFields: [GITHUB_INFO_REPO, EXTRACT_USAGE_HISTORY, EXTRACT_OWNERS, SKIP_PERSONAL_FOLDERS],
+    },
+    [KAFKA]: {
+        fields: [
+            KAFKA_SASL_USERNAME,
+            KAFKA_SASL_PASSWORD,
+            KAFKA_BOOTSTRAP,
+            KAFKA_SCHEMA_REGISTRY_URL,
+            KAFKA_SCHEMA_REGISTRY_USER_CREDENTIAL,
+            KAFKA_SECURITY_PROTOCOL,
+        ],
+        filterFields: [TOPIC_ALLOW, TOPIC_DENY],
+        advancedFields: [STATEFUL_INGESTION_ENABLED],
     },
 };
 

@@ -23,8 +23,10 @@ source:
             #     basic.auth.user.info: "\${REGISTRY_API_KEY_ID}:\${REGISTRY_API_KEY_SECRET}"
 `;
 
+export const KAFKA = 'kafka';
+
 const kafkaConfig: SourceConfig = {
-    type: 'kafka',
+    type: KAFKA,
     placeholderRecipe,
     displayName: 'Kafka',
     docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/kafka/',
