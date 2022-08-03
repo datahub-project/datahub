@@ -143,6 +143,7 @@ export class ContainerEntity implements Entity<Container> {
                 parentContainers={data.parentContainers}
                 externalUrl={data.properties?.externalUrl}
                 tags={data.tags}
+                glossaryTerms={data.glossaryTerms}
             />
         );
     };
