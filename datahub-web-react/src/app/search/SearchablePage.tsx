@@ -1,11 +1,14 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import * as QueryString from 'query-string';
 import { useTheme } from 'styled-components';
 import { SearchHeader } from './SearchHeader';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { EntityType } from '../../types.generated';
-import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../graphql/search.generated';
+import {
+    GetAutoCompleteMultipleResultsQuery,
+    useGetAutoCompleteMultipleResultsLazyQuery,
+} from '../../graphql/search.generated';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import analytics, { EventType } from '../analytics';
@@ -44,6 +47,13 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
 
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
     const user = useGetAuthenticatedUser()?.corpUser;
+    const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
+
+    useEffect(() => {
+        if (suggestionsData !== undefined) {
+            setNewSuggestionData(suggestionsData);
+        }
+    }, [suggestionsData]);
 
     const search = (query: string, type?: EntityType) => {
         if (!query || query.trim().length === 0) {
@@ -94,9 +104,9 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
                 initialQuery={currentQuery as string}
                 placeholderText={themeConfig.content.search.searchbarMessage}
                 suggestions={
-                    (suggestionsData &&
-                        suggestionsData?.autoCompleteForMultiple &&
-                        suggestionsData.autoCompleteForMultiple.suggestions) ||
+                    (newSuggestionData &&
+                        newSuggestionData?.autoCompleteForMultiple &&
+                        newSuggestionData.autoCompleteForMultiple.suggestions) ||
                     []
                 }
                 onSearch={onSearch || search}
