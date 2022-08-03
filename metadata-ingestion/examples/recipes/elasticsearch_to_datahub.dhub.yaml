@@ -11,8 +11,8 @@ source:
     client_key: "./path/client.key"
     ssl_assert_hostname: False
     ssl_assert_fingerprint: "./path/cert.fingerprint"
-    ingest_index_template: False
-    # template_pattern:
+    ingest_index_templates: False
+    # index_template_pattern:
     #   allow:
     #     - "^.+"
     

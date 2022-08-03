@@ -226,12 +226,12 @@ class ElasticsearchSourceConfig(DatasetSourceConfigBase):
         default=AllowDenyPattern(allow=[".*"], deny=["^_.*", "^ilm-history.*"]),
         description="regex patterns for indexes to filter in ingestion.",
     )
-    ingest_index_template: bool = Field(
+    ingest_index_templates: bool = Field(
         default=False, description="Ingests ES index templates if enabled."
     )
-    template_pattern: AllowDenyPattern = Field(
+    index_template_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern(allow=[".*"], deny=["^_.*"]),
-        description="regex patterns for indexes to filter in ingestion.",
+        description="The regex patterns for filtering index templates to ingest.",
     )
 
     @validator("host")
@@ -324,10 +324,10 @@ class ElasticsearchSource(Source):
             wu = MetadataWorkUnit(id=f"index-{index}", mcp=mcp)
             self.report.report_workunit(wu)
             yield wu
-        if self.source_config.ingest_index_template:
+        if self.source_config.ingest_index_templates:
             templates = self.client.indices.get_template()
             for template in templates:
-                if self.source_config.template_pattern.allowed(template):
+                if self.source_config.index_template_pattern.allowed(template):
                     for mcp in self._extract_mcps(template, is_index=False):
                         wu = MetadataWorkUnit(id=f"template-{template}", mcp=mcp)
                         self.report.report_workunit(wu)
@@ -356,9 +356,9 @@ class ElasticsearchSource(Source):
     def _extract_mcps(
         self, index: str, is_index: bool = True
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        if is_index:
-            logger.debug(f"index = {index}")
+        logger.debug(f"index='{index}', is_index={is_index}")
 
+        if is_index:
             raw_index = self.client.indices.get(index=index)
             raw_index_metadata = raw_index[index]
 
@@ -437,34 +437,35 @@ class ElasticsearchSource(Source):
         )
 
         # 4. Construct and emit properties if needed. Will attempt to get the following properties
-        index_aliases = raw_index_metadata.get("aliases", {}).keys()
-        num_shards = (
-            raw_index_metadata.get("settings", {})
-            .get("index", {})
-            .get("number_of_shards", "")
-        )
-        num_replicas = (
-            raw_index_metadata.get("settings", {})
-            .get("index", {})
-            .get("number_of_replicas", "")
-        )
-        index_pattern = raw_index_metadata.get("index_patterns", [])
-        custom_properties = {}
+        custom_properties: Dict[str, str] = {}
+        # 4.1 aliases
+        index_aliases: List[str] = raw_index_metadata.get("aliases", {}).keys()
         if index_aliases:
             custom_properties["aliases"] = ",".join(index_aliases)
-        if num_shards != "":
+        # 4.2 index_patterns
+        index_patterns: List[str] = raw_index_metadata.get("index_patterns", [])
+        if index_patterns:
+            custom_properties["index_patterns"] = ",".join(index_patterns)
+
+        # 4.3 number_of_shards
+        index_settings: Dict[str, Any] = raw_index_metadata.get("settings", {}).get(
+            "index", {}
+        )
+        num_shards: str = index_settings.get("number_of_shards", "")
+        if num_shards:
             custom_properties["num_shards"] = num_shards
-        if num_replicas != "":
+        # 4.4 number_of_replicas
+        num_replicas: str = index_settings.get("number_of_replicas", "")
+        if num_replicas:
             custom_properties["num_replicas"] = num_replicas
-        if index_pattern:
-            custom_properties["index_pattern"] = ",".join(index_pattern)
-            yield MetadataChangeProposalWrapper(
-                entityType="dataset",
-                entityUrn=dataset_urn,
-                aspectName="datasetProperties",
-                aspect=DatasetPropertiesClass(customProperties=custom_properties),
-                changeType=ChangeTypeClass.UPSERT,
-            )
+
+        yield MetadataChangeProposalWrapper(
+            entityType="dataset",
+            entityUrn=dataset_urn,
+            aspectName="datasetProperties",
+            aspect=DatasetPropertiesClass(customProperties=custom_properties),
+            changeType=ChangeTypeClass.UPSERT,
+        )
 
         # 5. Construct and emit platform instance aspect
         if self.source_config.platform_instance:
