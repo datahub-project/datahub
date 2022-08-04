@@ -644,8 +644,25 @@ def test_dbt_stateful_tests(pytestconfig, tmp_path, mock_time, mock_datahub_grap
 @pytest.mark.parametrize(
     "data_type, expected_data_type",
     [
-        ("timestamp(3)", "timestamp"),
+        ("boolean", "boolean"),
+        ("tinyint", "tinyint"),
+        ("smallint", "smallint"),
+        ("int", "int"),
+        ("integer", "integer"),
+        ("bigint", "bigint"),
+        ("real", "real"),
+        ("double", "double"),
+        ("decimal(10,0)", "decimal"),
         ("varchar(20)", "varchar"),
+        ("char", "char"),
+        ("varbinary", "varbinary"),
+        ("json", "json"),
+        ("date", "date"),
+        ("time", "time"),
+        ("time(12)", "time"),
+        ("timestamp", "timestamp"),
+        ("timestamp(3)", "timestamp"),
+        ("row(x bigint, y double)", "row"),
     ],
 )
 def test_resolve_trino_modified_type(data_type, expected_data_type):
