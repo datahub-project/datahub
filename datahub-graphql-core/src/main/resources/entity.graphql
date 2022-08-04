@@ -6127,9 +6127,19 @@ enum AssertionStdOperator {
     START_WITH
 
     """
+    Value being asserted matches the regex value.
+    """
+    REGEX_MATCH
+
+    """
     Value being asserted is one of the array values
     """
     IN
+
+    """
+    Value being asserted is not in one of the array values.
+    """
+    NOT_IN
 
     """
     Other
