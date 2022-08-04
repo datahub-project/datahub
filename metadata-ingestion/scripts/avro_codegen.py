@@ -120,9 +120,9 @@ def annotate_aspects(aspects: List[dict], schema_class_file: Path) -> None:
     # We ensure that it cannot be instantiated directly, as
     # per https://stackoverflow.com/a/7989101/5004662.
     schema_classes_lines[
-        # This is a no-op line, so it's safe to overwrite.
         line_lookup_table["__SCHEMAS: Dict[str, RecordSchema] = {}"]
-    ] = """
+    ] += """
+
 class _Aspect(DictWrapper):
     ASPECT_NAME: str = None  # type: ignore
 
@@ -156,7 +156,7 @@ class _Aspect(DictWrapper):
             .startswith("RECORD_SCHEMA = ")
         ):
             empty_line += 1
-        schema_classes_lines[empty_line] = f"    ASPECT_NAME = '{aspectName}'"
+        schema_classes_lines[empty_line] = f"\n    ASPECT_NAME = '{aspectName}'"
 
     schema_class_file.write_text("\n".join(schema_classes_lines))
 
