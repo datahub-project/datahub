@@ -18,7 +18,7 @@ export interface RecipeField {
     label: string;
     tooltip: string | React.ReactNode;
     type: FieldType;
-    fieldPath: string;
+    fieldPath: string | string[];
     rules: any[] | null;
     section?: string;
     options?: Option[];
@@ -65,6 +65,20 @@ export function setListValuesOnRecipe(recipe: any, values: string[] | undefined,
     }
     return updatedRecipe;
 }
+
+export function setDottedFieldValuesOnRecipe(recipe: any, value: any, fieldPath: string[]) {
+    const updatedRecipe = { ...recipe };
+    if (value !== undefined) {
+        if (value === null) {
+            set(recipe, fieldPath, undefined);
+            clearFieldAndParents(updatedRecipe, fieldPath.slice(0, -1).join('.'));
+            return updatedRecipe;
+        }
+        set(updatedRecipe, fieldPath, value);
+    }
+    return updatedRecipe;
+}
+
 /* ---------------------------------------------------- Filter Section ---------------------------------------------------- */
 const databaseAllowFieldPath = 'source.config.database_pattern.allow';
 export const DATABASE_ALLOW: RecipeField = {
