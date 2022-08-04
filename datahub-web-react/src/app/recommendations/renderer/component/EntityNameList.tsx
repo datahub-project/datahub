@@ -126,6 +126,7 @@ export const EntityNameList = ({
                 const fallbackIcon = entityRegistry.getIcon(entity.type, 18, IconStyleType.ACCENT);
                 const subType = genericProps?.subTypes?.typeNames?.length && genericProps?.subTypes?.typeNames[0];
                 const entityCount = genericProps?.entityCount;
+                const deprecation = genericProps?.deprecation;
                 return (
                     <>
                         <ListItem isSelectMode={isSelectMode || false}>
@@ -151,6 +152,7 @@ export const EntityNameList = ({
                                 onClick={() => onClick?.(index)}
                                 entityCount={entityCount}
                                 degree={additionalProperties?.degree}
+                                deprecation={deprecation}
                             />
                         </ListItem>
                         <ThinDivider />
