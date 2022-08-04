@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Dropdown, Menu } from 'antd';
-import { MoreOutlined } from '@ant-design/icons';
+import { Button, Dropdown, Menu } from 'antd';
+import { FormOutlined, MoreOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { EntityType, FacetFilterInput, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
 import { SearchResultsInterface } from './types';
@@ -12,6 +12,12 @@ const MenuIcon = styled(MoreOutlined)`
     height: 20px;
 `;
 
+const SelectButton = styled(Button)`
+    font-size: 12px;
+    padding-left: 12px;
+    padding-right: 12px;
+`;
+
 type Props = {
     callSearchOnVariables: (variables: {
         input: SearchAcrossEntitiesInput;
@@ -19,10 +25,17 @@ type Props = {
     entityFilters: EntityType[];
     filters: FacetFilterInput[];
     query: string;
+    setShowSelectMode?: (showSelectMode: boolean) => any;
 };
 
 // currently only contains Download As Csv but will be extended to contain other actions as well
-export default function SearchExtendedMenu({ callSearchOnVariables, entityFilters, filters, query }: Props) {
+export default function SearchExtendedMenu({
+    callSearchOnVariables,
+    entityFilters,
+    filters,
+    query,
+    setShowSelectMode,
+}: Props) {
     const [isDownloadingCsv, setIsDownloadingCsv] = useState(false);
     const [showDownloadAsCsvModal, setShowDownloadAsCsvModal] = useState(false);
 
@@ -34,6 +47,14 @@ export default function SearchExtendedMenu({ callSearchOnVariables, entityFilter
                     setShowDownloadAsCsvModal={setShowDownloadAsCsvModal}
                 />
             </Menu.Item>
+            {setShowSelectMode && (
+                <Menu.Item key="1">
+                    <SelectButton type="text" onClick={() => setShowSelectMode(true)}>
+                        <FormOutlined />
+                        Edit...
+                    </SelectButton>
+                </Menu.Item>
+            )}
         </Menu>
     );
 

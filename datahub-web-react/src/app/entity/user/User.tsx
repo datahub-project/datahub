@@ -75,4 +75,8 @@ export class UserEntity implements Entity<CorpUser> {
     getGenericEntityProperties = (user: CorpUser) => {
         return getDataForEntityType({ data: user, entityType: this.type, getOverrideProperties: (data) => data });
     };
+
+    supportedCapabilities = () => {
+        return new Set([]);
+    };
 }

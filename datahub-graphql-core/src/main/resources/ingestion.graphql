@@ -133,6 +133,29 @@ type ExecutionRequestResult {
   """
   report: String
 
+  """
+  A structured report for this Execution Request
+  """
+  structuredReport: StructuredReport
+
+}
+
+"""
+A flexible carrier for structured results of an execution request.
+"""
+type StructuredReport {
+  """
+  The type of the structured report. (e.g. INGESTION_REPORT, TEST_CONNECTION_REPORT, etc.)
+  """
+  type: String!
+  """
+  The serialized value of the structured report
+  """
+  serializedValue: String!
+  """
+  The content-type of the serialized value (e.g. application/json, application/json;gzip etc.)
+  """
+  contentType: String!
 }
 
 """

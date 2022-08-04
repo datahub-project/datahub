@@ -32,8 +32,12 @@ services:
     environment:
       - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
       - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
+      - AUTH_POLICIES_ENABLED=${AUTH_POLICIES_ENABLED}
+      - RANGER_AUTHORIZER_ENABLED=${RANGER_AUTHORIZER_ENABLED}
+      - RANGER_USERNAME=${RANGER_USERNAME}
+      - RANGER_PASSWORD=${RANGER_PASSWORD}
     volumes:
       - ${HOME}/.datahub/plugins/:/etc/datahub/plugins
-
+      - ${HOME}/.datahub/plugins/auth/resources/:/etc/datahub/plugins/auth/resources
 volumes:
   mysqldata:

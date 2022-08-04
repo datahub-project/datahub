@@ -26,7 +26,7 @@ type Props = {
     editableTags?: GlobalTags | null;
     editableGlossaryTerms?: GlossaryTerms | null;
     uneditableGlossaryTerms?: GlossaryTerms | null;
-    domain?: Domain | null;
+    domain?: Domain | undefined | null;
     canRemove?: boolean;
     canAddTag?: boolean;
     canAddTerm?: boolean;
