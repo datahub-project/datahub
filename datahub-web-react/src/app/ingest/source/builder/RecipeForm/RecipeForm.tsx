@@ -1,8 +1,8 @@
-import { Button, Collapse, Form, message, Typography } from 'antd';
+import { Button, Collapse, Form, message, Tooltip, Typography } from 'antd';
 import React from 'react';
 import { get } from 'lodash';
 import YAML from 'yamljs';
-import { ApiOutlined, FilterOutlined, SettingOutlined } from '@ant-design/icons';
+import { ApiOutlined, FilterOutlined, QuestionCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { jsonToYaml } from '../../utils';
 import { RECIPE_FIELDS } from './utils';
@@ -41,6 +41,13 @@ const TestConnectionWrapper = styled.div`
     margin-top: 16px;
 `;
 
+const HeaderTooltipWrapper = styled(QuestionCircleOutlined)`
+    margin-left: 5px;
+    font-size: 12px;
+    color: rgba(0, 0, 0, 0.45);
+    cursor: help;
+`;
+
 function getInitialValues(displayRecipe: string, allFields: any[]) {
     const initialValues = {};
     let recipeObj;
@@ -60,11 +67,38 @@ function getInitialValues(displayRecipe: string, allFields: any[]) {
     return initialValues;
 }
 
-function SectionHeader({ icon, text }: { icon: any; text: string }) {
+function SectionHeader({
+    icon,
+    text,
+    connectionSectionTooltip,
+    filterSectionTooltip,
+    advanceSectionTooltip,
+}: {
+    icon: any;
+    text: string;
+    connectionSectionTooltip?: string;
+    filterSectionTooltip?: string;
+    advanceSectionTooltip?: string;
+}) {
     return (
         <span>
             {icon}
             <HeaderTitle>{text}</HeaderTitle>
+            {connectionSectionTooltip && (
+                <Tooltip placement="top" title={connectionSectionTooltip}>
+                    <HeaderTooltipWrapper />
+                </Tooltip>
+            )}
+            {filterSectionTooltip && (
+                <Tooltip placement="top" title={filterSectionTooltip}>
+                    <HeaderTooltipWrapper />
+                </Tooltip>
+            )}
+            {advanceSectionTooltip && (
+                <Tooltip placement="top" title={advanceSectionTooltip}>
+                    <HeaderTooltipWrapper />
+                </Tooltip>
+            )}
         </span>
     );
 }
@@ -86,7 +120,14 @@ interface Props {
 
 function RecipeForm(props: Props) {
     const { type, isEditing, displayRecipe, setStagedRecipe, onClickNext, goToPrevious } = props;
-    const { fields, advancedFields, filterFields } = RECIPE_FIELDS[type];
+    const {
+        fields,
+        advancedFields,
+        filterFields,
+        connectionSectionTooltip,
+        filterSectionTooltip,
+        advanceSectionTooltip,
+    } = RECIPE_FIELDS[type];
     const allFields = [...fields, ...advancedFields, ...filterFields];
 
     function updateFormValues(changedValues: any, allValues: any) {
@@ -113,7 +154,17 @@ function RecipeForm(props: Props) {
             onValuesChange={updateFormValues}
         >
             <StyledCollapse defaultActiveKey="0">
-                <Collapse.Panel forceRender header={<SectionHeader icon={<ApiOutlined />} text="Connection" />} key="0">
+                <Collapse.Panel
+                    forceRender
+                    header={
+                        <SectionHeader
+                            icon={<ApiOutlined />}
+                            text="Connection"
+                            connectionSectionTooltip={connectionSectionTooltip}
+                        />
+                    }
+                    key="0"
+                >
                     {fields.map((field, i) => (
                         <FormField field={field} removeMargin={i === fields.length - 1} />
                     ))}
@@ -128,7 +179,13 @@ function RecipeForm(props: Props) {
                 <StyledCollapse>
                     <Collapse.Panel
                         forceRender
-                        header={<SectionHeader icon={<FilterOutlined />} text="Filter" />}
+                        header={
+                            <SectionHeader
+                                icon={<FilterOutlined />}
+                                text="Filter"
+                                filterSectionTooltip={filterSectionTooltip}
+                            />
+                        }
                         key="1"
                     >
                         {filterFields.map((field, i) => (
@@ -147,7 +204,13 @@ function RecipeForm(props: Props) {
             <StyledCollapse>
                 <Collapse.Panel
                     forceRender
-                    header={<SectionHeader icon={<SettingOutlined />} text="Advanced" />}
+                    header={
+                        <SectionHeader
+                            icon={<SettingOutlined />}
+                            text="Advanced"
+                            advanceSectionTooltip={advanceSectionTooltip}
+                        />
+                    }
                     key="2"
                 >
                     {advancedFields.map((field, i) => (

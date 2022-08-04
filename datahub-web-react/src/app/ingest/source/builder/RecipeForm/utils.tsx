@@ -89,6 +89,8 @@ export const RECIPE_FIELDS = {
             SNOWFLAKE_VIEW_ALLOW,
             SNOWFLAKE_VIEW_DENY,
         ],
+        filterSectionTooltip:
+            'Filter out data assets based on allow/deny regex patterns we match against. Deny patterns take precedence over allow patterns.',
     },
     [BIGQUERY]: {
         fields: [
@@ -108,6 +110,8 @@ export const RECIPE_FIELDS = {
             BIGQUERY_VIEW_ALLOW,
             BIGQUERY_VIEW_DENY,
         ],
+        filterSectionTooltip:
+            'Filter out data assets based on allow/deny regex patterns we match against. Deny patterns take precedence over allow patterns.',
     },
     [REDSHIFT]: {
         fields: [REDSHIFT_HOST_PORT, REDSHIFT_DATABASE, REDSHIFT_USERNAME, REDSHIFT_PASSWORD],
@@ -120,6 +124,8 @@ export const RECIPE_FIELDS = {
             REDSHIFT_VIEW_ALLOW,
             REDSHIFT_VIEW_DENY,
         ],
+        filterSectionTooltip:
+            'Filter out data assets based on allow/deny regex patterns we match against. Deny patterns take precedence over allow patterns.',
     },
     [TABLEAU]: {
         fields: [TABLEAU_CONNECTION_URI, TABLEAU_PROJECT, TABLEAU_SITE, TABLEAU_USERNAME, TABLEAU_PASSWORD],
@@ -130,18 +136,22 @@ export const RECIPE_FIELDS = {
         fields: [LOOKER_BASE_URL, LOOKER_CLIENT_ID, LOOKER_CLIENT_SECRET],
         filterFields: [DASHBOARD_ALLOW, DASHBOARD_DENY, CHART_ALLOW, CHART_DENY],
         advancedFields: [GITHUB_INFO_REPO, EXTRACT_USAGE_HISTORY, EXTRACT_OWNERS, SKIP_PERSONAL_FOLDERS],
+        filterSectionTooltip:
+            'Filter out data assets based on allow/deny regex patterns we match against. Deny patterns take precedence over allow patterns.',
     },
     [KAFKA]: {
         fields: [
+            KAFKA_SECURITY_PROTOCOL,
             KAFKA_SASL_USERNAME,
             KAFKA_SASL_PASSWORD,
             KAFKA_BOOTSTRAP,
             KAFKA_SCHEMA_REGISTRY_URL,
             KAFKA_SCHEMA_REGISTRY_USER_CREDENTIAL,
-            KAFKA_SECURITY_PROTOCOL,
         ],
         filterFields: [TOPIC_ALLOW, TOPIC_DENY],
         advancedFields: [STATEFUL_INGESTION_ENABLED],
+        filterSectionTooltip:
+            'Filter out data assets based on allow/deny regex patterns we match against. Deny patterns take precedence over allow patterns.',
     },
 };
 

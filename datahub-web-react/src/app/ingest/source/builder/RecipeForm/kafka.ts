@@ -28,6 +28,7 @@ export const KAFKA_BOOTSTRAP: RecipeField = {
     name: 'connection.bootstrap',
     label: 'Connection Bootstrap',
     tooltip: 'Bootstrap URL.',
+    placeholder: 'abc-defg.eu-west-1.aws.confluent.cloud:9092',
     type: FieldType.TEXT,
     fieldPath: 'source.config.connection.bootstrap',
     rules: null,
@@ -37,6 +38,7 @@ export const KAFKA_SCHEMA_REGISTRY_URL: RecipeField = {
     name: 'connection.schema_registry_url',
     label: 'Schema Registry URL',
     tooltip: 'URL where your Confluent Cloud Schema Registry is hosted.',
+    placeholder: 'https://abc-defgh.us-east-2.aws.confluent.cloud',
     type: FieldType.TEXT,
     fieldPath: 'source.config.connection.schema_registry_url',
     rules: null,
@@ -54,6 +56,8 @@ export const KAFKA_SCHEMA_REGISTRY_USER_CREDENTIAL: RecipeField = {
     label: 'Schema Registry Credentials',
     tooltip:
         'API credentials for Confluent schema registry which you get (in Confluent UI) from Schema Registry -> API credentials.',
+    // eslint-disable-next-line no-template-curly-in-string
+    placeholder: '${REGISTRY_API_KEY_ID}:${REGISTRY_API_KEY_SECRET}',
     type: FieldType.TEXT,
     fieldPath: registryCredentialsFieldPath,
     rules: null,

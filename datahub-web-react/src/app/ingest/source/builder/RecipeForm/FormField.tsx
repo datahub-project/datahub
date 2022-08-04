@@ -29,7 +29,7 @@ const StyledSelectField = styled(Select)`
     margin-left: 10px;
 `;
 
-const StyledFormItem = styled(Form.Item)<{ alignLeft: boolean; removeMargin: boolean }>`
+const StyledFormItem = styled(Form.Item)<{ alignLeft?: boolean; removeMargin: boolean }>`
     margin-bottom: ${(props) => (props.removeMargin ? '0' : '16px')};
 
     ${(props) =>
@@ -58,6 +58,7 @@ interface ListFieldProps {
 
 interface SelectFieldProps {
     field: RecipeField;
+    removeMargin?: boolean;
 }
 
 function ListField({ field, removeMargin }: ListFieldProps) {
@@ -88,22 +89,26 @@ function ListField({ field, removeMargin }: ListFieldProps) {
     );
 }
 
-function SelectField({ field }: SelectFieldProps) {
+function SelectField({ field, removeMargin }: SelectFieldProps) {
     return (
-        <Form.Item
+        <StyledFormItem
             name={field.name}
             label={field.label}
             tooltip={field.tooltip}
             style={{ flexDirection: 'row', width: '80%', display: 'flex', alignItems: 'baseline' }}
+            removeMargin={!!removeMargin}
         >
             {field.options && (
-                <StyledSelectField placeholder={field?.placeholder}>
+                <StyledSelectField
+                    placeholder={field?.placeholder}
+                    defaultValue={field && field.options && field.options[0]}
+                >
                     {field.options.map((option) => (
                         <Select.Option value={option.value}>{option.label}</Select.Option>
                     ))}
                 </StyledSelectField>
             )}
-        </Form.Item>
+        </StyledFormItem>
     );
 }
 
@@ -117,7 +122,7 @@ function FormField(props: Props) {
 
     if (field.type === FieldType.LIST) return <ListField field={field} removeMargin={removeMargin} />;
 
-    if (field.type === FieldType.SELECT) return <SelectField field={field} />;
+    if (field.type === FieldType.SELECT) return <SelectField field={field} removeMargin={removeMargin} />;
 
     const isBoolean = field.type === FieldType.BOOLEAN;
     const input = isBoolean ? <Checkbox /> : <Input placeholder={field?.placeholder} />;
