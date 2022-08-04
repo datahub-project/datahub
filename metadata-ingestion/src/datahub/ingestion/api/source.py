@@ -25,6 +25,8 @@ class SourceCapability(Enum):
     OWNERSHIP = "Extract Ownership"
     DELETION_DETECTION = "Detect Deleted Entities"
     TAGS = "Extract Tags"
+    SCHEMA_METADATA = "Schema Metadata"
+    CONTAINERS = "Asset Containers"
 
 
 @dataclass
@@ -65,6 +67,8 @@ class CapabilityReport(BaseModel):
 
 @dataclass
 class TestConnectionReport(Report):
+    internal_failure: Optional[bool] = None
+    internal_failure_reason: Optional[str] = None
     basic_connectivity: Optional[CapabilityReport] = None
     capability_report: Optional[
         Dict[Union[SourceCapability, str], CapabilityReport]
@@ -101,6 +105,9 @@ class Source(Closeable, metaclass=ABCMeta):
     def get_report(self) -> SourceReport:
         pass
 
+
+class TestableSource(Source):
     @staticmethod
+    @abstractmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
         raise NotImplementedError("This class does not implement this method")

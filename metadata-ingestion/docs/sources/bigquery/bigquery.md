@@ -3,6 +3,8 @@
 1. Create a custom role for datahub as per [BigQuery docs](https://cloud.google.com/iam/docs/creating-custom-roles#creating_a_custom_role)
 2. Grant the following permissions to this role:
 ```   
+   # basic requirements
+
    bigquery.datasets.get
    bigquery.datasets.getIamPolicy
    bigquery.jobs.create
@@ -12,16 +14,21 @@
    bigquery.models.list
    bigquery.routines.get
    bigquery.routines.list
-   bigquery.tables.create # Needs for profiling
    bigquery.tables.get
-   bigquery.tables.getData # Needs for profiling
-   bigquery.tables.list
-   # needed for lineage generation via GCP logging
-   logging.logEntries.list
-   logging.privateLogEntries.list
    resourcemanager.projects.get
    bigquery.readsessions.create
    bigquery.readsessions.getData
+
+   # needed if profiling enabled
+
+   bigquery.tables.create 
+   bigquery.tables.getData
+   bigquery.tables.list
+
+   # needed for lineage generation via GCP logging
+
+   logging.logEntries.list
+   logging.privateLogEntries.list
 ```
 #### Create a service account
 

@@ -216,7 +216,6 @@ def make_domain_urn(domain: str) -> str:
 
 
 def make_ml_primary_key_urn(feature_table_name: str, primary_key_name: str) -> str:
-
     return f"urn:li:mlPrimaryKey:({feature_table_name},{primary_key_name})"
 
 
@@ -224,7 +223,6 @@ def make_ml_feature_urn(
     feature_table_name: str,
     feature_name: str,
 ) -> str:
-
     return f"urn:li:mlFeature:({feature_table_name},{feature_name})"
 
 
