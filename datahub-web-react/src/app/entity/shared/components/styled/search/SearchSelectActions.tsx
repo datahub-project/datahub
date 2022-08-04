@@ -19,6 +19,7 @@ import { SelectActionGroups } from './types';
 const DEFAULT_ACTION_GROUPS = [
     SelectActionGroups.CHANGE_TAGS,
     SelectActionGroups.CHANGE_GLOSSARY_TERMS,
+    SelectActionGroups.CHANGE_DOMAINS,
     SelectActionGroups.CHANGE_OWNERS,
 ];
 
@@ -94,6 +95,7 @@ export const SearchSelectActions = ({
                         selectedEntityUrns.length === 0 ||
                         !isEntityCapabilitySupported(EntityCapabilityType.DOMAINS, selectedEntityTypes)
                     }
+                    refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_DEPRECATION) && (

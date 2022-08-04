@@ -360,7 +360,6 @@ type Mutation {
     """
     addGroupMembers(input: AddGroupMembersInput!): Boolean
 
-
     """
     Remove members from a group
     """
@@ -389,6 +388,11 @@ type Mutation {
     Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully added, or already exists. Requires the Edit Domains privilege for the Entity.
     """
     setDomain(entityUrn: String!, domainUrn: String!): Boolean
+
+    """
+    Set domain for multiple Entities
+    """
+    batchSetDomain(input: BatchSetDomainInput!): Boolean
 
     """
     Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully removed, or was already removed. Requires the Edit Domains privilege for an asset.
@@ -6636,7 +6640,7 @@ input BatchAddTagsInput {
     """
     The target assets to attach the tags to
     """
-    resources: [ResourceRefInput]!
+    resources: [ResourceRefInput!]!
 }
 
 """
@@ -6907,6 +6911,21 @@ input UpdateDeprecationInput {
     Optional - Additional information about the entity deprecation plan
     """
     note: String
+}
+
+"""
+Input provided when adding tags to a batch of assets
+"""
+input BatchSetDomainInput {
+    """
+    The primary key of the Domain, or null if the domain will be unset
+    """
+    domainUrn: String
+
+    """
+    The target assets to attach the Domain
+    """
+    resources: [ResourceRefInput!]!
 }
 
 """
