@@ -24,10 +24,13 @@ def _make_generic_aspect(codegen_obj: DictWrapper) -> GenericAspectClass:
 
 @dataclasses.dataclass
 class MetadataChangeProposalWrapper:
-    # TODO: remove manually specified changeType, aspectName from the codebase
+    # TODO: remove manually aspectName from the codebase
+    # TODO: (after) remove aspectName field from this class
+    # TODO: infer entityType from entityUrn
+    # TODO: set changeType's default to UPSERT
 
     entityType: str
-    changeType: Union[str, ChangeTypeClass] = ChangeTypeClass.UPSERT
+    changeType: Union[str, ChangeTypeClass]
     entityUrn: Union[None, str] = None
     entityKeyAspect: Union[None, _Aspect] = None
     auditHeader: Union[None, KafkaAuditHeaderClass] = None
