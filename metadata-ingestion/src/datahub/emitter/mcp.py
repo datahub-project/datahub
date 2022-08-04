@@ -10,6 +10,7 @@ from datahub.metadata.schema_classes import (
     KafkaAuditHeaderClass,
     MetadataChangeProposalClass,
     SystemMetadataClass,
+    _Aspect,
 )
 
 
@@ -24,12 +25,14 @@ def _make_generic_aspect(codegen_obj: DictWrapper) -> GenericAspectClass:
 @dataclasses.dataclass
 class MetadataChangeProposalWrapper:
     entityType: str
-    changeType: Union[str, ChangeTypeClass]
+    changeType: Union[
+        str, ChangeTypeClass
+    ] = ChangeTypeClass.UPSERT  # TODO remove args from most places
     entityUrn: Union[None, str] = None
-    entityKeyAspect: Union[None, DictWrapper] = None
+    entityKeyAspect: Union[None, _Aspect] = None
     auditHeader: Union[None, KafkaAuditHeaderClass] = None
     aspectName: Union[None, str] = None
-    aspect: Union[None, DictWrapper] = None
+    aspect: Union[None, _Aspect] = None
     systemMetadata: Union[None, SystemMetadataClass] = None
 
     def make_mcp(self) -> MetadataChangeProposalClass:

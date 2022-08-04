@@ -123,12 +123,12 @@ def annotate_aspects(aspects: List[dict], schema_class_file: Path) -> None:
         # This is a no-op line, so it's safe to overwrite.
         line_lookup_table["__SCHEMAS: Dict[str, RecordSchema] = {}"]
     ] = """
-class Aspect(DictWrapper):
+class _Aspect(DictWrapper):
     ASPECT_NAME: str = None  # type: ignore
 
     def __init__(self):
-        if type(self) is Aspect:
-            raise TypeError("Aspect is an abstract class, and cannot be instantiated directly.")
+        if type(self) is _Aspect:
+            raise TypeError("_Aspect is an abstract class, and cannot be instantiated directly.")
         super().__init__()
 
     @classmethod
@@ -143,7 +143,7 @@ class Aspect(DictWrapper):
 
         # Make the aspects inherit from the Aspect class.
         class_def_line = line_lookup_table[class_def_original]
-        schema_classes_lines[class_def_line] = f"class {className}(Aspect):"
+        schema_classes_lines[class_def_line] = f"class {className}(_Aspect):"
 
         # Define the ASPECT_NAME class attribute.
         # There's always an empty line after the class definition and docstring.
