@@ -39,7 +39,7 @@ public class BatchRemoveOwnersResolver implements DataFetcher<CompletableFuture<
       validateInputResources(resources, context);
 
       try {
-        // Then execute the bulk add
+        // Then execute the bulk remove
         batchRemoveOwners(owners, resources, context);
         return true;
       } catch (Exception e) {
@@ -59,7 +59,7 @@ public class BatchRemoveOwnersResolver implements DataFetcher<CompletableFuture<
     final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
 
     if (resource.getSubResource() != null) {
-      throw new IllegalArgumentException("Malformed input provided: owners cannot be applied to subresources.");
+      throw new IllegalArgumentException("Malformed input provided: owners cannot be removed from subresources.");
     }
 
     if (!OwnerUtils.isAuthorizedToUpdateOwners(context, resourceUrn)) {

@@ -104,6 +104,7 @@ services:
     container_name: datahub-frontend-react
     ports:
       - "9002:9002"
+      - "5055:5055"
     depends_on:
       - datahub-gms
     volumes:
