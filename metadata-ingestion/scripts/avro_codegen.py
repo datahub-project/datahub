@@ -9,7 +9,7 @@ import click
 from avrogen import write_schema_files
 
 
-def load_schema_file(schema_file: str) -> str:
+def load_schema_file(schema_file: Union[str, Path]) -> str:
     raw_schema_text = Path(schema_file).read_text()
     return json.dumps(json.loads(raw_schema_text), indent=2)
 
@@ -114,9 +114,32 @@ def make_load_schema_methods(schemas: Iterable[str]) -> str:
 
 
 @click.command()
-@click.argument("schema_files", type=click.Path(exists=True), nargs=-1, required=True)
+@click.argument(
+    "schemas_path", type=click.Path(exists=True, file_okay=False), required=True
+)
 @click.argument("outdir", type=click.Path(), required=True)
-def generate(schema_files: List[str], outdir: str) -> None:
+def generate(schemas_path: str, outdir: str) -> None:
+    allowed_schema_files = {
+        "mxe/MetadataChangeEvent.avsc",
+        "mxe/MetadataChangeProposal.avsc",
+        "usage/UsageAggregation.avsc",
+        "mxe/MetadataChangeLog.avsc",
+        "mxe/PlatformEvent.avsc",
+        "platform/event/v1/EntityChangeEvent.avsc",
+    }
+
+    schema_files = []
+    for schema_file in Path(schemas_path).glob("**/*.avsc"):
+        relative_path = schema_file.relative_to(schemas_path).as_posix()
+        if relative_path in allowed_schema_files:
+            schema_files.append(schema_file)
+            allowed_schema_files.remove(relative_path)
+        elif json.loads(schema_file.read_text()).get("Aspect"):
+            schema_files.append(schema_file)
+            # TODO aspects
+
+    assert not allowed_schema_files
+
     schemas: Dict[str, str] = {}
     for schema_file in schema_files:
         schema = load_schema_file(schema_file)
