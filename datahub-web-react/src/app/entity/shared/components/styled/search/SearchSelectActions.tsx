@@ -20,6 +20,7 @@ const DEFAULT_ACTION_GROUPS = [
     SelectActionGroups.CHANGE_TAGS,
     SelectActionGroups.CHANGE_GLOSSARY_TERMS,
     SelectActionGroups.CHANGE_DOMAINS,
+    SelectActionGroups.CHANGE_OWNERS,
 ];
 
 type Props = {
@@ -64,6 +65,7 @@ export const SearchSelectActions = ({
                         selectedEntityUrns.length === 0 ||
                         !isEntityCapabilitySupported(EntityCapabilityType.OWNERS, selectedEntityTypes)
                     }
+                    refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_GLOSSARY_TERMS) && (

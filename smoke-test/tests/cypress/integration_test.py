@@ -24,10 +24,12 @@ def test_run_cypress(frontend_session, wait_for_healthchecks):
     record_key = os.getenv("CYPRESS_RECORD_KEY")
     if record_key:
         print('Running Cypress tests with recording')
-        command = f"NO_COLOR=1 npx cypress run --record"
+        command = "NO_COLOR=1 npx cypress run --record"
     else:
         print('Running Cypress tests without recording')
-        command = f"NO_COLOR=1 npx cypress run"
+        command = "NO_COLOR=1 npx cypress run"
+        # Add --headed --spec '**/mutations/mutations.js' (change spec name)
+        # in case you want to see the browser for debugging
     proc = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd="tests/cypress")
     stdout = proc.stdout.read()
     stderr = proc.stderr.read()

@@ -17,6 +17,7 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     DatasetSnapshotClass,
     DatasetUpstreamLineageClass,
+    DomainsClass,
     EditableDatasetPropertiesClass,
     EditableSchemaMetadataClass,
     GlobalTagsClass,
@@ -41,6 +42,7 @@ class SnapshotAspectRegistry:
     def __init__(self):
         self.aspect_name_type_mapping = {
             "ownership": OwnershipClass,
+            "domains": DomainsClass,
             "globalTags": GlobalTagsClass,
             "datasetProperties": DatasetPropertiesClass,
             "editableDatasetProperties": EditableDatasetPropertiesClass,

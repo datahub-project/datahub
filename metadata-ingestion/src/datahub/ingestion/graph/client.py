@@ -15,6 +15,7 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
+    DomainPropertiesClass,
     DomainsClass,
     GlobalTagsClass,
     GlossaryTermsClass,
@@ -181,6 +182,13 @@ class DataHubGraph(DatahubRestEmitter):
             entity_urn=entity_urn,
             aspect="ownership",
             aspect_type=OwnershipClass,
+        )
+
+    def get_domain_properties(self, entity_urn: str) -> Optional[DomainPropertiesClass]:
+        return self.get_aspect_v2(
+            entity_urn=entity_urn,
+            aspect="domainProperties",
+            aspect_type=DomainPropertiesClass,
         )
 
     def get_tags(self, entity_urn: str) -> Optional[GlobalTagsClass]:
