@@ -31,12 +31,12 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
-    _Aspect,
 )
+from datahub.metadata.schema_classes import _Aspect as AspectAbstract
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
-Aspect = TypeVar("Aspect", bound=_Aspect)
+Aspect = TypeVar("Aspect", bound=AspectAbstract)
 
 DEFAULT_ENV = DEFAULT_ENV_CONFIGURATION
 DEFAULT_FLOW_CLUSTER = "prod"
