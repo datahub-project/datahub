@@ -78,7 +78,7 @@ task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall, generateGraphQLDocume
   args = ['run', 'generate']
 }
 
-task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+task yarnStart(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   args = ['run', 'start']
 }
 

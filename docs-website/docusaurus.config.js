@@ -167,9 +167,10 @@ module.exports = {
       copyright: `Copyright © 2015-${new Date().getFullYear()} DataHub Project Authors.`,
     },
     prism: {
-      //   theme: require('prism-react-renderer/themes/github'),
-      //   darkTheme: require('prism-react-renderer/themes/dracula'),
-      additionalLanguages: ["ini"],
+      // https://docusaurus.io/docs/markdown-features/code-blocks#theming
+      theme: require("prism-react-renderer/themes/vsLight"),
+      darkTheme: require("prism-react-renderer/themes/vsDark"),
+      additionalLanguages: ["ini", "java", "graphql"],
     },
     algolia: {
       appId: "RK0UG797F3",
