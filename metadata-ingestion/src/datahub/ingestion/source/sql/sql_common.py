@@ -773,7 +773,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
     ) -> str:
         # Many SQLAlchemy dialects have three-level hierarchies. This method, which
-        # subclasses can override, enables them to modify the identifers as needed.
+        # subclasses can override, enables them to modify the identifiers as needed.
         if hasattr(self.config, "get_identifier"):
             # This path is deprecated and will eventually be removed.
             return self.config.get_identifier(schema=schema, table=entity)  # type: ignore
@@ -1209,7 +1209,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 canonical_schema=schema_fields,
             )
         try:
-            # SQLALchemy stubs are incomplete and missing this method.
+            # SQLAlchemy stubs are incomplete and missing this method.
             # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
             view_info: dict = inspector.get_table_comment(view, schema)  # type: ignore
         except NotImplementedError:

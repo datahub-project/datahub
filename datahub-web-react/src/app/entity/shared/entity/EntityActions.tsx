@@ -4,6 +4,7 @@ import { LinkOutlined } from '@ant-design/icons';
 import { SearchSelectModal } from '../components/styled/search/SearchSelectModal';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { EntityCapabilityType } from '../../Entity';
+import { useBatchAddTermsMutation } from '../../../../graphql/mutations.generated';
 
 export enum EntityActionItem {
     /**
@@ -17,6 +18,7 @@ export enum EntityActionItem {
 }
 
 interface Props {
+    urn: string;
     actionItems: Set<EntityActionItem>;
     refetchForEntity?: () => void;
 }
@@ -24,15 +26,37 @@ interface Props {
 function EntityActions(props: Props) {
     // eslint ignore react/no-unused-prop-types
     const entityRegistry = useEntityRegistry();
-    const { actionItems, refetchForEntity } = props;
+    const { urn, actionItems, refetchForEntity } = props;
     const [isBatchAddGlossaryTermModalVisible, setIsBatchAddGlossaryTermModalVisible] = useState(false);
     const [isBatchSetDomainModalVisible, setIsBatchSetDomainModalVisible] = useState(false);
+    const [batchAddTermsMutation] = useBatchAddTermsMutation();
 
     // eslint-disable-next-line
     const batchAddGlossaryTerms = (entityUrns: Array<string>) => {
-        refetchForEntity?.();
-        setIsBatchAddGlossaryTermModalVisible(false);
-        message.success('Successfully added glossary terms!');
+        batchAddTermsMutation({
+            variables: {
+                input: {
+                    termUrns: [urn],
+                    resources: entityUrns.map((entityUrn) => ({
+                        resourceUrn: entityUrn,
+                    })),
+                },
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    refetchForEntity?.();
+                    setIsBatchAddGlossaryTermModalVisible(false);
+                    message.success({
+                        content: `Added Glossary Term to entities!`,
+                        duration: 2,
+                    });
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to add glossary term: \n ${e.message || ''}`, duration: 3 });
+            });
     };
 
     // eslint-disable-next-line

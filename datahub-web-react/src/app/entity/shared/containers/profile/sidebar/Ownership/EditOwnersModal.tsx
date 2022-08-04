@@ -6,7 +6,10 @@ import { CorpUser, Entity, EntityType, OwnerEntityType, OwnershipType } from '..
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
 import { OWNERSHIP_DISPLAY_TYPES } from './ownershipUtils';
-import { useAddOwnersMutation } from '../../../../../../../graphql/mutations.generated';
+import {
+    useBatchAddOwnersMutation,
+    useBatchRemoveOwnersMutation,
+} from '../../../../../../../graphql/mutations.generated';
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { useGetRecommendations } from '../../../../../../shared/recommendation';
 import { OwnerLabel } from '../../../../../../shared/OwnerLabel';
@@ -25,13 +28,19 @@ const StyleTag = styled(Tag)`
     align-items: center;
 `;
 
+export enum OperationType {
+    ADD,
+    REMOVE,
+}
+
 type Props = {
-    urn: string;
-    type: EntityType;
+    urns: string[];
     defaultOwnerType?: OwnershipType;
     hideOwnerType?: boolean | undefined;
+    operationType?: OperationType;
     onCloseModal: () => void;
     refetch?: () => Promise<any>;
+    entityType?: EntityType; // Only used for tracking events
 };
 
 // value: {ownerUrn: string, ownerEntityType: EntityType}
@@ -40,10 +49,19 @@ type SelectedOwner = {
     value;
 };
 
-export const AddOwnersModal = ({ urn, type, hideOwnerType, defaultOwnerType, onCloseModal, refetch }: Props) => {
+export const EditOwnersModal = ({
+    urns,
+    hideOwnerType,
+    defaultOwnerType,
+    operationType = OperationType.ADD,
+    onCloseModal,
+    refetch,
+    entityType,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
     const [inputValue, setInputValue] = useState('');
-    const [addOwnersMutation] = useAddOwnersMutation();
+    const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
+    const [batchRemoveOwnersMutation] = useBatchRemoveOwnersMutation();
     const ownershipTypes = OWNERSHIP_DISPLAY_TYPES;
     const [selectedOwners, setSelectedOwners] = useState<SelectedOwner[]>([]);
     const [selectedOwnerType, setSelectedOwnerType] = useState<OwnershipType>(defaultOwnerType || OwnershipType.None);
@@ -64,12 +82,12 @@ export const AddOwnersModal = ({ urn, type, hideOwnerType, defaultOwnerType, onC
     }, [ownershipTypes]);
 
     // Invokes the search API as the owner types
-    const handleSearch = (entityType: EntityType, text: string, searchQuery: any) => {
+    const handleSearch = (type: EntityType, text: string, searchQuery: any) => {
         if (text.length > 2) {
             searchQuery({
                 variables: {
                     input: {
-                        type: entityType,
+                        type,
                         query: text,
                         start: 0,
                         count: 5,
@@ -167,6 +185,69 @@ export const AddOwnersModal = ({ urn, type, hideOwnerType, defaultOwnerType, onC
         );
     };
 
+    const emitAnalytics = async () => {
+        if (urns.length > 1) {
+            analytics.event({
+                type: EventType.BatchEntityActionEvent,
+                actionType: EntityActionType.UpdateOwnership,
+                entityUrns: urns,
+            });
+        } else {
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: EntityActionType.UpdateOwnership,
+                entityType,
+                entityUrn: urns[0],
+            });
+        }
+    };
+
+    const batchAddOwners = async (inputs) => {
+        try {
+            await batchAddOwnersMutation({
+                variables: {
+                    input: {
+                        owners: inputs,
+                        resources: urns.map((urn) => ({ resourceUrn: urn })),
+                    },
+                },
+            });
+            message.success({ content: 'Owners Added', duration: 2 });
+            emitAnalytics();
+        } catch (e: unknown) {
+            message.destroy();
+            if (e instanceof Error) {
+                message.error({ content: `Failed to add owners: \n ${e.message || ''}`, duration: 3 });
+            }
+        } finally {
+            refetch?.();
+            onModalClose();
+        }
+    };
+
+    const batchRemoveOwners = async (inputs) => {
+        try {
+            await batchRemoveOwnersMutation({
+                variables: {
+                    input: {
+                        ownerUrns: inputs.map((input) => input.ownerUrn),
+                        resources: urns.map((urn) => ({ resourceUrn: urn })),
+                    },
+                },
+            });
+            message.success({ content: 'Owners Removed', duration: 2 });
+            emitAnalytics();
+        } catch (e: unknown) {
+            message.destroy();
+            if (e instanceof Error) {
+                message.error({ content: `Failed to remove owners: \n ${e.message || ''}`, duration: 3 });
+            }
+        } finally {
+            refetch?.();
+            onModalClose();
+        }
+    };
+
     // Function to handle the modal action's
     const onOk = async () => {
         if (selectedOwners.length === 0) {
@@ -180,30 +261,11 @@ export const AddOwnersModal = ({ urn, type, hideOwnerType, defaultOwnerType, onC
             };
             return input;
         });
-        try {
-            await addOwnersMutation({
-                variables: {
-                    input: {
-                        owners: inputs,
-                        resourceUrn: urn,
-                    },
-                },
-            });
-            message.success({ content: 'Owners Added', duration: 2 });
-            analytics.event({
-                type: EventType.EntityActionEvent,
-                actionType: EntityActionType.UpdateOwnership,
-                entityType: type,
-                entityUrn: urn,
-            });
-        } catch (e: unknown) {
-            message.destroy();
-            if (e instanceof Error) {
-                message.error({ content: `Failed to add owners: \n ${e.message || ''}`, duration: 3 });
-            }
-        } finally {
-            refetch?.();
-            onModalClose();
+
+        if (operationType === OperationType.ADD) {
+            batchAddOwners(inputs);
+        } else {
+            batchRemoveOwners(inputs);
         }
     };
 
@@ -213,7 +275,7 @@ export const AddOwnersModal = ({ urn, type, hideOwnerType, defaultOwnerType, onC
 
     return (
         <Modal
-            title="Add Owners"
+            title={`${operationType === OperationType.ADD ? 'Add' : 'Remove'} Owners`}
             visible
             onCancel={onModalClose}
             keyboard
@@ -223,7 +285,7 @@ export const AddOwnersModal = ({ urn, type, hideOwnerType, defaultOwnerType, onC
                         Cancel
                     </Button>
                     <Button id="addOwnerButton" disabled={selectedOwners.length === 0} onClick={onOk}>
-                        Add
+                        Done
                     </Button>
                 </>
             }

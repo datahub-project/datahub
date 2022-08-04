@@ -276,7 +276,7 @@ type Mutation {
     removeTag(input: TagAssociationInput!): Boolean
 
     """
-		Remove tags from multiple Entity or subresource
+		Remove tags from multiple Entities or subresource
     """
     batchRemoveTags(input: BatchRemoveTagsInput!): Boolean
 
@@ -284,6 +284,11 @@ type Mutation {
 		Add a glossary term to a particular Entity or subresource
     """
     addTerm(input: TermAssociationInput!): Boolean
+
+    """
+		Add glossary terms to multiple Entities or subresource
+    """
+    batchAddTerms(input: BatchAddTermsInput!): Boolean
 
     """
 		Add multiple glossary terms to a particular Entity or subresource
@@ -296,9 +301,19 @@ type Mutation {
     removeTerm(input: TermAssociationInput!): Boolean
 
     """
+		Remove glossary terms from multiple Entities or subresource
+    """
+    batchRemoveTerms(input: BatchRemoveTermsInput!): Boolean
+
+    """
     Add an owner to a particular Entity
     """
     addOwner(input: AddOwnerInput!): Boolean
+
+    """
+    Add owners to multiple Entities
+    """
+    batchAddOwners(input: BatchAddOwnersInput!): Boolean
 
     """
     Add multiple owners to a particular Entity
@@ -309,6 +324,11 @@ type Mutation {
     Remove an owner from a particular Entity
     """
     removeOwner(input: RemoveOwnerInput!): Boolean
+
+    """
+    Remove owners from multiple Entities
+    """
+    batchRemoveOwners(input: BatchRemoveOwnersInput!): Boolean
 
     """
     Add a link, or institutional memory, from a particular Entity
@@ -6547,6 +6567,36 @@ enum TermRelationshipType {
 }
 
 """
+Input provided when adding glossary terms to a batch of assets
+"""
+input BatchAddTermsInput {
+    """
+    The primary key of the Glossary Terms
+    """
+    termUrns: [String!]!
+
+    """
+    The target assets to attach the glossary terms to
+    """
+    resources: [ResourceRefInput]!
+}
+
+"""
+Input provided when removing glossary terms from a batch of assets
+"""
+input BatchRemoveTermsInput {
+    """
+    The primary key of the Glossary Terms
+    """
+    termUrns: [String!]!
+
+    """
+    The target assets to remove the glossary terms from
+    """
+    resources: [ResourceRefInput]!
+}
+
+"""
 Input provided when updating the association between a Metadata Entity and a Tag
 """
 input TagAssociationInput {
@@ -6719,6 +6769,36 @@ input AddOwnersInput {
     The urn of the resource or entity to attach or remove the owner from, for example a dataset urn
     """
     resourceUrn: String!
+}
+
+"""
+Input provided when adding owners to a batch of assets
+"""
+input BatchAddOwnersInput {
+    """
+    The primary key of the owners
+    """
+    owners: [OwnerInput!]!
+
+    """
+    The target assets to attach the owners to
+    """
+    resources: [ResourceRefInput]!
+}
+
+"""
+Input provided when removing owners from a batch of assets
+"""
+input BatchRemoveOwnersInput {
+    """
+    The primary key of the owners
+    """
+    ownerUrns: [String!]!
+
+    """
+    The target assets to remove the owners from
+    """
+    resources: [ResourceRefInput]!
 }
 
 """

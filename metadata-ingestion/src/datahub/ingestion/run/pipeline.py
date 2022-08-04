@@ -124,7 +124,7 @@ class Pipeline:
     def _record_initialization_failure(self, e: Exception, msg: str) -> None:
         self.pipeline_init_exception: Optional[Exception] = e
         self.pipeline_init_failures: Optional[str] = f"{msg} due to {e}"
-        logger.error(e)
+        logger.exception(e)
 
     def __init__(
         self,

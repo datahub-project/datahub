@@ -1,5 +1,5 @@
 import logging
-from abc import abstractmethod
+from abc import ABCMeta, abstractmethod
 from typing import List, Optional
 
 from deprecated import deprecated
@@ -59,9 +59,25 @@ class DatasetTransformer(BaseTransformer, LegacyMCETransformer):
         )
 
 
+# TODO: rename DatasetTransformerV2 to DatasetTransformer after upgrading all existing dataset transformer
+class DatasetTransformerV2(BaseTransformer, SingleAspectTransformer, metaclass=ABCMeta):
+    """Transformer that does transforms sequentially on each dataset."""
+
+    def __init__(self):
+        super().__init__()
+
+    def entity_types(self) -> List[str]:
+        return ["dataset"]
+
+
 class DatasetOwnershipTransformer(DatasetTransformer, SingleAspectTransformer):
     def aspect_name(self) -> str:
         return "ownership"
+
+
+class DatasetDomainTransformer(DatasetTransformerV2, SingleAspectTransformer):
+    def aspect_name(self) -> str:
+        return "domains"
 
 
 class DatasetStatusTransformer(DatasetTransformer, SingleAspectTransformer):
