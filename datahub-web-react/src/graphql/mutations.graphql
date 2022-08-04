@@ -93,3 +93,7 @@ mutation updateName($input: UpdateNameInput!) {
 mutation batchSetDomain($input: BatchSetDomainInput!) {
     batchSetDomain(input: $input)
 }
+
+mutation batchUpdateDeprecation($input: BatchUpdateDeprecationInput!) {
+    batchUpdateDeprecation(input: $input)
+}

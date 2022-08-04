@@ -407,6 +407,11 @@ type Mutation {
       input: UpdateDeprecationInput!): Boolean
 
     """
+    Updates the deprecation status for a batch of assets.
+    """
+    batchUpdateDeprecation(input: BatchUpdateDeprecationInput!): Boolean
+
+    """
     Update a particular Corp User's editable properties
     """
     updateCorpUserProperties(urn: String!, input: CorpUserUpdateInput!): CorpUser
@@ -6921,6 +6926,32 @@ input UpdateDeprecationInput {
     Optional - Additional information about the entity deprecation plan
     """
     note: String
+}
+
+
+"""
+Input provided when updating the deprecation status for a batch of assets.
+"""
+input BatchUpdateDeprecationInput {
+    """
+    Whether the Entity is marked as deprecated.
+    """
+    deprecated: Boolean!
+
+    """
+    Optional - The time user plan to decommission this entity
+    """
+    decommissionTime: Long
+
+    """
+    Optional - Additional information about the entity deprecation plan
+    """
+    note: String
+
+    """
+    The target assets to attach the tags to
+    """
+    resources: [ResourceRefInput]!
 }
 
 """
