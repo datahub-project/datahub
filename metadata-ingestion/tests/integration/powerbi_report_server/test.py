@@ -101,7 +101,7 @@ def default_source_config():
 @mock.patch(POWERBI_REPORT_SERVER_USER_DAO_GET_OWNER, side_effect=mock_user)
 # @mock.patch("requests_ntlm.HttpNtlmAuth", side_effect=mock_ntlm)
 @mock.patch("requests_ntlm.HttpNtlmAuth")
-def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
+def test_powerbi_ingest(mock_msal, user_mock, pytestconfig, tmp_path, mock_time, requests_mock):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(request_mock=requests_mock)
