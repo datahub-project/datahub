@@ -4,6 +4,8 @@ import styled from 'styled-components/macro';
 import { MinusCircleOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { FieldType, RecipeField } from './utils';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
+import { Secret } from '../../../../../types.generated';
+import SecretField from './SecretField';
 
 const Label = styled.div`
     font-weight: bold;
@@ -109,15 +111,18 @@ function SelectField({ field }: SelectFieldProps) {
 
 interface Props {
     field: RecipeField;
+    secrets: Secret[];
     removeMargin?: boolean;
 }
 
 function FormField(props: Props) {
-    const { field, removeMargin } = props;
+    const { field, secrets, removeMargin } = props;
 
     if (field.type === FieldType.LIST) return <ListField field={field} removeMargin={removeMargin} />;
 
     if (field.type === FieldType.SELECT) return <SelectField field={field} />;
+
+    if (field.type === FieldType.SECRET) return <SecretField field={field} secrets={secrets} />;
 
     const isBoolean = field.type === FieldType.BOOLEAN;
     const input = isBoolean ? <Checkbox /> : <Input />;
