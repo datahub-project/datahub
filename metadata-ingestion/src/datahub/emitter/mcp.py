@@ -24,16 +24,28 @@ def _make_generic_aspect(codegen_obj: DictWrapper) -> GenericAspectClass:
 
 @dataclasses.dataclass
 class MetadataChangeProposalWrapper:
+    # TODO: remove manually specified changeType, aspectName from the codebase
+
     entityType: str
-    changeType: Union[
-        str, ChangeTypeClass
-    ] = ChangeTypeClass.UPSERT  # TODO remove args from most places
+    changeType: Union[str, ChangeTypeClass] = ChangeTypeClass.UPSERT
     entityUrn: Union[None, str] = None
     entityKeyAspect: Union[None, _Aspect] = None
     auditHeader: Union[None, KafkaAuditHeaderClass] = None
     aspectName: Union[None, str] = None
     aspect: Union[None, _Aspect] = None
     systemMetadata: Union[None, SystemMetadataClass] = None
+
+    def __post_init__(self) -> None:
+        if not self.aspectName and self.aspect:
+            self.aspectName = self.aspect.get_aspect_name()
+        elif (
+            self.aspectName
+            and self.aspect
+            and self.aspectName != self.aspect.get_aspect_name()
+        ):
+            raise ValueError(
+                f"aspectName {self.aspectName} does not match aspect type {type(self.aspect)} with name {self.aspect.get_aspect_name()}"
+            )
 
     def make_mcp(self) -> MetadataChangeProposalClass:
         serializedEntityKeyAspect: Union[None, GenericAspectClass] = None

@@ -146,10 +146,15 @@ class _Aspect(DictWrapper):
         schema_classes_lines[class_def_line] = f"class {className}(_Aspect):"
 
         # Define the ASPECT_NAME class attribute.
-        # There's always an empty line after the class definition and docstring.
+        # There's always an empty line between the docstring and the RECORD_SCHEMA class attribute.
         # We need to find it and insert our line of code there.
         empty_line = class_def_line + 1
-        while schema_classes_lines[empty_line].strip() != "":
+        while not (
+            schema_classes_lines[empty_line].strip() == ""
+            and schema_classes_lines[empty_line + 1]
+            .strip()
+            .startswith("RECORD_SCHEMA = ")
+        ):
             empty_line += 1
         schema_classes_lines[empty_line] = f"    ASPECT_NAME = '{aspectName}'"
 
