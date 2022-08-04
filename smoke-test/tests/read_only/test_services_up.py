@@ -5,7 +5,8 @@ import requests
 
 from tests.utils import get_gms_url, wait_for_healthcheck_util
 
-DATAHUB_VERSION = os.getenv("DATAHUB_VERSION")
+# Kept separate so that it does not cause failures in PRs
+DATAHUB_VERSION = os.getenv("TEST_DATAHUB_VERSION")
 
 
 @pytest.mark.read_only
@@ -21,4 +22,4 @@ def test_gms_config_accessible():
     if DATAHUB_VERSION is not None:
         assert gms_config["versions"]["linkedin/datahub"]["version"] == DATAHUB_VERSION
     else:
-        print("[WARN] DATAHUB_VERSION is not set")
+        print("[WARN] TEST_DATAHUB_VERSION is not set")
