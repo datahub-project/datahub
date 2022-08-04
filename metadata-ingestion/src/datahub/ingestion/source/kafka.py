@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Type, cast
 
 import confluent_kafka
+import confluent_kafka.admin
 import pydantic
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
@@ -37,6 +38,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetPropertiesClass
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
@@ -234,11 +236,12 @@ class KafkaSource(StatefulIngestionSourceBase):
                 yield from soft_delete_dataset(topic_urn, "topic")
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        topics = self.consumer.list_topics().topics
+        topic_list = self.consumer.list_topics()
+        topics = topic_list.topics
         for t in topics:
             self.report.report_topic_scanned(t)
             if self.source_config.topic_patterns.allowed(t):
-                yield from self._extract_record(t)
+                yield from self._extract_record(t, topic_list)
                 # add topic to checkpoint if stateful ingestion is enabled
                 if self.is_stateful_ingestion_configured():
                     self._add_topic_to_checkpoint(t)
@@ -263,7 +266,9 @@ class KafkaSource(StatefulIngestionSourceBase):
                 )
             )
 
-    def _extract_record(self, topic: str) -> Iterable[MetadataWorkUnit]:
+    def _extract_record(
+        self, topic: str, topic_list: confluent_kafka.admin.ClusterMetadata
+    ) -> Iterable[MetadataWorkUnit]:
         logger.debug(f"topic = {topic}")
 
         # 1. Create the default dataset snapshot for the topic.
@@ -297,6 +302,23 @@ class KafkaSource(StatefulIngestionSourceBase):
             [f"/{self.source_config.env.lower()}/{self.platform}/{browse_path_suffix}"]
         )
         dataset_snapshot.aspects.append(browse_path)
+
+        # Attach  DatasetProperties  aspect
+        cluster_id = f"{topic_list.cluster_id}"
+        controller_id = f"{topic_list.controller_id}"
+        number_of_partitions = f"{len(topic_list.topics[topic].partitions)}"
+        dataset_prop = DatasetPropertiesClass(
+            customProperties={
+                "clusterId": cluster_id,
+                "controllerId": controller_id,
+                "numberOfPartitions": number_of_partitions,
+            },
+            name=dataset_name,
+            qualifiedName=f"/{self.source_config.env.lower()}/{self.platform}/{cluster_id}/{browse_path_suffix}",
+            tags=[],
+        )
+
+        dataset_snapshot.aspects.append(dataset_prop)
 
         # 4. Attach dataPlatformInstance aspect.
         if self.source_config.platform_instance:

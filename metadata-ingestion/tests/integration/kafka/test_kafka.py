@@ -31,9 +31,10 @@ def test_kafka_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
         run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
         # Verify the output.
+        random_cluster_id: str = "root.*['customProperties'].['clusterId']"
         mce_helpers.check_golden_file(
             pytestconfig,
             output_path=tmp_path / "kafka_mces.json",
             golden_path=test_resources_dir / "kafka_mces_golden.json",
-            ignore_paths=[],
+            ignore_paths=[random_cluster_id],
         )
