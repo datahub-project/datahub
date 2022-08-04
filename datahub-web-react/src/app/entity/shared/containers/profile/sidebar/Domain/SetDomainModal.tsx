@@ -102,25 +102,25 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch }: Props) => {
         if (!selectedDomain) {
             return;
         }
-        try {
-            await batchSetDomainMutation({
-                variables: {
-                    input: {
-                        resources: [...urns.map((urn) => ({ resourceUrn: urn }))],
-                        domainUrn: selectedDomain.urn,
-                    },
+        batchSetDomainMutation({
+            variables: {
+                input: {
+                    resources: [...urns.map((urn) => ({ resourceUrn: urn }))],
                 },
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    message.success({ content: 'Updated Domain!', duration: 2 });
+                    refetch?.();
+                    onModalClose();
+                    setSelectedDomain(undefined);
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to add assets to Domain: \n ${e.message || ''}`, duration: 3 });
             });
-            message.success({ content: 'Updated Domain!', duration: 2 });
-        } catch (e: unknown) {
-            message.destroy();
-            if (e instanceof Error) {
-                message.error({ content: `Failed to set Domain: \n ${e.message || ''}`, duration: 3 });
-            }
-        }
-        setSelectedDomain(undefined);
-        refetch?.();
-        onModalClose();
     };
 
     const selectValue = (selectedDomain && [selectedDomain?.displayName]) || undefined;

@@ -15,23 +15,24 @@ export default function DomainsDropdown({ urns, disabled = false, refetch }: Pro
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const [batchSetDomainMutation] = useBatchSetDomainMutation();
 
-    const batchUnsetDomains = async () => {
-        try {
-            await batchSetDomainMutation({
-                variables: {
-                    input: {
-                        resources: [...urns.map((urn) => ({ resourceUrn: urn }))],
-                    },
+    const batchUnsetDomains = () => {
+        batchSetDomainMutation({
+            variables: {
+                input: {
+                    resources: [...urns.map((urn) => ({ resourceUrn: urn }))],
                 },
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    message.success({ content: 'Removed Domain!', duration: 2 });
+                    refetch?.();
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to remove assets from Domain: \n ${e.message || ''}`, duration: 3 });
             });
-            message.success({ content: 'Removed Domain!', duration: 2 });
-        } catch (e: unknown) {
-            message.destroy();
-            if (e instanceof Error) {
-                message.error({ content: `Failed to re,pve Domain: \n ${e.message || ''}`, duration: 3 });
-            }
-        }
-        refetch?.();
     };
 
     return (

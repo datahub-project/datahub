@@ -65,7 +65,7 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
 
   private void validateInputResource(ResourceRefInput resource, QueryContext context) {
     final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
-    if (!LabelUtils.isAuthorizedToUpdateTerms(context, resourceUrn, resource.getSubResource())) {
+    if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, resourceUrn)) {
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
     LabelUtils.validateResource(resourceUrn, resource.getSubResource(), resource.getSubResourceType(), _entityService);
