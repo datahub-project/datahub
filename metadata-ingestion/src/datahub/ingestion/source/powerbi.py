@@ -32,10 +32,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.common import (
-    ChangeAuditStamps,
-    DataPlatformInstance,
-)
+from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     ChangeTypeClass,
@@ -108,14 +105,6 @@ class Constant:
     HTTP_RESPONSE_STATUS_CODE = "HttpResponseStatusCode"
 
 
-@dataclass
-class CapabilitiesOverride:
-    extractOwnership: bool = pydantic.Field(
-        default=True,
-        description="Enable / Disable ingestion of user information for dashboard owner",
-    )
-
-
 class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     # Organsation Identifier
     tenant_id: str = pydantic.Field(description="PowerBI tenant identifier")
@@ -134,7 +123,9 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
         default=60, description="timeout for PowerBI metadata scanning"
     )
     # Enable/Disable extracting ownership information of Dashboard
-    override: CapabilitiesOverride = CapabilitiesOverride(extractOwnership=True)
+    include_ownerships: bool = pydantic.Field(
+        default=True, description="Whether ownership should be ingested"
+    )
 
 
 class PowerBiDashboardSourceConfig(PowerBiAPIConfig):
@@ -343,7 +334,7 @@ class PowerBiAPI:
         Get user for the given PowerBi entity
         """
         users: List[PowerBiAPI.User] = []
-        if self.__config.override.extractOwnership is False:
+        if self.__config.include_ownerships is False:
             LOGGER.info(
                 "ExtractOwnership capabilities is disabled from configuration and hence returning empty users list"
             )
@@ -1356,7 +1347,9 @@ class PowerBiDashboardSourceReport(SourceReport):
 @platform_name("PowerBI")
 @config_class(PowerBiDashboardSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.OWNERSHIP, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.OWNERSHIP, "On by default but can disabled by configuration"
+)
 class PowerBiDashboardSource(Source):
     """
     This plugin extracts the following:
