@@ -123,7 +123,7 @@ class PowerBiAPIConfig(EnvBasedSourceConfigBase):
         default=60, description="timeout for PowerBI metadata scanning"
     )
     # Enable/Disable extracting ownership information of Dashboard
-    include_ownerships: bool = pydantic.Field(
+    extract_ownership: bool = pydantic.Field(
         default=True, description="Whether ownership should be ingested"
     )
 
@@ -334,7 +334,7 @@ class PowerBiAPI:
         Get user for the given PowerBi entity
         """
         users: List[PowerBiAPI.User] = []
-        if self.__config.include_ownerships is False:
+        if self.__config.extract_ownership is False:
             LOGGER.info(
                 "ExtractOwnership capabilities is disabled from configuration and hence returning empty users list"
             )

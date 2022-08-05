@@ -12,7 +12,7 @@ source:
     # Azure AD App client secret
     client_secret: bar
     # Enable / Disable ingestion of user information for dashboards
-    include_ownerships: true
+    extract_ownership: true
     # dataset_type_mapping is fixed mapping of Power BI datasources type to equivalent Datahub "data platform" dataset
     dataset_type_mapping:
         PostgreSql: postgres
