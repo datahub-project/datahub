@@ -74,7 +74,7 @@ class AthenaConfig(SQLAlchemyConfig):
                 "work_group": self.work_group,
                 "catalog_name": self.catalog_name,
                 "role_arn": self.aws_role_arn,
-                "duration_seconds": self.aws_role_assumption_duration,
+                "duration_seconds": str(self.aws_role_assumption_duration),
             },
         )
 

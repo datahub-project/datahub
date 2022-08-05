@@ -25,7 +25,7 @@ def test_athena_uri():
     )
     assert (
         config.get_sql_alchemy_url()
-        == "awsathena+rest://@athena.us-west-1.amazonaws.com:443/?s3_staging_dir=s3%3A%2F%2Fsample-staging-dir%2F&work_group=test-workgroup"
+        == "awsathena+rest://@athena.us-west-1.amazonaws.com:443/?s3_staging_dir=s3%3A%2F%2Fsample-staging-dir%2F&work_group=test-workgroup&catalog_name=awsdatacatalog&duration_seconds=3600"
     )
 
 
