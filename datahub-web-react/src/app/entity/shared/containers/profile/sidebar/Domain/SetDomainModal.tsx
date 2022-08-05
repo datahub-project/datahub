@@ -4,14 +4,14 @@ import styled from 'styled-components';
 
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
 import { Entity, EntityType } from '../../../../../../../types.generated';
-import { useSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
+import { useBatchSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { useMutationUrn } from '../../../../EntityContext';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
 import { useGetRecommendations } from '../../../../../../shared/recommendation';
 import { DomainLabel } from '../../../../../../shared/DomainLabel';
 
 type Props = {
+    urns: string[];
     onCloseModal: () => void;
     refetch?: () => Promise<any>;
 };
@@ -30,15 +30,14 @@ const StyleTag = styled(Tag)`
     align-items: center;
 `;
 
-export const SetDomainModal = ({ onCloseModal, refetch }: Props) => {
+export const SetDomainModal = ({ urns, onCloseModal, refetch }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const urn = useMutationUrn();
     const [inputValue, setInputValue] = useState('');
     const [selectedDomain, setSelectedDomain] = useState<SelectedDomain | undefined>(undefined);
     const [domainSearch, { data: domainSearchData }] = useGetSearchResultsLazyQuery();
     const domainSearchResults =
         domainSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
-    const [setDomainMutation] = useSetDomainMutation();
+    const [batchSetDomainMutation] = useBatchSetDomainMutation();
     const [recommendedData] = useGetRecommendations([EntityType.Domain]);
     const inputEl = useRef(null);
 
@@ -103,23 +102,25 @@ export const SetDomainModal = ({ onCloseModal, refetch }: Props) => {
         if (!selectedDomain) {
             return;
         }
-        try {
-            await setDomainMutation({
-                variables: {
-                    entityUrn: urn,
-                    domainUrn: selectedDomain.urn,
+        batchSetDomainMutation({
+            variables: {
+                input: {
+                    resources: [...urns.map((urn) => ({ resourceUrn: urn }))],
                 },
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    message.success({ content: 'Updated Domain!', duration: 2 });
+                    refetch?.();
+                    onModalClose();
+                    setSelectedDomain(undefined);
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to add assets to Domain: \n ${e.message || ''}`, duration: 3 });
             });
-            message.success({ content: 'Updated Domain!', duration: 2 });
-        } catch (e: unknown) {
-            message.destroy();
-            if (e instanceof Error) {
-                message.error({ content: `Failed to set Domain: \n ${e.message || ''}`, duration: 3 });
-            }
-        }
-        setSelectedDomain(undefined);
-        refetch?.();
-        onModalClose();
     };
 
     const selectValue = (selectedDomain && [selectedDomain?.displayName]) || undefined;

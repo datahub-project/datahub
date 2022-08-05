@@ -2,15 +2,15 @@ package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
 import com.google.common.collect.ImmutableList;
 
-import com.linkedin.common.UrnArray;
+import com.linkedin.common.Deprecation;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
-import com.linkedin.domain.Domains;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
@@ -25,17 +25,17 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 
 
 @Slf4j
-public class DomainUtils {
+public class DeprecationUtils {
   private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP = new ConjunctivePrivilegeGroup(ImmutableList.of(
       PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
   ));
 
-  private DomainUtils() { }
+  private DeprecationUtils() { }
 
-  public static boolean isAuthorizedToUpdateDomainsForEntity(@Nonnull QueryContext context, Urn entityUrn) {
+  public static boolean isAuthorizedToUpdateDeprecationForEntity(@Nonnull QueryContext context, Urn entityUrn) {
     final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
         ALL_PRIVILEGES_GROUP,
-        new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DOMAINS_PRIVILEGE.getType()))
+        new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_ENTITY_DEPRECATION_PRIVILEGE.getType()))
     ));
 
     return AuthorizationUtils.isAuthorized(
@@ -46,42 +46,44 @@ public class DomainUtils {
         orPrivilegeGroups);
   }
 
-  public static void setDomainForResources(
-      @Nullable Urn domainUrn,
+  public static void updateDeprecationForResources(
+      boolean deprecated,
+      @Nullable String note,
+      @Nullable Long decommissionTime,
       List<ResourceRefInput> resources,
       Urn actor,
       EntityService entityService
-  ) throws Exception {
+  ) {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
-      changes.add(buildSetDomainProposal(domainUrn, resource, actor, entityService));
+      changes.add(buildUpdateDeprecationProposal(deprecated, note, decommissionTime, resource, actor, entityService));
     }
     ingestChangeProposals(changes, entityService, actor);
   }
 
-  private static MetadataChangeProposal buildSetDomainProposal(
-      @Nullable Urn domainUrn,
+  private static MetadataChangeProposal buildUpdateDeprecationProposal(
+      boolean deprecated,
+      @Nullable String note,
+      @Nullable Long decommissionTime,
       ResourceRefInput resource,
       Urn actor,
       EntityService entityService
   ) {
-    Domains domains = (Domains) getAspectFromEntity(
+    Deprecation deprecation = (Deprecation) getAspectFromEntity(
         resource.getResourceUrn(),
-        Constants.DOMAINS_ASPECT_NAME,
+        Constants.DEPRECATION_ASPECT_NAME,
         entityService,
-        new Domains());
-    final UrnArray newDomains = new UrnArray();
-    if (domainUrn != null) {
-      newDomains.add(domainUrn);
+        new Deprecation());
+    deprecation.setActor(actor);
+    deprecation.setDeprecated(deprecated);
+    deprecation.setDecommissionTime(decommissionTime, SetMode.REMOVE_IF_NULL);
+    if (note != null) {
+      deprecation.setNote(note);
+    } else {
+      // Note is required field in GMS. Set to empty string if not provided.
+      deprecation.setNote("");
     }
-    domains.setDomains(newDomains);
-    return buildMetadataChangeProposal(UrnUtils.getUrn(resource.getResourceUrn()), Constants.DOMAINS_ASPECT_NAME, domains, actor, entityService);
-  }
-
-  public static void validateDomain(Urn domainUrn, EntityService entityService) {
-    if (!entityService.exists(domainUrn)) {
-      throw new IllegalArgumentException(String.format("Failed to validate Domain with urn %s. Urn does not exist.", domainUrn));
-    }
+    return buildMetadataChangeProposal(UrnUtils.getUrn(resource.getResourceUrn()), Constants.DEPRECATION_ASPECT_NAME, deprecation, actor, entityService);
   }
 
   private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor) {
