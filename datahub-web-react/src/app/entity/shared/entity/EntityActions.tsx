@@ -4,7 +4,7 @@ import { LinkOutlined } from '@ant-design/icons';
 import { SearchSelectModal } from '../components/styled/search/SearchSelectModal';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { EntityCapabilityType } from '../../Entity';
-import { useBatchAddTermsMutation } from '../../../../graphql/mutations.generated';
+import { useBatchAddTermsMutation, useBatchSetDomainMutation } from '../../../../graphql/mutations.generated';
 
 export enum EntityActionItem {
     /**
@@ -30,6 +30,7 @@ function EntityActions(props: Props) {
     const [isBatchAddGlossaryTermModalVisible, setIsBatchAddGlossaryTermModalVisible] = useState(false);
     const [isBatchSetDomainModalVisible, setIsBatchSetDomainModalVisible] = useState(false);
     const [batchAddTermsMutation] = useBatchAddTermsMutation();
+    const [batchSetDomainMutation] = useBatchSetDomainMutation();
 
     // eslint-disable-next-line
     const batchAddGlossaryTerms = (entityUrns: Array<string>) => {
@@ -60,10 +61,31 @@ function EntityActions(props: Props) {
     };
 
     // eslint-disable-next-line
-    const batchSetDomains = (entityUrns: Array<string>) => {
-        refetchForEntity?.();
-        setIsBatchSetDomainModalVisible(false);
-        message.success('Successfully added assets!');
+    const batchSetDomain = (entityUrns: Array<string>) => {
+        batchSetDomainMutation({
+            variables: {
+                input: {
+                    domainUrn: urn,
+                    resources: entityUrns.map((entityUrn) => ({
+                        resourceUrn: entityUrn,
+                    })),
+                },
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    refetchForEntity?.();
+                    setIsBatchSetDomainModalVisible(false);
+                    message.success({
+                        content: `Added assets to Domain!`,
+                        duration: 2,
+                    });
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to add assets to Domain: \n ${e.message || ''}`, duration: 3 });
+            });
     };
 
     return (
@@ -95,7 +117,7 @@ function EntityActions(props: Props) {
                 <SearchSelectModal
                     titleText="Add assets to Domain"
                     continueText="Add"
-                    onContinue={batchSetDomains}
+                    onContinue={batchSetDomain}
                     onCancel={() => setIsBatchSetDomainModalVisible(false)}
                     fixedEntityTypes={Array.from(
                         entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.DOMAINS),
