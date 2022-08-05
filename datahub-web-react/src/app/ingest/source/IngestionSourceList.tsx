@@ -362,12 +362,7 @@ export const IngestionSourceList = () => {
                 return (
                     <StatusContainer>
                         {Icon && <Icon style={{ color }} />}
-
-                        <StatusButton
-                            style={{ padding: 0, margin: 0 }}
-                            type="link"
-                            onClick={() => setFocusExecutionUrn(record.lastExecUrn)}
-                        >
+                        <StatusButton type="link" onClick={() => setFocusExecutionUrn(record.lastExecUrn)}>
                             <Typography.Text strong style={{ color, marginLeft: 8 }}>
                                 {text || 'N/A'}
                             </Typography.Text>
