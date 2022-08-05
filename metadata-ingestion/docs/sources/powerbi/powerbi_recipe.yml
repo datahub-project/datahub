@@ -11,17 +11,12 @@ source:
     client_id: foo
     # Azure AD App client secret
     client_secret: bar
-    # override the capabilities settings if needed
-    override:
-      # Enable / Disable ingestion of user information of dashboards
-      # Default is true
-      extractOwnership: true
+    # Enable / Disable ingestion of user information for dashboards
+    include_ownerships: true
     # dataset_type_mapping is fixed mapping of Power BI datasources type to equivalent Datahub "data platform" dataset
     dataset_type_mapping:
         PostgreSql: postgres
         Oracle: oracle
-
-
 
 sink:
   # sink configs
