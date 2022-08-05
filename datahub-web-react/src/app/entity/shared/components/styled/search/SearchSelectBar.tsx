@@ -36,6 +36,7 @@ type Props = {
     showActions?: boolean;
     onChangeSelectAll: (selected: boolean) => void;
     onCancel?: () => void;
+    refetch?: () => void;
 };
 
 /**
@@ -50,6 +51,7 @@ export const SearchSelectBar = ({
     showActions = true,
     onChangeSelectAll,
     onCancel,
+    refetch,
 }: Props) => {
     const selectedEntityCount = selectedEntities.length;
     const onClickCancel = () => {
@@ -82,7 +84,7 @@ export const SearchSelectBar = ({
                 </Typography.Text>
             </CheckboxContainer>
             <ActionsContainer>
-                {showActions && <SearchSelectActions selectedEntities={selectedEntities} />}
+                {showActions && <SearchSelectActions selectedEntities={selectedEntities} refetch={refetch} />}
                 {showCancel && (
                     <CancelButton onClick={onClickCancel} type="link">
                         Done

@@ -12,6 +12,7 @@ import { useGetDomainQuery } from '../../../graphql/domain.generated';
 import { DomainEntitiesTab } from './DomainEntitiesTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { EntityActionItem } from '../shared/entity/EntityActions';
+// import { EntityActionItem } from '../shared/entity/EntityActions';
 
 /**
  * Definition of the DataHub Domain entity.

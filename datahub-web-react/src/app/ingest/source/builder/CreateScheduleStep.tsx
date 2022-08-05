@@ -1,5 +1,7 @@
-import { Button, Form, Input, Typography } from 'antd';
+import { Button, Form, Typography } from 'antd';
 import React, { useMemo } from 'react';
+import { Cron } from 'react-js-cron';
+import 'react-js-cron/dist/styles.css';
 import styled from 'styled-components';
 import cronstrue from 'cronstrue';
 import { CheckCircleOutlined } from '@ant-design/icons';
@@ -24,7 +26,6 @@ const SelectTemplateHeader = styled(Typography.Title)`
 
 const CronText = styled(Typography.Paragraph)`
     &&& {
-        margin-top: 8px;
         margin-bottom: 0px;
     }
     color: ${ANTD_GRAY[7]};
@@ -41,10 +42,21 @@ const ControlsContainer = styled.div`
     margin-top: 8px;
 `;
 
+const StyledFormItem = styled(Form.Item)`
+    .cron-builder {
+        color: ${ANTD_GRAY[7]};
+    }
+    .cron-builder-select {
+        min-width: 100px;
+    }
+`;
+
 const ItemDescriptionText = styled(Typography.Paragraph)``;
 
+const DAILY_MIDNIGHT_CRON_INTERVAL = '0 0 * * *';
+
 export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps) => {
-    const interval = state.schedule?.interval || '';
+    const interval = state.schedule?.interval?.replaceAll(', ', ' ') || DAILY_MIDNIGHT_CRON_INTERVAL;
     const timezone = state.schedule?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     const setTimezone = (tz: string) => {
@@ -110,9 +122,14 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                 <Typography.Text>Configure your ingestion source to run on a schedule.</Typography.Text>
             </Section>
             <Form layout="vertical">
-                <Form.Item required label={<Typography.Text strong>Schedule</Typography.Text>}>
-                    <ItemDescriptionText>Provide a custom cron schedule.</ItemDescriptionText>
-                    <Input value={interval} onChange={(e) => setCronInterval(e.target.value)} placeholder="* * * * *" />
+                <StyledFormItem required label={<Typography.Text strong>Schedule</Typography.Text>}>
+                    <Cron
+                        value={interval}
+                        setValue={setCronInterval}
+                        clearButton={false}
+                        className="cron-builder"
+                        leadingZero
+                    />
                     <CronText>
                         {cronAsText.error && <>Invalid cron schedule. Cron must be of UNIX form:</>}
                         {!cronAsText.text && (
@@ -127,7 +144,7 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                             </>
                         )}
                     </CronText>
-                </Form.Item>
+                </StyledFormItem>
                 <Form.Item required label={<Typography.Text strong>Timezone</Typography.Text>}>
                     <ItemDescriptionText>Select the timezone to run the cron schedule in.</ItemDescriptionText>
                     <TimezoneSelect value={timezone} onChange={setTimezone} />

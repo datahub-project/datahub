@@ -451,7 +451,7 @@ DATAHUB_MAE_CONSUMER_PORT=9091
     "--restore-file",
     required=False,
     type=str,
-    default="~/.datahub/quickstart/backup.sql",
+    default=os.path.expanduser("~/.datahub/quickstart/backup.sql"),
     help="Set this to provide a custom restore file",
 )
 @click.option(
@@ -527,6 +527,9 @@ def quickstart(
     quickstart_compose_file = list(
         quickstart_compose_file
     )  # convert to list from tuple
+
+    auth_resources_folder = Path(DATAHUB_ROOT_FOLDER) / "plugins/auth/resources"
+    os.makedirs(auth_resources_folder, exist_ok=True)
 
     default_quickstart_compose_file = _get_default_quickstart_compose_file()
     if stop:
