@@ -12,8 +12,10 @@ import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.SearchUtils;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -59,7 +61,13 @@ public class ElasticSearchService implements EntitySearchService {
   }
 
   @Override
-  public void appendRunId(@Nonnull String entityName, @Nonnull String docId, @Nullable String runId) {
+  public void appendRunId(@Nonnull String entityName, @Nonnull Urn urn, @Nullable String runId) {
+    final Optional<String> maybeDocId = SearchUtils.getDocId(urn);
+    if (!maybeDocId.isPresent()) {
+      log.warn(String.format("Failed to append run id, could not generate a doc id for urn %s", urn));
+      return;
+    }
+    final String docId = maybeDocId.get();
     log.debug(String.format("Appending run id for entityName: %s, docId: %s", entityName, docId));
     esWriteDAO.applyScriptUpdate(entityName, docId,
         /*

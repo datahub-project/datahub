@@ -93,7 +93,7 @@ public class ResolverUtils {
             return null;
         }
         return new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(facetFilterInputs.stream()
-            .map(filter -> new Criterion().setField(getFilterField(filter.getField()) + ESUtils.KEYWORD_SUFFIX).setValue(filter.getValue()))
+            .map(filter -> new Criterion().setField(getFilterField(filter.getField())).setValue(filter.getValue()))
             .collect(Collectors.toList())))));
     }
 

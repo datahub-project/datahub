@@ -71,7 +71,7 @@ export default function IngestedAssets({ urn, id }: Props) {
     const [showAssetSearch, setShowAssetSearch] = useState(false);
 
     // Execute search
-    const { data, error } = useGetSearchResultsForMultipleQuery({
+    const { data, loading, error } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
                 query: '*',
@@ -100,17 +100,23 @@ export default function IngestedAssets({ urn, id }: Props) {
     return (
         <>
             {error && <Message type="error" content="" />}
-            {total > 0 && (
-                <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <div>
-                            <Typography.Title level={5}>Ingested Assets</Typography.Title>
-                            {(total > 0 && (
-                                <Typography.Paragraph type="secondary">
-                                    The following asset types were ingested during this run.
-                                </Typography.Paragraph>
-                            )) || <Typography.Text style={{ fontSize: 12 }}>No assets were ingested.</Typography.Text>}
-                        </div>
+            <>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <div>
+                        <Typography.Title level={5}>Ingested Assets</Typography.Title>
+                        {(loading && <Typography.Text type="secondary">Loading...</Typography.Text>) || (
+                            <>
+                                {(total > 0 && (
+                                    <Typography.Paragraph type="secondary">
+                                        The following asset types were ingested during this run.
+                                    </Typography.Paragraph>
+                                )) || (
+                                    <Typography.Text style={{ fontSize: 12 }}>No assets were ingested.</Typography.Text>
+                                )}
+                            </>
+                        )}
+                    </div>
+                    {!loading && (
                         <div
                             style={{
                                 display: 'flex',
@@ -124,38 +130,38 @@ export default function IngestedAssets({ urn, id }: Props) {
                                 <b>{formatNumber(total)}</b> assets
                             </Typography.Text>
                         </div>
-                    </div>
-                    <div
-                        style={{
-                            display: 'flex',
-                            justifyContent: 'left',
-                            alignItems: 'center',
-                        }}
-                    >
-                        {countsByEntityType.map((entityCount) => (
-                            <span style={{ marginRight: 40 }}>
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        alignItems: 'flex-start',
-                                    }}
-                                >
-                                    <Typography.Text style={{ paddingLeft: 2, fontSize: 18, color: ANTD_GRAY[8] }}>
-                                        <b>{formatNumber(entityCount.count)}</b>
-                                    </Typography.Text>
-                                    <Typography.Text type="secondary">{entityCount.displayName}</Typography.Text>
-                                </div>
-                            </span>
-                        ))}
-                    </div>
-                    <div style={{ marginTop: 4 }}>
-                        <Button style={{ padding: 0 }} type="link" onClick={() => setShowAssetSearch(true)}>
-                            View All
-                        </Button>
-                    </div>
-                </>
-            )}
+                    )}
+                </div>
+                <div
+                    style={{
+                        display: 'flex',
+                        justifyContent: 'left',
+                        alignItems: 'center',
+                    }}
+                >
+                    {countsByEntityType.map((entityCount) => (
+                        <span style={{ marginRight: 40 }}>
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'flex-start',
+                                }}
+                            >
+                                <Typography.Text style={{ paddingLeft: 2, fontSize: 18, color: ANTD_GRAY[8] }}>
+                                    <b>{formatNumber(entityCount.count)}</b>
+                                </Typography.Text>
+                                <Typography.Text type="secondary">{entityCount.displayName}</Typography.Text>
+                            </div>
+                        </span>
+                    ))}
+                </div>
+                <div style={{ marginTop: 4 }}>
+                    <Button style={{ padding: 0 }} type="link" onClick={() => setShowAssetSearch(true)}>
+                        View All
+                    </Button>
+                </div>
+            </>
             {showAssetSearch && (
                 <EmbeddedListSearchModal
                     searchBarStyle={{ width: 600, marginRight: 40 }}

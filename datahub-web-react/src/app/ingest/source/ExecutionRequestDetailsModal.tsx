@@ -1,8 +1,10 @@
+import { DownloadOutlined } from '@ant-design/icons';
 import { Button, message, Modal, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useGetIngestionExecutionRequestQuery } from '../../../graphql/ingestion.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import { downloadFile } from '../../search/utils/csvUtils';
 import { Message } from '../../shared/Message';
 import IngestedAssets from './IngestedAssets';
 import {
@@ -42,7 +44,7 @@ const IngestedAssetsSection = styled.div`
 `;
 
 const LogsSection = styled.div`
-    padding: 16px;
+    padding-top: 16px;
     padding-left: 30px;
     padding-right: 30px;
 `;
@@ -64,6 +66,10 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
         }
     }, [output, setShowExpandedLogs]);
 
+    const downloadLogs = () => {
+        downloadFile(output, `exec-${urn}.log`);
+    };
+
     const logs = (showExpandedLogs && output) || output.slice(0, 100);
     const result = data?.executionRequest?.result?.status;
 
@@ -78,10 +84,11 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
     const resultSummaryText =
         (result && (
             <Typography.Text type="secondary">
-                Ingestion {result === 'SUCCESS' ? 'successfully completed.' : 'completed with errors.'}.
+                Ingestion {result === 'SUCCESS' ? 'successfully completed' : 'completed with errors'}.
             </Typography.Text>
         )) ||
         undefined;
+
     return (
         <Modal
             width={800}
@@ -117,9 +124,15 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
                 )}
                 <LogsSection>
                     <SectionHeader level={5}>Logs</SectionHeader>
-                    <Typography.Paragraph style={{ marginBottom: 0 }} type="secondary">
-                        View logs that were collected during the ingestion run.
-                    </Typography.Paragraph>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography.Paragraph style={{ marginBottom: 0 }} type="secondary">
+                            View logs that were collected during the ingestion run.
+                        </Typography.Paragraph>
+                        <Button type="text" onClick={downloadLogs}>
+                            <DownloadOutlined />
+                            Download
+                        </Button>
+                    </div>
                     <Typography.Paragraph ellipsis>
                         <pre>{`${logs}...`}</pre>
                         {!showExpandedLogs && (

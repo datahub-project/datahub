@@ -206,7 +206,6 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
     }
 
     _entitySearchService.upsertDocument(entityName, searchDocument.get(), docId.get());
-    _entitySearchService.appendRunId(entityName, docId.get(), runId);
   }
 
   /**

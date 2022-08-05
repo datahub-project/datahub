@@ -127,7 +127,7 @@ export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Pr
             title: 'Status',
             dataIndex: 'status',
             key: 'status',
-            render: (status: any) => {
+            render: (status: any, record) => {
                 const Icon = getExecutionRequestStatusIcon(status);
                 const text = getExecutionRequestStatusDisplayText(status);
                 const color = getExecutionRequestStatusDisplayColor(status);
@@ -135,9 +135,15 @@ export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Pr
                     <>
                         <div style={{ display: 'flex', justifyContent: 'left', alignItems: 'center' }}>
                             {Icon && <Icon style={{ color }} />}
-                            <Typography.Text strong style={{ color, marginLeft: 8 }}>
-                                {text || 'N/A'}
-                            </Typography.Text>
+                            <Button
+                                style={{ padding: 0, margin: 0 }}
+                                type="link"
+                                onClick={() => setFocusExecutionUrn(record.urn)}
+                            >
+                                <Typography.Text strong style={{ color, marginLeft: 8 }}>
+                                    {text || 'N/A'}
+                                </Typography.Text>
+                            </Button>
                         </div>
                     </>
                 );
