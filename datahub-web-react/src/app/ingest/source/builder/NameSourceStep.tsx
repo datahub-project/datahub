@@ -9,7 +9,7 @@ const ControlsContainer = styled.div`
     margin-top: 8px;
 `;
 
-const SaveRunButton = styled(Button)`
+const SaveButton = styled(Button)`
     margin-right: 15px;
 `;
 
@@ -98,17 +98,18 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
             <ControlsContainer>
                 <Button onClick={prev}>Previous</Button>
                 <div>
-                    <SaveRunButton
-                        disabled={!(state.name !== undefined && state.name.length > 0)}
-                        onClick={() => onClickCreate(true)}
-                    >
-                        Save & Run
-                    </SaveRunButton>
-                    <Button
+                    <SaveButton
                         disabled={!(state.name !== undefined && state.name.length > 0)}
                         onClick={() => onClickCreate(false)}
                     >
                         Save
+                    </SaveButton>
+                    <Button
+                        disabled={!(state.name !== undefined && state.name.length > 0)}
+                        onClick={() => onClickCreate(true)}
+                        type="primary"
+                    >
+                        Save & Run
                     </Button>
                 </div>
             </ControlsContainer>
