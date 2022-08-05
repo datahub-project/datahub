@@ -95,7 +95,7 @@ emitter.emit(mcpw, new Callback() {
     });
 ```
 
-### Emitter Code
+### REST Emitter Code
 
 If you're interested in looking at the REST emitter code, it is available [here](./datahub-client/src/main/java/datahub/client/rest/RestEmitter.java).
 
@@ -161,6 +161,43 @@ else {
 	System.out.println("Kafka service is down.");
 }
 ```
+### Kafka Emitter Code
+
+If you're interested in looking at the Kafka emitter code, it is available [here](./datahub-client/src/main/java/datahub/client/kafka/KafkaEmitter.java).
+
+## File Emitter
+
+File emitter writes MCPs into the json file. This works similar to "File" sink from python. You can use this, when the system which produces MCPs dont have direct connection to the datahub's server. Generated json file can be transferred later and then ingested into datahub using "File" source.
+
+### Usage
+
+```java
+
+
+import datahub.client.file.FileEmitter;
+import datahub.client.file.FileEmitterConfig;
+import datahub.event.MetadataChangeProposalWrapper;
+
+// ... followed by
+
+
+// Define output file co-ordinates
+String outputFile = "/my/path/output.json";
+
+//Create File Emitter
+FileEmitter emitter = new FileEmitter(FileEmitterConfig.builder().fileName(outputFile ).build());
+
+// Get MCPWs from getMCPWs()
+MetadataChangeProposalWrapper[] mcpws = getMCPWs();
+for (MetadataChangeProposalWrapper mcpw : mcpws) {
+   emitter.emit(mcpw);
+}
+emitter.close();
+    
+```
+### File Emitter Code
+
+If you're interested in looking at the File emitter code, it is available [here](./datahub-client/src/main/java/datahub/client/file/FileEmitter.java).
 
 ## Other Languages
 
