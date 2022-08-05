@@ -47,6 +47,7 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
             title={<Typography.Text>Create a new Secret</Typography.Text>}
             visible={visible}
             onCancel={onCancel}
+            zIndex={1051} // one higher than other modals - needed for managed ingestion forms
             footer={
                 <>
                     <Button onClick={onCancel} type="text">
