@@ -9,7 +9,7 @@
             "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
               "active": true,
               "displayName": {
-                "string": "Data Hubb"
+                "string": "Data Hub"
               },
               "email": "datahub@linkedin.com",
               "title": {
@@ -128,7 +128,7 @@
               "uri": null,
               "tags": [],
               "customProperties": {
-                "prop1": "PROPSasdsdSaaaxasdsdsdasdsasdsddasdsdasdsdsdasdsdsdjohnasdtesasdst",
+                "prop1": "fakeprop",
                 "prop2": "pikachu"
               }
             }

@@ -51,6 +51,11 @@ const StatusContainer = styled.div`
     align-items: center;
 `;
 
+const StatusButton = styled(Button)`
+    padding: 0px;
+    margin: 0px;
+`;
+
 const ActionButtonContainer = styled.div`
     display: flex;
     justify-content: right;
@@ -358,7 +363,7 @@ export const IngestionSourceList = () => {
                     <StatusContainer>
                         {Icon && <Icon style={{ color }} />}
 
-                        <Button
+                        <StatusButton
                             style={{ padding: 0, margin: 0 }}
                             type="link"
                             onClick={() => setFocusExecutionUrn(record.lastExecUrn)}
@@ -366,7 +371,7 @@ export const IngestionSourceList = () => {
                             <Typography.Text strong style={{ color, marginLeft: 8 }}>
                                 {text || 'N/A'}
                             </Typography.Text>
-                        </Button>
+                        </StatusButton>
                     </StatusContainer>
                 );
             },

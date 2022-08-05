@@ -1,7 +1,19 @@
 import React, { useState } from 'react';
 import { Button, Modal } from 'antd';
+import styled from 'styled-components';
 import { FacetFilterInput } from '../../../../../../types.generated';
 import { EmbeddedListSearch } from './EmbeddedListSearch';
+
+const SearchContainer = styled.div`
+    height: 500px;
+`;
+const modalStyle = {
+    top: 40,
+};
+
+const modalBodyStyle = {
+    padding: 0,
+};
 
 type Props = {
     emptySearchQuery?: string | null;
@@ -46,18 +58,14 @@ export const EmbeddedListSearchModal = ({
     return (
         <Modal
             width={800}
-            style={{ top: 40 }}
-            bodyStyle={{ padding: 0 }}
+            style={modalStyle}
+            bodyStyle={modalBodyStyle}
             title="View Ingested Assets"
             visible
             onCancel={onClose}
-            footer={
-                <>
-                    <Button onClick={onClose}>Close</Button>
-                </>
-            }
+            footer={<Button onClick={onClose}>Close</Button>}
         >
-            <div style={{ height: 500 }}>
+            <SearchContainer>
                 <EmbeddedListSearch
                     query={query}
                     filters={filters}
@@ -74,7 +82,7 @@ export const EmbeddedListSearchModal = ({
                     searchBarStyle={searchBarStyle}
                     searchBarInputStyle={searchBarInputStyle}
                 />
-            </div>
+            </SearchContainer>
         </Modal>
     );
 };

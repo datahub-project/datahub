@@ -11,7 +11,13 @@ import {
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
+    SUCCESS,
 } from './utils';
+
+const StyledTitle = styled(Typography.Title)`
+    padding: 0px;
+    margin: 0px;
+`;
 
 const Section = styled.div`
     display: flex;
@@ -27,6 +33,16 @@ const SectionHeader = styled(Typography.Title)`
     }
 `;
 
+const SectionSubHeader = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+`;
+
+const SubHeaderParagraph = styled(Typography.Paragraph)`
+    margin-bottom: 0px;
+`;
+
 const HeaderSection = styled.div``;
 
 const StatusSection = styled.div`
@@ -34,6 +50,10 @@ const StatusSection = styled.div`
     padding: 16px;
     padding-left: 30px;
     padding-right: 30px;
+`;
+
+const ResultText = styled.div`
+    margin-bottom: 4px;
 `;
 
 const IngestedAssetsSection = styled.div`
@@ -49,6 +69,18 @@ const LogsSection = styled.div`
     padding-right: 30px;
 `;
 
+const ShowMoreButton = styled(Button)`
+    padding: 0px;
+`;
+
+const modalStyle = {
+    top: 100,
+};
+
+const modalBodyStyle = {
+    padding: 0,
+};
+
 type Props = {
     urn: string;
     visible: boolean;
@@ -56,7 +88,7 @@ type Props = {
 };
 
 export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
-    const [showExpandedLogs, setShowExpandedLogs] = useState(false);
+    const [showExpandedLogs, setShowExpandedLogs] = useState(true);
     const { data, loading, error } = useGetIngestionExecutionRequestQuery({ variables: { urn } });
     const output = data?.executionRequest?.result?.report || 'No output found.';
 
@@ -84,7 +116,7 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
     const resultSummaryText =
         (result && (
             <Typography.Text type="secondary">
-                Ingestion {result === 'SUCCESS' ? 'successfully completed' : 'completed with errors'}.
+                Ingestion {result === SUCCESS ? 'successfully completed' : 'completed with errors'}.
             </Typography.Text>
         )) ||
         undefined;
@@ -92,18 +124,12 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
     return (
         <Modal
             width={800}
-            footer={
-                <>
-                    <Button onClick={onClose}>Close</Button>
-                </>
-            }
-            style={{ top: 100 }}
-            bodyStyle={{ padding: 0 }}
+            footer={<Button onClick={onClose}>Close</Button>}
+            style={modalStyle}
+            bodyStyle={modalBodyStyle}
             title={
                 <HeaderSection>
-                    <Typography.Title style={{ padding: 0, margin: 0 }} level={4}>
-                        Ingestion Run Details
-                    </Typography.Title>
+                    <StyledTitle level={4}>Ingestion Run Details</StyledTitle>
                 </HeaderSection>
             }
             visible={visible}
@@ -114,31 +140,31 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
             <Section>
                 <StatusSection>
                     <Typography.Title level={5}>Status</Typography.Title>
-                    <div style={{ marginBottom: 4 }}>{resultText}</div>
-                    <div>{resultSummaryText}</div>
+                    <ResultText>{resultText}</ResultText>
+                    <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
                 </StatusSection>
-                {result === 'SUCCESS' && (
+                {result === SUCCESS && (
                     <IngestedAssetsSection>
-                        {data?.executionRequest?.id && <IngestedAssets urn={urn} id={data?.executionRequest?.id} />}
+                        {data?.executionRequest?.id && <IngestedAssets id={data?.executionRequest?.id} />}
                     </IngestedAssetsSection>
                 )}
                 <LogsSection>
                     <SectionHeader level={5}>Logs</SectionHeader>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography.Paragraph style={{ marginBottom: 0 }} type="secondary">
+                    <SectionSubHeader>
+                        <SubHeaderParagraph type="secondary">
                             View logs that were collected during the ingestion run.
-                        </Typography.Paragraph>
+                        </SubHeaderParagraph>
                         <Button type="text" onClick={downloadLogs}>
                             <DownloadOutlined />
                             Download
                         </Button>
-                    </div>
+                    </SectionSubHeader>
                     <Typography.Paragraph ellipsis>
-                        <pre>{`${logs}...`}</pre>
+                        <pre>{`${logs}${!showExpandedLogs && '...'}`}</pre>
                         {!showExpandedLogs && (
-                            <Button style={{ padding: 0 }} type="link" onClick={() => setShowExpandedLogs(true)}>
+                            <ShowMoreButton type="link" onClick={() => setShowExpandedLogs(true)}>
                                 Show More
-                            </Button>
+                            </ShowMoreButton>
                         )}
                     </Typography.Paragraph>
                 </LogsSection>

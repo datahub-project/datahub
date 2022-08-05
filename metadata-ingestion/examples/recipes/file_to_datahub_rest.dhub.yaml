@@ -1,5 +1,4 @@
 ---
-run_id: "urn:li:datahubIngestionSource:johnstest"
 # see https://datahubproject.io/docs/generated/ingestion/sources/file for complete documentation
 source:
   type: "file"
