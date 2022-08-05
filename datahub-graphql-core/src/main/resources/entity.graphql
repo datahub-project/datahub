@@ -186,6 +186,11 @@ type Mutation {
     updateDataset(urn: String!, input: DatasetUpdateInput!): Dataset
 
     """
+    Update the metadata about a batch of Datasets
+    """
+    updateDatasets(input: [BatchDatasetUpdateInput!]!): [Dataset]
+
+    """
     Update the metadata about a particular Chart
     """
     updateChart(urn: String!, input: ChartUpdateInput!): Chart
@@ -3595,6 +3600,23 @@ input DatasetUpdateInput {
     """
     editableProperties: DatasetEditablePropertiesUpdate
 }
+
+"""
+Arguments provided to batch update Dataset entities
+"""
+input BatchDatasetUpdateInput {
+
+    """
+    Primary key of the Dataset to which the update will be applied
+    """
+    urn: String!
+
+    """
+    Arguments provided to update the Dataset
+    """
+    update: DatasetUpdateInput!
+}
+
 
 """
 Update to editable schema metadata of the dataset
