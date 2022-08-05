@@ -9,6 +9,10 @@ const ControlsContainer = styled.div`
     margin-top: 8px;
 `;
 
+const SaveRunButton = styled(Button)`
+    margin-right: 15px;
+`;
+
 export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) => {
     const setName = (stagedName: string) => {
         const newState: SourceBuilderState = {
@@ -40,9 +44,9 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
         updateState(newState);
     };
 
-    const onClickCreate = () => {
+    const onClickCreate = (shouldRun?: boolean) => {
         if (state.name !== undefined && state.name.length > 0) {
-            submit();
+            submit(shouldRun);
         }
     };
 
@@ -93,9 +97,20 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
             </Form>
             <ControlsContainer>
                 <Button onClick={prev}>Previous</Button>
-                <Button disabled={!(state.name !== undefined && state.name.length > 0)} onClick={onClickCreate}>
-                    Done
-                </Button>
+                <div>
+                    <SaveRunButton
+                        disabled={!(state.name !== undefined && state.name.length > 0)}
+                        onClick={() => onClickCreate(true)}
+                    >
+                        Save & Run
+                    </SaveRunButton>
+                    <Button
+                        disabled={!(state.name !== undefined && state.name.length > 0)}
+                        onClick={() => onClickCreate(false)}
+                    >
+                        Save
+                    </Button>
+                </div>
             </ControlsContainer>
         </>
     );
