@@ -26,7 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class ElasticSearchService implements EntitySearchService {
 
-  private static final int MAX_RUN_IDS_INDEXED = 100; // Save the previous 100 run ids in the index.
+  private static final int MAX_RUN_IDS_INDEXED = 25; // Save the previous 25 run ids in the index.
   private final EntityIndexBuilders indexBuilders;
   private final ESSearchDAO esSearchDAO;
   private final ESBrowseDAO esBrowseDAO;
