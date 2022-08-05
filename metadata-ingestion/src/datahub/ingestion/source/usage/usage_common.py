@@ -6,6 +6,7 @@ from typing import Callable, Counter, Generic, List, Optional, TypeVar
 
 import pydantic
 from pydantic.fields import Field
+from sql_metadata import Parser
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
@@ -155,7 +156,7 @@ class BaseUsageConfig(BaseTimeWindowConfig):
     )
 
     format_sql_queries: bool = Field(
-        default=False, description="Whether to format sql queries"
+        default=True, description="Whether to format sql queries"
     )
     include_top_n_queries: bool = Field(
         default=True, description="Whether to ingest the top_n_queries."
