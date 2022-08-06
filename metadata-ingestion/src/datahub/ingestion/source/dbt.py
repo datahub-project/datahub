@@ -3,6 +3,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
+from enum import Enum
 from typing import (
     Any,
     Callable,
@@ -19,7 +20,7 @@ from urllib.parse import urlparse
 
 import dateutil.parser
 import requests
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, root_validator, validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
@@ -133,6 +134,84 @@ class DBTSourceReport(StatefulIngestionReport):
         self.soft_deleted_stale_entities.append(urn)
 
 
+class EmitDirective(Enum):
+    """A holder for directives for emission for specific types of entities"""
+
+    YES = "YES"  # Okay to emit for this type
+    NO = "NO"  # Do not emit for this type
+    ONLY = "ONLY"  # Only emit metadata for this type and no others
+
+
+class DBTEntitiesEnabled(BaseModel):
+    """Controls which dbt entities are going to be emitted by this source"""
+
+    models: EmitDirective = Field(
+        "Yes", description="Emit metadata for dbt models when set to Yes or Only"
+    )
+    sources: EmitDirective = Field(
+        "Yes", description="Emit metadata for dbt sources when set to Yes or Only"
+    )
+    seeds: EmitDirective = Field(
+        "Yes", description="Emit metadata for dbt seeds when set to Yes or Only"
+    )
+    test_definitions: EmitDirective = Field(
+        "Yes",
+        description="Emit metadata for test definitions when enabled when set to Yes or Only",
+    )
+    test_results: EmitDirective = Field(
+        "Yes", description="Emit metadata for test results when set to Yes or Only"
+    )
+    # _node_type_emit_decision_cache: Dict[str, bool] = Field(default_factory=dict, exclude=True)
+
+    @validator("*", pre=True, always=True)
+    def to_upper(cls, v):
+        return v.upper() if isinstance(v, str) else v
+
+    @root_validator
+    def only_one_can_be_set_to_only(cls, values):
+        only_values = [k for k in values if values.get(k) == EmitDirective.ONLY]
+        if len(only_values) > 1:
+            raise ValueError(
+                f"Cannot have more than 1 type of entity emission set to ONLY. Found {only_values}"
+            )
+        return values
+
+    def _any_other_only_set(self, attribute: str) -> bool:
+        """Return true if any attribute other than the one passed in is set to ONLY"""
+        other_onlies = [
+            k
+            for k, v in self.__dict__.items()
+            if k != attribute and v == EmitDirective.ONLY
+        ]
+        return len(other_onlies) != 0
+
+    @property
+    def node_type_emit_decision_cache(self) -> Dict[str, bool]:
+        node_type_for_field_map = {
+            "models": "model",
+            "sources": "source",
+            "seeds": "seed",
+            "test_definitions": "test",
+        }
+        return {
+            node_type_for_field_map[k]: False
+            if self._any_other_only_set(k)
+            or self.__getattribute__(k) == EmitDirective.NO
+            else True
+            for k in ["models", "sources", "seeds", "test_definitions"]
+        }
+
+    def can_emit_node_type(self, node_type: str) -> bool:
+        return self.node_type_emit_decision_cache.get(node_type, False)
+
+    @property
+    def can_emit_test_results(self) -> bool:
+        return (
+            not self._any_other_only_set("test_results")
+            and self.test_results != EmitDirective.NO
+        )
+
+
 class DBTConfig(StatefulIngestionConfigBase):
     manifest_path: str = Field(
         description="Path to dbt manifest JSON. See https://docs.getdbt.com/reference/artifacts/manifest-json Note this can be a local file or a URI."
@@ -169,7 +248,11 @@ class DBTConfig(StatefulIngestionConfigBase):
     )
     node_type_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for dbt nodes to filter in ingestion.",
+        description="Deprecated: use entities_enabled instead. Regex patterns for dbt nodes to filter in ingestion.",
+    )
+    entities_enabled: DBTEntitiesEnabled = Field(
+        DBTEntitiesEnabled(),
+        description="Controls for enabling / disabling metadata emission for different dbt entities (models, test definitions, test results, etc.)",
     )
     tag_prefix: str = Field(
         default=f"{DBT_PLATFORM}:", description="Prefix added to tags during ingestion."
@@ -217,10 +300,6 @@ class DBTConfig(StatefulIngestionConfigBase):
     delete_tests_as_datasets: bool = Field(
         False,
         description="Prior to version 0.8.38, dbt tests were represented as datasets. If you ingested dbt tests before, set this flag to True (just needed once) to soft-delete tests that were generated as datasets by previous ingestion.",
-    )
-    enable_only_assertions: bool = Field(
-        False,
-        description="When enabled, inserts only assertion results generated from run_results.json file rather than creating the assertion object",
     )
     backcompat_skip_source_on_lineage_edge: bool = Field(
         False,
@@ -389,6 +468,7 @@ def extract_dbt_entities(
     node_type_pattern: AllowDenyPattern,
     report: DBTSourceReport,
     node_name_pattern: AllowDenyPattern,
+    entities_enabled: DBTEntitiesEnabled,
 ) -> List[DBTNode]:
     sources_by_id = {x["unique_id"]: x for x in sources_results}
 
@@ -396,6 +476,9 @@ def extract_dbt_entities(
     for key, manifest_node in all_manifest_entities.items():
         # check if node pattern allowed based on config file
         if not node_type_pattern.allowed(manifest_node["resource_type"]):
+            logger.debug(
+                f"Not extracting dbt entity {key} since node type {manifest_node['resource_type']} is disabled"
+            )
             continue
 
         name = manifest_node["name"]
@@ -871,6 +954,10 @@ class DBTTest:
         test_nodes: List[DBTNode],
         manifest_nodes: Dict[str, Any],
     ) -> Iterable[MetadataWorkUnit]:
+        if not config.entities_enabled.can_emit_test_results:
+            logger.debug("Skipping test result emission since it is turned off.")
+            return []
+
         args = test_results_json.get("args", {})
         dbt_metadata = DBTRunMetadata.parse_obj(test_results_json.get("metadata", {}))
         test_nodes_map: Dict[str, DBTNode] = {x.dbt_name: x for x in test_nodes}
@@ -882,7 +969,7 @@ class DBTTest:
                     test_result = DBTTestResult.parse_obj(result)
                     id = test_result.unique_id
                     test_node = test_nodes_map.get(id)
-                    assert test_node
+                    assert test_node, f"Failed to find test_node {id} in the catalog"
                     upstream_urns = get_upstreams(
                         test_node.upstream_nodes,
                         manifest_nodes,
@@ -1128,6 +1215,7 @@ class DBTSource(StatefulIngestionSourceBase):
             node_type_pattern,
             report,
             node_name_pattern,
+            self.config.entities_enabled,
         )
 
         return (
@@ -1148,6 +1236,9 @@ class DBTSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         def string_map(input_map: Dict[str, Any]) -> Dict[str, str]:
             return {k: str(v) for k, v in input_map.items()}
+
+        if not self.config.entities_enabled.can_emit_node_type("test"):
+            return []
 
         for node in test_nodes:
             node_datahub_urn = mce_builder.make_assertion_urn(
@@ -1367,10 +1458,7 @@ class DBTSource(StatefulIngestionSourceBase):
         ]
         test_nodes = [test_node for test_node in nodes if test_node.node_type == "test"]
 
-        if (
-            not self.config.disable_dbt_node_creation
-            and not self.config.enable_only_assertions
-        ):
+        if not self.config.disable_dbt_node_creation:
             yield from self.create_platform_mces(
                 non_test_nodes,
                 additional_custom_props_filtered,
@@ -1379,25 +1467,21 @@ class DBTSource(StatefulIngestionSourceBase):
                 self.config.platform_instance,
             )
 
-        if not self.config.enable_only_assertions:
-            yield from self.create_platform_mces(
-                non_test_nodes,
-                additional_custom_props_filtered,
-                manifest_nodes_raw,
-                self.config.target_platform,
-                self.config.target_platform_instance,
-            )
-            yield from self.create_test_entity_mcps(
-                test_nodes,
-                additional_custom_props_filtered,
-                manifest_nodes_raw,
-            )
+        yield from self.create_platform_mces(
+            non_test_nodes,
+            additional_custom_props_filtered,
+            manifest_nodes_raw,
+            self.config.target_platform,
+            self.config.target_platform_instance,
+        )
 
-        if (
-            self.config.test_results_path
-            and self.config.enable_only_assertions
-            or self.config.test_results_path
-        ):
+        yield from self.create_test_entity_mcps(
+            test_nodes,
+            additional_custom_props_filtered,
+            manifest_nodes_raw,
+        )
+
+        if self.config.test_results_path:
             yield from DBTTest.load_test_results(
                 self.config,
                 self.load_file_as_json(self.config.test_results_path),
@@ -1461,6 +1545,7 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.strip_user_ids_from_email,
         )
         for node in dbt_nodes:
+
             node_datahub_urn = get_urn_from_dbtNode(
                 node.database,
                 node.schema,
@@ -1469,6 +1554,11 @@ class DBTSource(StatefulIngestionSourceBase):
                 self.config.env,
                 mce_platform_instance,
             )
+            if not self.config.entities_enabled.can_emit_node_type(node.node_type):
+                logger.debug(
+                    f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
+                )
+                continue
             self.save_checkpoint(node_datahub_urn)
 
             meta_aspects: Dict[str, Any] = {}
