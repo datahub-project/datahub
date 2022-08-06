@@ -217,7 +217,7 @@ def test_override_ownership(
                 "type": "powerbi",
                 "config": {
                     **default_source_config(),
-                    "include_ownerships": False,
+                    "extract_ownership": False,
                 },
             },
             "sink": {
