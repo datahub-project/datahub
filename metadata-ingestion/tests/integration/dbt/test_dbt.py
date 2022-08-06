@@ -502,8 +502,7 @@ def test_dbt_tests_only_assertions(pytestconfig, tmp_path, mock_time, **kwargs):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
 
     # Run the metadata ingestion pipeline.
-    output_file = tmp_path / "test.json"
-    golden_path = test_resources_dir / "dbt_test_events_golden_only_assertions.json"
+    output_file = tmp_path / "test_only_assertions.json"
 
     pipeline = Pipeline(
         config=PipelineConfig(
@@ -534,11 +533,43 @@ def test_dbt_tests_only_assertions(pytestconfig, tmp_path, mock_time, **kwargs):
     pipeline.run()
     pipeline.raise_from_status()
     # Verify the output.
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=output_file,
-        golden_path=golden_path,
-        ignore_paths=[],
+    # No datasets were emitted, and more than 20 events were emitted
+    assert (
+        mce_helpers.assert_entity_urn_not_like(
+            entity_type="dataset",
+            regex_pattern="urn:li:dataset:\\(urn:li:dataPlatform:dbt",
+            file=output_file,
+        )
+        > 20
+    )
+    number_of_valid_assertions_in_test_results = 23
+    assert (
+        mce_helpers.assert_entity_urn_like(
+            entity_type="assertion", regex_pattern="urn:li:assertion:", file=output_file
+        )
+        == number_of_valid_assertions_in_test_results
+    )
+    # no assertionInfo should be emitted
+    try:
+        mce_helpers.assert_for_each_entity(
+            entity_type="assertion",
+            aspect_name="assertionInfo",
+            aspect_field_matcher={},
+            file=output_file,
+        )
+    except AssertionError:
+        pass
+
+    # all assertions must have an assertionRunEvent emitted (except for one assertion)
+    assert (
+        mce_helpers.assert_for_each_entity(
+            entity_type="assertion",
+            aspect_name="assertionRunEvent",
+            aspect_field_matcher={},
+            file=output_file,
+            exception_urns=["urn:li:assertion:2ff754df689ea951ed2e12cbe356708f"],
+        )
+        == number_of_valid_assertions_in_test_results
     )
 
 
