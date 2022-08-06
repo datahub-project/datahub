@@ -5,7 +5,7 @@ import { ExpandedOwner } from '../../../../components/styled/ExpandedOwner';
 import { EMPTY_MESSAGES } from '../../../../constants';
 import { useEntityData, useMutationUrn, useRefetch } from '../../../../EntityContext';
 import { SidebarHeader } from '../SidebarHeader';
-import { AddOwnersModal } from './AddOwnersModal';
+import { EditOwnersModal } from './EditOwnersModal';
 
 export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
     const { entityType, entityData } = useEntityData();
@@ -38,11 +38,11 @@ export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
                 </Button>
             </div>
             {showAddModal && (
-                <AddOwnersModal
-                    urn={mutationUrn}
+                <EditOwnersModal
+                    urns={[mutationUrn]}
                     defaultOwnerType={properties?.defaultOwnerType}
                     hideOwnerType={properties?.hideOwnerType || false}
-                    type={entityType}
+                    entityType={entityType}
                     refetch={refetch}
                     onCloseModal={() => {
                         setShowAddModal(false);

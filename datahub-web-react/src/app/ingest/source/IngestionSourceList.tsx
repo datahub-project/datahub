@@ -111,59 +111,6 @@ export const IngestionSourceList = () => {
     const focusSource =
         (focusSourceUrn && filteredSources.find((source) => source.urn === focusSourceUrn)) || undefined;
 
-    const onCreateOrUpdateIngestionSourceSuccess = () => {
-        setTimeout(() => refetch(), 2000);
-        setIsBuildingSource(false);
-        setFocusSourceUrn(undefined);
-    };
-
-    const createOrUpdateIngestionSource = (input: UpdateIngestionSourceInput, resetState: () => void) => {
-        if (focusSourceUrn) {
-            // Update:
-            updateIngestionSource({ variables: { urn: focusSourceUrn as string, input } })
-                .then(() => {
-                    message.success({
-                        content: `Successfully updated ingestion source!`,
-                        duration: 3,
-                    });
-                    onCreateOrUpdateIngestionSourceSuccess();
-                    resetState();
-                })
-                .catch((e) => {
-                    message.destroy();
-                    message.error({
-                        content: `Failed to update ingestion source!: \n ${e.message || ''}`,
-                        duration: 3,
-                    });
-                });
-        } else {
-            // Create
-            createIngestionSource({ variables: { input } })
-                .then(() => {
-                    setTimeout(() => refetch(), 2000);
-                    setIsBuildingSource(false);
-                    setFocusSourceUrn(undefined);
-                    resetState();
-                    message.success({
-                        content: `Successfully created ingestion source!`,
-                        duration: 3,
-                    });
-                    // onCreateOrUpdateIngestionSourceSuccess();
-                })
-                .catch((e) => {
-                    message.destroy();
-                    message.error({
-                        content: `Failed to create ingestion source!: \n ${e.message || ''}`,
-                        duration: 3,
-                    });
-                });
-        }
-    };
-
-    const onChangePage = (newPage: number) => {
-        setPage(newPage);
-    };
-
     const onRefresh = () => {
         refetch();
         // Used to force a re-render of the child execution request list.
@@ -194,6 +141,70 @@ export const IngestionSourceList = () => {
             });
     };
 
+    const onCreateOrUpdateIngestionSourceSuccess = () => {
+        setTimeout(() => refetch(), 2000);
+        setIsBuildingSource(false);
+        setFocusSourceUrn(undefined);
+    };
+
+    const createOrUpdateIngestionSource = (
+        input: UpdateIngestionSourceInput,
+        resetState: () => void,
+        shouldRun?: boolean,
+    ) => {
+        if (focusSourceUrn) {
+            // Update:
+            updateIngestionSource({ variables: { urn: focusSourceUrn as string, input } })
+                .then(() => {
+                    message.success({
+                        content: `Successfully updated ingestion source!`,
+                        duration: 3,
+                    });
+                    onCreateOrUpdateIngestionSourceSuccess();
+                    resetState();
+                    if (shouldRun) executeIngestionSource(focusSourceUrn);
+                })
+                .catch((e) => {
+                    message.destroy();
+                    message.error({
+                        content: `Failed to update ingestion source!: \n ${e.message || ''}`,
+                        duration: 3,
+                    });
+                });
+        } else {
+            // Create
+            createIngestionSource({ variables: { input } })
+                .then((result) => {
+                    message.loading({ content: 'Loading...', duration: 2 });
+                    setTimeout(() => {
+                        refetch();
+                        message.success({
+                            content: `Successfully created ingestion source!`,
+                            duration: 3,
+                        });
+                        if (shouldRun && result.data?.createIngestionSource) {
+                            executeIngestionSource(result.data.createIngestionSource);
+                        }
+                    }, 2000);
+                    setIsBuildingSource(false);
+                    setFocusSourceUrn(undefined);
+                    resetState();
+                    // onCreateOrUpdateIngestionSourceSuccess();
+                })
+                .catch((e) => {
+                    message.destroy();
+                    message.error({
+                        content: `Failed to create ingestion source!: \n ${e.message || ''}`,
+                        duration: 3,
+                    });
+                });
+        }
+    };
+
+    const onChangePage = (newPage: number) => {
+        setPage(newPage);
+    };
+
     const deleteIngestionSource = async (urn: string) => {
         removeIngestionSourceMutation({
             variables: { urn },
@@ -214,7 +225,7 @@ export const IngestionSourceList = () => {
             });
     };
 
-    const onSubmit = (recipeBuilderState: SourceBuilderState, resetState: () => void) => {
+    const onSubmit = (recipeBuilderState: SourceBuilderState, resetState: () => void, shouldRun?: boolean) => {
         createOrUpdateIngestionSource(
             {
                 type: recipeBuilderState.type as string,
@@ -236,6 +247,7 @@ export const IngestionSourceList = () => {
                 },
             },
             resetState,
+            shouldRun,
         );
     };
 

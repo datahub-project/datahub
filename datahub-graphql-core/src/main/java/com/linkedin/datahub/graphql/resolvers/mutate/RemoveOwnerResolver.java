@@ -1,10 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.RemoveOwnerInput;
+import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
@@ -39,12 +41,10 @@ public class RemoveOwnerResolver implements DataFetcher<CompletableFuture<Boolea
           _entityService
       );
       try {
-        log.debug("Removing Link input: {}", input);
-
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
-        OwnerUtils.removeOwner(
-            ownerUrn,
-            targetUrn,
+        OwnerUtils.removeOwnersFromResources(
+            ImmutableList.of(ownerUrn),
+            ImmutableList.of(new ResourceRefInput(input.getResourceUrn(), null, null)),
             actor,
             _entityService
         );
