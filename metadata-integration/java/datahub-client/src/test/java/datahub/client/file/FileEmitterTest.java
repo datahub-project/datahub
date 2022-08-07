@@ -2,7 +2,7 @@ package datahub.client.file;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URISyntaxException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -30,46 +30,43 @@ import datahub.event.MetadataChangeProposalWrapper;
 public class FileEmitterTest {
   private final ObjectMapper objectMapper = new ObjectMapper();
   private final JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec(objectMapper.getFactory());
-  private static final String RESOURCE_DIR = "src/test/resources";
-  private static final String GOLDEN_FILE_DIR = RESOURCE_DIR + "/golden_files";
 
   @Rule
   public TemporaryFolder tempFolder = new TemporaryFolder();
 
   @Test
-  public void testFileEmitter() throws URISyntaxException, IOException {
+  public void testFileEmitter() throws IOException {
 
-    String goldenJson = GOLDEN_FILE_DIR + "/mcps_golden.json";
+    InputStream goldenFileStream = ClassLoader.getSystemResourceAsStream("golden_files/mcps_golden.json");
+
     String tempRoot = tempFolder.getRoot().toString();
     String outputFile = tempRoot + "/test.json";
     FileEmitter emitter = new FileEmitter(FileEmitterConfig.builder().fileName(outputFile).build());
-    for (MetadataChangeProposal mcp : this.getMCPs(goldenJson)) {
+    for (MetadataChangeProposal mcp : this.getMCPs(goldenFileStream)) {
       emitter.emit(mcp);
     }
     emitter.close();
-
-    this.assertEqualJsonFile(goldenJson, outputFile);
+    goldenFileStream = ClassLoader.getSystemResourceAsStream("golden_files/mcps_golden.json");
+    this.assertEqualJsonFile(goldenFileStream, outputFile);
 
   }
 
-  private void assertEqualJsonFile(String file1, String file2) throws StreamReadException, DatabindException,
+  private void assertEqualJsonFile(InputStream file1, String file2) throws StreamReadException, DatabindException,
       IOException {
     TypeReference<List<Map<String, Object>>> typeRef = new TypeReference<List<Map<String, Object>>>() {
     };
-    File f1 = new File(file1);
-    List<Map<String, Object>> map1 = this.objectMapper.readValue(f1, typeRef);
+    List<Map<String, Object>> map1 = this.objectMapper.readValue(file1, typeRef);
     File f2 = new File(file2);
     List<Map<String, Object>> map2 = this.objectMapper.readValue(f2, typeRef);
     Assert.assertEquals(map1, map2);
   }
 
-  private List<MetadataChangeProposal> getMCPs(String fileName) throws StreamReadException, DatabindException,
-      IOException {
+  private List<MetadataChangeProposal> getMCPs(InputStream fileStream) throws StreamReadException, DatabindException,
+                                                                            IOException {
     ArrayList<MetadataChangeProposal> mcps = new ArrayList<MetadataChangeProposal>();
-    File file = new File(fileName);
     TypeReference<Map<String, Object>[]> typeRef = new TypeReference<Map<String, Object>[]>() {
     };
-    Map<String, Object>[] maps = this.objectMapper.readValue(file, typeRef);
+    Map<String, Object>[] maps = this.objectMapper.readValue(fileStream, typeRef);
     for (Map<String, Object> map : maps) {
       String json = objectMapper.writeValueAsString(map);
       DataMap data = dataTemplateCodec.stringToMap(json);

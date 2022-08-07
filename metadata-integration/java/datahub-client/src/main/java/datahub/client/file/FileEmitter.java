@@ -22,6 +22,7 @@ import datahub.client.MetadataWriteResponse;
 import datahub.event.EventFormatter;
 import datahub.event.MetadataChangeProposalWrapper;
 import datahub.event.UpsertAspectRequest;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -33,7 +34,9 @@ public class FileEmitter implements Emitter {
       .setSerializationInclusion(JsonInclude.Include.NON_NULL);
   private final JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec(objectMapper.getFactory());
 
-  private BufferedWriter writer;
+  private final BufferedWriter writer;
+  private final Future<MetadataWriteResponse> cachedSuccessFuture;
+  private final AtomicBoolean closed;
   private boolean wroteSomething;
   private static final String INDENT_4 = "    ";
 
@@ -57,72 +60,14 @@ public class FileEmitter implements Emitter {
       this.writer = new BufferedWriter(fw);
       this.writer.append("[");
       this.writer.newLine();
+      this.closed = new AtomicBoolean(false);
     } catch (IOException e) {
       throw new RuntimeException("Error while creating file", e);
     }
     this.wroteSomething = false;
     log.debug("Emitter created successfully for " + this.config.getFileName());
-  }
 
-  @Override
-  public void close() throws IOException {
-    this.writer.newLine();
-    this.writer.append("]");
-    this.writer.close();
-    this.writer = null;
-    log.debug("Emitter closed for " + this.config.getFileName());
-  }
-
-  @Override
-  public Future<MetadataWriteResponse> emit(@SuppressWarnings("rawtypes") MetadataChangeProposalWrapper mcpw,
-      Callback callback) throws IOException {
-    return emit(this.eventFormatter.convert(mcpw), callback);
-  }
-
-  @Override
-  public Future<MetadataWriteResponse> emit(MetadataChangeProposal mcp, Callback callback) throws IOException {
-    if (this.writer == null) {
-      String errorMsg = "Emitter is closed. MCP could not be written on closed emitter.";
-      log.error(errorMsg);
-      Future<MetadataWriteResponse> response = createFailureFuture(errorMsg);
-      if (callback != null) {
-        callback.onFailure(new Exception(errorMsg));
-      }
-      return response;
-    }
-
-    String serializedMCP = this.dataTemplateCodec.mapToString(mcp.data());
-    if (wroteSomething) {
-      this.writer.append(",");
-      this.writer.newLine();
-    }
-    this.writer.append(serializedMCP);
-    wroteSomething = true;
-    log.debug("MCP written successfully: " + serializedMCP);
-    Future<MetadataWriteResponse> response = createSuccessFuture();
-    if (callback != null) {
-      try {
-        callback.onCompletion(response.get());
-      } catch (InterruptedException | ExecutionException e) {
-        log.warn("Callback could not be executed.", e);
-      }
-    }
-    return response;
-  }
-
-  @Override
-  public boolean testConnection() throws IOException, ExecutionException, InterruptedException {
-    throw new UnsupportedOperationException("testConnection not relevant for File Emitter");
-  }
-
-  @Override
-  public Future<MetadataWriteResponse> emit(List<UpsertAspectRequest> request, Callback callback) throws IOException {
-    throw new UnsupportedOperationException("UpsertAspectRequest not relevant for File Emitter");
-  }
-
-  private Future<MetadataWriteResponse> createSuccessFuture() {
-    return new Future<MetadataWriteResponse>() {
-
+    this.cachedSuccessFuture = new Future<MetadataWriteResponse>() {
       @Override
       public boolean cancel(boolean mayInterruptIfRunning) {
         return false;
@@ -149,7 +94,73 @@ public class FileEmitter implements Emitter {
         return true;
       }
     };
+  }
 
+  @Override
+  public void close() throws IOException {
+    this.writer.newLine();
+    this.writer.append("]");
+    this.writer.close();
+    this.closed.set(true);
+    log.debug("Emitter closed for {}", this.config.getFileName());
+  }
+
+  @Override
+  public Future<MetadataWriteResponse> emit(@SuppressWarnings("rawtypes") MetadataChangeProposalWrapper mcpw,
+      Callback callback) throws IOException {
+    return emit(this.eventFormatter.convert(mcpw), callback);
+  }
+
+  @Override
+  public Future<MetadataWriteResponse> emit(MetadataChangeProposal mcp, Callback callback) throws IOException {
+    if (this.closed.get()) {
+      String errorMsg = "File Emitter is already closed.";
+      log.error(errorMsg);
+      Future<MetadataWriteResponse> response = createFailureFuture(errorMsg);
+      if (callback != null) {
+        callback.onFailure(new Exception(errorMsg));
+      }
+      return response;
+    }
+    try {
+      String serializedMCP = this.dataTemplateCodec.mapToString(mcp.data());
+      if (wroteSomething) {
+        this.writer.append(",");
+        this.writer.newLine();
+      }
+      this.writer.append(serializedMCP);
+      wroteSomething = true;
+      log.debug("MCP written successfully: {}", serializedMCP);
+      Future<MetadataWriteResponse> response = this.cachedSuccessFuture;
+      if (callback != null) {
+        try {
+          callback.onCompletion(response.get());
+        } catch (InterruptedException | ExecutionException e) {
+          log.warn("Callback could not be executed.", e);
+        }
+      }
+      return response;
+    } catch (Throwable t) {
+      Future<MetadataWriteResponse> response = createFailureFuture(t.getMessage());
+      if (callback != null) {
+        try {
+          callback.onFailure(t);
+        } catch (Exception e) {
+          log.warn("Callback could not be executed.", e);
+        }
+      }
+      return response;
+    }
+  }
+
+  @Override
+  public boolean testConnection() throws IOException, ExecutionException, InterruptedException {
+    throw new UnsupportedOperationException("testConnection not relevant for File Emitter");
+  }
+
+  @Override
+  public Future<MetadataWriteResponse> emit(List<UpsertAspectRequest> request, Callback callback) throws IOException {
+    throw new UnsupportedOperationException("UpsertAspectRequest not relevant for File Emitter");
   }
 
   private Future<MetadataWriteResponse> createFailureFuture(String message) {

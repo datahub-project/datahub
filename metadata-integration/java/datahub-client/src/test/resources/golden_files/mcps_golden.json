@@ -187,7 +187,7 @@
                         "externalUrl": null,
                         "name": "employees",
                         "qualifiedName": null,
-                        "description": null,
+                        "description": "这是一个很好的描述",
                         "uri": null,
                         "tags": []
                     }
