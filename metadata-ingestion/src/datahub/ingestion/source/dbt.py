@@ -21,6 +21,7 @@ from urllib.parse import urlparse
 
 import dateutil.parser
 import requests
+from cached_property import cached_property
 from pydantic import BaseModel, root_validator, validator
 from pydantic.fields import Field
 
