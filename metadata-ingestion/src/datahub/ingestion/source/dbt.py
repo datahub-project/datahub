@@ -169,7 +169,6 @@ class DBTEntitiesEnabled(BaseModel):
     test_results: EmitDirective = Field(
         "Yes", description="Emit metadata for test results when set to Yes or Only"
     )
-    # _node_type_emit_decision_cache: Dict[str, bool] = Field(default_factory=dict, exclude=True)
 
     @validator("*", pre=True, always=True)
     def to_upper(cls, v):
