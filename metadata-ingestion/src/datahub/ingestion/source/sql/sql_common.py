@@ -1017,29 +1017,35 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
-    ) -> Tuple[Optional[str], Optional[Dict[str, str]], Optional[str]]:
+    ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
+        description: Optional[str] = None
+        properties: Dict[str, str] = {}
+
+        # The location cannot be fetched generically, but subclasses may override
+        # this method and provide a location.
+        location: Optional[str] = None
+
         try:
-            location: Optional[str] = None
-            # SQLALchemy stubs are incomplete and missing this method.
+            # SQLAlchemy stubs are incomplete and missing this method.
             # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
             table_info: dict = inspector.get_table_comment(table, schema)  # type: ignore
         except NotImplementedError:
-            description: Optional[str] = None
-            properties: Dict[str, str] = {}
+            return description, properties, location
         except ProgrammingError as pe:
             # Snowflake needs schema names quoted when fetching table comments.
             logger.debug(
                 f"Encountered ProgrammingError. Retrying with quoted schema name for schema {schema} and table {table}",
                 pe,
             )
-            description = None
-            properties = {}
             table_info: dict = inspector.get_table_comment(table, f'"{schema}"')  # type: ignore
-        else:
-            description = table_info["text"]
 
-            # The "properties" field is a non-standard addition to SQLAlchemy's interface.
-            properties = table_info.get("properties", {})
+        description = table_info.get("text")
+        if type(description) is tuple:
+            # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
+            description = table_info["text"][0]
+
+        # The "properties" field is a non-standard addition to SQLAlchemy's interface.
+        properties = table_info.get("properties", {})
         return description, properties, location
 
     def get_dataplatform_instance_aspect(
@@ -1208,27 +1214,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 columns,
                 canonical_schema=schema_fields,
             )
-        try:
-            # SQLAlchemy stubs are incomplete and missing this method.
-            # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
-            view_info: dict = inspector.get_table_comment(view, schema)  # type: ignore
-        except NotImplementedError:
-            description: Optional[str] = None
-            properties: Dict[str, str] = {}
-        except ProgrammingError as pe:
-            # Snowflake needs schema names quoted when fetching table comments.
-            logger.debug(
-                f"Encountered ProgrammingError. Retrying with quoted schema name for schema {schema} and view {view}",
-                pe,
-            )
-            description = None
-            properties = {}
-            view_info: dict = inspector.get_table_comment(view, f'"{schema}"')  # type: ignore
-        else:
-            description = view_info["text"]
-
-            # The "properties" field is a non-standard addition to SQLAlchemy's interface.
-            properties = view_info.get("properties", {})
+        description, properties, _ = self.get_table_properties(inspector, schema, view)
         try:
             view_definition = inspector.get_view_definition(view, schema)
             if view_definition is None:
