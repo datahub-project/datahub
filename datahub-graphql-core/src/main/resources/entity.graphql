@@ -186,6 +186,11 @@ type Mutation {
     updateDataset(urn: String!, input: DatasetUpdateInput!): Dataset
 
     """
+    Update the metadata about a batch of Datasets
+    """
+    updateDatasets(input: [BatchDatasetUpdateInput!]!): [Dataset]
+
+    """
     Update the metadata about a particular Chart
     """
     updateChart(urn: String!, input: ChartUpdateInput!): Chart
@@ -261,14 +266,29 @@ type Mutation {
     addTags(input: AddTagsInput!): Boolean
 
     """
+    Add tags to multiple Entities or subresources
+    """
+    batchAddTags(input: BatchAddTagsInput!): Boolean
+
+    """
 		Remove a tag from a particular Entity or subresource
     """
     removeTag(input: TagAssociationInput!): Boolean
 
     """
+		Remove tags from multiple Entities or subresource
+    """
+    batchRemoveTags(input: BatchRemoveTagsInput!): Boolean
+
+    """
 		Add a glossary term to a particular Entity or subresource
     """
     addTerm(input: TermAssociationInput!): Boolean
+
+    """
+		Add glossary terms to multiple Entities or subresource
+    """
+    batchAddTerms(input: BatchAddTermsInput!): Boolean
 
     """
 		Add multiple glossary terms to a particular Entity or subresource
@@ -281,9 +301,19 @@ type Mutation {
     removeTerm(input: TermAssociationInput!): Boolean
 
     """
+		Remove glossary terms from multiple Entities or subresource
+    """
+    batchRemoveTerms(input: BatchRemoveTermsInput!): Boolean
+
+    """
     Add an owner to a particular Entity
     """
     addOwner(input: AddOwnerInput!): Boolean
+
+    """
+    Add owners to multiple Entities
+    """
+    batchAddOwners(input: BatchAddOwnersInput!): Boolean
 
     """
     Add multiple owners to a particular Entity
@@ -294,6 +324,11 @@ type Mutation {
     Remove an owner from a particular Entity
     """
     removeOwner(input: RemoveOwnerInput!): Boolean
+
+    """
+    Remove owners from multiple Entities
+    """
+    batchRemoveOwners(input: BatchRemoveOwnersInput!): Boolean
 
     """
     Add a link, or institutional memory, from a particular Entity
@@ -330,7 +365,6 @@ type Mutation {
     """
     addGroupMembers(input: AddGroupMembersInput!): Boolean
 
-
     """
     Remove members from a group
     """
@@ -361,6 +395,11 @@ type Mutation {
     setDomain(entityUrn: String!, domainUrn: String!): Boolean
 
     """
+    Set domain for multiple Entities
+    """
+    batchSetDomain(input: BatchSetDomainInput!): Boolean
+
+    """
     Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully removed, or was already removed. Requires the Edit Domains privilege for an asset.
     """
     unsetDomain(entityUrn: String!): Boolean
@@ -371,6 +410,11 @@ type Mutation {
     updateDeprecation(
       "Input required to set deprecation for an Entity."
       input: UpdateDeprecationInput!): Boolean
+
+    """
+    Updates the deprecation status for a batch of assets.
+    """
+    batchUpdateDeprecation(input: BatchUpdateDeprecationInput!): Boolean
 
     """
     Update a particular Corp User's editable properties
@@ -3558,6 +3602,23 @@ input DatasetUpdateInput {
 }
 
 """
+Arguments provided to batch update Dataset entities
+"""
+input BatchDatasetUpdateInput {
+
+    """
+    Primary key of the Dataset to which the update will be applied
+    """
+    urn: String!
+
+    """
+    Arguments provided to update the Dataset
+    """
+    update: DatasetUpdateInput!
+}
+
+
+"""
 Update to editable schema metadata of the dataset
 """
 input EditableSchemaMetadataUpdate {
@@ -6093,9 +6154,19 @@ enum AssertionStdOperator {
     START_WITH
 
     """
+    Value being asserted matches the regex value.
+    """
+    REGEX_MATCH
+
+    """
     Value being asserted is one of the array values
     """
     IN
+
+    """
+    Value being asserted is not in one of the array values.
+    """
+    NOT_IN
 
     """
     Other
@@ -6515,6 +6586,36 @@ enum TermRelationshipType {
 }
 
 """
+Input provided when adding glossary terms to a batch of assets
+"""
+input BatchAddTermsInput {
+    """
+    The primary key of the Glossary Terms
+    """
+    termUrns: [String!]!
+
+    """
+    The target assets to attach the glossary terms to
+    """
+    resources: [ResourceRefInput]!
+}
+
+"""
+Input provided when removing glossary terms from a batch of assets
+"""
+input BatchRemoveTermsInput {
+    """
+    The primary key of the Glossary Terms
+    """
+    termUrns: [String!]!
+
+    """
+    The target assets to remove the glossary terms from
+    """
+    resources: [ResourceRefInput]!
+}
+
+"""
 Input provided when updating the association between a Metadata Entity and a Tag
 """
 input TagAssociationInput {
@@ -6550,6 +6651,56 @@ input AddTagsInput {
 
     """
     The target Metadata Entity to add or remove the Tag to
+    """
+    resourceUrn: String!
+
+    """
+    An optional type of a sub resource to attach the Tag to
+    """
+    subResourceType: SubResourceType
+
+    """
+    An optional sub resource identifier to attach the Tag to
+    """
+    subResource: String
+}
+
+"""
+Input provided when adding tags to a batch of assets
+"""
+input BatchAddTagsInput {
+    """
+    The primary key of the Tags
+    """
+    tagUrns: [String!]!
+
+    """
+    The target assets to attach the tags to
+    """
+    resources: [ResourceRefInput!]!
+}
+
+"""
+Input provided when removing tags from a batch of assets
+"""
+input BatchRemoveTagsInput {
+    """
+    The primary key of the Tags
+    """
+    tagUrns: [String!]!
+
+    """
+    The target assets to remove the tags from
+    """
+    resources: [ResourceRefInput]!
+}
+
+"""
+Reference to a resource to apply an action to
+"""
+input ResourceRefInput {
+    """
+    The urn of the resource being referenced
     """
     resourceUrn: String!
 
@@ -6637,6 +6788,36 @@ input AddOwnersInput {
     The urn of the resource or entity to attach or remove the owner from, for example a dataset urn
     """
     resourceUrn: String!
+}
+
+"""
+Input provided when adding owners to a batch of assets
+"""
+input BatchAddOwnersInput {
+    """
+    The primary key of the owners
+    """
+    owners: [OwnerInput!]!
+
+    """
+    The target assets to attach the owners to
+    """
+    resources: [ResourceRefInput]!
+}
+
+"""
+Input provided when removing owners from a batch of assets
+"""
+input BatchRemoveOwnersInput {
+    """
+    The primary key of the owners
+    """
+    ownerUrns: [String!]!
+
+    """
+    The target assets to remove the owners from
+    """
+    resources: [ResourceRefInput]!
 }
 
 """
@@ -6767,6 +6948,47 @@ input UpdateDeprecationInput {
     Optional - Additional information about the entity deprecation plan
     """
     note: String
+}
+
+
+"""
+Input provided when updating the deprecation status for a batch of assets.
+"""
+input BatchUpdateDeprecationInput {
+    """
+    Whether the Entity is marked as deprecated.
+    """
+    deprecated: Boolean!
+
+    """
+    Optional - The time user plan to decommission this entity
+    """
+    decommissionTime: Long
+
+    """
+    Optional - Additional information about the entity deprecation plan
+    """
+    note: String
+
+    """
+    The target assets to attach the tags to
+    """
+    resources: [ResourceRefInput]!
+}
+
+"""
+Input provided when adding tags to a batch of assets
+"""
+input BatchSetDomainInput {
+    """
+    The primary key of the Domain, or null if the domain will be unset
+    """
+    domainUrn: String
+
+    """
+    The target assets to attach the Domain
+    """
+    resources: [ResourceRefInput!]!
 }
 
 """

@@ -14,6 +14,9 @@ import EmptyGlossarySection from './EmptyGlossarySection';
 import CreateGlossaryEntityModal from '../entity/shared/EntityDropdown/CreateGlossaryEntityModal';
 import { EntityType } from '../../types.generated';
 import { Message } from '../shared/Message';
+import { sortGlossaryTerms } from '../entity/glossaryTerm/utils';
+import { useEntityRegistry } from '../useEntityRegistry';
+import { sortGlossaryNodes } from '../entity/glossaryNode/utils';
 
 export const HeaderWrapper = styled(TabToolbar)`
     padding: 15px 45px 10px 24px;
@@ -44,9 +47,14 @@ function BusinessGlossaryPage() {
     const [browserWidth, setBrowserWidth] = useState(window.innerWidth * 0.2);
     const { data: termsData, refetch: refetchForTerms, loading: termsLoading } = useGetRootGlossaryTermsQuery();
     const { data: nodesData, refetch: refetchForNodes, loading: nodesLoading } = useGetRootGlossaryNodesQuery();
+    const entityRegistry = useEntityRegistry();
 
-    const terms = termsData?.getRootGlossaryTerms?.terms;
-    const nodes = nodesData?.getRootGlossaryNodes?.nodes;
+    const terms = termsData?.getRootGlossaryTerms?.terms.sort((termA, termB) =>
+        sortGlossaryTerms(entityRegistry, termA, termB),
+    );
+    const nodes = nodesData?.getRootGlossaryNodes?.nodes.sort((nodeA, nodeB) =>
+        sortGlossaryNodes(entityRegistry, nodeA, nodeB),
+    );
 
     const hasTermsOrNodes = !!nodes?.length || !!terms?.length;
 

@@ -14,13 +14,13 @@ source:
         username: "\${REDSHIFT_USERNAME}" # Your Redshift username, e.g. admin
         password: "\${REDSHIFT_PASSWORD}" # Your Redshift password, e.g. password_01
 
-        # Options
-        include_tables: True
-        include_views: True
-
-        # Profiling
+        table_lineage_mode: stl_scan_based
+        include_table_lineage: true
+        include_view_lineage: true
         profiling:
-            enabled: false
+            enabled: true
+        stateful_ingestion:
+            enabled: true
 `;
 
 export const REDSHIFT = 'redshift';

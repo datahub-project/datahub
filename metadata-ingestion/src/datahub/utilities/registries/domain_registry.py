@@ -30,11 +30,7 @@ class DomainRegistry:
                 assert graph
                 # first try to check if this domain exists by urn
                 maybe_domain_urn = f"urn:li:domain:{domain_identifier}"
-                from datahub.metadata.schema_classes import DomainPropertiesClass
-
-                maybe_domain_properties = graph.get_aspect_v2(
-                    maybe_domain_urn, DomainPropertiesClass, "domainProperties"
-                )
+                maybe_domain_properties = graph.get_domain_properties(maybe_domain_urn)
                 if maybe_domain_properties:
                     self.domain_registry[domain_identifier] = maybe_domain_urn
                 else:

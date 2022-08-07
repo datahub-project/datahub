@@ -4,6 +4,7 @@ import { LinkOutlined } from '@ant-design/icons';
 import { SearchSelectModal } from '../components/styled/search/SearchSelectModal';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { EntityCapabilityType } from '../../Entity';
+import { useBatchAddTermsMutation, useBatchSetDomainMutation } from '../../../../graphql/mutations.generated';
 
 export enum EntityActionItem {
     /**
@@ -17,6 +18,7 @@ export enum EntityActionItem {
 }
 
 interface Props {
+    urn: string;
     actionItems: Set<EntityActionItem>;
     refetchForEntity?: () => void;
 }
@@ -24,22 +26,66 @@ interface Props {
 function EntityActions(props: Props) {
     // eslint ignore react/no-unused-prop-types
     const entityRegistry = useEntityRegistry();
-    const { actionItems, refetchForEntity } = props;
+    const { urn, actionItems, refetchForEntity } = props;
     const [isBatchAddGlossaryTermModalVisible, setIsBatchAddGlossaryTermModalVisible] = useState(false);
     const [isBatchSetDomainModalVisible, setIsBatchSetDomainModalVisible] = useState(false);
+    const [batchAddTermsMutation] = useBatchAddTermsMutation();
+    const [batchSetDomainMutation] = useBatchSetDomainMutation();
 
     // eslint-disable-next-line
     const batchAddGlossaryTerms = (entityUrns: Array<string>) => {
-        refetchForEntity?.();
-        setIsBatchAddGlossaryTermModalVisible(false);
-        message.success('Successfully added glossary terms!');
+        batchAddTermsMutation({
+            variables: {
+                input: {
+                    termUrns: [urn],
+                    resources: entityUrns.map((entityUrn) => ({
+                        resourceUrn: entityUrn,
+                    })),
+                },
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    refetchForEntity?.();
+                    setIsBatchAddGlossaryTermModalVisible(false);
+                    message.success({
+                        content: `Added Glossary Term to entities!`,
+                        duration: 2,
+                    });
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to add glossary term: \n ${e.message || ''}`, duration: 3 });
+            });
     };
 
     // eslint-disable-next-line
-    const batchSetDomains = (entityUrns: Array<string>) => {
-        refetchForEntity?.();
-        setIsBatchSetDomainModalVisible(false);
-        message.success('Successfully added assets!');
+    const batchSetDomain = (entityUrns: Array<string>) => {
+        batchSetDomainMutation({
+            variables: {
+                input: {
+                    domainUrn: urn,
+                    resources: entityUrns.map((entityUrn) => ({
+                        resourceUrn: entityUrn,
+                    })),
+                },
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    refetchForEntity?.();
+                    setIsBatchSetDomainModalVisible(false);
+                    message.success({
+                        content: `Added assets to Domain!`,
+                        duration: 2,
+                    });
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to add assets to Domain: \n ${e.message || ''}`, duration: 3 });
+            });
     };
 
     return (
@@ -71,7 +117,7 @@ function EntityActions(props: Props) {
                 <SearchSelectModal
                     titleText="Add assets to Domain"
                     continueText="Add"
-                    onContinue={batchSetDomains}
+                    onContinue={batchSetDomain}
                     onCancel={() => setIsBatchSetDomainModalVisible(false)}
                     fixedEntityTypes={Array.from(
                         entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.DOMAINS),
