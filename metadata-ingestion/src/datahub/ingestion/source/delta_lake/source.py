@@ -144,7 +144,9 @@ class DeltaLakeSource(Source):
     def _create_operation_aspect_wu(
         self, delta_table: DeltaTable, dataset_urn: str
     ) -> Iterable[MetadataWorkUnit]:
-        for hist in delta_table.history(limit=self.source_config.version_history_lookback):
+        for hist in delta_table.history(
+            limit=self.source_config.version_history_lookback
+        ):
 
             # History schema picked up from https://docs.delta.io/latest/delta-utility.html#retrieve-delta-table-history
             reported_time: int = int(time.time() * 1000)
@@ -152,7 +154,11 @@ class DeltaLakeSource(Source):
             statement_type = OPERATION_STATEMENT_TYPES.get(
                 hist.get("operation"), OperationTypeClass.CUSTOM
             )
-            custom_type = hist.get("operation") if statement_type == OperationTypeClass.CUSTOM else None
+            custom_type = (
+                hist.get("operation")
+                if statement_type == OperationTypeClass.CUSTOM
+                else None
+            )
 
             operation_custom_properties = dict()
             for key, val in hist.items():
