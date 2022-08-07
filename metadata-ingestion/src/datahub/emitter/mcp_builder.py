@@ -85,7 +85,6 @@ def add_domain_to_entity_wu(
         entityType=entity_type,
         changeType=ChangeTypeClass.UPSERT,
         entityUrn=f"{entity_urn}",
-        aspectName="domains",
         aspect=DomainsClass(domains=[domain_urn]),
     )
     wu = MetadataWorkUnit(id=f"{domain_urn}-to-{entity_urn}", mcp=mcp)
@@ -99,7 +98,6 @@ def add_owner_to_entity_wu(
         entityType=entity_type,
         changeType=ChangeTypeClass.UPSERT,
         entityUrn=f"{entity_urn}",
-        aspectName="ownership",
         aspect=OwnershipClass(
             owners=[
                 OwnerClass(
@@ -120,7 +118,6 @@ def add_tags_to_entity_wu(
         entityType=entity_type,
         changeType=ChangeTypeClass.UPSERT,
         entityUrn=f"{entity_urn}",
-        aspectName="globalTags",
         aspect=GlobalTagsClass(
             tags=[TagAssociationClass(f"urn:li:tag:{tag}") for tag in tags]
         ),
@@ -148,7 +145,6 @@ def gen_containers(
         changeType=ChangeTypeClass.UPSERT,
         entityUrn=f"{container_urn}",
         # entityKeyAspect=ContainerKeyClass(guid=schema_container_key.guid()),
-        aspectName="containerProperties",
         aspect=ContainerProperties(
             name=name,
             description=description,
@@ -164,7 +160,6 @@ def gen_containers(
         changeType=ChangeTypeClass.UPSERT,
         entityUrn=f"{container_urn}",
         # entityKeyAspect=ContainerKeyClass(guid=schema_container_key.guid()),
-        aspectName="dataPlatformInstance",
         aspect=DataPlatformInstance(
             platform=f"{make_data_platform_urn(container_key.platform)}",
         ),
@@ -180,7 +175,6 @@ def gen_containers(
         changeType=ChangeTypeClass.UPSERT,
         entityUrn=f"{container_urn}",
         # entityKeyAspect=ContainerKeyClass(guid=schema_container_key.guid()),
-        aspectName="subTypes",
         aspect=SubTypesClass(typeNames=sub_types),
     )
     wu = MetadataWorkUnit(
@@ -220,7 +214,6 @@ def gen_containers(
             changeType=ChangeTypeClass.UPSERT,
             entityUrn=f"{container_urn}",
             # entityKeyAspect=ContainerKeyClass(guid=schema_container_key.guid()),
-            aspectName="container",
             aspect=ContainerClass(container=parent_container_urn),
             # aspect=ContainerKeyClass(guid=database_container_key.guid())
         )
@@ -245,7 +238,6 @@ def add_dataset_to_container(
         entityType="dataset",
         changeType=ChangeTypeClass.UPSERT,
         entityUrn=f"{dataset_urn}",
-        aspectName="container",
         aspect=ContainerClass(container=f"{container_urn}"),
         # aspect=ContainerKeyClass(guid=schema_container_key.guid())
     )
@@ -263,7 +255,6 @@ def add_entity_to_container(
         entityType=entity_type,
         changeType=ChangeTypeClass.UPSERT,
         entityUrn=entity_urn,
-        aspectName="container",
         aspect=ContainerClass(container=f"{container_urn}"),
     )
     wu = MetadataWorkUnit(id=f"container-{container_urn}-to-{entity_urn}", mcp=mcp)

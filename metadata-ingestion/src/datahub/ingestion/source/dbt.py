@@ -3,6 +3,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
+from enum import Enum
 from typing import (
     Any,
     Callable,
@@ -19,7 +20,8 @@ from urllib.parse import urlparse
 
 import dateutil.parser
 import requests
-from pydantic import BaseModel, validator
+from cached_property import cached_property
+from pydantic import BaseModel, root_validator, validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
@@ -47,6 +49,7 @@ from datahub.ingestion.source.sql.sql_types import (
     resolve_trino_modified_type,
 )
 from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.ingestion.source.state.dbt_state import DbtCheckpointState
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
@@ -133,6 +136,89 @@ class DBTSourceReport(StatefulIngestionReport):
         self.soft_deleted_stale_entities.append(urn)
 
 
+class EmitDirective(Enum):
+    """A holder for directives for emission for specific types of entities"""
+
+    YES = "YES"  # Okay to emit for this type
+    NO = "NO"  # Do not emit for this type
+    ONLY = "ONLY"  # Only emit metadata for this type and no others
+
+
+class DBTEntitiesEnabled(BaseModel):
+    """Controls which dbt entities are going to be emitted by this source"""
+
+    class Config:
+        arbitrary_types_allowed = True  # needed to allow cached_property to work
+        keep_untouched = (
+            cached_property,
+        )  # needed to allow cached_property to work. See https://github.com/samuelcolvin/pydantic/issues/1241 for more info.
+
+    models: EmitDirective = Field(
+        "Yes", description="Emit metadata for dbt models when set to Yes or Only"
+    )
+    sources: EmitDirective = Field(
+        "Yes", description="Emit metadata for dbt sources when set to Yes or Only"
+    )
+    seeds: EmitDirective = Field(
+        "Yes", description="Emit metadata for dbt seeds when set to Yes or Only"
+    )
+    test_definitions: EmitDirective = Field(
+        "Yes",
+        description="Emit metadata for test definitions when enabled when set to Yes or Only",
+    )
+    test_results: EmitDirective = Field(
+        "Yes", description="Emit metadata for test results when set to Yes or Only"
+    )
+
+    @validator("*", pre=True, always=True)
+    def to_upper(cls, v):
+        return v.upper() if isinstance(v, str) else v
+
+    @root_validator
+    def only_one_can_be_set_to_only(cls, values):
+        only_values = [k for k in values if values.get(k) == EmitDirective.ONLY]
+        if len(only_values) > 1:
+            raise ValueError(
+                f"Cannot have more than 1 type of entity emission set to ONLY. Found {only_values}"
+            )
+        return values
+
+    def _any_other_only_set(self, attribute: str) -> bool:
+        """Return true if any attribute other than the one passed in is set to ONLY"""
+        other_onlies = [
+            k
+            for k, v in self.__dict__.items()
+            if k != attribute and v == EmitDirective.ONLY
+        ]
+        return len(other_onlies) != 0
+
+    @cached_property  # type: ignore
+    def node_type_emit_decision_cache(self) -> Dict[str, bool]:
+        node_type_for_field_map = {
+            "models": "model",
+            "sources": "source",
+            "seeds": "seed",
+            "test_definitions": "test",
+        }
+        return {
+            node_type_for_field_map[k]: False
+            if self._any_other_only_set(k)
+            or self.__getattribute__(k) == EmitDirective.NO
+            else True
+            for k in ["models", "sources", "seeds", "test_definitions"]
+        }
+
+    def can_emit_node_type(self, node_type: str) -> bool:
+        return self.node_type_emit_decision_cache.get(node_type, False)
+
+    @property
+    def can_emit_test_results(self) -> bool:
+        return (
+            not self._any_other_only_set("test_results")
+            and self.test_results != EmitDirective.NO
+        )
+
+
 class DBTConfig(StatefulIngestionConfigBase):
     manifest_path: str = Field(
         description="Path to dbt manifest JSON. See https://docs.getdbt.com/reference/artifacts/manifest-json Note this can be a local file or a URI."
@@ -169,7 +255,11 @@ class DBTConfig(StatefulIngestionConfigBase):
     )
     node_type_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for dbt nodes to filter in ingestion.",
+        description="Deprecated: use entities_enabled instead. Regex patterns for dbt nodes to filter in ingestion.",
+    )
+    entities_enabled: DBTEntitiesEnabled = Field(
+        DBTEntitiesEnabled(),
+        description="Controls for enabling / disabling metadata emission for different dbt entities (models, test definitions, test results, etc.)",
     )
     tag_prefix: str = Field(
         default=f"{DBT_PLATFORM}:", description="Prefix added to tags during ingestion."
@@ -385,6 +475,7 @@ def extract_dbt_entities(
     node_type_pattern: AllowDenyPattern,
     report: DBTSourceReport,
     node_name_pattern: AllowDenyPattern,
+    entities_enabled: DBTEntitiesEnabled,
 ) -> List[DBTNode]:
     sources_by_id = {x["unique_id"]: x for x in sources_results}
 
@@ -392,6 +483,9 @@ def extract_dbt_entities(
     for key, manifest_node in all_manifest_entities.items():
         # check if node pattern allowed based on config file
         if not node_type_pattern.allowed(manifest_node["resource_type"]):
+            logger.debug(
+                f"Not extracting dbt entity {key} since node type {manifest_node['resource_type']} is disabled"
+            )
             continue
 
         name = manifest_node["name"]
@@ -867,6 +961,10 @@ class DBTTest:
         test_nodes: List[DBTNode],
         manifest_nodes: Dict[str, Any],
     ) -> Iterable[MetadataWorkUnit]:
+        if not config.entities_enabled.can_emit_test_results:
+            logger.debug("Skipping test result emission since it is turned off.")
+            return []
+
         args = test_results_json.get("args", {})
         dbt_metadata = DBTRunMetadata.parse_obj(test_results_json.get("metadata", {}))
         test_nodes_map: Dict[str, DBTNode] = {x.dbt_name: x for x in test_nodes}
@@ -878,7 +976,7 @@ class DBTTest:
                     test_result = DBTTestResult.parse_obj(result)
                     id = test_result.unique_id
                     test_node = test_nodes_map.get(id)
-                    assert test_node
+                    assert test_node, f"Failed to find test_node {id} in the catalog"
                     upstream_urns = get_upstreams(
                         test_node.upstream_nodes,
                         manifest_nodes,
@@ -1005,15 +1103,48 @@ class DBTSource(StatefulIngestionSourceBase):
                 self.config.owner_extraction_pattern
             )
 
+    def get_last_dbt_checkpoint(
+        self, job_id: JobId, checkpoint_state_class: Type[DbtCheckpointState]
+    ) -> Optional[Checkpoint]:
+
+        last_checkpoint: Optional[Checkpoint]
+        is_conversion_required: bool = False
+        try:
+            # Best-case that last checkpoint state is DbtCheckpointState
+            last_checkpoint = self.get_last_checkpoint(job_id, checkpoint_state_class)
+        except Exception as e:
+            # Backward compatibility for old dbt ingestion source which was saving dbt-nodes in
+            # BaseSQLAlchemyCheckpointState
+            last_checkpoint = self.get_last_checkpoint(
+                job_id, BaseSQLAlchemyCheckpointState
+            )
+            logger.debug(
+                f"Found BaseSQLAlchemyCheckpointState as checkpoint state (got {e})."
+            )
+            is_conversion_required = True
+
+        if last_checkpoint is not None and is_conversion_required:
+            # Map the BaseSQLAlchemyCheckpointState to DbtCheckpointState
+            dbt_checkpoint_state: DbtCheckpointState = DbtCheckpointState()
+            dbt_checkpoint_state.encoded_node_urns = (
+                cast(BaseSQLAlchemyCheckpointState, last_checkpoint.state)
+            ).encoded_table_urns
+            # Old dbt source was not supporting the assertion
+            dbt_checkpoint_state.encoded_assertion_urns = []
+            last_checkpoint.state = dbt_checkpoint_state
+
+        return last_checkpoint
+
     # TODO: Consider refactoring this logic out for use across sources as it is leading to a significant amount of
     #  code duplication.
     def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
-        last_checkpoint = self.get_last_checkpoint(
-            self.get_default_ingestion_job_id(), BaseSQLAlchemyCheckpointState
+        last_checkpoint: Optional[Checkpoint] = self.get_last_dbt_checkpoint(
+            self.get_default_ingestion_job_id(), DbtCheckpointState
         )
         cur_checkpoint = self.get_current_checkpoint(
             self.get_default_ingestion_job_id()
         )
+
         if (
             self.config.stateful_ingestion
             and self.config.stateful_ingestion.remove_stale_metadata
@@ -1024,7 +1155,7 @@ class DBTSource(StatefulIngestionSourceBase):
         ):
             logger.debug("Checking for stale entity removal.")
 
-            def soft_delete_item(urn: str, type: str) -> Iterable[MetadataWorkUnit]:
+            def get_soft_delete_item_workunit(urn: str, type: str) -> MetadataWorkUnit:
 
                 logger.info(f"Soft-deleting stale entity of type {type} - {urn}.")
                 mcp = MetadataChangeProposalWrapper(
@@ -1037,19 +1168,28 @@ class DBTSource(StatefulIngestionSourceBase):
                 wu = MetadataWorkUnit(id=f"soft-delete-{type}-{urn}", mcp=mcp)
                 self.report.report_workunit(wu)
                 self.report.report_stale_entity_soft_deleted(urn)
-                yield wu
+                return wu
 
-            last_checkpoint_state = cast(
-                BaseSQLAlchemyCheckpointState, last_checkpoint.state
-            )
-            cur_checkpoint_state = cast(
-                BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-            )
+            last_checkpoint_state = cast(DbtCheckpointState, last_checkpoint.state)
+            cur_checkpoint_state = cast(DbtCheckpointState, cur_checkpoint.state)
 
-            for table_urn in last_checkpoint_state.get_table_urns_not_in(
-                cur_checkpoint_state
-            ):
-                yield from soft_delete_item(table_urn, "dataset")
+            urns_to_soft_delete_by_type: Dict = {
+                "dataset": [
+                    node_urn
+                    for node_urn in last_checkpoint_state.get_node_urns_not_in(
+                        cur_checkpoint_state
+                    )
+                ],
+                "assertion": [
+                    assertion_urn
+                    for assertion_urn in last_checkpoint_state.get_assertion_urns_not_in(
+                        cur_checkpoint_state
+                    )
+                ],
+            }
+            for entity_type in urns_to_soft_delete_by_type:
+                for urn in urns_to_soft_delete_by_type[entity_type]:
+                    yield get_soft_delete_item_workunit(urn, entity_type)
 
     def load_file_as_json(self, uri: str) -> Any:
         if re.match("^https?://", uri):
@@ -1124,6 +1264,7 @@ class DBTSource(StatefulIngestionSourceBase):
             node_type_pattern,
             report,
             node_name_pattern,
+            self.config.entities_enabled,
         )
 
         return (
@@ -1145,6 +1286,9 @@ class DBTSource(StatefulIngestionSourceBase):
         def string_map(input_map: Dict[str, Any]) -> Dict[str, str]:
             return {k: str(v) for k, v in input_map.items()}
 
+        if not self.config.entities_enabled.can_emit_node_type("test"):
+            return []
+
         for node in test_nodes:
             node_datahub_urn = mce_builder.make_assertion_urn(
                 mce_builder.datahub_guid(
@@ -1155,7 +1299,7 @@ class DBTSource(StatefulIngestionSourceBase):
                     }
                 )
             )
-            self.save_checkpoint(node_datahub_urn)
+            self.save_checkpoint(node_datahub_urn, "assertion")
 
             dpi_mcp = MetadataChangeProposalWrapper(
                 entityType="assertion",
@@ -1316,14 +1460,6 @@ class DBTSource(StatefulIngestionSourceBase):
                 self.report.report_workunit(soft_delete_wu)
                 yield soft_delete_wu
 
-        if self.config.test_results_path:
-            yield from DBTTest.load_test_results(
-                self.config,
-                self.load_file_as_json(self.config.test_results_path),
-                test_nodes,
-                manifest_nodes,
-            )
-
     # create workunits from dbt nodes
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         if self.config.write_semantics == "PATCH" and not self.ctx.graph:
@@ -1394,6 +1530,14 @@ class DBTSource(StatefulIngestionSourceBase):
             manifest_nodes_raw,
         )
 
+        if self.config.test_results_path:
+            yield from DBTTest.load_test_results(
+                self.config,
+                self.load_file_as_json(self.config.test_results_path),
+                test_nodes,
+                manifest_nodes_raw,
+            )
+
         if self.is_stateful_ingestion_configured():
             # Clean up stale entities.
             yield from self.gen_removed_entity_workunits()
@@ -1412,10 +1556,12 @@ class DBTSource(StatefulIngestionSourceBase):
         )
 
         if cur_checkpoint is not None:
-            # Utilizing BaseSQLAlchemyCheckpointState class to save state
-            checkpoint_state = cast(BaseSQLAlchemyCheckpointState, cur_checkpoint.state)
-            checkpoint_state.encoded_table_urns = list(
-                set(checkpoint_state.encoded_table_urns)
+            checkpoint_state = cast(DbtCheckpointState, cur_checkpoint.state)
+            checkpoint_state.encoded_node_urns = list(
+                set(checkpoint_state.encoded_node_urns)
+            )
+            checkpoint_state.encoded_assertion_urns = list(
+                set(checkpoint_state.encoded_assertion_urns)
             )
 
     def create_platform_mces(
@@ -1450,6 +1596,7 @@ class DBTSource(StatefulIngestionSourceBase):
             self.config.strip_user_ids_from_email,
         )
         for node in dbt_nodes:
+
             node_datahub_urn = get_urn_from_dbtNode(
                 node.database,
                 node.schema,
@@ -1458,7 +1605,12 @@ class DBTSource(StatefulIngestionSourceBase):
                 self.config.env,
                 mce_platform_instance,
             )
-            self.save_checkpoint(node_datahub_urn)
+            if not self.config.entities_enabled.can_emit_node_type(node.node_type):
+                logger.debug(
+                    f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
+                )
+                continue
+            self.save_checkpoint(node_datahub_urn, "dataset")
 
             meta_aspects: Dict[str, Any] = {}
             if self.config.enable_meta_mapping and node.meta:
@@ -1534,18 +1686,21 @@ class DBTSource(StatefulIngestionSourceBase):
             self.report.report_workunit(wu)
             yield wu
 
-    def save_checkpoint(self, node_datahub_urn: str) -> None:
-        if self.is_stateful_ingestion_configured():
-            cur_checkpoint = self.get_current_checkpoint(
-                self.get_default_ingestion_job_id()
-            )
+    def save_checkpoint(self, urn: str, entity_type: str) -> None:
+        # if stateful ingestion is not configured then return
+        if not self.is_stateful_ingestion_configured():
+            return
 
-            if cur_checkpoint is not None:
-                # Utilizing BaseSQLAlchemyCheckpointState class to save state
-                checkpoint_state = cast(
-                    BaseSQLAlchemyCheckpointState, cur_checkpoint.state
-                )
-                checkpoint_state.add_table_urn(node_datahub_urn)
+        cur_checkpoint = self.get_current_checkpoint(
+            self.get_default_ingestion_job_id()
+        )
+        # if no checkpoint found then return
+        if cur_checkpoint is None:
+            return
+
+        # Cast and set the state
+        checkpoint_state = cast(DbtCheckpointState, cur_checkpoint.state)
+        checkpoint_state.set_checkpoint_urn(urn, entity_type)
 
     def extract_query_tag_aspects(
         self,
@@ -1900,8 +2055,7 @@ class DBTSource(StatefulIngestionSourceBase):
                 platform_instance_id=self.get_platform_instance_id(),
                 run_id=self.ctx.run_id,
                 config=self.config,
-                # Reusing BaseSQLAlchemyCheckpointState as it has needed functionality to support statefulness of DBT
-                state=BaseSQLAlchemyCheckpointState(),
+                state=DbtCheckpointState(),
             )
         return None
 

@@ -18,6 +18,10 @@ const SelectButton = styled(Button)`
     padding-right: 12px;
 `;
 
+const MenuItem = styled(Menu.Item)`
+    padding: 0px;
+`;
+
 type Props = {
     callSearchOnVariables: (variables: {
         input: SearchAcrossEntitiesInput;
@@ -41,19 +45,19 @@ export default function SearchExtendedMenu({
 
     const menu = (
         <Menu>
-            <Menu.Item key="0">
+            <MenuItem key="0">
                 <DownloadAsCsvButton
                     isDownloadingCsv={isDownloadingCsv}
                     setShowDownloadAsCsvModal={setShowDownloadAsCsvModal}
                 />
-            </Menu.Item>
+            </MenuItem>
             {setShowSelectMode && (
-                <Menu.Item key="1">
+                <MenuItem key="1">
                     <SelectButton type="text" onClick={() => setShowSelectMode(true)}>
                         <FormOutlined />
                         Edit...
                     </SelectButton>
-                </Menu.Item>
+                </MenuItem>
             )}
         </Menu>
     );

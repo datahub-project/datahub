@@ -75,4 +75,7 @@ jobs:
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew :metadata-integration:java:spark-lineage:printVersion
           ./gradlew :metadata-integration:java:spark-lineage:publishToMavenLocal
+          # Publish apache ranger plugin to maven
+          ./gradlew :datahub-ranger-plugin:printVersion
+          ./gradlew :datahub-ranger-plugin:publishMavenJavaPublicationToMavenLocal
           #./gradlew :metadata-integration:java:datahub-client:closeAndReleaseRepository --info

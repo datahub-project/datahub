@@ -9,6 +9,10 @@ const ControlsContainer = styled.div`
     margin-top: 8px;
 `;
 
+const SaveButton = styled(Button)`
+    margin-right: 15px;
+`;
+
 export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) => {
     const setName = (stagedName: string) => {
         const newState: SourceBuilderState = {
@@ -40,9 +44,9 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
         updateState(newState);
     };
 
-    const onClickCreate = () => {
+    const onClickCreate = (shouldRun?: boolean) => {
         if (state.name !== undefined && state.name.length > 0) {
-            submit();
+            submit(shouldRun);
         }
     };
 
@@ -83,7 +87,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                                 Advanced: Provide a custom CLI version to use for ingestion.
                             </Typography.Paragraph>
                             <Input
-                                placeholder="0.8.41"
+                                placeholder="0.8.42"
                                 value={state.config?.version || ''}
                                 onChange={(event) => setVersion(event.target.value)}
                             />
@@ -93,9 +97,21 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
             </Form>
             <ControlsContainer>
                 <Button onClick={prev}>Previous</Button>
-                <Button disabled={!(state.name !== undefined && state.name.length > 0)} onClick={onClickCreate}>
-                    Done
-                </Button>
+                <div>
+                    <SaveButton
+                        disabled={!(state.name !== undefined && state.name.length > 0)}
+                        onClick={() => onClickCreate(false)}
+                    >
+                        Save
+                    </SaveButton>
+                    <Button
+                        disabled={!(state.name !== undefined && state.name.length > 0)}
+                        onClick={() => onClickCreate(true)}
+                        type="primary"
+                    >
+                        Save & Run
+                    </Button>
+                </div>
             </ControlsContainer>
         </>
     );

@@ -82,13 +82,14 @@ services:
     - MCE_CONSUMER_ENABLED=true
     - PE_CONSUMER_ENABLED=true
     - UI_INGESTION_ENABLED=true
-    - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.41
+    - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.42
     hostname: datahub-gms
     image: ${DATAHUB_GMS_IMAGE:-linkedin/datahub-gms}:${DATAHUB_VERSION:-head}
     ports:
     - 8080:8080
     volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+    - ${HOME}/.datahub/plugins/auth/resources/:/etc/datahub/plugins/auth/resources
   elasticsearch:
     container_name: elasticsearch
     environment:

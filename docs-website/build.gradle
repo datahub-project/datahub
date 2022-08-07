@@ -12,7 +12,7 @@ node {
   }
 
   // Version of node to use.
-  version = '16.8.0'
+  version = '16.16.0'
 
   // Version of Yarn to use.
   yarnVersion = '1.22.0'

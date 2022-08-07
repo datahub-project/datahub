@@ -228,9 +228,10 @@ def resolve_postgres_modified_type(type_string: str) -> Any:
 
 
 def resolve_trino_modified_type(type_string: str) -> Any:
-    # for cases like timestamp(3)
-    if re.match(r"[a-zA-Z]+\([0-9]+\)", type_string):
-        modified_type_base = re.match(r"([a-zA-Z]+)\([0-9]+\)", type_string).group(1)  # type: ignore
+    # for cases like timestamp(3), decimal(10,0), row(...)
+    match = re.match(r"([a-zA-Z]+)\(.+\)", type_string)
+    if match:
+        modified_type_base: str = match.group(1)
         return TRINO_SQL_TYPES_MAP[modified_type_base]
     else:
         return TRINO_SQL_TYPES_MAP[type_string]
@@ -337,4 +338,5 @@ TRINO_SQL_TYPES_MAP = {
     "date": DateType,
     "time": TimeType,
     "timestamp": TimeType,
+    "row": RecordType,
 }

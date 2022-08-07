@@ -85,6 +85,10 @@ query getIngestionExecutionRequest($urn: String!) {
             startTimeMs
             durationMs
             report
+            structuredReport {
+                type
+                serializedValue
+            }
         }
     }
 }
@@ -128,4 +132,8 @@ mutation createIngestionExecutionRequest($input: CreateIngestionExecutionRequest
 
 mutation cancelIngestionExecutionRequest($input: CancelIngestionExecutionRequestInput!) {
     cancelIngestionExecutionRequest(input: $input)
+}
+
+mutation createTestConnectionRequest($input: CreateTestConnectionRequestInput!) {
+    createTestConnectionRequest(input: $input)
 }

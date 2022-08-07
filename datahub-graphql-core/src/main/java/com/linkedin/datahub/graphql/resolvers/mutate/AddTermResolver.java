@@ -5,8 +5,10 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.generated.TermAssociationInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -32,12 +34,12 @@ public class AddTermResolver implements DataFetcher<CompletableFuture<Boolean>> 
     }
 
     return CompletableFuture.supplyAsync(() -> {
-      LabelUtils.validateInput(
+      LabelUtils.validateResourceAndLabel(
           termUrn,
           targetUrn,
           input.getSubResource(),
           input.getSubResourceType(),
-          "glossaryTerm",
+          Constants.GLOSSARY_TERM_ENTITY_NAME,
           _entityService,
           false
       );
@@ -45,10 +47,9 @@ public class AddTermResolver implements DataFetcher<CompletableFuture<Boolean>> 
       try {
         log.info("Adding Term. input: {}", input);
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
-        LabelUtils.addTermsToTarget(
+        LabelUtils.addTermsToResources(
             ImmutableList.of(termUrn),
-            targetUrn,
-            input.getSubResource(),
+            ImmutableList.of(new ResourceRefInput(input.getResourceUrn(), input.getSubResourceType(), input.getSubResource())),
             actor,
             _entityService
         );
