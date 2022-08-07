@@ -42,7 +42,12 @@ export const SearchPage = () => {
     const [isSelectMode, setIsSelectMode] = useState(false);
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
 
-    const { data, loading, error } = useGetSearchResultsForMultipleQuery({
+    const {
+        data,
+        loading,
+        error,
+        refetch: realRefetch,
+    } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
                 types: entityFilters,
@@ -154,6 +159,7 @@ export const SearchPage = () => {
                 setSelectedEntities={setSelectedEntities}
                 setIsSelectMode={setIsSelectMode}
                 onChangeSelectAll={onChangeSelectAll}
+                refetch={realRefetch}
             />
         </>
     );

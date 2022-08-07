@@ -37,7 +37,7 @@ public class KafkaEmitter implements Emitter {
   private static final int ADMIN_CLIENT_TIMEOUT_MS = 5000;
 
   /**
-   * The default constructor, prefer using the `create` factory method.
+   * The default constructor
    * 
    * @param config
    * @throws IOException

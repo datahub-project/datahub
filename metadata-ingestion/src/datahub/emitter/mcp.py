@@ -10,6 +10,7 @@ from datahub.metadata.schema_classes import (
     KafkaAuditHeaderClass,
     MetadataChangeProposalClass,
     SystemMetadataClass,
+    _Aspect,
 )
 
 
@@ -23,14 +24,31 @@ def _make_generic_aspect(codegen_obj: DictWrapper) -> GenericAspectClass:
 
 @dataclasses.dataclass
 class MetadataChangeProposalWrapper:
+    # TODO: remove manually aspectName from the codebase
+    # TODO: (after) remove aspectName field from this class
+    # TODO: infer entityType from entityUrn
+    # TODO: set changeType's default to UPSERT
+
     entityType: str
     changeType: Union[str, ChangeTypeClass]
     entityUrn: Union[None, str] = None
-    entityKeyAspect: Union[None, DictWrapper] = None
+    entityKeyAspect: Union[None, _Aspect] = None
     auditHeader: Union[None, KafkaAuditHeaderClass] = None
     aspectName: Union[None, str] = None
-    aspect: Union[None, DictWrapper] = None
+    aspect: Union[None, _Aspect] = None
     systemMetadata: Union[None, SystemMetadataClass] = None
+
+    def __post_init__(self) -> None:
+        if not self.aspectName and self.aspect:
+            self.aspectName = self.aspect.get_aspect_name()
+        elif (
+            self.aspectName
+            and self.aspect
+            and self.aspectName != self.aspect.get_aspect_name()
+        ):
+            raise ValueError(
+                f"aspectName {self.aspectName} does not match aspect type {type(self.aspect)} with name {self.aspect.get_aspect_name()}"
+            )
 
     def make_mcp(self) -> MetadataChangeProposalClass:
         serializedEntityKeyAspect: Union[None, GenericAspectClass] = None

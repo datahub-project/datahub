@@ -17,7 +17,7 @@ the dataset schema are, and when those were reported. Here's an example from our
 
 ![](./imgs/schema-blame-latest-version.png)
 
-If you click on an older version in the selector, you'll travel back in time and see what the schena looked like back then. Notice
+If you click on an older version in the selector, you'll travel back in time and see what the schema looked like back then. Notice
 the changes here to the glossary terms for the `status` field, and to the descriptions for the `created_at` and `updated_at`
 fields.
 
