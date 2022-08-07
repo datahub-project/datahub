@@ -4,8 +4,6 @@ import urllib
 
 import pytest
 import requests
-
-from datahub.cli.docker import check_local_docker_containers
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
@@ -25,11 +23,7 @@ from datahub.metadata.schema_classes import (
     PartitionSpecClass,
     PartitionTypeClass,
 )
-from tests.utils import ingest_file_via_rest
-from tests.utils import delete_urns_from_file
-
-
-GMS_ENDPOINT = "http://localhost:8080"
+from tests.utils import delete_urns_from_file, get_gms_url, ingest_file_via_rest, wait_for_healthcheck_util
 
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
@@ -68,7 +62,6 @@ def create_test_data(test_file):
         1643880726874,
         1643880726875,
     ]
-    msg_ids = []
     # The assertion run event attached to the dataset
     mcp2 = MetadataChangeProposalWrapper(
         entityType="assertion",
@@ -238,8 +231,7 @@ def generate_test_data(tmp_path_factory):
 
 @pytest.fixture(scope="session")
 def wait_for_healthchecks(generate_test_data):
-    # Simply assert that everything is healthy, but don't wait.
-    assert not check_local_docker_containers()
+    wait_for_healthcheck_util()
     yield
 
 
@@ -252,6 +244,7 @@ def test_healthchecks(wait_for_healthchecks):
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_run_ingestion(generate_test_data):
     ingest_file_via_rest(generate_test_data)
+
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_gms_get_latest_assertions_results_by_partition():
@@ -294,7 +287,7 @@ def test_gms_get_latest_assertions_results_by_partition():
         }
     )
     response = requests.post(
-        f"{GMS_ENDPOINT}/analytics?action=getTimeseriesStats",
+        f"{get_gms_url()}/analytics?action=getTimeseriesStats",
         data=query,
         headers=restli_default_headers,
     )
@@ -325,7 +318,7 @@ def test_gms_get_assertions_on_dataset():
     """lists all assertion urns including those which may not have executed"""
     urn = make_dataset_urn("postgres", "foo")
     response = requests.get(
-        f"{GMS_ENDPOINT}/relationships?direction=INCOMING&urn={urllib.parse.quote(urn)}&types=Asserts"
+        f"{get_gms_url()}/relationships?direction=INCOMING&urn={urllib.parse.quote(urn)}&types=Asserts"
     )
 
     response.raise_for_status()
@@ -339,7 +332,7 @@ def test_gms_get_assertions_on_dataset_field():
     dataset_urn = make_dataset_urn("postgres", "foo")
     field_urn = make_schema_field_urn(dataset_urn, "col1")
     response = requests.get(
-        f"{GMS_ENDPOINT}/relationships?direction=INCOMING&urn={urllib.parse.quote(field_urn)}&types=Asserts"
+        f"{get_gms_url()}/relationships?direction=INCOMING&urn={urllib.parse.quote(field_urn)}&types=Asserts"
     )
 
     response.raise_for_status()
@@ -351,7 +344,7 @@ def test_gms_get_assertions_on_dataset_field():
 def test_gms_get_assertion_info():
     assertion_urn = "urn:li:assertion:2d3b06a6e77e1f24adc9860a05ea089b"
     response = requests.get(
-        f"{GMS_ENDPOINT}/aspects/{urllib.parse.quote(assertion_urn)}\
+        f"{get_gms_url()}/aspects/{urllib.parse.quote(assertion_urn)}\
             ?aspect=assertionInfo&version=0",
         headers=restli_default_headers,
     )

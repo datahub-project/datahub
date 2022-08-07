@@ -52,7 +52,7 @@ class DataJob:
         properties Dict[str, str]: Custom properties to set for the DataProcessInstance
         url (Optional[str]): Url which points to the DataJob at the orchestrator
         inlets (List[str]): List of urns the DataProcessInstance consumes
-        outlest (List[str]): List of urns the DataProcessInstance produces
+        outlets (List[str]): List of urns the DataProcessInstance produces
         input_datajob_urns: List[DataJobUrn] = field(default_factory=list)
     """
 
@@ -179,7 +179,7 @@ class DataJob:
         """
         Emit the DataJob entity to Datahub
 
-        :param emitter: Datahub Emitter to emit the proccess event
+        :param emitter: Datahub Emitter to emit the process event
         :param callback: (Optional[Callable[[Exception, str], None]]) the callback method for KafkaEmitter if it is used
         :rtype: None
         """

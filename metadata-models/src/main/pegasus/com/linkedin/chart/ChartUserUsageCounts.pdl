@@ -1,0 +1,19 @@
+namespace com.linkedin.chart
+
+import com.linkedin.common.Urn
+
+/**
+ * Records a single user's usage counts for a given resource
+ */
+record ChartUserUsageCounts {
+  /**
+   * The unique id of the user.
+   */
+  user: Urn
+
+  /**
+   * The number of times the user has viewed the chart
+   */
+  @TimeseriesField = {}
+  viewsCount: optional int
+}

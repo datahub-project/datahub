@@ -7,9 +7,18 @@ When a new version of the aspect gets ingested, GMS initiates an MAE event for t
 the search and graph indices. As such, we can fetch the latest version of each aspect in the local database and produce
 MAE events corresponding to the aspects to restore the search and graph indices.
 
+## Quickstart
+
+If you're using the quickstart images, you can use the `datahub` cli to restore indices.
+
+```
+datahub docker quickstart --restore-indices
+```
+See [this section](../quickstart.md#restoring-only-the-index-use-with-care) for more information. 
+
 ## Docker-compose
 
-Run the following command from root to send MAE for each aspect in the Local DB.
+If you are on a custom docker-compose deployment, run the following command (you need to checkout [the source repository](https://github.com/datahub-project/datahub)) from the root of the repo to send MAE for each aspect in the Local DB.
 
 ```
 ./docker/datahub-upgrade/datahub-upgrade.sh -u RestoreIndices

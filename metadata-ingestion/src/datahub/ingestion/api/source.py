@@ -2,12 +2,31 @@ import platform
 import sys
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, Generic, Iterable, List, TypeVar
+from enum import Enum
+from typing import Dict, Generic, Iterable, List, Optional, TypeVar, Union
+
+from pydantic import BaseModel
 
 import datahub
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
+
+
+class SourceCapability(Enum):
+    PLATFORM_INSTANCE = "Platform Instance"
+    DOMAINS = "Domains"
+    DATA_PROFILING = "Data Profiling"
+    USAGE_STATS = "Dataset Usage"
+    PARTITION_SUPPORT = "Partition Support"
+    DESCRIPTIONS = "Descriptions"
+    LINEAGE_COARSE = "Table-Level Lineage"
+    LINEAGE_FINE = "Column-level Lineage"
+    OWNERSHIP = "Extract Ownership"
+    DELETION_DETECTION = "Detect Deleted Entities"
+    TAGS = "Extract Tags"
+    SCHEMA_METADATA = "Schema Metadata"
+    CONTAINERS = "Asset Containers"
 
 
 @dataclass
@@ -36,6 +55,24 @@ class SourceReport(Report):
         if key not in self.failures:
             self.failures[key] = []
         self.failures[key].append(reason)
+
+
+class CapabilityReport(BaseModel):
+    """A report capturing the result of any capability evaluation"""
+
+    capable: bool
+    failure_reason: Optional[str] = None
+    mitigation_message: Optional[str] = None
+
+
+@dataclass
+class TestConnectionReport(Report):
+    internal_failure: Optional[bool] = None
+    internal_failure_reason: Optional[str] = None
+    basic_connectivity: Optional[CapabilityReport] = None
+    capability_report: Optional[
+        Dict[Union[SourceCapability, str], CapabilityReport]
+    ] = None
 
 
 WorkUnitType = TypeVar("WorkUnitType", bound=WorkUnit)
@@ -67,3 +104,10 @@ class Source(Closeable, metaclass=ABCMeta):
     @abstractmethod
     def get_report(self) -> SourceReport:
         pass
+
+
+class TestableSource(Source):
+    @staticmethod
+    @abstractmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        raise NotImplementedError("This class does not implement this method")

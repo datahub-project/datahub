@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { BookFilled, BookOutlined } from '@ant-design/icons';
 import { EntityType, GlossaryTerm, SearchResult } from '../../../types.generated';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
@@ -16,6 +16,7 @@ import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab'
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
 import GlossaryEntitiesPath from '../../glossary/GlossaryEntitiesPath';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
+import { EntityActionItem } from '../shared/entity/EntityActions';
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -62,6 +63,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 urn={urn}
                 entityType={EntityType.GlossaryTerm}
                 useEntityQuery={useGetGlossaryTermQuery as any}
+                headerActionItems={new Set([EntityActionItem.BATCH_ADD_GLOSSARY_TERM])}
                 headerDropdownItems={
                     new Set([
                         EntityMenuItems.COPY_URL,
@@ -153,5 +155,13 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             entityType: this.type,
             getOverrideProperties: (data) => data,
         });
+    };
+
+    supportedCapabilities = () => {
+        return new Set([
+            EntityCapabilityType.OWNERS,
+            EntityCapabilityType.DEPRECATION,
+            EntityCapabilityType.SOFT_DELETE,
+        ]);
     };
 }

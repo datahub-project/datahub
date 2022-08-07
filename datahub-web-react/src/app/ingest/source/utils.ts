@@ -27,32 +27,37 @@ export const jsonToYaml = (json: string): string => {
     return yamlStr;
 };
 
+export const RUNNING = 'RUNNING';
+export const SUCCESS = 'SUCCESS';
+export const FAILURE = 'FAILURE';
+export const CANCELLED = 'CANCELLED';
+
 export const getExecutionRequestStatusIcon = (status: string) => {
     return (
-        (status === 'RUNNING' && LoadingOutlined) ||
-        (status === 'SUCCESS' && CheckCircleOutlined) ||
-        (status === 'FAILURE' && CloseCircleOutlined) ||
-        (status === 'CANCELLED' && CloseCircleOutlined) ||
+        (status === RUNNING && LoadingOutlined) ||
+        (status === SUCCESS && CheckCircleOutlined) ||
+        (status === FAILURE && CloseCircleOutlined) ||
+        (status === CANCELLED && CloseCircleOutlined) ||
         undefined
     );
 };
 
 export const getExecutionRequestStatusDisplayText = (status: string) => {
     return (
-        (status === 'RUNNING' && 'Running') ||
-        (status === 'SUCCESS' && 'Succeeded') ||
-        (status === 'FAILURE' && 'Failed') ||
-        (status === 'CANCELLED' && 'Cancelled') ||
+        (status === RUNNING && 'Running') ||
+        (status === SUCCESS && 'Succeeded') ||
+        (status === FAILURE && 'Failed') ||
+        (status === CANCELLED && 'Cancelled') ||
         status
     );
 };
 
 export const getExecutionRequestStatusDisplayColor = (status: string) => {
     return (
-        (status === 'RUNNING' && REDESIGN_COLORS.BLUE) ||
-        (status === 'SUCCESS' && 'green') ||
-        (status === 'FAILURE' && 'red') ||
-        (status === 'CANCELLED' && ANTD_GRAY[9]) ||
+        (status === RUNNING && REDESIGN_COLORS.BLUE) ||
+        (status === SUCCESS && 'green') ||
+        (status === FAILURE && 'red') ||
+        (status === CANCELLED && ANTD_GRAY[9]) ||
         ANTD_GRAY[7]
     );
 };

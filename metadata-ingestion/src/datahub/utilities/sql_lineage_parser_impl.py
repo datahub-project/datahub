@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import re
 import unittest
@@ -7,15 +8,12 @@ from typing import Dict, List, Optional, Set
 from sqllineage.core.holders import Column, SQLLineageHolder
 from sqllineage.exceptions import SQLLineageException
 
-try:
+with contextlib.suppress(ImportError):
     import sqlparse
     from networkx import DiGraph
     from sqllineage.core import LineageAnalyzer
 
     import datahub.utilities.sqllineage_patch
-except ImportError:
-    pass
-
 logger = logging.getLogger(__name__)
 
 
@@ -97,7 +95,7 @@ class SqlLineageSQLParserImpl:
             logger.error(f"SQL lineage analyzer error '{e}' for query: '{self._sql}")
 
     def get_tables(self) -> List[str]:
-        result: List[str] = list()
+        result: List[str] = []
         if self._sql_holder is None:
             logger.error("sql holder not present so cannot get tables")
             return result
@@ -135,12 +133,10 @@ class SqlLineageSQLParserImpl:
                 result.add(str(column.raw_name))
 
         # Reverting back all the previously renamed words which confuses the parser
-        result = set(["date" if c == self._DATE_SWAP_TOKEN else c for c in result])
-        result = set(
-            [
-                "timestamp" if c == self._TIMESTAMP_SWAP_TOKEN else c
-                for c in list(result)
-            ]
-        )
+        result = {"date" if c == self._DATE_SWAP_TOKEN else c for c in result}
+        result = {
+            "timestamp" if c == self._TIMESTAMP_SWAP_TOKEN else c for c in list(result)
+        }
+
         # swap back renamed date column
         return list(result)

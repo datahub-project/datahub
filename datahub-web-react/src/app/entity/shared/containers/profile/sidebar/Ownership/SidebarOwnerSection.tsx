@@ -5,10 +5,10 @@ import { ExpandedOwner } from '../../../../components/styled/ExpandedOwner';
 import { EMPTY_MESSAGES } from '../../../../constants';
 import { useEntityData, useMutationUrn, useRefetch } from '../../../../EntityContext';
 import { SidebarHeader } from '../SidebarHeader';
-import { AddOwnersModal } from './AddOwnersModal';
+import { EditOwnersModal } from './EditOwnersModal';
 
 export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
-    const { urn, entityType, entityData } = useEntityData();
+    const { entityType, entityData } = useEntityData();
     const mutationUrn = useMutationUrn();
 
     const refetch = useRefetch();
@@ -20,7 +20,12 @@ export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
             <SidebarHeader title="Owners" />
             <div>
                 {entityData?.ownership?.owners?.map((owner) => (
-                    <ExpandedOwner key={owner.owner.urn} entityUrn={urn} owner={owner} refetch={refetch} />
+                    <ExpandedOwner
+                        key={owner.owner.urn}
+                        entityUrn={owner.associatedUrn || mutationUrn}
+                        owner={owner}
+                        refetch={refetch}
+                    />
                 ))}
                 {ownersEmpty && (
                     <Typography.Paragraph type="secondary">
@@ -32,17 +37,18 @@ export const SidebarOwnerSection = ({ properties }: { properties?: any }) => {
                     <PlusOutlined /> Add Owners
                 </Button>
             </div>
-            <AddOwnersModal
-                urn={mutationUrn}
-                defaultOwnerType={properties?.defaultOwnerType}
-                hideOwnerType={properties?.hideOwnerType || false}
-                type={entityType}
-                visible={showAddModal}
-                refetch={refetch}
-                onCloseModal={() => {
-                    setShowAddModal(false);
-                }}
-            />
+            {showAddModal && (
+                <EditOwnersModal
+                    urns={[mutationUrn]}
+                    defaultOwnerType={properties?.defaultOwnerType}
+                    hideOwnerType={properties?.hideOwnerType || false}
+                    entityType={entityType}
+                    refetch={refetch}
+                    onCloseModal={() => {
+                        setShowAddModal(false);
+                    }}
+                />
+            )}
         </div>
     );
 };

@@ -94,7 +94,7 @@ def delete_for_registry(
 @click.option("--query", required=False, type=str)
 @click.option("--registry-id", required=False, type=str)
 @click.option("-n", "--dry-run", required=False, is_flag=True)
-@click.option("--include-removed", required=False, is_flag=True)
+@click.option("--only-soft-deleted", required=False, is_flag=True, default=False)
 @upgrade.check_upgrade
 @telemetry.with_telemetry
 def delete(
@@ -107,7 +107,7 @@ def delete(
     query: str,
     registry_id: str,
     dry_run: bool,
-    include_removed: bool,
+    only_soft_deleted: bool,
 ) -> None:
     """Delete metadata from datahub using a single urn or a combination of filters"""
 
@@ -117,6 +117,14 @@ def delete(
         raise click.UsageError(
             "You must provide either an urn or a platform or an env or a query for me to delete anything"
         )
+
+    include_removed: bool
+    if soft:
+        # For soft-delete include-removed does not make any sense
+        include_removed = False
+    else:
+        # For hard-delete we always include the soft-deleted items
+        include_removed = True
 
     # default query is set to "*" if not provided
     query = "*" if query is None else query
@@ -180,11 +188,6 @@ def delete(
             registry_id=registry_id, soft=soft, dry_run=dry_run
         )
     else:
-        # log warn include_removed + hard is the only way to work
-        if include_removed and soft:
-            logger.warn(
-                "A filtered delete including soft deleted entities is redundant, because it is a soft delete by default. Please use --include-removed in conjunction with --hard"
-            )
         # Filter based delete
         deletion_result = delete_with_filters(
             env=env,
@@ -195,6 +198,7 @@ def delete(
             search_query=query,
             force=force,
             include_removed=include_removed,
+            only_soft_deleted=only_soft_deleted,
         )
 
     if not dry_run:
@@ -226,6 +230,7 @@ def delete_with_filters(
     entity_type: str = "dataset",
     env: Optional[str] = None,
     platform: Optional[str] = None,
+    only_soft_deleted: Optional[bool] = False,
 ) -> DeletionResult:
 
     session, gms_host = cli_utils.get_session_and_host()
@@ -234,34 +239,80 @@ def delete_with_filters(
     logger.info(f"datahub configured with {gms_host}")
     emitter = rest_emitter.DatahubRestEmitter(gms_server=gms_host, token=token)
     batch_deletion_result = DeletionResult()
-    urns = [
-        u
-        for u in cli_utils.get_urns_by_filter(
-            env=env,
-            platform=platform,
-            search_query=search_query,
-            entity_type=entity_type,
-            include_removed=include_removed,
-        )
-    ]
-    logger.info(
-        f"Filter matched {len(urns)} entities. Sample: {choices(urns, k=min(5, len(urns)))}"
-    )
-    if not force:
-        click.confirm(
-            f"This will delete {len(urns)} entities. Are you sure?", abort=True
+
+    urns: List[str] = []
+    if not only_soft_deleted:
+        urns = list(
+            cli_utils.get_urns_by_filter(
+                env=env,
+                platform=platform,
+                search_query=search_query,
+                entity_type=entity_type,
+                include_removed=False,
+            )
         )
 
-    for urn in progressbar.progressbar(urns, redirect_stdout=True):
-        one_result = _delete_one_urn(
-            urn,
-            soft=soft,
-            entity_type=entity_type,
-            dry_run=dry_run,
-            cached_session_host=(session, gms_host),
-            cached_emitter=emitter,
+    soft_deleted_urns: List[str] = []
+    if include_removed or only_soft_deleted:
+        soft_deleted_urns = list(
+            cli_utils.get_urns_by_filter(
+                env=env,
+                platform=platform,
+                search_query=search_query,
+                entity_type=entity_type,
+                only_soft_deleted=True,
+            )
         )
-        batch_deletion_result.merge(one_result)
+
+    final_message = ""
+    if len(urns) > 0:
+        final_message = f"{len(urns)} "
+    if len(urns) > 0 and len(soft_deleted_urns) > 0:
+        final_message += "and "
+    if len(soft_deleted_urns) > 0:
+        final_message = f"{len(soft_deleted_urns)} (soft-deleted) "
+
+    logger.info(
+        f"Filter matched {final_message} {entity_type} entities of {platform}. Sample: {choices(urns, k=min(5, len(urns)))}"
+    )
+    if len(urns) == 0 and len(soft_deleted_urns) == 0:
+        click.echo(
+            f"No urns to delete. Maybe you want to change entity_type={entity_type} or platform={platform} to be something different?"
+        )
+        return DeletionResult(end_time_millis=int(time.time() * 1000.0))
+
+    if not force and not dry_run:
+        type_delete = "soft" if soft else "permanently"
+        click.confirm(
+            f"This will {type_delete} delete {len(urns)} entities. Are you sure?",
+            abort=True,
+        )
+
+    if len(urns) > 0:
+        for urn in progressbar.progressbar(urns, redirect_stdout=True):
+            one_result = _delete_one_urn(
+                urn,
+                soft=soft,
+                entity_type=entity_type,
+                dry_run=dry_run,
+                cached_session_host=(session, gms_host),
+                cached_emitter=emitter,
+            )
+            batch_deletion_result.merge(one_result)
+
+    if len(soft_deleted_urns) > 0 and not soft:
+        click.echo("Starting to delete soft-deleted URNs")
+        for urn in progressbar.progressbar(soft_deleted_urns, redirect_stdout=True):
+            one_result = _delete_one_urn(
+                urn,
+                soft=soft,
+                entity_type=entity_type,
+                dry_run=dry_run,
+                cached_session_host=(session, gms_host),
+                cached_emitter=emitter,
+                is_soft_deleted=True,
+            )
+            batch_deletion_result.merge(one_result)
     batch_deletion_result.end()
 
     return batch_deletion_result
@@ -276,7 +327,12 @@ def _delete_one_urn(
     cached_emitter: Optional[rest_emitter.DatahubRestEmitter] = None,
     run_id: str = "delete-run-id",
     deletion_timestamp: int = _get_current_time(),
+    is_soft_deleted: Optional[bool] = None,
 ) -> DeletionResult:
+
+    soft_delete_msg: str = ""
+    if dry_run and is_soft_deleted:
+        soft_delete_msg = "(soft-deleted)"
 
     deletion_result = DeletionResult()
     deletion_result.num_entities = 1
@@ -284,12 +340,12 @@ def _delete_one_urn(
 
     if soft:
         # Add removed aspect
-        if not cached_emitter:
+        if cached_emitter:
+            emitter = cached_emitter
+        else:
             _, gms_host = cli_utils.get_session_and_host()
             token = cli_utils.get_token()
             emitter = rest_emitter.DatahubRestEmitter(gms_server=gms_host, token=token)
-        else:
-            emitter = cached_emitter
         if not dry_run:
             emitter.emit_mcp(
                 MetadataChangeProposalWrapper(
@@ -305,18 +361,19 @@ def _delete_one_urn(
             )
         else:
             logger.info(f"[Dry-run] Would soft-delete {urn}")
+    elif not dry_run:
+        payload_obj = {"urn": urn}
+        urn, rows_affected = cli_utils.post_delete_endpoint(
+            payload_obj,
+            "/entities?action=delete",
+            cached_session_host=cached_session_host,
+        )
+        deletion_result.num_records = rows_affected
     else:
-        if not dry_run:
-            payload_obj = {"urn": urn}
-            urn, rows_affected = cli_utils.post_delete_endpoint(
-                payload_obj,
-                "/entities?action=delete",
-                cached_session_host=cached_session_host,
-            )
-            deletion_result.num_records = rows_affected
-        else:
-            logger.info(f"[Dry-run] Would hard-delete {urn}")
-            deletion_result.num_records = UNKNOWN_NUM_RECORDS  # since we don't know how many rows will be affected
+        logger.info(f"[Dry-run] Would hard-delete {urn} {soft_delete_msg}")
+        deletion_result.num_records = (
+            UNKNOWN_NUM_RECORDS  # since we don't know how many rows will be affected
+        )
 
     deletion_result.end()
     return deletion_result

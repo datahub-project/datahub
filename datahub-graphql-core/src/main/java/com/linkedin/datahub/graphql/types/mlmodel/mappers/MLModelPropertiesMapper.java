@@ -2,25 +2,23 @@ package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
 
 import com.linkedin.datahub.graphql.generated.MLModelGroup;
-import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import java.util.stream.Collectors;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.MLModelProperties;
-import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 
 import lombok.NonNull;
 
-public class MLModelPropertiesMapper implements ModelMapper<com.linkedin.ml.metadata.MLModelProperties, MLModelProperties> {
+public class MLModelPropertiesMapper {
 
     public static final MLModelPropertiesMapper INSTANCE = new MLModelPropertiesMapper();
 
-    public static MLModelProperties map(@NonNull final com.linkedin.ml.metadata.MLModelProperties mlModelProperties) {
-        return INSTANCE.apply(mlModelProperties);
+    public static MLModelProperties map(@NonNull final com.linkedin.ml.metadata.MLModelProperties mlModelProperties, Urn entityUrn) {
+        return INSTANCE.apply(mlModelProperties, entityUrn);
     }
 
-    @Override
-    public MLModelProperties apply(@NonNull final com.linkedin.ml.metadata.MLModelProperties mlModelProperties) {
+    public MLModelProperties apply(@NonNull final com.linkedin.ml.metadata.MLModelProperties mlModelProperties, Urn entityUrn) {
         final MLModelProperties result = new MLModelProperties();
 
         result.setDate(mlModelProperties.getDate());
@@ -34,7 +32,7 @@ public class MLModelPropertiesMapper implements ModelMapper<com.linkedin.ml.meta
                 param -> MLHyperParamMapper.map(param)).collect(Collectors.toList()));
         }
 
-        result.setCustomProperties(StringMapMapper.map(mlModelProperties.getCustomProperties()));
+        result.setCustomProperties(CustomPropertiesMapper.map(mlModelProperties.getCustomProperties(), entityUrn));
 
         if (mlModelProperties.getTrainingMetrics() != null) {
             result.setTrainingMetrics(mlModelProperties.getTrainingMetrics().stream().map(metric ->
