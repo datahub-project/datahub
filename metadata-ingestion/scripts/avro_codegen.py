@@ -2,21 +2,20 @@ import json
 import types
 import unittest.mock
 from pathlib import Path
-from typing import Dict, Iterable, List, Union
+from typing import Any, Dict, Iterable, List, Union
 
 import avro.schema
 import click
 from avrogen import write_schema_files
 
 
-def load_schema_file(schema_file: str) -> str:
+def load_schema_file(schema_file: Union[str, Path]) -> dict:
     raw_schema_text = Path(schema_file).read_text()
-    return json.dumps(json.loads(raw_schema_text), indent=2)
+    return json.loads(raw_schema_text)
 
 
-def merge_schemas(schemas: List[str]) -> str:
+def merge_schemas(schemas_obj: List[Any]) -> str:
     # Combine schemas.
-    schemas_obj = [json.loads(schema) for schema in schemas]
     merged = ["null"] + schemas_obj
 
     # Patch add_name method to NOT complain about duplicate names
@@ -114,11 +113,85 @@ def make_load_schema_methods(schemas: Iterable[str]) -> str:
     )
 
 
+def annotate_aspects(aspects: List[dict], schema_class_file: Path) -> None:
+    schema_classes_lines = schema_class_file.read_text().splitlines()
+    line_lookup_table = {line: i for i, line in enumerate(schema_classes_lines)}
+
+    # Create the Aspect class.
+    # We ensure that it cannot be instantiated directly, as
+    # per https://stackoverflow.com/a/7989101/5004662.
+    schema_classes_lines[
+        line_lookup_table["__SCHEMAS: Dict[str, RecordSchema] = {}"]
+    ] += """
+
+class _Aspect(DictWrapper):
+    ASPECT_NAME: str = None  # type: ignore
+
+    def __init__(self):
+        if type(self) is _Aspect:
+            raise TypeError("_Aspect is an abstract class, and cannot be instantiated directly.")
+        super().__init__()
+
+    @classmethod
+    def get_aspect_name(cls) -> str:
+        return cls.ASPECT_NAME  # type: ignore
+"""
+
+    for aspect in aspects:
+        className = f'{aspect["name"]}Class'
+        aspectName = aspect["Aspect"]["name"]
+        class_def_original = f"class {className}(DictWrapper):"
+
+        # Make the aspects inherit from the Aspect class.
+        class_def_line = line_lookup_table[class_def_original]
+        schema_classes_lines[class_def_line] = f"class {className}(_Aspect):"
+
+        # Define the ASPECT_NAME class attribute.
+        # There's always an empty line between the docstring and the RECORD_SCHEMA class attribute.
+        # We need to find it and insert our line of code there.
+        empty_line = class_def_line + 1
+        while not (
+            schema_classes_lines[empty_line].strip() == ""
+            and schema_classes_lines[empty_line + 1]
+            .strip()
+            .startswith("RECORD_SCHEMA = ")
+        ):
+            empty_line += 1
+        schema_classes_lines[empty_line] = f"\n    ASPECT_NAME = '{aspectName}'"
+
+    schema_class_file.write_text("\n".join(schema_classes_lines))
+
+
 @click.command()
-@click.argument("schema_files", type=click.Path(exists=True), nargs=-1, required=True)
+@click.argument(
+    "schemas_path", type=click.Path(exists=True, file_okay=False), required=True
+)
 @click.argument("outdir", type=click.Path(), required=True)
-def generate(schema_files: List[str], outdir: str) -> None:
-    schemas: Dict[str, str] = {}
+def generate(schemas_path: str, outdir: str) -> None:
+    required_schema_files = {
+        "mxe/MetadataChangeEvent.avsc",
+        "mxe/MetadataChangeProposal.avsc",
+        "usage/UsageAggregation.avsc",
+        "mxe/MetadataChangeLog.avsc",
+        "mxe/PlatformEvent.avsc",
+        "platform/event/v1/EntityChangeEvent.avsc",
+    }
+
+    # Find all the aspect schemas / other important schemas.
+    aspect_file_stems: List[str] = []
+    schema_files: List[Path] = []
+    for schema_file in Path(schemas_path).glob("**/*.avsc"):
+        relative_path = schema_file.relative_to(schemas_path).as_posix()
+        if relative_path in required_schema_files:
+            schema_files.append(schema_file)
+            required_schema_files.remove(relative_path)
+        elif load_schema_file(schema_file).get("Aspect"):
+            aspect_file_stems.append(schema_file.stem)
+            schema_files.append(schema_file)
+
+    assert not required_schema_files, f"Schema files not found: {required_schema_files}"
+
+    schemas: Dict[str, dict] = {}
     for schema_file in schema_files:
         schema = load_schema_file(schema_file)
         schemas[Path(schema_file).stem] = schema
@@ -130,12 +203,18 @@ def generate(schema_files: List[str], outdir: str) -> None:
     # Schema files post-processing.
     (Path(outdir) / "__init__.py").write_text("# This file is intentionally empty.\n")
     add_avro_python3_warning(Path(outdir) / "schema_classes.py")
+    annotate_aspects(
+        [schemas[aspect_file_stem] for aspect_file_stem in aspect_file_stems],
+        Path(outdir) / "schema_classes.py",
+    )
 
     # Save raw schema files in codegen as well.
     schema_save_dir = Path(outdir) / "schemas"
     schema_save_dir.mkdir()
     for schema_out_file, schema in schemas.items():
-        (schema_save_dir / f"{schema_out_file}.avsc").write_text(schema)
+        (schema_save_dir / f"{schema_out_file}.avsc").write_text(
+            json.dumps(schema, indent=2)
+        )
 
     # Add load_schema method.
     with open(schema_save_dir / "__init__.py", "a") as schema_dir_init:

@@ -1,6 +1,6 @@
 import logging
 from abc import ABCMeta, abstractmethod
-from typing import Any, Dict, Iterable, List, Optional, Type, Union
+from typing import Any, Dict, Iterable, List, Optional, Type, Union, cast
 
 import datahub.emitter.mce_builder
 from datahub.emitter.mce_builder import Aspect
@@ -30,6 +30,7 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
+    _Aspect,
 )
 from datahub.utilities.urns.urn import Urn
 
@@ -217,7 +218,7 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
             transformed_aspect = self.transform_aspect(
                 entity_urn=envelope.record.entityUrn,
                 aspect_name=envelope.record.aspectName,
-                aspect=envelope.record.aspect,
+                aspect=cast(_Aspect, envelope.record.aspect),
             )
             self._mark_processed(envelope.record.entityUrn)
             if transformed_aspect is None:

@@ -156,10 +156,10 @@ class SQLServerSource(SQLAlchemySource):
     # override to get table descriptions
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
-    ) -> Tuple[Optional[str], Optional[Dict[str, str]], Optional[str]]:
+    ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         description, properties, location_urn = super().get_table_properties(
             inspector, schema, table
-        )  # type:Tuple[Optional[str], Optional[Dict[str, str]], Optional[str]]
+        )  # type:Tuple[Optional[str], Dict[str, str], Optional[str]]
         # Update description if available.
         db_name: str = self.get_db_name(inspector)
         description = self.table_descriptions.get(
