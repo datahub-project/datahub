@@ -376,7 +376,6 @@ base_dev_requirements = {
             "bigquery-usage",
             "clickhouse",
             "clickhouse-usage",
-            "delta-lake",
             "druid",
             "elasticsearch",
             "ldap",
@@ -415,6 +414,7 @@ if is_py37_or_newer:
         {
             dependency
             for plugin in [
+                "delta-lake",
                 "feast",
                 "iceberg",
                 "lookml",
@@ -428,6 +428,7 @@ if is_py37_or_newer:
         {
             dependency
             for plugin in [
+                "delta-lake",
                 "iceberg",
                 "lookml",
             ]
@@ -482,6 +483,7 @@ if is_py37_or_newer:
             dependency
             for plugin in [
                 "athena",
+                "delta-lake",
                 "feast",
                 "iceberg",
             ]
