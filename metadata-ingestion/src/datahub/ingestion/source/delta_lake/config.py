@@ -59,9 +59,9 @@ class DeltaLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for tables to filter in ingestion.",
     )
-    version_history_limit: Optional[int] = Field(
-        default=None,
-        description="Number of previous version histories to be ingested. If set to None all version history will be ingested.",
+    version_history_lookback: Optional[int] = Field(
+        default=1,
+        description="Number of previous version histories to be ingested. Defaults to 1. If set to -1 all version history will be ingested.",
     )
 
     s3: Optional[S3] = Field()
@@ -75,6 +75,12 @@ class DeltaLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
 
     def get_complete_path(self):
         return self._complete_path
+
+    @pydantic.validator("version_history_lookback")
+    def negative_version_history_implies_no_limit(cls, v):
+        if v and v < 0:
+            return None
+        return v
 
     @pydantic.root_validator()
     def validate_config(cls, values: Dict) -> Dict[str, Any]:
