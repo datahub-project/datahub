@@ -14,7 +14,7 @@ Follow the specific instructions for your build system to declare a dependency o
 ### Gradle
 Add the following to your build.gradle.
 ```gradle
-implementation 'io.acryl:datahub-client:0.0.1'
+implementation 'io.acryl:datahub-client:__version__'
 ```
 ### Maven
 Add the following to your `pom.xml`.
@@ -23,8 +23,8 @@ Add the following to your `pom.xml`.
 <dependency>
     <groupId>io.acryl</groupId>
     <artifactId>datahub-client</artifactId>
-    <!-- replace with the latest version number -->
-    <version>0.0.1</version>
+    <!-- replace __version__ with the latest version number -->
+    <version>__version__</version>
 </dependency>
 ```
 
@@ -167,7 +167,7 @@ If you're interested in looking at the Kafka emitter code, it is available [here
 
 ## File Emitter
 
-File emitter writes MCPs into the json file. This works similar to "File" sink from python. You can use this, when the system which produces MCPs dont have direct connection to the datahub's server. Generated json file can be transferred later and then ingested into datahub using "File" source.
+The File emitter writes metadata change proposal events (MCPs) into a JSON file that can be later handed off to the Python [File source](docs/generated/ingestion/sources/file.md) for ingestion. This works analogous to the [File sink](../../metadata-ingestion/sink_docs/file.md) in Python. This mechanism can be used when the system producing metadata events doesn't have direct connection to DataHub's REST server or Kafka brokers. The generated JSON file can be transferred later and then ingested into DataHub using the [File source](docs/generated/ingestion/sources/file.md).
 
 ### Usage
 
@@ -185,19 +185,37 @@ import datahub.event.MetadataChangeProposalWrapper;
 String outputFile = "/my/path/output.json";
 
 //Create File Emitter
-FileEmitter emitter = new FileEmitter(FileEmitterConfig.builder().fileName(outputFile ).build());
+FileEmitter emitter = new FileEmitter(FileEmitterConfig.builder().fileName(outputFile).build());
 
-// Get MCPWs from getMCPWs()
-MetadataChangeProposalWrapper[] mcpws = getMCPWs();
+// A couple of sample metadata events
+MetadataChangeProposalWrapper mcpwOne = MetadataChangeProposalWrapper.builder()
+        .entityType("dataset")
+        .entityUrn("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.user-table,PROD)")
+        .upsert()
+        .aspect(new DatasetProperties().setDescription("This is the canonical User profile dataset"))
+        .build();
+
+MetadataChangeProposalWrapper mcpwTwo = MetadataChangeProposalWrapper.builder()
+        .entityType("dataset")
+        .entityUrn("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.fact-orders-table,PROD)")
+        .upsert()
+        .aspect(new DatasetProperties().setDescription("This is the canonical Fact table for orders"))
+        .build();
+
+MetadataChangeProposalWrapper[] mcpws = { mcpwOne, mcpwTwo };
 for (MetadataChangeProposalWrapper mcpw : mcpws) {
    emitter.emit(mcpw);
 }
-emitter.close();
+emitter.close(); // calling close() is important to ensure file gets closed cleanly
     
 ```
 ### File Emitter Code
 
 If you're interested in looking at the File emitter code, it is available [here](./datahub-client/src/main/java/datahub/client/file/FileEmitter.java).
+
+### Support for S3, GCS etc.
+
+The File emitter only supports writing to the local filesystem currently. If you're interested in adding support for S3, GCS etc., contributions are welcome! 
 
 ## Other Languages
 
