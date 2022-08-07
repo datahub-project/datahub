@@ -4,7 +4,6 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from functools import cached_property
 from typing import (
     Any,
     Callable,
@@ -21,6 +20,7 @@ from urllib.parse import urlparse
 
 import dateutil.parser
 import requests
+from cached_property import cached_property
 from pydantic import BaseModel, root_validator, validator
 from pydantic.fields import Field
 
@@ -192,7 +192,7 @@ class DBTEntitiesEnabled(BaseModel):
         ]
         return len(other_onlies) != 0
 
-    @cached_property
+    @cached_property  # type: ignore
     def node_type_emit_decision_cache(self) -> Dict[str, bool]:
         node_type_for_field_map = {
             "models": "model",
