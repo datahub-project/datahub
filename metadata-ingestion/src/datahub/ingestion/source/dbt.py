@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from functools import cached_property
 from typing import (
     Any,
     Callable,
@@ -146,6 +147,12 @@ class EmitDirective(Enum):
 class DBTEntitiesEnabled(BaseModel):
     """Controls which dbt entities are going to be emitted by this source"""
 
+    class Config:
+        arbitrary_types_allowed = True  # needed to allow cached_property to work
+        keep_untouched = (
+            cached_property,
+        )  # needed to allow cached_property to work. See https://github.com/samuelcolvin/pydantic/issues/1241 for more info.
+
     models: EmitDirective = Field(
         "Yes", description="Emit metadata for dbt models when set to Yes or Only"
     )
@@ -186,7 +193,7 @@ class DBTEntitiesEnabled(BaseModel):
         ]
         return len(other_onlies) != 0
 
-    @property
+    @cached_property
     def node_type_emit_decision_cache(self) -> Dict[str, bool]:
         node_type_for_field_map = {
             "models": "model",
