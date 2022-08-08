@@ -61,8 +61,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.sql_parser import SQLParser
 
-assert sys.version_info[1] >= 7  # needed for mypy
-
 logger = logging.getLogger(__name__)
 
 

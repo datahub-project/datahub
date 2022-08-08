@@ -434,6 +434,7 @@ full_test_dev_requirements = {
             "athena",
             "circuit-breaker",
             "clickhouse",
+            "delta-lake",
             "druid",
             "feast",
             "feast-legacy",
