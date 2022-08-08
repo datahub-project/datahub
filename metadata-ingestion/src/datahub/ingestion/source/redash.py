@@ -552,9 +552,7 @@ class RedashSource(Source):
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
 
-        dashboard_url = (
-            f"{self.config.connect_uri}/dashboards/{dashboard_data.get('id')}-{dashboard_data.get('slug', '')}"
-        )
+        dashboard_url = f"{self.config.connect_uri}/dashboards/{dashboard_data.get('id')}-{dashboard_data.get('slug', '')}"
 
         widgets = dashboard_data.get("widgets", [])
         description = self._get_dashboard_description_from_widgets(widgets)
