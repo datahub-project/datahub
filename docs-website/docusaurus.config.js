@@ -8,9 +8,7 @@ module.exports = {
   favicon: "img/favicon.ico",
   organizationName: "linkedin", // Usually your GitHub org/user name.
   projectName: "datahub", // Usually your repo name.
-  stylesheets: [
-    "https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap",
-  ],
+  stylesheets: ["https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap"],
   themeConfig: {
     colorMode: {
       switchConfig: {
@@ -34,7 +32,7 @@ module.exports = {
       id: "announcement",
       content:
         '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>Managed DataHub</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io/datahub-beta" target="_blank" class="button button--primary">Sign up for Managed DataHub →</a>',
-      backgroundColor: "#090a11",
+      backgroundColor: "#070707",
       textColor: "#ffffff",
       isCloseable: false,
     },
@@ -200,10 +198,7 @@ module.exports = {
     ],
   ],
   plugins: [
-    [
-      "@docusaurus/plugin-ideal-image",
-      { quality: 100, sizes: [320, 640, 1280, 1440, 1600] },
-    ],
+    ["@docusaurus/plugin-ideal-image", { quality: 100, sizes: [320, 640, 1280, 1440, 1600] }],
     "docusaurus-plugin-sass",
     [
       "docusaurus-graphql-plugin",
