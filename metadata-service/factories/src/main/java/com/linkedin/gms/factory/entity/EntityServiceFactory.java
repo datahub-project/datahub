@@ -1,9 +1,11 @@
 package com.linkedin.gms.factory.entity;
 
 import com.linkedin.gms.factory.common.TopicConventionFactory;
+import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.TopicConvention;
 import org.apache.avro.generic.IndexedRecord;
@@ -17,7 +19,11 @@ import javax.annotation.Nonnull;
 
 
 @Configuration
+@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class EntityServiceFactory {
+
+  @Value("${entityService.ingestion.rebirthEntitiesOnAnyAspect}")
+  private Boolean _rebirthEntitiesOnAnyAspect;
 
   @Bean(name = "entityService")
   @DependsOn({"entityAspectDao", "kafkaEventProducer", TopicConventionFactory.TOPIC_CONVENTION_BEAN, "entityRegistry"})
@@ -29,6 +35,6 @@ public class EntityServiceFactory {
       EntityRegistry entityRegistry) {
 
     final KafkaEventProducer eventProducer = new KafkaEventProducer(producer, convention);
-    return new EntityService(aspectDao, eventProducer, entityRegistry);
+    return new EntityService(aspectDao, eventProducer, entityRegistry, rebirthEntitiesOnAnyAspect);
   }
 }

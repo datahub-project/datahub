@@ -20,7 +20,8 @@ import javax.annotation.Nonnull;
 
 
 @Configuration
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
+@PropertySource(value = "classpath:/"
+    + ".yml", factory = YamlPropertySourceFactory.class)
 public class RetentionServiceFactory {
 
   @Autowired

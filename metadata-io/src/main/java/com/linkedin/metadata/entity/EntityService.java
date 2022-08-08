@@ -130,6 +130,7 @@ public class EntityService {
   private final EventProducer _producer;
   private final EntityRegistry _entityRegistry;
   private final Map<String, Set<String>> _entityToValidAspects;
+  private final Boolean _rebirthEntitiesOnAnyAspect;
   private RetentionService _retentionService;
   private final Boolean _alwaysEmitAuditEvent = false;
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
@@ -141,12 +142,24 @@ public class EntityService {
   public EntityService(
       @Nonnull final AspectDao aspectDao,
       @Nonnull final EventProducer producer,
-      @Nonnull final EntityRegistry entityRegistry) {
+      @Nonnull final EntityRegistry entityRegistry
+      ) {
+
+    this(aspectDao, producer, entityRegistry, false);
+  }
+
+  public EntityService(
+      @Nonnull final AspectDao aspectDao,
+      @Nonnull final EventProducer producer,
+      @Nonnull final EntityRegistry entityRegistry,
+      @Nonnull final Boolean rebirthEntitiesOnAnyAspect
+      ) {
 
     _aspectDao = aspectDao;
     _producer = producer;
     _entityRegistry = entityRegistry;
     _entityToValidAspects = buildEntityToValidAspects(entityRegistry);
+    _rebirthEntitiesOnAnyAspect = rebirthEntitiesOnAnyAspect;
   }
 
   /**
@@ -1070,6 +1083,11 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
       aspectsToGet.add(DATA_PLATFORM_INSTANCE);
     }
 
+    boolean shouldHaveStatusSet = isAspectMissing(entityType, STATUS, includedAspects);
+    if (shouldHaveStatusSet) {
+      aspectsToGet.add(STATUS);
+    }
+
     List<Pair<String, RecordTemplate>> aspects = new ArrayList<>();
     final String keyAspectName = getKeyAspectName(urn);
     aspectsToGet.add(keyAspectName);
@@ -1096,6 +1114,12 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
     if (shouldCheckDataPlatform && latestAspects.get(DATA_PLATFORM_INSTANCE) == null) {
       DataPlatformInstanceUtils.buildDataPlatformInstance(entityType, keyAspect)
           .ifPresent(aspect -> aspects.add(Pair.of(DATA_PLATFORM_INSTANCE, aspect)));
+    }
+
+    if (this._rebirthEntitiesOnAnyAspect && shouldHaveStatusSet && latestAspects.get(STATUS) != null) {
+      Status status = new Status();
+      status.setRemoved(false);
+      aspects.add(Pair.of(STATUS, status));
     }
 
     return aspects;

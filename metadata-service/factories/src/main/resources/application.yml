@@ -74,6 +74,8 @@ entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
   retention:
     enabled: ${ENTITY_SERVICE_ENABLE_RETENTION:false}
+  ingestion:
+    rebirthEntitiesOnAnyAspect: ${ENTITY_SERVICE_REBIRTH_ENTITY_ON_ANY_ASPECT:false}
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}
