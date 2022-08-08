@@ -161,18 +161,11 @@ def make_sqlalchemy_uri(
     uri_opts: Optional[Dict[str, Any]] = None,
 ) -> str:
     url = f"{scheme}://"
-    if scheme == "clickhouse":
-        if username is not None:
-            url += f"{quote_plus(username)}:"
-            if password is not None:
-                url += f"{quote_plus(password)}"
-            url += "@"
-    else:
-        if username is not None:
-            url += f"{quote_plus(username)}"
-            if password is not None:
-                url += f":{quote_plus(password)}"
-            url += "@"
+    if username is not None:
+        url += f"{quote_plus(username)}"
+        if password is not None:
+            url += f":{quote_plus(password)}"
+        url += "@"
     if at is not None:
         url += f"{at}"
     if db is not None:
@@ -329,7 +322,7 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
         return self.sqlalchemy_uri or make_sqlalchemy_uri(
             self.scheme,  # type: ignore
             self.username,
-            self.password.get_secret_value() if self.password else None,
+            self.password.get_secret_value() if self.password is not None else None,
             self.host_port,  # type: ignore
             self.database,
             uri_opts=uri_opts,
