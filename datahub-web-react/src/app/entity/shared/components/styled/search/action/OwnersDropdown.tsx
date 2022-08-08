@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-import { EntityType } from '../../../../../../../types.generated';
-import { AddOwnersModal } from '../../../../containers/profile/sidebar/Ownership/AddOwnersModal';
+import { EditOwnersModal, OperationType } from '../../../../containers/profile/sidebar/Ownership/EditOwnersModal';
 import ActionDropdown from './ActionDropdown';
 
 type Props = {
     urns: Array<string>;
     disabled: boolean;
+    refetch?: () => void;
 };
 
 // eslint-disable-next-line
-export default function OwnersDropdown({ urns, disabled = false }: Props) {
-    const [showAddModal, setShowAddModal] = useState(false);
+export default function OwnersDropdown({ urns, disabled = false, refetch }: Props) {
+    const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+    const [operationType, setOperationType] = useState(OperationType.ADD);
+
     return (
         <>
             <ActionDropdown
@@ -18,22 +20,30 @@ export default function OwnersDropdown({ urns, disabled = false }: Props) {
                 actions={[
                     {
                         title: 'Add owners',
-                        onClick: () => setShowAddModal(true),
+                        onClick: () => {
+                            setOperationType(OperationType.ADD);
+                            setIsEditModalVisible(true);
+                        },
                     },
                     {
                         title: 'Remove owners',
-                        onClick: () => null,
+                        onClick: () => {
+                            setOperationType(OperationType.REMOVE);
+                            setIsEditModalVisible(true);
+                        },
                     },
                 ]}
                 disabled={disabled}
             />
-            {showAddModal && urns.length > 0 && (
-                <AddOwnersModal
-                    urn={urns[0]}
-                    type={EntityType.CorpUser}
+            {isEditModalVisible && (
+                <EditOwnersModal
+                    urns={urns}
+                    operationType={operationType}
                     onCloseModal={() => {
-                        setShowAddModal(false);
+                        setIsEditModalVisible(false);
+                        refetch?.();
                     }}
+                    hideOwnerType={operationType === OperationType.REMOVE}
                 />
             )}
         </>

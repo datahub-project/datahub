@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import sys
 
 import pytest
 
@@ -14,6 +15,7 @@ source_files = os.listdir(SOURCE_FILES_PATH)
 
 
 @pytest.mark.parametrize("source_file", source_files)
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="delta-lake requires Python 3.7+")
 def test_delta_lake(pytestconfig, source_file, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/delta_lake"
 
@@ -48,6 +50,7 @@ def test_delta_lake(pytestconfig, source_file, tmp_path, mock_time):
     )
 
 
+@pytest.mark.skipif(sys.version_info < (3, 7), reason="delta-lake requires Python 3.7+")
 def test_data_lake_incorrect_config_raises_error(tmp_path, mock_time):
     config_dict = {}
     config_dict["sink"] = {

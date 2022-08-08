@@ -59,6 +59,10 @@ class DeltaLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for tables to filter in ingestion.",
     )
+    version_history_lookback: Optional[int] = Field(
+        default=1,
+        description="Number of previous version histories to be ingested. Defaults to 1. If set to -1 all version history will be ingested.",
+    )
 
     s3: Optional[S3] = Field()
 
@@ -72,14 +76,20 @@ class DeltaLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
     def get_complete_path(self):
         return self._complete_path
 
+    @pydantic.validator("version_history_lookback")
+    def negative_version_history_implies_no_limit(cls, v):
+        if v and v < 0:
+            return None
+        return v
+
     @pydantic.root_validator()
     def validate_config(cls, values: Dict) -> Dict[str, Any]:
-        values["_is_s3"] = is_s3_uri(values["base_path"])
+        values["_is_s3"] = is_s3_uri(values.get("base_path", ""))
         if values["_is_s3"]:
-            if values["s3"] is None:
+            if values.get("s3") is None:
                 raise ValueError("s3 config must be set for s3 path")
-        values["_complete_path"] = values["base_path"]
-        if values["relative_path"] is not None:
+        values["_complete_path"] = values.get("base_path")
+        if values.get("relative_path") is not None:
             values[
                 "_complete_path"
             ] = f"{values['_complete_path'].rstrip('/')}/{values['relative_path'].lstrip('/')}"
