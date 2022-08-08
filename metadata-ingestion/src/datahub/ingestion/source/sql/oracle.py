@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Iterable, List, Optional, cast
+from typing import Any, Iterable, List, Optional, cast, Tuple
 from unittest.mock import patch
 
 # This import verifies that the dependencies are available.
@@ -8,7 +8,6 @@ import pydantic
 from pydantic.fields import Field
 from sqlalchemy import event, sql
 from sqlalchemy.dialects.oracle.base import OracleDialect
-from sqlalchemy.engine import reflection
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.ingestion.api.decorators import (
@@ -87,7 +86,7 @@ class OracleInspectorObjectWrapper:
         self._inspector_instance = inspector_instance
         self.log = logging.getLogger(__name__)
         # tables that we don't want to ingest into the DataHub
-        self.exclude_tablespaces: List[str] = []
+        self.exclude_tablespaces: Tuple[str] = ("SYSTEM", "SYSAUX")
 
     def get_schema_names(self) -> List[str]:
         self.log.debug("OracleInspectorObjectWrapper is in used")
@@ -115,7 +114,7 @@ class OracleInspectorObjectWrapper:
                 ", ".join(["'%s'" % ts for ts in self.exclude_tablespaces])
             )
         sql_str += "OWNER = :owner " "AND IOT_NAME IS NULL "
-
+        self.log.info("SQL = {}".format(sql_str))
         cursor = self._inspector_instance.bind.execute(sql.text(sql_str), owner=schema)
 
         return [
