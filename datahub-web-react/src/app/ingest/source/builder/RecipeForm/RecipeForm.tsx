@@ -67,21 +67,13 @@ function getInitialValues(displayRecipe: string, allFields: any[]) {
     return initialValues;
 }
 
-function SectionHeader({
-    icon,
-    text,
-    filterSectionTooltip,
-}: {
-    icon: any;
-    text: string;
-    filterSectionTooltip?: string;
-}) {
+function SectionHeader({ icon, text, sectionTooltip }: { icon: any; text: string; sectionTooltip?: string }) {
     return (
         <span>
             {icon}
             <HeaderTitle>{text}</HeaderTitle>
-            {filterSectionTooltip && (
-                <Tooltip placement="top" title={filterSectionTooltip}>
+            {sectionTooltip && (
+                <Tooltip placement="top" title={sectionTooltip}>
                     <HeaderTooltipWrapper />
                 </Tooltip>
             )}
@@ -152,7 +144,7 @@ function RecipeForm(props: Props) {
                             <SectionHeader
                                 icon={<FilterOutlined />}
                                 text="Filter"
-                                filterSectionTooltip={filterSectionTooltip}
+                                sectionTooltip={filterSectionTooltip}
                             />
                         }
                         key="1"
