@@ -42,6 +42,8 @@ public class EntityLineageResultResolver implements DataFetcher<CompletableFutur
     final Integer start = input.getStart(); // Optional!
     @Nullable
     final Integer count = input.getCount(); // Optional!
+    @Nullable
+    final Boolean separateSiblings = input.getSeparateSiblings(); // Optional!
 
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
@@ -49,7 +51,14 @@ public class EntityLineageResultResolver implements DataFetcher<CompletableFutur
     return CompletableFuture.supplyAsync(() -> {
       try {
         return mapEntityRelationships(lineageDirection,
-            _siblingGraphService.getLineage(Urn.createFromString(urn), resolvedDirection, start != null ? start : 0, count != null ? count : 100, 1));
+            _siblingGraphService.getLineage(
+                Urn.createFromString(urn),
+                resolvedDirection,
+                start != null ? start : 0,
+                count != null ? count : 100,
+                1,
+                separateSiblings != null ? input.getSeparateSiblings() : false
+            ));
       } catch (URISyntaxException e) {
         log.error("Failed to fetch lineage for {}", urn);
         throw new RuntimeException(String.format("Failed to fetch lineage for {}", urn), e);

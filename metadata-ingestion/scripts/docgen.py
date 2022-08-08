@@ -114,8 +114,7 @@ def get_enum_description(
         description = (
             description + "."
             if description
-            else "" + " Allowed symbols are " + ",".join(enum_symbols)
-        )
+            else "") + " Allowed symbols are " + ", ".join(enum_symbols)
 
     return description
 
@@ -136,9 +135,6 @@ def gen_md_table(
                 default=str(field_dict.get("default", "None")),
             )
         )
-        # md_str.append(
-        #    f"| {get_prefixed_name(field_prefix, None)} | Enum | {field_dict['type']} | one of {','.join(field_dict['enum'])} |\n"
-        # )
 
     elif "properties" in field_dict:
         for field_name, value in field_dict["properties"].items():
@@ -207,7 +203,6 @@ def gen_md_table(
                         "additionalProperties" in value
                         and "$ref" in value["additionalProperties"]
                     ):
-                        # breakpoint()
                         value_ref = value["additionalProperties"]["$ref"]
                         def_dict = get_definition_dict_from_definition(
                             definitions_dict, value_ref
@@ -462,7 +457,6 @@ def generate(
 
     if extra_docs:
         for path in glob.glob(f"{extra_docs}/**/*[.md|.yaml|.yml]", recursive=True):
-            # breakpoint()
 
             m = re.search("/docs/sources/(.*)/(.*).md", path)
             if m:
@@ -555,7 +549,6 @@ def generate(
                 source_documentation[platform_id] = (
                     source_documentation.get(platform_id) or {}
                 )
-                # breakpoint()
 
                 create_or_update(
                     source_documentation,
@@ -605,9 +598,10 @@ def generate(
                 os.makedirs(config_dir, exist_ok=True)
                 with open(f"{config_dir}/{plugin_name}_config.json", "w") as f:
                     f.write(source_config_class.schema_json(indent=2))
-                
-                create_or_update(source_documentation,
-                                    [platform_id, "plugins", plugin_name, "config_schema"],
+
+                create_or_update(
+                    source_documentation,
+                    [platform_id, "plugins", plugin_name, "config_schema"],
                     source_config_class.schema_json(indent=2) or "",
                 )
 
@@ -649,7 +643,9 @@ def generate(
 
         with open(platform_doc_file, "w") as f:
             if "name" in platform_docs:
-                f.write(f"import Tabs from '@theme/Tabs';\nimport TabItem from '@theme/TabItem';\n\n")
+                f.write(
+                    f"import Tabs from '@theme/Tabs';\nimport TabItem from '@theme/TabItem';\n\n"
+                )
                 f.write(f"# {platform_docs['name']}\n")
             if len(platform_docs["plugins"].keys()) > 1:
                 # More than one plugin used to provide integration with this platform
@@ -722,8 +718,10 @@ def generate(
                     f.write("\n```\n")
                 if "config" in plugin_docs:
                     f.write("\n### Config Details\n")
-                    f.write("""<Tabs>
-                <TabItem value="options" label="Options" default>\n\n""")
+                    f.write(
+                        """<Tabs>
+                <TabItem value="options" label="Options" default>\n\n"""
+                    )
                     f.write(
                         "Note that a `.` is used to denote nested fields in the YAML recipe.\n\n"
                     )
@@ -733,7 +731,8 @@ def generate(
                     for doc in plugin_docs["config"]:
                         f.write(doc)
                     f.write("\n</details>\n\n")
-                    f.write(f"""</TabItem>
+                    f.write(
+                        f"""</TabItem>
 <TabItem value="schema" label="Schema">
 
 The [JSONSchema](https://json-schema.org/) for this configuration is inlined below.\n\n
@@ -741,7 +740,8 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
 {plugin_docs['config_schema']}
 ```\n\n
 </TabItem>
-</Tabs>\n\n""")
+</Tabs>\n\n"""
+                    )
                 # insert custom plugin docs after config details
                 f.write(plugin_docs.get("custom_docs", ""))
                 if "classname" in plugin_docs:

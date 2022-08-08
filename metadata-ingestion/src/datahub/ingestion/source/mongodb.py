@@ -172,9 +172,9 @@ def construct_schema_pymongo(
             maximum size of the document that will be considered for generating the schema.
     """
 
-    doc_size_field = "temporary_doc_size_field"
     aggregations: List[Dict] = []
     if is_version_gte_4_4:
+        doc_size_field = "temporary_doc_size_field"
         # create a temporary field to store the size of the document. filter on it and then remove it.
         aggregations = [
             {"$addFields": {doc_size_field: {"$bsonSize": "$$ROOT"}}},

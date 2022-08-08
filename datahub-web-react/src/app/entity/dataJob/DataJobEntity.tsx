@@ -2,7 +2,7 @@ import * as React from 'react';
 import { ConsoleSqlOutlined } from '@ant-design/icons';
 import { DataJob, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
 import { Preview } from './preview/Preview';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { GetDataJobQuery, useGetDataJobQuery, useUpdateDataJobMutation } from '../../../graphql/dataJob.generated';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
@@ -18,8 +18,8 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 import { RunsTab } from './tabs/RunsTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 
-const getDataJobPlatformName = (data: DataJob): string => {
-    return data.dataFlow?.platform.properties?.displayName || data.dataFlow?.platform.name || '';
+const getDataJobPlatformName = (data?: DataJob): string => {
+    return data?.dataFlow?.platform?.properties?.displayName || data?.dataFlow?.platform?.name || '';
 };
 
 /**
@@ -88,8 +88,8 @@ export class DataJobEntity implements Entity<DataJob> {
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, dataJob: GetDataJobQuery) =>
-                            (dataJob?.dataJob?.incoming?.count || 0) !== 0 ||
-                            (dataJob?.dataJob?.outgoing?.count || 0) !== 0,
+                            (dataJob?.dataJob?.upstream?.count || 0) !== 0 ||
+                            (dataJob?.dataJob?.downstream?.count || 0) !== 0,
                     },
                 },
                 {
@@ -146,7 +146,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 platformLogo={data?.dataFlow?.platform?.properties?.logoUrl || ''}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags || null}
-                domain={data.domain}
+                domain={data.domain?.domain}
             />
         );
     };
@@ -163,8 +163,13 @@ export class DataJobEntity implements Entity<DataJob> {
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
-                domain={data.domain}
+                domain={data.domain?.domain}
+                deprecation={data.deprecation}
                 insights={result.insights}
+                externalUrl={data.properties?.externalUrl}
+                lastRunTimeMs={
+                    ((data as any).lastRun?.runs?.length && (data as any).lastRun?.runs[0]?.created?.time) || undefined
+                }
             />
         );
     };
@@ -189,5 +194,16 @@ export class DataJobEntity implements Entity<DataJob> {
             entityType: this.type,
             getOverrideProperties: this.getOverridePropertiesFromEntity,
         });
+    };
+
+    supportedCapabilities = () => {
+        return new Set([
+            EntityCapabilityType.OWNERS,
+            EntityCapabilityType.GLOSSARY_TERMS,
+            EntityCapabilityType.TAGS,
+            EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.DEPRECATION,
+            EntityCapabilityType.SOFT_DELETE,
+        ]);
     };
 }

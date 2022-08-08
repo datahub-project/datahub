@@ -32,7 +32,7 @@ public class DataHubAuthorizerFactory {
   @Value("${authorization.defaultAuthorizer.cacheRefreshIntervalSecs}")
   private Integer policyCacheRefreshIntervalSeconds;
 
-  @Value("${authorization.defaultAuthorizer..enabled:true}")
+  @Value("${authorization.defaultAuthorizer.enabled:true}")
   private Boolean policiesEnabled;
 
   @Bean(name = "dataHubAuthorizer")

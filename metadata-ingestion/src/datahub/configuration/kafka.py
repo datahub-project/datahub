@@ -27,7 +27,7 @@ class _KafkaConnectionConfig(ConfigModel):
             else:
                 host = entry
             assert re.match(
-                # This regex is quite loose. Many invalid hostnames or IPs will slip through,
+                # This regex is quite loose. Many invalid hostname's or IPs will slip through,
                 # but it serves as a good first line of validation. We defer to Kafka for the
                 # remaining validation.
                 r"^[\w\-\.\:]+$",

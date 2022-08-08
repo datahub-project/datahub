@@ -1,0 +1,6 @@
+{
+  "dataset": {
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+      "operations": []
+  }
+}

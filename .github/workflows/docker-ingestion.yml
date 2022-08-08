@@ -10,13 +10,16 @@ on:
     branches:
       - master
     paths:
-      - "docker/**"
+      - "metadata-ingestion/**"
+      - "metadata-models/**"
+      - "docker/datahub-ingestion/**"
       - ".github/workflows/docker-ingestion.yml"
-    paths_ignore:
-      - "**.md"
-      - "**.env"
   release:
     types: [published, edited]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   setup:

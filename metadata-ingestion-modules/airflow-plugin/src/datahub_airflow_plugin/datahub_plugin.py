@@ -1,3 +1,4 @@
+import contextlib
 import traceback
 from typing import Any, Iterable
 
@@ -215,7 +216,7 @@ def datahub_on_success_callback(context, *args, **kwargs):
     for inlet in inlets:
         datajob.inlets.append(inlet.urn)
 
-    # We have to use _oulets because outlets is empty
+    # We have to use _outlets because outlets is empty
     for outlet in task._outlets:
         datajob.outlets.append(outlet.urn)
 
@@ -389,13 +390,10 @@ def _patch_policy(settings):
 
 
 def _patch_datahub_policy():
-    try:
+    with contextlib.suppress(ImportError):
         import airflow_local_settings
 
         _patch_policy(airflow_local_settings)
-    except ImportError:
-        pass
-
     from airflow.models.dagbag import settings
 
     _patch_policy(settings)

@@ -4,6 +4,8 @@ import pydantic
 
 from datahub.configuration.common import ConfigModel, ConfigurationError
 
+_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: str = "((.+)[_$])?(\\d{4,10})$"
+
 
 class BigQueryBaseConfig(ConfigModel):
     rate_limit: bool = pydantic.Field(
@@ -20,7 +22,7 @@ class BigQueryBaseConfig(ConfigModel):
     )
 
     sharded_table_pattern: str = pydantic.Field(
-        default="((.+)[_$])?(\\d{4,10})$",
+        default=_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
         description="The regex pattern to match sharded tables and group as one table. This is a very low level config parameter, only change if you know what you are doing, ",
     )
 

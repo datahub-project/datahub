@@ -16,10 +16,13 @@ import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
+import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.mxe.MetadataChangeProposal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -36,28 +39,34 @@ public class OwnerUtils {
 
   private OwnerUtils() { }
 
-  public static void addOwner(
-      Urn ownerUrn,
-      OwnershipType type,
-      Urn resourceUrn,
+  public static void addOwnersToResources(
+      List<OwnerInput> owners,
+      List<ResourceRefInput> resources,
       Urn actor,
       EntityService entityService
   ) {
-    Ownership ownershipAspect = (Ownership) getAspectFromEntity(
-        resourceUrn.toString(),
-        Constants.OWNERSHIP_ASPECT_NAME,
-        entityService,
-        new Ownership());
-    addOwner(ownershipAspect, ownerUrn, type);
-    persistAspect(resourceUrn, Constants.OWNERSHIP_ASPECT_NAME, ownershipAspect, actor, entityService);
+    final List<MetadataChangeProposal> changes = new ArrayList<>();
+    for (ResourceRefInput resource : resources) {
+      changes.add(buildAddOwnersProposal(owners, UrnUtils.getUrn(resource.getResourceUrn()), actor, entityService));
+    }
+    ingestChangeProposals(changes, entityService, actor);
   }
 
-  public static void addOwners(
-      List<OwnerInput> owners,
-      Urn resourceUrn,
+  public static void removeOwnersFromResources(
+      List<Urn> ownerUrns,
+      List<ResourceRefInput> resources,
       Urn actor,
       EntityService entityService
   ) {
+    final List<MetadataChangeProposal> changes = new ArrayList<>();
+    for (ResourceRefInput resource : resources) {
+      changes.add(buildRemoveOwnersProposal(ownerUrns, UrnUtils.getUrn(resource.getResourceUrn()), actor, entityService));
+    }
+    ingestChangeProposals(changes, entityService, actor);
+  }
+
+
+  private static MetadataChangeProposal buildAddOwnersProposal(List<OwnerInput> owners, Urn resourceUrn, Urn actor, EntityService entityService) {
     Ownership ownershipAspect = (Ownership) getAspectFromEntity(
         resourceUrn.toString(),
         Constants.OWNERSHIP_ASPECT_NAME,
@@ -66,11 +75,11 @@ public class OwnerUtils {
     for (OwnerInput input : owners) {
       addOwner(ownershipAspect, UrnUtils.getUrn(input.getOwnerUrn()), OwnershipType.valueOf(input.getType().toString()));
     }
-    persistAspect(resourceUrn, Constants.OWNERSHIP_ASPECT_NAME, ownershipAspect, actor, entityService);
+    return buildMetadataChangeProposal(resourceUrn, Constants.OWNERSHIP_ASPECT_NAME, ownershipAspect, actor, entityService);
   }
 
-  public static void removeOwner(
-      Urn ownerUrn,
+  public static MetadataChangeProposal buildRemoveOwnersProposal(
+      List<Urn> ownerUrns,
       Urn resourceUrn,
       Urn actor,
       EntityService entityService
@@ -81,8 +90,8 @@ public class OwnerUtils {
         entityService,
         new Ownership());
     ownershipAspect.setLastModified(getAuditStamp(actor));
-    removeOwner(ownershipAspect, ownerUrn);
-    persistAspect(resourceUrn, Constants.OWNERSHIP_ASPECT_NAME, ownershipAspect, actor, entityService);
+    removeOwnersIfExists(ownershipAspect, ownerUrns);
+    return buildMetadataChangeProposal(resourceUrn, Constants.OWNERSHIP_ASPECT_NAME, ownershipAspect, actor, entityService);
   }
 
   private static void addOwner(Ownership ownershipAspect, Urn ownerUrn, OwnershipType type) {
@@ -103,13 +112,15 @@ public class OwnerUtils {
     ownershipAspect.setOwners(ownerArray);
   }
 
-  private static void removeOwner(Ownership ownership, Urn ownerUrn) {
+  private static void removeOwnersIfExists(Ownership ownership, List<Urn> ownerUrns) {
     if (!ownership.hasOwners()) {
       ownership.setOwners(new OwnerArray());
     }
 
     OwnerArray ownerArray = ownership.getOwners();
-    ownerArray.removeIf(owner -> owner.getOwner().equals(ownerUrn));
+    for (Urn ownerUrn : ownerUrns) {
+      ownerArray.removeIf(owner -> owner.getOwner().equals(ownerUrn));
+    }
   }
 
   public static boolean isAuthorizedToUpdateOwners(@Nonnull QueryContext context, Urn resourceUrn) {
@@ -170,6 +181,26 @@ public class OwnerUtils {
     return true;
   }
 
+  public static void validateOwner(
+      Urn ownerUrn,
+      OwnerEntityType ownerEntityType,
+      EntityService entityService
+  ) {
+    if (OwnerEntityType.CORP_GROUP.equals(ownerEntityType) && !Constants.CORP_GROUP_ENTITY_NAME.equals(ownerUrn.getEntityType())) {
+      throw new IllegalArgumentException(
+          String.format("Failed to change ownership for resource(s). Expected a corp group urn, found %s", ownerUrn));
+    }
+
+    if (OwnerEntityType.CORP_USER.equals(ownerEntityType) && !Constants.CORP_USER_ENTITY_NAME.equals(ownerUrn.getEntityType())) {
+      throw new IllegalArgumentException(
+          String.format("Failed to change ownership for resource(s). Expected a corp user urn, found %s.", ownerUrn));
+    }
+
+    if (!entityService.exists(ownerUrn)) {
+      throw new IllegalArgumentException(String.format("Failed to change ownership for resource(s). Owner with urn %s does not exist.", ownerUrn));
+    }
+  }
+
   public static Boolean validateRemoveInput(
       Urn resourceUrn,
       EntityService entityService
@@ -178,5 +209,12 @@ public class OwnerUtils {
       throw new IllegalArgumentException(String.format("Failed to change ownership for resource %s. Resource does not exist.", resourceUrn));
     }
     return true;
+  }
+
+  private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor) {
+    // TODO: Replace this with a batch ingest proposals endpoint.
+    for (MetadataChangeProposal change : changes) {
+      entityService.ingestProposal(change, getAuditStamp(actor));
+    }
   }
 }

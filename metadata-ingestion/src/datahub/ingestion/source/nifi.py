@@ -338,8 +338,8 @@ class NifiSource(Source):
         if self.config.site_url_to_site_name is None:
             self.config.site_url_to_site_name = {}
         if (
-            not urljoin(self.config.site_url, "/nifi/")
-            in self.config.site_url_to_site_name
+            urljoin(self.config.site_url, "/nifi/")
+            not in self.config.site_url_to_site_name
         ):
             self.config.site_url_to_site_name[
                 urljoin(self.config.site_url, "/nifi/")
@@ -620,7 +620,7 @@ class NifiSource(Source):
         if about_response.ok:
             nifi_version = about_response.json().get("about", {}).get("version")
         else:
-            logger.warn("Failed to fetch version for nifi")
+            logger.warning("Failed to fetch version for nifi")
         cluster_response = self.session.get(
             url=urljoin(self.config.site_url, CLUSTER_ENDPOINT)
         )
@@ -630,7 +630,7 @@ class NifiSource(Source):
                 cluster_response.json().get("clusterSummary", {}).get("clustered")
             )
         else:
-            logger.warn("Failed to fetch cluster summary for flow")
+            logger.warning("Failed to fetch cluster summary for flow")
         pg_response = self.session.get(
             url=urljoin(self.config.site_url, PG_ENDPOINT) + "root"
         )
@@ -715,7 +715,7 @@ class NifiSource(Source):
 
             attempts = 5  # wait for at most 5 attempts 5*1= 5 seconds
             while (not provenance.get("finished", False)) and attempts > 0:
-                logger.warn(
+                logger.warning(
                     f"Provenance query not completed, attempts left : {attempts}"
                 )
                 # wait until the uri returns percentcomplete 100
@@ -757,7 +757,7 @@ class NifiSource(Source):
                 f"provenance events could not be fetched for processor \
                     {processor.id} of type {processor.name}",
             )
-            logger.warn(provenance_response.text)
+            logger.warning(provenance_response.text)
         return
 
     def report_warning(self, key: str, reason: str) -> None:
@@ -774,7 +774,7 @@ class NifiSource(Source):
         rootpg = self.nifi_flow.root_process_group
         flow_name = rootpg.name  # self.config.site_name
         flow_urn = builder.make_data_flow_urn(NIFI, rootpg.id, self.config.env)
-        flow_properties = dict()
+        flow_properties = {}
         if self.nifi_flow.clustered is not None:
             flow_properties["clustered"] = str(self.nifi_flow.clustered)
         if self.nifi_flow.version is not None:

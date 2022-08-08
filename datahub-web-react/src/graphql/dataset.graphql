@@ -41,9 +41,6 @@ fragment nonSiblingDatasetFields on Dataset {
     schemaMetadata(version: 0) {
         ...schemaMetadataFields
     }
-    previousSchemaMetadata: schemaMetadata(version: -1) {
-        ...schemaMetadataFields
-    }
     editableSchemaMetadata {
         editableSchemaFieldInfo {
             fieldPath
@@ -74,9 +71,6 @@ fragment nonSiblingDatasetFields on Dataset {
     domain {
         ...entityDomain
     }
-    container {
-        ...entityContainer
-    }
     parentContainers {
         ...parentContainersFields
     }
@@ -97,7 +91,18 @@ fragment nonSiblingDatasetFields on Dataset {
             users {
                 user {
                     urn
+                    type
                     username
+                    properties {
+                        displayName
+                        firstName
+                        lastName
+                        fullName
+                    }
+                    editableProperties {
+                        displayName
+                        pictureLink
+                    }
                 }
                 count
                 userEmail
@@ -180,6 +185,25 @@ fragment nonSiblingDatasetFields on Dataset {
                 ...testFields
             }
             type
+        }
+    }
+    statsSummary {
+        queryCountLast30Days
+        uniqueUserCountLast30Days
+        topUsersLast30Days {
+            urn
+            type
+            username
+            properties {
+                displayName
+                firstName
+                lastName
+                fullName
+            }
+            editableProperties {
+                displayName
+                pictureLink
+            }
         }
     }
 }

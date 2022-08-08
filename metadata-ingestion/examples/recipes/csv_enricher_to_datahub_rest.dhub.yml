@@ -3,8 +3,8 @@
 source:
   type: "csv-enricher"
   config:
-    filename: "/Users/adityaradhakrishnan/code/datahub-fork/metadata-ingestion/examples/demo_data/csv_enricher_demo_data.csv"
-    should_overwrite: false
+    filename: "./examples/demo_data/csv_enricher_demo_data.csv"
+    write_semantics: "PATCH"
     delimiter: ","
     array_delimiter: "|"
 
