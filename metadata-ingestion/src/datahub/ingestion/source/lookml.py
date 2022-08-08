@@ -3,7 +3,6 @@ import itertools
 import logging
 import pathlib
 import re
-import sys
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from dataclasses import replace
