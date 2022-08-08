@@ -2,6 +2,8 @@ import YAML from 'yamljs';
 import { CheckCircleOutlined, CloseCircleOutlined, LoadingOutlined } from '@ant-design/icons';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../entity/shared/constants';
 import { SOURCE_TEMPLATE_CONFIGS } from './conf/sources';
+import { EntityType, FacetMetadata } from '../../../types.generated';
+import { capitalizeFirstLetterOnly, pluralize } from '../../shared/textUtil';
 
 export const sourceTypeToIconUrl = (type: string) => {
     return SOURCE_TEMPLATE_CONFIGS.find((config) => config.type === type)?.logoUrl;
@@ -60,4 +62,55 @@ export const getExecutionRequestStatusDisplayColor = (status: string) => {
         (status === CANCELLED && ANTD_GRAY[9]) ||
         ANTD_GRAY[7]
     );
+};
+
+const ENTITIES_WITH_SUBTYPES = new Set([
+    EntityType.Dataset.toLowerCase(),
+    EntityType.Container.toLowerCase(),
+    EntityType.Notebook.toLowerCase(),
+]);
+
+type EntityTypeCount = {
+    count: number;
+    displayName: string;
+};
+
+/**
+ * Extract entity type counts to display in the ingestion summary.
+ *
+ * @param entityTypeFacets the filter facets for entity type.
+ * @param subTypeFacets the filter facets for sub types.
+ */
+export const extractEntityTypeCountsFromFacets = (
+    entityTypeFacets: FacetMetadata,
+    subTypeFacets?: FacetMetadata | null,
+): EntityTypeCount[] => {
+    const finalCounts: EntityTypeCount[] = [];
+
+    if (subTypeFacets) {
+        subTypeFacets.aggregations.forEach((agg) =>
+            finalCounts.push({
+                count: agg.count,
+                displayName: pluralize(agg.count, capitalizeFirstLetterOnly(agg.value) || ''),
+            }),
+        );
+        entityTypeFacets.aggregations
+            .filter((agg) => !ENTITIES_WITH_SUBTYPES.has(agg.value.toLowerCase()))
+            .forEach((agg) =>
+                finalCounts.push({
+                    count: agg.count,
+                    displayName: pluralize(agg.count, capitalizeFirstLetterOnly(agg.value) || ''),
+                }),
+            );
+    } else {
+        // Only use Entity Types- no subtypes.
+        entityTypeFacets.aggregations.forEach((agg) =>
+            finalCounts.push({
+                count: agg.count,
+                displayName: pluralize(agg.count, capitalizeFirstLetterOnly(agg.value) || ''),
+            }),
+        );
+    }
+
+    return finalCounts;
 };

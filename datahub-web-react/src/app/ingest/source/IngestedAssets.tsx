@@ -2,12 +2,11 @@ import { Button, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useGetSearchResultsForMultipleQuery } from '../../../graphql/search.generated';
-import { EntityType, FacetMetadata } from '../../../types.generated';
 import { EmbeddedListSearchModal } from '../../entity/shared/components/styled/search/EmbeddedListSearchModal';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { formatNumber } from '../../shared/formatNumber';
 import { Message } from '../../shared/Message';
-import { capitalizeFirstLetterOnly, pluralize } from '../../shared/textUtil';
+import { extractEntityTypeCountsFromFacets } from './utils';
 
 const HeaderContainer = styled.div`
     display: flex;
@@ -46,59 +45,8 @@ const ViewAllButton = styled(Button)`
     margin-top: 4px;
 `;
 
-const ENTITIES_WITH_SUBTYPES = new Set([
-    EntityType.Dataset.toLowerCase(),
-    EntityType.Container.toLowerCase(),
-    EntityType.Notebook.toLowerCase(),
-]);
-
 type Props = {
     id: string;
-};
-
-type EntityTypeCount = {
-    count: number;
-    displayName: string;
-};
-
-/**
- * Extract entity type counts to display in the ingestion summary.
- *
- * @param entityTypeFacets the filter facets for entity type.
- * @param subTypeFacets the filter facets for sub types.
- */
-const extractEntityTypeCountsFromFacets = (
-    entityTypeFacets: FacetMetadata,
-    subTypeFacets?: FacetMetadata | null,
-): EntityTypeCount[] => {
-    const finalCounts: EntityTypeCount[] = [];
-
-    if (subTypeFacets) {
-        subTypeFacets.aggregations.forEach((agg) =>
-            finalCounts.push({
-                count: agg.count,
-                displayName: pluralize(agg.count, capitalizeFirstLetterOnly(agg.value) || ''),
-            }),
-        );
-        entityTypeFacets.aggregations
-            .filter((agg) => !ENTITIES_WITH_SUBTYPES.has(agg.value.toLowerCase()))
-            .forEach((agg) =>
-                finalCounts.push({
-                    count: agg.count,
-                    displayName: pluralize(agg.count, capitalizeFirstLetterOnly(agg.value) || ''),
-                }),
-            );
-    } else {
-        // Only use Entity Types- no subtypes.
-        entityTypeFacets.aggregations.forEach((agg) =>
-            finalCounts.push({
-                count: agg.count,
-                displayName: pluralize(agg.count, capitalizeFirstLetterOnly(agg.value) || ''),
-            }),
-        );
-    }
-
-    return finalCounts;
 };
 
 export default function IngestedAssets({ id }: Props) {
@@ -124,12 +72,17 @@ export default function IngestedAssets({ id }: Props) {
 
     // Parse filter values to get results.
     const facets = data?.searchAcrossEntities?.facets;
-    const entityTypeFacets = facets?.filter((facet) => facet.field === 'entity')[0];
 
+    // Extract facets to construct the per-entity type breakdown stats
+    const hasEntityTypeFacet = (facets?.findIndex((facet) => facet.field === 'entity') || -1) >= 0;
+    const entityTypeFacets =
+        (hasEntityTypeFacet && facets?.filter((facet) => facet.field === 'entity')[0]) || undefined;
     const hasSubTypeFacet = (facets?.findIndex((facet) => facet.field === 'typeNames') || -1) >= 0;
     const subTypeFacets = (hasSubTypeFacet && facets?.filter((facet) => facet.field === 'typeNames')[0]) || undefined;
     const countsByEntityType =
         (entityTypeFacets && extractEntityTypeCountsFromFacets(entityTypeFacets, subTypeFacets)) || [];
+
+    // The total number of assets ingested
     const total = data?.searchAcrossEntities?.total || 0;
 
     return (
