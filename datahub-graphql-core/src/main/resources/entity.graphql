@@ -488,6 +488,11 @@ type Mutation {
     Generates a token that can be shared with existing native users to reset their credentials.
     """
     createNativeUserResetToken(input: CreateNativeUserResetTokenInput!): ResetToken
+
+    """
+    Updates the soft deleted status for a batch of assets
+    """
+    batchUpdateSoftDeleted(input: BatchUpdateSoftDeletedInput!): Boolean
 }
 
 """
@@ -8918,4 +8923,19 @@ enum OriginType {
     The entity is of unknown origin.
     """
     UNKNOWN
+}
+
+"""
+Input provided when updating the soft-deleted status for a batch of assets
+"""
+input BatchUpdateSoftDeletedInput {
+    """
+    The urns of the assets to soft delete
+    """
+    urns: [String!]!
+
+    """
+    Whether to mark the asset as soft-deleted (hidden)
+    """
+    deleted: Boolean!
 }

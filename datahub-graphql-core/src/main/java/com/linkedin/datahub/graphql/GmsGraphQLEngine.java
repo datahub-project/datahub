@@ -153,6 +153,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateDeprecationResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchSetDomainResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateSoftDeletedResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveOwnerResolver;
@@ -753,6 +754,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("removeRelatedTerms", new RemoveRelatedTermsResolver(this.entityService))
             .dataFetcher("createNativeUserInviteToken", new CreateNativeUserInviteTokenResolver(this.nativeUserService))
             .dataFetcher("createNativeUserResetToken", new CreateNativeUserResetTokenResolver(this.nativeUserService))
+            .dataFetcher("batchUpdateSoftDeleted", new BatchUpdateSoftDeletedResolver(this.entityService))
+
         );
     }
 
