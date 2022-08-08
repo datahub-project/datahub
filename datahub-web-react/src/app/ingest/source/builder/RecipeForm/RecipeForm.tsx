@@ -67,7 +67,15 @@ function getInitialValues(displayRecipe: string, allFields: any[]) {
     return initialValues;
 }
 
-function SectionHeader({ icon, text, filterSectionTooltip }: { icon: any; text: string; filterSectionTooltip?: string }) {
+function SectionHeader({
+    icon,
+    text,
+    filterSectionTooltip,
+}: {
+    icon: any;
+    text: string;
+    filterSectionTooltip?: string;
+}) {
     return (
         <span>
             {icon}
@@ -141,7 +149,11 @@ function RecipeForm(props: Props) {
                     <Collapse.Panel
                         forceRender
                         header={
-                            <SectionHeader icon={<FilterOutlined />} text="Filter" filterSectionTooltip={filterSectionTooltip} />
+                            <SectionHeader
+                                icon={<FilterOutlined />}
+                                text="Filter"
+                                filterSectionTooltip={filterSectionTooltip}
+                            />
                         }
                         key="1"
                     >
