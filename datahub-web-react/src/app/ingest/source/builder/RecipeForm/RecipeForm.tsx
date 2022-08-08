@@ -67,35 +67,13 @@ function getInitialValues(displayRecipe: string, allFields: any[]) {
     return initialValues;
 }
 
-function SectionHeader({
-    icon,
-    text,
-    connectionSectionTooltip,
-    filterSectionTooltip,
-    advanceSectionTooltip,
-}: {
-    icon: any;
-    text: string;
-    connectionSectionTooltip?: string;
-    filterSectionTooltip?: string;
-    advanceSectionTooltip?: string;
-}) {
+function SectionHeader({ icon, text, sectionTooltip }: { icon: any; text: string; sectionTooltip?: string }) {
     return (
         <span>
             {icon}
             <HeaderTitle>{text}</HeaderTitle>
-            {connectionSectionTooltip && (
-                <Tooltip placement="top" title={connectionSectionTooltip}>
-                    <HeaderTooltipWrapper />
-                </Tooltip>
-            )}
-            {filterSectionTooltip && (
-                <Tooltip placement="top" title={filterSectionTooltip}>
-                    <HeaderTooltipWrapper />
-                </Tooltip>
-            )}
-            {advanceSectionTooltip && (
-                <Tooltip placement="top" title={advanceSectionTooltip}>
+            {sectionTooltip && (
+                <Tooltip placement="top" title={sectionTooltip}>
                     <HeaderTooltipWrapper />
                 </Tooltip>
             )}
@@ -120,14 +98,7 @@ interface Props {
 
 function RecipeForm(props: Props) {
     const { type, isEditing, displayRecipe, setStagedRecipe, onClickNext, goToPrevious } = props;
-    const {
-        fields,
-        advancedFields,
-        filterFields,
-        connectionSectionTooltip,
-        filterSectionTooltip,
-        advanceSectionTooltip,
-    } = RECIPE_FIELDS[type];
+    const { fields, advancedFields, filterFields, sectionTooltip } = RECIPE_FIELDS[type];
     const allFields = [...fields, ...advancedFields, ...filterFields];
 
     function updateFormValues(changedValues: any, allValues: any) {
@@ -154,17 +125,7 @@ function RecipeForm(props: Props) {
             onValuesChange={updateFormValues}
         >
             <StyledCollapse defaultActiveKey="0">
-                <Collapse.Panel
-                    forceRender
-                    header={
-                        <SectionHeader
-                            icon={<ApiOutlined />}
-                            text="Connection"
-                            connectionSectionTooltip={connectionSectionTooltip}
-                        />
-                    }
-                    key="0"
-                >
+                <Collapse.Panel forceRender header={<SectionHeader icon={<ApiOutlined />} text="Connection" />} key="0">
                     {fields.map((field, i) => (
                         <FormField field={field} removeMargin={i === fields.length - 1} />
                     ))}
@@ -180,11 +141,7 @@ function RecipeForm(props: Props) {
                     <Collapse.Panel
                         forceRender
                         header={
-                            <SectionHeader
-                                icon={<FilterOutlined />}
-                                text="Filter"
-                                filterSectionTooltip={filterSectionTooltip}
-                            />
+                            <SectionHeader icon={<FilterOutlined />} text="Filter" sectionTooltip={sectionTooltip} />
                         }
                         key="1"
                     >
@@ -204,13 +161,7 @@ function RecipeForm(props: Props) {
             <StyledCollapse>
                 <Collapse.Panel
                     forceRender
-                    header={
-                        <SectionHeader
-                            icon={<SettingOutlined />}
-                            text="Advanced"
-                            advanceSectionTooltip={advanceSectionTooltip}
-                        />
-                    }
+                    header={<SectionHeader icon={<SettingOutlined />} text="Advanced" />}
                     key="2"
                 >
                     {advancedFields.map((field, i) => (

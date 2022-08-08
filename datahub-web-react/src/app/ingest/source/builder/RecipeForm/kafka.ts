@@ -1,6 +1,6 @@
-import { RecipeField, FieldType, setDottedFieldValuesOnRecipe } from './common';
+import { RecipeField, FieldType, setDottedFieldValuesOnRecipe, setListValuesOnRecipe } from './common';
 
-const saslUsernameFieldPath = ['source', 'config', 'connection', 'consumer_config.sasl.username'];
+const saslUsernameFieldPath = ['source', 'config', 'connection', 'consumer_config', 'sasl.username'];
 export const KAFKA_SASL_USERNAME: RecipeField = {
     name: 'connection.consumer_config.sasl.username',
     label: 'Username',
@@ -12,7 +12,7 @@ export const KAFKA_SASL_USERNAME: RecipeField = {
         setDottedFieldValuesOnRecipe(recipe, values, saslUsernameFieldPath),
 };
 
-const saslPasswordFieldPath = ['source', 'config', 'connection', 'consumer_config.sasl.password'];
+const saslPasswordFieldPath = ['source', 'config', 'connection', 'consumer_config', 'sasl.password'];
 export const KAFKA_SASL_PASSWORD: RecipeField = {
     name: 'connection.consumer_config.sasl.password',
     label: 'Password',
@@ -65,7 +65,7 @@ export const KAFKA_SCHEMA_REGISTRY_USER_CREDENTIAL: RecipeField = {
         setDottedFieldValuesOnRecipe(recipe, values, registryCredentialsFieldPath),
 };
 
-const securityProtocolFieldPath = ['source', 'config', 'security.protocol'];
+const securityProtocolFieldPath = ['source', 'config', 'connection', 'consumer_config', 'security.protocol'];
 export const KAFKA_SECURITY_PROTOCOL: RecipeField = {
     name: 'security.protocol',
     label: 'Security Protocol',
@@ -75,9 +75,53 @@ export const KAFKA_SECURITY_PROTOCOL: RecipeField = {
     rules: null,
     options: [
         { label: 'SASL_SSL', value: 'SASL_SSL' },
+        { label: 'SASL_PLAINTEXT', value: 'SASL_PLAINTEXT' },
+    ],
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setDottedFieldValuesOnRecipe(recipe, values, securityProtocolFieldPath),
+};
+
+const saslMechanismFieldPath = ['source', 'config', 'connection', 'consumer_config', 'sasl.mechanism'];
+export const KAFKA_SASL_MECHANISM: RecipeField = {
+    name: 'sasl.mechanism',
+    label: 'SASL Mechanism',
+    tooltip: 'SASL Mechanism',
+    type: FieldType.SELECT,
+    fieldPath: saslMechanismFieldPath,
+    rules: null,
+    options: [
+        { label: 'PLAIN', value: 'PLAIN' },
         { label: 'SCRAM-SHA-256', value: 'SCRAM-SHA-256' },
         { label: 'SCRAM-SHA-512', value: 'SCRAM-SHA-512' },
     ],
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setDottedFieldValuesOnRecipe(recipe, values, securityProtocolFieldPath),
+        setDottedFieldValuesOnRecipe(recipe, values, saslMechanismFieldPath),
+};
+
+const topicAllowFieldPath = 'source.config.topic_patterns.allow';
+export const TOPIC_ALLOW: RecipeField = {
+    name: 'topic_patterns.allow',
+    label: 'Allow Patterns',
+    tooltip: 'Use regex here.',
+    type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
+    fieldPath: topicAllowFieldPath,
+    rules: null,
+    section: 'Topics',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, topicAllowFieldPath),
+};
+
+const topicDenyFieldPath = 'source.config.topic_patterns.deny';
+export const TOPIC_DENY: RecipeField = {
+    name: 'topic_patterns.deny',
+    label: 'Deny Patterns',
+    tooltip: 'Use regex here.',
+    type: FieldType.LIST,
+    buttonLabel: 'Add pattern',
+    fieldPath: topicDenyFieldPath,
+    rules: null,
+    section: 'Topics',
+    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
+        setListValuesOnRecipe(recipe, values, topicDenyFieldPath),
 };

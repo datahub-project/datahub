@@ -222,62 +222,6 @@ export const TABLE_DENY: RecipeField = {
         setListValuesOnRecipe(recipe, values, tableDenyFieldPath),
 };
 
-const chartAllowFieldPath = 'source.config.chart_pattern.allow';
-export const CHART_ALLOW: RecipeField = {
-    name: 'chart_pattern.allow',
-    label: 'Allow Patterns',
-    tooltip: 'Use regex here.',
-    type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
-    fieldPath: chartAllowFieldPath,
-    rules: null,
-    section: 'Charts',
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setListValuesOnRecipe(recipe, values, chartAllowFieldPath),
-};
-
-const chartDenyFieldPath = 'source.config.chart_pattern.deny';
-export const CHART_DENY: RecipeField = {
-    name: 'chart_pattern.deny',
-    label: 'Deny Patterns',
-    tooltip: 'Use regex here.',
-    type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
-    fieldPath: chartDenyFieldPath,
-    rules: null,
-    section: 'Charts',
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setListValuesOnRecipe(recipe, values, chartDenyFieldPath),
-};
-
-const topicAllowFieldPath = 'source.config.topic_patterns.allow';
-export const TOPIC_ALLOW: RecipeField = {
-    name: 'topic_patterns.allow',
-    label: 'Allow Patterns',
-    tooltip: 'Use regex here.',
-    type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
-    fieldPath: topicAllowFieldPath,
-    rules: null,
-    section: 'Topics',
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setListValuesOnRecipe(recipe, values, topicAllowFieldPath),
-};
-
-const topicDenyFieldPath = 'source.config.topic_patterns.deny';
-export const TOPIC_DENY: RecipeField = {
-    name: 'topic_patterns.deny',
-    label: 'Deny Patterns',
-    tooltip: 'Use regex here.',
-    type: FieldType.LIST,
-    buttonLabel: 'Add pattern',
-    fieldPath: topicDenyFieldPath,
-    rules: null,
-    section: 'Topics',
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setListValuesOnRecipe(recipe, values, topicDenyFieldPath),
-};
-
 /* ---------------------------------------------------- Advance Section ---------------------------------------------------- */
 const includeLineageFieldPathA = 'source.config.include_table_lineage';
 const includeLineageFieldPathB = 'source.config.include_view_lineage';
