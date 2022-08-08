@@ -961,6 +961,21 @@
         }
       }
     }, {
+      "name" : "datasets",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Urn"
+      },
+      "doc" : "Datasets consumed by a dashboard",
+      "default" : [ ],
+      "Relationship" : {
+        "/*" : {
+          "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
+          "name" : "Consumes"
+        }
+      }
+    }, {
       "name" : "lastModified",
       "type" : "com.linkedin.common.ChangeAuditStamps",
       "doc" : "Captures information about who created/last modified/deleted this dashboard and when"

@@ -33,7 +33,7 @@ export const LineageTab = () => {
     const [lineageDirection, setLineageDirection] = useState<string>(LineageDirection.Downstream);
 
     const routeToLineage = useCallback(() => {
-        history.push(getEntityPath(entityType, urn, entityRegistry, true));
+        history.push(getEntityPath(entityType, urn, entityRegistry, true, false));
     }, [history, entityType, urn, entityRegistry]);
 
     return (

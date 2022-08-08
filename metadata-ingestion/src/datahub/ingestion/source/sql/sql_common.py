@@ -92,6 +92,7 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.telemetry import telemetry
+from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
 
 if TYPE_CHECKING:
@@ -241,23 +242,23 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
     # them out afterwards via the table_pattern.
     schema_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for schemas to filter in ingestion.",
+        description="Regex patterns for schemas to filter in ingestion. Specify regex to only match the schema name. e.g. to match all tables in schema analytics, use the regex 'analytics'",
     )
     table_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for tables to filter in ingestion.",
+        description="Regex patterns for tables to filter in ingestion. Specify regex to match the entire table name in database.schema.table format. e.g. to match all tables starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
     )
     view_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for views to filter in ingestion.",
+        description="Regex patterns for views to filter in ingestion. Note: Defaults to table_pattern if not specified. Specify regex to match the entire view name in database.schema.view format. e.g. to match all views starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
     )
     profile_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for profiles to filter in ingestion, allowed by the `table_pattern`.",
+        description="Regex patterns to filter tables for profiling during ingestion. Allowed by the `table_pattern`.",
     )
     domain: Dict[str, AllowDenyPattern] = Field(
         default=dict(),
-        description=' regex patterns for tables/schemas to descide domain_key domain key (domain_key can be any string like "sales".) There can be multiple domain key specified.',
+        description='Attach domains to databases, schemas or tables during ingestion using regex patterns. Domain key can be a guid like *urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba* or a string like "Marketing".) If you provide strings, then datahub will attempt to resolve this name to a guid, and will error out if this fails. There can be multiple domain keys specified.',
     )
 
     include_views: Optional[bool] = Field(
@@ -272,6 +273,17 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase):
     profiling: GEProfilingConfig = GEProfilingConfig()
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[SQLAlchemyStatefulIngestionConfig] = None
+
+    @pydantic.root_validator(pre=True)
+    def view_pattern_is_table_pattern_unless_specified(
+        cls, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        view_pattern = values.get("view_pattern")
+        table_pattern = values.get("table_pattern")
+        if table_pattern and not view_pattern:
+            logger.info(f"Applying table_pattern {table_pattern} to view_pattern.")
+            values["view_pattern"] = table_pattern
+        return values
 
     @pydantic.root_validator()
     def ensure_profiling_pattern_is_passed_to_profiling(
@@ -496,6 +508,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     config_flag: config.profiling.dict().get(config_flag)
                     for config_flag in profiling_flags_to_report
                 },
+            )
+        if self.config.domain:
+            self.domain_registry = DomainRegistry(
+                cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
             )
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
@@ -757,7 +773,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
     ) -> str:
         # Many SQLAlchemy dialects have three-level hierarchies. This method, which
-        # subclasses can override, enables them to modify the identifers as needed.
+        # subclasses can override, enables them to modify the identifiers as needed.
         if hasattr(self.config, "get_identifier"):
             # This path is deprecated and will eventually be removed.
             return self.config.get_identifier(schema=schema, table=entity)  # type: ignore
@@ -809,7 +825,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
         for domain, pattern in self.config.domain.items():
             if pattern.allowed(dataset_name):
-                domain_urn = make_domain_urn(domain)
+                domain_urn = make_domain_urn(
+                    self.domain_registry.get_domain_urn(domain)
+                )
 
         return domain_urn
 
@@ -819,7 +837,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         entity_urn: str,
         entity_type: str,
         sql_config: SQLAlchemyConfig,
-    ) -> Iterable[Union[MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
 
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
@@ -857,7 +875,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     continue
 
                 self.report.report_entity_scanned(dataset_name, ent_type="table")
-
                 if not sql_config.table_pattern.allowed(dataset_name):
                     self.report.report_dropped(dataset_name)
                     continue
@@ -1000,29 +1017,35 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
-    ) -> Tuple[Optional[str], Optional[Dict[str, str]], Optional[str]]:
+    ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
+        description: Optional[str] = None
+        properties: Dict[str, str] = {}
+
+        # The location cannot be fetched generically, but subclasses may override
+        # this method and provide a location.
+        location: Optional[str] = None
+
         try:
-            location: Optional[str] = None
-            # SQLALchemy stubs are incomplete and missing this method.
+            # SQLAlchemy stubs are incomplete and missing this method.
             # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
             table_info: dict = inspector.get_table_comment(table, schema)  # type: ignore
         except NotImplementedError:
-            description: Optional[str] = None
-            properties: Dict[str, str] = {}
+            return description, properties, location
         except ProgrammingError as pe:
             # Snowflake needs schema names quoted when fetching table comments.
             logger.debug(
                 f"Encountered ProgrammingError. Retrying with quoted schema name for schema {schema} and table {table}",
                 pe,
             )
-            description = None
-            properties = {}
             table_info: dict = inspector.get_table_comment(table, f'"{schema}"')  # type: ignore
-        else:
-            description = table_info["text"]
 
-            # The "properties" field is a non-standard addition to SQLAlchemy's interface.
-            properties = table_info.get("properties", {})
+        description = table_info.get("text")
+        if type(description) is tuple:
+            # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
+            description = table_info["text"][0]
+
+        # The "properties" field is a non-standard addition to SQLAlchemy's interface.
+        properties = table_info.get("properties", {})
         return description, properties, location
 
     def get_dataplatform_instance_aspect(
@@ -1191,27 +1214,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 columns,
                 canonical_schema=schema_fields,
             )
-        try:
-            # SQLALchemy stubs are incomplete and missing this method.
-            # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
-            view_info: dict = inspector.get_table_comment(view, schema)  # type: ignore
-        except NotImplementedError:
-            description: Optional[str] = None
-            properties: Dict[str, str] = {}
-        except ProgrammingError as pe:
-            # Snowflake needs schema names quoted when fetching table comments.
-            logger.debug(
-                f"Encountered ProgrammingError. Retrying with quoted schema name for schema {schema} and view {view}",
-                pe,
-            )
-            description = None
-            properties = {}
-            view_info: dict = inspector.get_table_comment(view, f'"{schema}"')  # type: ignore
-        else:
-            description = view_info["text"]
-
-            # The "properties" field is a non-standard addition to SQLAlchemy's interface.
-            properties = view_info.get("properties", {})
+        description, properties, _ = self.get_table_properties(inspector, schema, view)
         try:
             view_definition = inspector.get_view_definition(view, schema)
             if view_definition is None:
@@ -1425,7 +1428,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 database=None, schema=schema, table=table
             ):
                 self.report.report_warning(
-                    "profile skipped as partitioned table empty", dataset_name
+                    "profile skipped as partitioned table is empty or partition id was invalid",
+                    dataset_name,
                 )
                 continue
 

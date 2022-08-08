@@ -2,10 +2,7 @@ import { Empty } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import {
-    useGetSchemaBlameQuery,
-    useGetSchemaBlameVersionsQuery,
-} from '../../../../../../graphql/schemaBlame.generated';
+import { useGetSchemaBlameQuery, useGetSchemaVersionListQuery } from '../../../../../../graphql/schemaBlame.generated';
 import SchemaEditableContext from '../../../../../shared/SchemaEditableContext';
 import SchemaHeader from '../../../../dataset/profile/schema/components/SchemaHeader';
 import SchemaRawView from '../../../../dataset/profile/schema/components/SchemaRawView';
@@ -13,9 +10,7 @@ import { KEY_SCHEMA_PREFIX } from '../../../../dataset/profile/schema/utils/cons
 import { groupByFieldPath } from '../../../../dataset/profile/schema/utils/utils';
 import { ANTD_GRAY } from '../../../constants';
 import { useBaseEntity, useEntityData } from '../../../EntityContext';
-import { ChangeCategoryType, SchemaFieldBlame, SemanticVersionStruct } from '../../../../../../types.generated';
-import { toLocalDateTimeString } from '../../../../../shared/time/timeUtils';
-import { SchemaViewType } from '../../../../dataset/profile/schema/utils/types';
+import { SchemaFieldBlame, SemanticVersionStruct } from '../../../../../../types.generated';
 import SchemaTable from './SchemaTable';
 import useGetSemanticVersionFromUrlParams from './utils/useGetSemanticVersionFromUrlParams';
 import { useGetVersionedDatasetQuery } from '../../../../../../graphql/versionedDataset.generated';
@@ -55,22 +50,20 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
     );
 
     const [showKeySchema, setShowKeySchema] = useState(false);
-    const [schemaViewMode, setSchemaViewMode] = useState(SchemaViewType.NORMAL);
+    const [showSchemaAuditView, setShowSchemaAuditView] = useState(false);
 
-    const { data: getSchemaBlameVersionsData } = useGetSchemaBlameVersionsQuery({
+    const { data: getSchemaVersionListData } = useGetSchemaVersionListQuery({
         skip: !datasetUrn,
         variables: {
             input: {
                 datasetUrn,
-                categories: [ChangeCategoryType.TechnicalSchema],
             },
         },
     });
-    const latestVersion: string = getSchemaBlameVersionsData?.getSchemaBlame?.latestVersion?.semanticVersion || '';
+    const latestVersion: string = getSchemaVersionListData?.getSchemaVersionList?.latestVersion?.semanticVersion || '';
 
-    const showSchemaBlame: boolean = schemaViewMode === SchemaViewType.BLAME;
     const versionList: Array<SemanticVersionStruct> =
-        getSchemaBlameVersionsData?.getSchemaBlame?.semanticVersionList || [];
+        getSchemaVersionListData?.getSchemaVersionList?.semanticVersionList || [];
     const version = useGetSemanticVersionFromUrlParams();
     const selectedVersion = version || latestVersion;
 
@@ -78,9 +71,10 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
         (semanticVersion) => semanticVersion.semanticVersion === selectedVersion,
     );
     const selectedVersionStamp: string = selectedSemanticVersionStruct?.versionStamp || '';
+    const isVersionLatest = selectedVersion === latestVersion;
 
     let editMode = true;
-    if (selectedVersion !== latestVersion) {
+    if (!isVersionLatest) {
         editMode = false;
     } else if (properties && properties.hasOwnProperty('editMode')) {
         editMode = properties.editMode;
@@ -92,7 +86,6 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
             input: {
                 datasetUrn,
                 version: selectedVersion,
-                categories: [ChangeCategoryType.TechnicalSchema],
             },
         },
     });
@@ -120,11 +113,8 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
         return groupByFieldPath(schemaMetadata?.fields, { showKeySchema });
     }, [schemaMetadata, showKeySchema]);
 
-    const lastUpdatedTimeString = `Reported at ${
-        (getSchemaBlameData?.getSchemaBlame?.version?.semanticVersionTimestamp &&
-            toLocalDateTimeString(getSchemaBlameData?.getSchemaBlame?.version?.semanticVersionTimestamp)) ||
-        'unknown'
-    }`;
+    const lastUpdated = getSchemaBlameData?.getSchemaBlame?.version?.semanticVersionTimestamp;
+    const lastObserved = versionedDatasetData.data?.versionedDataset?.schema?.lastObserved;
 
     const schemaFieldBlameList: Array<SchemaFieldBlame> =
         (getSchemaBlameData?.getSchemaBlame?.schemaFieldBlameList as Array<SchemaFieldBlame>) || [];
@@ -139,11 +129,12 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
                 hasKeySchema={hasKeySchema}
                 showKeySchema={showKeySchema}
                 setShowKeySchema={setShowKeySchema}
-                lastUpdatedTimeString={lastUpdatedTimeString}
+                lastObserved={lastObserved}
+                lastUpdated={lastUpdated}
                 selectedVersion={selectedVersion}
                 versionList={versionList}
-                schemaView={schemaViewMode}
-                setSchemaView={setSchemaViewMode}
+                showSchemaAuditView={showSchemaAuditView}
+                setShowSchemaAuditView={setShowSchemaAuditView}
             />
             {/* eslint-disable-next-line no-nested-ternary */}
             {showRaw ? (
@@ -162,7 +153,7 @@ export const SchemaTab = ({ properties }: { properties?: any }) => {
                             editableSchemaMetadata={editableSchemaMetadata}
                             usageStats={usageStats}
                             schemaFieldBlameList={schemaFieldBlameList}
-                            showSchemaBlame={showSchemaBlame}
+                            showSchemaAuditView={showSchemaAuditView}
                         />
                     </SchemaEditableContext.Provider>
                 </>

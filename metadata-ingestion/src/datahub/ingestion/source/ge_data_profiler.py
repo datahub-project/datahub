@@ -226,10 +226,9 @@ def _is_single_row_query_method(query: Any) -> bool:
     return False
 
 
-# mypy does not yet support ParamSpec. See https://github.com/python/mypy/issues/8645.
 def _run_with_query_combiner(
-    method: Callable[Concatenate["_SingleDatasetProfiler", P], None]  # type: ignore
-) -> Callable[Concatenate["_SingleDatasetProfiler", P], None]:  # type: ignore
+    method: Callable[Concatenate["_SingleDatasetProfiler", P], None]
+) -> Callable[Concatenate["_SingleDatasetProfiler", P], None]:
     @functools.wraps(method)
     def inner(
         self: "_SingleDatasetProfiler", *args: P.args, **kwargs: P.kwargs

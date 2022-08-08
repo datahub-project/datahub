@@ -1,13 +1,14 @@
 package com.linkedin.metadata.resources.entity;
 
 import com.codahale.metrics.MetricRegistry;
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationContext;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
@@ -66,6 +67,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
 import static com.linkedin.metadata.entity.ValidationUtils.*;
+import static com.linkedin.metadata.resources.entity.ResourceUtils.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.utils.PegasusUtils.*;
 
@@ -196,14 +198,15 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     SystemMetadata systemMetadata = populateDefaultFieldsIfEmpty(providedSystemMetadata);
 
-    // TODO Correctly audit ingestions.
-    final AuditStamp auditStamp =
-        new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(Constants.UNKNOWN_ACTOR));
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    String actorUrnStr = authentication.getActor().toUrnStr();
+    final AuditStamp auditStamp = new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));
 
     // variables referenced in lambdas are required to be final
     final SystemMetadata finalSystemMetadata = systemMetadata;
     return RestliUtil.toTask(() -> {
       _entityService.ingestEntity(entity, auditStamp, finalSystemMetadata);
+      tryIndexRunId(com.datahub.util.ModelUtils.getUrnFromSnapshotUnion(entity.getValue()), systemMetadata, _entitySearchService);
       return null;
     }, MetricRegistry.name(this.getClass(), "ingest"));
   }
@@ -222,8 +225,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       }
     }
 
-    final AuditStamp auditStamp =
-        new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(Constants.UNKNOWN_ACTOR));
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    String actorUrnStr = authentication.getActor().toUrnStr();
+    final AuditStamp auditStamp = new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));
 
     if (systemMetadataList == null) {
       systemMetadataList = new SystemMetadata[entities.length];
@@ -237,8 +241,14 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         .map(systemMetadata -> populateDefaultFieldsIfEmpty(systemMetadata))
         .collect(Collectors.toList());
 
+    SystemMetadata[] finalSystemMetadataList1 = systemMetadataList;
     return RestliUtil.toTask(() -> {
       _entityService.ingestEntities(Arrays.asList(entities), auditStamp, finalSystemMetadataList);
+      for (int i = 0; i < entities.length; i++) {
+        SystemMetadata systemMetadata = finalSystemMetadataList1[i];
+        Entity entity = entities[i];
+        tryIndexRunId(com.datahub.util.ModelUtils.getUrnFromSnapshotUnion(entity.getValue()), systemMetadata, _entitySearchService);
+      }
       return null;
     }, MetricRegistry.name(this.getClass(), "batchIngest"));
   }

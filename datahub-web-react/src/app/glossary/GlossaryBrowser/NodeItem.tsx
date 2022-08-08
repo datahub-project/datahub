@@ -7,6 +7,8 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated';
 import TermItem, { TermLink as NodeLink, NameWrapper } from './TermItem';
 import { useEntityData } from '../../entity/shared/EntityContext';
+import { sortGlossaryNodes } from '../../entity/glossaryNode/utils';
+import { sortGlossaryTerms } from '../../entity/glossaryTerm/utils';
 
 const ItemWrapper = styled.div`
     display: flex;
@@ -93,10 +95,12 @@ function NodeItem(props: Props) {
     const childNodes =
         (children as any)
             ?.filter((child) => child.entity?.type === EntityType.GlossaryNode)
+            .sort((nodeA, nodeB) => sortGlossaryNodes(entityRegistry, nodeA.entity, nodeB.entity))
             .map((child) => child.entity) || [];
     const childTerms =
         (children as any)
             ?.filter((child) => child.entity?.type === EntityType.GlossaryTerm)
+            .sort((termA, termB) => sortGlossaryTerms(entityRegistry, termA.entity, termB.entity))
             .map((child) => child.entity) || [];
 
     if (shouldHideNode) return null;

@@ -1,15 +1,14 @@
 import time
 import pytest
 import requests
-from tests.utils import get_frontend_url
-from datahub.cli.docker import check_local_docker_containers
+from tests.utils import get_frontend_url, wait_for_healthcheck_util, get_admin_credentials
 
 TEST_POLICY_NAME = "Updated Platform Policy"
 
+
 @pytest.fixture(scope="session")
 def wait_for_healthchecks():
-    # Simply assert that everything is healthy, but don't wait.
-    assert not check_local_docker_containers()
+    wait_for_healthcheck_util()
     yield
 
 
@@ -26,7 +25,8 @@ def frontend_session(wait_for_healthchecks):
     headers = {
         "Content-Type": "application/json",
     }
-    data = '{"username":"datahub", "password":"datahub"}'
+    (admin_user, admin_pass) = get_admin_credentials()
+    data = '{"username":"' + admin_user + '", "password":"' + admin_pass + '"}'
     response = session.post(f"{get_frontend_url()}/logIn", headers=headers, data=data)
     response.raise_for_status()
 
