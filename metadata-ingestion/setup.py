@@ -245,7 +245,7 @@ plugins: Dict[str, Set[str]] = {
     "data-lake": {*data_lake_base, *data_lake_profiling},
     "s3": {*s3_base, *data_lake_profiling},
     "delta-lake": {*data_lake_profiling, *delta_lake},
-    "dbt": {"requests"} | aws_common,
+    "dbt": {"requests", "cached_property"} | aws_common,
     "druid": sql_common | {"pydruid>=0.6.2"},
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
     # UnsupportedProductError
@@ -355,7 +355,7 @@ base_dev_requirements = {
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    "mypy>=0.920",
+    "mypy>=0.950",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     "pydantic>=1.9.0",
@@ -376,7 +376,6 @@ base_dev_requirements = {
             "bigquery-usage",
             "clickhouse",
             "clickhouse-usage",
-            "delta-lake",
             "druid",
             "elasticsearch",
             "ldap",
@@ -415,6 +414,7 @@ if is_py37_or_newer:
         {
             dependency
             for plugin in [
+                "delta-lake",
                 "feast",
                 "iceberg",
                 "lookml",
@@ -428,6 +428,7 @@ if is_py37_or_newer:
         {
             dependency
             for plugin in [
+                "delta-lake",
                 "iceberg",
                 "lookml",
             ]
@@ -482,6 +483,7 @@ if is_py37_or_newer:
             dependency
             for plugin in [
                 "athena",
+                "delta-lake",
                 "feast",
                 "iceberg",
             ]

@@ -1,0 +1,20 @@
+apply plugin: 'java'
+
+
+compileJava {
+    options.debug = true
+}
+
+dependencies {
+    compile project(path: ':metadata-service:auth-api')
+
+    implementation 'org.apache.ranger:ranger-plugins-common:2.2.0'
+    implementation 'org.apache.logging.log4j:log4j-1.2-api:2.17.1'
+
+    compile externalDependency.lombok
+
+    annotationProcessor externalDependency.lombok
+    testCompile externalDependency.mockito
+    testCompile project(path: ':metadata-utils')
+
+}

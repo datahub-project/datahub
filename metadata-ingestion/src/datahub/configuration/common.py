@@ -1,14 +1,32 @@
 import re
 from abc import ABC, abstractmethod
+from enum import Enum
 from typing import IO, Any, Dict, List, Optional, Pattern, cast
 
-from pydantic import BaseModel, Extra
+from pydantic import BaseModel, Extra, validator
 from pydantic.fields import Field
 
 
 class ConfigModel(BaseModel):
     class Config:
         extra = Extra.forbid
+
+
+class TransformerSemantics(Enum):
+    """Describes semantics for aspect changes"""
+
+    OVERWRITE = "OVERWRITE"  # Apply changes blindly
+    PATCH = "PATCH"  # Only apply differences from what exists already on the server
+
+
+class TransformerSemanticsConfigModel(ConfigModel):
+    semantics: TransformerSemantics = TransformerSemantics.OVERWRITE
+
+    @validator("semantics", pre=True)
+    def ensure_semantics_is_upper_case(cls, v: str) -> str:
+        if isinstance(v, str):
+            return v.upper()
+        return v
 
 
 class DynamicTypedConfig(ConfigModel):

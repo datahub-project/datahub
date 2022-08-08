@@ -232,7 +232,7 @@ class StatefulIngestionSourceBase(Source):
         ):
             return None
 
-        if JobId not in self.last_checkpoints:
+        if job_id not in self.last_checkpoints:
             self.last_checkpoints[job_id] = self._get_last_checkpoint(
                 job_id, checkpoint_state_class
             )

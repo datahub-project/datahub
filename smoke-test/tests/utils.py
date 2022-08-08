@@ -52,14 +52,14 @@ def is_k8s_enabled():
 def wait_for_healthcheck_util():
     if is_k8s_enabled():
         # Simply assert that kubernetes endpoints are healthy, but don't wait.
-        assert not check_k8s_endpoint(f"{get_frontend_url()}/admin")
-        assert not check_k8s_endpoint(f"{get_gms_url()}/health")
+        assert not check_endpoint(f"{get_frontend_url()}/admin")
+        assert not check_endpoint(f"{get_gms_url()}/health")
     else:
         # Simply assert that docker is healthy, but don't wait.
         assert not check_local_docker_containers()
 
 
-def check_k8s_endpoint(url):
+def check_endpoint(url):
     try:
         get = requests.get(url)
         if get.status_code == 200:
