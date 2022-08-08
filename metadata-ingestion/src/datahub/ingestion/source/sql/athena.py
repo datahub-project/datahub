@@ -100,7 +100,7 @@ class AthenaSource(SQLAlchemySource):
 
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
-    ) -> Tuple[Optional[str], Optional[Dict[str, str]], Optional[str]]:
+    ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         if not self.cursor:
             self.cursor = inspector.dialect._raw_connection(inspector.engine).cursor()
 

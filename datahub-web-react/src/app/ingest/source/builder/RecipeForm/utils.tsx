@@ -11,6 +11,7 @@ export enum FieldType {
     BOOLEAN,
     LIST,
     SELECT,
+    SECRET,
 }
 
 interface Option {
@@ -92,7 +93,7 @@ export const SNOWFLAKE_USERNAME: RecipeField = {
     name: 'username',
     label: 'Username',
     tooltip: 'Snowflake username.',
-    type: FieldType.TEXT,
+    type: FieldType.SECRET,
     fieldPath: 'source.config.username',
     rules: null,
 };
@@ -101,7 +102,7 @@ export const SNOWFLAKE_PASSWORD: RecipeField = {
     name: 'password',
     label: 'Password',
     tooltip: 'Snowflake password.',
-    type: FieldType.TEXT,
+    type: FieldType.SECRET,
     fieldPath: 'source.config.password',
     rules: null,
 };

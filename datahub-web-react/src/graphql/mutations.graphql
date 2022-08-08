@@ -42,8 +42,16 @@ mutation addOwner($input: AddOwnerInput!) {
     addOwner(input: $input)
 }
 
+mutation batchAddOwners($input: BatchAddOwnersInput!) {
+    batchAddOwners(input: $input)
+}
+
 mutation removeOwner($input: RemoveOwnerInput!) {
     removeOwner(input: $input)
+}
+
+mutation batchRemoveOwners($input: BatchRemoveOwnersInput!) {
+    batchRemoveOwners(input: $input)
 }
 
 mutation updateDescription($input: DescriptionUpdateInput!) {
@@ -80,4 +88,12 @@ mutation addTerms($input: AddTermsInput!) {
 
 mutation updateName($input: UpdateNameInput!) {
     updateName(input: $input)
+}
+
+mutation batchSetDomain($input: BatchSetDomainInput!) {
+    batchSetDomain(input: $input)
+}
+
+mutation batchUpdateDeprecation($input: BatchUpdateDeprecationInput!) {
+    batchUpdateDeprecation(input: $input)
 }

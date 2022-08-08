@@ -16,7 +16,13 @@ import { SelectActionGroups } from './types';
  *
  * Currently, only the change tags action is implemented.
  */
-const DEFAULT_ACTION_GROUPS = [SelectActionGroups.CHANGE_TAGS, SelectActionGroups.CHANGE_GLOSSARY_TERMS];
+const DEFAULT_ACTION_GROUPS = [
+    SelectActionGroups.CHANGE_TAGS,
+    SelectActionGroups.CHANGE_GLOSSARY_TERMS,
+    SelectActionGroups.CHANGE_DOMAINS,
+    SelectActionGroups.CHANGE_OWNERS,
+    SelectActionGroups.CHANGE_DEPRECATION,
+];
 
 type Props = {
     selectedEntities: EntityAndType[];
@@ -60,6 +66,7 @@ export const SearchSelectActions = ({
                         selectedEntityUrns.length === 0 ||
                         !isEntityCapabilitySupported(EntityCapabilityType.OWNERS, selectedEntityTypes)
                     }
+                    refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_GLOSSARY_TERMS) && (
@@ -89,6 +96,7 @@ export const SearchSelectActions = ({
                         selectedEntityUrns.length === 0 ||
                         !isEntityCapabilitySupported(EntityCapabilityType.DOMAINS, selectedEntityTypes)
                     }
+                    refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_DEPRECATION) && (
@@ -98,6 +106,7 @@ export const SearchSelectActions = ({
                         selectedEntityUrns.length === 0 ||
                         !isEntityCapabilitySupported(EntityCapabilityType.DEPRECATION, selectedEntityTypes)
                     }
+                    refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.DELETE) && (
