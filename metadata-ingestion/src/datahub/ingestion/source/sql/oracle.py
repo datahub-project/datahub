@@ -8,6 +8,7 @@ import pydantic
 from pydantic.fields import Field
 from sqlalchemy import event, sql
 from sqlalchemy.dialects.oracle.base import OracleDialect
+from sqlalchemy.engine import reflection
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.ingestion.api.decorators import (
@@ -88,11 +89,19 @@ class OracleInspectorObjectWrapper:
         # tables that we don't want to ingest into the DataHub
         self.exclude_tablespaces: List[str] = []
 
+    def get_schema_names(self) -> List[str]:
+        self.log.debug("OracleInspectorObjectWrapper is in used")
+        s = "SELECT username FROM dba_users ORDER BY username"
+        cursor = self._inspector_instance.bind.execute(s)
+        return [
+            self._inspector_instance.dialect.normalize_name(row[0]) for row in cursor
+        ]
+
     def get_table_names(self, schema: str = None, order_by: str = None) -> List[str]:
         """
         skip order_by, we are not using order_by
         """
-        self.log.debug("OracleInspectorObjectWrapper is used")
+        self.log.debug("OracleInspectorObjectWrapper is in used")
         schema = self._inspector_instance.dialect.denormalize_name(
             schema or self.default_schema_name
         )
