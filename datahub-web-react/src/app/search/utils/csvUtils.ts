@@ -1,4 +1,4 @@
-function downloadFile(data: string, title: string) {
+export function downloadFile(data: string, title: string) {
     const blobx = new Blob([data], { type: 'text/plain' }); // ! Blob
     const elemx = window.document.createElement('a');
     elemx.href = window.URL.createObjectURL(blobx); // ! createObjectURL
