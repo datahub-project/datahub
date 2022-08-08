@@ -1,0 +1,15 @@
+namespace com.linkedin.metadata.search.features
+
+import com.linkedin.common.Urn
+
+@Aspect = {
+  "name": "costFeatures"
+}
+record CostFeatures {
+
+  /**
+   * Cost in USD over last 30 days.
+   */
+  costUSDLast30Days: optional float
+
+}
