@@ -223,7 +223,7 @@ class GlueSourceReport(StatefulIngestionReport):
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(
     SourceCapability.DELETION_DETECTION,
-    "Enabled by default when stateful ingestion is turned on. Stateful Ingestion is available only when a Platform Instance is assigned to this source.",
+    "Enabled by default when stateful ingestion is turned on.",
 )
 class GlueSource(StatefulIngestionSourceBase):
     """
@@ -1311,8 +1311,7 @@ class GlueSource(StatefulIngestionSourceBase):
         return None
 
     def get_platform_instance_id(self) -> str:
-        assert self.source_config.platform_instance is not None
-        return self.source_config.platform_instance
+        return self.source_config.platform_instance or self.platform
 
     def is_checkpointing_enabled(self, job_id: JobId) -> bool:
         if (

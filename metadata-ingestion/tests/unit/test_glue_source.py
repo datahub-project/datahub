@@ -253,10 +253,7 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         },
     }
 
-    platform_instance = "glue_instance"
-
     source_config_dict: Dict[str, Any] = {
-        "platform_instance": platform_instance,
         "extract_transforms": False,
         "aws_region": "eu-east-1",
         **stateful_config,
@@ -330,8 +327,8 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
 
             assert len(difference_urns) == 1
 
-            urn1 = "urn:li:dataset:(urn:li:dataPlatform:glue,{}.flights-database.avro,PROD)".format(
-                platform_instance
+            urn1 = (
+                "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)"
             )
 
             assert urn1 in difference_urns

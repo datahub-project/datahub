@@ -24,8 +24,6 @@ This plugin extracts the following:
 | Data Domains        | ✔️     | [link](../../docs/domains.md)            |
 | Stateful Ingestion  | ✔️     | [link](./stateful_ingestion.md)          |
 
-Stateful Ingestion is available only when a Platform Instance is assigned to this source.
-
 ## Quickstart recipe
 
 Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.
