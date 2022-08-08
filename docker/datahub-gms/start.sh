@@ -57,7 +57,6 @@ fi
 # kubernetes deployments
 auth_resource_dir=${AUTH_RESOURCES_DIR:-"/etc/datahub/plugins/auth/resources"}
 # Option --classes ${AUTH_RESOURCE_LOOK_UP_DIR} is added for Apache Ranger library to load the ranger-datahub-security.xml from classpath
-mkdir -p $auth_resource_dir
 COMMON="
     $WAIT_FOR_EBEAN \
     $WAIT_FOR_CASSANDRA \

@@ -249,6 +249,7 @@ public class LabelUtils {
     }
   }
 
+  // TODO: Move this out into a separate utilities class.
   public static void validateResource(Urn resourceUrn, String subResource, SubResourceType subResourceType, EntityService entityService) {
     if (!entityService.exists(resourceUrn)) {
       throw new IllegalArgumentException(String.format("Failed to update resource with urn %s. Entity does not exist.", resourceUrn));

@@ -186,6 +186,11 @@ type Mutation {
     updateDataset(urn: String!, input: DatasetUpdateInput!): Dataset
 
     """
+    Update the metadata about a batch of Datasets
+    """
+    updateDatasets(input: [BatchDatasetUpdateInput!]!): [Dataset]
+
+    """
     Update the metadata about a particular Chart
     """
     updateChart(urn: String!, input: ChartUpdateInput!): Chart
@@ -360,7 +365,6 @@ type Mutation {
     """
     addGroupMembers(input: AddGroupMembersInput!): Boolean
 
-
     """
     Remove members from a group
     """
@@ -391,6 +395,11 @@ type Mutation {
     setDomain(entityUrn: String!, domainUrn: String!): Boolean
 
     """
+    Set domain for multiple Entities
+    """
+    batchSetDomain(input: BatchSetDomainInput!): Boolean
+
+    """
     Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully removed, or was already removed. Requires the Edit Domains privilege for an asset.
     """
     unsetDomain(entityUrn: String!): Boolean
@@ -401,6 +410,11 @@ type Mutation {
     updateDeprecation(
       "Input required to set deprecation for an Entity."
       input: UpdateDeprecationInput!): Boolean
+
+    """
+    Updates the deprecation status for a batch of assets.
+    """
+    batchUpdateDeprecation(input: BatchUpdateDeprecationInput!): Boolean
 
     """
     Update a particular Corp User's editable properties
@@ -3588,6 +3602,23 @@ input DatasetUpdateInput {
 }
 
 """
+Arguments provided to batch update Dataset entities
+"""
+input BatchDatasetUpdateInput {
+
+    """
+    Primary key of the Dataset to which the update will be applied
+    """
+    urn: String!
+
+    """
+    Arguments provided to update the Dataset
+    """
+    update: DatasetUpdateInput!
+}
+
+
+"""
 Update to editable schema metadata of the dataset
 """
 input EditableSchemaMetadataUpdate {
@@ -6123,9 +6154,19 @@ enum AssertionStdOperator {
     START_WITH
 
     """
+    Value being asserted matches the regex value.
+    """
+    REGEX_MATCH
+
+    """
     Value being asserted is one of the array values
     """
     IN
+
+    """
+    Value being asserted is not in one of the array values.
+    """
+    NOT_IN
 
     """
     Other
@@ -6636,7 +6677,7 @@ input BatchAddTagsInput {
     """
     The target assets to attach the tags to
     """
-    resources: [ResourceRefInput]!
+    resources: [ResourceRefInput!]!
 }
 
 """
@@ -6907,6 +6948,47 @@ input UpdateDeprecationInput {
     Optional - Additional information about the entity deprecation plan
     """
     note: String
+}
+
+
+"""
+Input provided when updating the deprecation status for a batch of assets.
+"""
+input BatchUpdateDeprecationInput {
+    """
+    Whether the Entity is marked as deprecated.
+    """
+    deprecated: Boolean!
+
+    """
+    Optional - The time user plan to decommission this entity
+    """
+    decommissionTime: Long
+
+    """
+    Optional - Additional information about the entity deprecation plan
+    """
+    note: String
+
+    """
+    The target assets to attach the tags to
+    """
+    resources: [ResourceRefInput]!
+}
+
+"""
+Input provided when adding tags to a batch of assets
+"""
+input BatchSetDomainInput {
+    """
+    The primary key of the Domain, or null if the domain will be unset
+    """
+    domainUrn: String
+
+    """
+    The target assets to attach the Domain
+    """
+    resources: [ResourceRefInput!]!
 }
 
 """

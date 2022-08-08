@@ -4,9 +4,10 @@ import pytest
 import requests
 
 from tests.utils import get_frontend_url, wait_for_healthcheck_util
+from tests.test_result_msg import send_message
 
 # Disable telemetry
-os.putenv("DATAHUB_TELEMETRY_ENABLED", "false")
+os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 
 
 @pytest.fixture(scope="session")
@@ -34,3 +35,8 @@ def frontend_session(wait_for_healthchecks):
 def test_healthchecks(wait_for_healthchecks):
     # Call to wait_for_healthchecks fixture will do the actual functionality.
     pass
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """ whole test run finishes. """
+    send_message(exitstatus)

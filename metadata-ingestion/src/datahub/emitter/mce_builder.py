@@ -9,7 +9,6 @@ from hashlib import md5
 from typing import Any, List, Optional, Type, TypeVar, Union, cast, get_type_hints
 
 import typing_inspect
-from avrogen.dict_wrapper import DictWrapper
 
 from datahub.configuration.source_common import DEFAULT_ENV as DEFAULT_ENV_CONFIGURATION
 from datahub.emitter.serialization_helper import pre_json_transform
@@ -33,9 +32,11 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.metadata.schema_classes import _Aspect as AspectAbstract
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
+Aspect = TypeVar("Aspect", bound=AspectAbstract)
 
 DEFAULT_ENV = DEFAULT_ENV_CONFIGURATION
 DEFAULT_FLOW_CLUSTER = "prod"
@@ -288,10 +289,6 @@ def make_lineage_mce(
         )
     )
     return mce
-
-
-# This bound isn't tight, but it's better than nothing.
-Aspect = TypeVar("Aspect", bound=DictWrapper)
 
 
 def can_add_aspect(mce: MetadataChangeEventClass, AspectType: Type[Aspect]) -> bool:
