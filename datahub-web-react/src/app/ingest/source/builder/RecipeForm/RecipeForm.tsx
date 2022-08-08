@@ -67,13 +67,13 @@ function getInitialValues(displayRecipe: string, allFields: any[]) {
     return initialValues;
 }
 
-function SectionHeader({ icon, text, sectionTooltip }: { icon: any; text: string; sectionTooltip?: string }) {
+function SectionHeader({ icon, text, filterSectionTooltip }: { icon: any; text: string; filterSectionTooltip?: string }) {
     return (
         <span>
             {icon}
             <HeaderTitle>{text}</HeaderTitle>
-            {sectionTooltip && (
-                <Tooltip placement="top" title={sectionTooltip}>
+            {filterSectionTooltip && (
+                <Tooltip placement="top" title={filterSectionTooltip}>
                     <HeaderTooltipWrapper />
                 </Tooltip>
             )}
@@ -98,7 +98,7 @@ interface Props {
 
 function RecipeForm(props: Props) {
     const { type, isEditing, displayRecipe, setStagedRecipe, onClickNext, goToPrevious } = props;
-    const { fields, advancedFields, filterFields, sectionTooltip } = RECIPE_FIELDS[type];
+    const { fields, advancedFields, filterFields, filterSectionTooltip } = RECIPE_FIELDS[type];
     const allFields = [...fields, ...advancedFields, ...filterFields];
 
     function updateFormValues(changedValues: any, allValues: any) {
@@ -141,7 +141,7 @@ function RecipeForm(props: Props) {
                     <Collapse.Panel
                         forceRender
                         header={
-                            <SectionHeader icon={<FilterOutlined />} text="Filter" sectionTooltip={sectionTooltip} />
+                            <SectionHeader icon={<FilterOutlined />} text="Filter" filterSectionTooltip={filterSectionTooltip} />
                         }
                         key="1"
                     >

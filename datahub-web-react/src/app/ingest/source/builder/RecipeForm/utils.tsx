@@ -88,7 +88,7 @@ export const RECIPE_FIELDS = {
             SNOWFLAKE_VIEW_ALLOW,
             SNOWFLAKE_VIEW_DENY,
         ],
-        sectionTooltip:
+        filterSectionTooltip:
             'Filter out data assets based on allow/deny regex patterns we match against. Deny patterns take precedence over allow patterns.',
     },
     [BIGQUERY]: {
@@ -109,7 +109,7 @@ export const RECIPE_FIELDS = {
             BIGQUERY_VIEW_ALLOW,
             BIGQUERY_VIEW_DENY,
         ],
-        sectionTooltip:
+        filterSectionTooltip:
             'Filter out data assets based on allow/deny regex patterns we match against. Deny patterns take precedence over allow patterns.',
     },
     [REDSHIFT]: {
@@ -123,7 +123,7 @@ export const RECIPE_FIELDS = {
             REDSHIFT_VIEW_ALLOW,
             REDSHIFT_VIEW_DENY,
         ],
-        sectionTooltip:
+        filterSectionTooltip:
             'Filter out data assets based on allow/deny regex patterns we match against. Deny patterns take precedence over allow patterns.',
     },
     [TABLEAU]: {
@@ -135,7 +135,7 @@ export const RECIPE_FIELDS = {
         fields: [LOOKER_BASE_URL, LOOKER_CLIENT_ID, LOOKER_CLIENT_SECRET],
         filterFields: [DASHBOARD_ALLOW, DASHBOARD_DENY, CHART_ALLOW, CHART_DENY],
         advancedFields: [GITHUB_INFO_REPO, EXTRACT_USAGE_HISTORY, EXTRACT_OWNERS, SKIP_PERSONAL_FOLDERS],
-        sectionTooltip:
+        filterSectionTooltip:
             'Filter out data assets based on allow/deny regex patterns we match against. Deny patterns take precedence over allow patterns.',
     },
     [KAFKA]: {
@@ -150,7 +150,7 @@ export const RECIPE_FIELDS = {
         ],
         filterFields: [TOPIC_ALLOW, TOPIC_DENY],
         advancedFields: [STATEFUL_INGESTION_ENABLED],
-        sectionTooltip:
+        filterSectionTooltip:
             'Filter out data assets based on allow/deny regex patterns we match against. Deny patterns take precedence over allow patterns.',
     },
 };
