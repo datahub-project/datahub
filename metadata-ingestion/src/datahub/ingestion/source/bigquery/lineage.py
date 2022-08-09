@@ -1,5 +1,6 @@
 import collections
 import logging
+import textwrap
 from typing import Any, Dict, Iterable, List, Optional, Set, Union
 
 from google.cloud.bigquery import Client as BigQueryClient
@@ -16,8 +17,7 @@ from datahub.ingestion.source.bigquery.bigquery_audit import (
     QueryEvent,
 )
 from datahub.ingestion.source.bigquery.bigquery_config import BigQueryV2Config
-from datahub.ingestion.source.sql.bigquery import bigquery_audit_metadata_query_template
-from datahub.ingestion.source_report.sql.bigquery import BigQueryReport
+from datahub.ingestion.source.bigquery.bigquery_report import BigQueryV2Report
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     UpstreamClass,
@@ -66,8 +66,66 @@ timestamp < "{end_time}"
 """.strip()
 
 
+def bigquery_audit_metadata_query_template(
+    dataset: str, use_date_sharded_tables: bool
+) -> str:
+    """
+    Receives a dataset (with project specified) and returns a query template that is used to query exported
+    AuditLogs containing protoPayloads of type BigQueryAuditMetadata.
+    Include only those that:
+    - have been completed (jobStatus.jobState = "DONE")
+    - do not contain errors (jobStatus.errorResults is none)
+    :param dataset: the dataset to query against in the form of $PROJECT.$DATASET
+    :param use_date_sharded_tables: whether to read from date sharded audit log tables or time partitioned audit log
+           tables
+    :return: a query template, when supplied start_time and end_time, can be used to query audit logs from BigQuery
+    """
+    query: str
+    if use_date_sharded_tables:
+        query = (
+            f"""
+        SELECT
+            timestamp,
+            logName,
+            insertId,
+            protopayload_auditlog AS protoPayload,
+            protopayload_auditlog.metadataJson AS metadata
+        FROM
+            `{dataset}.cloudaudit_googleapis_com_data_access_*`
+        """
+            + """
+        WHERE
+            _TABLE_SUFFIX BETWEEN "{start_date}" AND "{end_date}" AND
+        """
+        )
+    else:
+        query = f"""
+        SELECT
+            timestamp,
+            logName,
+            insertId,
+            protopayload_auditlog AS protoPayload,
+            protopayload_auditlog.metadataJson AS metadata
+        FROM
+            `{dataset}.cloudaudit_googleapis_com_data_access`
+        WHERE
+        """
+
+    audit_log_filter = """    timestamp >= "{start_time}"
+    AND timestamp < "{end_time}"
+    AND protopayload_auditlog.serviceName="bigquery.googleapis.com"
+    AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
+    AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.errorResults") IS NULL
+    AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL;
+    """
+
+    query = textwrap.dedent(query) + audit_log_filter
+
+    return textwrap.dedent(query)
+
+
 class BigqueryLineageExtractor:
-    def __init__(self, config: BigQueryV2Config, report: BigQueryReport):
+    def __init__(self, config: BigQueryV2Config, report: BigQueryV2Report):
         self.config = config
         self.report = report
         self.lineage_metadata: Optional[Dict[str, Set[str]]] = None
@@ -360,27 +418,27 @@ class BigqueryLineageExtractor:
                 self.report.num_skipped_lineage_entries_other += 1
         return lineage_map
 
-    def _compute_bigquery_lineage(self) -> None:
+    def _compute_bigquery_lineage(self) -> dict[str, set[str]]:
         lineage_extractor: BigqueryLineageExtractor = BigqueryLineageExtractor(
             config=self.config, report=self.report
         )
+        lineage_metadata: dict[str, set[str]]
         if self.config.use_exported_bigquery_audit_metadata:
-            self.lineage_metadata = (
+            lineage_metadata = (
                 lineage_extractor.compute_bigquery_lineage_via_exported_bigquery_audit_metadata()
             )
         else:
-            self.lineage_metadata = (
+            lineage_metadata = (
                 lineage_extractor.compute_bigquery_lineage_via_gcp_logging()
             )
 
-        if self.lineage_metadata is None:
-            self.lineage_metadata = {}
+        if lineage_metadata is None:
+            lineage_metadata = {}
 
-        self.report.lineage_metadata_entries = len(self.lineage_metadata)
-        logger.info(
-            f"Built lineage map containing {len(self.lineage_metadata)} entries."
-        )
-        logger.debug(f"lineage metadata is {self.lineage_metadata}")
+        self.report.lineage_metadata_entries = len(lineage_metadata)
+        logger.info(f"Built lineage map containing {len(lineage_metadata)} entries.")
+        logger.debug(f"lineage metadata is {lineage_metadata}")
+        return lineage_metadata
 
     def get_upstream_tables(
         self, bq_table: str, tables_seen: List[str] = []
@@ -409,7 +467,7 @@ class BigqueryLineageExtractor:
         self, dataset_name: str, platform: str
     ) -> Optional[tuple[UpstreamLineageClass, dict[str, str]]]:
         if self.lineage_metadata is None:
-            self._compute_bigquery_lineage()
+            self.lineage_metadata = self._compute_bigquery_lineage()
 
         project_id, dataset_name, tablename = dataset_name.split(".")
         bq_table = BigQueryTableRef(project_id, dataset_name, tablename)

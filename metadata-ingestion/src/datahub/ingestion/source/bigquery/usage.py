@@ -1,5 +1,6 @@
 import collections
 import logging
+import textwrap
 import time
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast
@@ -27,9 +28,8 @@ from datahub.ingestion.source.bigquery.bigquery_audit import (
     _table_ref_to_urn,
 )
 from datahub.ingestion.source.bigquery.bigquery_config import BigQueryV2Config
-from datahub.ingestion.source.sql.bigquery import bigquery_audit_metadata_query_template
+from datahub.ingestion.source.bigquery.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.usage.usage_common import GenericAggregatedDataset
-from datahub.ingestion.source_report.sql.bigquery import BigQueryReport
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     OperationClass,
@@ -55,6 +55,83 @@ OPERATION_STATEMENT_TYPES = {
 READ_STATEMENT_TYPES: List[str] = ["SELECT"]
 
 
+def bigquery_audit_metadata_query_template(
+    dataset: str,
+    use_date_sharded_tables: bool,
+    table_allow_filter: str = None,
+) -> str:
+    """
+    Receives a dataset (with project specified) and returns a query template that is used to query exported
+    v2 AuditLogs containing protoPayloads of type BigQueryAuditMetadata.
+    :param dataset: the dataset to query against in the form of $PROJECT.$DATASET
+    :param use_date_sharded_tables: whether to read from date sharded audit log tables or time partitioned audit log
+           tables
+    :param table_allow_filter: regex used to filter on log events that contain the wanted datasets
+    :return: a query template, when supplied start_time and end_time, can be used to query audit logs from BigQuery
+    """
+    allow_filter = f"""
+      AND EXISTS (SELECT *
+              from UNNEST(JSON_EXTRACT_ARRAY(protopayload_auditlog.metadataJson,
+                                             "$.jobChange.job.jobStats.queryStats.referencedTables")) AS x
+              where REGEXP_CONTAINS(x, r'(projects/.*/datasets/.*/tables/{table_allow_filter if table_allow_filter else ".*"})'))
+    """
+
+    query: str
+    if use_date_sharded_tables:
+        query = (
+            f"""
+        SELECT
+            timestamp,
+            logName,
+            insertId,
+            protopayload_auditlog AS protoPayload,
+            protopayload_auditlog.metadataJson AS metadata
+        FROM
+            `{dataset}.cloudaudit_googleapis_com_data_access_*`
+        """
+            + """
+        WHERE
+            _TABLE_SUFFIX BETWEEN "{start_date}" AND "{end_date}"
+        """
+        )
+    else:
+        query = f"""
+        SELECT
+            timestamp,
+            logName,
+            insertId,
+            protopayload_auditlog AS protoPayload,
+            protopayload_auditlog.metadataJson AS metadata
+        FROM
+            `{dataset}.cloudaudit_googleapis_com_data_access`
+        WHERE 1=1
+        """
+    audit_log_filter_timestamps = """AND (timestamp >= "{start_time}"
+        AND timestamp < "{end_time}"
+    );
+    """
+    audit_log_filter_query_complete = f"""
+    AND (
+            (
+                protopayload_auditlog.serviceName="bigquery.googleapis.com"
+                AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
+                AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL
+                {allow_filter}
+            )
+            OR
+            JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.tableDataRead.reason") = "JOB"
+    )
+    """
+
+    query = (
+        textwrap.dedent(query)
+        + audit_log_filter_query_complete
+        + audit_log_filter_timestamps
+    )
+
+    return textwrap.dedent(query)
+
+
 class BigQueryUsageExtractor:
     """
     This plugin extracts the following:
@@ -71,9 +148,9 @@ class BigQueryUsageExtractor:
         datetime, Dict[BigQueryTableRef, AggregatedDataset]
     ] = collections.defaultdict(dict)
 
-    def __init__(self, config: BigQueryV2Config, report: BigQueryReport):
+    def __init__(self, config: BigQueryV2Config, report: BigQueryV2Report):
         self.config: BigQueryV2Config = config
-        self.report: BigQueryReport = report
+        self.report: BigQueryV2Report = report
 
     def add_config_to_report(self):
         self.report.query_log_delay = self.config.usage.query_log_delay
@@ -154,7 +231,7 @@ class BigQueryUsageExtractor:
     def _make_bigquery_client(self, project_id: str) -> BigQueryClient:
         return BigQueryClient(project=project_id)
 
-    def _make_bigquery_logging_client(self, project_id) -> GCPLoggingClient:
+    def _make_bigquery_logging_client(self, project_id: str) -> GCPLoggingClient:
         # See https://github.com/googleapis/google-cloud-python/issues/2674 for
         # why we disable gRPC here.
         client_options = self.config.extra_client_options.copy()
@@ -243,7 +320,7 @@ class BigQueryUsageExtractor:
     def _get_bigquery_log_entries_via_gcp_logging(
         self, client: GCPLoggingClient
     ) -> Iterable[Union[AuditLogEntry, BigQueryAuditMetadata]]:
-        self.report.total_log_entries = 0
+        self.report.total_query_log_entries = 0
 
         filter = self._generate_filter(BQ_AUDIT_V2)
         logger.debug(filter)
@@ -263,7 +340,7 @@ class BigQueryUsageExtractor:
             for i, entry in enumerate(list_entries):
                 if i == 0:
                     logger.info("Starting log load from GCP Logging")
-                    self.report.total_log_entries += 1
+                    self.report.total_query_log_entries += 1
                 yield entry
                 logger.info(f"Finished loading {i} log entries from GCP Logging")
 

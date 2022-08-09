@@ -3,7 +3,7 @@ import logging
 import os
 import re
 from datetime import datetime
-from typing import Dict, Iterable, List, Optional, Tuple, Union, cast
+from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, cast
 
 import pydantic
 from avrogen.dict_wrapper import DictWrapper
@@ -23,6 +23,7 @@ from datahub.emitter.mcp_builder import (
     PlatformKey,
     ProjectIdKey,
     add_dataset_to_container,
+    add_domain_to_entity_wu,
     gen_containers,
 )
 from datahub.ingestion.api.common import PipelineContext, WorkUnit
@@ -36,14 +37,15 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.api.source import (
     CapabilityReport,
+    Source,
     SourceCapability,
     SourceReport,
     TestableSource,
     TestConnectionReport,
 )
-from datahub.ingestion.api.source import Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery.bigquery_schema import (
     BigqueryColumn,
     BigQueryDataDictionary,
@@ -61,7 +63,6 @@ from datahub.ingestion.source.state.sql_common_state import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source_report.sql.bigquery import BigQueryReport
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status, SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetProfile,
@@ -95,7 +96,9 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 logger: logging.Logger = logging.getLogger(__name__)
 
 # https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types
-BIGQUERY_FIELD_TYPE_MAPPINGS = {
+BIGQUERY_FIELD_TYPE_MAPPINGS: dict[
+    str, Type[Union[BytesType, BooleanType, NumberType, StringType, TimeType, NullType]]
+] = {
     "BYTES": BytesType,
     "BOOL": BooleanType,
     "DECIMAL": NumberType,
@@ -154,7 +157,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def __init__(self, ctx: PipelineContext, config: BigQueryV2Config):
         super(BigqueryV2Source, self).__init__(config, ctx)
         self.config: BigQueryV2Config = config
-        self.report: BigQueryReport = BigQueryReport()
+        self.report: BigQueryV2Report = BigQueryV2Report()
         self.platform: str = "bigquery"
 
         # For database, schema, tables, views, etc
@@ -196,10 +199,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             client: bigquery.Client = bigquery.Client()
             assert client
 
-            ret = client.query("select 1").result()
-            if "error_result" in ret:
+            ret = client.query("select 1")
+            if ret.error_result:
                 test_report.basic_connectivity = CapabilityReport(
-                    capable=False, failure_reason=f"{ret['error_result']['message']}"
+                    capable=False, failure_reason=f"{ret.error_result['message']}"
                 )
             else:
                 test_report.basic_connectivity = CapabilityReport(capable=True)
@@ -581,7 +584,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         schema_name: str,
         db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
-        lineage_info = None
 
         table_identifier = self.get_identifier(view.name, schema_name, db_name)
 
@@ -597,7 +599,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None
         if self.config.include_table_lineage:
             lineage_info = self.lineage_extractor.get_upstream_lineage_info(
-                dataset_name, self.config.platform
+                dataset_name, self.platform
             )
 
         view_workunits = self.gen_dataset_workunits(
@@ -616,7 +618,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         domain_urn = self._gen_domain_urn(dataset_name)
         if domain_urn:
-            wus = self.add_domain_to_entity_wu(
+            wus = add_domain_to_entity_wu(
                 entity_type=entity_type,
                 entity_urn=entity_urn,
                 domain_urn=domain_urn,
@@ -796,7 +798,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         tables = self.db_tables.get(dataset_name)
 
-        # In bigquery there there is no way to query all tables in a Project id
+        # In bigquery there is no way to query all tables in a Project id
         if tables is None:
             return self.data_dictionary.get_tables_for_dataset(
                 conn, dataset_name, project_id
