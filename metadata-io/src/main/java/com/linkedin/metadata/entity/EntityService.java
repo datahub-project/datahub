@@ -1084,7 +1084,7 @@ private Map<Urn, List<EnvelopedAspect>> getCorrespondingAspects(Set<EntityAspect
 
     if (shouldCheckBrowsePath && latestAspects.get(BROWSE_PATHS) == null) {
       try {
-        BrowsePaths generatedBrowsePath = BrowsePathUtils.buildBrowsePath(urn, getEntityRegistry());
+        BrowsePaths generatedBrowsePath = BrowsePathUtils.buildBrowsePath(urn, getEntityRegistry(), this);
         if (generatedBrowsePath != null) {
           aspects.add(Pair.of(BROWSE_PATHS, generatedBrowsePath));
         }
