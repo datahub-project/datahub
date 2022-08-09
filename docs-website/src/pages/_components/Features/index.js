@@ -77,7 +77,7 @@ const Feature = ({ icon, title, description }) => {
 };
 
 const Features = () =>
-  featuresContent && featuresContent.length > 0 ? (
+  featuresContent?.length > 0 ? (
     <div style={{ padding: "2vh 0" }}>
       <div className="container">
         <div className="row">

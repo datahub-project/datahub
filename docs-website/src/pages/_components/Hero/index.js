@@ -4,7 +4,7 @@ import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import Image from "@theme/IdealImage";
 import useThemeContext from "@theme/hooks/useThemeContext";
-
+import { QuestionCircleOutlined } from "@ant-design/icons";
 import styles from "./hero.module.scss";
 
 const HeroAnnouncement = ({ message, linkUrl, linkText }) => (
@@ -44,6 +44,16 @@ const Hero = ({}) => {
           img={require(`/img/diagrams/datahub-flow-diagram-${isDarkTheme ? "dark" : "light"}.png`)}
           alt="DataHub Flow Diagram"
         />
+        <div className={clsx("card", styles.quickLinks)}>
+          <div className={styles.quickLinksLabel}>
+            <QuestionCircleOutlined />
+            Learn
+          </div>
+          <Link to={useBaseUrl("docs/introduction")}>What is DataHub?</Link>
+          <Link to={useBaseUrl("docs/features")}>What can I do with DataHub?</Link>
+          <Link to={useBaseUrl("docs/architecture/architecture")}>How is DataHub architected?</Link>
+          <Link to={useBaseUrl("docs/demo")}>See DataHub in action</Link>
+        </div>
       </div>
     </header>
   );
