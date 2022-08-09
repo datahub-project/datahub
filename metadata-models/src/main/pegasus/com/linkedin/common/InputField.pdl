@@ -1,0 +1,41 @@
+namespace com.linkedin.common
+
+/**
+ * Information about a field a chart or dashboard references
+ */
+record InputField {
+  /**
+   * Flattened name of the field.
+   */
+  @Searchable = {
+    "fieldName": "inputFieldPath",
+    "fieldType": "TEXT"
+  }
+  fieldPath: string
+
+  /**
+   * Human-readable name of the field
+   */
+  @Searchable = {
+    "fieldName": "inputFieldLabel",
+    "fieldType": "TEXT"
+  }
+  label: string
+
+  type: enum InputFieldType {
+    /**
+     * This field is a metric
+     */
+    METRIC
+
+    /**
+     * This field is a dimensions
+     */
+    DIMENSION
+
+    /**
+     *  We do not have enough information to determine the type, or the field is not used as a metric or dimension
+     */
+    UNKNOWN
+  }
+}

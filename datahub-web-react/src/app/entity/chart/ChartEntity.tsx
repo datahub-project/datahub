@@ -1,5 +1,7 @@
 import { LineChartOutlined } from '@ant-design/icons';
 import * as React from 'react';
+import { Typography } from 'antd';
+
 import { Chart, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { ChartPreview } from './preview/ChartPreview';
@@ -18,6 +20,7 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
+import { FIELDS_TO_HIGHLIGHT } from '../dataset/search/highlights';
 
 /**
  * Definition of the DataHub Chart entity.
@@ -184,6 +187,20 @@ export class ChartEntity implements Entity<Chart> {
                 lastUpdatedMs={data.properties?.lastModified?.time}
                 createdMs={data.properties?.created?.time}
                 externalUrl={data.properties?.externalUrl}
+                snippet={
+                    // Add match highlights only if all the matched fields are in the FIELDS_TO_HIGHLIGHT
+                    result.matchedFields.length > 0 && (
+                        <Typography.Text>
+                            Matches{' '}
+                            {FIELDS_TO_HIGHLIGHT.get(
+                                result.matchedFields.filter((field) => FIELDS_TO_HIGHLIGHT.has(field.name))[0]?.name,
+                            )}{' '}
+                            <b>
+                                {result.matchedFields.filter((field) => FIELDS_TO_HIGHLIGHT.has(field.name))[0]?.value}
+                            </b>
+                        </Typography.Text>
+                    )
+                }
             />
         );
     };

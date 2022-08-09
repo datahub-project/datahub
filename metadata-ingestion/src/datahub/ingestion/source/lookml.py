@@ -549,9 +549,12 @@ class LookerView:
             name = field_dict["name"]
             native_type = field_dict.get("type", "string")
             description = field_dict.get("description", "")
+            label = field_dict.get("label", "")
+
             field = ViewField(
                 name=name,
                 type=native_type,
+                label=label,
                 description=description,
                 is_primary_key=is_primary_key,
                 field_type=type_cls,

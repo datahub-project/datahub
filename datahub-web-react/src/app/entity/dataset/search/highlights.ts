@@ -4,3 +4,5 @@ FIELDS_TO_HIGHLIGHT.set('fieldDescriptions', 'column description');
 FIELDS_TO_HIGHLIGHT.set('fieldTags', 'column tag');
 FIELDS_TO_HIGHLIGHT.set('editedFieldDescriptions', 'column description');
 FIELDS_TO_HIGHLIGHT.set('editedFieldTags', 'column tag');
+FIELDS_TO_HIGHLIGHT.set('inputFieldLabel', 'input');
+// FIELDS_TO_HIGHLIGHT.set('inputFieldPath', 'input');

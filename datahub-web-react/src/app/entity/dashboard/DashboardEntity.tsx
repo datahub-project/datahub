@@ -1,5 +1,7 @@
 import { DashboardFilled, DashboardOutlined } from '@ant-design/icons';
 import * as React from 'react';
+import { Typography } from 'antd';
+
 import {
     GetDashboardQuery,
     useGetDashboardQuery,
@@ -22,6 +24,7 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
+import { FIELDS_TO_HIGHLIGHT } from '../dataset/search/highlights';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -201,6 +204,20 @@ export class DashboardEntity implements Entity<Dashboard> {
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={data.properties?.lastModified?.time}
                 createdMs={data.properties?.created?.time}
+                snippet={
+                    // Add match highlights only if all the matched fields are in the FIELDS_TO_HIGHLIGHT
+                    result.matchedFields.length > 0 && (
+                        <Typography.Text>
+                            Matches{' '}
+                            {FIELDS_TO_HIGHLIGHT.get(
+                                result.matchedFields.filter((field) => FIELDS_TO_HIGHLIGHT.has(field.name))[0]?.name,
+                            )}{' '}
+                            <b>
+                                {result.matchedFields.filter((field) => FIELDS_TO_HIGHLIGHT.has(field.name))[0]?.value}
+                            </b>
+                        </Typography.Text>
+                    )
+                }
             />
         );
     };
