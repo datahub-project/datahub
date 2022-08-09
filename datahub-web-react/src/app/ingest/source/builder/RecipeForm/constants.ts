@@ -20,6 +20,7 @@ import {
     EXTRACT_USAGE_HISTORY,
     EXTRACT_OWNERS,
     SKIP_PERSONAL_FOLDERS,
+    RecipeField,
 } from './common';
 import {
     SNOWFLAKE_ACCOUNT_ID,
@@ -74,7 +75,18 @@ import {
     TOPIC_DENY,
 } from './kafka';
 
-export const RECIPE_FIELDS = {
+interface RecipeFields {
+    [key: string]: {
+        fields: RecipeField[];
+        filterFields: RecipeField[];
+        advancedFields: RecipeField[];
+        connectionSectionTooltip?: string;
+        filterSectionTooltip?: string;
+        advancedSectionTooltip?: string;
+    };
+}
+
+export const RECIPE_FIELDS: RecipeFields = {
     [SNOWFLAKE]: {
         fields: [SNOWFLAKE_ACCOUNT_ID, SNOWFLAKE_WAREHOUSE, SNOWFLAKE_USERNAME, SNOWFLAKE_PASSWORD, SNOWFLAKE_ROLE],
         advancedFields: [INCLUDE_LINEAGE, PROFILING_ENABLED, STATEFUL_INGESTION_ENABLED],

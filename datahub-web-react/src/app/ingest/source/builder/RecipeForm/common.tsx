@@ -254,7 +254,7 @@ export const PROFILING_ENABLED: RecipeField = {
 export const STATEFUL_INGESTION_ENABLED: RecipeField = {
     name: 'stateful_ingestion.enabled',
     label: 'Enable Stateful Ingestion',
-    tooltip: 'Enable the type of the ingestion state provider registered with datahub.',
+    tooltip: 'Remove stale datasets from datahub once they have been deleted in the source.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.stateful_ingestion.enabled',
     rules: null,
@@ -263,7 +263,7 @@ export const STATEFUL_INGESTION_ENABLED: RecipeField = {
 export const UPSTREAM_LINEAGE_IN_REPORT: RecipeField = {
     name: 'upstream_lineage_in_report',
     label: 'Include Upstream Lineage In Report.',
-    tooltip: 'Remove stale datasets from datahub once they have been deleted in the source.',
+    tooltip: 'Useful for debugging lineage information. Set to True to see the raw lineage created internally.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.upstream_lineage_in_report',
     rules: null,

@@ -9,15 +9,34 @@ const StyledDivider = styled(Divider)`
     margin: 0;
 `;
 
+export const StyledFormItem = styled(Form.Item)<{ alignLeft?: boolean; removeMargin: boolean }>`
+    margin-bottom: ${(props) => (props.removeMargin ? '0' : '16px')};
+
+    ${(props) =>
+        props.alignLeft &&
+        `
+        .ant-form-item {
+            flex-direction: row;
+
+        }
+
+        .ant-form-item-label {
+            padding: 0;
+            margin-right: 10px;
+        }
+    `}
+`;
+
 interface SecretFieldProps {
     field: RecipeField;
     secrets: Secret[];
+    removeMargin?: boolean;
     refetchSecrets: () => void;
 }
 
-function SecretField({ field, secrets, refetchSecrets }: SecretFieldProps) {
+function SecretField({ field, secrets, removeMargin, refetchSecrets }: SecretFieldProps) {
     return (
-        <Form.Item name={field.name} label={field.label} tooltip={field.tooltip}>
+        <StyledFormItem name={field.name} label={field.label} tooltip={field.tooltip} removeMargin={!!removeMargin}>
             <Select
                 showSearch
                 filterOption={(input, option) => !!option?.children.toLowerCase().includes(input.toLowerCase())}
@@ -35,7 +54,7 @@ function SecretField({ field, secrets, refetchSecrets }: SecretFieldProps) {
                     </Select.Option>
                 ))}
             </Select>
-        </Form.Item>
+        </StyledFormItem>
     );
 }
 
