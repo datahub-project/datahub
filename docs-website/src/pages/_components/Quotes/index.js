@@ -33,7 +33,7 @@ const quotesContent = [
 const Quote = ({ quote, company }) => {
   return (
     <div className="col col--4">
-      <div className={styles.quote}>
+      <div className={clsx("card", styles.quote)}>
         {quote}
         <div className={styles.companyLogoWrapper}>
           <img

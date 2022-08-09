@@ -129,7 +129,7 @@ function get_id(filepath: string): string {
 }
 
 const hardcoded_slugs = {
-  "README.md": "/",
+  "README.md": "/introduction",
 };
 
 function get_slug(filepath: string): string {

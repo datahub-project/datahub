@@ -1,12 +1,9 @@
 .quote {
-  border: 1px solid var(--ifm-hr-border-color);
   display: flex;
   flex-direction: column;
-  padding: 2rem;
   height: 100%;
   justify-content: space-between;
   font-size: 1rem;
-  border-radius: 0.5rem;
 }
 
 .companyLogoWrapper {

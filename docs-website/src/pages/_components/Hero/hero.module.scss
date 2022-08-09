@@ -1,19 +1,5 @@
 .hero {
-  padding: 5vh 0;
   :global {
-    .hero__subtitle {
-      font-size: 1.25em;
-      margin: 2rem 0 3rem;
-    }
-    .hero__content {
-      text-align: center;
-      padding: 2rem 0;
-      height: 100%;
-    }
-    .hero__subtitle {
-      max-width: 800px;
-      margin: 2rem auto;
-    }
     .button {
       margin-right: 1rem;
     }
@@ -54,5 +40,37 @@
         }
       }
     }
+  }
+}
+
+.quickLinks {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  font-weight: bold;
+  margin-bottom: -2.5vh;
+  @media (min-width: 768px) {
+    flex-direction: row;
+  }
+
+  > * {
+    padding: 0.5rem 1rem;
+    display: inline-block;
+
+    @media (min-width: 768px) {
+      padding: 0 1rem;
+    }
+  }
+}
+
+.quickLinksLabel {
+  display: flex;
+  align-items: center;
+  svg {
+    width: 24px;
+    height: 24px;
+    color: var(--ifm-text-color) !important;
+    margin-right: 0.5rem;
   }
 }
