@@ -9,7 +9,12 @@ from freezegun import freeze_time
 from datahub.configuration.common import DynamicTypedConfig
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.run.pipeline import Pipeline, PipelineConfig, SourceConfig
-from datahub.ingestion.source.dbt import DBTConfig, DBTSource
+from datahub.ingestion.source.dbt import (
+    DBTConfig,
+    DBTEntitiesEnabled,
+    DBTSource,
+    EmitDirective,
+)
 from datahub.ingestion.source.sql.sql_types import (
     TRINO_SQL_TYPES_MAP,
     resolve_trino_modified_type,
@@ -669,4 +674,159 @@ def test_resolve_trino_modified_type(data_type, expected_data_type):
     assert (
         resolve_trino_modified_type(data_type)
         == TRINO_SQL_TYPES_MAP[expected_data_type]
+    )
+
+
+@pytest.mark.integration
+@freeze_time(FROZEN_TIME)
+def test_dbt_tests_only_assertions(pytestconfig, tmp_path, mock_time, **kwargs):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
+
+    # Run the metadata ingestion pipeline.
+    output_file = tmp_path / "test_only_assertions.json"
+
+    pipeline = Pipeline(
+        config=PipelineConfig(
+            source=SourceConfig(
+                type="dbt",
+                config=DBTConfig(
+                    manifest_path=str(
+                        (test_resources_dir / "jaffle_shop_manifest.json").resolve()
+                    ),
+                    catalog_path=str(
+                        (test_resources_dir / "jaffle_shop_catalog.json").resolve()
+                    ),
+                    target_platform="postgres",
+                    delete_tests_as_datasets=True,
+                    test_results_path=str(
+                        (test_resources_dir / "jaffle_shop_test_results.json").resolve()
+                    ),
+                    # this is just here to avoid needing to access datahub server
+                    write_semantics="OVERRIDE",
+                    entities_enabled=DBTEntitiesEnabled(
+                        test_results=EmitDirective.ONLY
+                    ),
+                ),
+            ),
+            sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+    # Verify the output.
+    # No datasets were emitted, and more than 20 events were emitted
+    assert (
+        mce_helpers.assert_entity_urn_not_like(
+            entity_type="dataset",
+            regex_pattern="urn:li:dataset:\\(urn:li:dataPlatform:dbt",
+            file=output_file,
+        )
+        > 20
+    )
+    number_of_valid_assertions_in_test_results = 23
+    assert (
+        mce_helpers.assert_entity_urn_like(
+            entity_type="assertion", regex_pattern="urn:li:assertion:", file=output_file
+        )
+        == number_of_valid_assertions_in_test_results
+    )
+    # no assertionInfo should be emitted
+    try:
+        mce_helpers.assert_for_each_entity(
+            entity_type="assertion",
+            aspect_name="assertionInfo",
+            aspect_field_matcher={},
+            file=output_file,
+        )
+    except AssertionError:
+        pass
+
+    # all assertions must have an assertionRunEvent emitted (except for one assertion)
+    assert (
+        mce_helpers.assert_for_each_entity(
+            entity_type="assertion",
+            aspect_name="assertionRunEvent",
+            aspect_field_matcher={},
+            file=output_file,
+            exception_urns=["urn:li:assertion:2ff754df689ea951ed2e12cbe356708f"],
+        )
+        == number_of_valid_assertions_in_test_results
+    )
+
+
+@pytest.mark.integration
+@freeze_time(FROZEN_TIME)
+def test_dbt_only_test_definitions_and_results(
+    pytestconfig, tmp_path, mock_time, **kwargs
+):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/dbt"
+
+    # Run the metadata ingestion pipeline.
+    output_file = tmp_path / "test_only_definitions_and_assertions.json"
+
+    pipeline = Pipeline(
+        config=PipelineConfig(
+            source=SourceConfig(
+                type="dbt",
+                config=DBTConfig(
+                    manifest_path=str(
+                        (test_resources_dir / "jaffle_shop_manifest.json").resolve()
+                    ),
+                    catalog_path=str(
+                        (test_resources_dir / "jaffle_shop_catalog.json").resolve()
+                    ),
+                    target_platform="postgres",
+                    test_results_path=str(
+                        (test_resources_dir / "jaffle_shop_test_results.json").resolve()
+                    ),
+                    # this is just here to avoid needing to access datahub server
+                    write_semantics="OVERRIDE",
+                    entities_enabled=DBTEntitiesEnabled(
+                        sources=EmitDirective.NO,
+                        seeds=EmitDirective.NO,
+                        models=EmitDirective.NO,
+                    ),
+                ),
+            ),
+            sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+    # Verify the output. No datasets were emitted
+    assert (
+        mce_helpers.assert_entity_urn_not_like(
+            entity_type="dataset",
+            regex_pattern="urn:li:dataset:\\(urn:li:dataPlatform:dbt",
+            file=output_file,
+        )
+        > 20
+    )
+    number_of_assertions = 24
+    assert (
+        mce_helpers.assert_entity_urn_like(
+            entity_type="assertion", regex_pattern="urn:li:assertion:", file=output_file
+        )
+        == number_of_assertions
+    )
+    # all assertions must have an assertionInfo emitted
+    assert (
+        mce_helpers.assert_for_each_entity(
+            entity_type="assertion",
+            aspect_name="assertionInfo",
+            aspect_field_matcher={},
+            file=output_file,
+        )
+        == number_of_assertions
+    )
+    # all assertions must have an assertionRunEvent emitted (except for one assertion)
+    assert (
+        mce_helpers.assert_for_each_entity(
+            entity_type="assertion",
+            aspect_name="assertionRunEvent",
+            aspect_field_matcher={},
+            file=output_file,
+            exception_urns=["urn:li:assertion:2ff754df689ea951ed2e12cbe356708f"],
+        )
+        == number_of_assertions - 1
     )

@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { EmbeddedListSearch } from '../shared/components/styled/search/EmbeddedListSearch';
+import { EmbeddedListSearchSection } from '../shared/components/styled/search/EmbeddedListSearchSection';
 
 const GroupAssetsWrapper = styled.div`
     height: calc(100vh - 114px);
@@ -13,7 +13,7 @@ type Props = {
 export const GroupAssets = ({ urn }: Props) => {
     return (
         <GroupAssetsWrapper>
-            <EmbeddedListSearch
+            <EmbeddedListSearchSection
                 fixedFilter={{ field: 'owners', value: urn }}
                 emptySearchQuery="*"
                 placeholderText="Filter entities..."
