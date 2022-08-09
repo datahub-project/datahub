@@ -64,11 +64,14 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | Field         | Required | Default            | Description                                             |
 | ------------- | -------- | ------------------ | ------------------------------------------------------- |
 | `connect_uri` |          | `"localhost:8088"` | Superset host URL.                                      |
+| `display_uri` |          | `(connect_uri)`    | Publicly accessible Superset URL, see note below.       |
 | `username`    |          |                    | Superset username.                                      |
 | `password`    |          |                    | Superset password.                                      |
 | `provider`    |          | `"db"`             | Superset provider.                                      |
 | `env`         |          | `"PROD"`           | Environment to use in namespace when constructing URNs. |
 | `database_alias` |       |                    | Can be used to change mapping for database names in superset to what you have in datahub |
+
+NOTE: `display_uri` can be used when you need to ingest from a private, specially configured instance, but still want dashboard, graph, etc. links to point to the publicly accessible URL.  So, for example, you could set `connect_uri: localhost:xxxx, display_uri: superset.mydomain.com`.  You may need to do this if `superset.mydomain.com` has complex authentication that is not easy to pass through this source config.
 
 ## Compatibility
 

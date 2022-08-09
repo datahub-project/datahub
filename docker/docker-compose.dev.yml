@@ -41,10 +41,6 @@ services:
       - SKIP_ELASTICSEARCH_CHECK=false
       - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-dev}
       - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
-      - AUTH_POLICIES_ENABLED=${AUTH_POLICIES_ENABLED}
-      - RANGER_AUTHORIZER_ENABLED=${RANGER_AUTHORIZER_ENABLED}
-      - RANGER_USERNAME=${RANGER_USERNAME}
-      - RANGER_PASSWORD=${RANGER_PASSWORD}
     volumes:
       - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
       - ./datahub-gms/jetty.xml:/datahub/datahub-gms/scripts/jetty.xml

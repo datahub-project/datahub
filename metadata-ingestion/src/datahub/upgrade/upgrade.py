@@ -114,7 +114,7 @@ async def get_server_config(gms_url: str, token: str) -> dict:
 
 async def get_server_version_stats(
     server: Optional[DataHubGraph] = None,
-) -> Tuple[Any, Any, Any]:
+) -> Tuple[Optional[str], Optional[Version], Optional[datetime]]:
     server_config = None
     if not server:
         try:
@@ -180,15 +180,20 @@ async def retrieve_version_stats(
                 ) = server_config_future.result()
             tasks.remove(t)
 
-    server_version_stats = ServerVersionStats(
-        current=VersionStats(
-            version=current_server_version, release_date=current_server_release_date
-        ),
-        latest=VersionStats(version=last_server_version, release_date=last_server_date)
-        if last_server_version
-        else None,
-        current_server_type=current_server_type,
-    )
+    server_version_stats = None
+    if current_server_version:
+        server_version_stats = ServerVersionStats(
+            current=VersionStats(
+                version=current_server_version, release_date=current_server_release_date
+            ),
+            latest=VersionStats(
+                version=last_server_version, release_date=last_server_date
+            )
+            if last_server_version
+            else None,
+            current_server_type=current_server_type,
+        )
+
     if client_version_stats and server_version_stats:
         return DataHubVersionStats(
             server=server_version_stats, client=client_version_stats

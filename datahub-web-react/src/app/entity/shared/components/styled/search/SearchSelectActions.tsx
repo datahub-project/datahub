@@ -13,12 +13,14 @@ import { SelectActionGroups } from './types';
 
 /**
  * The set of action groups that are visible by default.
+ *
+ * Currently, only the change tags action is implemented.
  */
 const DEFAULT_ACTION_GROUPS = [
-    SelectActionGroups.CHANGE_OWNERS,
     SelectActionGroups.CHANGE_TAGS,
     SelectActionGroups.CHANGE_GLOSSARY_TERMS,
     SelectActionGroups.CHANGE_DOMAINS,
+    SelectActionGroups.CHANGE_OWNERS,
     SelectActionGroups.CHANGE_DEPRECATION,
     SelectActionGroups.DELETE,
 ];
@@ -26,6 +28,7 @@ const DEFAULT_ACTION_GROUPS = [
 type Props = {
     selectedEntities: EntityAndType[];
     visibleActionGroups?: Set<SelectActionGroups>;
+    refetch?: () => void;
 };
 
 /**
@@ -35,6 +38,7 @@ type Props = {
 export const SearchSelectActions = ({
     selectedEntities,
     visibleActionGroups = new Set(DEFAULT_ACTION_GROUPS),
+    refetch,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
 
@@ -63,6 +67,7 @@ export const SearchSelectActions = ({
                         selectedEntityUrns.length === 0 ||
                         !isEntityCapabilitySupported(EntityCapabilityType.OWNERS, selectedEntityTypes)
                     }
+                    refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_GLOSSARY_TERMS) && (
@@ -72,6 +77,7 @@ export const SearchSelectActions = ({
                         selectedEntityUrns.length === 0 ||
                         !isEntityCapabilitySupported(EntityCapabilityType.GLOSSARY_TERMS, selectedEntityTypes)
                     }
+                    refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_TAGS) && (
@@ -81,6 +87,7 @@ export const SearchSelectActions = ({
                         selectedEntityUrns.length === 0 ||
                         !isEntityCapabilitySupported(EntityCapabilityType.TAGS, selectedEntityTypes)
                     }
+                    refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_DOMAINS) && (
@@ -90,6 +97,7 @@ export const SearchSelectActions = ({
                         selectedEntityUrns.length === 0 ||
                         !isEntityCapabilitySupported(EntityCapabilityType.DOMAINS, selectedEntityTypes)
                     }
+                    refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_DEPRECATION) && (
@@ -99,6 +107,7 @@ export const SearchSelectActions = ({
                         selectedEntityUrns.length === 0 ||
                         !isEntityCapabilitySupported(EntityCapabilityType.DEPRECATION, selectedEntityTypes)
                     }
+                    refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.DELETE) && (
@@ -108,6 +117,7 @@ export const SearchSelectActions = ({
                         selectedEntityUrns.length === 0 ||
                         !isEntityCapabilitySupported(EntityCapabilityType.SOFT_DELETE, selectedEntityTypes)
                     }
+                    refetch={refetch}
                 />
             )}
         </>

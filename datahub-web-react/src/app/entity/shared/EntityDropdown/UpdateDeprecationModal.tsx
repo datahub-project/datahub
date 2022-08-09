@@ -1,16 +1,15 @@
 import React from 'react';
 import { Button, DatePicker, Form, Input, message, Modal } from 'antd';
-import { useUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
+import { useBatchUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
 
 type Props = {
-    urn: string;
-    visible: boolean;
+    urns: string[];
     onClose: () => void;
     refetch?: () => void;
 };
 
-export const AddDeprecationDetailsModal = ({ urn, visible, onClose, refetch }: Props) => {
-    const [updateDeprecation] = useUpdateDeprecationMutation();
+export const UpdateDeprecationModal = ({ urns, onClose, refetch }: Props) => {
+    const [batchUpdateDeprecation] = useBatchUpdateDeprecationMutation();
     const [form] = Form.useForm();
 
     const handleClose = () => {
@@ -21,10 +20,10 @@ export const AddDeprecationDetailsModal = ({ urn, visible, onClose, refetch }: P
     const handleOk = async (formData: any) => {
         message.loading({ content: 'Updating...' });
         try {
-            await updateDeprecation({
+            await batchUpdateDeprecation({
                 variables: {
                     input: {
-                        urn,
+                        resources: [...urns.map((urn) => ({ resourceUrn: urn }))],
                         deprecated: true,
                         note: formData.note,
                         decommissionTime: formData.decommissionTime && formData.decommissionTime.unix(),
@@ -46,7 +45,7 @@ export const AddDeprecationDetailsModal = ({ urn, visible, onClose, refetch }: P
     return (
         <Modal
             title="Add Deprecation Details"
-            visible={visible}
+            visible
             onCancel={handleClose}
             keyboard
             footer={

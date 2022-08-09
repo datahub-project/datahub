@@ -43,6 +43,9 @@ type Props = {
     selectedEntities: EntityAndType[];
     setIsSelectMode: (showSelectMode: boolean) => any;
     onChangeSelectAll: (selected: boolean) => void;
+    refetch?: () => void;
+    searchBarStyle?: any;
+    searchBarInputStyle?: any;
 };
 
 export default function EmbeddedListSearchHeader({
@@ -58,6 +61,9 @@ export default function EmbeddedListSearchHeader({
     selectedEntities,
     setIsSelectMode,
     onChangeSelectAll,
+    refetch,
+    searchBarStyle,
+    searchBarInputStyle,
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
@@ -74,14 +80,18 @@ export default function EmbeddedListSearchHeader({
                             initialQuery=""
                             placeholderText={placeholderText || 'Search entities...'}
                             suggestions={[]}
-                            style={{
-                                maxWidth: 220,
-                                padding: 0,
-                            }}
-                            inputStyle={{
-                                height: 32,
-                                fontSize: 12,
-                            }}
+                            style={
+                                searchBarStyle || {
+                                    maxWidth: 220,
+                                    padding: 0,
+                                }
+                            }
+                            inputStyle={
+                                searchBarInputStyle || {
+                                    height: 32,
+                                    fontSize: 12,
+                                }
+                            }
                             onSearch={onSearch}
                             onQueryChange={onSearch}
                             entityRegistry={entityRegistry}
@@ -92,7 +102,7 @@ export default function EmbeddedListSearchHeader({
                                 entityFilters={entityFilters}
                                 filters={filters}
                                 query={query}
-                                // setShowSelectMode={setIsSelectMode}
+                                setShowSelectMode={setIsSelectMode}
                             />
                         </SearchMenuContainer>
                     </SearchAndDownloadContainer>
@@ -107,6 +117,7 @@ export default function EmbeddedListSearchHeader({
                         onCancel={() => {
                             setIsSelectMode(false);
                         }}
+                        refetch={refetch}
                     />
                 </TabToolbar>
             )}
