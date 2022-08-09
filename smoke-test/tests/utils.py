@@ -40,8 +40,8 @@ def get_mysql_password():
 
 def get_sleep_info() -> Tuple[int, int]:
     return (
-        int(os.getenv("DATAHUB_TEST_SLEEP_BETWEEN", 60)),
-        int(os.getenv("DATAHUB_TEST_SLEEP_TIMES", 5)),
+        int(os.getenv("DATAHUB_TEST_SLEEP_BETWEEN", 20)),
+        int(os.getenv("DATAHUB_TEST_SLEEP_TIMES", 15)),
     )
 
 
