@@ -120,7 +120,7 @@ function RecipeForm(props: Props) {
             if (recipeField) {
                 updatedValues =
                     recipeField.setValueOnRecipeOverride?.(updatedValues, allValues[fieldName]) ||
-                    setFieldValueOnRecipe(updatedValues, allValues[fieldName], recipeField.fieldPath as string);
+                    setFieldValueOnRecipe(updatedValues, allValues[fieldName], recipeField.fieldPath);
             }
         });
 
