@@ -155,10 +155,11 @@ function get_slug(filepath: string): string {
 
 const hardcoded_titles = {
   "README.md": "Introduction",
-  "docs/demo.md": "Demo",
+  "docs/demo.md": "See DataHub in Action",
   "docs/actions/README.md": "Introduction",
   "docs/actions/concepts.md": "Concepts",
   "docs/actions/quickstart.md": "Quickstart",
+  "docs/saas.md": "Managed DataHub",
 };
 // titles that have been hardcoded in sidebars.js
 // (for cases where doc is reference multiple times with different titles)
@@ -228,7 +229,9 @@ function markdown_guess_title(
   if (sidebar_label.startsWith("DataHub ")) {
     sidebar_label = sidebar_label.slice(8).trim();
   }
-  contents.data.sidebar_label = sidebar_label;
+  if (sidebar_label != title) {
+    contents.data.sidebar_label = sidebar_label;
+  }
 }
 
 function markdown_add_edit_url(
