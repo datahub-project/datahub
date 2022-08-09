@@ -28,7 +28,11 @@ function Home() {
   const context = useDocusaurusContext();
   const { siteConfig = {} } = context;
 
-  return (
+  if (siteConfig.customFields.isSaas) {
+    window.location.replace("/docs");
+  }
+
+  return !siteConfig.customFields.isSaas ? (
     <Layout
       title={siteConfig.tagline}
       description="DataHub is a data discovery application built on an extensible metadata platform that helps you tame the complexity of diverse data ecosystems."
@@ -98,9 +102,8 @@ function Home() {
         <CompanyLogos />
         <Quotes />
       </Section>
-      <PromoSection />
     </Layout>
-  );
+  ) : null;
 }
 
 export default Home;
