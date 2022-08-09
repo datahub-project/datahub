@@ -23,5 +23,5 @@ record AuditStamp {
   /**
    * Additional context to keep track of in the event
    */
-  context: optional string
+  message: optional string
 }
