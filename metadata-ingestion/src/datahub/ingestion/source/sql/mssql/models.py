@@ -1,5 +1,3 @@
-import logging
-import re
 import urllib.parse
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Union
 
@@ -166,8 +164,8 @@ class SQLServerSource(SQLAlchemySource):
               SCHEMA_NAME(T.SCHEMA_ID) AS schema_name,
               T.NAME AS table_name,
               EP.VALUE AS table_description
-            FROM SYS.TABLES AS T
-            INNER JOIN SYS.EXTENDED_PROPERTIES AS EP
+            FROM sys.tables AS T
+            INNER JOIN sys.extended_properties AS EP
               ON EP.MAJOR_ID = T.[OBJECT_ID]
               AND EP.MINOR_ID = 0
               AND EP.NAME = 'MS_Description'
@@ -187,10 +185,10 @@ class SQLServerSource(SQLAlchemySource):
               T.NAME AS table_name,
               C.NAME AS column_name ,
               EP.VALUE AS column_description
-            FROM SYS.TABLES AS T
-            INNER JOIN SYS.ALL_COLUMNS AS C
+            FROM sys.tables AS T
+            INNER JOIN sys.all_columns AS C
               ON C.OBJECT_ID = T.[OBJECT_ID]
-            INNER JOIN SYS.EXTENDED_PROPERTIES AS EP
+            INNER JOIN sys.extended_properties AS EP
               ON EP.MAJOR_ID = T.[OBJECT_ID]
               AND EP.MINOR_ID = C.COLUMN_ID
               AND EP.NAME = 'MS_Description'
@@ -210,10 +208,10 @@ class SQLServerSource(SQLAlchemySource):
     # override to get table descriptions
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
-    ) -> Tuple[Optional[str], Optional[Dict[str, str]], Optional[str]]:
+    ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         description, properties, location_urn = super().get_table_properties(
             inspector, schema, table
-        )  # type:Tuple[Optional[str], Optional[Dict[str, str]], Optional[str]]
+        )  # type:Tuple[Optional[str], Dict[str, str], Optional[str]]
         # Update description if available.
         db_name: str = self.get_db_name(inspector)
         description = self.table_descriptions.get(
