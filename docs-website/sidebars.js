@@ -39,7 +39,138 @@ module.exports = {
   // operators
 
   overviewSidebar: {
-    DataHub: [
+     "What is DataHub?": [
+      "README",
+      {
+        Introduction: ["README",],
+        Features: ["docs/features",],
+        Architecture: [
+          "docs/architecture/architecture",
+          "docs/architecture/metadata-ingestion",
+          "docs/architecture/metadata-serving",
+          "docs/components",
+          "docs/what/mxe",
+          ],
+        "See DataHub in Action": ["docs/demo",],
+      }
+    ],
+    "Get Started": [
+      {
+        "Quickstart": ["docs/quickstart",],
+        "Managed DataHub Setup": ["README",],
+        "Deploying DataHub": ["README",],
+        "Create Policies": ["README",],
+        "Add Users": ["README",],
+        "Add Users Invite with Email Link": ["README",],
+        "Add Users SSO": ["README",],
+        "Set up Slack Integration": ["README",],
+        "Core Concepts": ["README",],
+      }
+    ],
+    "Ingest Metadata": [
+      {
+        "Prepare for Ingestion": [
+          "README",
+          {
+            "Importance of Shift Left": ["README",],
+            "Define Domains": ["README",],
+            "Create Business Glossary": ["README",],
+            "Create Tags": ["README",],
+          }
+        ],
+        "Managed Ingestion": [
+          "README",
+          {
+            "Supported Connectors": ["README",],
+          }
+        ],
+        "Pull-Based Ingestion": [
+          "README",
+          {
+            "Schedule with Airflow": ["README",],
+          }
+        ],
+        "Push-Based Ingestion": ["README",],
+        "Remote Ingestion Executor on AWS": ["README",],
+        "Ingestion Sources": ["README",],
+      }
+    ],
+
+    "Enrich Metadata": [
+      {
+        "Transformers": ["docs/quickstart",],
+        "CSV Enrichment": ["README",],
+        "UI-Based Enrichment": ["README",],
+        "Lineage": ["README",],
+      }
+    ],
+
+    "Act on Metadata": [
+      {
+        "Metadata Tests": ["README",],
+        "Metadata Analytics": ["README",],
+        "DataHub Actions": ["README",],
+        "Impact Analysis": ["README",],
+        "Events Bridge": ["README",],
+        "DataHub Incidents": ["README",],
+        "Approval Workflows": ["README",],
+      }
+    ],
+
+    "DataHub API & SDK": [
+      {
+        "GraphQL": ["README",],
+        "Rest.li": ["README",],
+        "OpenAPI": ["README",],
+      }
+    ],
+    "Tutorials": [
+      {
+        "Impact Analysis": ["README",],
+        "Schema History Guide": ["README",],
+        "Domains Guide": ["README",],
+        "UI Ingestion Guide": ["README",],
+        "Tags Guide": ["README",],
+        "Search Guide": ["README",],
+        "UI Tabs Guide": ["README",],
+        "Business Glossary Guide": ["README",],
+        "Approval Flows Guide": ["README",],
+        "Personal Access Tokens Guide": ["README",],
+      }
+    ],
+    "Advanced Guides": [
+      {
+        "DataHub Deployment Guides": ["README",],
+        "Updating DataHub": ["README",],
+        "Extending the Metadata Model": ["README",],
+        "Taking Backup of DataHub": ["README",],
+        "Restoring Search and Graph Indices": ["README",],
+        "Developing on Metadata Ingestion": ["README",],
+        "No Code Metadata": ["README",],
+        "Configuring Database Retention": ["README",],
+        "Aspect Versioning": ["README",],
+        "Search Ranking": ["README",],
+        "Advanced Ingestion Guides": [
+        {
+          "Adding a Custom Metadata Ingestion Source": ["README",],
+          "Using a Custom Ingestion Source": ["README",],
+          "Working with Platform Instances": ["README",],
+          "Stateful Ingestion": ["README",],
+          "SQL Profiling": ["README",],
+        }
+      ],
+      }
+    ],
+    "Join the Community": [
+      {
+        "Slack Community": ["README",],
+        "Town Halls": ["README",],
+        "Code of Conduct": ["README",],
+        "Contribution Guidelines": ["README",],
+        "RFCs": ["README",],
+      }
+    ],
+    "Legacy Docs -- DataHub": [
       "README",
       // "docs/faq", // hide from sidebar: out of date
       "docs/features",
