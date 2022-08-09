@@ -16,17 +16,13 @@ POWERBI_REPORT_SERVER_USER_DAO_GET_OWNER = "datahub.ingestion.source.powerbi_rep
 
 
 def mock_user(*args, **kwargs):
-    class UserDao:
-        def get_owner_by_name(self, *args, **kwargs):
-            user_data = dict(
-            urn=f"urn:li:corpuser:User1",
-            type=Constant.CORP_USER,
-            username="User1",
-            properties=dict(active=True, displayName="User1", email="User1@foo.com"),
-        )
-            return CorpUser.parse_obj(user_data)
-
-    return UserDao()
+    user_data = dict(
+        urn=f"urn:li:corpuser:User1",
+        type=Constant.CORP_USER,
+        username="User1",
+        properties=dict(active=True, displayName="User1", email="User1@foo.com"),
+    )
+    return CorpUser.parse_obj(user_data)
 
 #
 # def mock_ntlm(*args, **kwargs):
@@ -45,7 +41,7 @@ def mock_user(*args, **kwargs):
 
 def register_mock_api(request_mock):
     api_vs_response = {
-        "http://host_port/Reports/api/v2.0/PowerBIReports(ee56dc21-248a-4138-a446-ee5ab1fc938b)": {
+        "https://host_port/Reports/api/v2.0/Reports": {
             "method": "GET",
             "status_code": 200,
             "json": {
@@ -59,15 +55,106 @@ def register_mock_api(request_mock):
                         'Hidden': False,
                         'Size': 1010101,
                         'ModifiedBy': 'TEST_USER',
-                        'ModifiedDate': datetime.now(),
+                        'ModifiedDate': str(datetime.now()),
                         'CreatedBy': 'TEST_USER',
-                        'CreatedDate': datetime.now(),
+                        'CreatedDate': str(datetime.now()),
                         'ParentFolderId': "47495172-89ab-455f-a446-fffd3cf239cb",
                         'IsFavorite': False,
                         'ContentType': None,
                         'Content': '',
                         'HasDataSources': True,
-                        'Roles': []
+                        'Roles': [],
+                        'HasSharedDataSets': True,
+                        'HasParameters': True,
+                    },
+                ]
+            },
+        },
+        "https://host_port/Reports/api/v2.0/MobileReports": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [
+                    {
+                        'Id': 'ee56dc21-248a-4138-a446-ee5ab1fc938b',
+                        'Name': 'Test',
+                        'Description': None,
+                        'Path': '/path/to/Test',
+                        'Type': 'PowerBIReport',
+                        'Hidden': False,
+                        'Size': 1010101,
+                        'ModifiedBy': 'TEST_USER',
+                        'ModifiedDate': str(datetime.now()),
+                        'CreatedBy': 'TEST_USER',
+                        'CreatedDate': str(datetime.now()),
+                        'ParentFolderId': "47495172-89ab-455f-a446-fffd3cf239cb",
+                        'IsFavorite': False,
+                        'ContentType': None,
+                        'Content': '',
+                        'HasDataSources': True,
+                        'Roles': [],
+                        'HasSharedDataSets': True,
+                        'HasParameters': True,
+                        'AllowCaching': True,
+                        'Manifest': {
+                            'Resources': []
+                        }
+                    },
+                ]
+            },
+        },
+        "https://host_port/Reports/api/v2.0/LinkedReports": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [
+                    {
+                        'Id': 'ee56dc21-248a-4138-a446-ee5ab1fc938b',
+                        'Name': 'Test',
+                        'Description': None,
+                        'Path': '/path/to/Test',
+                        'Type': 'PowerBIReport',
+                        'Hidden': False,
+                        'Size': 1010101,
+                        'ModifiedBy': 'TEST_USER',
+                        'ModifiedDate': str(datetime.now()),
+                        'CreatedBy': 'TEST_USER',
+                        'CreatedDate': str(datetime.now()),
+                        'ParentFolderId': "47495172-89ab-455f-a446-fffd3cf239cb",
+                        'IsFavorite': False,
+                        'ContentType': None,
+                        'Content': '',
+                        'HasDataSources': True,
+                        'Roles': [],
+                        'HasParameters': True,
+                        'Link': "sjfgnk-7134-1234-abcd-ee5axvcv938b"
+                    },
+                ]
+            },
+        },
+        "https://host_port/Reports/api/v2.0/PowerBIReports": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [
+                    {
+                        'Id': 'ee56dc21-248a-4138-a446-ee5ab1fc938b',
+                        'Name': 'Test',
+                        'Description': None,
+                        'Path': '/path/to/Test',
+                        'Type': 'PowerBIReport',
+                        'Hidden': False,
+                        'Size': 1010101,
+                        'ModifiedBy': 'TEST_USER',
+                        'ModifiedDate': str(datetime.now()),
+                        'CreatedBy': 'TEST_USER',
+                        'CreatedDate': str(datetime.now()),
+                        'ParentFolderId': "47495172-89ab-455f-a446-fffd3cf239cb",
+                        'IsFavorite': False,
+                        'ContentType': None,
+                        'Content': '',
+                        'HasDataSources': True,
+                        'Roles': [],
                     },
                 ]
             },
