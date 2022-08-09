@@ -5,7 +5,7 @@ import TabItem from "@theme/TabItem";
 import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 
-import styles from "../styles/logos.module.scss";
+import styles from "./logos.module.scss";
 
 const companiesByIndustry = [
   {
@@ -99,8 +99,9 @@ const companiesByIndustry = [
       {
         name: "Adevinta",
         imageUrl: "/img/logos/companies/adevinta.png",
-        size: "default",
-      },      {
+        size: "small",
+      },
+      {
         name: "Grofers",
         imageUrl: "/img/logos/companies/grofers.png",
         size: "default",
@@ -133,12 +134,12 @@ const companiesByIndustry = [
       {
         name: "Cabify",
         imageUrl: "/img/logos/companies/cabify.png",
-        size: "large",
+        size: "default",
       },
       {
         name: "Digital Turbine",
         imageUrl: "/img/logos/companies/digitalturbine.svg",
-        size: "defualt",
+        size: "default",
       },
       {
         name: "Viasat",

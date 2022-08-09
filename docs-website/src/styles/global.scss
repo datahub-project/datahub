@@ -8,7 +8,7 @@
 /* You can override the default Infima variables here. */
 :root {
   font-family: "Manrope", sans-serif;
-
+  --ifm-background-color: #ffffff;
   /* DataHub blue theme */
   --ifm-color-primary: #1890ff;
   --ifm-color-primary-dark: #0082fb;
@@ -27,6 +27,7 @@
   --ifm-button-border-radius: 1000em;
 
   /* Navbar */
+  --ifm-navbar-background-color: var(--ifm-background-color);
   --ifm-navbar-height: 70px;
   --ifm-navbar-item-padding-horizontal: 1rem;
 
@@ -36,11 +37,21 @@
   /* Rule */
   --ifm-hr-border-width: 1px 0 0 0;
   --ifm-hr-border-color: #e3e3e3;
+
+  /* More Colors */
+  --ifm-hero-background-color: var(--ifm-background-color);
+  --ifm-background-surface-color: #fafafa;
 }
 
 html[data-theme="dark"] {
+  --ifm-background-color: #0d0d0d;
   --ifm-heading-color: #ffffff;
   --ifm-hr-border-color: #313131;
+  --ifm-background-surface-color: #0b0b0b;
+
+  .button--primary {
+    color: #fff;
+  }
 }
 
 h1 {
@@ -160,4 +171,17 @@ div[class^="announcementBarContent"] {
 
 .button {
   white-space: initial;
+}
+
+.anticon {
+  svg {
+    color: var(--ifm-color-primary);
+    path[fill="#e6f7ff"] {
+      fill: var(--ifm-color-primary);
+      opacity: 0.15;
+    }
+    path[fill="#1890ff"] {
+      fill: var(--ifm-color-primary);
+    }
+  }
 }
