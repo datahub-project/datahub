@@ -1,9 +1,9 @@
 import React from 'react';
 import { Divider, Form, Select } from 'antd';
 import styled from 'styled-components/macro';
-import { RecipeField } from '../utils';
 import { Secret } from '../../../../../../types.generated';
 import CreateSecretButton from './CreateSecretButton';
+import { RecipeField } from '../common';
 
 const StyledDivider = styled(Divider)`
     margin: 0;

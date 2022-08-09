@@ -1,4 +1,4 @@
-import { setFieldValueOnRecipe, setListValuesOnRecipe } from '../utils';
+import { setFieldValueOnRecipe, setListValuesOnRecipe } from '../common';
 
 describe('setFieldValueOnRecipe', () => {
     const accountIdFieldPath = 'source.config.account_id';
