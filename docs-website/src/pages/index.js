@@ -6,6 +6,7 @@ import CodeBlock from "@theme/CodeBlock";
 
 import Hero from "./_components/Hero";
 import Features from "./_components/Features";
+import Quotes from "./_components/Quotes";
 import { Section, PromoSection } from "./_components/Section";
 import { PlatformLogos, CompanyLogos } from "./_components/Logos";
 import RoundedImage from "./_components/RoundedImage";
@@ -95,6 +96,7 @@ function Home() {
       </Section>
       <Section title="Trusted Across the Industry">
         <CompanyLogos />
+        <Quotes />
       </Section>
       <PromoSection />
     </Layout>

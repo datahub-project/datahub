@@ -69,9 +69,10 @@
         margin: 0 0.25em;
         border: none;
         white-space: nowrap;
+        border: 1px solid transparent;
         &[aria-selected="true"] {
           color: var(--ifm-text-color);
-          border: 1px solid var(--ifm-color-secondary);
+          border-color: var(--ifm-hr-border-color);
         }
       }
     }
@@ -92,6 +93,9 @@
 .large {
   height: 100px;
 }
-.small {
+.medium {
   height: 30px;
+}
+.small {
+  height: 20px;
 }
