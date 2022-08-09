@@ -24,9 +24,9 @@ import com.linkedin.datahub.graphql.types.common.mappers.SiblingsMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
-import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetProperties;
@@ -41,6 +41,8 @@ import com.linkedin.schema.SchemaMetadata;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Set;
+
 import static com.linkedin.metadata.Constants.*;
 
 
@@ -50,22 +52,24 @@ import static com.linkedin.metadata.Constants.*;
  * To be replaced by auto-generated mappers implementations
  */
 @Slf4j
-public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
+public class DatasetMapper {
 
     public static final DatasetMapper INSTANCE = new DatasetMapper();
 
-    public static Dataset map(@Nonnull final EntityResponse dataset) {
-        return INSTANCE.apply(dataset);
+    public static Dataset map(@Nonnull final EntityResponse dataset, Set<String> aspects) {
+        return INSTANCE.apply(dataset, aspects);
     }
 
-    @Override
-    public Dataset apply(@Nonnull final EntityResponse entityResponse) {
+    public Dataset apply(@Nonnull final EntityResponse entityResponse, Set<String> aspects) {
         Dataset result = new Dataset();
         Urn entityUrn = entityResponse.getUrn();
         result.setUrn(entityResponse.getUrn().toString());
         result.setType(EntityType.DATASET);
 
         EnvelopedAspectMap aspectMap = entityResponse.getAspects();
+        Long lastIngested = SystemMetadataUtils.getLastIngested(aspects, aspectMap);
+        result.setLastIngested(lastIngested);
+
         MappingHelper<Dataset> mappingHelper = new MappingHelper<>(aspectMap, result);
         mappingHelper.mapToResult(DATASET_KEY_ASPECT_NAME, this::mapDatasetKey);
         mappingHelper.mapToResult(DATASET_PROPERTIES_ASPECT_NAME, (entity, dataMap) -> this.mapDatasetProperties(entity, dataMap, entityUrn));

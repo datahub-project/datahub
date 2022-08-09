@@ -177,6 +177,7 @@ fragment nonRecursiveDatasetFields on Dataset {
     type
     origin
     uri
+    lastIngested
     platform {
         ...platformFields
     }

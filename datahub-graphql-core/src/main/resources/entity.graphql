@@ -893,6 +893,11 @@ type Dataset implements EntityWithRelationships & Entity {
     type: EntityType!
 
     """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
+
+    """
     Standardized platform urn where the dataset is defined
     """
     platform: DataPlatform!
