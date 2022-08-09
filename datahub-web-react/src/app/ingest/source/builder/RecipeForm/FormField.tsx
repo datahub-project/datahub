@@ -1,9 +1,11 @@
-import { Button, Checkbox, Form, Input, Tooltip } from 'antd';
 import React from 'react';
+import { Button, Checkbox, Form, Input, Select, Tooltip } from 'antd';
 import styled from 'styled-components/macro';
 import { MinusCircleOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { FieldType, RecipeField } from './utils';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
+import { Secret } from '../../../../../types.generated';
+import SecretField from './SecretField/SecretField';
 
 const Label = styled.div`
     font-weight: bold;
@@ -22,6 +24,10 @@ const StyledQuestion = styled(QuestionCircleOutlined)`
 
 const StyledRemoveIcon = styled(MinusCircleOutlined)`
     font-size: 14px;
+    margin-left: 10px;
+`;
+
+const StyledSelectField = styled(Select)`
     margin-left: 10px;
 `;
 
@@ -52,6 +58,10 @@ interface ListFieldProps {
     removeMargin?: boolean;
 }
 
+interface SelectFieldProps {
+    field: RecipeField;
+}
+
 function ListField({ field, removeMargin }: ListFieldProps) {
     return (
         <Form.List name={field.name}>
@@ -72,7 +82,7 @@ function ListField({ field, removeMargin }: ListFieldProps) {
                         </Form.Item>
                     ))}
                     <StyledButton type="dashed" onClick={() => add()} style={{ width: '80%' }} icon={<PlusOutlined />}>
-                        Add pattern
+                        {field.buttonLabel}
                     </StyledButton>
                 </ListWrapper>
             )}
@@ -80,15 +90,41 @@ function ListField({ field, removeMargin }: ListFieldProps) {
     );
 }
 
+function SelectField({ field }: SelectFieldProps) {
+    return (
+        <Form.Item
+            name={field.name}
+            label={field.label}
+            tooltip={field.tooltip}
+            style={{ flexDirection: 'row', width: '80%', display: 'flex', alignItems: 'baseline' }}
+        >
+            {field.options && (
+                <StyledSelectField>
+                    {field.options.map((option) => (
+                        <Select.Option value={option.value}>{option.label}</Select.Option>
+                    ))}
+                </StyledSelectField>
+            )}
+        </Form.Item>
+    );
+}
+
 interface Props {
     field: RecipeField;
+    secrets: Secret[];
+    refetchSecrets: () => void;
     removeMargin?: boolean;
 }
 
 function FormField(props: Props) {
-    const { field, removeMargin } = props;
+    const { field, secrets, refetchSecrets, removeMargin } = props;
 
     if (field.type === FieldType.LIST) return <ListField field={field} removeMargin={removeMargin} />;
+
+    if (field.type === FieldType.SELECT) return <SelectField field={field} />;
+
+    if (field.type === FieldType.SECRET)
+        return <SecretField field={field} secrets={secrets} refetchSecrets={refetchSecrets} />;
 
     const isBoolean = field.type === FieldType.BOOLEAN;
     const input = isBoolean ? <Checkbox /> : <Input />;

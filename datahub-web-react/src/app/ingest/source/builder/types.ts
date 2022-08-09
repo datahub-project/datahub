@@ -21,7 +21,7 @@ export type StepProps = {
     updateState: (newState: SourceBuilderState) => void;
     goTo: (step: IngestionSourceBuilderStep) => void;
     prev?: () => void;
-    submit: () => void;
+    submit: (shouldRun?: boolean) => void;
     cancel: () => void;
 };
 

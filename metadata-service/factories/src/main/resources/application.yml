@@ -36,13 +36,15 @@ authorization:
 
   # Optional: A set of custom authorizers, serving in addition to the default DataHub policies-based authorizer.
   authorizers:
-  # - type: com.datahub.authorization.authorizer.CustomAuthorizer
-  #   configs:
-  #     config1: value1
+    - type: com.datahub.authorization.ranger.RangerAuthorizer
+      enabled: ${RANGER_AUTHORIZER_ENABLED:false}
+      configs:
+        username: ${RANGER_USERNAME}
+        password: ${RANGER_PASSWORD}
 
 ingestion:
   enabled: ${UI_INGESTION_ENABLED:true}
-  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.41}'
+  defaultCliVersion: '${UI_INGESTION_DEFAULT_CLI_VERSION:0.8.42}'
 
 telemetry:
   enabledCli: ${CLI_TELEMETRY_ENABLED:true}
@@ -56,8 +58,8 @@ secretService:
 datahub:
   serverType: ${DATAHUB_SERVER_TYPE:prod}
   gms:
-    host: ${DATAHUB_GMS_HOST:${GMS_HOST:localhost}}
-    port: ${DATAHUB_GMS_PORT:${GMS_PORT:8080}}
+    host: ${DATAHUB_GMS_HOST:localhost}
+    port: ${DATAHUB_GMS_PORT:8080}
     useSSL: ${DATAHUB_GMS_USE_SSL:${GMS_USE_SSL:false}}
     sslContext:
       protocol: ${DATAHUB_GMS_SSL_PROTOCOL:${GMS_SSL_PROTOCOL:#{null}}}
@@ -85,7 +87,7 @@ configEntityRegistry:
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
 
 platformAnalytics:
-  enabled: ${ANALYTICS_ENABLED:true}
+  enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
 
 visualConfig:
   assets:

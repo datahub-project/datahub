@@ -2,7 +2,7 @@ from typing import Iterable, Optional
 from unittest.mock import patch
 
 # This import verifies that the dependencies are available.
-import cx_Oracle  # noqa: F401
+import cx_Oracle
 import pydantic
 from pydantic.fields import Field
 from sqlalchemy import event

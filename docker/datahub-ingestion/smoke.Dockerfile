@@ -16,3 +16,7 @@ RUN apt-get update && apt-get install -y \
     xvfb
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y  openjdk-11-jdk
+
+COPY . /datahub-src
+RUN cd /datahub-src && \
+    ./gradlew :metadata-ingestion:installDev

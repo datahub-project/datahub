@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers;
 
 import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
@@ -27,6 +28,9 @@ import org.slf4j.LoggerFactory;
 
 public class ResolverUtils {
 
+    private static final Set<String> KEYWORD_EXCLUDED_FILTERS = ImmutableSet.of(
+        "runId"
+    );
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private static final Logger _logger = LoggerFactory.getLogger(ResolverUtils.class.getName());
@@ -89,7 +93,14 @@ public class ResolverUtils {
             return null;
         }
         return new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(new CriterionArray(facetFilterInputs.stream()
-            .map(filter -> new Criterion().setField(filter.getField() + ESUtils.KEYWORD_SUFFIX).setValue(filter.getValue()))
+            .map(filter -> new Criterion().setField(getFilterField(filter.getField())).setValue(filter.getValue()))
             .collect(Collectors.toList())))));
+    }
+
+    private static String getFilterField(final String originalField) {
+        if (KEYWORD_EXCLUDED_FILTERS.contains(originalField)) {
+            return originalField;
+        }
+        return originalField + ESUtils.KEYWORD_SUFFIX;
     }
 }

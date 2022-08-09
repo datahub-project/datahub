@@ -6,7 +6,13 @@ import { useHistory } from 'react-router';
 import { EntityType, Exact } from '../../../../../types.generated';
 import { Message } from '../../../../shared/Message';
 import { getDataForEntityType, getEntityPath, useRoutedTab } from './utils';
-import { EntitySidebarSection, EntityTab, GenericEntityProperties, GenericEntityUpdate } from '../../types';
+import {
+    EntitySidebarSection,
+    EntitySubHeaderSection,
+    EntityTab,
+    GenericEntityProperties,
+    GenericEntityUpdate,
+} from '../../types';
 import { EntityProfileNavBar } from './nav/EntityProfileNavBar';
 import { ANTD_GRAY } from '../../constants';
 import { EntityHeader } from './header/EntityHeader';
@@ -25,6 +31,7 @@ import GlossaryBrowser from '../../../../glossary/GlossaryBrowser/GlossaryBrowse
 import GlossarySearch from '../../../../glossary/GlossarySearch';
 import { BrowserWrapper, MAX_BROWSER_WIDTH, MIN_BROWSWER_WIDTH } from '../../../../glossary/BusinessGlossaryPage';
 import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../siblingUtils';
+import { EntityActionItem } from '../../entity/EntityActions';
 
 type Props<T, U> = {
     urn: string;
@@ -49,7 +56,9 @@ type Props<T, U> = {
     tabs: EntityTab[];
     sidebarSections: EntitySidebarSection[];
     customNavBar?: React.ReactNode;
+    subHeader?: EntitySubHeaderSection;
     headerDropdownItems?: Set<EntityMenuItems>;
+    headerActionItems?: Set<EntityActionItem>;
     displayGlossaryBrowser?: boolean;
     isNameEditable?: boolean;
 };
@@ -134,8 +143,10 @@ export const EntityProfile = <T, U>({
     sidebarSections,
     customNavBar,
     headerDropdownItems,
+    headerActionItems,
     displayGlossaryBrowser,
     isNameEditable,
+    subHeader,
 }: Props<T, U>): JSX.Element => {
     const isLineageMode = useIsLineageMode();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
@@ -254,7 +265,11 @@ export const EntityProfile = <T, U>({
                     )}
                     {!loading && (
                         <>
-                            <EntityHeader headerDropdownItems={headerDropdownItems} />
+                            <EntityHeader
+                                headerDropdownItems={headerDropdownItems}
+                                headerActionItems={headerActionItems}
+                                subHeader={subHeader}
+                            />
                             <Divider />
                             <EntitySidebar sidebarSections={sideBarSectionsWithDefaults} />
                         </>
@@ -322,7 +337,9 @@ export const EntityProfile = <T, U>({
                                     <Header>
                                         <EntityHeader
                                             headerDropdownItems={headerDropdownItems}
+                                            headerActionItems={headerActionItems}
                                             isNameEditable={isNameEditable}
+                                            subHeader={subHeader}
                                             refreshBrowser={refreshBrowser}
                                         />
                                         <EntityTabs

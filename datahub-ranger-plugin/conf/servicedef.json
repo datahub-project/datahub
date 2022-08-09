@@ -1,0 +1,443 @@
+{
+  "name": "datahub",
+  "label": "DataHub Ranger Plugin",
+  "description": "DataHub metadata service ranger plugin",
+  "guid": "4b4d4245-dd79-45fa-8854-8eb7cb1c37ad",
+  "implClass": "com.datahub.authorizer.plugin.ranger.DataHubRangerAuthPlugin",
+  "version": 1,
+  "isEnabled": 1,
+  "resources": [
+    {
+      "itemId": 1,
+      "name": "platform",
+      "type": "string",
+      "level": 10,
+      "parent": "",
+      "mandatory": true,
+      "lookupSupported": true,
+      "recursiveSupported": true,
+      "excludesSupported": true,
+      "matcher": "org.apache.ranger.plugin.resourcematcher.RangerPathResourceMatcher",
+      "matcherOptions": {
+        "wildCard": true,
+        "ignoreCase": true
+      },
+      "validationRegEx": "",
+      "validationMessage": "",
+      "uiHint": "",
+      "label": "platform",
+      "description": "This resource is added to simulate DataHub platform policy"
+    },
+    {
+      "itemId": 2,
+      "name": "dataset",
+      "type": "string",
+      "level": 10,
+      "parent": "",
+      "mandatory": true,
+      "lookupSupported": true,
+      "recursiveSupported": true,
+      "excludesSupported": true,
+      "matcher": "org.apache.ranger.plugin.resourcematcher.RangerPathResourceMatcher",
+      "matcherOptions": {
+        "wildCard": true,
+        "ignoreCase": true
+      },
+      "validationRegEx": "",
+      "validationMessage": "",
+      "uiHint": "",
+      "label": "dataset",
+      "description": "DataHub dataset resource"
+    },
+    {
+      "itemId": 3,
+      "name": "dashboard",
+      "type": "string",
+      "level": 10,
+      "parent": "",
+      "mandatory": true,
+      "lookupSupported": true,
+      "recursiveSupported": true,
+      "excludesSupported": true,
+      "matcher": "org.apache.ranger.plugin.resourcematcher.RangerPathResourceMatcher",
+      "matcherOptions": {
+        "wildCard": true,
+        "ignoreCase": true
+      },
+      "validationRegEx": "",
+      "validationMessage": "",
+      "uiHint": "",
+      "label": "dashboard",
+      "description": "DataHub dashboard resource"
+    },
+    {
+      "itemId": 4,
+      "name": "chart",
+      "type": "string",
+      "level": 10,
+      "parent": "",
+      "mandatory": true,
+      "lookupSupported": true,
+      "recursiveSupported": true,
+      "excludesSupported": true,
+      "matcher": "org.apache.ranger.plugin.resourcematcher.RangerPathResourceMatcher",
+      "matcherOptions": {
+        "wildCard": true,
+        "ignoreCase": true
+      },
+      "validationRegEx": "",
+      "validationMessage": "",
+      "uiHint": "",
+      "label": "chart",
+      "description": "DataHub chart resource"
+    },
+    {
+      "itemId": 5,
+      "name": "dataflow",
+      "type": "string",
+      "level": 10,
+      "parent": "",
+      "mandatory": true,
+      "lookupSupported": true,
+      "recursiveSupported": true,
+      "excludesSupported": true,
+      "matcher": "org.apache.ranger.plugin.resourcematcher.RangerPathResourceMatcher",
+      "matcherOptions": {
+        "wildCard": true,
+        "ignoreCase": true
+      },
+      "validationRegEx": "",
+      "validationMessage": "",
+      "uiHint": "",
+      "label": "dataFlow",
+      "description": "DataHub dataFlow resource"
+    },
+    {
+      "itemId": 6,
+      "name": "datajob",
+      "type": "string",
+      "level": 10,
+      "parent": "",
+      "mandatory": true,
+      "lookupSupported": true,
+      "recursiveSupported": true,
+      "excludesSupported": true,
+      "matcher": "org.apache.ranger.plugin.resourcematcher.RangerPathResourceMatcher",
+      "matcherOptions": {
+        "wildCard": true,
+        "ignoreCase": true
+      },
+      "validationRegEx": "",
+      "validationMessage": "",
+      "uiHint": "",
+      "label": "dataJob",
+      "description": "DataHub dataJob resource"
+    },
+    {
+      "itemId": 7,
+      "name": "tag",
+      "type": "string",
+      "level": 10,
+      "parent": "",
+      "mandatory": true,
+      "lookupSupported": true,
+      "recursiveSupported": true,
+      "excludesSupported": true,
+      "matcher": "org.apache.ranger.plugin.resourcematcher.RangerPathResourceMatcher",
+      "matcherOptions": {
+        "wildCard": true,
+        "ignoreCase": true
+      },
+      "validationRegEx": "",
+      "validationMessage": "",
+      "uiHint": "",
+      "label": "tag",
+      "description": "DataHub tag resource"
+    },
+    {
+      "itemId": 8,
+      "name": "container",
+      "type": "string",
+      "level": 10,
+      "parent": "",
+      "mandatory": true,
+      "lookupSupported": true,
+      "recursiveSupported": true,
+      "excludesSupported": true,
+      "matcher": "org.apache.ranger.plugin.resourcematcher.RangerPathResourceMatcher",
+      "matcherOptions": {
+        "wildCard": true,
+        "ignoreCase": true
+      },
+      "validationRegEx": "",
+      "validationMessage": "",
+      "uiHint": "",
+      "label": "container",
+      "description": "DataHub container resource"
+    },
+    {
+      "itemId": 9,
+      "name": "domain",
+      "type": "string",
+      "level": 10,
+      "parent": "",
+      "mandatory": true,
+      "lookupSupported": true,
+      "recursiveSupported": true,
+      "excludesSupported": true,
+      "matcher": "org.apache.ranger.plugin.resourcematcher.RangerPathResourceMatcher",
+      "matcherOptions": {
+        "wildCard": true,
+        "ignoreCase": true
+      },
+      "validationRegEx": "",
+      "validationMessage": "",
+      "uiHint": "",
+      "label": "domain",
+      "description": "DataHub domain resource"
+    },
+    {
+      "itemId": 10,
+      "name": "glossaryterm",
+      "type": "string",
+      "level": 10,
+      "parent": "",
+      "mandatory": true,
+      "lookupSupported": true,
+      "recursiveSupported": true,
+      "excludesSupported": true,
+      "matcher": "org.apache.ranger.plugin.resourcematcher.RangerPathResourceMatcher",
+      "matcherOptions": {
+        "wildCard": true,
+        "ignoreCase": true
+      },
+      "validationRegEx": "",
+      "validationMessage": "",
+      "uiHint": "",
+      "label": "glossaryTerm",
+      "description": "DataHub glossaryTerm resource"
+    },
+    {
+      "itemId": 11,
+      "name": "corpgroup",
+      "type": "string",
+      "level": 10,
+      "parent": "",
+      "mandatory": true,
+      "lookupSupported": true,
+      "recursiveSupported": true,
+      "excludesSupported": true,
+      "matcher": "org.apache.ranger.plugin.resourcematcher.RangerPathResourceMatcher",
+      "matcherOptions": {
+        "wildCard": true,
+        "ignoreCase": true
+      },
+      "validationRegEx": "",
+      "validationMessage": "",
+      "uiHint": "",
+      "label": "corpGroup",
+      "description": "DataHub corpGroup resource"
+    },
+    {
+      "itemId": 12,
+      "name": "corpuser",
+      "type": "string",
+      "level": 10,
+      "parent": "",
+      "mandatory": true,
+      "lookupSupported": true,
+      "recursiveSupported": true,
+      "excludesSupported": true,
+      "matcher": "org.apache.ranger.plugin.resourcematcher.RangerPathResourceMatcher",
+      "matcherOptions": {
+        "wildCard": true,
+        "ignoreCase": true
+      },
+      "validationRegEx": "",
+      "validationMessage": "",
+      "uiHint": "",
+      "label": "corpUser",
+      "description": "DataHub corpUser resource"
+    },
+    {
+      "itemId": 13,
+      "name": "notebook",
+      "type": "string",
+      "level": 10,
+      "parent": "",
+      "mandatory": true,
+      "lookupSupported": true,
+      "recursiveSupported": true,
+      "excludesSupported": true,
+      "matcher": "org.apache.ranger.plugin.resourcematcher.RangerPathResourceMatcher",
+      "matcherOptions": {
+        "wildCard": true,
+        "ignoreCase": true
+      },
+      "validationRegEx": "",
+      "validationMessage": "",
+      "uiHint": "",
+      "label": "notebook",
+      "description": "DataHub notebook resource"
+    }
+
+  ],
+  "accessTypes": [
+    {
+      "itemId": 1,
+      "name": "MANAGE_POLICIES",
+      "label": "MANAGE_POLICIES"
+    },
+    {
+      "itemId": 2,
+      "name": "MANAGE_INGESTION",
+      "label": "MANAGE_INGESTION"
+    },
+    {
+      "itemId": 3,
+      "name": "MANAGE_SECRETS",
+      "label": "MANAGE_SECRETS"
+    },
+    {
+      "itemId": 4,
+      "name": "MANAGE_USERS_AND_GROUPS",
+      "label": "MANAGE_USERS_AND_GROUPS"
+    },
+    {
+      "itemId": 5,
+      "name": "VIEW_ANALYTICS",
+      "label": "VIEW_ANALYTICS"
+    },
+    {
+      "itemId": 6,
+      "name": "GENERATE_PERSONAL_ACCESS_TOKENS",
+      "label": "GENERATE_PERSONAL_ACCESS_TOKENS"
+    },
+    {
+      "itemId": 7,
+      "name": "MANAGE_DOMAINS",
+      "label": "MANAGE_DOMAINS"
+    },
+    {
+      "itemId": 8,
+      "name": "VIEW_ENTITY_PAGE",
+      "label": "VIEW_ENTITY_PAGE"
+    },
+    {
+      "itemId": 9,
+      "name": "EDIT_ENTITY_TAGS",
+      "label": "EDIT_ENTITY_TAGS"
+    },
+    {
+      "itemId": 10,
+      "name": "EDIT_ENTITY_GLOSSARY_TERMS",
+      "label": "EDIT_ENTITY_GLOSSARY_TERMS"
+    },
+    {
+      "itemId": 11,
+      "name": "EDIT_ENTITY_OWNERS",
+      "label": "EDIT_ENTITY_OWNERS"
+    },
+    {
+      "itemId": 12,
+      "name": "EDIT_ENTITY_DOCS",
+      "label": "EDIT_ENTITY_DOCS"
+    },
+    {
+      "itemId": 13,
+      "name": "EDIT_ENTITY_DOC_LINKS",
+      "label": "EDIT_ENTITY_DOC_LINKS"
+    },
+    {
+      "itemId": 14,
+      "name": "EDIT_ENTITY_STATUS",
+      "label": "EDIT_ENTITY_STATUS"
+    },
+    {
+      "itemId": 15,
+      "name": "EDIT_DOMAINS",
+      "label": "EDIT_DOMAINS"
+    },
+    {
+      "itemId": 16,
+      "name": "EDIT_DEPRECATION",
+      "label": "EDIT_DEPRECATION"
+    },
+    {
+      "itemId": 17,
+      "name": "EDIT_ENTITY_ASSERTIONS",
+      "label": "EDIT_ENTITY_ASSERTIONS"
+    },
+    {
+      "itemId": 18,
+      "name": "EDIT_ENTITY",
+      "label": "EDIT_ENTITY"
+    },
+    {
+      "itemId": 19,
+      "name": "EDIT_DATASET_COL_TAGS",
+      "label": "EDIT_DATASET_COL_TAGS"
+    },
+    {
+      "itemId": 20,
+      "name": "EDIT_DATASET_COL_GLOSSARY_TERMS",
+      "label": "EDIT_DATASET_COL_GLOSSARY_TERMS"
+    },
+    {
+      "itemId": 21,
+      "name": "EDIT_DATASET_COL_DESCRIPTION",
+      "label": "EDIT_DATASET_COL_DESCRIPTION"
+    },
+    {
+      "itemId": 22,
+      "name": "VIEW_DATASET_USAGE",
+      "label": "VIEW_DATASET_USAGE"
+    },
+    {
+      "itemId": 23,
+      "name": "VIEW_DATASET_PROFILE",
+      "label": "VIEW_DATASET_PROFILE"
+    },
+    {
+      "itemId": 24,
+      "name": "EDIT_TAG_COLOR",
+      "label": "EDIT_TAG_COLOR"
+    },
+    {
+      "itemId": 25,
+      "name": "EDIT_GROUP_MEMBERS",
+      "label": "EDIT_GROUP_MEMBERS"
+    },
+    {
+      "itemId": 26,
+      "name": "EDIT_USER_PROFILE",
+      "label": "EDIT_USER_PROFILE"
+    },
+    {
+      "itemId": 27,
+      "name": "EDIT_CONTACT_INFO",
+      "label": "EDIT_CONTACT_INFO"
+    },
+    {
+      "itemId": 28,
+      "name": "COMMON_ENTITYS",
+      "label": "COMMON_ENTITYS"
+    },
+    {
+      "itemId": 29,
+      "name": "EDIT_ENTITY_DOMAINS",
+      "label": "EDIT_ENTITY_DOMAINS"
+    },
+    {
+      "itemId": 30,
+      "name": "EDIT_ENTITY_DEPRECATION",
+      "label": "EDIT_ENTITY_DEPRECATION"
+    }
+  ],
+  "enums": [
+  ],
+  "contextEnrichers": [
+  ],
+  "policyConditions": [
+  ]
+}

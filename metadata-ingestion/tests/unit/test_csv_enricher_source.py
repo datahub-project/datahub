@@ -50,6 +50,7 @@ def create_mocked_csv_enricher_source() -> CSVEnricherSource:
         ["oldtag1", "oldtag2"]
     )
     graph.get_aspect_v2.return_value = None
+    graph.get_domain.return_value = None
     ctx.graph = graph
     return CSVEnricherSource(
         CSVEnricherConfig(**create_base_csv_enricher_config()), ctx

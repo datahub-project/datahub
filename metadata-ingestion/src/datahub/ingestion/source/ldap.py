@@ -1,5 +1,6 @@
 """LDAP Source"""
 import dataclasses
+import re
 from typing import Any, Dict, Iterable, List, Optional
 
 import ldap
@@ -22,6 +23,7 @@ from datahub.metadata.schema_classes import (
     CorpGroupSnapshotClass,
     CorpUserInfoClass,
     CorpUserSnapshotClass,
+    GroupMembershipClass,
 )
 
 # default mapping for attrs
@@ -42,6 +44,7 @@ user_attrs_map["departmentId"] = "departmentNumber"
 user_attrs_map["title"] = "title"
 user_attrs_map["departmentName"] = "departmentNumber"
 user_attrs_map["countryCode"] = "countryCode"
+user_attrs_map["memberOf"] = "memberOf"
 
 # group related attrs
 group_attrs_map["urn"] = "cn"
@@ -94,6 +97,7 @@ class LDAPSourceConfig(ConfigModel):
     # Extraction configuration.
     base_dn: str = Field(description="LDAP DN.")
     filter: str = Field(default="(objectClass=*)", description="LDAP extractor filter.")
+    attrs_list: List[str] = Field(default=None, description="Retrieved attributes list")
 
     # If set to true, any users without first and last names will be dropped.
     drop_missing_first_last_name: bool = Field(
@@ -201,6 +205,7 @@ class LDAPSource(Source):
                     self.config.base_dn,
                     ldap.SCOPE_SUBTREE,
                     self.config.filter,
+                    self.config.attrs_list,
                     serverctrls=[self.lc],
                 )
                 _rtype, rdata, _rmsgid, serverctrls = self.ldap_client.result3(msgid)
@@ -228,6 +233,7 @@ class LDAPSource(Source):
                 elif (
                     b"posixGroup" in attrs["objectClass"]
                     or b"organizationalUnit" in attrs["objectClass"]
+                    or b"groupOfNames" in attrs["objectClass"]
                     or b"group" in attrs["objectClass"]
                 ):
                     yield from self.handle_group(dn, attrs)
@@ -301,6 +307,7 @@ class LDAPSource(Source):
         full_name = attrs[self.config.user_attrs_map["fullName"]][0].decode()
         first_name = attrs[self.config.user_attrs_map["firstName"]][0].decode()
         last_name = attrs[self.config.user_attrs_map["lastName"]][0].decode()
+        groups = parse_groups(attrs, self.config.user_attrs_map["memberOf"])
 
         email = (
             (attrs[self.config.user_attrs_map["email"]][0]).decode()
@@ -334,26 +341,29 @@ class LDAPSource(Source):
         )
         manager_urn = f"urn:li:corpuser:{manager_ldap}" if manager_ldap else None
 
-        return MetadataChangeEvent(
-            proposedSnapshot=CorpUserSnapshotClass(
-                urn=f"urn:li:corpuser:{ldap_user}",
-                aspects=[
-                    CorpUserInfoClass(
-                        active=True,
-                        email=email,
-                        fullName=full_name,
-                        firstName=first_name,
-                        lastName=last_name,
-                        departmentId=department_id,
-                        departmentName=department_name,
-                        displayName=display_name,
-                        countryCode=country_code,
-                        title=title,
-                        managerUrn=manager_urn,
-                    )
-                ],
-            )
+        user_snapshot = CorpUserSnapshotClass(
+            urn=f"urn:li:corpuser:{ldap_user}",
+            aspects=[
+                CorpUserInfoClass(
+                    active=True,
+                    email=email,
+                    fullName=full_name,
+                    firstName=first_name,
+                    lastName=last_name,
+                    departmentId=department_id,
+                    departmentName=department_name,
+                    displayName=display_name,
+                    countryCode=country_code,
+                    title=title,
+                    managerUrn=manager_urn,
+                )
+            ],
         )
+
+        if groups:
+            user_snapshot.aspects.append(GroupMembershipClass(groups=groups))
+
+        return MetadataChangeEvent(proposedSnapshot=user_snapshot)
 
     def build_corp_group_mce(self, attrs: dict) -> Optional[MetadataChangeEvent]:
         """Creates a MetadataChangeEvent for LDAP groups."""
@@ -417,3 +427,19 @@ def strip_ldap_info(input_clean: bytes) -> str:
     """Converts a b'uid=username,ou=Groups,dc=internal,dc=machines'
     format to username"""
     return input_clean.decode().split(",")[0].lstrip("uid=")
+
+
+def parse_groups(attrs: Dict[str, Any], filter_key: str) -> List[str]:
+    """Converts a list of LDAP groups to Datahub corpgroup strings"""
+    if filter_key in attrs:
+        return [
+            f"urn:li:corpGroup:{strip_ldap_group_cn(ldap_group)}"
+            for ldap_group in attrs[filter_key]
+        ]
+    return []
+
+
+def strip_ldap_group_cn(input_clean: bytes) -> str:
+    """Converts a b'cn=group_name,ou=Groups,dc=internal,dc=machines'
+    format to group name"""
+    return re.sub("cn=", "", input_clean.decode().split(",")[0], flags=re.IGNORECASE)

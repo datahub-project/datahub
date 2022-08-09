@@ -1,6 +1,4 @@
 import React from 'react';
-import styled from 'styled-components';
-import { ClockCircleOutlined, ConsoleSqlOutlined, TableOutlined, TeamOutlined } from '@ant-design/icons';
 import {
     EntityType,
     FabricType,
@@ -19,13 +17,7 @@ import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { IconStyleType } from '../../Entity';
-import { ANTD_GRAY } from '../../shared/constants';
-import { toRelativeTimeString } from '../../../shared/time/timeUtils';
-import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
-
-const StatText = styled.span`
-    color: ${ANTD_GRAY[8]};
-`;
+import { DatasetStatsSummary as DatasetStatsSummaryView } from '../shared/DatasetStatsSummary';
 
 export const Preview = ({
     urn,
@@ -102,36 +94,14 @@ export const Preview = ({
             parentContainers={parentContainers}
             externalUrl={externalUrl}
             topUsers={statsSummary?.topUsersLast30Days}
-            stats={[
-                (rowCount && (
-                    <StatText>
-                        <TableOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                        <b>{formatNumberWithoutAbbreviation(rowCount)}</b> rows
-                    </StatText>
-                )) ||
-                    undefined,
-                (statsSummary?.queryCountLast30Days && (
-                    <StatText>
-                        <ConsoleSqlOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                        <b>{formatNumberWithoutAbbreviation(statsSummary?.queryCountLast30Days)}</b> queries last month
-                    </StatText>
-                )) ||
-                    undefined,
-                (statsSummary?.uniqueUserCountLast30Days && (
-                    <StatText>
-                        <TeamOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                        <b>{formatNumberWithoutAbbreviation(statsSummary?.uniqueUserCountLast30Days)}</b> unique users
-                    </StatText>
-                )) ||
-                    undefined,
-                (lastUpdatedMs && (
-                    <StatText>
-                        <ClockCircleOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                        Changed {toRelativeTimeString(lastUpdatedMs)}
-                    </StatText>
-                )) ||
-                    undefined,
-            ].filter((stat) => stat !== undefined)}
+            subHeader={
+                <DatasetStatsSummaryView
+                    rowCount={rowCount}
+                    queryCountLast30Days={statsSummary?.queryCountLast30Days}
+                    uniqueUserCountLast30Days={statsSummary?.uniqueUserCountLast30Days}
+                    lastUpdatedMs={lastUpdatedMs}
+                />
+            }
         />
     );
 };
