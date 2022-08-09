@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Iterable, List, Optional, cast, Tuple
+from typing import Any, Iterable, List, Optional, Tuple, cast
 from unittest.mock import patch
 
 # This import verifies that the dependencies are available.
@@ -86,7 +86,7 @@ class OracleInspectorObjectWrapper:
         self._inspector_instance = inspector_instance
         self.log = logging.getLogger(__name__)
         # tables that we don't want to ingest into the DataHub
-        self.exclude_tablespaces: Tuple[str] = ("SYSTEM", "SYSAUX")
+        self.exclude_tablespaces: Tuple[str, str] = ("SYSTEM", "SYSAUX")
 
     def get_schema_names(self) -> List[str]:
         self.log.debug("OracleInspectorObjectWrapper is in used")
@@ -114,7 +114,7 @@ class OracleInspectorObjectWrapper:
                 ", ".join(["'%s'" % ts for ts in self.exclude_tablespaces])
             )
         sql_str += "OWNER = :owner " "AND IOT_NAME IS NULL "
-        self.log.info("SQL = {}".format(sql_str))
+        self.log.debug("SQL = {}".format(sql_str))
         cursor = self._inspector_instance.bind.execute(sql.text(sql_str), owner=schema)
 
         return [
@@ -122,8 +122,10 @@ class OracleInspectorObjectWrapper:
         ]
 
     def __getattr__(self, item: str) -> Any:
+        # Map method call to wrapper class
         if item in self.__dict__:
             return getattr(self, item)
+        # Map method call to original class
         return getattr(self._inspector_instance, item)
 
 
