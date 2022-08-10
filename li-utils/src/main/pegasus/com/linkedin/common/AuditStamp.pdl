@@ -21,7 +21,7 @@ record AuditStamp {
   impersonator: optional Urn
 
   /**
-   * Additional context around how the particular change happened. For example: was the change created by an automated process, or manually.
+   * Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually.
    */
   message: optional string
 }
