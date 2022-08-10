@@ -7,6 +7,7 @@ from tests.utils import (
     ingest_file_via_rest,
     wait_for_healthcheck_util,
     get_sleep_info,
+    get_frontend_session,
 )
 
 sleep_sec, sleep_times = get_sleep_info()
@@ -23,16 +24,7 @@ def wait_for_healthchecks():
 
 @pytest.fixture(scope="session")
 def frontend_session(wait_for_healthchecks):
-    session = requests.Session()
-
-    headers = {
-        "Content-Type": "application/json",
-    }
-    data = '{"username":"datahub", "password":"datahub"}'
-    response = session.post(f"{get_frontend_url()}/logIn", headers=headers, data=data)
-    response.raise_for_status()
-
-    yield session
+    yield get_frontend_session()
 
 
 @tenacity.retry(

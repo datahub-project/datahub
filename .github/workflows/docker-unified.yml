@@ -16,7 +16,10 @@ on:
     types: [published, edited]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # Using `github.run_id` (unique val) instead of `github.ref` here
+  # because we don't want to cancel this workflow on master only for PRs
+  #   as that makes reproducing issues easier
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 env:

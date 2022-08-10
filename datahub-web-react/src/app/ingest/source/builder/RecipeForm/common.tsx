@@ -29,10 +29,14 @@ export interface RecipeField {
     placeholder?: string;
 }
 
-function clearFieldAndParents(recipe: any, fieldPath: string) {
+function clearFieldAndParents(recipe: any, fieldPath: string | string[]) {
     set(recipe, fieldPath, undefined);
 
-    const updatedFieldPath = fieldPath.split('.').slice(0, -1).join('.'); // remove last item from fieldPath
+    // remove last item from fieldPath
+    const updatedFieldPath = Array.isArray(fieldPath)
+        ? fieldPath.slice(0, -1).join('.')
+        : fieldPath.split('.').slice(0, -1).join('.');
+
     if (updatedFieldPath) {
         const parentKeys = Object.keys(get(recipe, updatedFieldPath));
 
@@ -43,8 +47,7 @@ function clearFieldAndParents(recipe: any, fieldPath: string) {
     }
     return recipe;
 }
-
-export function setFieldValueOnRecipe(recipe: any, value: any, fieldPath: string) {
+export function setFieldValueOnRecipe(recipe: any, value: any, fieldPath: string | string[]) {
     const updatedRecipe = { ...recipe };
     if (value !== undefined) {
         if (value === null) {
@@ -63,19 +66,6 @@ export function setListValuesOnRecipe(recipe: any, values: string[] | undefined,
         return filteredValues.length
             ? setFieldValueOnRecipe(updatedRecipe, filteredValues, fieldPath)
             : setFieldValueOnRecipe(updatedRecipe, null, fieldPath);
-    }
-    return updatedRecipe;
-}
-
-export function setDottedFieldValuesOnRecipe(recipe: any, value: any, fieldPath: string[]) {
-    const updatedRecipe = { ...recipe };
-    if (value !== undefined) {
-        if (value === null) {
-            set(recipe, fieldPath, undefined);
-            clearFieldAndParents(updatedRecipe, fieldPath.slice(0, -1).join('.'));
-            return updatedRecipe;
-        }
-        set(updatedRecipe, fieldPath, value);
     }
     return updatedRecipe;
 }
@@ -254,7 +244,7 @@ export const PROFILING_ENABLED: RecipeField = {
 export const STATEFUL_INGESTION_ENABLED: RecipeField = {
     name: 'stateful_ingestion.enabled',
     label: 'Enable Stateful Ingestion',
-    tooltip: 'Enable the type of the ingestion state provider registered with datahub.',
+    tooltip: 'Remove stale datasets from datahub once they have been deleted in the source.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.stateful_ingestion.enabled',
     rules: null,
@@ -263,7 +253,7 @@ export const STATEFUL_INGESTION_ENABLED: RecipeField = {
 export const UPSTREAM_LINEAGE_IN_REPORT: RecipeField = {
     name: 'upstream_lineage_in_report',
     label: 'Include Upstream Lineage In Report.',
-    tooltip: 'Remove stale datasets from datahub once they have been deleted in the source.',
+    tooltip: 'Useful for debugging lineage information. Set to True to see the raw lineage created internally.',
     type: FieldType.BOOLEAN,
     fieldPath: 'source.config.upstream_lineage_in_report',
     rules: null,
