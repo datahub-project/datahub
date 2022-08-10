@@ -269,8 +269,8 @@ def test_lineage_backend(mock_emit, inlets, outlets):
 
         # Check that the right things were emitted.
         assert mock_emitter.emit.call_count == 9
-        # Running further checks based on python version because args only exists in python 3.7+
-        if sys.version_info[:3] > (3, 7):
+        # Running further checks based on python version because args only exists in python 3.8+
+        if sys.version_info > (3, 8):
             assert mock_emitter.method_calls[0].args[0].aspectName == "dataFlowInfo"
             assert (
                 mock_emitter.method_calls[0].args[0].entityUrn
@@ -449,8 +449,8 @@ def test_lineage_backend_capture_executions(mock_emit, inlets, outlets):
 
         # Check that the right things were emitted.
         assert mock_emitter.emit.call_count == 17
-        # Running further checks based on python version because args only exists in python 3.7+
-        if sys.version_info[:3] > (3, 7):
+        # Running further checks based on python version because args only exists in python 3.8+
+        if sys.version_info > (3, 8):
             assert mock_emitter.method_calls[0].args[0].aspectName == "dataFlowInfo"
             assert (
                 mock_emitter.method_calls[0].args[0].entityUrn

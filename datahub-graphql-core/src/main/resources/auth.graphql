@@ -121,6 +121,11 @@ enum AccessTokenDuration {
   1 year
   """
   ONE_YEAR
+
+  """
+  No expiry
+  """
+  NO_EXPIRY
 }
 
 type AccessToken {
@@ -226,7 +231,7 @@ type AccessTokenMetadata implements Entity {
   """
   Time when token will be expired.
   """
-  expiresAt: Long!
+  expiresAt: Long
 
   """
   Granular API for querying edges extending from this entity
