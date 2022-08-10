@@ -210,6 +210,48 @@ transformers:
 ```
 
 Note that whatever owners you send via this will overwrite the owners present in the UI.
+### Add domain to dataset 
+let’s suppose we’d like to add a series of domain to dataset, in this case you can use `simple_add_dataset_domain` transformer.
+
+The config, which we’d append to our ingestion recipe YAML, would look like this:
+
+```yaml 
+transformers:
+  - type: "simple_add_dataset_domain"
+    config:
+      semantics: OVERWRITE
+      domain_urns:
+        - urn:li:domain:engineering
+```
+It will add domain to all datasets, above yaml configuration will overwrite the existing domain of the datasets on DataHub GMS, 
+if you want to preserve domain stored on DataHub GMS then set semantics to `PATCH` as shown in below configuration 
+
+```yaml 
+transformers:
+  - type: "simple_add_dataset_domain"
+    config:
+      semantics: PATCH
+      domain_urns:
+        - urn:li:domain:engineering
+```
+
+### Adding domain by dataset urn pattern
+Let’s suppose we’d like to append a series of domain to specific datasets. To do so, we can use the `pattern_add_dataset_domain` transformer that’s included in the ingestion framework.  This will match the regex pattern to `urn` of the dataset and assign the respective domain urns given in the array.
+    
+The config, which we’d append to our ingestion recipe YAML, would look like this:
+
+```yaml
+    transformers:
+      - type: "pattern_add_dataset_domain"
+        config:
+          semantics: OVERWRITE
+          domain_pattern:
+            rules:
+              'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.n.*': ["urn:li:domain:hr"]
+              'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.t.*': ["urn:li:domain:finance"]
+```
+
+We can set semantics to `PATCH` to preserve the domain of the dataset stored on DataHub GMS.
 
 ### Mark dataset status
 
