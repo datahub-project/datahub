@@ -1,4 +1,4 @@
-import { RecipeField, FieldType, setDottedFieldValuesOnRecipe, setListValuesOnRecipe } from './common';
+import { RecipeField, FieldType, setListValuesOnRecipe } from './common';
 
 const saslUsernameFieldPath = ['source', 'config', 'connection', 'consumer_config', 'sasl.username'];
 export const KAFKA_SASL_USERNAME: RecipeField = {
@@ -8,8 +8,6 @@ export const KAFKA_SASL_USERNAME: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: saslUsernameFieldPath,
     rules: null,
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setDottedFieldValuesOnRecipe(recipe, values, saslUsernameFieldPath),
 };
 
 const saslPasswordFieldPath = ['source', 'config', 'connection', 'consumer_config', 'sasl.password'];
@@ -20,8 +18,6 @@ export const KAFKA_SASL_PASSWORD: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: saslPasswordFieldPath,
     rules: null,
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setDottedFieldValuesOnRecipe(recipe, values, saslPasswordFieldPath),
 };
 
 export const KAFKA_BOOTSTRAP: RecipeField = {
@@ -61,8 +57,6 @@ export const KAFKA_SCHEMA_REGISTRY_USER_CREDENTIAL: RecipeField = {
     type: FieldType.TEXT,
     fieldPath: registryCredentialsFieldPath,
     rules: null,
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setDottedFieldValuesOnRecipe(recipe, values, registryCredentialsFieldPath),
 };
 
 const securityProtocolFieldPath = ['source', 'config', 'connection', 'consumer_config', 'security.protocol'];
@@ -77,8 +71,6 @@ export const KAFKA_SECURITY_PROTOCOL: RecipeField = {
         { label: 'SASL_SSL', value: 'SASL_SSL' },
         { label: 'SASL_PLAINTEXT', value: 'SASL_PLAINTEXT' },
     ],
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setDottedFieldValuesOnRecipe(recipe, values, securityProtocolFieldPath),
 };
 
 const saslMechanismFieldPath = ['source', 'config', 'connection', 'consumer_config', 'sasl.mechanism'];
@@ -94,8 +86,6 @@ export const KAFKA_SASL_MECHANISM: RecipeField = {
         { label: 'SCRAM-SHA-256', value: 'SCRAM-SHA-256' },
         { label: 'SCRAM-SHA-512', value: 'SCRAM-SHA-512' },
     ],
-    setValueOnRecipeOverride: (recipe: any, values: string[]) =>
-        setDottedFieldValuesOnRecipe(recipe, values, saslMechanismFieldPath),
 };
 
 const topicAllowFieldPath = 'source.config.topic_patterns.allow';
