@@ -9,6 +9,12 @@ import { FacetMetadata } from '../../types.generated';
 import { SearchFilterLabel } from './SearchFilterLabel';
 import { TRUNCATED_FILTER_LENGTH } from './utils/constants';
 
+const GRAPH_DEGREE_FILTER_FIELD = 'degree';
+
+const isGraphDegreeFilter = (field: string) => {
+    return GRAPH_DEGREE_FILTER_FIELD === field;
+};
+
 type Props = {
     facet: FacetMetadata;
     selectedFilters: Array<{
@@ -61,7 +67,7 @@ export const SearchFilter = ({ facet, selectedFilters, onFilterSelect, defaultDi
 
     // Aggregations filtered for count > 0 or selected = true
     const filteredAggregations = facet.aggregations.filter(
-        (agg) => agg.count > 0 || isFacetSelected(facet.field, agg.value),
+        (agg) => agg.count > 0 || isFacetSelected(facet.field, agg.value) || isGraphDegreeFilter(facet.field),
     );
 
     const shouldTruncate = filteredAggregations.length > TRUNCATED_FILTER_LENGTH;
@@ -79,7 +85,12 @@ export const SearchFilter = ({ facet, selectedFilters, onFilterSelect, defaultDi
             {areFiltersVisible && (
                 <>
                     {facet.aggregations
-                        .filter((agg) => agg.count > 0 || isFacetSelected(facet.field, agg.value))
+                        .filter(
+                            (agg) =>
+                                agg.count > 0 ||
+                                isFacetSelected(facet.field, agg.value) ||
+                                isGraphDegreeFilter(facet.field),
+                        )
                         .map((aggregation, i) => {
                             if (i >= TRUNCATED_FILTER_LENGTH && !expanded) {
                                 return null;
