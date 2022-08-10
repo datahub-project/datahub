@@ -76,7 +76,6 @@ class GEProfilingConfig(ConfigModel):
     )
 
     _allow_deny_patterns: AllowDenyPattern = Field(
-        # This is an internal field. It is set by TODO
         default=AllowDenyPattern.allow_all(),
         description="[internal] regex patterns for filtering of tables or table columns to profile.",
     )
