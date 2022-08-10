@@ -1,4 +1,6 @@
-# PowerBI Report Server
+## Configuration Notes
+See the 
+[Microsoft AD App Creation doc](https://docs.microsoft.com/en-us/sql/reporting-services/security/grant-user-access-to-a-report-server?view=sql-server-ver16)
 
 ## Concept mapping 
 
@@ -9,7 +11,3 @@
 | `Mobile Report`           | `Dashboard`         |
 | `Linked Report`           | `Dashboard`         |
 | `Dataset, Datasource`     | `N/A`               |
-
-### Note
-
-Current [PowerBI](https://powerbi.microsoft.com/en-us/what-is-power-bi/) module used only for work with [PowerBI Report Server](https://powerbi.microsoft.com/en-us/report-server/).
