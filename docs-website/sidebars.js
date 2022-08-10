@@ -361,7 +361,6 @@ module.exports = {
       "docs/wip/impact-analysis",
       "docs/wip/ui-ingestion-guide",
       "docs/wip/tags-guide",
-      "docs/wip/approval-flows-guide",
       "docs/wip/personal-access-tokens-guide",
       {
         "Advanced Tutorials": [
