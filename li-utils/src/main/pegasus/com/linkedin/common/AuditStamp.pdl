@@ -21,7 +21,7 @@ record AuditStamp {
   impersonator: optional Urn
 
   /**
-   * Additional message to keep track of in the event
+   * Additional context around how the particular change happened. For example: was the change created by an automated process, or manually.
    */
   message: optional string
 }
