@@ -119,7 +119,7 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/prod/kafka/SampleKafkaDataset"]
+              "paths": ["/prod/kafka"]
             }
           },
           {
@@ -260,7 +260,7 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/prod/hdfs/SampleHdfsDataset"]
+              "paths": ["/prod/hdfs"]
             }
           },
           {
@@ -479,8 +479,25 @@
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,myobject/mystuff/SampleFile.txt,PROD)",
         "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["/my/custom/browse goof/thing"]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "SampleFile.txt",
+              "qualifiedName": "myobject/mystuff/SampleFile.txt2",
+              "description": "table where each row represents a single log event",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          },
           {
             "com.linkedin.pegasus2avro.common.Ownership": {
               "owners": [
@@ -2451,7 +2468,7 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/feast/test_feature_table_all_feature_dtypes"]
+              "paths": ["/feast"]
             }
           },
           {
@@ -2535,7 +2552,7 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/feast/test_feature_table_no_labels"]
+              "paths": ["/feast"]
             }
           },
           {
@@ -2605,7 +2622,7 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/feast/test_feature_table_single_feature"]
+              "paths": ["/feast"]
             }
           },
           {
@@ -2738,7 +2755,7 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/feast/user_features"]
+              "paths": ["/feast"]
             }
           },
           {
@@ -2811,7 +2828,7 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/feast/user_analytics"]
+              "paths": ["/feast"]
             }
           },
           {

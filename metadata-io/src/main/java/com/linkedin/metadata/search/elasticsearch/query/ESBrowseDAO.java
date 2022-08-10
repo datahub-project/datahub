@@ -179,7 +179,7 @@ public class ESBrowseDAO {
   @Nonnull
   private QueryBuilder buildQueryString(@Nonnull String path, @Nonnull Map<String, String> requestMap,
       boolean isGroupQuery) {
-    final int browseDepthVal = getPathDepth(path) + 1;
+    final int browseDepthVal = getPathDepth(path);
 
     final BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
 
@@ -236,7 +236,6 @@ public class ESBrowseDAO {
     final ParsedTerms groups = groupsResponse.getAggregations().get(GROUP_AGG);
     final List<BrowseResultGroup> groupsAgg = groups.getBuckets()
         .stream()
-        .filter(this::validateBucket)
         .map(group -> new BrowseResultGroup().setName(getSimpleName(group.getKeyAsString()))
             .setCount(group.getDocCount()))
         .collect(Collectors.toList());
@@ -256,7 +255,7 @@ public class ESBrowseDAO {
     return groups.getBuckets()
         .stream()
         .map(MultiBucketsAggregation.Bucket::getKeyAsString)
-        .anyMatch(bucketPath -> (bucketPath.length() > matchedPath.length() && bucketPath.startsWith(matchedPath)));
+        .anyMatch(bucketPath -> (bucketPath.startsWith(matchedPath)));
   }
 
   /**
@@ -273,11 +272,8 @@ public class ESBrowseDAO {
     Arrays.stream(entitiesResponse.getHits().getHits()).forEach(hit -> {
       try {
         final List<String> allPaths = (List<String>) hit.getSourceAsMap().get(BROWSE_PATH);
-        final String nextLevelPath = getNextLevelPath(allPaths, currentPath);
-        if (nextLevelPath != null) {
-          entityMetadataArray.add(new BrowseResultEntity().setName(getSimpleName(nextLevelPath))
-              .setUrn(Urn.createFromString((String) hit.getSourceAsMap().get(URN))));
-        }
+         entityMetadataArray.add(new BrowseResultEntity().setName("")
+            .setUrn(Urn.createFromString((String) hit.getSourceAsMap().get(URN))));
       } catch (URISyntaxException e) {
         log.error("URN is not valid: " + e.toString());
       }
@@ -304,7 +300,7 @@ public class ESBrowseDAO {
     final String normalizedCurrentPath = currentPath.toLowerCase();
     final int pathDepth = getPathDepth(currentPath);
     return paths.stream()
-        .filter(x -> x.toLowerCase().startsWith(normalizedCurrentPath) && getPathDepth(x) == (pathDepth + 1))
+        .filter(x -> x.toLowerCase().startsWith(normalizedCurrentPath))
         .findFirst()
         .orElse(null);
   }
