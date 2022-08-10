@@ -9,9 +9,8 @@ from dataclasses import field as dataclass_field
 from typing import Any, Dict, Iterable, List, Optional, Set
 
 import requests
+import pydantic
 from orderedset import OrderedSet
-from pydantic import ValidationError
-from pydantic.fields import Field
 from requests.exceptions import ConnectionError
 from requests_ntlm import HttpNtlmAuth
 
@@ -52,21 +51,21 @@ LOGGER = logging.getLogger(__name__)
 
 
 class PowerBiReportServerAPIConfig(EnvBasedSourceConfigBase):
-    username: str = Field(description="Windows account username")
-    password: str = Field(description="Windows account password")
-    workstation_name: str = Field(default="localhost", description="Workstation name")
-    host_port: str = Field(description="Power BI Report Server host URL")
-    server_alias: str = Field(
+    username: str = pydantic.Field(description="Windows account username")
+    password: str = pydantic.Field(description="Windows account password")
+    workstation_name: str = pydantic.Field(default="localhost", description="Workstation name")
+    host_port: str = pydantic.Field(description="Power BI Report Server host URL")
+    server_alias: str = pydantic.Field(
         default="", description="Alias for Power BI Report Server host URL"
     )
-    graphql_url: str = Field(description="GraphQL API URL")
-    report_virtual_directory_name: str = Field(
+    graphql_url: str = pydantic.Field(description="GraphQL API URL")
+    report_virtual_directory_name: str = pydantic.Field(
         description="Report Virtual Directory URL name"
     )
-    report_server_virtual_directory_name: str = Field(
+    report_server_virtual_directory_name: str = pydantic.Field(
         description="Report Server Virtual Directory URL name"
     )
-    scan_timeout: int = Field(
+    scan_timeout: int = pydantic.Field(
         default=60,
         description="time in seconds to wait for Power BI metadata scan result.",
     )
@@ -552,7 +551,7 @@ class PowerBiReportServerDashboardSource(Source):
                 report.user_info = self.user_dao.get_owner_by_name(
                     user_name=report.display_name
                 )
-            except ValidationError as e:
+            except pydantic.ValidationError as e:
                 message = "Error ({}) occurred while loading User {}(id={})".format(
                     e, report.name, report.id
                 )
