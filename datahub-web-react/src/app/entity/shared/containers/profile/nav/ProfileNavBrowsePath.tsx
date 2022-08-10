@@ -10,9 +10,6 @@ import { PageRoutes } from '../../../../../../conf/Global';
 import { navigateToLineageUrl } from '../../../../../lineage/utils/navigateToLineageUrl';
 import useIsLineageMode from '../../../../../lineage/utils/useIsLineageMode';
 import { ANTD_GRAY } from '../../../constants';
-import { useEntityData } from '../../../EntityContext';
-import LastIngested from '../header/LastIngested';
-import { getDisplayedEntityType } from '../header/PlatformContent/PlatformContentContainer';
 
 type Props = {
     type: EntityType;
@@ -41,7 +38,7 @@ const DetailIcon = styled(InfoCircleOutlined)`
     padding-right: 6px;
 `;
 
-const IconGroup = styled.div<{ isSelected: boolean; disabled: boolean }>`
+const IconGroup = styled.div<{ isSelected: boolean; disabled?: boolean }>`
     font-size: 14px;
     color: ${(props) => {
         if (props.disabled) {
@@ -101,13 +98,10 @@ export const ProfileNavBrowsePath = ({
     downstreams,
     breadcrumbLinksEnabled,
 }: Props): JSX.Element => {
-    const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const location = useLocation();
     const isLineageMode = useIsLineageMode();
-
-    const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
 
     const createPartialPath = (parts: Array<string>) => {
         return parts.join('/');
@@ -182,9 +176,6 @@ export const ProfileNavBrowsePath = ({
                 <LineageSummary>
                     <LineageBadge count={`${upstreamText} upstream, ${downstreamText} downstream`} />
                 </LineageSummary>
-                {entityData?.lastIngested && (
-                    <LastIngested lastIngested={entityData.lastIngested} displayedEntityType={displayedEntityType} />
-                )}
             </LineageNavContainer>
         </BrowseRow>
     );
