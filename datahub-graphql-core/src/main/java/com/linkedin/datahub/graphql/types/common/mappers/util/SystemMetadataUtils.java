@@ -13,10 +13,10 @@ public class SystemMetadataUtils {
   private SystemMetadataUtils() {
   }
 
-  public static Long getLastIngested(@Nonnull Set<String> aspects, @Nonnull EnvelopedAspectMap aspectMap) {
+  public static Long getLastIngested(@Nonnull EnvelopedAspectMap aspectMap) {
     Long lastIngested = null;
-    for (String aspect : aspects) {
-      if (aspectMap.containsKey(aspect) && aspectMap.get(aspect).hasSystemMetadata()) {
+    for (String aspect : aspectMap.keySet()) {
+      if (aspectMap.get(aspect).hasSystemMetadata()) {
         SystemMetadata systemMetadata = aspectMap.get(aspect).getSystemMetadata();
         if (systemMetadata.hasRunId() && !systemMetadata.getRunId().equals(DEFAULT_RUN_ID) && systemMetadata.hasLastObserved()) {
           Long lastObserved = systemMetadata.getLastObserved();

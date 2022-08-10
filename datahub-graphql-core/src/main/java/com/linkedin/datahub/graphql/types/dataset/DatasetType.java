@@ -138,7 +138,7 @@ public class DatasetType implements SearchableEntityType<Dataset, String>, Brows
             }
             return gmsResults.stream()
                 .map(gmsDataset -> gmsDataset == null ? null : DataFetcherResult.<Dataset>newResult()
-                    .data(DatasetMapper.map(gmsDataset, ASPECTS_TO_RESOLVE))
+                    .data(DatasetMapper.map(gmsDataset))
                     .build())
                 .collect(Collectors.toList());
         } catch (Exception e) {

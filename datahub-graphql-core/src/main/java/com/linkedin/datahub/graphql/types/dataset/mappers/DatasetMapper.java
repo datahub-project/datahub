@@ -27,6 +27,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
+import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetProperties;
@@ -52,22 +53,22 @@ import static com.linkedin.metadata.Constants.*;
  * To be replaced by auto-generated mappers implementations
  */
 @Slf4j
-public class DatasetMapper {
+public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
 
     public static final DatasetMapper INSTANCE = new DatasetMapper();
 
-    public static Dataset map(@Nonnull final EntityResponse dataset, Set<String> aspects) {
-        return INSTANCE.apply(dataset, aspects);
+    public static Dataset map(@Nonnull final EntityResponse dataset) {
+        return INSTANCE.apply(dataset);
     }
 
-    public Dataset apply(@Nonnull final EntityResponse entityResponse, Set<String> aspects) {
+    public Dataset apply(@Nonnull final EntityResponse entityResponse) {
         Dataset result = new Dataset();
         Urn entityUrn = entityResponse.getUrn();
         result.setUrn(entityResponse.getUrn().toString());
         result.setType(EntityType.DATASET);
 
         EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-        Long lastIngested = SystemMetadataUtils.getLastIngested(aspects, aspectMap);
+        Long lastIngested = SystemMetadataUtils.getLastIngested(aspectMap);
         result.setLastIngested(lastIngested);
 
         MappingHelper<Dataset> mappingHelper = new MappingHelper<>(aspectMap, result);
