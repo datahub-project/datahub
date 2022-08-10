@@ -1,6 +1,6 @@
 ## Configuration Notes
 See the 
-[Microsoft AD App Creation doc](https://docs.microsoft.com/en-us/sql/reporting-services/security/grant-user-access-to-a-report-server?view=sql-server-ver16)
+[Microsoft Grant user access to a Report Server doc](https://docs.microsoft.com/en-us/sql/reporting-services/security/grant-user-access-to-a-report-server?view=sql-server-ver16)
 
 ## Concept mapping 
 
