@@ -66,15 +66,15 @@ describe('setFieldValueOnRecipe', () => {
     });
 
     it('should set the field when the key is a dotted value', () => {
-        const recipe = { source: { config: { test: 'test', profiling: { ['enabled.test']: true } } } };
+        const recipe = { source: { config: { test: 'test', profiling: { 'enabled.test': true } } } };
         const updatedRecipe = setFieldValueOnRecipe(recipe, false, dottedFieldPath);
         expect(updatedRecipe).toMatchObject({
-            source: { config: { test: 'test', profiling: { ['enabled.test']: false } } },
+            source: { config: { test: 'test', profiling: { 'enabled.test': false } } },
         });
     });
 
     it('should clear the dotted field and its parent when passing in null and field is only child of parent', () => {
-        const recipe = { source: { config: { test: 'test', profiling: { ['enabled.test']: true } } } };
+        const recipe = { source: { config: { test: 'test', profiling: { 'enabled.test': true } } } };
         const updatedRecipe = setFieldValueOnRecipe(recipe, null, dottedFieldPath);
         expect(updatedRecipe).toMatchObject({
             source: { config: { test: 'test' } },
@@ -82,7 +82,7 @@ describe('setFieldValueOnRecipe', () => {
     });
 
     it('should clear the dotted field but not its parent when passing in null and parent has other children', () => {
-        const recipe = { source: { config: { test: 'test', profiling: { ['enabled.test']: true, testing: 'this' } } } };
+        const recipe = { source: { config: { test: 'test', profiling: { 'enabled.test': true, testing: 'this' } } } };
         const updatedRecipe = setFieldValueOnRecipe(recipe, null, dottedFieldPath);
         expect(updatedRecipe).toMatchObject({ source: { config: { test: 'test', profiling: { testing: 'this' } } } });
     });
