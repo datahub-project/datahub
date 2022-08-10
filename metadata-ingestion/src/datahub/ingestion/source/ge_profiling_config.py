@@ -75,9 +75,10 @@ class GEProfilingConfig(ConfigModel):
         description="Whether to profile for the sample values for all columns.",
     )
 
-    allow_deny_patterns: AllowDenyPattern = Field(
+    _allow_deny_patterns: AllowDenyPattern = Field(
+        # This is an internal field. It is set by TODO
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for filtering of tables or table columns to profile.",
+        description="[internal] regex patterns for filtering of tables or table columns to profile.",
     )
     max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = Field(
         default=None,

@@ -74,7 +74,7 @@ class DataLakeProfilerConfig(ConfigModel):
         description="Whether to perform profiling at table-level only or include column-level profiling as well.",
     )
 
-    allow_deny_patterns: AllowDenyPattern = Field(
+    _allow_deny_patterns: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(), description=""
     )
 
@@ -213,7 +213,7 @@ class _SingleTableProfiler:
         # get column distinct counts
         for column in dataframe.columns:
 
-            if not self.profiling_config.allow_deny_patterns.allowed(column):
+            if not self.profiling_config._allow_deny_patterns.allowed(column):
                 self.ignored_columns.append(column)
                 continue
 

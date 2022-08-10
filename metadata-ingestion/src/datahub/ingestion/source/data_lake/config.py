@@ -67,7 +67,7 @@ class DataLakeSourceConfig(EnvBasedSourceConfigBase):
     ) -> Dict[str, Any]:
         profiling = values.get("profiling")
         if profiling is not None and profiling.enabled:
-            profiling.allow_deny_patterns = values["profile_patterns"]
+            profiling._allow_deny_patterns = values["profile_patterns"]
         return values
 
     @pydantic.validator("platform", always=True)
