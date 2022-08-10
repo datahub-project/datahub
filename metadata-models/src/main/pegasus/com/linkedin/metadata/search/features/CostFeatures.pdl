@@ -8,8 +8,13 @@ import com.linkedin.common.Urn
 record CostFeatures {
 
   /**
-   * Cost in USD over last 30 days.
+   * Cost over last 30 days. The currency type is set with costCurrencyCode.
    */
-  costUSDLast30Days: optional float
+  costLast30Days: optional float
+
+  /**
+  * The currency code for the given cost.
+  */
+  costCurrencyCode: optional CostCurrencyCode
 
 }
