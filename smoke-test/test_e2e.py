@@ -79,6 +79,32 @@ def _ensure_user_present(urn: str):
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
+def _ensure_user_relationship_present(frontend_session, urn, relationships):
+    json = {
+        "query": """query corpUser($urn: String!) {\n
+            corpUser(urn: $urn) {\n
+                urn\n
+                relationships(input: { types: ["IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
+                    total\n
+                }\n
+            }\n
+        }""",
+        "variables": {"urn": urn},
+    }
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["corpUser"]
+    assert res_data["data"]["corpUser"]["relationships"]
+    assert res_data["data"]["corpUser"]["relationships"]["total"] == 1
+
+
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
+)
 def _ensure_dataset_present(
     urn: str,
     aspects: Optional[str] = "datasetProperties",
@@ -816,30 +842,8 @@ def test_add_remove_members_from_group(frontend_session):
     response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
 
-    # Sleep for edge store to be updated. Not ideal!
-    time.sleep(3)
-
     # Verify the member has been added
-    json = {
-        "query": """query corpUser($urn: String!) {\n
-            corpUser(urn: $urn) {\n
-                urn\n
-                relationships(input: { types: ["IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
-                    total\n
-                }\n
-            }\n
-        }""",
-        "variables": {"urn": "urn:li:corpuser:jdoe"},
-    }
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["corpUser"]
-    assert res_data["data"]["corpUser"]["relationships"]
-    assert res_data["data"]["corpUser"]["relationships"]["total"] == 1
+    _ensure_user_relationship_present(frontend_session, "urn:li:corpuser:jdoe", 1)
 
     # Now remove jdoe from the group
     json = {
@@ -856,29 +860,8 @@ def test_add_remove_members_from_group(frontend_session):
     response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
 
-    # Sleep for edge store to be updated. Not ideal!
-    time.sleep(3)
-
     # Verify the member has been removed
-    json = {
-        "query": """query corpUser($urn: String!) {\n
-            corpUser(urn: $urn) {\n
-                urn\n
-                relationships(input: { types: ["IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
-                    total\n
-                }\n
-            }\n
-        }""",
-        "variables": {"urn": "urn:li:corpuser:jdoe"},
-    }
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["corpUser"]
-    assert res_data["data"]["corpUser"]["relationships"]["total"] == 0
+    _ensure_user_relationship_present(frontend_session, "urn:li:corpuser:jdoe", 0)
 
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])

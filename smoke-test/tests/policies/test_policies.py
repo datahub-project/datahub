@@ -1,9 +1,11 @@
-import time
 import pytest
 import requests
-from tests.utils import get_frontend_url, wait_for_healthcheck_util, get_admin_credentials
+import tenacity
+from tests.utils import get_frontend_url, wait_for_healthcheck_util, get_admin_credentials, get_sleep_info
 
 TEST_POLICY_NAME = "Updated Platform Policy"
+
+sleep_sec, sleep_times = get_sleep_info()
 
 
 @pytest.fixture(scope="session")
@@ -31,6 +33,7 @@ def frontend_session(wait_for_healthchecks):
     response.raise_for_status()
 
     yield session
+
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 @pytest.fixture(scope='class', autouse=True)
@@ -64,10 +67,33 @@ def test_frontend_list_policies(frontend_session):
 
     # Verify that policy that was created is no longer in the list
     result = filter(
-      lambda x: x["name"] == TEST_POLICY_NAME,
-      res_data["data"]["listPolicies"]["policies"],
+        lambda x: x["name"] == TEST_POLICY_NAME,
+        res_data["data"]["listPolicies"]["policies"],
     )
     assert len(list(result)) == 0
+
+
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
+)
+def _ensure_policy_present(frontend_session, new_urn):
+    res_data = listPolicies(frontend_session)
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["listPolicies"]
+
+    # Verify that the updated policy appears in the list and has the appropriate changes
+    result = list(filter(
+        lambda x: x["urn"] == new_urn, res_data["data"]["listPolicies"]["policies"]
+    ))
+    print(result)
+
+    assert len(result) == 1
+    assert result[0]["description"] == "Updated Metadaata Policy"
+    assert result[0]["privileges"] == ["EDIT_ENTITY_TAGS", "EDIT_ENTITY_GLOSSARY_TERMS"]
+    assert result[0]["actors"]["allUsers"]
+
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
 def test_frontend_policy_operations(frontend_session):
@@ -103,9 +129,6 @@ def test_frontend_policy_operations(frontend_session):
 
     new_urn = res_data["data"]["createPolicy"]
 
-    # Sleep for eventual consistency
-    time.sleep(3)
-
     update_json = {
         "query": """mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {\n
             updatePolicy(urn: $urn, input: $input) }""",
@@ -136,25 +159,7 @@ def test_frontend_policy_operations(frontend_session):
     assert res_data["data"]["updatePolicy"]
     assert res_data["data"]["updatePolicy"] == new_urn
 
-    # Sleep for eventual consistency
-    time.sleep(3)
-
-    res_data = listPolicies(frontend_session)
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["listPolicies"]
-
-    # Verify that the updated policy appears in the list and has the appropriate changes
-    result = list(filter(
-        lambda x: x["urn"] == new_urn, res_data["data"]["listPolicies"]["policies"]
-    ))
-    print(result)
-
-    assert len(result) == 1
-    assert result[0]["description"] == "Updated Metadaata Policy"
-    assert result[0]["privileges"] == ["EDIT_ENTITY_TAGS", "EDIT_ENTITY_GLOSSARY_TERMS"]
-    assert result[0]["actors"]["allUsers"] == True
+    _ensure_policy_present(frontend_session, new_urn)
 
     # Now test that the policy can be deleted
     json = {
@@ -179,6 +184,7 @@ def test_frontend_policy_operations(frontend_session):
         res_data["data"]["listPolicies"]["policies"],
     )
     assert len(list(result)) == 0
+
 
 def listPolicies(session):
     json = {
