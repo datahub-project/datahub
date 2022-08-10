@@ -20,5 +20,7 @@ source:
     #  Your Power BI Report Server base virtual directory name for report server
     report_server_virtual_directory_name: ReportServer
 
+
+
 sink:
   # sink configs

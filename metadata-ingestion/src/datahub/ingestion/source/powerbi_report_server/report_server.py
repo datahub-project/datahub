@@ -493,7 +493,7 @@ class PowerBiReportServerDashboardSourceReport(SourceReport):
         self.filtered_reports.append(view)
 
 
-@platform_name("PowerBIReportServer")
+@platform_name("PowerBI Report Server")
 @config_class(PowerBiReportServerDashboardSourceConfig)
 @support_status(SupportStatus.UNKNOWN)
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
