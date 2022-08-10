@@ -1,7 +1,7 @@
 import pytest
 
 from tests.test_result_msg import add_datahub_stats
-from tests.utils import get_frontend_url, get_gms_url
+from tests.utils import get_frontend_url, get_gms_url, get_frontend_session
 
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
@@ -56,7 +56,8 @@ def _get_search_result(frontend_session, entity: str):
         ("mlModel", "mlModel"),
     ],
 )
-def test_search_works(frontend_session, entity_type, api_name):
+def test_search_works(entity_type, api_name):
+    frontend_session = get_frontend_session()
     search_result = _get_search_result(frontend_session, entity_type)
     num_entities = search_result["numEntities"]
     add_datahub_stats(f"num-{entity_type}", num_entities)
