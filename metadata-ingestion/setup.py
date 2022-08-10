@@ -317,8 +317,9 @@ plugins: Dict[str, Set[str]] = {
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging"},
     "powerbi": {"orderedset"} | microsoft_common,
-    "powerbi-report-server": {"orderedset"} | powerbi_report_server,
     "vertica": sql_common | {"sqlalchemy-vertica[vertica-python]==0.0.5"},
+    "powerbi-report-server": {"orderedset"} | powerbi_report_server,
+
 }
 
 all_exclude_plugins: Set[str] = {
