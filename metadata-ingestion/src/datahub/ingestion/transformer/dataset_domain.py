@@ -25,7 +25,7 @@ class AddDatasetDomainSemanticsConfig(TransformerSemanticsConfigModel):
 
 
 class SimpleDatasetDomainSemanticsConfig(TransformerSemanticsConfigModel):
-    domain_urns: List[str]
+    domains: List[str]
 
 
 class PatternDatasetDomainSemanticsConfig(TransformerSemanticsConfigModel):
@@ -123,7 +123,7 @@ class SimpleAddDatasetDomain(AddDatasetDomain):
                 "AddDatasetDomain requires a datahub_api to connect to. Consider using the datahub-rest sink or provide a datahub_api: configuration on your ingestion recipe"
             )
 
-        domains = AddDatasetDomain.get_domain_class(ctx.graph, config.domain_urns)
+        domains = AddDatasetDomain.get_domain_class(ctx.graph, config.domains)
         generic_config = AddDatasetDomainSemanticsConfig(
             get_domains_to_add=lambda _: domains,
             semantics=config.semantics,
