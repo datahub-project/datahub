@@ -215,7 +215,7 @@ let’s suppose we’d like to add a series of domain to dataset, in this case y
 
 The config, which we’d append to our ingestion recipe YAML, would look like this:
 
-Here we can set `domain_urns` to either urn (i.e. `urn:li:domain:engineering`) or simple domain name (i.e. `engineering`) 
+Here we can set `domains` to either urn (i.e. `urn:li:domain:engineering`) or simple domain name (i.e. `engineering`) 
 in both of the cases domain should be provisioned on DataHub GMS
 
 ```yaml 
@@ -223,7 +223,7 @@ transformers:
   - type: "simple_add_dataset_domain"
     config:
       semantics: OVERWRITE
-      domain_urns:
+      domains:
         - urn:li:domain:engineering
 ```
 It will add domain to all datasets, above yaml configuration will overwrite the existing domain of the datasets on DataHub GMS, 
@@ -234,7 +234,7 @@ transformers:
   - type: "simple_add_dataset_domain"
     config:
       semantics: PATCH
-      domain_urns:
+      domains:
         - urn:li:domain:engineering
 ```
 
