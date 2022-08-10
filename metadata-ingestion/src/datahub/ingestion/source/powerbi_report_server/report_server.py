@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from typing import Any, Dict, Iterable, List, Optional, Set
 
-import requests
 import pydantic
+import requests
 from orderedset import OrderedSet
 from requests.exceptions import ConnectionError
 from requests_ntlm import HttpNtlmAuth
@@ -53,7 +53,9 @@ LOGGER = logging.getLogger(__name__)
 class PowerBiReportServerAPIConfig(EnvBasedSourceConfigBase):
     username: str = pydantic.Field(description="Windows account username")
     password: str = pydantic.Field(description="Windows account password")
-    workstation_name: str = pydantic.Field(default="localhost", description="Workstation name")
+    workstation_name: str = pydantic.Field(
+        default="localhost", description="Workstation name"
+    )
     host_port: str = pydantic.Field(description="Power BI Report Server host URL")
     server_alias: str = pydantic.Field(
         default="", description="Alias for Power BI Report Server host URL"
