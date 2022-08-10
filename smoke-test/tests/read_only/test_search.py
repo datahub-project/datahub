@@ -16,6 +16,7 @@ def _get_search_result(entity: str):
         headers=restli_default_headers,
         json=json,
     )
+    print(f"Response text was {response.text}")
     res_data = response.json()
     assert res_data, f"response data was {res_data}"
     assert res_data["value"], f"response data was {res_data}"
