@@ -45,13 +45,14 @@ record DataHubAccessTokenInfo {
   createdAt: Time
 
   /**
-   * When the token was expires.
+   * When the token expires.
    */
+   // if null, it means that the token does not have an expiry.
  @Searchable = {
      "fieldType": "COUNT",
      "queryByDefault": false
   }
-  expiresAt: Time
+  expiresAt: optional Time
 
   /**
    * Description of the token if defined.

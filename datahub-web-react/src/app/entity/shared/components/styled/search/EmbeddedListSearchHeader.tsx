@@ -44,6 +44,8 @@ type Props = {
     setIsSelectMode: (showSelectMode: boolean) => any;
     onChangeSelectAll: (selected: boolean) => void;
     refetch?: () => void;
+    searchBarStyle?: any;
+    searchBarInputStyle?: any;
 };
 
 export default function EmbeddedListSearchHeader({
@@ -60,6 +62,8 @@ export default function EmbeddedListSearchHeader({
     setIsSelectMode,
     onChangeSelectAll,
     refetch,
+    searchBarStyle,
+    searchBarInputStyle,
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
@@ -76,14 +80,18 @@ export default function EmbeddedListSearchHeader({
                             initialQuery=""
                             placeholderText={placeholderText || 'Search entities...'}
                             suggestions={[]}
-                            style={{
-                                maxWidth: 220,
-                                padding: 0,
-                            }}
-                            inputStyle={{
-                                height: 32,
-                                fontSize: 12,
-                            }}
+                            style={
+                                searchBarStyle || {
+                                    maxWidth: 220,
+                                    padding: 0,
+                                }
+                            }
+                            inputStyle={
+                                searchBarInputStyle || {
+                                    height: 32,
+                                    fontSize: 12,
+                                }
+                            }
                             onSearch={onSearch}
                             onQueryChange={onSearch}
                             entityRegistry={entityRegistry}

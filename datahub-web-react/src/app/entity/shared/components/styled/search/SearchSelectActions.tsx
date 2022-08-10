@@ -22,6 +22,7 @@ const DEFAULT_ACTION_GROUPS = [
     SelectActionGroups.CHANGE_DOMAINS,
     SelectActionGroups.CHANGE_OWNERS,
     SelectActionGroups.CHANGE_DEPRECATION,
+    SelectActionGroups.DELETE,
 ];
 
 type Props = {
@@ -116,6 +117,7 @@ export const SearchSelectActions = ({
                         selectedEntityUrns.length === 0 ||
                         !isEntityCapabilitySupported(EntityCapabilityType.SOFT_DELETE, selectedEntityTypes)
                     }
+                    refetch={refetch}
                 />
             )}
         </>

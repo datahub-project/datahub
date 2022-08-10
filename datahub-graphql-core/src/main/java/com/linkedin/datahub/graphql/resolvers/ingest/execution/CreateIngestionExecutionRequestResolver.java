@@ -20,6 +20,7 @@ import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.key.ExecutionRequestKey;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
@@ -28,6 +29,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
@@ -68,6 +71,7 @@ public class CreateIngestionExecutionRequestResolver implements DataFetcher<Comp
           final UUID uuid = UUID.randomUUID();
           final String uuidStr = uuid.toString();
           key.setId(uuidStr);
+          final Urn executionRequestUrn = EntityKeyUtils.convertEntityKeyToUrn(key, Constants.EXECUTION_REQUEST_ENTITY_NAME);
           proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
 
           // Fetch the original ingestion source
@@ -100,7 +104,7 @@ public class CreateIngestionExecutionRequestResolver implements DataFetcher<Comp
           execInput.setRequestedAt(System.currentTimeMillis());
 
           Map<String, String> arguments = new HashMap<>();
-          arguments.put(RECIPE_ARG_NAME, ingestionSourceInfo.getConfig().getRecipe());
+          arguments.put(RECIPE_ARG_NAME, injectRunId(ingestionSourceInfo.getConfig().getRecipe(), executionRequestUrn.toString()));
           arguments.put(VERSION_ARG_NAME, ingestionSourceInfo.getConfig().hasVersion()
               ? ingestionSourceInfo.getConfig().getVersion()
               : _ingestionConfiguration.getDefaultCliVersion()
@@ -122,5 +126,24 @@ public class CreateIngestionExecutionRequestResolver implements DataFetcher<Comp
       }
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     });
+  }
+
+  /**
+   * Injects an override run id into a recipe for tracking purposes. Any existing run id will be overwritten.
+   *
+   * TODO: Determine if this should be handled in the executor itself.
+   *
+   * @param runId the run id to place into the recipe
+   * @return a modified recipe JSON string
+   */
+  private String injectRunId(final String originalJson, final String runId) {
+    try {
+      JSONObject obj = new JSONObject(originalJson);
+      obj.put("run_id", runId);
+      return obj.toString();
+    } catch (JSONException e) {
+      // This should ideally never be hit.
+      throw new IllegalArgumentException("Failed to create execution request: Invalid recipe json provided.");
+    }
   }
 }

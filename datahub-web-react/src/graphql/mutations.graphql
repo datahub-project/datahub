@@ -97,3 +97,7 @@ mutation batchSetDomain($input: BatchSetDomainInput!) {
 mutation batchUpdateDeprecation($input: BatchUpdateDeprecationInput!) {
     batchUpdateDeprecation(input: $input)
 }
+
+mutation batchUpdateSoftDeleted($input: BatchUpdateSoftDeletedInput!) {
+    batchUpdateSoftDeleted(input: $input)
+}

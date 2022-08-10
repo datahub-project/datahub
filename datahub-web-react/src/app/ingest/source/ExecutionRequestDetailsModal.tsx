@@ -1,8 +1,23 @@
-import { message, Modal, Typography } from 'antd';
-import React from 'react';
+import { DownloadOutlined } from '@ant-design/icons';
+import { Button, message, Modal, Typography } from 'antd';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useGetIngestionExecutionRequestQuery } from '../../../graphql/ingestion.generated';
+import { ANTD_GRAY } from '../../entity/shared/constants';
+import { downloadFile } from '../../search/utils/csvUtils';
 import { Message } from '../../shared/Message';
+import IngestedAssets from './IngestedAssets';
+import {
+    getExecutionRequestStatusDisplayColor,
+    getExecutionRequestStatusDisplayText,
+    getExecutionRequestStatusIcon,
+    SUCCESS,
+} from './utils';
+
+const StyledTitle = styled(Typography.Title)`
+    padding: 0px;
+    margin: 0px;
+`;
 
 const Section = styled.div`
     display: flex;
@@ -10,13 +25,61 @@ const Section = styled.div`
     padding-bottom: 12px;
 `;
 
-const SectionHeader = styled(Typography.Text)`
+const SectionHeader = styled(Typography.Title)`
     &&&& {
         padding: 0px;
         margin: 0px;
         margin-bottom: 12px;
     }
 `;
+
+const SectionSubHeader = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+`;
+
+const SubHeaderParagraph = styled(Typography.Paragraph)`
+    margin-bottom: 0px;
+`;
+
+const HeaderSection = styled.div``;
+
+const StatusSection = styled.div`
+    border-bottom: 1px solid ${ANTD_GRAY[4]};
+    padding: 16px;
+    padding-left: 30px;
+    padding-right: 30px;
+`;
+
+const ResultText = styled.div`
+    margin-bottom: 4px;
+`;
+
+const IngestedAssetsSection = styled.div`
+    border-bottom: 1px solid ${ANTD_GRAY[4]};
+    padding: 16px;
+    padding-left: 30px;
+    padding-right: 30px;
+`;
+
+const LogsSection = styled.div`
+    padding-top: 16px;
+    padding-left: 30px;
+    padding-right: 30px;
+`;
+
+const ShowMoreButton = styled(Button)`
+    padding: 0px;
+`;
+
+const modalStyle = {
+    top: 100,
+};
+
+const modalBodyStyle = {
+    padding: 0,
+};
 
 type Props = {
     urn: string;
@@ -25,24 +88,86 @@ type Props = {
 };
 
 export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
+    const [showExpandedLogs, setShowExpandedLogs] = useState(true);
     const { data, loading, error } = useGetIngestionExecutionRequestQuery({ variables: { urn } });
     const output = data?.executionRequest?.result?.report || 'No output found.';
 
+    useEffect(() => {
+        if (output.length > 100) {
+            setShowExpandedLogs(false);
+        }
+    }, [output, setShowExpandedLogs]);
+
+    const downloadLogs = () => {
+        downloadFile(output, `exec-${urn}.log`);
+    };
+
+    const logs = (showExpandedLogs && output) || output.slice(0, 100);
+    const result = data?.executionRequest?.result?.status;
+
+    const ResultIcon = result && getExecutionRequestStatusIcon(result);
+    const resultColor = result && getExecutionRequestStatusDisplayColor(result);
+    const resultText = result && (
+        <Typography.Text style={{ color: resultColor, fontSize: 14 }}>
+            {ResultIcon && <ResultIcon style={{ marginRight: 4 }} />}
+            {getExecutionRequestStatusDisplayText(result)}
+        </Typography.Text>
+    );
+    const resultSummaryText =
+        (result && (
+            <Typography.Text type="secondary">
+                Ingestion {result === SUCCESS ? 'successfully completed' : 'completed with errors'}.
+            </Typography.Text>
+        )) ||
+        undefined;
+
     return (
         <Modal
-            width={1300}
-            footer={null}
-            title={<Typography.Text>Execution Details</Typography.Text>}
+            width={800}
+            footer={<Button onClick={onClose}>Close</Button>}
+            style={modalStyle}
+            bodyStyle={modalBodyStyle}
+            title={
+                <HeaderSection>
+                    <StyledTitle level={4}>Ingestion Run Details</StyledTitle>
+                </HeaderSection>
+            }
             visible={visible}
             onCancel={onClose}
         >
             {!data && loading && <Message type="loading" content="Loading execution details..." />}
             {error && message.error('Failed to load execution details :(')}
             <Section>
-                <SectionHeader strong>Captured Output</SectionHeader>
-                <Typography.Paragraph ellipsis>
-                    <pre>{`${output}`}</pre>
-                </Typography.Paragraph>
+                <StatusSection>
+                    <Typography.Title level={5}>Status</Typography.Title>
+                    <ResultText>{resultText}</ResultText>
+                    <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
+                </StatusSection>
+                {result === SUCCESS && (
+                    <IngestedAssetsSection>
+                        {data?.executionRequest?.id && <IngestedAssets id={data?.executionRequest?.id} />}
+                    </IngestedAssetsSection>
+                )}
+                <LogsSection>
+                    <SectionHeader level={5}>Logs</SectionHeader>
+                    <SectionSubHeader>
+                        <SubHeaderParagraph type="secondary">
+                            View logs that were collected during the ingestion run.
+                        </SubHeaderParagraph>
+                        <Button type="text" onClick={downloadLogs}>
+                            <DownloadOutlined />
+                            Download
+                        </Button>
+                    </SectionSubHeader>
+                    <Typography.Paragraph ellipsis>
+                        <pre>{`${logs}${!showExpandedLogs && '...'}`}</pre>
+                        {!showExpandedLogs && (
+                            <ShowMoreButton type="link" onClick={() => setShowExpandedLogs(true)}>
+                                Show More
+                            </ShowMoreButton>
+                        )}
+                    </Typography.Paragraph>
+                </LogsSection>
             </Section>
         </Modal>
     );
