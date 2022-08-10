@@ -4,7 +4,6 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.mxe.SystemMetadata;
 
 import javax.annotation.Nonnull;
-import java.util.Set;
 
 import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
 

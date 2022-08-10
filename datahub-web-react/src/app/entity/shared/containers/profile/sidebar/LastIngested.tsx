@@ -55,7 +55,7 @@ const SubText = styled.div`
 
 const HelpIcon = styled(QuestionCircleOutlined)`
     color: ${ANTD_GRAY[7]};
-    margin-left: 8px;
+    margin-left: 7px;
     font-size: 10px;
 `;
 
