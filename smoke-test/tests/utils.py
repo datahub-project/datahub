@@ -7,8 +7,24 @@ from datahub.cli import cli_utils
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.cli.docker import check_local_docker_containers
 
+
+def get_frontend_session():
+    session = requests.Session()
+
+    headers = {
+        "Content-Type": "application/json",
+    }
+    username, password = get_admin_credentials()
+    data = '{"username":"' + username + '", "password":"' + password + '"}'
+    response = session.post(f"{get_frontend_url()}/logIn", headers=headers, data=data)
+    response.raise_for_status()
+
+    return session
+
+
 def get_admin_credentials():
-  return ("datahub", "datahub")
+    return (os.getenv("ADMIN_USERNAME", "datahub"), os.getenv("ADMIN_PASSWORD", "datahub"))
+
 
 def get_gms_url():
     return os.getenv("DATAHUB_GMS_URL") or "http://localhost:8080"
