@@ -1,7 +1,6 @@
 import pytest
-import requests
 import tenacity
-from tests.utils import get_frontend_url, wait_for_healthcheck_util, get_admin_credentials, get_sleep_info
+from tests.utils import get_frontend_url, wait_for_healthcheck_util, get_frontend_session, get_sleep_info
 
 TEST_POLICY_NAME = "Updated Platform Policy"
 
@@ -22,17 +21,7 @@ def test_healthchecks(wait_for_healthchecks):
 
 @pytest.fixture(scope="session")
 def frontend_session(wait_for_healthchecks):
-    session = requests.Session()
-
-    headers = {
-        "Content-Type": "application/json",
-    }
-    (admin_user, admin_pass) = get_admin_credentials()
-    data = '{"username":"' + admin_user + '", "password":"' + admin_pass + '"}'
-    response = session.post(f"{get_frontend_url()}/logIn", headers=headers, data=data)
-    response.raise_for_status()
-
-    yield session
+    yield get_frontend_session()
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
