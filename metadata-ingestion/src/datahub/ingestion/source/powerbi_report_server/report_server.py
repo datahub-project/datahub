@@ -1,6 +1,6 @@
 #########################################################
 #
-# Meta Data Ingestion From the Power BI Report Server
+# Meta Data Ingestion From the PowerBI Report Server
 #
 #########################################################
 import logging
@@ -101,7 +101,7 @@ class PowerBiReportServerDashboardSourceConfig(PowerBiReportServerAPIConfig):
 
 
 class PowerBiReportServerAPI:
-    # API endpoints of PowerBi Report Server to fetch reports, datasets
+    # API endpoints of PowerBI Report Server to fetch reports, datasets
 
     def __init__(self, config: PowerBiReportServerAPIConfig) -> None:
         self.__config: PowerBiReportServerAPIConfig = config
@@ -130,7 +130,7 @@ class PowerBiReportServerAPI:
             )
         # Check if we got response from PowerBi Report Server
         if response.status_code != 200:
-            message: str = "Failed to fetch Report from power-bi-report-server for"
+            message: str = "Failed to fetch Report from powerbi-report-server for"
             LOGGER.warning(message)
             LOGGER.warning("{}={}".format(Constant.ReportId, content_type))
             raise ValueError(message)
@@ -139,7 +139,7 @@ class PowerBiReportServerAPI:
 
     def get_all_reports(self) -> List[Any]:
         """
-        Fetch all Reports from PowerBiReportServer
+        Fetch all Reports from PowerBI Report Server
         """
         report_types_mapping: Dict[str, Any] = {
             Constant.REPORTS: Report,
@@ -243,7 +243,7 @@ class UserDao:
 
 class Mapper:
     """
-    Transfrom PowerBi Report Server concept Report to DataHub concept Dashboard
+    Transfrom PowerBI Report Server concept Report to DataHub concept Dashboard
     """
 
     class EquableMetadataWorkUnit(MetadataWorkUnit):
@@ -311,7 +311,7 @@ class Mapper:
         user_mcps: List[MetadataChangeProposalWrapper],
     ) -> List[MetadataChangeProposalWrapper]:
         """
-        Map PowerBi Report Server report to Datahub Dashboard
+        Map PowerBI Report Server report to Datahub Dashboard
         """
         dashboard_urn = builder.make_dashboard_urn(
             self.__config.platform_name, report.get_urn_part()
@@ -415,7 +415,7 @@ class Mapper:
 
     def to_datahub_user(self, user: CorpUser) -> List[MetadataChangeProposalWrapper]:
         """
-        Map PowerBi Report Server user to datahub user
+        Map PowerBI Report Server user to datahub user
         """
         LOGGER.info("Converting user {} to datahub's user".format(user.username))
 
@@ -501,20 +501,29 @@ class PowerBiReportServerDashboardSource(Source):
     """
     This plugin extracts the following:
 
-    - Power BI Report Server Dashboards
-    - Names, descriptions and URLs of Dashboard
-    - Owners of Dashboards
+    Metadata that can be ingested:
+       - report name
+       - report description
+       - ownership(can add existing users in DataHub as owners)
+       - transfer folders structure to DataHub as it is in Report Server
+       - webUrl to report in Report Server
+
+    Due to limits of PBIRS REST API, it's impossible to ingest next data for now:
+       - tiles info
+       - datasource of report
+       - dataset of report
+
+    Next types of report can be ingested:
+       - PowerBI report(.pbix)
+       - Paginated report(.rdl)
+       - Mobile report
+       - Linked report
 
     ## Configuration Notes
 
     See the
-    1.  [Microsoft AD App Creation doc]
-        (https://docs.microsoft.com/en-us/power-bi/developer/embedded/embed-service-principal)
-        for the steps to create a app client ID and secret.
-    2.  Login to Power BI as Admin and from `Tenant settings` allow below permissions.
-        - Allow service principles to use Power BI APIs
-        - Allow service principals to use read-only Power BI admin APIs
-        - Enhance admin APIs responses with detailed metadata
+    1. [Microsoft Grant user access to a Report Server doc](https://docs.microsoft.com/en-us/sql/reporting-services/security/grant-user-access-to-a-report-server?view=sql-server-ver16)
+    2. Use your user credentials from previous step in yaml file
     """
 
     source_config: PowerBiReportServerDashboardSourceConfig
@@ -541,9 +550,9 @@ class PowerBiReportServerDashboardSource(Source):
         """
         Datahub Ingestion framework invoke this method
         """
-        LOGGER.info("PowerBiReportServer plugin execution is started")
+        LOGGER.info("PowerBI Report Server plugin execution is started")
 
-        # Fetch PowerBiReportServer reports for given url
+        # Fetch PowerBI Report Server reports for given url
         reports = self.powerbi_client.get_all_reports()
 
         for report in reports:
