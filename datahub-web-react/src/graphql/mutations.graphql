@@ -2,16 +2,32 @@ mutation removeTag($input: TagAssociationInput!) {
     removeTag(input: $input)
 }
 
+mutation batchRemoveTags($input: BatchRemoveTagsInput!) {
+    batchRemoveTags(input: $input)
+}
+
 mutation addTag($input: TagAssociationInput!) {
     addTag(input: $input)
+}
+
+mutation batchAddTags($input: BatchAddTagsInput!) {
+    batchAddTags(input: $input)
 }
 
 mutation removeTerm($input: TermAssociationInput!) {
     removeTerm(input: $input)
 }
 
+mutation batchRemoveTerms($input: BatchRemoveTermsInput!) {
+    batchRemoveTerms(input: $input)
+}
+
 mutation addTerm($input: TermAssociationInput!) {
     addTerm(input: $input)
+}
+
+mutation batchAddTerms($input: BatchAddTermsInput!) {
+    batchAddTerms(input: $input)
 }
 
 mutation addLink($input: AddLinkInput!) {
@@ -26,8 +42,16 @@ mutation addOwner($input: AddOwnerInput!) {
     addOwner(input: $input)
 }
 
+mutation batchAddOwners($input: BatchAddOwnersInput!) {
+    batchAddOwners(input: $input)
+}
+
 mutation removeOwner($input: RemoveOwnerInput!) {
     removeOwner(input: $input)
+}
+
+mutation batchRemoveOwners($input: BatchRemoveOwnersInput!) {
+    batchRemoveOwners(input: $input)
 }
 
 mutation updateDescription($input: DescriptionUpdateInput!) {
@@ -64,4 +88,16 @@ mutation addTerms($input: AddTermsInput!) {
 
 mutation updateName($input: UpdateNameInput!) {
     updateName(input: $input)
+}
+
+mutation batchSetDomain($input: BatchSetDomainInput!) {
+    batchSetDomain(input: $input)
+}
+
+mutation batchUpdateDeprecation($input: BatchUpdateDeprecationInput!) {
+    batchUpdateDeprecation(input: $input)
+}
+
+mutation batchUpdateSoftDeleted($input: BatchUpdateSoftDeletedInput!) {
+    batchUpdateSoftDeleted(input: $input)
 }

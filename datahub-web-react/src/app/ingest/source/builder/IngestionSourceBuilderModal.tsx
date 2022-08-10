@@ -59,7 +59,7 @@ export enum IngestionSourceBuilderStep {
 type Props = {
     initialState?: SourceBuilderState;
     visible: boolean;
-    onSubmit?: (input: SourceBuilderState, resetState: () => void) => void;
+    onSubmit?: (input: SourceBuilderState, resetState: () => void, shouldRun?: boolean) => void;
     onCancel?: () => void;
 };
 
@@ -98,11 +98,15 @@ export const IngestionSourceBuilderModal = ({ initialState, visible, onSubmit, o
         onCancel?.();
     };
 
-    const submit = () => {
-        onSubmit?.(ingestionBuilderState, () => {
-            setStepStack([initialStep]);
-            setIngestionBuilderState({});
-        });
+    const submit = (shouldRun?: boolean) => {
+        onSubmit?.(
+            ingestionBuilderState,
+            () => {
+                setStepStack([initialStep]);
+                setIngestionBuilderState({});
+            },
+            shouldRun,
+        );
     };
 
     const currentStep = stepStack[stepStack.length - 1];

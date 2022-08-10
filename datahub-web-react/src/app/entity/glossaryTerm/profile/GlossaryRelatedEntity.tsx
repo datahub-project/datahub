@@ -1,7 +1,7 @@
 import { Col, Row } from 'antd';
 import * as React from 'react';
 import styled from 'styled-components';
-import { EmbeddedListSearch } from '../../shared/components/styled/search/EmbeddedListSearch';
+import { EmbeddedListSearchSection } from '../../shared/components/styled/search/EmbeddedListSearchSection';
 
 import { useEntityData } from '../../shared/EntityContext';
 
@@ -21,7 +21,7 @@ export default function GlossaryRelatedEntity() {
     return (
         <GroupAssetsWrapper>
             <Col md={24} lg={24} xl={24}>
-                <EmbeddedListSearch
+                <EmbeddedListSearchSection
                     fixedQuery={fixedQueryString}
                     emptySearchQuery="*"
                     placeholderText="Filter entities..."
