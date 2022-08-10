@@ -496,7 +496,7 @@ def test_get_dashboard_snapshot():
                         time=1628882055288, actor="urn:li:corpuser:unknown"
                     ),
                 ),
-                dashboardUrl="http://localhost:5000/dashboard/my-dashboard",
+                dashboardUrl="http://localhost:5000/dashboards/3-my-dashboard",
                 customProperties={},
             )
         ],
