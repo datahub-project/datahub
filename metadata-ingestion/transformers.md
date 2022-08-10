@@ -215,6 +215,9 @@ let’s suppose we’d like to add a series of domain to dataset, in this case y
 
 The config, which we’d append to our ingestion recipe YAML, would look like this:
 
+Here we can set `domain_urns` to either urn (i.e. `urn:li:domain:engineering`) or simple domain name (i.e. `engineering`) 
+in both of the cases domain should be provisioned on DataHub GMS
+
 ```yaml 
 transformers:
   - type: "simple_add_dataset_domain"
@@ -240,6 +243,9 @@ Let’s suppose we’d like to append a series of domain to specific datasets. T
     
 The config, which we’d append to our ingestion recipe YAML, would look like this:
 
+Here we can set domain list to either urn (i.e. `urn:li:domain:hr`) or simple domain name (i.e. `hr`) 
+in both of the cases domain should be provisioned on DataHub GMS
+
 ```yaml
     transformers:
       - type: "pattern_add_dataset_domain"
@@ -247,7 +253,7 @@ The config, which we’d append to our ingestion recipe YAML, would look like th
           semantics: OVERWRITE
           domain_pattern:
             rules:
-              'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.n.*': ["urn:li:domain:hr"]
+              'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.n.*': ["hr"]
               'urn:li:dataset:\(urn:li:dataPlatform:postgres,postgres\.public\.t.*': ["urn:li:domain:finance"]
 ```
 
