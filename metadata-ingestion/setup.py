@@ -1,11 +1,7 @@
 import os
-import sys
 from typing import Dict, Set
 
 import setuptools
-
-is_py37_or_newer = sys.version_info >= (3, 7)
-
 
 package_metadata: dict = {}
 with open("./src/datahub/__init__.py") as fp:
@@ -21,8 +17,6 @@ def get_long_description():
 
 
 base_requirements = {
-    # Compatibility.
-    "dataclasses>=0.6; python_version < '3.7'",
     # Typing extension should be >=3.10.0.2 ideally but we can't restrict due to Airflow 2.0.2 dependency conflict
     "typing_extensions>=3.7.4.3 ;  python_version < '3.8'",
     "typing_extensions>=3.10.0.2 ;  python_version >= '3.8'",
@@ -101,19 +95,13 @@ kafka_common = {
     "fastavro>=1.2.0",
 }
 
-kafka_protobuf = (
-    {
-        "networkx>=2.6.2",
-        # Required to generate protobuf python modules from the schema downloaded from the schema registry
-        "grpcio==1.44.0",
-        "grpcio-tools==1.44.0",
-        "types-protobuf",
-    }
-    if is_py37_or_newer
-    else {
-        "types-protobuf",
-    }
-)
+kafka_protobuf = {
+    "networkx>=2.6.2",
+    # Required to generate protobuf python modules from the schema downloaded from the schema registry
+    "grpcio==1.44.0",
+    "grpcio-tools==1.44.0",
+    "types-protobuf",
+}
 
 sql_common = {
     # Required for all SQL sources.
@@ -376,10 +364,13 @@ base_dev_requirements = {
             "bigquery-usage",
             "clickhouse",
             "clickhouse-usage",
+            "delta-lake",
             "druid",
             "elasticsearch",
+            "iceberg",
             "ldap",
             "looker",
+            "lookml",
             "glue",
             "mariadb",
             "okta",
@@ -408,33 +399,17 @@ base_dev_requirements = {
 
 base_dev_requirements_airflow_1 = base_dev_requirements.copy()
 
-if is_py37_or_newer:
-    # These plugins only work on Python 3.7 or newer.
-    base_dev_requirements = base_dev_requirements.union(
-        {
-            dependency
-            for plugin in [
-                "delta-lake",
-                "feast",
-                "iceberg",
-                "lookml",
-            ]
-            for dependency in plugins[plugin]
-        }
-    )
+base_dev_requirements = base_dev_requirements.union(
+    # The feast plugin is not compatible with Airflow 1, so we add it later.
+    {
+        dependency
+        for plugin in [
+            "feast",
+        ]
+        for dependency in plugins[plugin]
+    }
+)
 
-    # These plugins are compatible with Airflow 1.
-    base_dev_requirements_airflow_1 = base_dev_requirements_airflow_1.union(
-        {
-            dependency
-            for plugin in [
-                "delta-lake",
-                "iceberg",
-                "lookml",
-            ]
-            for dependency in plugins[plugin]
-        }
-    )
 
 dev_requirements = {
     *base_dev_requirements,
@@ -456,12 +431,16 @@ full_test_dev_requirements = {
     *list(
         dependency
         for plugin in [
+            "athena",
             "circuit-breaker",
             "clickhouse",
+            "delta-lake",
             "druid",
+            "feast",
             "feast-legacy",
             "hana",
             "hive",
+            "iceberg",
             "kafka-connect",
             "ldap",
             "mongodb",
@@ -475,21 +454,6 @@ full_test_dev_requirements = {
         for dependency in plugins[plugin]
     ),
 }
-
-if is_py37_or_newer:
-    # These plugins only work on Python 3.7 or newer.
-    full_test_dev_requirements = full_test_dev_requirements.union(
-        {
-            dependency
-            for plugin in [
-                "athena",
-                "delta-lake",
-                "feast",
-                "iceberg",
-            ]
-            for dependency in plugins[plugin]
-        }
-    )
 
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
@@ -584,10 +548,10 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
@@ -601,7 +565,7 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.6",
+    python_requires=">=3.7",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={
