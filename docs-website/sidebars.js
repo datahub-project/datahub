@@ -357,8 +357,6 @@ module.exports = {
       "docs/schema-history",
       "docs/dev-guides/timeline",
       "docs/how/ui-tabs-guide",
-
-      "docs/wip/impact-analysis",
       "docs/wip/ui-ingestion-guide",
       "docs/wip/tags-guide",
       "docs/wip/personal-access-tokens-guide",
