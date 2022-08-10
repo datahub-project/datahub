@@ -168,6 +168,11 @@ type ExecutionRequest {
   urn: String!
 
   """
+  Unique id for the execution request
+  """
+  id: String!
+
+  """
   Input provided when creating the Execution Request
   """
   input: ExecutionRequestInput!

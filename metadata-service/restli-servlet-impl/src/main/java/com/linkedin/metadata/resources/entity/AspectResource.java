@@ -12,6 +12,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ValidationException;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.restli.RestliUtil;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.parseq.Task;
@@ -35,6 +36,7 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
+import static com.linkedin.metadata.resources.entity.ResourceUtils.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 
 
@@ -60,6 +62,10 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   @Inject
   @Named("entityService")
   private EntityService _entityService;
+
+  @Inject
+  @Named("entitySearchService")
+  private EntitySearchService _entitySearchService;
 
   @Inject
   @Named("timeseriesAspectService")
@@ -137,11 +143,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       try {
         Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp).getUrn();
         additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp));
+        tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
         return urn.toString();
       } catch (ValidationException e) {
         throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e.getMessage());
       }
     }, MetricRegistry.name(this.getClass(), "ingestProposal"));
   }
-
 }

@@ -497,8 +497,7 @@ class GlueSource(Source):
             # in nodes. this may lead to broken edge in lineage.
             if source_node is None or target_node is None:
                 logger.warning(
-                    flow_urn,
-                    f"Unrecognized source or target node in edge: {edge}. Skipping.\
+                    f"{flow_urn}: Unrecognized source or target node in edge: {edge}. Skipping.\
                         This may lead to broken edge in lineage",
                 )
                 continue

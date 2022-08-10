@@ -19,6 +19,17 @@ const ListContainer = styled.div`
     margin-left: 28px;
 `;
 
+const StatusContainer = styled.div`
+    display: flex;
+    justify-content: left;
+    align-items: center;
+`;
+
+const StatusButton = styled(Button)`
+    padding: 0px;
+    margin: 0px;
+`;
+
 type Props = {
     urn: string;
     lastRefresh: number;
@@ -127,19 +138,19 @@ export const IngestionSourceExecutionList = ({ urn, lastRefresh, onRefresh }: Pr
             title: 'Status',
             dataIndex: 'status',
             key: 'status',
-            render: (status: any) => {
+            render: (status: any, record) => {
                 const Icon = getExecutionRequestStatusIcon(status);
                 const text = getExecutionRequestStatusDisplayText(status);
                 const color = getExecutionRequestStatusDisplayColor(status);
                 return (
-                    <>
-                        <div style={{ display: 'flex', justifyContent: 'left', alignItems: 'center' }}>
-                            {Icon && <Icon style={{ color }} />}
+                    <StatusContainer>
+                        {Icon && <Icon style={{ color }} />}
+                        <StatusButton type="link" onClick={() => setFocusExecutionUrn(record.urn)}>
                             <Typography.Text strong style={{ color, marginLeft: 8 }}>
                                 {text || 'N/A'}
                             </Typography.Text>
-                        </div>
-                    </>
+                        </StatusButton>
+                    </StatusContainer>
                 );
             },
         },

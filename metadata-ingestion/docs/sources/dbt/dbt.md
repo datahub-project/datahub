@@ -179,5 +179,34 @@ The connector will produce the following things:
 #### Viewing timeline for a failed dbt test
 ![test view](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/dbt-tests-failure-view.png)
 
+#### Separating test result emission from other metadata emission
+
+You can segregate emission of test results from the emission of other dbt metadata using the `entities_enabled` config flag.
+The following recipe shows you how to emit only test results.
+
+```yaml
+source:
+  type: dbt
+  config:
+    manifest_path: _path_to_manifest_json
+    catalog_path: _path_to_catalog_json
+    test_results_path: _path_to_run_results_json
+    target_platform: postgres
+    entities_enabled:
+      test_results: Only
+```
+
+Similarly, the following recipe shows you how to emit everything (i.e. models, sources, seeds, test definitions) but not test results:
+```yaml
+source:
+  type: dbt
+  config:
+    manifest_path: _path_to_manifest_json
+    catalog_path: _path_to_catalog_json
+    run_results_path: _path_to_run_results_json
+    target_platform: postgres
+    entities_enabled:
+      test_results: No
+```
 
 
