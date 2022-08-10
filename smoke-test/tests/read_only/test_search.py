@@ -1,5 +1,4 @@
 import pytest
-import requests
 
 from tests.test_result_msg import add_datahub_stats
 from tests.utils import get_frontend_url, get_gms_url
@@ -9,9 +8,9 @@ restli_default_headers = {
 }
 
 
-def _get_search_result(entity: str):
+def _get_search_result(frontend_session, entity: str):
     json = {"input": "*", "entity": entity, "start": 0, "count": 1}
-    response = requests.post(
+    response = frontend_session.post(
         f"{get_gms_url()}/entities?action=search",
         headers=restli_default_headers,
         json=json,
@@ -58,7 +57,7 @@ def _get_search_result(entity: str):
     ],
 )
 def test_search_works(frontend_session, entity_type, api_name):
-    search_result = _get_search_result(entity_type)
+    search_result = _get_search_result(frontend_session, entity_type)
     num_entities = search_result["numEntities"]
     add_datahub_stats(f"num-{entity_type}", num_entities)
     if num_entities == 0:
