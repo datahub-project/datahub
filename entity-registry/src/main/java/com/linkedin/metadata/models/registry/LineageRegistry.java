@@ -92,11 +92,13 @@ public class LineageRegistry {
 
   public Set<String> getEntitiesWithLineageToEntityType(String entityType) {
     Map<String, EntitySpec> specs = _entityRegistry.getEntitySpecs();
-    return Streams.concat(
-        _lineageSpecMap.get(entityType.toLowerCase()).getDownstreamEdges().stream(),
-        _lineageSpecMap.get(entityType.toLowerCase()).getUpstreamEdges().stream()
-    ).map(EdgeInfo::getOpposingEntityType)
-    .map(entity -> specs.get(entity.toLowerCase()).getName()).collect(Collectors.toSet());
+    Set<String> result = Streams.concat(_lineageSpecMap.get(entityType.toLowerCase()).getDownstreamEdges().stream(),
+            _lineageSpecMap.get(entityType.toLowerCase()).getUpstreamEdges().stream())
+        .map(EdgeInfo::getOpposingEntityType)
+        .map(entity -> specs.get(entity.toLowerCase()).getName())
+        .collect(Collectors.toSet());
+    result.add(entityType);
+    return result;
   }
 
   public List<EdgeInfo> getLineageRelationships(String entityName, LineageDirection direction) {
