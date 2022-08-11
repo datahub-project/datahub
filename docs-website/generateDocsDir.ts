@@ -422,7 +422,9 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
   });
 
   // We only embed release notes for releases in the last 3 months.
-  const release_notes_date_cutoff = new Date(Date.now() - 1000 * 60 * 60 * 24 * 30 * 3);
+  const release_notes_date_cutoff = new Date(
+    Date.now() - 1000 * 60 * 60 * 24 * 30 * 3
+  );
 
   // Construct a summary table.
   const releaseNoteVersions = new Set();
