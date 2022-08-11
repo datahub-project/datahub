@@ -150,7 +150,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
-        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{\\\"category\\\": \\\"catA\\\"}\"}, \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:5a5b1fff816b55d4a0808da615d5807c\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres-blue,postgres1.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\", \"datasource_name\": \"my_postgresql_datasource\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"actualAggValue\": 5, \"nativeResults\": {\"observed_value\": \"5\"}}}",
+        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{\\\"category\\\": \\\"catA\\\"}\"}, \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:5a5b1fff816b55d4a0808da615d5807c\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres-blue,postgres1.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\", \"datasource_name\": \"my_postgresql_datasource\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"actualAggValue\": 3, \"nativeResults\": {\"observed_value\": \"3\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -189,7 +189,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
-        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{\\\"category\\\": \\\"catA\\\"}\"}, \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:275968fc5111c35149ac48205b3ff5a8\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres-blue,postgres1.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\", \"datasource_name\": \"my_postgresql_datasource\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"rowCount\": 5, \"unexpectedCount\": 0, \"nativeResults\": {}}}",
+        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{\\\"category\\\": \\\"catA\\\"}\"}, \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:275968fc5111c35149ac48205b3ff5a8\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres-blue,postgres1.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\", \"datasource_name\": \"my_postgresql_datasource\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"rowCount\": 3, \"unexpectedCount\": 0, \"nativeResults\": {}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -306,7 +306,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
-        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{\\\"category\\\": \\\"catB\\\"}\"}, \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:de03510e898756b069b811456d9a3ea1\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres-blue,postgres1.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\", \"datasource_name\": \"my_postgresql_datasource\"}, \"nativeBatchId\": \"aaee0c1f4ae6bba9bcb50c5f20277d0a\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"actualAggValue\": 1, \"nativeResults\": {\"observed_value\": \"1\"}}}",
+        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{\\\"category\\\": \\\"catB\\\"}\"}, \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:de03510e898756b069b811456d9a3ea1\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres-blue,postgres1.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\", \"datasource_name\": \"my_postgresql_datasource\"}, \"nativeBatchId\": \"aaee0c1f4ae6bba9bcb50c5f20277d0a\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"actualAggValue\": 3, \"nativeResults\": {\"observed_value\": \"3\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -345,7 +345,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
-        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{\\\"category\\\": \\\"catB\\\"}\"}, \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:5a5b1fff816b55d4a0808da615d5807c\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres-blue,postgres1.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\", \"datasource_name\": \"my_postgresql_datasource\"}, \"nativeBatchId\": \"aaee0c1f4ae6bba9bcb50c5f20277d0a\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"actualAggValue\": 5, \"nativeResults\": {\"observed_value\": \"5\"}}}",
+        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{\\\"category\\\": \\\"catB\\\"}\"}, \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:5a5b1fff816b55d4a0808da615d5807c\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres-blue,postgres1.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\", \"datasource_name\": \"my_postgresql_datasource\"}, \"nativeBatchId\": \"aaee0c1f4ae6bba9bcb50c5f20277d0a\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"actualAggValue\": 2, \"nativeResults\": {\"observed_value\": \"2\"}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
@@ -384,7 +384,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
-        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{\\\"category\\\": \\\"catB\\\"}\"}, \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:275968fc5111c35149ac48205b3ff5a8\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres-blue,postgres1.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\", \"datasource_name\": \"my_postgresql_datasource\"}, \"nativeBatchId\": \"aaee0c1f4ae6bba9bcb50c5f20277d0a\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"rowCount\": 5, \"unexpectedCount\": 0, \"nativeResults\": {}}}",
+        "value": "{\"timestampMillis\": 1640692800000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{\\\"category\\\": \\\"catB\\\"}\"}, \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:275968fc5111c35149ac48205b3ff5a8\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:postgres-blue,postgres1.public.foo1,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\", \"datasource_name\": \"my_postgresql_datasource\"}, \"nativeBatchId\": \"aaee0c1f4ae6bba9bcb50c5f20277d0a\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"rowCount\": 2, \"unexpectedCount\": 0, \"nativeResults\": {}}}",
         "contentType": "application/json"
     },
     "systemMetadata": null
