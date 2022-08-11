@@ -292,23 +292,23 @@ class AzureADSource(Source):
                     self.report.report_workunit(wu)
                     yield wu
 
-                group_origin_mcp = MetadataChangeProposalWrapper(
-                    entityType="corpGroup",
-                    entityUrn=datahub_corp_group_snapshot.urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="origin",
-                    aspect=OriginClass(OriginTypeClass.EXTERNAL, "AZURE_AD"),
-                )
-                group_origin_wu_id = (
-                    f"group-origin-{group_count + 1}"
-                    if self.config.mask_group_id
-                    else datahub_corp_group_snapshot.urn
-                )
-                group_origin_wu = MetadataWorkUnit(
-                    id=group_origin_wu_id, mcp=group_origin_mcp
-                )
-                self.report.report_workunit(group_origin_wu)
-                yield group_origin_wu
+                    group_origin_mcp = MetadataChangeProposalWrapper(
+                        entityType="corpGroup",
+                        entityUrn=datahub_corp_group_snapshot.urn,
+                        changeType=ChangeTypeClass.UPSERT,
+                        aspectName="origin",
+                        aspect=OriginClass(OriginTypeClass.EXTERNAL, "AZURE_AD"),
+                    )
+                    group_origin_wu_id = (
+                        f"group-origin-{group_count + 1}"
+                        if self.config.mask_group_id
+                        else datahub_corp_group_snapshot.urn
+                    )
+                    group_origin_wu = MetadataWorkUnit(
+                        id=group_origin_wu_id, mcp=group_origin_mcp
+                    )
+                    self.report.report_workunit(group_origin_wu)
+                    yield group_origin_wu
 
         # Populate GroupMembership Aspects for CorpUsers
         datahub_corp_user_urn_to_group_membership: Dict[

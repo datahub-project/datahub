@@ -15,6 +15,8 @@ from tests.utils import (
     get_sleep_info,
     ingest_file_via_rest,
     wait_for_healthcheck_util,
+    get_frontend_session,
+    get_admin_credentials,
 )
 
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
@@ -44,16 +46,7 @@ def test_healthchecks(wait_for_healthchecks):
 
 @pytest.fixture(scope="session")
 def frontend_session(wait_for_healthchecks):
-    session = requests.Session()
-
-    headers = {
-        "Content-Type": "application/json",
-    }
-    data = '{"username":"datahub", "password":"datahub"}'
-    response = session.post(f"{get_frontend_url()}/logIn", headers=headers, data=data)
-    response.raise_for_status()
-
-    yield session
+    yield get_frontend_session()
 
 
 @tenacity.retry(
@@ -1306,7 +1299,8 @@ def test_native_user_endpoints(frontend_session):
     headers = {
         "Content-Type": "application/json",
     }
-    root_login_data = '{"username":"datahub", "password":"datahub"}'
+    username, password = get_admin_credentials()
+    root_login_data = '{"username":"' + username + '", "password":"' + password + '"}'
     frontend_session.post(
         f"{get_frontend_url()}/logIn", headers=headers, data=root_login_data
     )
