@@ -3,6 +3,7 @@ import itertools
 import json
 import logging
 import uuid
+import weakref
 from typing import Any, Dict, Iterable, List, Optional
 
 import click
@@ -145,6 +146,7 @@ class Pipeline:
             pipeline_name=self.config.pipeline_name,
             dry_run=dry_run,
             preview_mode=preview_mode,
+            owning_pipeline=weakref.proxy(self),
         )
         self.pipeline_init_failures = None
         self.pipeline_init_exception = None

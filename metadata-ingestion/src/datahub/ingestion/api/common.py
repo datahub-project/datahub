@@ -1,10 +1,13 @@
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
-from typing import Dict, Generic, Iterable, Optional, Tuple, TypeVar
+from typing import TYPE_CHECKING, Dict, Generic, Iterable, Optional, Tuple, TypeVar
 
 from datahub.emitter.mce_builder import set_dataset_urn_to_lower
 from datahub.ingestion.api.committable import Committable
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+
+if TYPE_CHECKING:
+    from datahub.ingestion.run.pipeline import Pipeline
 
 T = TypeVar("T")
 
@@ -49,6 +52,7 @@ class PipelineContext:
         pipeline_name: Optional[str] = None,
         dry_run: bool = False,
         preview_mode: bool = False,
+        owning_pipeline: Optional["Pipeline"] = None,
     ) -> None:
         self.run_id = run_id
         self.graph = DataHubGraph(datahub_api) if datahub_api is not None else None
@@ -58,6 +62,7 @@ class PipelineContext:
         self.reporters: Dict[str, Committable] = {}
         self.checkpointers: Dict[str, Committable] = {}
         self._set_dataset_urn_to_lower_if_needed()
+        self.owning_pipeline = owning_pipeline
 
     def _set_dataset_urn_to_lower_if_needed(self) -> None:
         # TODO: Get rid of this function once lower-casing is the standard.
