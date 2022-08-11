@@ -4,7 +4,7 @@ import * as QueryString from 'query-string';
 import { useTheme } from 'styled-components';
 import { SearchHeader } from './SearchHeader';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { EntityType } from '../../types.generated';
+import { EntityType, FacetFilterInput } from '../../types.generated';
 import {
     GetAutoCompleteMultipleResultsQuery,
     useGetAutoCompleteMultipleResultsLazyQuery,
@@ -12,6 +12,7 @@ import {
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import analytics, { EventType } from '../analytics';
+import useFilters from './utils/useFilters';
 
 const styles = {
     children: {
@@ -39,6 +40,7 @@ const defaultProps = {
 export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) => {
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+    const filters: Array<FacetFilterInput> = useFilters(params);
     const currentQuery: string = decodeURIComponent(params.query ? (params.query as string) : '');
 
     const history = useHistory();
@@ -69,6 +71,7 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
         navigateToSearchUrl({
             type,
             query,
+            filters,
             history,
         });
     };

@@ -3,6 +3,7 @@ import { setFieldValueOnRecipe, setListValuesOnRecipe } from '../common';
 describe('setFieldValueOnRecipe', () => {
     const accountIdFieldPath = 'source.config.account_id';
     const profilingEnabledFieldPath = 'source.config.profiling.enabled';
+    const dottedFieldPath = ['source', 'config', 'profiling', 'enabled.test'];
 
     it('should set the field value on a recipe object when it was not defined', () => {
         const recipe = { source: { config: {} } };
@@ -62,6 +63,28 @@ describe('setFieldValueOnRecipe', () => {
         const recipe = { source: { config: { test: 'test', profiling: { enabled: true, testing: 'hello' } } } };
         const updatedRecipe = setFieldValueOnRecipe(recipe, null, 'source.config.profiling.testing');
         expect(updatedRecipe).toMatchObject({ source: { config: { test: 'test', profiling: { enabled: true } } } });
+    });
+
+    it('should set the field when the key is a dotted value', () => {
+        const recipe = { source: { config: { test: 'test', profiling: { 'enabled.test': true } } } };
+        const updatedRecipe = setFieldValueOnRecipe(recipe, false, dottedFieldPath);
+        expect(updatedRecipe).toMatchObject({
+            source: { config: { test: 'test', profiling: { 'enabled.test': false } } },
+        });
+    });
+
+    it('should clear the dotted field and its parent when passing in null and field is only child of parent', () => {
+        const recipe = { source: { config: { test: 'test', profiling: { 'enabled.test': true } } } };
+        const updatedRecipe = setFieldValueOnRecipe(recipe, null, dottedFieldPath);
+        expect(updatedRecipe).toMatchObject({
+            source: { config: { test: 'test' } },
+        });
+    });
+
+    it('should clear the dotted field but not its parent when passing in null and parent has other children', () => {
+        const recipe = { source: { config: { test: 'test', profiling: { 'enabled.test': true, testing: 'this' } } } };
+        const updatedRecipe = setFieldValueOnRecipe(recipe, null, dottedFieldPath);
+        expect(updatedRecipe).toMatchObject({ source: { config: { test: 'test', profiling: { testing: 'this' } } } });
     });
 });
 
