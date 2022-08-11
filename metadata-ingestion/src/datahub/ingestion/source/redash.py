@@ -10,6 +10,7 @@ from pydantic.fields import Field
 from redash_toolbelt import Redash
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+from packaging import version
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -83,6 +84,7 @@ REDASH_DATA_SOURCE_TO_DATAHUB_MAP = {
     "results": {"platform": "external", "db_name_key": "name"},
 }
 
+REDASH_VERSION_V9 = "9.0.0-beta"
 
 # We assume the default chart type is TABLE
 DEFAULT_VISUALIZATION_TYPE = ChartTypeClass.TABLE
@@ -533,7 +535,7 @@ class RedashSource(Source):
 
         return chart_urns
 
-    def _get_dashboard_snapshot(self, dashboard_data):
+    def _get_dashboard_snapshot(self, dashboard_data, redash_version):
         dashboard_id = dashboard_data["id"]
         dashboard_urn = f"urn:li:dashboard:({self.platform},{dashboard_id})"
         dashboard_snapshot = DashboardSnapshot(
@@ -552,7 +554,10 @@ class RedashSource(Source):
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
 
-        dashboard_url = f"{self.config.connect_uri}/dashboards/{dashboard_data.get('id')}-{dashboard_data.get('slug', '')}"
+        if version.parse(redash_version) > version.parse(REDASH_VERSION_V9):
+            dashboard_url = f"{self.config.connect_uri}/dashboards/{dashboard_data.get('id')}"
+        else:
+            dashboard_url = f"{self.config.connect_uri}/dashboard/{dashboard_data.get('slug', '')}"
 
         widgets = dashboard_data.get("widgets", [])
         description = self._get_dashboard_description_from_widgets(widgets)
@@ -604,8 +609,15 @@ class RedashSource(Source):
                     # people in community are using Redash connector successfully
                     dashboard_slug = dashboard_response["slug"]
                     dashboard_data = self.client.dashboard(dashboard_slug)
+                try:
+                    redash_version = self.client._get(
+                        "status.json"
+                    ).json()['version']
+                except Exception:
+                    redash_version = REDASH_VERSION_V9
+
                 logger.debug(dashboard_data)
-                dashboard_snapshot = self._get_dashboard_snapshot(dashboard_data)
+                dashboard_snapshot = self._get_dashboard_snapshot(dashboard_data, redash_version)
                 mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
                 wu = MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
                 self.report.report_workunit(wu)
@@ -726,7 +738,6 @@ class RedashSource(Source):
             for query_response in queries_response["results"]:
                 chart_name = query_response["name"]
                 self.report.report_item_scanned()
-
                 if (not self.config.chart_patterns.allowed(chart_name)) or (
                     self.config.skip_draft and query_response["is_draft"]
                 ):
