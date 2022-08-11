@@ -38,6 +38,6 @@ public class TestS3UriMatching {
 
   @Test
   public void testS3UriMatching() {
-    Assert.assertEquals(matchedUri, S3Dataset.getMatchedUri(PATH, pathSpec));
+    Assert.assertEquals(matchedUri, PathUriNormalizationUtil.getMatchedUri(PATH, pathSpec));
   }
 }
