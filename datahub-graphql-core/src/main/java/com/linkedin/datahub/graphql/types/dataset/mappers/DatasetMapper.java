@@ -42,8 +42,6 @@ import com.linkedin.schema.SchemaMetadata;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Set;
-
 import static com.linkedin.metadata.Constants.*;
 
 
