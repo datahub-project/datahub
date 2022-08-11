@@ -19,13 +19,9 @@ import { EMPTY_MESSAGES, ANTD_GRAY } from '../../entity/shared/constants';
 import { useRemoveTagMutation, useRemoveTermMutation } from '../../../graphql/mutations.generated';
 import { DomainLink } from './DomainLink';
 import { TagProfileDrawer } from './TagProfileDrawer';
-<<<<<<< HEAD
 import { useAcceptProposalMutation, useRejectProposalMutation } from '../../../graphql/actionRequest.generated';
 import ProposalModal from './ProposalModal';
-import AddTagsTermsModal from './AddTagsTermsModal';
-=======
 import EditTagTermsModal from './AddTagsTermsModal';
->>>>>>> master
 
 const PropagateThunderbolt = styled(ThunderboltOutlined)`
     color: rgba(0, 143, 100, 0.95);
@@ -451,6 +447,7 @@ export default function TagTermGroup({
                         },
                     ]}
                     entityType={entityType}
+                    showPropose={entityType === EntityType.Dataset}
                 />
             )}
         </>

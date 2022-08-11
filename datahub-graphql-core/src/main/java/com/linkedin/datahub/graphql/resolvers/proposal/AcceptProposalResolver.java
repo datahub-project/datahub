@@ -12,6 +12,8 @@ import com.linkedin.datahub.graphql.generated.ActionRequest;
 import com.linkedin.datahub.graphql.generated.ActionRequestResult;
 import com.linkedin.datahub.graphql.generated.ActionRequestStatus;
 import com.linkedin.datahub.graphql.generated.ActionRequestType;
+import com.linkedin.datahub.graphql.generated.ResourceRefInput;
+import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ActionRequestUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.entity.Entity;
@@ -75,7 +77,11 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
           }
           Urn tagUrn = Urn.createFromString(proposal.getParams().getTagProposal().getTag().getUrn());
           Urn targetUrn = Urn.createFromString(proposal.getEntity().getUrn());
-          LabelUtils.addTagsToTarget(ImmutableList.of(tagUrn), targetUrn, subResource, actor, _entityService);
+          LabelUtils.addTagsToResources(
+              ImmutableList.of(tagUrn),
+              ImmutableList.of(new ResourceRefInput(targetUrn.toString(), SubResourceType.valueOf(proposal.getSubResourceType()), proposal.getSubResource())),
+              actor,
+              _entityService);
           ProposalUtils.deleteTagFromEntityOrSchemaProposalsAspect(actor, tagUrn, targetUrn, subResource,
               _entityService);
         } else if (proposal.getType().equals(ActionRequestType.TERM_ASSOCIATION)) {
@@ -86,7 +92,11 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
           }
           Urn termUrn = Urn.createFromString(proposal.getParams().getGlossaryTermProposal().getGlossaryTerm().getUrn());
           Urn targetUrn = Urn.createFromString(proposal.getEntity().getUrn());
-          LabelUtils.addTermsToTarget(ImmutableList.of(termUrn), targetUrn, subResource, actor, _entityService);
+          LabelUtils.addTermsToResources(
+              ImmutableList.of(termUrn),
+              ImmutableList.of(new ResourceRefInput(targetUrn.toString(), SubResourceType.valueOf(proposal.getSubResourceType()), proposal.getSubResource())),
+              actor,
+              _entityService);
           ProposalUtils.deleteTermFromEntityOrSchemaProposalsAspect(actor, termUrn, targetUrn, subResource,
               _entityService);
         } else if (proposal.getType().equals(ActionRequestType.CREATE_GLOSSARY_NODE)) {

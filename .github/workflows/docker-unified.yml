@@ -79,7 +79,6 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_GMS_IMAGE }}
-<<<<<<< HEAD
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
@@ -115,12 +114,6 @@ jobs:
         uses: docker/build-push-action@v2
         if: ${{ needs.setup.outputs.publish == 'true' }}
         with:
-=======
-          tags: ${{ needs.setup.outputs.tag }}
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish }}
->>>>>>> master
           context: .
           file: ./docker/datahub-gms/Dockerfile
           platforms: linux/amd64,linux/arm64
@@ -142,14 +135,11 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
-<<<<<<< HEAD
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-west-2
-=======
 
->>>>>>> master
   mae_consumer_build:
     name: Build and Push DataHub MAE Consumer Docker Image
     runs-on: ubuntu-latest
@@ -167,7 +157,6 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}
-<<<<<<< HEAD
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
@@ -203,12 +192,6 @@ jobs:
         uses: docker/build-push-action@v2
         if: ${{ needs.setup.outputs.publish == 'true' }}
         with:
-=======
-          tags: ${{ needs.setup.outputs.tag }}
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish }}
->>>>>>> master
           context: .
           file: ./docker/datahub-mae-consumer/Dockerfile
           platforms: linux/amd64
@@ -230,14 +213,10 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
-<<<<<<< HEAD
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-west-2
-=======
-
->>>>>>> master
   mce_consumer_build:
     name: Build and Push DataHub MCE Consumer Docker Image
     runs-on: ubuntu-latest
@@ -255,7 +234,6 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}
-<<<<<<< HEAD
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
@@ -291,12 +269,6 @@ jobs:
         uses: docker/build-push-action@v2
         if: ${{ needs.setup.outputs.publish == 'true' }}
         with:
-=======
-          tags: ${{ needs.setup.outputs.tag }}
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish }}
->>>>>>> master
           context: .
           file: ./docker/datahub-mce-consumer/Dockerfile
           platforms: linux/amd64
@@ -318,14 +290,10 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
-<<<<<<< HEAD
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-west-2
-=======
-
->>>>>>> master
   datahub_upgrade_build:
     name: Build and Push DataHub Upgrade Docker Image
     runs-on: ubuntu-latest
@@ -343,7 +311,6 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_UPGRADE_IMAGE }}
-<<<<<<< HEAD
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
@@ -379,12 +346,6 @@ jobs:
         uses: docker/build-push-action@v2
         if: ${{ needs.setup.outputs.publish == 'true' }}
         with:
-=======
-          tags: ${{ needs.setup.outputs.tag }}
-          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish }}
->>>>>>> master
           context: .
           file: ./docker/datahub-upgrade/Dockerfile
           platforms: linux/amd64,linux/arm64
@@ -406,14 +367,10 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
-<<<<<<< HEAD
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-west-2
-=======
-
->>>>>>> master
   frontend_build:
     name: Build and Push DataHub Frontend Docker Image
     runs-on: ubuntu-latest
@@ -431,7 +388,6 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_FRONTEND_IMAGE }}
-<<<<<<< HEAD
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
@@ -467,12 +423,6 @@ jobs:
         uses: docker/build-push-action@v2
         if: ${{ needs.setup.outputs.publish == 'true' }}
         with:
-=======
-          tags: ${{ needs.setup.outputs.tag }}
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish }}
->>>>>>> master
           context: .
           file: ./docker/datahub-frontend/Dockerfile
           platforms: linux/amd64,linux/arm64
@@ -494,14 +444,10 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
-<<<<<<< HEAD
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-west-2
-=======
-
->>>>>>> master
   kafka_setup_build:
     name: Build and Push DataHub Kafka Setup Docker Image
     runs-on: ubuntu-latest
@@ -519,7 +465,6 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}
-<<<<<<< HEAD
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
@@ -555,12 +500,6 @@ jobs:
         uses: docker/build-push-action@v2
         if: ${{ needs.setup.outputs.publish == 'true' }}
         with:
-=======
-          tags: ${{ needs.setup.outputs.tag }}
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish }}
->>>>>>> master
           context: ./docker/kafka-setup
           file: ./docker/kafka-setup/Dockerfile
           platforms: linux/amd64,linux/arm64
@@ -582,7 +521,6 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}
-<<<<<<< HEAD
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
@@ -618,12 +556,6 @@ jobs:
         uses: docker/build-push-action@v2
         if: ${{ needs.setup.outputs.publish == 'true' }}
         with:
-=======
-          tags: ${{ needs.setup.outputs.tag }}
-          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish }}
->>>>>>> master
           context: .
           file: ./docker/mysql-setup/Dockerfile
           platforms: linux/amd64,linux/arm64
@@ -645,7 +577,6 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}
-<<<<<<< HEAD
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
@@ -681,12 +612,6 @@ jobs:
         uses: docker/build-push-action@v2
         if: ${{ needs.setup.outputs.publish == 'true' }}
         with:
-=======
-          tags: ${{ needs.setup.outputs.tag }}
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish }}
->>>>>>> master
           context: .
           file: ./docker/elasticsearch-setup/Dockerfile
           platforms: linux/amd64,linux/arm64

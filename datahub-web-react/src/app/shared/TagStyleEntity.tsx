@@ -17,12 +17,7 @@ import { useUpdateDescriptionMutation, useSetTagColorMutation } from '../../grap
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import analytics, { EventType, EntityActionType } from '../analytics';
 import { GetSearchResultsParams, SearchResultInterface } from '../entity/shared/components/styled/search/types';
-<<<<<<< HEAD
-import { AddOwnersModal } from '../entity/shared/containers/profile/sidebar/Ownership/AddOwnersModal';
-=======
 import { EditOwnersModal } from '../entity/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
-import CopyUrn from './CopyUrn';
->>>>>>> master
 import EntityDropdown from '../entity/shared/EntityDropdown';
 import { EntityMenuItems } from '../entity/shared/EntityDropdown/EntityDropdown';
 import CopyUrn from './CopyUrn';

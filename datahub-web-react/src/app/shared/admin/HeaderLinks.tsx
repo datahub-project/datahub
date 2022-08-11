@@ -59,8 +59,7 @@ export function HeaderLinks(props: Props) {
     const showSettings = true;
     const showIngestion =
         isIngestionEnabled && me && me.platformPrivileges.manageIngestion && me.platformPrivileges.manageSecrets;
-    const showDomains = me?.platformPrivileges?.manageDomains || false;
-    const showGlossary = me?.platformPrivileges?.manageGlossaries || false;
+
     // SaaS only
     const showActionRequests = (isActionRequestsEnabled && me && me.platformPrivileges.viewMetadataProposals) || false;
     const showTests = (isTestsEnabled && me?.platformPrivileges?.manageTests) || false;

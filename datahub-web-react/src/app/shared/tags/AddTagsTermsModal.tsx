@@ -3,7 +3,7 @@ import { message, Button, Modal, Select, Typography, Tag as CustomTag } from 'an
 import styled from 'styled-components';
 
 import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
-import { EntityType, Tag, Entity, ResourceRefInput } from '../../../types.generated';
+import { EntityType, Tag, Entity, ResourceRefInput, SubResourceType } from '../../../types.generated';
 import CreateTagModal from './CreateTagModal';
 import {
     useBatchAddTagsMutation,
@@ -34,6 +34,7 @@ type EditTagsModalProps = {
     entityType: EntityType;
     type?: EntityType;
     operationType?: OperationType;
+    showPropose?: boolean;
 };
 
 const TagSelect = styled(Select)`
@@ -81,6 +82,7 @@ export default function EditTagTermsModal({
     resources,
     type = EntityType.Tag,
     operationType = OperationType.ADD,
+    showPropose = false,
 }: EditTagsModalProps) {
     const entityRegistry = useEntityRegistry();
     const [inputValue, setInputValue] = useState('');
@@ -243,7 +245,6 @@ export default function EditTagTermsModal({
         setSelectedTags(selectedTags.filter((term) => term.urn !== urn));
     };
 
-<<<<<<< HEAD
     // SaaS-only: Propose tag or term.
     const onOkProposal = () => {
         let mutation: ((input: any) => Promise<any>) | null = null;
@@ -255,28 +256,29 @@ export default function EditTagTermsModal({
             mutation = proposeTermMutation;
         }
 
-        if (!entityUrn || !mutation) {
+        // Proposals only supported on a single entity as of today.
+        if (resources.length !== 1 || !mutation) {
             onCloseModal();
             return;
         }
 
-        setDisableAdd(true);
+        setDisableAction(true);
 
         let input = {};
         if (type === EntityType.Tag) {
             input = {
                 tagUrn: urns[0],
-                resourceUrn: entityUrn,
-                subResource: entitySubresource,
-                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
+                resourceUrn: resources[0].resourceUrn,
+                subResource: resources[0].subResource,
+                subResourceType: resources[0].subResource ? SubResourceType.DatasetField : null,
             };
         }
         if (type === EntityType.GlossaryTerm) {
             input = {
                 termUrn: urns[0],
-                resourceUrn: entityUrn,
-                subResource: entitySubresource,
-                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
+                resourceUrn: resources[0].resourceUrn,
+                subResource: resources[0].subResource,
+                subResourceType: resources[0].subResource ? SubResourceType.DatasetField : null,
             };
         }
 
@@ -303,68 +305,13 @@ export default function EditTagTermsModal({
                 });
             })
             .finally(() => {
-                setDisableAdd(false);
+                setDisableAction(false);
                 onCloseModal();
             });
     };
 
-    // Function to handle the modal action's
-    const onOk = () => {
-        let mutation: ((input: any) => Promise<any>) | null = null;
-        if (type === EntityType.Tag) {
-            mutation = addTagsMutation;
-        }
-        if (type === EntityType.GlossaryTerm) {
-            mutation = addTermsMutation;
-        }
-
-        if (!entityUrn || !mutation) {
-            onCloseModal();
-            return;
-        }
-        setDisableAdd(true);
-
-        let input = {};
-        let actionType = EntityActionType.UpdateSchemaTags;
-        if (type === EntityType.Tag) {
-            input = {
-                tagUrns: urns,
-                resourceUrn: entityUrn,
-                subResource: entitySubresource,
-                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
-            };
-            if (entitySubresource) {
-                actionType = EntityActionType.UpdateSchemaTags;
-            } else {
-                actionType = EntityActionType.UpdateTags;
-            }
-        }
-        if (type === EntityType.GlossaryTerm) {
-            input = {
-                termUrns: urns,
-                resourceUrn: entityUrn,
-                subResource: entitySubresource,
-                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
-            };
-            if (entitySubresource) {
-                actionType = EntityActionType.UpdateSchemaTerms;
-            } else {
-                actionType = EntityActionType.UpdateTerms;
-            }
-        }
-
-        analytics.event({
-            type: EventType.EntityActionEvent,
-            entityType,
-            entityUrn,
-            actionType,
-        });
-
-        mutation({
-=======
     const batchAddTags = () => {
         batchAddTagsMutation({
->>>>>>> master
             variables: {
                 input: {
                     tagUrns: urns,
@@ -534,10 +481,10 @@ export default function EditTagTermsModal({
                     <Button onClick={onCloseModal} type="text">
                         Cancel
                     </Button>
-                    {entityType === EntityType.Dataset && (
+                    {showPropose && (
                         <Button
                             onClick={() => onOkProposal()}
-                            disabled={urns.length === 0 || urns.length > 1 || disableAdd}
+                            disabled={urns.length === 0 || urns.length > 1 || disableAction}
                             data-testid="create-proposal-btn"
                         >
                             Propose

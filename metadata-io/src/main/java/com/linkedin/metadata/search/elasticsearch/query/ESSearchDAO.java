@@ -91,11 +91,12 @@ public class ESSearchDAO {
   @Nonnull
   @WithSpan
   private ScrollResult executeSearchScrollRequestAndExtract(@Nonnull EntitySpec entitySpec,
+      @Nullable Filter filters,
       @Nonnull SearchRequest searchRequest, int size) {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esSearch").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
-      SearchResult searchResult = SearchRequestHandler.getBuilder(entitySpec).extractResult(searchResponse, 0, size);
+      SearchResult searchResult = SearchRequestHandler.getBuilder(entitySpec).extractResult(searchResponse, filters, 0, size);
       return buildScrollResult(searchResult, searchResponse.getScrollId());
     } catch (Exception e) {
       if (e instanceof ElasticsearchStatusException) {
@@ -114,11 +115,12 @@ public class ESSearchDAO {
   @Nonnull
   @WithSpan
   private ScrollResult executeScrollRequestAndExtract(@Nonnull EntitySpec entitySpec,
+      @Nullable Filter filters,
       @Nonnull SearchScrollRequest searchScrollRequest, int size) {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esSearch").time()) {
       final SearchResponse searchResponse = client.scroll(searchScrollRequest, RequestOptions.DEFAULT);
       // extract results, validated against document model as well
-      SearchResult searchResult = SearchRequestHandler.getBuilder(entitySpec).extractResult(searchResponse, 0, size);
+      SearchResult searchResult = SearchRequestHandler.getBuilder(entitySpec).extractResult(searchResponse, filters, 0, size);
       return buildScrollResult(searchResult, searchResponse.getScrollId());
     } catch (Exception e) {
       if (e instanceof ElasticsearchStatusException) {
@@ -202,11 +204,11 @@ public class ESSearchDAO {
       final SearchRequest searchRequest =
           SearchRequestHandler.getBuilder(entitySpec).getScrollRequest(filters, sortCriterion, size, keepAliveDuration);
       searchRequest.indices(indexConvention.getIndexName(entitySpec));
-      return executeSearchScrollRequestAndExtract(entitySpec, searchRequest, size);
+      return executeSearchScrollRequestAndExtract(entitySpec, filters, searchRequest, size);
     }
     // Otherwise, use the scroll id to execute scroll request
     final SearchScrollRequest scrollRequest = new SearchScrollRequest(scrollId).scroll(keepAliveDuration);
-    return executeScrollRequestAndExtract(entitySpec, scrollRequest, size);
+    return executeScrollRequestAndExtract(entitySpec, filters, scrollRequest, size);
   }
 
   /**
