@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.EntityLineageResult;
+import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.models.registry.LineageRegistry;
@@ -108,22 +109,25 @@ public class ElasticSearchGraphService implements GraphService {
 
   @Nonnull
   public RelatedEntitiesResult findRelatedEntities(
-      @Nullable final String sourceType,
+      @Nullable final List<String> sourceTypes,
       @Nonnull final Filter sourceEntityFilter,
-      @Nullable final String destinationType,
+      @Nullable final  List<String> destinationTypes,
       @Nonnull final Filter destinationEntityFilter,
       @Nonnull final List<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter,
       final int offset,
       final int count) {
+    if (sourceTypes != null && sourceTypes.isEmpty() || destinationTypes != null && destinationTypes.isEmpty()) {
+      return new RelatedEntitiesResult(offset, 0, 0, Collections.emptyList());
+    }
 
     final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
     String destinationNode = relationshipDirection == RelationshipDirection.OUTGOING ? "destination" : "source";
 
     SearchResponse response = _graphReadDAO.getSearchResponse(
-        sourceType,
+        sourceTypes,
         sourceEntityFilter,
-        destinationType,
+        destinationTypes,
         destinationEntityFilter,
         relationshipTypes,
         relationshipFilter,
@@ -160,10 +164,12 @@ public class ElasticSearchGraphService implements GraphService {
   @Nonnull
   @WithSpan
   @Override
-  public EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction, int offset,
+  public EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction,
+      GraphFilters graphFilters,
+      int offset,
       int count, int maxHops) {
     ESGraphQueryDAO.LineageResponse lineageResponse =
-        _graphReadDAO.getLineage(entityUrn, direction, offset, count, maxHops);
+        _graphReadDAO.getLineage(entityUrn, direction, graphFilters, offset, count, maxHops);
     return new EntityLineageResult().setRelationships(
         new LineageRelationshipArray(lineageResponse.getLineageRelationships()))
         .setStart(offset)
