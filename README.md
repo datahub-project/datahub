@@ -58,10 +58,10 @@ HOSTED_DOCS_ONLY-->
 
 > ✨ Latest Update:
 >
-> - Read our Monthly Project Updates [here](https://blog.datahubproject.io/tagged/project-updates).
+> - Read our Monthly Project Updates: [here](https://blog.datahubproject.io/tagged/project-updates)
 > - Bringing The Power Of The DataHub Real-Time Metadata Graph To Everyone At Acryl Data: [Data Engineering Podcast](https://www.dataengineeringpodcast.com/acryl-data-datahub-metadata-graph-episode-230/)
 > - Unleashing Excellent DataOps with LinkedIn DataHub: [DataOps Unleashed Talk](https://www.youtube.com/watch?v=ccsIKK9nVxk).
-> - Latest blog post [DataHub: Popular Metadata Architectures Explained](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained) @ LinkedIn Engineering Blog.
+> - Latest blog post [DataHub: Popular Metadata Architectures Explained](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained) @ [LinkedIn Engineering blog post](https://engineering.linkedin.com/blog/2019/data-hub)
 > - We're on [Slack](docs/slack.md) now! Ask questions and keep up with the latest announcements.
 
 ## Introduction
@@ -105,7 +105,7 @@ We welcome contributions from the community. Please refer to our [Contributing G
 
 ### Extending
 
-If you need to understand how to extend our model with custom types, please see [Extending the Metadata Model](docs/modeling/extending-the-metadata-model.md)
+If you need to understand how to extend our model with custom types, please see [Extending the Metadata Model](docs/modeling/extending-the-metadata-model.md).
 
 ## Community
 
@@ -113,7 +113,7 @@ Join our [slack workspace](https://slack.datahubproject.io) for discussions and 
 
 ## Adoption
 
-Here are the companies that have officially adopted DataHub. Please feel free to add yours to the list if we missed it.
+Please feel free to add yours to the list if we missed it. Here are the companies that have officially adopted DataHub,
 
 - [Adevinta](https://www.adevinta.com/)
 - [Banksalad](https://www.banksalad.com)
@@ -147,7 +147,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [DataHub Blog](https://blog.datahubproject.io/)
 - [DataHub YouTube Channel](https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w)
 - [Saxo Bank: Enabling Data Discovery in Data Mesh](https://medium.com/datahub-project/enabling-data-discovery-in-a-data-mesh-the-saxo-journey-451b06969c8f)
-- Bringing The Power Of The DataHub Real-Time Metadata Graph To Everyone At Acryl Data: [Data Engineering Podcast](https://www.dataengineeringpodcast.com/acryl-data-datahub-metadata-graph-episode-230/)
+- [Bringing The Power Of The DataHub Real-Time Metadata Graph To Everyone At Acryl Data](https://www.dataengineeringpodcast.com/acryl-data-datahub-metadata-graph-episode-230/)
 - [DataHub: Popular Metadata Architectures Explained](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained)
 - [Driving DataOps Culture with LinkedIn DataHub](https://www.youtube.com/watch?v=ccsIKK9nVxk) @ [DataOps Unleashed 2021](https://dataopsunleashed.com/#shirshanka-session)
 - [The evolution of metadata: LinkedIn’s story](https://speakerdeck.com/shirshanka/the-evolution-of-metadata-linkedins-journey-strata-nyc-2019) @ [Strata Data Conference 2019](https://conferences.oreilly.com/strata/strata-ny-2019.html)
