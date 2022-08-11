@@ -39,7 +39,6 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.elasticsearch.search.aggregations.bucket.terms.IncludeExclude;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -247,18 +246,6 @@ public class ESBrowseDAO {
   }
 
   /**
-   * Check if there are any paths that extends the matchedPath signifying that the path does not point to an entity
-   */
-  private boolean validateBucket(@Nonnull MultiBucketsAggregation.Bucket bucket) {
-    final ParsedTerms groups = bucket.getAggregations().get(ALL_PATHS);
-    final String matchedPath = bucket.getKeyAsString();
-    return groups.getBuckets()
-        .stream()
-        .map(MultiBucketsAggregation.Bucket::getKeyAsString)
-        .anyMatch(bucketPath -> (bucketPath.startsWith(matchedPath)));
-  }
-
-  /**
    * Extracts entity search response into list of browse result entities.
    *
    * @param entitiesResponse entity search response
@@ -272,7 +259,7 @@ public class ESBrowseDAO {
     Arrays.stream(entitiesResponse.getHits().getHits()).forEach(hit -> {
       try {
         final List<String> allPaths = (List<String>) hit.getSourceAsMap().get(BROWSE_PATH);
-         entityMetadataArray.add(new BrowseResultEntity().setName("")
+         entityMetadataArray.add(new BrowseResultEntity().setName((String) hit.getSourceAsMap().get(URN))
             .setUrn(Urn.createFromString((String) hit.getSourceAsMap().get(URN))));
       } catch (URISyntaxException e) {
         log.error("URN is not valid: " + e.toString());
@@ -282,7 +269,7 @@ public class ESBrowseDAO {
   }
 
   /**
-   * Extracts the name of group/entity from path.
+   * Extracts the name of group from path.
    *
    * <p>Example: /foo/bar/baz => baz
    *
@@ -292,17 +279,6 @@ public class ESBrowseDAO {
   @Nonnull
   private String getSimpleName(@Nonnull String path) {
     return path.substring(path.lastIndexOf('/') + 1);
-  }
-
-  @VisibleForTesting
-  @Nullable
-  static String getNextLevelPath(@Nonnull List<String> paths, @Nonnull String currentPath) {
-    final String normalizedCurrentPath = currentPath.toLowerCase();
-    final int pathDepth = getPathDepth(currentPath);
-    return paths.stream()
-        .filter(x -> x.toLowerCase().startsWith(normalizedCurrentPath))
-        .findFirst()
-        .orElse(null);
   }
 
   private static int getPathDepth(@Nonnull String path) {
