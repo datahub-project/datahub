@@ -74,8 +74,8 @@ class DataLakeProfilerConfig(ConfigModel):
         description="Whether to perform profiling at table-level only or include column-level profiling as well.",
     )
 
-    _allow_deny_patterns: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(), description=""
+    _allow_deny_patterns: AllowDenyPattern = pydantic.PrivateAttr(
+        default=AllowDenyPattern.allow_all()
     )
 
     max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = Field(
