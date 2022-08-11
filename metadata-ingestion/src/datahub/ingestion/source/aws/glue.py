@@ -497,8 +497,7 @@ class GlueSource(Source):
             # in nodes. this may lead to broken edge in lineage.
             if source_node is None or target_node is None:
                 logger.warning(
-                    flow_urn,
-                    f"Unrecognized source or target node in edge: {edge}. Skipping.\
+                    f"{flow_urn}: Unrecognized source or target node in edge: {edge}. Skipping.\
                         This may lead to broken edge in lineage",
                 )
                 continue
@@ -1045,6 +1044,10 @@ class GlueSource(Source):
             )
 
         def get_s3_tags() -> Optional[GlobalTagsClass]:
+            # when TableType=VIRTUAL_VIEW the Location can be empty and we should
+            # return no tags rather than fail the entire ingestion
+            if table.get("StorageDescriptor", {}).get("Location") is None:
+                return None
             bucket_name = s3_util.get_bucket_name(
                 table["StorageDescriptor"]["Location"]
             )

@@ -3,6 +3,11 @@ extend type Query {
     Returns the most recent changes made to each column in a dataset at each dataset version.
     """
     getSchemaBlame(input: GetSchemaBlameInput!): GetSchemaBlameResult
+
+    """
+    Returns the list of schema versions for a dataset.
+    """
+    getSchemaVersionList(input: GetSchemaVersionListInput!): GetSchemaVersionListResult
 }
 
 """
@@ -50,27 +55,19 @@ enum ChangeCategoryType {
 }
 
 """
-Input for getting schema changes computed at a specific version.
+Input for getting list of schema versions.
 """
-input GetSchemaBlameInput {
+input GetSchemaVersionListInput {
     """
     The dataset urn
     """
     datasetUrn: String!
-    """
-    Categories to filter on. By default, will just be TECHNICAL_SCHEMA.
-    """
-    categories: [ChangeCategoryType!]
-    """
-    Changes after this version are not shown. If not provided, this is the latestVersion.
-    """
-    version: String
 }
 
 """
 Schema changes computed at a specific version.
 """
-type GetSchemaBlameResult {
+type GetSchemaVersionListResult {
     """
     Latest and current semantic version
     """
@@ -83,6 +80,31 @@ type GetSchemaBlameResult {
     All semantic versions. Absent when there are no versions.
     """
     semanticVersionList: [SemanticVersionStruct!]
+}
+
+
+"""
+Input for getting schema changes computed at a specific version.
+"""
+input GetSchemaBlameInput {
+    """
+    The dataset urn
+    """
+    datasetUrn: String!
+    """
+    Changes after this version are not shown. If not provided, this is the latestVersion.
+    """
+    version: String
+}
+
+"""
+Schema changes computed at a specific version.
+"""
+type GetSchemaBlameResult {
+    """
+    Selected semantic version
+    """
+    version: SemanticVersionStruct
     """
     List of schema blame. Absent when there are no fields to return history for.
     """

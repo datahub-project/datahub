@@ -16,13 +16,6 @@ import com.linkedin.metadata.resources.entity.AspectUtils;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.ArrayUtils;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
@@ -31,11 +24,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.lang.ArrayUtils;
 
-import static com.datahub.authentication.token.TokenClaims.ACTOR_ID_CLAIM_NAME;
-import static com.datahub.authentication.token.TokenClaims.ACTOR_TYPE_CLAIM_NAME;
-import static com.datahub.authentication.token.TokenClaims.TOKEN_TYPE_CLAIM_NAME;
-import static com.datahub.authentication.token.TokenClaims.TOKEN_VERSION_CLAIM_NAME;
+import static com.datahub.authentication.token.TokenClaims.*;
 
 
 /**
@@ -48,7 +43,6 @@ public class StatefulTokenService extends StatelessTokenService {
   private final EntityService _entityService;
   private final LoadingCache<String, Boolean> _revokedTokenCache;
   private final String salt;
-  private final MessageDigest sha256;
 
   public StatefulTokenService(@Nonnull final String signingKey, @Nonnull final String signingAlgorithm,
       @Nullable final String iss, @Nonnull final EntityService entityService, @Nonnull final String salt) {
@@ -65,11 +59,6 @@ public class StatefulTokenService extends StatelessTokenService {
           }
         });
     this.salt = salt;
-    try {
-      this.sha256 = MessageDigest.getInstance("SHA-256");
-    } catch (NoSuchAlgorithmException e) {
-      throw new RuntimeException("Unable to get SHA-256 algorithm.");
-    }
   }
 
   /**
@@ -94,12 +83,13 @@ public class StatefulTokenService extends StatelessTokenService {
 
   @Nonnull
   public String generateAccessToken(@Nonnull final TokenType type, @Nonnull final Actor actor,
-      @Nonnull final long expiresInMs, @Nonnull final long createdAtInMs, @Nonnull final String tokenName,
+      @Nullable final Long expiresInMs, @Nonnull final long createdAtInMs, @Nonnull final String tokenName,
       @Nullable final String tokenDescription, final String actorUrn) {
 
     Objects.requireNonNull(type);
     Objects.requireNonNull(actor);
     Objects.requireNonNull(tokenName);
+
     Map<String, Object> claims = new HashMap<>();
     // Only stateful token service generates v2 tokens.
     claims.put(TOKEN_VERSION_CLAIM_NAME, String.valueOf(TokenVersion.TWO.numericValue));
@@ -125,8 +115,9 @@ public class StatefulTokenService extends StatelessTokenService {
     value.setActorUrn(UrnUtils.getUrn(actor.toUrnStr()));
     value.setOwnerUrn(UrnUtils.getUrn(actorUrn));
     value.setCreatedAt(createdAtInMs);
-    value.setExpiresAt(createdAtInMs + expiresInMs);
-
+    if (expiresInMs != null) {
+      value.setExpiresAt(createdAtInMs + expiresInMs);
+    }
     proposal.setEntityType(Constants.ACCESS_TOKEN_ENTITY_NAME);
     proposal.setAspectName(Constants.ACCESS_TOKEN_INFO_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(value));
@@ -161,7 +152,7 @@ public class StatefulTokenService extends StatelessTokenService {
       this.revokeAccessToken(hash(accessToken));
       throw e;
     } catch (final ExecutionException e) {
-      throw new TokenException("Failed to validate DataHub token: Unable to load token information from store");
+      throw new TokenException("Failed to validate DataHub token: Unable to load token information from store", e);
     }
   }
 
@@ -174,17 +165,9 @@ public class StatefulTokenService extends StatelessTokenService {
         return;
       }
     } catch (ExecutionException e) {
-      throw new TokenException("Failed to validate DataHub token from cache");
+      throw new TokenException("Failed to validate DataHub token from cache", e);
     }
     throw new TokenException("Access token no longer exists");
-  }
-
-  public boolean isTokenRevoked(@Nonnull String hashToken) {
-    try {
-      return _revokedTokenCache.get(hashToken);
-    } catch (ExecutionException e) {
-      return false;
-    }
   }
 
   /**
@@ -194,7 +177,7 @@ public class StatefulTokenService extends StatelessTokenService {
     final byte[] saltingKeyBytes = this.salt.getBytes();
     final byte[] inputBytes = input.getBytes();
     final byte[] concatBytes = ArrayUtils.addAll(inputBytes, saltingKeyBytes);
-    final byte[] bytes = sha256.digest(concatBytes);
+    final byte[] bytes = DigestUtils.sha256(concatBytes);
     return Base64.getEncoder().encodeToString(bytes);
   }
 }

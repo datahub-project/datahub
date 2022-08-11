@@ -1,16 +1,18 @@
 package com.linkedin.metadata.resources.entity;
 
 import com.codahale.metrics.MetricRegistry;
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationContext;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ValidationException;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.restli.RestliUtil;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.parseq.Task;
@@ -34,6 +36,7 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
+import static com.linkedin.metadata.resources.entity.ResourceUtils.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 
 
@@ -59,6 +62,10 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   @Inject
   @Named("entityService")
   private EntityService _entityService;
+
+  @Inject
+  @Named("entitySearchService")
+  private EntitySearchService _entitySearchService;
 
   @Inject
   @Named("timeseriesAspectService")
@@ -124,9 +131,10 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam(PARAM_PROPOSAL) @Nonnull MetadataChangeProposal metadataChangeProposal) throws URISyntaxException {
     log.info("INGEST PROPOSAL proposal: {}", metadataChangeProposal);
 
-    // TODO: Use the actor present in the IC.
-    final AuditStamp auditStamp =
-        new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(Constants.UNKNOWN_ACTOR));
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    String actorUrnStr = authentication.getActor().toUrnStr();
+    final AuditStamp auditStamp = new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));
+
     final List<MetadataChangeProposal> additionalChanges =
         AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService);
 
@@ -135,11 +143,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       try {
         Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp).getUrn();
         additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp));
+        tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
         return urn.toString();
       } catch (ValidationException e) {
         throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e.getMessage());
       }
     }, MetricRegistry.name(this.getClass(), "ingestProposal"));
   }
-
 }

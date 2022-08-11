@@ -7,7 +7,6 @@ import com.datastax.oss.driver.api.core.DriverException;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
-import com.datastax.oss.driver.api.core.metadata.schema.ClusteringOrder;
 import com.datastax.oss.driver.api.core.paging.OffsetPager;
 import com.datastax.oss.driver.api.core.paging.OffsetPager.Page;
 import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
@@ -28,10 +27,6 @@ import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
-import lombok.extern.slf4j.Slf4j;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.util.HashMap;
@@ -41,13 +36,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
-import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.deleteFrom;
-import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.insertInto;
-import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.literal;
-import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.selectFrom;
-import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.update;
-import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
+import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.*;
+import static com.linkedin.metadata.Constants.*;
 
 @Slf4j
 public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
@@ -97,10 +91,13 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     SimpleStatement ss = selectFrom(CassandraAspect.TABLE_NAME)
         .distinct()
         .column(CassandraAspect.URN_COLUMN)
-        .countAll()
         .build();
 
-    return _cqlSession.execute(ss).one().getLong(0);
+    ResultSet rs = _cqlSession.execute(ss);
+    // TODO: make sure it doesn't blow up on a large database
+    //  Getting a count of distinct values in a Cassandra query doesn't seem to be feasible, but counting them in the app is dangerous
+    //  The saving grace here is that the only place where this method is used should only run once, what the database is still young
+    return rs.all().size();
   }
 
   @Override
@@ -110,10 +107,11 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
         .column(CassandraAspect.URN_COLUMN)
         .whereColumn(CassandraAspect.ASPECT_COLUMN).isEqualTo(literal(aspectName))
         .limit(1)
+        .allowFiltering()
         .build();
 
     ResultSet rs = _cqlSession.execute(ss);
-    return rs.all().size() > 0;
+    return rs.one() != null;
   }
 
   private Map<String, Long> getMaxVersions(@Nonnull final String urn, @Nonnull final Set<String> aspectNames) {
@@ -451,7 +449,6 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     validateConnection();
     SimpleStatement ss = selectFrom(CassandraAspect.TABLE_NAME)
         .column(CassandraAspect.URN_COLUMN)
-        .orderBy(CassandraAspect.URN_COLUMN, ClusteringOrder.ASC)
         .build();
 
     ResultSet rs = _cqlSession.execute(ss);

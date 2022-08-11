@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.tag.mappers;
 
 import com.linkedin.common.Ownership;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.RecordTemplate;
@@ -34,6 +35,7 @@ public class TagMapper implements ModelMapper<EntityResponse, Tag> {
     @Override
     public Tag apply(@Nonnull final EntityResponse entityResponse) {
         final Tag result = new Tag();
+        Urn entityUrn = entityResponse.getUrn();
         result.setUrn(entityResponse.getUrn().toString());
         result.setType(EntityType.TAG);
 
@@ -45,7 +47,7 @@ public class TagMapper implements ModelMapper<EntityResponse, Tag> {
         mappingHelper.mapToResult(TAG_KEY_ASPECT_NAME, this::mapTagKey);
         mappingHelper.mapToResult(TAG_PROPERTIES_ASPECT_NAME, this::mapTagProperties);
         mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (tag, dataMap) ->
-            tag.setOwnership(OwnershipMapper.map(new Ownership(dataMap))));
+            tag.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
 
         if (result.getProperties() != null && result.getProperties().getName() == null) {
             result.getProperties().setName(legacyName);

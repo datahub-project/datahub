@@ -157,3 +157,9 @@ class DatahubRestSink(Sink):
 
     def close(self):
         self.executor.shutdown(wait=True)
+
+    def __repr__(self) -> str:
+        return self.emitter.__repr__()
+
+    def configured(self) -> str:
+        return self.__repr__()

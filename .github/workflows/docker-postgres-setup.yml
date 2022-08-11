@@ -3,17 +3,21 @@ on:
   push:
     branches:
       - master
-    paths-ignore:
-      - 'docs/**'
-      - '**.md'
+    paths:
+      - 'docker/postgres-setup/**'
+      - '.github/workflows/docker-postgres-setup.yml'
   pull_request:
     branches:
       - master
     paths:
-      - './docker/postgres-setup/**'
+      - 'docker/postgres-setup/**'
       - '.github/workflows/docker-postgres-setup.yml'
   release:
     types: [published, edited]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   setup:

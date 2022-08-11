@@ -1,5 +1,7 @@
 import logging
 import os
+import time
+from datetime import datetime
 from typing import Callable, Iterable, List
 
 from deltalake import DeltaTable
@@ -8,6 +10,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, WorkUnit
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -41,8 +44,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
     DatasetPropertiesClass,
     NullTypeClass,
+    OperationClass,
+    OperationTypeClass,
     OtherSchemaClass,
 )
 from datahub.telemetry import telemetry
@@ -53,6 +59,19 @@ logger: logging.Logger = logging.getLogger(__name__)
 config_options_to_report = [
     "platform",
 ]
+
+OPERATION_STATEMENT_TYPES = {
+    "INSERT": OperationTypeClass.INSERT,
+    "UPDATE": OperationTypeClass.UPDATE,
+    "DELETE": OperationTypeClass.DELETE,
+    "MERGE": OperationTypeClass.UPDATE,
+    "CREATE": OperationTypeClass.CREATE,
+    "CREATE_TABLE_AS_SELECT": OperationTypeClass.CREATE,
+    "CREATE_SCHEMA": OperationTypeClass.CREATE,
+    "DROP_TABLE": OperationTypeClass.DROP,
+    "REPLACE TABLE AS SELECT": OperationTypeClass.UPDATE,
+    "COPY INTO": OperationTypeClass.UPDATE,
+}
 
 
 @platform_name("Delta Lake", id="delta-lake")
@@ -122,6 +141,58 @@ class DeltaLakeSource(Source):
 
         return fields
 
+    def _create_operation_aspect_wu(
+        self, delta_table: DeltaTable, dataset_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        for hist in delta_table.history(
+            limit=self.source_config.version_history_lookback
+        ):
+
+            # History schema picked up from https://docs.delta.io/latest/delta-utility.html#retrieve-delta-table-history
+            reported_time: int = int(time.time() * 1000)
+            last_updated_timestamp: int = hist["timestamp"]
+            statement_type = OPERATION_STATEMENT_TYPES.get(
+                hist.get("operation"), OperationTypeClass.CUSTOM
+            )
+            custom_type = (
+                hist.get("operation")
+                if statement_type == OperationTypeClass.CUSTOM
+                else None
+            )
+
+            operation_custom_properties = dict()
+            for key, val in hist.items():
+                if val is not None:
+                    if isinstance(val, dict):
+                        for k, v in val:
+                            if v is not None:
+                                operation_custom_properties[f"{key}_{k}"] = str(v)
+                    else:
+                        operation_custom_properties[key] = str(val)
+            operation_custom_properties.pop("timestamp", None)
+            operation_custom_properties.pop("operation", None)
+            operation_aspect = OperationClass(
+                timestampMillis=reported_time,
+                lastUpdatedTimestamp=last_updated_timestamp,
+                operationType=statement_type,
+                customOperationType=custom_type,
+                customProperties=operation_custom_properties,
+            )
+
+            mcp = MetadataChangeProposalWrapper(
+                entityType="dataset",
+                aspectName="operation",
+                changeType=ChangeTypeClass.UPSERT,
+                entityUrn=dataset_urn,
+                aspect=operation_aspect,
+            )
+            operational_wu = MetadataWorkUnit(
+                id=f"{datetime.fromtimestamp(last_updated_timestamp / 1000).isoformat()}-operation-aspect-{dataset_urn}",
+                mcp=mcp,
+            )
+            self.report.report_workunit(operational_wu)
+            yield operational_wu
+
     def ingest_table(
         self, delta_table: DeltaTable, path: str
     ) -> Iterable[MetadataWorkUnit]:
@@ -164,11 +235,6 @@ class DeltaLakeSource(Source):
             "version": str(delta_table.version()),
             "location": self.source_config.get_complete_path(),
         }
-        customProperties.update(delta_table.history()[-1])
-        customProperties["version_creation_time"] = customProperties["timestamp"]
-        del customProperties["timestamp"]
-        for key in customProperties.keys():
-            customProperties[key] = str(customProperties[key])
 
         dataset_properties = DatasetPropertiesClass(
             description=delta_table.metadata().description,
@@ -220,6 +286,8 @@ class DeltaLakeSource(Source):
         for wu in container_wus:
             self.report.report_workunit(wu)
             yield wu
+
+        yield from self._create_operation_aspect_wu(delta_table, dataset_urn)
 
     def process_folder(
         self, path: str, get_folders: Callable[[str], Iterable[str]]

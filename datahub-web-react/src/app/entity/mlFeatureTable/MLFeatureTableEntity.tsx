@@ -2,7 +2,7 @@ import * as React from 'react';
 import { DotChartOutlined } from '@ant-design/icons';
 import { MlFeatureTable, EntityType, SearchResult, OwnershipType } from '../../../types.generated';
 import { Preview } from './preview/Preview';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { GenericEntityProperties } from '../shared/types';
 import { useGetMlFeatureTableQuery } from '../../../graphql/mlFeatureTable.generated';
@@ -158,5 +158,16 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             entityType: this.type,
             getOverrideProperties: (data) => data,
         });
+    };
+
+    supportedCapabilities = () => {
+        return new Set([
+            EntityCapabilityType.OWNERS,
+            EntityCapabilityType.GLOSSARY_TERMS,
+            EntityCapabilityType.TAGS,
+            EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.DEPRECATION,
+            EntityCapabilityType.SOFT_DELETE,
+        ]);
     };
 }

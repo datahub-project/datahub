@@ -1,4 +1,3 @@
-import importlib
 import logging
 import math
 import sys
@@ -22,6 +21,7 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -363,7 +363,7 @@ class RedashSource(Source):
         self.report.report_warning(key, reason)
         log.warning(f"{key} => {reason}")
 
-    def test_connection(self) -> None:
+    def validate_connection(self) -> None:
         test_response = self.client._get(f"{self.config.connect_uri}/api")
         if test_response.status_code == 200:
             logger.info("Redash API connected succesfully")
@@ -378,11 +378,10 @@ class RedashSource(Source):
     @classmethod
     def _import_sql_parser_cls(cls, sql_parser_path: str) -> Type[SQLParser]:
         assert "." in sql_parser_path, "sql_parser-path must contain a ."
-        module_name, cls_name = sql_parser_path.rsplit(".", 1)
-        parser_cls = getattr(importlib.import_module(module_name), cls_name)
+        parser_cls = import_path(sql_parser_path)
+
         if not issubclass(parser_cls, SQLParser):
             raise ValueError(f"must be derived from {SQLParser}; got {parser_cls}")
-
         return parser_cls
 
     @classmethod
@@ -769,7 +768,7 @@ class RedashSource(Source):
         self.report.api_page_limit = self.config.api_page_limit
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        self.test_connection()
+        self.validate_connection()
         self.add_config_to_report()
         with PerfTimer() as timer:
             yield from self._emit_chart_mces()

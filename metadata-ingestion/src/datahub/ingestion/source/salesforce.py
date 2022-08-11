@@ -38,7 +38,6 @@ from datahub.metadata.schema_classes import (
     DatasetProfileClass,
     DatasetPropertiesClass,
     DateTypeClass,
-    DictWrapper,
     EnumTypeClass,
     ForeignKeyConstraintClass,
     GlobalTagsClass,
@@ -711,7 +710,7 @@ class SalesforceSource(Source):
             )
 
     def wrap_aspect_as_workunit(
-        self, entityName: str, entityUrn: str, aspectName: str, aspect: DictWrapper
+        self, entityName: str, entityUrn: str, aspectName: str, aspect: builder.Aspect
     ) -> WorkUnit:
         wu = MetadataWorkUnit(
             id=f"{aspectName}-for-{entityUrn}",

@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
@@ -115,7 +116,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         updateTimeseriesFields(event.getEntityType(), event.getAspectName(), urn, aspect, aspectSpec,
             event.getSystemMetadata());
       } else {
-        updateSearchService(entitySpec.getName(), urn, aspectSpec, aspect);
+        updateSearchService(entitySpec.getName(), urn, aspectSpec, aspect, event.hasSystemMetadata() ? event.getSystemMetadata().getRunId() : null);
         updateGraphService(urn, aspectSpec, aspect);
         updateSystemMetadata(event.getSystemMetadata(), urn, aspectSpec, aspect);
       }
@@ -185,7 +186,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
   /**
    * Process snapshot and update search index
    */
-  private void updateSearchService(String entityName, Urn urn, AspectSpec aspectSpec, RecordTemplate aspect) {
+  private void updateSearchService(String entityName, Urn urn, AspectSpec aspectSpec, RecordTemplate aspect, @Nullable String runId) {
     Optional<String> searchDocument;
     try {
       searchDocument = _searchDocumentTransformer.transformAspect(urn, aspect, aspectSpec, false);
@@ -277,7 +278,7 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
 
       Optional<String> searchDocument;
       try {
-        searchDocument = _searchDocumentTransformer.transformAspect(urn, aspect, aspectSpec, true);
+        searchDocument = _searchDocumentTransformer.transformAspect(urn, aspect, aspectSpec, true); // TODO
       } catch (Exception e) {
         log.error("Error in getting documents from aspect: {} for aspect {}", e, aspectSpec.getName());
         return;

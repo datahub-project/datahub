@@ -109,3 +109,7 @@ class Sink(Closeable, metaclass=ABCMeta):
     @abstractmethod
     def close(self) -> None:
         pass
+
+    def configured(self) -> str:
+        """Override this method to output a human-readable and scrubbed version of the configured sink"""
+        return ""

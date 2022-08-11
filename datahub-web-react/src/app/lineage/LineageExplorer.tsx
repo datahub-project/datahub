@@ -15,6 +15,7 @@ import { EntityType } from '../../types.generated';
 import { capitalizeFirstLetter } from '../shared/textUtil';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { GetEntityLineageQuery, useGetEntityLineageQuery } from '../../graphql/lineage.generated';
+import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
 
 const DEFAULT_DISTANCE_FROM_TOP = 106;
 
@@ -65,13 +66,22 @@ export default function LineageExplorer({ urn, type }: Props) {
     const history = useHistory();
 
     const entityRegistry = useEntityRegistry();
+    const isHideSiblingMode = useIsSeparateSiblingsMode();
 
-    const { loading, error, data } = useGetEntityLineageQuery({ variables: { urn } });
+    const { loading, error, data } = useGetEntityLineageQuery({
+        variables: { urn, separateSiblings: isHideSiblingMode },
+    });
+
     const entityData: EntityAndType | null | undefined = useMemo(() => getEntityAndType(data), [data]);
 
     const [isDrawerVisible, setIsDrawVisible] = useState(false);
     const [selectedEntity, setSelectedEntity] = useState<EntitySelectParams | undefined>(undefined);
     const [asyncEntities, setAsyncEntities] = useState<FetchedEntities>({});
+
+    // in the case that sibling mode changes, we want to clear out our cache of entities
+    useEffect(() => {
+        setAsyncEntities({});
+    }, [isHideSiblingMode]);
 
     const drawerRef: React.MutableRefObject<HTMLDivElement | null> = useRef(null);
 
@@ -100,10 +110,10 @@ export default function LineageExplorer({ urn, type }: Props) {
     };
 
     useEffect(() => {
-        if (type && entityData) {
+        if (type && entityData && !loading) {
             maybeAddAsyncLoadedEntity(entityData);
         }
-    }, [entityData, asyncEntities, setAsyncEntities, maybeAddAsyncLoadedEntity, urn, previousUrn, type]);
+    }, [entityData, setAsyncEntities, maybeAddAsyncLoadedEntity, urn, previousUrn, type, loading]);
 
     if (error || (!loading && !error && !data)) {
         return <Alert type="error" message={error?.message || 'Entity failed to load'} />;

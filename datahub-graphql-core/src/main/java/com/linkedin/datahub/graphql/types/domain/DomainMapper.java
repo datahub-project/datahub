@@ -40,7 +40,7 @@ public class DomainMapper {
 
     final EnvelopedAspect envelopedOwnership = aspects.get(Constants.OWNERSHIP_ASPECT_NAME);
     if (envelopedOwnership != null) {
-      result.setOwnership(OwnershipMapper.map(new Ownership(envelopedOwnership.getValue().data())));
+      result.setOwnership(OwnershipMapper.map(new Ownership(envelopedOwnership.getValue().data()), entityUrn));
     }
 
     final EnvelopedAspect envelopedInstitutionalMemory = aspects.get(Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME);

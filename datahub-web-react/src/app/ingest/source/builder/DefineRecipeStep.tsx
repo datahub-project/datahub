@@ -1,11 +1,14 @@
-import { Alert, Button, message, Space, Typography } from 'antd';
+import { Alert, Button, Space, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { StepProps } from './types';
-import { getSourceConfigs, jsonToYaml, yamlToJson } from '../utils';
+import { getSourceConfigs, jsonToYaml } from '../utils';
 import { YamlEditor } from './YamlEditor';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { IngestionSourceBuilderStep } from './steps';
+import RecipeBuilder from './RecipeBuilder';
+import { CONNECTORS_WITH_FORM } from './RecipeForm/constants';
+import { getRecipeJson } from './RecipeForm/TestConnection/TestConnectionButton';
 
 const LOOKML_DOC_LINK = 'https://datahubproject.io/docs/generated/ingestion/sources/looker#module-lookml';
 
@@ -37,17 +40,19 @@ const ControlsContainer = styled.div`
 export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) => {
     const existingRecipeJson = state.config?.recipe;
     const existingRecipeYaml = existingRecipeJson && jsonToYaml(existingRecipeJson);
+    const { type } = state;
+    const sourceConfigs = getSourceConfigs(type as string);
 
-    const [stagedRecipeYml, setStagedRecipeYml] = useState(existingRecipeYaml || '');
+    const [stagedRecipeYml, setStagedRecipeYml] = useState(existingRecipeYaml || sourceConfigs.placeholderRecipe);
 
     useEffect(() => {
-        setStagedRecipeYml(existingRecipeYaml || '');
+        if (existingRecipeYaml) {
+            setStagedRecipeYml(existingRecipeYaml);
+        }
     }, [existingRecipeYaml]);
 
     const [stepComplete, setStepComplete] = useState(false);
 
-    const { type } = state;
-    const sourceConfigs = getSourceConfigs(type as string);
     const isEditing: boolean = prev === undefined;
     const displayRecipe = stagedRecipeYml || sourceConfigs.placeholderRecipe;
     const sourceDisplayName = sourceConfigs.displayName;
@@ -64,14 +69,8 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
     }, [stagedRecipeYml, showLookerBanner]);
 
     const onClickNext = () => {
-        // Convert the recipe into it's json representation, and catch + report exceptions while we do it.
-        let recipeJson;
-        try {
-            recipeJson = yamlToJson(stagedRecipeYml);
-        } catch (e) {
-            message.warn('Found invalid YAML. Please check your recipe configuration.');
-            return;
-        }
+        const recipeJson = getRecipeJson(stagedRecipeYml);
+        if (!recipeJson) return;
 
         const newState = {
             ...state,
@@ -84,6 +83,19 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev }: StepProps) 
 
         goTo(IngestionSourceBuilderStep.CREATE_SCHEDULE);
     };
+
+    if (type && CONNECTORS_WITH_FORM.has(type)) {
+        return (
+            <RecipeBuilder
+                type={type}
+                isEditing={isEditing}
+                displayRecipe={displayRecipe}
+                setStagedRecipe={setStagedRecipeYml}
+                onClickNext={onClickNext}
+                goToPrevious={prev}
+            />
+        );
+    }
 
     return (
         <>

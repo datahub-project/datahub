@@ -186,6 +186,11 @@ type Mutation {
     updateDataset(urn: String!, input: DatasetUpdateInput!): Dataset
 
     """
+    Update the metadata about a batch of Datasets
+    """
+    updateDatasets(input: [BatchDatasetUpdateInput!]!): [Dataset]
+
+    """
     Update the metadata about a particular Chart
     """
     updateChart(urn: String!, input: ChartUpdateInput!): Chart
@@ -261,14 +266,29 @@ type Mutation {
     addTags(input: AddTagsInput!): Boolean
 
     """
+    Add tags to multiple Entities or subresources
+    """
+    batchAddTags(input: BatchAddTagsInput!): Boolean
+
+    """
 		Remove a tag from a particular Entity or subresource
     """
     removeTag(input: TagAssociationInput!): Boolean
 
     """
+		Remove tags from multiple Entities or subresource
+    """
+    batchRemoveTags(input: BatchRemoveTagsInput!): Boolean
+
+    """
 		Add a glossary term to a particular Entity or subresource
     """
     addTerm(input: TermAssociationInput!): Boolean
+
+    """
+		Add glossary terms to multiple Entities or subresource
+    """
+    batchAddTerms(input: BatchAddTermsInput!): Boolean
 
     """
 		Add multiple glossary terms to a particular Entity or subresource
@@ -281,9 +301,19 @@ type Mutation {
     removeTerm(input: TermAssociationInput!): Boolean
 
     """
+		Remove glossary terms from multiple Entities or subresource
+    """
+    batchRemoveTerms(input: BatchRemoveTermsInput!): Boolean
+
+    """
     Add an owner to a particular Entity
     """
     addOwner(input: AddOwnerInput!): Boolean
+
+    """
+    Add owners to multiple Entities
+    """
+    batchAddOwners(input: BatchAddOwnersInput!): Boolean
 
     """
     Add multiple owners to a particular Entity
@@ -294,6 +324,11 @@ type Mutation {
     Remove an owner from a particular Entity
     """
     removeOwner(input: RemoveOwnerInput!): Boolean
+
+    """
+    Remove owners from multiple Entities
+    """
+    batchRemoveOwners(input: BatchRemoveOwnersInput!): Boolean
 
     """
     Add a link, or institutional memory, from a particular Entity
@@ -360,6 +395,11 @@ type Mutation {
     setDomain(entityUrn: String!, domainUrn: String!): Boolean
 
     """
+    Set domain for multiple Entities
+    """
+    batchSetDomain(input: BatchSetDomainInput!): Boolean
+
+    """
     Sets the Domain for a Dataset, Chart, Dashboard, Data Flow (Pipeline), or Data Job (Task). Returns true if the Domain was successfully removed, or was already removed. Requires the Edit Domains privilege for an asset.
     """
     unsetDomain(entityUrn: String!): Boolean
@@ -370,6 +410,11 @@ type Mutation {
     updateDeprecation(
       "Input required to set deprecation for an Entity."
       input: UpdateDeprecationInput!): Boolean
+
+    """
+    Updates the deprecation status for a batch of assets.
+    """
+    batchUpdateDeprecation(input: BatchUpdateDeprecationInput!): Boolean
 
     """
     Update a particular Corp User's editable properties
@@ -443,6 +488,11 @@ type Mutation {
     Generates a token that can be shared with existing native users to reset their credentials.
     """
     createNativeUserResetToken(input: CreateNativeUserResetTokenInput!): ResetToken
+
+    """
+    Updates the soft deleted status for a batch of assets
+    """
+    batchUpdateSoftDeleted(input: BatchUpdateSoftDeletedInput!): Boolean
 }
 
 """
@@ -625,6 +675,11 @@ input LineageInput {
     The number of results to be returned
     """
     count: Int
+
+    """
+    Optional flag to not merge siblings in the response. They are merged by default.
+    """
+    separateSiblings: Boolean
 }
 
 """
@@ -916,13 +971,18 @@ type Dataset implements EntityWithRelationships & Entity {
     """
     The Domain associated with the Dataset
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     Statistics about how this Dataset is used
     The first parameter, `resource`, is deprecated and no longer needs to be provided
     """
     usageStats(resource: String, range: TimeRange): UsageQueryResult
+
+    """
+    Experimental - Summary operational & usage statistics about a Dataset
+    """
+    statsSummary: DatasetStatsSummary
 
     """
     Profile Stats resource that retrieves the events in a previous unit of time in descending order
@@ -1137,7 +1197,7 @@ type VersionedDataset implements Entity {
     """
     The Domain associated with the Dataset
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     Experimental! The resolved health status of the Dataset
@@ -1278,7 +1338,7 @@ type DatasetProperties {
     """
     Custom properties of the Dataset
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     External URL associated with the Dataset
@@ -1392,7 +1452,7 @@ type GlossaryTermInfo {
     """
     Properties of the glossary term
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     Schema definition of glossary term
@@ -1437,7 +1497,7 @@ type GlossaryTermProperties {
     """
     Properties of the glossary term
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     Schema definition of glossary term
@@ -1808,7 +1868,7 @@ type Container implements Entity {
     """
     The Domain associated with the Dataset
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     The deprecation status of the container
@@ -1848,7 +1908,7 @@ type ContainerProperties {
   """
   Custom properties of the Container
   """
-  customProperties: [StringMapEntry!]
+  customProperties: [CustomPropertiesEntry!]
 
   """
   Native platform URL of the Container
@@ -2132,6 +2192,11 @@ type Schema {
     The time at which the schema metadata information was created
     """
     createdAt: Long
+
+    """
+    The time at which the schema metadata information was last ingested
+    """
+    lastObserved: Long
 }
 
 """
@@ -2555,6 +2620,26 @@ type StringMapEntry {
     The value fo the map entry
     """
     value: String
+}
+
+"""
+An entry in a custom properties map represented as a tuple
+"""
+type CustomPropertiesEntry {
+    """
+    The key of the map entry
+    """
+    key: String!
+
+    """
+    The value fo the map entry
+    """
+    value: String
+
+    """
+    The urn of the entity this property came from for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """
@@ -3020,6 +3105,7 @@ A DataHub Group entity, which represents a Person on the Metadata Entity Graph
 """
 type CorpGroup implements Entity {
     """
+
     The primary key of the group
     """
     urn: String!
@@ -3053,6 +3139,11 @@ type CorpGroup implements Entity {
     Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Origin info about this group.
+    """
+    origin: Origin
 
     """
     Deprecated, use properties field instead
@@ -3183,6 +3274,11 @@ type Owner {
     Source information for the ownership
     """
     source: OwnershipSource
+
+    """
+    Reference back to the owned urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """
@@ -3294,6 +3390,11 @@ type TagAssociation {
     The tag itself
     """
     tag: Tag!
+
+    """
+    Reference back to the tagged urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """
@@ -3333,6 +3434,11 @@ type GlossaryTermAssociation {
     The glossary term itself
     """
     term: GlossaryTerm!
+
+    """
+    Reference back to the associated urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """
@@ -3499,6 +3605,23 @@ input DatasetUpdateInput {
     """
     editableProperties: DatasetEditablePropertiesUpdate
 }
+
+"""
+Arguments provided to batch update Dataset entities
+"""
+input BatchDatasetUpdateInput {
+
+    """
+    Primary key of the Dataset to which the update will be applied
+    """
+    urn: String!
+
+    """
+    Arguments provided to update the Dataset
+    """
+    update: DatasetUpdateInput!
+}
+
 
 """
 Update to editable schema metadata of the dataset
@@ -3802,7 +3925,7 @@ type Notebook implements Entity {
     """
     The Domain associated with the Notebook
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     The specific instance of the data platform that this entity belongs to
@@ -4059,7 +4182,7 @@ type Dashboard implements EntityWithRelationships & Entity {
     """
     The Domain associated with the Dashboard
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     The specific instance of the data platform that this entity belongs to
@@ -4075,6 +4198,16 @@ type Dashboard implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    Experimental (Subject to breaking change) -- Statistics about how this Dashboard is used
+    """
+    usageStats(startTimeMillis: Long, endTimeMillis: Long, limit: Int): DashboardUsageQueryResult
+
+    """
+    Experimental - Summary operational & usage statistics about a Dashboard
+    """
+    statsSummary: DashboardStatsSummary
 
     """
     Deprecated, use properties field instead
@@ -4135,7 +4268,7 @@ type DashboardInfo {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     The time when this dashboard last refreshed
@@ -4180,7 +4313,7 @@ type NotebookInfo {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     Captures information about who created/last modified/deleted this Notebook and when
@@ -4216,7 +4349,7 @@ type DashboardProperties {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     The time when this dashboard last refreshed
@@ -4322,12 +4455,19 @@ type Chart implements EntityWithRelationships & Entity {
     """
     The Domain associated with the Chart
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     The specific instance of the data platform that this entity belongs to
     """
     dataPlatformInstance: DataPlatformInstance
+
+    """
+    Not yet implemented.
+
+    Experimental - Summary operational & usage statistics about a Chart
+    """
+    statsSummary: ChartStatsSummary
 
     """
     Granular API for querying edges extending from this entity
@@ -4402,7 +4542,7 @@ type ChartInfo {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     The time when this chart last refreshed
@@ -4457,7 +4597,7 @@ type ChartProperties {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 
     """
     The time when this chart last refreshed
@@ -4659,7 +4799,7 @@ type DataFlow implements EntityWithRelationships & Entity {
     """
     The Domain associated with the DataFlow
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     The specific instance of the data platform that this entity belongs to
@@ -4728,7 +4868,7 @@ type DataFlowInfo {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -4758,7 +4898,7 @@ type DataFlowProperties {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -4835,7 +4975,7 @@ type DataJob implements EntityWithRelationships & Entity {
     """
     The Domain associated with the Data Job
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     Granular API for querying edges extending from this entity
@@ -5018,7 +5158,7 @@ type DataJobInfo {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -5043,7 +5183,7 @@ type DataJobProperties {
     """
     A list of platform specific metadata tuples
     """
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -5203,6 +5343,230 @@ type FieldUsageCounts {
 }
 
 """
+Experimental - subject to change. A summary of usage metrics about a Dataset.
+"""
+type DatasetStatsSummary {
+    """
+    The query count in the past 30 days
+    """
+    queryCountLast30Days: Int
+
+    """
+    The unique user count in the past 30 days
+    """
+    uniqueUserCountLast30Days: Int
+
+    """
+    The top users in the past 30 days
+    """
+    topUsersLast30Days: [CorpUser!]
+}
+
+"""
+Information about individual user usage of a Dashboard
+"""
+type DashboardUserUsageCounts {
+    """
+    The user of the Dashboard
+    """
+    user: CorpUser
+
+    """
+    number of times dashboard has been viewed by the user
+    """
+    viewsCount: Int
+
+    """
+    number of dashboard executions by the user
+    """
+    executionsCount: Int
+
+    """
+    Normalized numeric metric representing user's dashboard usage
+    Higher value represents more usage
+    """
+    usageCount: Int
+}
+
+"""
+The result of a dashboard usage query
+"""
+type DashboardUsageQueryResult {
+    """
+    A set of relevant time windows for use in displaying usage statistics
+    """
+    buckets: [DashboardUsageAggregation]
+
+    """
+    A set of rolled up aggregations about the dashboard usage
+    """
+    aggregations: DashboardUsageQueryResultAggregations
+
+    """
+    A set of absolute dashboard usage metrics
+    """
+    metrics: [DashboardUsageMetrics!]
+
+}
+
+"""
+A set of rolled up aggregations about the Dashboard usage
+"""
+type DashboardUsageQueryResultAggregations {
+    """
+    The count of unique Dashboard users within the queried time range
+    """
+    uniqueUserCount: Int
+
+    """
+    The specific per user usage counts within the queried time range
+    """
+    users: [DashboardUserUsageCounts]
+
+    """
+    The total number of dashboard views within the queried time range
+    """
+    viewsCount: Int
+
+    """
+    The total number of dashboard executions within the queried time range
+    """
+    executionsCount: Int
+
+}
+
+
+"""
+A set of absolute dashboard usage metrics
+"""
+type DashboardUsageMetrics implements TimeSeriesAspect {
+    """
+    The time at which the metrics were reported
+    """
+    timestampMillis: Long!
+
+    """
+    The total number of times dashboard has been favorited
+    FIXME: Qualifies as Popularity Metric rather than Usage Metric?
+    """
+    favoritesCount: Int
+
+    """
+    The total number of dashboard views
+    """
+    viewsCount: Int
+
+    """
+    The total number of dashboard execution
+    """
+    executionsCount: Int
+
+    """
+    The time when this dashboard was last viewed
+    """
+    lastViewed: Long
+
+}
+
+"""
+An aggregation of Dashboard usage statistics
+"""
+type DashboardUsageAggregation {
+    """
+    The time window start time
+    """
+    bucket: Long
+
+    """
+    The time window span
+    """
+    duration: WindowDuration
+
+    """
+    The resource urn associated with the usage information, eg a Dashboard urn
+    """
+    resource: String
+
+    """
+    The rolled up usage metrics
+    """
+    metrics: DashboardUsageAggregationMetrics
+}
+
+"""
+Rolled up metrics about Dashboard usage over time
+"""
+type DashboardUsageAggregationMetrics {
+    """
+    The unique number of dashboard users within the time range
+    """
+    uniqueUserCount: Int
+
+    """
+    The total number of dashboard views within the time range
+    """
+    viewsCount: Int
+
+    """
+    The total number of dashboard executions within the time range
+    """
+    executionsCount: Int
+
+}
+
+"""
+Experimental - subject to change. A summary of usage metrics about a Dashboard.
+"""
+type DashboardStatsSummary {
+    """
+    The total view count for the dashboard
+    """
+    viewCount: Int
+
+    """
+    The view count in the last 30 days
+    """
+    viewCountLast30Days: Int
+
+    """
+    The unique user count in the past 30 days
+    """
+    uniqueUserCountLast30Days: Int
+
+    """
+    The top users in the past 30 days
+    """
+    topUsersLast30Days: [CorpUser!]
+}
+
+
+"""
+Experimental - subject to change. A summary of usage metrics about a Chart.
+"""
+type ChartStatsSummary {
+    """
+    The total view count for the chart
+    """
+    viewCount: Int
+
+    """
+    The view count in the last 30 days
+    """
+    viewCountLast30Days: Int
+
+    """
+    The unique user count in the past 30 days
+    """
+    uniqueUserCountLast30Days: Int
+
+    """
+    The top users in the past 30 days
+    """
+    topUsersLast30Days: [CorpUser!]
+}
+
+
+"""
 The duration of a fixed window of time
 """
 enum WindowDuration {
@@ -5228,7 +5592,7 @@ enum WindowDuration {
 }
 
 """
-A time range used in fetching Dataset Usage statistics
+A time range used in fetching Usage statistics
 """
 enum TimeRange {
     """
@@ -5795,9 +6159,19 @@ enum AssertionStdOperator {
     START_WITH
 
     """
+    Value being asserted matches the regex value.
+    """
+    REGEX_MATCH
+
+    """
     Value being asserted is one of the array values
     """
     IN
+
+    """
+    Value being asserted is not in one of the array values.
+    """
+    NOT_IN
 
     """
     Other
@@ -6217,6 +6591,36 @@ enum TermRelationshipType {
 }
 
 """
+Input provided when adding glossary terms to a batch of assets
+"""
+input BatchAddTermsInput {
+    """
+    The primary key of the Glossary Terms
+    """
+    termUrns: [String!]!
+
+    """
+    The target assets to attach the glossary terms to
+    """
+    resources: [ResourceRefInput]!
+}
+
+"""
+Input provided when removing glossary terms from a batch of assets
+"""
+input BatchRemoveTermsInput {
+    """
+    The primary key of the Glossary Terms
+    """
+    termUrns: [String!]!
+
+    """
+    The target assets to remove the glossary terms from
+    """
+    resources: [ResourceRefInput]!
+}
+
+"""
 Input provided when updating the association between a Metadata Entity and a Tag
 """
 input TagAssociationInput {
@@ -6252,6 +6656,56 @@ input AddTagsInput {
 
     """
     The target Metadata Entity to add or remove the Tag to
+    """
+    resourceUrn: String!
+
+    """
+    An optional type of a sub resource to attach the Tag to
+    """
+    subResourceType: SubResourceType
+
+    """
+    An optional sub resource identifier to attach the Tag to
+    """
+    subResource: String
+}
+
+"""
+Input provided when adding tags to a batch of assets
+"""
+input BatchAddTagsInput {
+    """
+    The primary key of the Tags
+    """
+    tagUrns: [String!]!
+
+    """
+    The target assets to attach the tags to
+    """
+    resources: [ResourceRefInput!]!
+}
+
+"""
+Input provided when removing tags from a batch of assets
+"""
+input BatchRemoveTagsInput {
+    """
+    The primary key of the Tags
+    """
+    tagUrns: [String!]!
+
+    """
+    The target assets to remove the tags from
+    """
+    resources: [ResourceRefInput]!
+}
+
+"""
+Reference to a resource to apply an action to
+"""
+input ResourceRefInput {
+    """
+    The urn of the resource being referenced
     """
     resourceUrn: String!
 
@@ -6339,6 +6793,36 @@ input AddOwnersInput {
     The urn of the resource or entity to attach or remove the owner from, for example a dataset urn
     """
     resourceUrn: String!
+}
+
+"""
+Input provided when adding owners to a batch of assets
+"""
+input BatchAddOwnersInput {
+    """
+    The primary key of the owners
+    """
+    owners: [OwnerInput!]!
+
+    """
+    The target assets to attach the owners to
+    """
+    resources: [ResourceRefInput]!
+}
+
+"""
+Input provided when removing owners from a batch of assets
+"""
+input BatchRemoveOwnersInput {
+    """
+    The primary key of the owners
+    """
+    ownerUrns: [String!]!
+
+    """
+    The target assets to remove the owners from
+    """
+    resources: [ResourceRefInput]!
 }
 
 """
@@ -6471,6 +6955,47 @@ input UpdateDeprecationInput {
     note: String
 }
 
+
+"""
+Input provided when updating the deprecation status for a batch of assets.
+"""
+input BatchUpdateDeprecationInput {
+    """
+    Whether the Entity is marked as deprecated.
+    """
+    deprecated: Boolean!
+
+    """
+    Optional - The time user plan to decommission this entity
+    """
+    decommissionTime: Long
+
+    """
+    Optional - Additional information about the entity deprecation plan
+    """
+    note: String
+
+    """
+    The target assets to attach the tags to
+    """
+    resources: [ResourceRefInput]!
+}
+
+"""
+Input provided when adding tags to a batch of assets
+"""
+input BatchSetDomainInput {
+    """
+    The primary key of the Domain, or null if the domain will be unset
+    """
+    domainUrn: String
+
+    """
+    The target assets to attach the Domain
+    """
+    resources: [ResourceRefInput!]!
+}
+
 """
 Input provided when creating or updating an Access Policy
 """
@@ -6512,9 +7037,9 @@ input PolicyUpdateInput {
 }
 
 """
-Input required to add members to a DataHub group
+Input required to add members to a native DataHub group
 """
-input AddGroupMembersInput {
+input AddNativeGroupMembersInput {
   """
   The group to add members to
   """
@@ -6527,18 +7052,48 @@ input AddGroupMembersInput {
 }
 
 """
-Input required to remove members from a DataHub group
+Input required to add members to an external DataHub group
+"""
+input AddGroupMembersInput {
+    """
+    The group to add members to
+    """
+    groupUrn: String!
+
+    """
+    The members to add to the group
+    """
+    userUrns: [String!]!
+}
+
+"""
+Input required to remove members from a native DataHub group
+"""
+input RemoveNativeGroupMembersInput {
+    """
+    The group to remove members from
+    """
+    groupUrn: String!
+
+    """
+    The members to remove from the group
+    """
+    userUrns: [String!]!
+}
+
+"""
+Input required to remove members from an external DataHub group
 """
 input RemoveGroupMembersInput {
-  """
-  The group to remove members from
-  """
-  groupUrn: String!
+    """
+    The group to remove members from
+    """
+    groupUrn: String!
 
-  """
-  The members to remove from the group
-  """
-  userUrns: [String!]!
+    """
+    The members to remove from the group
+    """
+    userUrns: [String!]!
 }
 
 """
@@ -7199,7 +7754,7 @@ type MLModel implements EntityWithRelationships & Entity {
     """
     The Domain associated with the entity
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     An additional set of of read write properties
@@ -7290,7 +7845,7 @@ type MLModelGroup implements EntityWithRelationships & Entity {
     """
     The Domain associated with the entity
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     An additional set of of read write properties
@@ -7399,7 +7954,7 @@ type MLFeature implements EntityWithRelationships & Entity {
     """
     The Domain associated with the entity
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     An additional set of of read write properties
@@ -7449,7 +8004,7 @@ type MLModelProperties {
 
     groups: [MLModelGroup]
 
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 type MLFeatureProperties {
@@ -7556,7 +8111,7 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     """
     The Domain associated with the entity
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     An additional set of of read write properties
@@ -7663,7 +8218,7 @@ type MLFeatureTable implements EntityWithRelationships & Entity {
     """
     The Domain associated with the entity
     """
-    domain: Domain
+    domain: DomainAssociation
 
     """
     An additional set of of read write properties
@@ -7714,7 +8269,7 @@ description: String
 
     mlPrimaryKeys: [MLPrimaryKey]
 
-    customProperties: [StringMapEntry!]
+    customProperties: [CustomPropertiesEntry!]
 }
 
 type HyperParameterMap {
@@ -7982,6 +8537,18 @@ type SubTypes {
     The sub-types that this entity implements. e.g. Datasets that are views will implement the "view" subtype
    """
    typeNames: [String!]
+}
+
+type DomainAssociation {
+    """
+    The domain related to the assocaited urn
+    """
+    domain: Domain!
+
+    """
+    Reference back to the tagged urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """
@@ -8323,4 +8890,52 @@ type ResetToken {
     The reset token
     """
     resetToken: String!
+}
+
+"""
+Carries information about where an entity originated from.
+"""
+type Origin {
+    """
+    Where an entity originated from. Either NATIVE or EXTERNAL
+    """
+    type: OriginType!
+
+    """
+    Only populated if type is EXTERNAL. The externalType of the entity, such as the name of the identity provider.
+    """
+    externalType: String
+}
+
+"""
+Enum to define where an entity originated from.
+"""
+enum OriginType {
+    """
+    The entity is native to DataHub.
+    """
+    NATIVE
+    """
+    The entity is external to DataHub.
+    """
+    EXTERNAL
+    """
+    The entity is of unknown origin.
+    """
+    UNKNOWN
+}
+
+"""
+Input provided when updating the soft-deleted status for a batch of assets
+"""
+input BatchUpdateSoftDeletedInput {
+    """
+    The urns of the assets to soft delete
+    """
+    urns: [String!]!
+
+    """
+    Whether to mark the asset as soft-deleted (hidden)
+    """
+    deleted: Boolean!
 }

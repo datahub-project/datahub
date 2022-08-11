@@ -38,6 +38,7 @@ For now, this behaviour must be opted into by a prompt that will appear for you 
 
 You can optionally add `-n` or `--dry-run` to execute a dry run before issuing the final delete command.
 You can optionally add `-f` or `--force` to skip confirmations
+You can optionally add `--only-soft-deleted` flag to remove soft-deleted items only.
 
  :::note
 
