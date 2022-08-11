@@ -24,11 +24,7 @@ def read_delta_table(
 
     except PyDeltaTableError as e:
         if "Not a Delta table" not in str(e):
-            import pdb
-
-            pdb.set_trace()
             raise e
-
     return delta_table
 
 

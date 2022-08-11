@@ -16,13 +16,7 @@ import { Button, Dropdown, Menu } from 'antd';
 import { useAppConfig } from '../../useAppConfig';
 import { useGetAuthenticatedUser } from '../../useGetAuthenticatedUser';
 
-const AdminLink = styled.span`
-    &&& .ant-btn-text {
-        color: ${(props) => props.theme.styles['heading-color']};
-        :hover {
-            color: ${(props) => props.theme.styles['primary-color']};
-        }
-    }
+const LinkWrapper = styled.span`
     margin-right: 0px;
 `;
 
@@ -48,7 +42,7 @@ interface Props {
     areLinksHidden?: boolean;
 }
 
-export function AdminHeaderLinks(props: Props) {
+export function HeaderLinks(props: Props) {
     const { areLinksHidden } = props;
     const me = useGetAuthenticatedUser();
     const { config } = useAppConfig();
@@ -74,76 +68,70 @@ export function AdminHeaderLinks(props: Props) {
     return (
         <LinksWrapper areLinksHidden={areLinksHidden}>
             {showAnalytics && (
-                <AdminLink>
+                <LinkWrapper>
                     <Link to="/analytics">
                         <Button type="text">
                             <BarChartOutlined /> Analytics
                         </Button>
                     </Link>
-                </AdminLink>
+                </LinkWrapper>
             )}
             {showActionRequests && (
-                <AdminLink>
+                <LinkWrapper>
                     <Link to="/requests">
                         <Button type="text">
                             <InboxOutlined /> Inbox
                         </Button>
                     </Link>
-                </AdminLink>
+                </LinkWrapper>
             )}
             {showIngestion && (
-                <AdminLink>
+                <LinkWrapper>
                     <Link to="/ingestion">
                         <Button type="text">
                             <ApiOutlined /> Ingestion
                         </Button>
                     </Link>
-                </AdminLink>
+                </LinkWrapper>
             )}
-            {(showGlossary || showDomains || showTests) && (
-                <Dropdown
-                    trigger={['click']}
-                    overlay={
-                        <Menu>
-                            {showGlossary && (
-                                <MenuItem key="0">
-                                    <Link to="/glossary">
-                                        <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} /> Glossary
-                                    </Link>
-                                </MenuItem>
-                            )}
-                            {showDomains && (
-                                <MenuItem key="1">
-                                    <Link to="/domains">
-                                        <FolderOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} /> Domains
-                                    </Link>
-                                </MenuItem>
-                            )}
-                            {showTests && (
-                                <MenuItem key="2">
-                                    <Link to="/tests">
-                                        <FileDoneOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} /> Tests
-                                    </Link>
-                                </MenuItem>
-                            )}
-                        </Menu>
-                    }
-                >
-                    <AdminLink>
-                        <Button type="text">
-                            <SolutionOutlined /> Govern <DownOutlined style={{ fontSize: '6px' }} />
-                        </Button>
-                    </AdminLink>
-                </Dropdown>
-            )}
+            <Dropdown
+                trigger={['click']}
+                overlay={
+                    <Menu>
+                        <MenuItem key="0">
+                            <Link to="/glossary">
+                                <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} /> Glossary
+                            </Link>
+                        </MenuItem>
+                        <MenuItem key="1">
+                            <Link to="/domains">
+                                <FolderOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} /> Domains
+                            </Link>
+                        </MenuItem>
+                        {showTests && (
+                            <MenuItem key="2">
+                                <Link to="/tests">
+                                    <FileDoneOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} /> Tests
+                                </Link>
+                            </MenuItem>
+                        )}
+                    </Menu>
+                }
+            >
+                <LinkWrapper>
+                    <Button type="text">
+                        <SolutionOutlined /> Govern <DownOutlined style={{ fontSize: '6px' }} />
+                    </Button>
+                </LinkWrapper>
+            </Dropdown>
             {showSettings && (
-                <AdminLink style={{ marginRight: 12 }}>
+                <LinkWrapper style={{ marginRight: 12 }}>
                     <Link to="/settings">
                         <Button type="text">
                             <SettingOutlined />
                         </Button>
                     </Link>
-                </AdminLink>
+                </LinkWrapper>
             )}
         </LinksWrapper>
     );

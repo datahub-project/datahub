@@ -15,6 +15,7 @@ export enum EventType {
     EntityViewEvent,
     EntitySectionViewEvent,
     EntityActionEvent,
+    BatchEntityActionEvent,
     RecommendationImpressionEvent,
     RecommendationClickEvent,
     SearchAcrossLineageEvent,
@@ -158,8 +159,14 @@ export const EntityActionType = {
 export interface EntityActionEvent extends BaseEvent {
     type: EventType.EntityActionEvent;
     actionType: string;
-    entityType: EntityType;
+    entityType?: EntityType;
     entityUrn: string;
+}
+
+export interface BatchEntityActionEvent extends BaseEvent {
+    type: EventType.BatchEntityActionEvent;
+    actionType: string;
+    entityUrns: string[];
 }
 
 export interface RecommendationImpressionEvent extends BaseEvent {
@@ -223,4 +230,5 @@ export type Event =
     | SearchAcrossLineageEvent
     | SearchAcrossLineageResultsViewEvent
     | DownloadAsCsvEvent
-    | RecommendationClickEvent;
+    | RecommendationClickEvent
+    | BatchEntityActionEvent;

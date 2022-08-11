@@ -181,6 +181,7 @@ entities:
       - assertionInfo
       - dataPlatformInstance
       - assertionRunEvent
+      - status
   - name: dataHubRetention
     category: internal
     keyAspect: dataHubRetentionKey

@@ -9,6 +9,19 @@
 
 version: 1
 
+# Enable memberOf overlay
+dn: olcOverlay=memberof,olcDatabase={1}mdb,cn=config
+objectClass: olcMemberOf
+objectClass: olcOverlayConfig
+objectClass: olcConfig
+objectClass: top
+olcOverlay: memberof
+olcMemberOfDangling: ignore
+olcMemberOfRefInt: TRUE
+olcMemberOfGroupOC: groupOfNames
+olcMemberOfMemberAD: member
+olcMemberOfMemberOfAD: memberOf
+
 # Entry 1: dc=example,dc=org
 # Note: this is commented out because the containers bootstrap scripts already
 # handle this for us.
@@ -113,3 +126,39 @@ dn: ou=Sales Department,dc=example,dc=org
 objectclass: organizationalUnit
 objectclass: top
 ou: Sales Department
+
+# Entry 10: cn=Hester Bevan,ou=people,dc=example,dc=org
+dn: cn=Hester Bevan,ou=people,dc=example,dc=org
+cn: Hester Bevan
+gidnumber: 500
+givenname: Hester
+homedirectory: /home/users/hbevan
+objectclass: inetOrgPerson
+objectclass: posixAccount
+objectclass: top
+sn: Bevan
+uid: hbevan
+uidnumber: 1004
+userpassword: {MD5}4QrcOUm6Wau+VuBX8g+IPg==
+
+# Entry 11: cn=Evalyn Haas,ou=people,dc=example,dc=org
+dn: cn=Evalyn Haas,ou=people,dc=example,dc=org
+cn: Evalyn Haas
+gidnumber: 500
+givenname: Evalyn
+homedirectory: /home/users/ehaas
+objectclass: inetOrgPerson
+objectclass: posixAccount
+objectclass: top
+sn: Haas
+uid: ehaas
+uidnumber: 1005
+userpassword: {MD5}4QrcOUm6Wau+VuBX8g+IPg==
+
+# Entry 12: cn=HR Department,ou=groups,dc=example,dc=org
+dn: cn=HR Department,dc=example,dc=org
+cn: HR Department
+objectclass: groupOfNames
+objectclass: top
+member: cn=Hester Bevan,ou=people,dc=example,dc=org
+member: cn=Evalyn Haas,ou=people,dc=example,dc=org

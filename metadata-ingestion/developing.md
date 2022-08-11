@@ -12,14 +12,14 @@ The architecture of this metadata ingestion framework is heavily inspired by [Ap
 
 ### Requirements
 
-1. Python 3.6+ must be installed in your host environment.
+1. Python 3.7+ must be installed in your host environment.
 2. On MacOS: `brew install librdkafka`
 3. On Debian/Ubuntu: `sudo apt install librdkafka-dev python3-dev python3-venv`
 4. On Fedora (if using LDAP source integration): `sudo yum install openldap-devel`
 
 ### Set up your Python environment
 
-From the repository root: 
+From the repository root:
 
 ```shell
 cd metadata-ingestion
@@ -96,7 +96,7 @@ Also take a look at the guide to [adding a source](./adding-source.md).
 # Install, including all dev requirements.
 pip install -e '.[dev]'
 
-# For running integration tests, you can use 
+# For running integration tests, you can use
 pip install -e '.[integration-tests]'
 
 # Run unit tests.
@@ -116,7 +116,6 @@ pytest -m 'slow_integration'
 ```
 
 This will generate some schema related files. These are auto-generated in docker containers. Do not commit these files in source code.
-
 
 ```shell
 # Assumes: pip install -e '.[dev]' and venv is activated

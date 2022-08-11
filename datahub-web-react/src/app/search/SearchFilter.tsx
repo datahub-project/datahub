@@ -9,6 +9,12 @@ import { FacetMetadata } from '../../types.generated';
 import { SearchFilterLabel } from './SearchFilterLabel';
 import { TRUNCATED_FILTER_LENGTH } from './utils/constants';
 
+const GRAPH_DEGREE_FILTER_FIELD = 'degree';
+
+const isGraphDegreeFilter = (field: string) => {
+    return GRAPH_DEGREE_FILTER_FIELD === field;
+};
+
 type Props = {
     facet: FacetMetadata;
     selectedFilters: Array<{
@@ -54,7 +60,17 @@ const StyledDownOutlined = styled(DownOutlined)`
 export const SearchFilter = ({ facet, selectedFilters, onFilterSelect, defaultDisplayFilters }: Props) => {
     const [areFiltersVisible, setAreFiltersVisible] = useState(defaultDisplayFilters);
     const [expanded, setExpanded] = useState(false);
-    const shouldTruncate = facet.aggregations.length > TRUNCATED_FILTER_LENGTH;
+
+    const isFacetSelected = (field, value) => {
+        return selectedFilters.find((f) => f.field === field && f.value === value) !== undefined;
+    };
+
+    // Aggregations filtered for count > 0 or selected = true
+    const filteredAggregations = facet.aggregations.filter(
+        (agg) => agg.count > 0 || isFacetSelected(facet.field, agg.value) || isGraphDegreeFilter(facet.field),
+    );
+
+    const shouldTruncate = filteredAggregations.length > TRUNCATED_FILTER_LENGTH;
 
     return (
         <SearchFilterWrapper key={facet.field}>
@@ -68,29 +84,32 @@ export const SearchFilter = ({ facet, selectedFilters, onFilterSelect, defaultDi
             </Title>
             {areFiltersVisible && (
                 <>
-                    {facet.aggregations.map((aggregation, i) => {
-                        if (i >= TRUNCATED_FILTER_LENGTH && !expanded) {
-                            return null;
-                        }
-                        return (
-                            <span key={`${facet.field}-${aggregation.value}`}>
-                                <CheckBox
-                                    data-testid={`facet-${facet.field}-${aggregation.value}`}
-                                    checked={
-                                        selectedFilters.find(
-                                            (f) => f.field === facet.field && f.value === aggregation.value,
-                                        ) !== undefined
-                                    }
-                                    onChange={(e: CheckboxChangeEvent) =>
-                                        onFilterSelect(e.target.checked, facet.field, aggregation.value)
-                                    }
-                                >
-                                    <SearchFilterLabel field={facet.field} aggregation={aggregation} />
-                                </CheckBox>
-                                <br />
-                            </span>
-                        );
-                    })}
+                    {facet.aggregations
+                        .filter(
+                            (agg) =>
+                                agg.count > 0 ||
+                                isFacetSelected(facet.field, agg.value) ||
+                                isGraphDegreeFilter(facet.field),
+                        )
+                        .map((aggregation, i) => {
+                            if (i >= TRUNCATED_FILTER_LENGTH && !expanded) {
+                                return null;
+                            }
+                            return (
+                                <span key={`${facet.field}-${aggregation.value}`}>
+                                    <CheckBox
+                                        data-testid={`facet-${facet.field}-${aggregation.value}`}
+                                        checked={isFacetSelected(facet.field, aggregation.value)}
+                                        onChange={(e: CheckboxChangeEvent) =>
+                                            onFilterSelect(e.target.checked, facet.field, aggregation.value)
+                                        }
+                                    >
+                                        <SearchFilterLabel field={facet.field} aggregation={aggregation} />
+                                    </CheckBox>
+                                    <br />
+                                </span>
+                            );
+                        })}
                     {shouldTruncate && (
                         <ExpandButton type="text" onClick={() => setExpanded(!expanded)}>
                             {expanded ? '- Less' : '+ More'}

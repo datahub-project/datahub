@@ -11,18 +11,19 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.authorization.ConjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
-import com.linkedin.datahub.graphql.generated.BrowsePath;
-import com.linkedin.datahub.graphql.generated.BrowseResults;
-import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetUpdateInput;
-import com.linkedin.datahub.graphql.generated.Entity;
-import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
+import com.linkedin.datahub.graphql.generated.BrowseResults;
+import com.linkedin.datahub.graphql.generated.BrowsePath;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.generated.BatchDatasetUpdateInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.types.BatchMutableType;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
-import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetUpdateInputMapper;
@@ -40,7 +41,9 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
+
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -56,7 +59,7 @@ import static com.linkedin.metadata.Constants.*;
 
 
 public class DatasetType implements SearchableEntityType<Dataset, String>, BrowsableEntityType<Dataset, String>,
-                                    MutableType<DatasetUpdateInput, Dataset> {
+        BatchMutableType<DatasetUpdateInput, BatchDatasetUpdateInput, Dataset> {
 
     private static final Set<String> ASPECTS_TO_RESOLVE = ImmutableSet.of(
         DATASET_KEY_ASPECT_NAME,
@@ -97,6 +100,11 @@ public class DatasetType implements SearchableEntityType<Dataset, String>, Brows
     @Override
     public Class<DatasetUpdateInput> inputClass() {
         return DatasetUpdateInput.class;
+    }
+
+    @Override
+    public Class<BatchDatasetUpdateInput[]> batchInputClass() {
+        return BatchDatasetUpdateInput[].class;
     }
 
     @Override
@@ -182,6 +190,30 @@ public class DatasetType implements SearchableEntityType<Dataset, String>, Brows
     public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull final QueryContext context) throws Exception {
         final StringArray result = _entityClient.getBrowsePaths(DatasetUtils.getDatasetUrn(urn), context.getAuthentication());
         return BrowsePathsMapper.map(result);
+    }
+
+    @Override
+    public List<Dataset> batchUpdate(@Nonnull BatchDatasetUpdateInput[] input, @Nonnull QueryContext context) throws Exception {
+        final Urn actor = Urn.createFromString(context.getAuthentication().getActor().toUrnStr());
+
+        final Collection<MetadataChangeProposal> proposals = Arrays.stream(input).map(updateInput -> {
+            if (isAuthorized(updateInput.getUrn(), updateInput.getUpdate(), context)) {
+                Collection<MetadataChangeProposal> datasetProposals = DatasetUpdateInputMapper.map(updateInput.getUpdate(), actor);
+                datasetProposals.forEach(proposal -> proposal.setEntityUrn(UrnUtils.getUrn(updateInput.getUrn())));
+                return datasetProposals;
+            }
+            throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+        }).flatMap(Collection::stream).collect(Collectors.toList());
+
+        final List<String> urns = Arrays.stream(input).map(BatchDatasetUpdateInput::getUrn).collect(Collectors.toList());
+
+        try {
+            _entityClient.batchIngestProposals(proposals, context.getAuthentication());
+        } catch (RemoteInvocationException e) {
+            throw new RuntimeException(String.format("Failed to write entity with urn %s", urns), e);
+        }
+
+        return batchLoad(urns, context).stream().map(DataFetcherResult::getData).collect(Collectors.toList());
     }
 
     @Override

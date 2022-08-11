@@ -27,6 +27,11 @@ services:
     - DATAHUB_GMS_PORT=8080
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     - SCHEMA_REGISTRY_URL=http://schema-registry:8081
+    - METADATA_AUDIT_EVENT_NAME=MetadataAuditEvent_v4
+    - METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME=MetadataChangeLog_Versioned_v1
+    - DATAHUB_SYSTEM_CLIENT_ID=__datahub_system
+    - DATAHUB_SYSTEM_CLIENT_SECRET=JohnSnowKnowsNothing
+    - KAFKA_PROPERTIES_SECURITY_PROTOCOL=PLAINTEXT
     hostname: actions
     image: acryldata/datahub-actions:${ACTIONS_VERSION:-head}
     restart: on-failure:5
@@ -50,7 +55,7 @@ services:
     - ELASTIC_CLIENT_PORT=9200
     - ADMIN_PASSWORD=mypass
     hostname: datahub-frontend-react
-    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-frontend-react:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_FRONTEND_IMAGE:-linkedin/datahub-frontend-react}:${DATAHUB_VERSION:-head}
     ports:
     - 9002:9002
     volumes:
@@ -79,13 +84,14 @@ services:
     - MCE_CONSUMER_ENABLED=true
     - PE_CONSUMER_ENABLED=true
     - UI_INGESTION_ENABLED=true
-    - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.41
+    - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.43
     hostname: datahub-gms
-    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-gms:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_GMS_IMAGE:-linkedin/datahub-gms}:${DATAHUB_VERSION:-head}
     ports:
     - 8080:8080
     volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+    - ${HOME}/.datahub/plugins/auth/resources/:/etc/datahub/plugins/auth/resources
   elasticsearch:
     container_name: elasticsearch
     environment:
@@ -115,7 +121,7 @@ services:
     - ELASTICSEARCH_PORT=9200
     - ELASTICSEARCH_PROTOCOL=http
     hostname: elasticsearch-setup
-    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-elasticsearch-setup:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-linkedin/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
   kafka-setup:
     container_name: kafka-setup
     depends_on:
@@ -125,7 +131,7 @@ services:
     - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     hostname: kafka-setup
-    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-kafka-setup:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-linkedin/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
   mysql:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin
     container_name: mysql
@@ -152,7 +158,7 @@ services:
     - MYSQL_PASSWORD=datahub
     - DATAHUB_DB_NAME=datahub
     hostname: mysql-setup
-    image: 795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-mysql-setup:head
+    image: acryldata/datahub-mysql-setup:${DATAHUB_VERSION:-head}
   schema-registry:
     container_name: schema-registry
     depends_on:

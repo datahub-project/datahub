@@ -1,15 +1,14 @@
 import glob
-import importlib
 import itertools
 import logging
 import pathlib
 import re
-import sys
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from dataclasses import replace
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
+import lkml
 import pydantic
 from looker_sdk.error import SDKError
 from looker_sdk.sdk.api31.methods import Looker31SDK
@@ -17,13 +16,25 @@ from looker_sdk.sdk.api31.models import DBConnection
 from pydantic import root_validator, validator
 from pydantic.fields import Field
 
+import datahub.emitter.mce_builder as builder
+from datahub.configuration import ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
     config_class,
     platform_name,
     support_status,
+)
+from datahub.ingestion.api.registry import import_path
+from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.looker import (
+    LookerAPI,
+    LookerAPIConfig,
+    TransportOptionsConfig,
 )
 from datahub.ingestion.source.looker_common import (
     LookerCommonConfig,
@@ -32,29 +43,6 @@ from datahub.ingestion.source.looker_common import (
     LookerViewId,
     ViewField,
     ViewFieldType,
-)
-from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
-    DatasetPropertiesClass,
-    SubTypesClass,
-)
-from datahub.utilities.sql_parser import SQLParser
-
-if sys.version_info >= (3, 7):
-    import lkml
-else:
-    raise ModuleNotFoundError("The lookml plugin requires Python 3.7 or newer.")
-
-import datahub.emitter.mce_builder as builder
-from datahub.configuration import ConfigModel
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.looker import (
-    LookerAPI,
-    LookerAPIConfig,
-    TransportOptionsConfig,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import BrowsePaths, Status
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
@@ -65,8 +53,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-
-assert sys.version_info[1] >= 7  # needed for mypy
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    DatasetPropertiesClass,
+    SubTypesClass,
+)
+from datahub.utilities.sql_parser import SQLParser
 
 logger = logging.getLogger(__name__)
 
@@ -515,14 +507,10 @@ class LookerView:
     @classmethod
     def _import_sql_parser_cls(cls, sql_parser_path: str) -> Type[SQLParser]:
         assert "." in sql_parser_path, "sql_parser-path must contain a ."
-        module_name, cls_name = sql_parser_path.rsplit(".", 1)
-        import sys
+        parser_cls = import_path(sql_parser_path)
 
-        logger.debug(sys.path)
-        parser_cls = getattr(importlib.import_module(module_name), cls_name)
         if not issubclass(parser_cls, SQLParser):
             raise ValueError(f"must be derived from {SQLParser}; got {parser_cls}")
-
         return parser_cls
 
     @classmethod

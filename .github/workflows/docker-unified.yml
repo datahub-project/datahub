@@ -16,7 +16,10 @@ on:
     types: [published, edited]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # Using `github.run_id` (unique val) instead of `github.ref` here
+  # because we don't want to cancel this workflow on master only for PRs
+  #   as that makes reproducing issues easier
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 env:
@@ -58,6 +61,7 @@ jobs:
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
           echo "::set-output name=publish::${{ env.ENABLE_PUBLISH != '' }}"
+
   gms_build:
     name: Build and Push DataHub GMS Docker Image
     runs-on: ubuntu-latest
@@ -70,13 +74,12 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Docker meta
-        id: docker_meta
-        uses: crazy-max/ghaction-docker-meta@v1
+      - name: Build and push
+        uses: ./.github/actions/docker-custom-build-and-push
         with:
-          # list of Docker images to use as base name for tags
           images: |
             ${{ env.DATAHUB_GMS_IMAGE }}
+<<<<<<< HEAD
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
@@ -112,11 +115,15 @@ jobs:
         uses: docker/build-push-action@v2
         if: ${{ needs.setup.outputs.publish == 'true' }}
         with:
+=======
+          tags: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.publish }}
+>>>>>>> master
           context: .
           file: ./docker/datahub-gms/Dockerfile
           platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          push: true
   gms_scan:
     name: "[Monitoring] Scan GMS images for vulnerabilities"
     runs-on: ubuntu-latest
@@ -135,10 +142,14 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+<<<<<<< HEAD
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-west-2
+=======
+
+>>>>>>> master
   mae_consumer_build:
     name: Build and Push DataHub MAE Consumer Docker Image
     runs-on: ubuntu-latest
@@ -151,13 +162,12 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Docker meta
-        id: docker_meta
-        uses: crazy-max/ghaction-docker-meta@v1
+      - name: Build and push
+        uses: ./.github/actions/docker-custom-build-and-push
         with:
-          # list of Docker images to use as base name for tags
           images: |
             ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}
+<<<<<<< HEAD
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
@@ -193,11 +203,15 @@ jobs:
         uses: docker/build-push-action@v2
         if: ${{ needs.setup.outputs.publish == 'true' }}
         with:
+=======
+          tags: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.publish }}
+>>>>>>> master
           context: .
           file: ./docker/datahub-mae-consumer/Dockerfile
           platforms: linux/amd64
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          push: true
   mae_consumer_scan:
     name: "[Monitoring] Scan MAE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
@@ -216,10 +230,14 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+<<<<<<< HEAD
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-west-2
+=======
+
+>>>>>>> master
   mce_consumer_build:
     name: Build and Push DataHub MCE Consumer Docker Image
     runs-on: ubuntu-latest
@@ -232,13 +250,12 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Docker meta
-        id: docker_meta
-        uses: crazy-max/ghaction-docker-meta@v1
+      - name: Build and push
+        uses: ./.github/actions/docker-custom-build-and-push
         with:
-          # list of Docker images to use as base name for tags
           images: |
             ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}
+<<<<<<< HEAD
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
@@ -274,11 +291,15 @@ jobs:
         uses: docker/build-push-action@v2
         if: ${{ needs.setup.outputs.publish == 'true' }}
         with:
+=======
+          tags: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.publish }}
+>>>>>>> master
           context: .
           file: ./docker/datahub-mce-consumer/Dockerfile
           platforms: linux/amd64
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          push: true
   mce_consumer_scan:
     name: "[Monitoring] Scan MCE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
@@ -297,10 +318,14 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+<<<<<<< HEAD
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-west-2
+=======
+
+>>>>>>> master
   datahub_upgrade_build:
     name: Build and Push DataHub Upgrade Docker Image
     runs-on: ubuntu-latest
@@ -313,13 +338,12 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Docker meta
-        id: docker_meta
-        uses: crazy-max/ghaction-docker-meta@v1
+      - name: Build and push
+        uses: ./.github/actions/docker-custom-build-and-push
         with:
-          # list of Docker images to use as base name for tags
           images: |
             ${{ env.DATAHUB_UPGRADE_IMAGE }}
+<<<<<<< HEAD
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
@@ -355,11 +379,15 @@ jobs:
         uses: docker/build-push-action@v2
         if: ${{ needs.setup.outputs.publish == 'true' }}
         with:
+=======
+          tags: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.publish }}
+>>>>>>> master
           context: .
           file: ./docker/datahub-upgrade/Dockerfile
-          platforms: linux/amd64
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          push: true
+          platforms: linux/amd64,linux/arm64
   datahub_upgrade_scan:
     name: "[Monitoring] Scan DataHub Upgrade images for vulnerabilities"
     runs-on: ubuntu-latest
@@ -378,10 +406,14 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+<<<<<<< HEAD
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-west-2
+=======
+
+>>>>>>> master
   frontend_build:
     name: Build and Push DataHub Frontend Docker Image
     runs-on: ubuntu-latest
@@ -394,13 +426,12 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Docker meta
-        id: docker_meta
-        uses: crazy-max/ghaction-docker-meta@v1
+      - name: Build and push
+        uses: ./.github/actions/docker-custom-build-and-push
         with:
-          # list of Docker images to use as base name for tags
           images: |
             ${{ env.DATAHUB_FRONTEND_IMAGE }}
+<<<<<<< HEAD
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
@@ -436,11 +467,15 @@ jobs:
         uses: docker/build-push-action@v2
         if: ${{ needs.setup.outputs.publish == 'true' }}
         with:
+=======
+          tags: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.publish }}
+>>>>>>> master
           context: .
           file: ./docker/datahub-frontend/Dockerfile
           platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          push: true
   frontend_scan:
     name: "[Monitoring] Scan Frontend images for vulnerabilities"
     runs-on: ubuntu-latest
@@ -459,10 +494,14 @@ jobs:
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
+<<<<<<< HEAD
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-west-2
+=======
+
+>>>>>>> master
   kafka_setup_build:
     name: Build and Push DataHub Kafka Setup Docker Image
     runs-on: ubuntu-latest
@@ -475,13 +514,12 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Docker meta
-        id: docker_meta
-        uses: crazy-max/ghaction-docker-meta@v1
+      - name: Build and push
+        uses: ./.github/actions/docker-custom-build-and-push
         with:
-          # list of Docker images to use as base name for tags
           images: |
             ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}
+<<<<<<< HEAD
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
@@ -517,11 +555,16 @@ jobs:
         uses: docker/build-push-action@v2
         if: ${{ needs.setup.outputs.publish == 'true' }}
         with:
+=======
+          tags: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.publish }}
+>>>>>>> master
           context: ./docker/kafka-setup
           file: ./docker/kafka-setup/Dockerfile
           platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          push: true
+
   mysql_setup_build:
     name: Build and Push DataHub MySQL Setup Docker Image
     runs-on: ubuntu-latest
@@ -534,13 +577,12 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Docker meta
-        id: docker_meta
-        uses: crazy-max/ghaction-docker-meta@v1
+      - name: Build and push
+        uses: ./.github/actions/docker-custom-build-and-push
         with:
-          # list of Docker images to use as base name for tags
           images: |
             ${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}
+<<<<<<< HEAD
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
@@ -576,11 +618,16 @@ jobs:
         uses: docker/build-push-action@v2
         if: ${{ needs.setup.outputs.publish == 'true' }}
         with:
+=======
+          tags: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.publish }}
+>>>>>>> master
           context: .
           file: ./docker/mysql-setup/Dockerfile
           platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          push: true
+
   elasticsearch_setup_build:
     name: Build and Push DataHub Elasticsearch Setup Docker Image
     runs-on: ubuntu-latest
@@ -593,13 +640,12 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Docker meta
-        id: docker_meta
-        uses: crazy-max/ghaction-docker-meta@v1
+      - name: Build and push
+        uses: ./.github/actions/docker-custom-build-and-push
         with:
-          # list of Docker images to use as base name for tags
           images: |
             ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}
+<<<<<<< HEAD
           # add git short SHA as Docker tag
           tag-custom: ${{ needs.setup.outputs.tag }}
           tag-custom-only: true
@@ -635,11 +681,16 @@ jobs:
         uses: docker/build-push-action@v2
         if: ${{ needs.setup.outputs.publish == 'true' }}
         with:
+=======
+          tags: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.publish }}
+>>>>>>> master
           context: .
           file: ./docker/elasticsearch-setup/Dockerfile
           platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          push: true
+
   smoke_test:
     name: Run Smoke Tests
     runs-on: ubuntu-latest
@@ -653,7 +704,7 @@ jobs:
           java-version: 1.8
       - uses: actions/setup-python@v2
         with:
-          python-version: "3.6"
+          python-version: "3.7"
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Build datahub cli
@@ -698,6 +749,23 @@ jobs:
         run: |
           echo "$DATAHUB_VERSION"
           ./smoke-test/smoke.sh
+      - name: store logs
+        if: failure()
+        run: |
+          docker ps -a
+          docker logs datahub-gms >& gms.log
+      - name: Upload logs
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: docker logs
+          path: "*.log"
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: cypress-snapshots
+          path: smoke-test/tests/cypress/cypress/screenshots/
       - uses: actions/upload-artifact@v2
         if: always()
         with:

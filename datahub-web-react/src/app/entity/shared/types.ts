@@ -132,3 +132,8 @@ export type EntityContextType = {
 export type RequiredAndNotNull<T> = {
     [P in keyof T]-?: Exclude<T[P], null | undefined>;
 };
+
+export type EntityAndType = {
+    urn: string;
+    type: EntityType;
+};

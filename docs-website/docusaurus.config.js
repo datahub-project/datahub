@@ -6,7 +6,7 @@ module.exports = {
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "throw",
   favicon: "img/favicon.ico",
-  organizationName: "linkedin", // Usually your GitHub org/user name.
+  organizationName: "datahub-project", // Usually your GitHub org/user name.
   projectName: "datahub", // Usually your repo name.
   stylesheets: [
     "https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap",
@@ -172,7 +172,8 @@ module.exports = {
       additionalLanguages: ["ini"],
     },
     algolia: {
-      apiKey: "26a4b687e96e7476b5a6f11365a83336",
+      appId: "RK0UG797F3",
+      apiKey: "39d7eb90d8b31d464e309375a52d674f",
       indexName: "datahubproject",
       // contextualSearch: true,
       // searchParameters: {},

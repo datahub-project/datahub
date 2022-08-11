@@ -28,6 +28,7 @@ import { UpdateIngestionSourceInput } from '../../../types.generated';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
 import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import { ExecutionDetailsModal } from './ExecutionRequestDetailsModal';
 
 const SourceContainer = styled.div``;
 
@@ -48,6 +49,11 @@ const StatusContainer = styled.div`
     display: flex;
     justify-content: left;
     align-items: center;
+`;
+
+const StatusButton = styled(Button)`
+    padding: 0px;
+    margin: 0px;
 `;
 
 const ActionButtonContainer = styled.div`
@@ -84,6 +90,7 @@ export const IngestionSourceList = () => {
 
     const [isBuildingSource, setIsBuildingSource] = useState<boolean>(false);
     const [focusSourceUrn, setFocusSourceUrn] = useState<undefined | string>(undefined);
+    const [focusExecutionUrn, setFocusExecutionUrn] = useState<undefined | string>(undefined);
     const [lastRefresh, setLastRefresh] = useState(0);
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
@@ -110,59 +117,6 @@ export const IngestionSourceList = () => {
     const filteredSources = sources.filter((user) => !removedUrns.includes(user.urn));
     const focusSource =
         (focusSourceUrn && filteredSources.find((source) => source.urn === focusSourceUrn)) || undefined;
-
-    const onCreateOrUpdateIngestionSourceSuccess = () => {
-        setTimeout(() => refetch(), 2000);
-        setIsBuildingSource(false);
-        setFocusSourceUrn(undefined);
-    };
-
-    const createOrUpdateIngestionSource = (input: UpdateIngestionSourceInput, resetState: () => void) => {
-        if (focusSourceUrn) {
-            // Update:
-            updateIngestionSource({ variables: { urn: focusSourceUrn as string, input } })
-                .then(() => {
-                    message.success({
-                        content: `Successfully updated ingestion source!`,
-                        duration: 3,
-                    });
-                    onCreateOrUpdateIngestionSourceSuccess();
-                    resetState();
-                })
-                .catch((e) => {
-                    message.destroy();
-                    message.error({
-                        content: `Failed to update ingestion source!: \n ${e.message || ''}`,
-                        duration: 3,
-                    });
-                });
-        } else {
-            // Create
-            createIngestionSource({ variables: { input } })
-                .then(() => {
-                    setTimeout(() => refetch(), 2000);
-                    setIsBuildingSource(false);
-                    setFocusSourceUrn(undefined);
-                    resetState();
-                    message.success({
-                        content: `Successfully created ingestion source!`,
-                        duration: 3,
-                    });
-                    // onCreateOrUpdateIngestionSourceSuccess();
-                })
-                .catch((e) => {
-                    message.destroy();
-                    message.error({
-                        content: `Failed to create ingestion source!: \n ${e.message || ''}`,
-                        duration: 3,
-                    });
-                });
-        }
-    };
-
-    const onChangePage = (newPage: number) => {
-        setPage(newPage);
-    };
 
     const onRefresh = () => {
         refetch();
@@ -194,6 +148,70 @@ export const IngestionSourceList = () => {
             });
     };
 
+    const onCreateOrUpdateIngestionSourceSuccess = () => {
+        setTimeout(() => refetch(), 2000);
+        setIsBuildingSource(false);
+        setFocusSourceUrn(undefined);
+    };
+
+    const createOrUpdateIngestionSource = (
+        input: UpdateIngestionSourceInput,
+        resetState: () => void,
+        shouldRun?: boolean,
+    ) => {
+        if (focusSourceUrn) {
+            // Update:
+            updateIngestionSource({ variables: { urn: focusSourceUrn as string, input } })
+                .then(() => {
+                    message.success({
+                        content: `Successfully updated ingestion source!`,
+                        duration: 3,
+                    });
+                    onCreateOrUpdateIngestionSourceSuccess();
+                    resetState();
+                    if (shouldRun) executeIngestionSource(focusSourceUrn);
+                })
+                .catch((e) => {
+                    message.destroy();
+                    message.error({
+                        content: `Failed to update ingestion source!: \n ${e.message || ''}`,
+                        duration: 3,
+                    });
+                });
+        } else {
+            // Create
+            createIngestionSource({ variables: { input } })
+                .then((result) => {
+                    message.loading({ content: 'Loading...', duration: 2 });
+                    setTimeout(() => {
+                        refetch();
+                        message.success({
+                            content: `Successfully created ingestion source!`,
+                            duration: 3,
+                        });
+                        if (shouldRun && result.data?.createIngestionSource) {
+                            executeIngestionSource(result.data.createIngestionSource);
+                        }
+                    }, 2000);
+                    setIsBuildingSource(false);
+                    setFocusSourceUrn(undefined);
+                    resetState();
+                    // onCreateOrUpdateIngestionSourceSuccess();
+                })
+                .catch((e) => {
+                    message.destroy();
+                    message.error({
+                        content: `Failed to create ingestion source!: \n ${e.message || ''}`,
+                        duration: 3,
+                    });
+                });
+        }
+    };
+
+    const onChangePage = (newPage: number) => {
+        setPage(newPage);
+    };
+
     const deleteIngestionSource = async (urn: string) => {
         removeIngestionSourceMutation({
             variables: { urn },
@@ -214,7 +232,7 @@ export const IngestionSourceList = () => {
             });
     };
 
-    const onSubmit = (recipeBuilderState: SourceBuilderState, resetState: () => void) => {
+    const onSubmit = (recipeBuilderState: SourceBuilderState, resetState: () => void, shouldRun?: boolean) => {
         createOrUpdateIngestionSource(
             {
                 type: recipeBuilderState.type as string,
@@ -236,6 +254,7 @@ export const IngestionSourceList = () => {
                 },
             },
             resetState,
+            shouldRun,
         );
     };
 
@@ -336,16 +355,18 @@ export const IngestionSourceList = () => {
             title: 'Last Status',
             dataIndex: 'lastExecStatus',
             key: 'lastExecStatus',
-            render: (status: any) => {
+            render: (status: any, record) => {
                 const Icon = getExecutionRequestStatusIcon(status);
                 const text = getExecutionRequestStatusDisplayText(status);
                 const color = getExecutionRequestStatusDisplayColor(status);
                 return (
                     <StatusContainer>
                         {Icon && <Icon style={{ color }} />}
-                        <Typography.Text strong style={{ color, marginLeft: 8 }}>
-                            {text || 'N/A'}
-                        </Typography.Text>
+                        <StatusButton type="link" onClick={() => setFocusExecutionUrn(record.lastExecUrn)}>
+                            <Typography.Text strong style={{ color, marginLeft: 8 }}>
+                                {text || 'N/A'}
+                            </Typography.Text>
+                        </StatusButton>
                     </StatusContainer>
                 );
             },
@@ -393,6 +414,8 @@ export const IngestionSourceList = () => {
         schedule: source.schedule?.interval,
         timezone: source.schedule?.timezone,
         execCount: source.executions?.total || 0,
+        lastExecUrn:
+            source.executions?.total && source.executions?.total > 0 && source.executions?.executionRequests[0].urn,
         lastExecTime:
             source.executions?.total &&
             source.executions?.total > 0 &&
@@ -478,6 +501,13 @@ export const IngestionSourceList = () => {
                 onSubmit={onSubmit}
                 onCancel={onCancel}
             />
+            {focusExecutionUrn && (
+                <ExecutionDetailsModal
+                    urn={focusExecutionUrn}
+                    visible
+                    onClose={() => setFocusExecutionUrn(undefined)}
+                />
+            )}
         </>
     );
 };
