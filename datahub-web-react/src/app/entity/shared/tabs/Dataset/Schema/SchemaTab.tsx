@@ -22,7 +22,7 @@ const NoSchema = styled(Empty)`
 
 const SchemaTableContainer = styled.div`
     overflow: auto;
-    height: 100vh;
+    height: 100%;
 `;
 export const SchemaTab = ({ properties }: { properties?: any }) => {
     const { entityData } = useEntityData();
