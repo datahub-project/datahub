@@ -10,7 +10,7 @@ import lombok.ToString;
 
 @ToString
 public class JdbcDataset extends SparkDataset {
-  //TODO: Should map to the central location on datahub for platform names
+  // TODO: Should map to the central location on datahub for platform names
   private static final Map<String, String> PLATFORM_NAME_MAPPING = new HashMap<>();
   static {
     PLATFORM_NAME_MAPPING.put("postgresql", "postgres");
@@ -18,6 +18,10 @@ public class JdbcDataset extends SparkDataset {
 
   public JdbcDataset(String url, String tbl, String platformInstance, FabricType fabricType) {
     super(platformName(url), platformInstance, dsName(url, tbl), fabricType);
+  }
+
+  public JdbcDataset(String url, String tbl) {
+    super(platformName(url), dsName(url, tbl));
   }
 
   private static String platformName(String url) {

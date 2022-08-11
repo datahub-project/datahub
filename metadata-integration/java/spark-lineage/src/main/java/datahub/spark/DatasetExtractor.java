@@ -34,12 +34,9 @@ import org.apache.spark.sql.hive.execution.InsertIntoHiveTable;
 import org.apache.spark.sql.sources.BaseRelation;
 
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.FabricType;
-import com.typesafe.config.Config;
 
-import datahub.spark.model.LineageUtils;
 import datahub.spark.model.dataset.CatalogTableDataset;
-import datahub.spark.model.dataset.HdfsPathDataset;
+import datahub.spark.model.dataset.HdfsDatasetFactory;
 import datahub.spark.model.dataset.JdbcDataset;
 import datahub.spark.model.dataset.SparkDataset;
 import lombok.extern.slf4j.Slf4j;
@@ -56,8 +53,6 @@ public class DatasetExtractor {
   private static final Set<Class<? extends LogicalPlan>> OUTPUT_CMD = ImmutableSet.of(
       InsertIntoHadoopFsRelationCommand.class, SaveIntoDataSourceCommand.class,
       CreateDataSourceTableAsSelectCommand.class, CreateHiveTableAsSelectCommand.class, InsertIntoHiveTable.class);
-  private static final String DATASET_ENV_KEY = "metadata.dataset.env";
-  private static final String DATASET_PLATFORM_INSTANCE_KEY = "metadata.dataset.platformInstance";
   // TODO InsertIntoHiveDirCommand, InsertIntoDataSourceDirCommand
 
   private DatasetExtractor() {
@@ -65,76 +60,82 @@ public class DatasetExtractor {
   }
 
   private static interface PlanToDataset {
-    Optional<? extends Collection<SparkDataset>> fromPlanNode(LogicalPlan plan, SparkContext ctx, Config datahubConfig);
+    Optional<? extends Collection<SparkDataset>> fromPlanNode(LogicalPlan plan, SparkContext ctx);
   }
 
   private static interface RelationToDataset {
-    Optional<? extends Collection<SparkDataset>> fromRelation(BaseRelation rel, SparkContext ctx, Config datahubConfig);
+    Optional<? extends Collection<SparkDataset>> fromRelation(BaseRelation rel, SparkContext ctx);
   }
 
   private static interface SparkPlanToDataset {
-    Optional<? extends Collection<SparkDataset>> fromSparkPlanNode(SparkPlan plan, SparkContext ctx,
-        Config datahubConfig);
+    Optional<? extends Collection<SparkDataset>> fromSparkPlanNode(SparkPlan plan, SparkContext ctx);
   }
 
   static {
 
-    SPARKPLAN_TO_DATASET.put(FileSourceScanExec.class, (p, ctx, datahubConfig) -> {
+    SPARKPLAN_TO_DATASET.put(FileSourceScanExec.class, (p, ctx) -> {
 
       BaseRelation baseRel = ((FileSourceScanExec) p).relation();
       if (!REL_TO_DATASET.containsKey(baseRel.getClass())) {
         return Optional.empty();
       }
-      return REL_TO_DATASET.get(baseRel.getClass()).fromRelation(baseRel, ctx, datahubConfig);
+      return REL_TO_DATASET.get(baseRel.getClass()).fromRelation(baseRel, ctx);
 
     });
 
-    SPARKPLAN_TO_DATASET.put(HiveTableScanExec.class, (p, ctx, datahubConfig) -> {
+    SPARKPLAN_TO_DATASET.put(HiveTableScanExec.class, (p, ctx) -> {
 
       HiveTableRelation baseRel = ((HiveTableScanExec) p).relation();
       if (!PLAN_TO_DATASET.containsKey(baseRel.getClass())) {
         return Optional.empty();
       }
-      return PLAN_TO_DATASET.get(baseRel.getClass()).fromPlanNode(baseRel, ctx, datahubConfig);
+      return PLAN_TO_DATASET.get(baseRel.getClass()).fromPlanNode(baseRel, ctx);
 
     });
 
-    SPARKPLAN_TO_DATASET.put(RowDataSourceScanExec.class, (p, ctx, datahubConfig) -> {
+    SPARKPLAN_TO_DATASET.put(RowDataSourceScanExec.class, (p, ctx) -> {
       BaseRelation baseRel = ((RowDataSourceScanExec) p).relation();
       if (!REL_TO_DATASET.containsKey(baseRel.getClass())) {
         return Optional.empty();
       }
-      return REL_TO_DATASET.get(baseRel.getClass()).fromRelation(baseRel, ctx, datahubConfig);
+      return REL_TO_DATASET.get(baseRel.getClass()).fromRelation(baseRel, ctx);
     });
 
-    SPARKPLAN_TO_DATASET.put(InMemoryTableScanExec.class, (p, ctx, datahubConfig) -> {
+    SPARKPLAN_TO_DATASET.put(InMemoryTableScanExec.class, (p, ctx) -> {
       InMemoryRelation baseRel = ((InMemoryTableScanExec) p).relation();
       if (!PLAN_TO_DATASET.containsKey(baseRel.getClass())) {
         return Optional.empty();
       }
-      return PLAN_TO_DATASET.get(baseRel.getClass()).fromPlanNode(baseRel, ctx, datahubConfig);
+      return PLAN_TO_DATASET.get(baseRel.getClass()).fromPlanNode(baseRel, ctx);
 
     });
-    
-    PLAN_TO_DATASET.put(InsertIntoHadoopFsRelationCommand.class, (p, ctx, datahubConfig) -> {
+
+    PLAN_TO_DATASET.put(InsertIntoHadoopFsRelationCommand.class, (p, ctx) -> {
       InsertIntoHadoopFsRelationCommand cmd = (InsertIntoHadoopFsRelationCommand) p;
       if (cmd.catalogTable().isDefined()) {
-        return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.catalogTable().get(),
-            getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
+        return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.catalogTable().get())));
       }
-      return Optional.of(Collections.singletonList(new HdfsPathDataset(cmd.outputPath(),
-          getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
+
+      try {
+        List<SparkDataset> datasets = Collections
+            .singletonList(HdfsDatasetFactory.createDataset(cmd.outputPath()));
+        return Optional.of(datasets);
+      } catch (InstantiationException e) {
+        log.error("Hdfs based dataset could not be created.", e);
+        return Optional.empty();
+      }
+
     });
 
-    PLAN_TO_DATASET.put(LogicalRelation.class, (p, ctx, datahubConfig) -> {
+    PLAN_TO_DATASET.put(LogicalRelation.class, (p, ctx) -> {
       BaseRelation baseRel = ((LogicalRelation) p).relation();
       if (!REL_TO_DATASET.containsKey(baseRel.getClass())) {
         return Optional.empty();
       }
-      return REL_TO_DATASET.get(baseRel.getClass()).fromRelation(baseRel, ctx, datahubConfig);
+      return REL_TO_DATASET.get(baseRel.getClass()).fromRelation(baseRel, ctx);
     });
 
-    PLAN_TO_DATASET.put(SaveIntoDataSourceCommand.class, (p, ctx, datahubConfig) -> {
+    PLAN_TO_DATASET.put(SaveIntoDataSourceCommand.class, (p, ctx) -> {
 
       SaveIntoDataSourceCommand cmd = (SaveIntoDataSourceCommand) p;
 
@@ -145,53 +146,53 @@ public class DatasetExtractor {
       }
 
       String tbl = options.get("dbtable");
-      return Optional.of(Collections.singletonList(
-          new JdbcDataset(url, tbl, getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
+      return Optional.of(Collections.singletonList(new JdbcDataset(url, tbl)));
     });
 
-    PLAN_TO_DATASET.put(CreateDataSourceTableAsSelectCommand.class, (p, ctx, datahubConfig) -> {
+    PLAN_TO_DATASET.put(CreateDataSourceTableAsSelectCommand.class, (p, ctx) -> {
       CreateDataSourceTableAsSelectCommand cmd = (CreateDataSourceTableAsSelectCommand) p;
       // TODO what of cmd.mode()
-      return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.table(),
-          getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
+      return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.table())));
     });
-    PLAN_TO_DATASET.put(CreateHiveTableAsSelectCommand.class, (p, ctx, datahubConfig) -> {
+    PLAN_TO_DATASET.put(CreateHiveTableAsSelectCommand.class, (p, ctx) -> {
       CreateHiveTableAsSelectCommand cmd = (CreateHiveTableAsSelectCommand) p;
-      return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.tableDesc(),
-          getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
+      return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.tableDesc())));
     });
-    PLAN_TO_DATASET.put(InsertIntoHiveTable.class, (p, ctx, datahubConfig) -> {
+    PLAN_TO_DATASET.put(InsertIntoHiveTable.class, (p, ctx) -> {
       InsertIntoHiveTable cmd = (InsertIntoHiveTable) p;
-      return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.table(),
-          getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
+      return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.table())));
     });
 
-    PLAN_TO_DATASET.put(HiveTableRelation.class, (p, ctx, datahubConfig) -> {
+    PLAN_TO_DATASET.put(HiveTableRelation.class, (p, ctx) -> {
       HiveTableRelation cmd = (HiveTableRelation) p;
-      return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.tableMeta(),
-          getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
+      return Optional.of(Collections.singletonList(new CatalogTableDataset(cmd.tableMeta())));
     });
 
-    REL_TO_DATASET.put(HadoopFsRelation.class, (r, ctx, datahubConfig) -> {
+    REL_TO_DATASET.put(HadoopFsRelation.class, (r, ctx) -> {
       List<Path> res = JavaConversions.asJavaCollection(((HadoopFsRelation) r).location().rootPaths()).stream()
           .map(p -> getDirectoryPath(p, ctx.hadoopConfiguration())).distinct().collect(Collectors.toList());
 
-      // TODO mapping to URN TBD
-      return Optional.of(Collections.singletonList(new HdfsPathDataset(res.get(0),
-          getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
+      try {
+        List<SparkDataset> datasets = Collections
+            .singletonList(HdfsDatasetFactory.createDataset(res.get(0)));
+        return Optional.of(datasets);
+      } catch (InstantiationException e) {
+        log.error("Hdfs based dataset could not be created.", e);
+        return Optional.empty();
+      }
     });
-    REL_TO_DATASET.put(JDBCRelation.class, (r, ctx, datahubConfig) -> {
+
+    REL_TO_DATASET.put(JDBCRelation.class, (r, ctx) -> {
       JDBCRelation rel = (JDBCRelation) r;
       Option<String> tbl = rel.jdbcOptions().parameters().get(JDBCOptions.JDBC_TABLE_NAME());
       if (tbl.isEmpty()) {
         return Optional.empty();
       }
 
-      return Optional.of(Collections.singletonList(new JdbcDataset(rel.jdbcOptions().url(), tbl.get(),
-          getCommonPlatformInstance(datahubConfig), getCommonFabricType(datahubConfig))));
+      return Optional.of(Collections.singletonList(new JdbcDataset(rel.jdbcOptions().url(), tbl.get())));
     });
 
-    PLAN_TO_DATASET.put(InMemoryRelation.class, (plan, ctx, datahubConfig) -> {
+    PLAN_TO_DATASET.put(InMemoryRelation.class, (plan, ctx) -> {
       SparkPlan cachedPlan = ((InMemoryRelation) plan).cachedPlan();
       ArrayList<SparkDataset> datasets = new ArrayList<>();
       cachedPlan.collectLeaves().toList().foreach(new AbstractFunction1<SparkPlan, Void>() {
@@ -201,7 +202,7 @@ public class DatasetExtractor {
 
           if (SPARKPLAN_TO_DATASET.containsKey(leafPlan.getClass())) {
             Optional<? extends Collection<SparkDataset>> dataset = SPARKPLAN_TO_DATASET.get(leafPlan.getClass())
-                .fromSparkPlanNode(leafPlan, ctx, datahubConfig);
+                .fromSparkPlanNode(leafPlan, ctx);
             dataset.ifPresent(x -> datasets.addAll(x));
           } else {
             log.error(leafPlan.getClass() + " is not yet supported. Please contact datahub team for further support.");
@@ -224,8 +225,7 @@ public class DatasetExtractor {
       log.error(logicalPlan.getClass() + " is not supported yet. Please contact datahub team for further support. ");
       return Optional.empty();
     }
-    Config datahubconfig = LineageUtils.parseSparkConfig();
-    return PLAN_TO_DATASET.get(logicalPlan.getClass()).fromPlanNode(logicalPlan, ctx, datahubconfig);
+    return PLAN_TO_DATASET.get(logicalPlan.getClass()).fromPlanNode(logicalPlan, ctx);
   }
 
   private static Path getDirectoryPath(Path p, Configuration hadoopConf) {
@@ -240,22 +240,4 @@ public class DatasetExtractor {
     }
   }
 
-  private static FabricType getCommonFabricType(Config datahubConfig) {
-    String fabricTypeString = datahubConfig.hasPath(DATASET_ENV_KEY)
-        ? datahubConfig.getString(DATASET_ENV_KEY).toUpperCase()
-        : "PROD";
-    FabricType fabricType = null;
-    try {
-      fabricType = FabricType.valueOf(fabricTypeString);
-    } catch (IllegalArgumentException e) {
-      log.warn("Invalid env ({}). Setting env to default PROD", fabricTypeString);
-      fabricType = FabricType.PROD;
-    }
-    return fabricType;
-  }
-
-  private static String getCommonPlatformInstance(Config datahubConfig) {
-    return datahubConfig.hasPath(DATASET_PLATFORM_INSTANCE_KEY) ? datahubConfig.getString(DATASET_PLATFORM_INSTANCE_KEY)
-        : null;
-  }
 }

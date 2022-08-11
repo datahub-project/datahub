@@ -77,6 +77,35 @@ spark = SparkSession.builder()
 | spark.datahub.metadata.dataset.env              |          | PROD    | [Supported values](https://datahubproject.io/docs/graphql/enums#fabrictype). In all other cases, will fallback to PROD           |
 | spark.datahub.coalesce_jobs              |          |  false     |  Only one datajob(taask) will be emitted containing all input and output datasets for the spark application          |
 | spark.datahub.parent.datajob_urn              |          |       | Specified dataset will be set as upstream dataset for datajob created. Effective only when spark.datahub.coalesce_jobs is set to true     |
+| spark.datahub.platform.s3.path_spec_list          |          |       | Comma separated list of path_specs which will be used to generate urn of datasets. If not specified complete s3 path will be used. Please check below for examples.    |
+| spark.datahub.platform.s3.path_alias_list          |          |       | Comma separated list of path alias specifying the order in which the are matched. Use this, if you have pathSpecs with different env and platformInstance settings.    |
+| spark.datahub.platform.s3.$path_alias.path_spec_list          |          |       | Comma separated list of path_specs which will be used to generate urn of datasets. If not specified or matched common `path_spec_list` will be used.      |
+| spark.datahub.platform.s3.$path_alias.env          |          |       | Fabric Type for given alias. If not specified will fall back to `dataset.env` |
+| spark.datahub.platform.s3.$path_alias.platformInstance          |          |       | Platform instance for matched alias. If not specified will fall back to `dataset.platformInstance`      |
+
+## path_spec_list Examples
+
+| Absolute path                     | path_spec                        | Urn                                                                        |
+|-----------------------------------|----------------------------------|----------------------------------------------------------------------------|
+| s3://my-bucket/foo/tests/bar.avro | Not provided                     | urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo/tests/bar.avro,PROD)  |
+| s3://my-bucket/foo/tests/bar.avro | s3://my-bucket/foo/{table}/*     | urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo/tests,PROD)           |
+| s3://my-bucket/foo/tests/bar.avro | s3://my-bucket/foo/tests/{table} | urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo/tests/bar.avro,PROD)  |
+| s3://my-bucket/foo/tests/bar.avro | s3://my-bucket/{table}/*/*       | urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo,PROD)                 |
+| s3://my-bucket/foo/tests/bar.avro | s3://my-bucket/{table}           | urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo,PROD)                 |
+| s3://my-bucket/foo/tests/bar.avro | s3://my-bucket/*/*/{table}       | urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo/tests/bar.avro,PROD)  |
+
+## path_alias_list Example:
+
+Example below explains the configuration of case, where files from 2 buckets being processed in single spark application and files from my-bucket are supposed have "instance1" as platformInstance and "PROD" as env and files from bucket2 should have env "DEV" in their dataset URNs.
+
+```yml
+spark.datahub.platform.s3.path_alias_list :  path1,path2
+spark.datahub.platform.s3.path1.env : PROD
+spark.datahub.platform.s3.path1.path_spec_list: s3://my-bucket/*/*/{table}
+spark.datahub.platform.s3.path1.platform_instance : instance-1 
+spark.datahub.platform.s3.path2.env: DEV
+spark.datahub.platform.s3.path2.path_spec_list: s3://bucket2/*/{table}
+``` 
 
 ## What to Expect: The Metadata Model
 

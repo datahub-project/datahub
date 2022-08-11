@@ -8,7 +8,7 @@ import lombok.ToString;
 
 @ToString
 public class HdfsPathDataset extends SparkDataset {
-  
+
   public HdfsPathDataset(Path path, String platformInstance, FabricType fabricType) {
     // TODO check static partitions?
     this(path.toUri().toString(), platformInstance, fabricType);
@@ -17,6 +17,11 @@ public class HdfsPathDataset extends SparkDataset {
   public HdfsPathDataset(String pathUri, String platformInstance, FabricType fabricType) {
     // TODO check static partitions?
     super("hdfs", platformInstance, pathUri, fabricType);
+  }
+
+  public HdfsPathDataset(String pathUri) {
+    // TODO check static partitions?
+    super("hdfs", pathUri);
   }
 
 }
