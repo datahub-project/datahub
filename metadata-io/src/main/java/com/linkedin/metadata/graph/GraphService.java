@@ -95,7 +95,14 @@ public interface GraphService {
   @Nonnull
   default EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction, int offset,
       int count, int maxHops) {
-    return getLineage(entityUrn, direction, new GraphFilters(new ArrayList(getLineageRegistry().getEntitiesWithLineage())), offset, count, maxHops);
+    return getLineage(
+        entityUrn,
+        direction,
+        new GraphFilters(new ArrayList(getLineageRegistry().getEntitiesWithLineageToEntityType(entityUrn.getEntityType()))),
+        offset,
+        count,
+        maxHops
+    );
   }
 
   /**
@@ -124,7 +131,7 @@ public interface GraphService {
     // Outgoing edges
     if (!CollectionUtils.isEmpty(edgesByDirection.get(true))) {
       List<String> relationshipTypes =
-          edgesByDirection.get(true).stream().map(LineageRegistry.EdgeInfo::getType).collect(Collectors.toList());
+          new ArrayList(edgesByDirection.get(true).stream().map(LineageRegistry.EdgeInfo::getType).collect(Collectors.toSet()));
       // Fetch outgoing edges
       RelatedEntitiesResult outgoingEdges =
           findRelatedEntities(null, newFilter("urn", entityUrn.toString()), graphFilters.getAllowedEntityTypes(),

@@ -1,7 +1,6 @@
 package com.linkedin.metadata.resources.lineage;
 
 import com.codahale.metrics.MetricRegistry;
-import com.google.common.collect.ImmutableList;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
@@ -68,7 +67,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
     start = start == null ? 0 : start;
     count = count == null ? MAX_DOWNSTREAM_CNT : count;
 
-    return _graphService.findRelatedEntities(ImmutableList.of(), newFilter("urn", rawUrn), ImmutableList.of(), QueryUtils.EMPTY_FILTER,
+    return _graphService.findRelatedEntities(null, newFilter("urn", rawUrn), null, QueryUtils.EMPTY_FILTER,
         relationshipTypes, newRelationshipFilter(QueryUtils.EMPTY_FILTER, direction), start, count);
   }
 

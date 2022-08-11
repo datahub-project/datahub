@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -242,7 +243,8 @@ public class DgraphGraphService implements GraphService {
             }
         }
 
-        return relationships;
+        // we need to remove duplicates in order to not cause invalid queries in dgraph
+        return new ArrayList<>(new LinkedHashSet(relationships));
     }
 
     protected static String getQueryForRelatedEntities(@Nullable List<String> sourceTypes,
@@ -393,6 +395,10 @@ public class DgraphGraphService implements GraphService {
                                                      @Nonnull RelationshipFilter relationshipFilter,
                                                      int offset,
                                                      int count) {
+
+        if (sourceTypes != null && sourceTypes.isEmpty() || destinationTypes != null && destinationTypes.isEmpty()) {
+            return new RelatedEntitiesResult(offset, 0, 0, Collections.emptyList());
+        }
         if (relationshipTypes.isEmpty() || relationshipTypes.stream().noneMatch(relationship -> get_schema().hasField(relationship))) {
             return new RelatedEntitiesResult(offset, 0, 0, Collections.emptyList());
         }

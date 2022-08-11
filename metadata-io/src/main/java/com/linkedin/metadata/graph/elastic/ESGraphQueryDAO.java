@@ -249,7 +249,7 @@ public class ESGraphQueryDAO {
         // Skip if already visited
         // Skip if edge is not a valid outgoing edge
         if (!visitedEntities.contains(destinationUrn) && validEdges.contains(
-            Pair.of(sourceUrn.getEntityType(), new EdgeInfo(type, RelationshipDirection.OUTGOING)))) {
+            Pair.of(sourceUrn.getEntityType(), new EdgeInfo(type, RelationshipDirection.OUTGOING, destinationUrn.getEntityType().toLowerCase())))) {
           visitedEntities.add(destinationUrn);
           result.add(new LineageRelationship().setType(type).setEntity(destinationUrn).setDegree(numHops));
         }
@@ -260,13 +260,34 @@ public class ESGraphQueryDAO {
         // Skip if already visited
         // Skip if edge is not a valid outgoing edge
         if (!visitedEntities.contains(sourceUrn) && validEdges.contains(
-            Pair.of(destinationUrn.getEntityType(), new EdgeInfo(type, RelationshipDirection.INCOMING)))) {
+            Pair.of(destinationUrn.getEntityType(), new EdgeInfo(type, RelationshipDirection.INCOMING, sourceUrn.getEntityType().toLowerCase())))) {
           visitedEntities.add(sourceUrn);
           result.add(new LineageRelationship().setType(type).setEntity(sourceUrn).setDegree(numHops));
         }
       }
     }
     return result;
+  }
+
+  BoolQueryBuilder getOutGoingEdgeQuery(List<Urn> urns, List<EdgeInfo> outgoingEdges) {
+    BoolQueryBuilder outgoingEdgeQuery = QueryBuilders.boolQuery();
+    outgoingEdgeQuery.must(buildUrnFilters(urns, SOURCE));
+    outgoingEdgeQuery.must(buildEdgeFilters(outgoingEdges));
+    return outgoingEdgeQuery;
+  }
+
+  BoolQueryBuilder getIncomingEdgeQuery(List<Urn> urns, List<EdgeInfo> incomingEdges) {
+    BoolQueryBuilder incomingEdgeQuery = QueryBuilders.boolQuery();
+    incomingEdgeQuery.must(buildUrnFilters(urns, DESTINATION));
+    incomingEdgeQuery.must(buildEdgeFilters(incomingEdges));
+    return incomingEdgeQuery;
+  }
+
+  BoolQueryBuilder getAllowedEntityTypesFilter(GraphFilters graphFilters) {
+    BoolQueryBuilder allowedEntityTypesFilter = QueryBuilders.boolQuery();
+    allowedEntityTypesFilter.must(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), SOURCE));
+    allowedEntityTypesFilter.must(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), DESTINATION));
+    return allowedEntityTypesFilter;
   }
 
   // Get search query for given list of edges and source urns
@@ -281,27 +302,18 @@ public class ESGraphQueryDAO {
     List<EdgeInfo> outgoingEdges =
         edgesByDirection.getOrDefault(RelationshipDirection.OUTGOING, Collections.emptyList());
     if (!outgoingEdges.isEmpty()) {
-      BoolQueryBuilder outgoingEdgeQuery = QueryBuilders.boolQuery();
-      outgoingEdgeQuery.must(buildUrnFilters(urns, SOURCE));
-      outgoingEdgeQuery.must(buildEdgeFilters(outgoingEdges));
-      query.should(outgoingEdgeQuery);
+      query.should(getOutGoingEdgeQuery(urns, outgoingEdges));
     }
 
     List<EdgeInfo> incomingEdges =
         edgesByDirection.getOrDefault(RelationshipDirection.INCOMING, Collections.emptyList());
     if (!incomingEdges.isEmpty()) {
-      BoolQueryBuilder incomingEdgeQuery = QueryBuilders.boolQuery();
-      incomingEdgeQuery.must(buildUrnFilters(urns, DESTINATION));
-      incomingEdgeQuery.must(buildEdgeFilters(incomingEdges));
-      query.should(incomingEdgeQuery);
+      query.should(getIncomingEdgeQuery(urns, incomingEdges));
     }
 
     if (graphFilters != null) {
       if (graphFilters.getAllowedEntityTypes() != null && !graphFilters.getAllowedEntityTypes().isEmpty())  {
-        BoolQueryBuilder allowedEntityTypesFilter = QueryBuilders.boolQuery();
-        allowedEntityTypesFilter.must(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), SOURCE));
-        allowedEntityTypesFilter.must(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), DESTINATION));
-        query.must(allowedEntityTypesFilter);
+        query.must(getAllowedEntityTypesFilter(graphFilters));
       }
     }
     return query;

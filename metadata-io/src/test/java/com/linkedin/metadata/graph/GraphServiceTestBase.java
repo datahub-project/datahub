@@ -145,7 +145,7 @@ abstract public class GraphServiceTestBase {
   /**
    * Any source and destination type value.
    */
-  protected static @Nullable List<String> anyType = ImmutableList.of();
+  protected static @Nullable List<String> anyType = null;
 
   /**
    * Timeout used to test concurrent ops in doTestConcurrentOp.
@@ -741,7 +741,7 @@ abstract public class GraphServiceTestBase {
                                                 RelationshipFilter relationships,
                                                 List<RelatedEntity> expectedRelatedEntities) throws Exception {
     doTestFindRelatedEntities(
-            entityTypeFilter != null ? ImmutableList.of(entityTypeFilter) : ImmutableList.of(),
+            entityTypeFilter != null ? ImmutableList.of(entityTypeFilter) : null,
             anyType,
             relationshipTypes,
             relationships,
@@ -868,7 +868,7 @@ abstract public class GraphServiceTestBase {
                                                      List<RelatedEntity> expectedRelatedEntities) throws Exception {
     doTestFindRelatedEntities(
             anyType,
-            entityTypeFilter != null ? ImmutableList.of(entityTypeFilter) : ImmutableList.of(),
+            entityTypeFilter != null ? ImmutableList.of(entityTypeFilter) : null,
             relationshipTypes,
             relationships,
             expectedRelatedEntities

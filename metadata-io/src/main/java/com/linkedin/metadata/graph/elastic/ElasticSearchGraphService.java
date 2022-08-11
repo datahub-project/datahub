@@ -117,6 +117,9 @@ public class ElasticSearchGraphService implements GraphService {
       @Nonnull final RelationshipFilter relationshipFilter,
       final int offset,
       final int count) {
+    if (sourceTypes != null && sourceTypes.isEmpty() || destinationTypes != null && destinationTypes.isEmpty()) {
+      return new RelatedEntitiesResult(offset, 0, 0, Collections.emptyList());
+    }
 
     final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
     String destinationNode = relationshipDirection == RelationshipDirection.OUTGOING ? "destination" : "source";
