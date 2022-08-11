@@ -84,7 +84,9 @@ function list_markdown_files(): string[] {
       .filter((filepath) => !all_generated_markdown_files.includes(filepath));
 
     if (untracked_files.length > 0) {
-      console.log(`Including untracked files in docs list: [${untracked_files}]`);
+      console.log(
+        `Including untracked files in docs list: [${untracked_files}]`
+      );
       all_markdown_files = [...all_markdown_files, ...untracked_files];
     }
 
@@ -95,7 +97,7 @@ function list_markdown_files(): string[] {
       .toString()
       .trim()
       .split("\n");
-    
+
     if (deleted_files.length > 0) {
       console.log(`Removing deleted files from docs list: [${deleted_files}]`);
       all_markdown_files = all_markdown_files.filter(
