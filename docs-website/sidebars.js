@@ -212,7 +212,7 @@ module.exports = {
     "Enrich Metadata": [
       "metadata-ingestion/transformers",
       "docs/wip/csv-enrichment",
-      "docs/wip/ui-based-ingestion",
+      "docs/wip/ui-based-enrichment",
       {
         Lineage: [
           "docs/lineage/intro", 
