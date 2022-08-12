@@ -46,12 +46,17 @@ function EntityActions(props: Props) {
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    refetchForEntity?.();
                     setIsBatchAddGlossaryTermModalVisible(false);
-                    message.success({
-                        content: `Added Glossary Term to entities!`,
-                        duration: 2,
-                    });
+                    message.loading({ content: 'Updating...', duration: 3 });
+                    setTimeout(() => {
+                        message.success({
+                            content: `Added Glossary Term to entities!`,
+                            duration: 2,
+                        });
+                        if (refetchForEntity) {
+                            refetchForEntity();
+                        }
+                    }, 3000);
                 }
             })
             .catch((e) => {
@@ -74,12 +79,17 @@ function EntityActions(props: Props) {
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    refetchForEntity?.();
                     setIsBatchSetDomainModalVisible(false);
-                    message.success({
-                        content: `Added assets to Domain!`,
-                        duration: 2,
-                    });
+                    message.loading({ content: 'Updating...', duration: 3 });
+                    setTimeout(() => {
+                        message.success({
+                            content: `Added assets to Domain!`,
+                            duration: 3,
+                        });
+                        if (refetchForEntity) {
+                            refetchForEntity();
+                        }
+                    }, 3000);
                 }
             })
             .catch((e) => {
