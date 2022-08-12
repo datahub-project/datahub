@@ -79,41 +79,10 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_GMS_IMAGE }}
-          # add git short SHA as Docker tag
-          tag-custom: ${{ needs.setup.outputs.tag }}
-          tag-custom-only: true
-      - name: Build and Load image for testing (if not publishing)
-        uses: docker/build-push-action@v2
-        if: ${{ needs.setup.outputs.publish != 'true' }}
-        with:
-          context: .
-          file: ./docker/datahub-gms/Dockerfile
-          platforms: linux/amd64
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          load: true
-          push: false
-      - name: Upload image locally for testing (if not publishing)
-        uses: ishworkh/docker-image-artifact-upload@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}
-        with:
-          image: ${{ steps.docker_meta.outputs.tags }}
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-      - name: Login to AWS ECR
-        uses: docker/login-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
-          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-      - name: Build and Push MultiPlatform image
-        uses: docker/build-push-action@v2
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
+          publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-gms/Dockerfile
           platforms: linux/amd64,linux/arm64
@@ -157,41 +126,10 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}
-          # add git short SHA as Docker tag
-          tag-custom: ${{ needs.setup.outputs.tag }}
-          tag-custom-only: true
-      - name: Build and Load image for testing (if not publishing)
-        uses: docker/build-push-action@v2
-        if: ${{ needs.setup.outputs.publish != 'true' }}
-        with:
-          context: .
-          file: ./docker/datahub-mae-consumer/Dockerfile
-          platforms: linux/amd64
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          load: true
-          push: false
-      - name: Upload image locally for testing (if not publishing)
-        uses: ishworkh/docker-image-artifact-upload@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}
-        with:
-          image: ${{ steps.docker_meta.outputs.tags }}
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-      - name: Login to AWS ECR
-        uses: docker/login-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
-          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-      - name: Build and Push Platform image
-        uses: docker/build-push-action@v2
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
+          publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-mae-consumer/Dockerfile
           platforms: linux/amd64
@@ -217,6 +155,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-west-2
+
   mce_consumer_build:
     name: Build and Push DataHub MCE Consumer Docker Image
     runs-on: ubuntu-latest
@@ -234,41 +173,10 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}
-          # add git short SHA as Docker tag
-          tag-custom: ${{ needs.setup.outputs.tag }}
-          tag-custom-only: true
-      - name: Build and Load image for testing (if not publishing)
-        uses: docker/build-push-action@v2
-        if: ${{ needs.setup.outputs.publish != 'true' }}
-        with:
-          context: .
-          file: ./docker/datahub-mce-consumer/Dockerfile
-          platforms: linux/amd64
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          load: true
-          push: false
-      - name: Upload image locally for testing (if not publishing)
-        uses: ishworkh/docker-image-artifact-upload@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}
-        with:
-          image: ${{ steps.docker_meta.outputs.tags }}
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-      - name: Login to AWS ECR
-        uses: docker/login-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
-          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-      - name: Build and Push Platform image
-        uses: docker/build-push-action@v2
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
+          publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-mce-consumer/Dockerfile
           platforms: linux/amd64
@@ -294,6 +202,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-west-2
+
   datahub_upgrade_build:
     name: Build and Push DataHub Upgrade Docker Image
     runs-on: ubuntu-latest
@@ -311,41 +220,10 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_UPGRADE_IMAGE }}
-          # add git short SHA as Docker tag
-          tag-custom: ${{ needs.setup.outputs.tag }}
-          tag-custom-only: true
-      - name: Build and Load image for testing (if not publishing)
-        uses: docker/build-push-action@v2
-        if: ${{ needs.setup.outputs.publish != 'true' }}
-        with:
-          context: .
-          file: ./docker/datahub-upgrade/Dockerfile
-          platforms: linux/amd64
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          load: true
-          push: false
-      - name: Upload image locally for testing (if not publishing)
-        uses: ishworkh/docker-image-artifact-upload@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}        
-        with:
-          image: ${{ steps.docker_meta.outputs.tags }}
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-      - name: Login to AWS ECR
-        uses: docker/login-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
-          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-      - name: Build and Push Platform image
-        uses: docker/build-push-action@v2
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
+          publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-upgrade/Dockerfile
           platforms: linux/amd64,linux/arm64
@@ -371,6 +249,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-west-2
+
   frontend_build:
     name: Build and Push DataHub Frontend Docker Image
     runs-on: ubuntu-latest
@@ -388,41 +267,10 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_FRONTEND_IMAGE }}
-          # add git short SHA as Docker tag
-          tag-custom: ${{ needs.setup.outputs.tag }}
-          tag-custom-only: true
-      - name: Build and Load image for testing (if not publishing)
-        uses: docker/build-push-action@v2
-        if: ${{ needs.setup.outputs.publish != 'true' }}
-        with:
-          context: .
-          file: ./docker/datahub-frontend/Dockerfile
-          platforms: linux/amd64
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          load: true
-          push: false
-      - name: Upload image locally for testing (if not publishing)
-        uses: ishworkh/docker-image-artifact-upload@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}
-        with:
-          image: ${{ steps.docker_meta.outputs.tags }}
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-      - name: Login to AWS ECR
-        uses: docker/login-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
-          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-      - name: Build and Push MultiPlatform image
-        uses: docker/build-push-action@v2
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
+          publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-frontend/Dockerfile
           platforms: linux/amd64,linux/arm64
@@ -448,6 +296,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: us-west-2
+
   kafka_setup_build:
     name: Build and Push DataHub Kafka Setup Docker Image
     runs-on: ubuntu-latest
@@ -465,41 +314,10 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}
-          # add git short SHA as Docker tag
-          tag-custom: ${{ needs.setup.outputs.tag }}
-          tag-custom-only: true
-      - name: Build and Load image for testing (if not publishing)
-        uses: docker/build-push-action@v2
-        if: ${{ needs.setup.outputs.publish != 'true' }}
-        with:
-          context: ./docker/kafka-setup
-          file: ./docker/kafka-setup/Dockerfile
-          platforms: linux/amd64
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          load: true
-          push: false
-      - name: Upload image locally for testing (if not publishing)
-        uses: ishworkh/docker-image-artifact-upload@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}
-        with:
-          image: ${{ steps.docker_meta.outputs.tags }}
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-      - name: Login to AWS ECR
-        uses: docker/login-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
-          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-      - name: Build and Push MultiPlatform image
-        uses: docker/build-push-action@v2
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
+          publish: ${{ needs.setup.outputs.publish }}
           context: ./docker/kafka-setup
           file: ./docker/kafka-setup/Dockerfile
           platforms: linux/amd64,linux/arm64
@@ -521,41 +339,10 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}
-          # add git short SHA as Docker tag
-          tag-custom: ${{ needs.setup.outputs.tag }}
-          tag-custom-only: true
-      - name: Build and Load image for testing (if not publishing)
-        uses: docker/build-push-action@v2
-        if: ${{ needs.setup.outputs.publish != 'true' }}
-        with:
-          context: .
-          file: ./docker/mysql-setup/Dockerfile
-          platforms: linux/amd64
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          load: true
-          push: false
-      - name: Upload image locally for testing (if not publishing)
-        uses: ishworkh/docker-image-artifact-upload@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}        
-        with:
-          image: ${{ steps.docker_meta.outputs.tags }}
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-      - name: Login to AWS ECR
-        uses: docker/login-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
-          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-      - name: Build and Push MultiPlatform image
-        uses: docker/build-push-action@v2
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
+          publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/mysql-setup/Dockerfile
           platforms: linux/amd64,linux/arm64
@@ -577,41 +364,10 @@ jobs:
         with:
           images: |
             ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}
-          # add git short SHA as Docker tag
-          tag-custom: ${{ needs.setup.outputs.tag }}
-          tag-custom-only: true
-      - name: Build and Load image for testing (if not publishing)
-        uses: docker/build-push-action@v2
-        if: ${{ needs.setup.outputs.publish != 'true' }}
-        with:
-          context: .
-          file: ./docker/elasticsearch-setup/Dockerfile
-          platforms: linux/amd64
-          tags: ${{ steps.docker_meta.outputs.tags }}
-          load: true
-          push: false
-      - name: Upload image locally for testing (if not publishing)
-        uses: ishworkh/docker-image-artifact-upload@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}
-        with:
-          image: ${{ steps.docker_meta.outputs.tags }}
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-      - name: Login to AWS ECR
-        uses: docker/login-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
-          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
+          tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-      - name: Build and Push MultiPlatform image
-        uses: docker/build-push-action@v2
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
+          publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/elasticsearch-setup/Dockerfile
           platforms: linux/amd64,linux/arm64
@@ -635,13 +391,6 @@ jobs:
       - name: Build datahub cli
         run: |
           ./gradlew :metadata-ingestion:install
-      - name: Login to AWS ECR
-        uses: docker/login-action@v1
-        if: ${{ needs.setup.outputs.publish == 'true' }}
-        with:
-          registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
-          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
-          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
       - name: Download GMS image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
