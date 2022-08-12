@@ -58,15 +58,19 @@ export default function StatsTab() {
 
     const latestStats = (
         <>
-            <TableStats
-                rowCount={latestProfile?.rowCount || undefined}
-                columnCount={latestProfile?.columnCount || undefined}
-                queryCount={usageStats?.aggregations?.totalSqlQueries || undefined}
-                users={usageStats?.aggregations?.users || undefined}
-                lastUpdatedTime={lastUpdatedTime || undefined}
-                lastReportedTime={lastReportedTime || undefined}
-            />
-            <ColumnStats columnStats={(latestProfile && latestProfile.fieldProfiles) || []} />
+            {(latestProfile?.rowCount || latestProfile?.columnCount || usageStats?.aggregations?.totalSqlQueries) && (
+                <TableStats
+                    rowCount={latestProfile?.rowCount || undefined}
+                    columnCount={latestProfile?.columnCount || undefined}
+                    queryCount={usageStats?.aggregations?.totalSqlQueries || undefined}
+                    users={usageStats?.aggregations?.users || undefined}
+                    lastUpdatedTime={lastUpdatedTime || undefined}
+                    lastReportedTime={lastReportedTime || undefined}
+                />
+            )}
+            {latestProfile && latestProfile.fieldProfiles && latestProfile.fieldProfiles?.length > 0 && (
+                <ColumnStats columnStats={(latestProfile && latestProfile.fieldProfiles) || []} />
+            )}
         </>
     );
 
