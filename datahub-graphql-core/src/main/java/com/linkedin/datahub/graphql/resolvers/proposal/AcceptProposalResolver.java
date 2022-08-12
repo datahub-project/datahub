@@ -79,7 +79,10 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
           Urn targetUrn = Urn.createFromString(proposal.getEntity().getUrn());
           LabelUtils.addTagsToResources(
               ImmutableList.of(tagUrn),
-              ImmutableList.of(new ResourceRefInput(targetUrn.toString(), SubResourceType.valueOf(proposal.getSubResourceType()), proposal.getSubResource())),
+              ImmutableList.of(new ResourceRefInput(
+                  targetUrn.toString(),
+                  proposal.getSubResourceType() == null ? null : SubResourceType.valueOf(proposal.getSubResourceType()),
+                  proposal.getSubResource())),
               actor,
               _entityService);
           ProposalUtils.deleteTagFromEntityOrSchemaProposalsAspect(actor, tagUrn, targetUrn, subResource,
@@ -94,8 +97,10 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
           Urn targetUrn = Urn.createFromString(proposal.getEntity().getUrn());
           LabelUtils.addTermsToResources(
               ImmutableList.of(termUrn),
-              ImmutableList.of(new ResourceRefInput(targetUrn.toString(), SubResourceType.valueOf(proposal.getSubResourceType()), proposal.getSubResource())),
-              actor,
+              ImmutableList.of(new ResourceRefInput(
+                  targetUrn.toString(),
+                  proposal.getSubResourceType() == null ? null : SubResourceType.valueOf(proposal.getSubResourceType()),
+                  proposal.getSubResource())),              actor,
               _entityService);
           ProposalUtils.deleteTermFromEntityOrSchemaProposalsAspect(actor, termUrn, targetUrn, subResource,
               _entityService);
