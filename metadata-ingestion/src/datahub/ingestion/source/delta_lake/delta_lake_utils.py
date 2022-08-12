@@ -12,14 +12,15 @@ def read_delta_table(
     try:
         opts = {}
         if delta_lake_config.is_s3():
-            if delta_lake_config.s3 is None:
-                raise ValueError("aws_config not set. Cannot browse s3")
-            if delta_lake_config.s3.aws_config is None:
-                raise ValueError("aws_config not set. Cannot browse s3")
-            opts = {
-                "AWS_ACCESS_KEY_ID": delta_lake_config.s3.aws_config.aws_access_key_id,
-                "AWS_SECRET_ACCESS_KEY": delta_lake_config.s3.aws_config.aws_secret_access_key,
-            }
+            if (
+                delta_lake_config.s3 is not None
+                and delta_lake_config.s3.aws_config is not None
+            ):
+                creds = delta_lake_config.s3.aws_config.get_credentials()
+                opts = {
+                    "AWS_ACCESS_KEY_ID": creds.get("aws_access_key_id", ""),
+                    "AWS_SECRET_ACCESS_KEY": creds.get("aws_secret_access_key", ""),
+                }
         delta_table = DeltaTable(path, storage_options=opts)
 
     except PyDeltaTableError as e:
