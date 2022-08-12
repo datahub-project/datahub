@@ -29,7 +29,8 @@ class DatahubIngestionUIHistoryAspectsGenerator:
 
     def __init__(self, graph: DataHubGraph, ctx: PipelineContext) -> None:
         def generate_entity_name() -> str:
-            assert self.ctx.owning_pipeline is not None
+            if self.ctx.owning_pipeline is None:
+                return "None"
             # Construct the unique entity name
             pipeline_config = self.ctx.owning_pipeline.config
             entity_name_parts = ["CLI", pipeline_config.source.type]
@@ -66,7 +67,8 @@ class DatahubIngestionUIHistoryAspectsGenerator:
         )
 
     def emit_datahub_ingestion_source_info_aspect(self) -> None:
-        assert self.ctx.owning_pipeline is not None
+        if self.ctx.owning_pipeline is None:
+            return
 
         # Construct the dataHubIngestionSourceInfo aspect
         pipeline_config = self.ctx.owning_pipeline.config
@@ -90,8 +92,9 @@ class DatahubIngestionUIHistoryAspectsGenerator:
             aspect_value=source_info_aspect,
         )
 
-    def emit_execution_input_request(self):
-        assert self.ctx.owning_pipeline is not None
+    def emit_execution_input_request(self) -> None:
+        if self.ctx.owning_pipeline is None:
+            return
 
         # Construct the dataHubExecutionRequestInput aspect
         pipeline_config = self.ctx.owning_pipeline.config
@@ -115,8 +118,9 @@ class DatahubIngestionUIHistoryAspectsGenerator:
             aspect_value=execution_input_aspect,
         )
 
-    def emit_execution_request_result(self):
-        assert self.ctx.owning_pipeline is not None
+    def emit_execution_request_result(self) -> None:
+        if self.ctx.owning_pipeline is None:
+            return
 
         # Construct the dataHubExecutionRequestResult aspect
         pipeline = self.ctx.owning_pipeline
