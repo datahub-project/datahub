@@ -40,7 +40,7 @@ module.exports = {
 
   overviewSidebar: {
     "What is DataHub?": [
-      "docs/wip/what-is-datahub",
+      // "docs/wip/what-is-datahub",
       "docs/features",
       {
        Architecture: [
@@ -69,7 +69,11 @@ module.exports = {
       "docs/quickstart",
       "docs/cli",
       "docs/developers",
-      "docs/wip/managed-datahub-setup",
+      // {
+      //   type: "doc",
+      //   id: "docs/wip/managed-datahub-setup",
+      //   className: "saasOnly",
+      // },
       {
         "Deploying DataHub":[
           "docs/docker/development",
@@ -83,7 +87,7 @@ module.exports = {
           "docs/deploy/telemetry",
         ]
       },
-      "docs/wip/create-policies",
+      // "docs/wip/create-policies",
       {
         Authorization: [
           "docs/authorization/README",
@@ -94,8 +98,8 @@ module.exports = {
       { 
         "Add Users": [
           "docs/authentication/guides/add-users",
-          "docs/wip/invite-with-email-link",
-          "docs/wip/configure-sso",
+          // "docs/wip/invite-with-email-link",
+          // "docs/wip/configure-sso",
           {
             Authentication: [
               "docs/authentication/README",
@@ -119,7 +123,11 @@ module.exports = {
           },
         ],
       },
-      "docs/managed-datahub/saas-slack-setup",
+      // {
+      //   type: "doc",
+      //   id: "docs/managed-datahub/saas-slack-setup",
+      //   className: "saasOnly",
+      // },
       {
         "DataHub Metadata Model": [
           "docs/modeling/metadata-model",
@@ -140,8 +148,8 @@ module.exports = {
       "metadata-ingestion/README",
       {
         "Prepare for Ingestion": [
-          "docs/wip/ingestion-overview",
-          "docs/wip/importance-of-shift-left",
+          // "docs/wip/ingestion-overview",
+          // "docs/wip/importance-of-shift-left",
           "docs/domains",
           "docs/how/business-glossary-guide",
           "docs/tags",
@@ -150,12 +158,12 @@ module.exports = {
       {
         "Managed Ingestion": [
           "docs/ui-ingestion",
-          "docs/wip/managed-ingestion-supported-connectors",
+          // "docs/wip/managed-ingestion-supported-connectors",
         ],
       },
       {
         "Pull-Based Ingestion": [
-          "docs/wip/pull-based-ingestion",
+          // "docs/wip/pull-based-ingestion",
           {
             "Pull-Based Sources": [
               {
@@ -188,8 +196,11 @@ module.exports = {
           "metadata-integration/java/as-a-library",
         ],
       },
-
-        "docs/wip/remote-ingestion-executor-on-AWS",
+      // {
+      //   type: "doc",
+      //   id: "docs/wip/remote-ingestion-executor-on-AWS",
+      //   className: "saasOnly",
+      // },
       {
         Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
       },
@@ -211,8 +222,8 @@ module.exports = {
 
     "Enrich Metadata": [
       "metadata-ingestion/transformers",
-      "docs/wip/csv-enrichment",
-      "docs/wip/ui-based-enrichment",
+      // "docs/wip/csv-enrichment",
+      // "docs/wip/ui-based-enrichment",
       {
         Lineage: [
           "docs/lineage/intro", 
@@ -222,12 +233,28 @@ module.exports = {
     ],
 
     "Act on Metadata": [
-      "docs/wip/metadata-tests",
-      "docs/wip/metadata-analytics",
-      "docs/wip/impact-analysis",
-      "docs/wip/events-bridge",
-      "docs/wip/datahub-incidents",
-      "docs/wip/approval-workflows",
+     //  {
+     //    type: "doc",
+     //    id: "docs/wip/metadata-tests",
+     //    className: "saasOnly",
+     //  },     
+     //  "docs/wip/metadata-analytics",
+     //  "docs/wip/impact-analysis",
+     // {
+     //    type: "doc",
+     //    id: "docs/wip/events-bridge",
+     //    className: "saasOnly",
+     //  },
+     //  {
+     //    type: "doc",
+     //    id: "docs/wip/datahub-incidents",
+     //    className: "saasOnly",
+     //  },
+     //  {
+     //    type: "doc",
+     //    id: "docs/wip/approval-workflows",
+     //    className: "saasOnly",
+     //  },
       {
         Actions: [
           "docs/actions/README",
@@ -350,19 +377,19 @@ module.exports = {
           },
         ],
       },
-      "docs/wip/rest.li",
+      // "docs/wip/rest.li",
     ],
     "Tutorials": [
       "docs/how/search",
       "docs/schema-history",
       "docs/dev-guides/timeline",
       "docs/how/ui-tabs-guide",
-      "docs/wip/ui-ingestion-guide",
-      "docs/wip/tags-guide",
-      "docs/wip/personal-access-tokens-guide",
+      // "docs/wip/ui-ingestion-guide",
+      // "docs/wip/tags-guide",
+      // "docs/wip/personal-access-tokens-guide",
       {
         "Advanced Tutorials": [
-          "docs/wip/search-ranking",
+          // "docs/wip/search-ranking",
           "docs/how/updating-datahub",
           "docs/how/backup-datahub",
           "docs/how/restore-indices",
