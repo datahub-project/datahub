@@ -131,7 +131,7 @@ public class ElasticSearchService implements EntitySearchService {
       int size) {
     log.debug(
         String.format("Browsing entities entityName: %s, path: %s, filters: %s, from: %s, size: %s", entityName,
-            path, requestParams, from, size));
+            path, filters, from, size));
     return esBrowseDAO.browse(entityName, path, filters, from, size);
   }
 

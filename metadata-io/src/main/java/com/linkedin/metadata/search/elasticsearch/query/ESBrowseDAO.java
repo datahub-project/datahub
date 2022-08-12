@@ -76,15 +76,15 @@ public class ESBrowseDAO {
    *
    * @param entityName type of entity to query
    * @param path the path to be browsed
-   * @param requestParams the request map with fields and values as filters
+   * @param filters the request map with fields and values as filters
    * @param from index of the first entity located in path
    * @param size the max number of entities contained in the response
    * @return a {@link BrowseResult} that contains a list of groups/entities
    */
   @Nonnull
-  public BrowseResult browse(@Nonnull String entityName, @Nonnull String path, @Nullable Filter requestParams, int from,
+  public BrowseResult browse(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filters, int from,
       int size) {
-    final Map<String, String> requestMap = SearchUtils.getRequestMap(requestParams);
+    final Map<String, String> requestMap = SearchUtils.getRequestMap(filters);
 
     try {
       final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName));
