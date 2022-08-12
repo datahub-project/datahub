@@ -38,7 +38,7 @@ const DetailIcon = styled(InfoCircleOutlined)`
     padding-right: 6px;
 `;
 
-const IconGroup = styled.div<{ isSelected: boolean; disabled: boolean }>`
+const IconGroup = styled.div<{ isSelected: boolean; disabled?: boolean }>`
     font-size: 14px;
     color: ${(props) => {
         if (props.disabled) {
@@ -63,6 +63,7 @@ const BrowseRow = styled(Row)`
 const LineageNavContainer = styled.div`
     display: inline-flex;
     line-height: 24px;
+    align-items: center;
 `;
 
 const LineageSummary = styled.div`

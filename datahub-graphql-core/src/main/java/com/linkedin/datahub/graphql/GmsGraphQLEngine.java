@@ -1247,16 +1247,26 @@ public class GmsGraphQLEngine {
             )
             .type("MLFeatureProperties", typeWiring -> typeWiring
                 .dataFetcher("sources", new LoadableTypeBatchResolver<>(datasetType,
-                                (env) -> ((MLFeatureProperties) env.getSource()).getSources().stream()
-                                        .map(datasetType.getKeyProvider())
-                                        .collect(Collectors.toList()))
+                                (env) -> {
+                                    if (((MLFeatureProperties) env.getSource()).getSources() == null) {
+                                        return Collections.emptyList();
+                                    }
+                                    return ((MLFeatureProperties) env.getSource()).getSources().stream()
+                                                        .map(datasetType.getKeyProvider())
+                                                        .collect(Collectors.toList());
+                                    })
                 )
             )
             .type("MLPrimaryKeyProperties", typeWiring -> typeWiring
                 .dataFetcher("sources", new LoadableTypeBatchResolver<>(datasetType,
-                                (env) -> ((MLPrimaryKeyProperties) env.getSource()).getSources().stream()
+                                (env) -> {
+                                    if (((MLPrimaryKeyProperties) env.getSource()).getSources() == null) {
+                                        return Collections.emptyList();
+                                    }
+                                    return ((MLPrimaryKeyProperties) env.getSource()).getSources().stream()
                                         .map(datasetType.getKeyProvider())
-                                        .collect(Collectors.toList()))
+                                        .collect(Collectors.toList());
+                                })
                 )
             )
             .type("MLModel", typeWiring -> typeWiring

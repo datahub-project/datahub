@@ -38,10 +38,9 @@ public class JavaGraphClient implements GraphClient {
     count = count == null ? DEFAULT_PAGE_SIZE : count;
 
     RelatedEntitiesResult relatedEntitiesResult =
-        _graphService.findRelatedEntities(
-            "",
+        _graphService.findRelatedEntities(null,
             QueryUtils.newFilter("urn", rawUrn),
-            "",
+            null,
             EMPTY_FILTER,
             relationshipTypes,
             QueryUtils.newRelationshipFilter(EMPTY_FILTER, direction),

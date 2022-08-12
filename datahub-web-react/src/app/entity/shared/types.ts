@@ -94,6 +94,7 @@ export type GenericEntityProperties = {
     isAChildren?: Maybe<EntityRelationshipsResult>;
     siblings?: Maybe<SiblingProperties>;
     siblingPlatforms?: Maybe<DataPlatform[]>;
+    lastIngested?: Maybe<number>;
 };
 
 export type GenericEntityUpdate = {
