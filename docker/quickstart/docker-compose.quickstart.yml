@@ -56,7 +56,7 @@ services:
     - ELASTIC_CLIENT_PORT=9200
     - ADMIN_PASSWORD=mypass
     hostname: datahub-frontend-react
-    image: ${DATAHUB_FRONTEND_IMAGE:-linkedin/datahub-frontend-react}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_FRONTEND_IMAGE:-795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-frontend-react}:${DATAHUB_VERSION:-head}
     ports:
     - ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}:9002
     volumes:
@@ -91,7 +91,7 @@ services:
     - UI_INGESTION_ENABLED=true
     - UI_INGESTION_DEFAULT_CLI_VERSION=0.8.43
     hostname: datahub-gms
-    image: ${DATAHUB_GMS_IMAGE:-linkedin/datahub-gms}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_GMS_IMAGE:-795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-gms}:${DATAHUB_VERSION:-head}
     ports:
     - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
     volumes:
@@ -126,7 +126,7 @@ services:
     - ELASTICSEARCH_PORT=9200
     - ELASTICSEARCH_PROTOCOL=http
     hostname: elasticsearch-setup
-    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-linkedin/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
   kafka-setup:
     container_name: kafka-setup
     depends_on:
@@ -136,7 +136,7 @@ services:
     - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
     - KAFKA_BOOTSTRAP_SERVER=broker:29092
     hostname: kafka-setup
-    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-linkedin/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
+    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
   mysql:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin
     container_name: mysql
