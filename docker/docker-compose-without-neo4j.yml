@@ -89,7 +89,6 @@ services:
     container_name: datahub-gms
     ports:
       - "8080:8080"
-      - "5005:5005"
     depends_on:
       - elasticsearch-setup
       - kafka-setup
