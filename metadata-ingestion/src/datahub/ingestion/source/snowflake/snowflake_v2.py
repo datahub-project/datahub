@@ -66,7 +66,6 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
     SnowflakeQueryMixin,
 )
-from datahub.ingestion.source.sql.snowflake import SnowflakeSource
 from datahub.ingestion.source.sql.sql_common import SqlContainerSubTypes
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
@@ -272,7 +271,7 @@ class SnowflakeV2Source(
 
         _report: Dict[Union[SourceCapability, str], CapabilityReport] = dict()
         privileges: List[SnowflakePrivilege] = []
-        capabilities: List[SourceCapability] = [c.capability for c in SnowflakeSource.get_capabilities() if c.capability not in (SourceCapability.PLATFORM_INSTANCE, SourceCapability.DOMAINS, SourceCapability.DELETION_DETECTION)]  # type: ignore
+        capabilities: List[SourceCapability] = [c.capability for c in SnowflakeV2Source.get_capabilities() if c.capability not in (SourceCapability.PLATFORM_INSTANCE, SourceCapability.DOMAINS, SourceCapability.DELETION_DETECTION)]  # type: ignore
 
         cur = query("select current_role()")
         current_role = [row[0] for row in cur][0]
