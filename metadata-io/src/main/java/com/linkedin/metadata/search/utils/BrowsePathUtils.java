@@ -17,6 +17,8 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import java.net.URISyntaxException;
+import java.util.Arrays;
+import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +36,7 @@ public class BrowsePathUtils {
             dsKey.getPlatform(),
             getKeySchema(dsKey.getPlatform().getEntityType(),
                 entityRegistry));
-        String datasetNamePath = getDatasetNamePath(dsKey.getName(), dataPlatformDelimiter);
+        String datasetNamePath = getDatasetPath(dsKey.getName(), dataPlatformDelimiter);
         return ("/" + dsKey.getOrigin() + "/" + dpKey.getPlatformName() + datasetNamePath).toLowerCase();
       case Constants.CHART_ENTITY_NAME:
         ChartKey chartKey = (ChartKey) EntityKeyUtils.convertUrnToEntityKey(urn, getKeySchema(urn.getEntityType(), entityRegistry));
@@ -124,10 +126,12 @@ public class BrowsePathUtils {
    * Attempts to convert a dataset name into a proper browse path by splitting it using the Data Platform delimiter.
    * If there are not > 1 name parts, then an empty string will be returned.
    */
-  private static String getDatasetNamePath(@Nonnull final String datasetName, @Nonnull final Character delimiter) {
+  private static String getDatasetPath(@Nonnull final String datasetName, @Nonnull final Character delimiter) {
     if (datasetName.contains(delimiter.toString())) {
-      final String datasetNamePath = datasetName.replace(delimiter, '/');
-      return datasetNamePath.startsWith("/") ? datasetNamePath : String.format("/%s", datasetNamePath);
+      final List<String> datasetNamePathParts = Arrays.asList(datasetName.split(delimiter.toString()));
+      // Omit the name from the path.
+      final String datasetPath = String.join("/", datasetNamePathParts.subList(0, datasetNamePathParts.size() - 1));
+      return datasetPath.startsWith("/") ? datasetPath : String.format("/%s", datasetPath);
     }
     return "";
   }

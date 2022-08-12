@@ -30,7 +30,7 @@ public class BrowsePathUtilsTest {
         .setPlatform(Urn.createFromString("urn:li:dataPlatform:kafka"));
     Urn datasetUrn = EntityKeyUtils.convertEntityKeyToUrn(datasetKey, "dataset");
     String datasetPath = BrowsePathUtils.getDefaultBrowsePath(datasetUrn, this.registry, '.');
-    Assert.assertEquals(datasetPath, "/prod/kafka/test/a/b");
+    Assert.assertEquals(datasetPath, "/prod/kafka/test/a");
 
     // Charts
     ChartKey chartKey = new ChartKey()
