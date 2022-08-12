@@ -23,7 +23,7 @@ def get_frontend_session():
 
 
 def get_admin_credentials():
-    return (os.getenv("ADMIN_USERNAME", "datahub"), os.getenv("ADMIN_PASSWORD", "datahub"))
+    return (os.getenv("ADMIN_USERNAME", "admin"), os.getenv("ADMIN_PASSWORD", "mypass"))
 
 def get_gms_url():
     return os.getenv("DATAHUB_GMS_URL") or "http://localhost:8080"
