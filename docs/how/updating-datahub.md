@@ -6,6 +6,9 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+- Browse Paths have been upgraded to a new format to align more closely with the intention of the feature. 
+  Learn more about the changes, including steps on upgrading, here: https://datahubproject.io/docs/advanced/browse-paths-upgrade
+
 ### Potential Downtime
 
 ### Deprecations

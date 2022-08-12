@@ -34,8 +34,8 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
       Constants.DATA_JOB_ENTITY_NAME,
       Constants.DATA_FLOW_ENTITY_NAME
   );
-  private static final String VERSION = "0";
-  private static final String UPGRADE_ID = "migrate-default-browse-paths-step";
+  private static final String VERSION = "1";
+  private static final String UPGRADE_ID = "upgrade-default-browse-paths-step";
   private static final Integer BATCH_SIZE = 5000;
 
   public UpgradeDefaultBrowsePathsStep(EntityService entityService) {
@@ -51,12 +51,13 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
     for (String entityType : ENTITY_TYPES_TO_MIGRATE) {
       int migratedCount = 0;
       do {
-        log.info(String.format("Migrating batch %s-%s out of %s of browse paths for entity type %s",
+        log.info(String.format("Upgrading batch %s-%s out of %s of browse paths for entity type %s",
             migratedCount, migratedCount + BATCH_SIZE, total, entityType));
         total = getAndMigrateBrowsePaths(entityType, migratedCount, auditStamp);
         migratedCount += BATCH_SIZE;
       } while (migratedCount < total);
     }
+    log.info("Successfully upgraded all browse paths!");
   }
 
   @Nonnull
@@ -91,6 +92,7 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
 
     for (int i = 0; i < latestAspects.getValues().size(); i++) {
 
+
       ExtraInfo info = latestAspects.getMetadata().getExtraInfos().get(i);
       RecordTemplate browsePathsRec = latestAspects.getValues().get(i);
 
@@ -101,8 +103,11 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
       Urn urn = info.getUrn();
       BrowsePaths browsePaths = (BrowsePaths) browsePathsRec;
 
+      log.info(String.format("Inspecting browse path for urn %s, value %s", urn, browsePaths));
+
       if (browsePaths.hasPaths() && browsePaths.getPaths().size() == 1) {
         String legacyBrowsePath = BrowsePathUtils.getLegacyDefaultBrowsePath(urn, _entityService.getEntityRegistry());
+        log.info(String.format("Legacy browse path for urn %s, value %s", urn, legacyBrowsePath));
         if (legacyBrowsePath.equals(browsePaths.getPaths().get(0))) {
           migrateBrowsePath(urn, auditStamp);
         }
@@ -114,6 +119,7 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
 
   private void migrateBrowsePath(Urn urn, AuditStamp auditStamp) throws Exception {
     BrowsePaths newPaths = _entityService.buildDefaultBrowsePath(urn);
+    log.info(String.format("Updating browse path for urn %s to value %s", urn, newPaths));
     MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
     proposal.setEntityType(urn.getEntityType());

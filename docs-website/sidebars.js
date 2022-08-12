@@ -373,6 +373,7 @@ module.exports = {
           "docs/advanced/mcp-mcl",
           "docs/advanced/field-path-spec-v2",
           "docs/advanced/monitoring",
+          "docs/advanced/browse-paths-upgrade",
           // WIP "docs/advanced/backfilling",
           // WIP "docs/advanced/derived-aspects",
           // WIP "docs/advanced/entity-hierarchy",
