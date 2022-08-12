@@ -144,13 +144,16 @@ import com.linkedin.datahub.graphql.resolvers.mutate.AddTagResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermsResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddOwnersResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveOwnersResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTermsResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateDeprecationResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchSetDomainResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateSoftDeletedResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveOwnerResolver;
@@ -680,6 +683,7 @@ public class GmsGraphQLEngine {
     private void configureMutationResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Mutation", typeWiring -> typeWiring
             .dataFetcher("updateDataset", new MutableTypeResolver<>(datasetType))
+            .dataFetcher("updateDatasets", new MutableTypeBatchResolver<>(datasetType))
             .dataFetcher("createTag", new CreateTagResolver(this.entityClient))
             .dataFetcher("updateTag", new MutableTypeResolver<>(tagType))
             .dataFetcher("setTagColor", new SetTagColorResolver(entityClient, entityService))
@@ -723,6 +727,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("setDomain", new SetDomainResolver(this.entityClient, this.entityService))
             .dataFetcher("batchSetDomain", new BatchSetDomainResolver(this.entityService))
             .dataFetcher("updateDeprecation", new UpdateDeprecationResolver(this.entityClient, this.entityService))
+            .dataFetcher("batchUpdateDeprecation", new BatchUpdateDeprecationResolver(entityService))
             .dataFetcher("unsetDomain", new UnsetDomainResolver(this.entityClient, this.entityService))
             .dataFetcher("createSecret", new CreateSecretResolver(this.entityClient, this.secretService))
             .dataFetcher("deleteSecret", new DeleteSecretResolver(this.entityClient))
@@ -749,6 +754,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("removeRelatedTerms", new RemoveRelatedTermsResolver(this.entityService))
             .dataFetcher("createNativeUserInviteToken", new CreateNativeUserInviteTokenResolver(this.nativeUserService))
             .dataFetcher("createNativeUserResetToken", new CreateNativeUserResetTokenResolver(this.nativeUserService))
+            .dataFetcher("batchUpdateSoftDeleted", new BatchUpdateSoftDeletedResolver(this.entityService))
+
         );
     }
 
@@ -1240,16 +1247,26 @@ public class GmsGraphQLEngine {
             )
             .type("MLFeatureProperties", typeWiring -> typeWiring
                 .dataFetcher("sources", new LoadableTypeBatchResolver<>(datasetType,
-                                (env) -> ((MLFeatureProperties) env.getSource()).getSources().stream()
-                                        .map(datasetType.getKeyProvider())
-                                        .collect(Collectors.toList()))
+                                (env) -> {
+                                    if (((MLFeatureProperties) env.getSource()).getSources() == null) {
+                                        return Collections.emptyList();
+                                    }
+                                    return ((MLFeatureProperties) env.getSource()).getSources().stream()
+                                                        .map(datasetType.getKeyProvider())
+                                                        .collect(Collectors.toList());
+                                    })
                 )
             )
             .type("MLPrimaryKeyProperties", typeWiring -> typeWiring
                 .dataFetcher("sources", new LoadableTypeBatchResolver<>(datasetType,
-                                (env) -> ((MLPrimaryKeyProperties) env.getSource()).getSources().stream()
+                                (env) -> {
+                                    if (((MLPrimaryKeyProperties) env.getSource()).getSources() == null) {
+                                        return Collections.emptyList();
+                                    }
+                                    return ((MLPrimaryKeyProperties) env.getSource()).getSources().stream()
                                         .map(datasetType.getKeyProvider())
-                                        .collect(Collectors.toList()))
+                                        .collect(Collectors.toList());
+                                })
                 )
             )
             .type("MLModel", typeWiring -> typeWiring

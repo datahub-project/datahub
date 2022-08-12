@@ -186,6 +186,11 @@ type Mutation {
     updateDataset(urn: String!, input: DatasetUpdateInput!): Dataset
 
     """
+    Update the metadata about a batch of Datasets
+    """
+    updateDatasets(input: [BatchDatasetUpdateInput!]!): [Dataset]
+
+    """
     Update the metadata about a particular Chart
     """
     updateChart(urn: String!, input: ChartUpdateInput!): Chart
@@ -407,6 +412,11 @@ type Mutation {
       input: UpdateDeprecationInput!): Boolean
 
     """
+    Updates the deprecation status for a batch of assets.
+    """
+    batchUpdateDeprecation(input: BatchUpdateDeprecationInput!): Boolean
+
+    """
     Update a particular Corp User's editable properties
     """
     updateCorpUserProperties(urn: String!, input: CorpUserUpdateInput!): CorpUser
@@ -478,6 +488,11 @@ type Mutation {
     Generates a token that can be shared with existing native users to reset their credentials.
     """
     createNativeUserResetToken(input: CreateNativeUserResetTokenInput!): ResetToken
+
+    """
+    Updates the soft deleted status for a batch of assets
+    """
+    batchUpdateSoftDeleted(input: BatchUpdateSoftDeletedInput!): Boolean
 }
 
 """
@@ -876,6 +891,11 @@ type Dataset implements EntityWithRelationships & Entity {
     The standard Entity Type
     """
     type: EntityType!
+
+    """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
 
     """
     Standardized platform urn where the dataset is defined
@@ -1571,6 +1591,11 @@ type DataPlatform implements Entity {
     type: EntityType!
 
     """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
+
+    """
     Name of the data platform
     """
     name: String!
@@ -1799,6 +1824,11 @@ type Container implements Entity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
 
     """
     Standardized platform.
@@ -3592,6 +3622,23 @@ input DatasetUpdateInput {
 }
 
 """
+Arguments provided to batch update Dataset entities
+"""
+input BatchDatasetUpdateInput {
+
+    """
+    Primary key of the Dataset to which the update will be applied
+    """
+    urn: String!
+
+    """
+    Arguments provided to update the Dataset
+    """
+    update: DatasetUpdateInput!
+}
+
+
+"""
 Update to editable schema metadata of the dataset
 """
 input EditableSchemaMetadataUpdate {
@@ -4087,6 +4134,11 @@ type Dashboard implements EntityWithRelationships & Entity {
     type: EntityType!
 
     """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
+
+    """
     The parent container in which the entity resides
     """
     container: Container
@@ -4353,6 +4405,11 @@ type Chart implements EntityWithRelationships & Entity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
 
     """
     The parent container in which the entity resides
@@ -4710,6 +4767,11 @@ type DataFlow implements EntityWithRelationships & Entity {
     type: EntityType!
 
     """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
+
+    """
     Workflow orchestrator ei Azkaban, Airflow
     """
     orchestrator: String!
@@ -4883,6 +4945,11 @@ type DataJob implements EntityWithRelationships & Entity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
 
     """
     Deprecated, use relationship IsPartOf instead
@@ -6127,9 +6194,19 @@ enum AssertionStdOperator {
     START_WITH
 
     """
+    Value being asserted matches the regex value.
+    """
+    REGEX_MATCH
+
+    """
     Value being asserted is one of the array values
     """
     IN
+
+    """
+    Value being asserted is not in one of the array values.
+    """
+    NOT_IN
 
     """
     Other
@@ -6913,6 +6990,32 @@ input UpdateDeprecationInput {
     note: String
 }
 
+
+"""
+Input provided when updating the deprecation status for a batch of assets.
+"""
+input BatchUpdateDeprecationInput {
+    """
+    Whether the Entity is marked as deprecated.
+    """
+    deprecated: Boolean!
+
+    """
+    Optional - The time user plan to decommission this entity
+    """
+    decommissionTime: Long
+
+    """
+    Optional - Additional information about the entity deprecation plan
+    """
+    note: String
+
+    """
+    The target assets to attach the tags to
+    """
+    resources: [ResourceRefInput]!
+}
+
 """
 Input provided when adding tags to a batch of assets
 """
@@ -7558,6 +7661,11 @@ type MLModel implements EntityWithRelationships & Entity {
     type: EntityType!
 
     """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
+
+    """
     ML model display name
     """
     name: String!
@@ -7710,6 +7818,11 @@ type MLModelGroup implements EntityWithRelationships & Entity {
     type: EntityType!
 
     """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
+
+    """
     The display name for the Entity
     """
     name: String!
@@ -7807,6 +7920,11 @@ type MLFeature implements EntityWithRelationships & Entity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
 
     """
     The display name for the ML Feature
@@ -7965,6 +8083,11 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     type: EntityType!
 
     """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
+
+    """
     The display name
     """
     name: String!
@@ -8075,6 +8198,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
 
     """
     The display name
@@ -8855,4 +8983,19 @@ enum OriginType {
     The entity is of unknown origin.
     """
     UNKNOWN
+}
+
+"""
+Input provided when updating the soft-deleted status for a batch of assets
+"""
+input BatchUpdateSoftDeletedInput {
+    """
+    The urns of the assets to soft delete
+    """
+    urns: [String!]!
+
+    """
+    Whether to mark the asset as soft-deleted (hidden)
+    """
+    deleted: Boolean!
 }

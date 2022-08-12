@@ -106,6 +106,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch }: Props) => {
             variables: {
                 input: {
                     resources: [...urns.map((urn) => ({ resourceUrn: urn }))],
+                    domainUrn: selectedDomain.urn,
                 },
             },
         })

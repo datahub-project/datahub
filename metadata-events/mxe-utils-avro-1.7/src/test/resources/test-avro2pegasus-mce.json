@@ -16,7 +16,8 @@
             "lastModified": {
               "time": 0,
               "actor": "urn:li:corpuser:foobar",
-              "impersonator": null
+              "impersonator": null,
+              "message": null
             }
           }
         }

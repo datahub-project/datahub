@@ -1,9 +1,9 @@
 import json
-import time
 import urllib
 
 import pytest
 import requests
+import tenacity
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
@@ -23,11 +23,12 @@ from datahub.metadata.schema_classes import (
     PartitionSpecClass,
     PartitionTypeClass,
 )
-from tests.utils import delete_urns_from_file, get_gms_url, ingest_file_via_rest, wait_for_healthcheck_util
+from tests.utils import delete_urns_from_file, get_gms_url, ingest_file_via_rest, wait_for_healthcheck_util, get_sleep_info
 
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
 }
+sleep_sec, sleep_times = get_sleep_info()
 
 
 def create_test_data(test_file):
@@ -246,12 +247,11 @@ def test_run_ingestion(generate_test_data):
     ingest_file_via_rest(generate_test_data)
 
 
-@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
-def test_gms_get_latest_assertions_results_by_partition():
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
+)
+def _gms_get_latest_assertions_results_by_partition():
     urn = make_dataset_urn("postgres", "foo")
-
-    # sleep for elasticsearch indices to be updated
-    time.sleep(5)
 
     # Query
     # Given the dataset
@@ -311,6 +311,11 @@ def test_gms_get_latest_assertions_results_by_partition():
         ]
         == urn
     )
+
+
+@pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
+def test_gms_get_latest_assertions_results_by_partition():
+    _gms_get_latest_assertions_results_by_partition()
 
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])

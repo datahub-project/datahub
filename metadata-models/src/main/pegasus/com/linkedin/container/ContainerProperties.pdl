@@ -33,5 +33,9 @@ record ContainerProperties includes CustomProperties, ExternalReference {
   /**
    * Description of the Asset Container as it exists inside a source system
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
   description: optional string
 }

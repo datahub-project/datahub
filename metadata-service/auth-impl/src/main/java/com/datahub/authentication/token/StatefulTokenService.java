@@ -83,12 +83,13 @@ public class StatefulTokenService extends StatelessTokenService {
 
   @Nonnull
   public String generateAccessToken(@Nonnull final TokenType type, @Nonnull final Actor actor,
-      @Nonnull final long expiresInMs, @Nonnull final long createdAtInMs, @Nonnull final String tokenName,
+      @Nullable final Long expiresInMs, @Nonnull final long createdAtInMs, @Nonnull final String tokenName,
       @Nullable final String tokenDescription, final String actorUrn) {
 
     Objects.requireNonNull(type);
     Objects.requireNonNull(actor);
     Objects.requireNonNull(tokenName);
+
     Map<String, Object> claims = new HashMap<>();
     // Only stateful token service generates v2 tokens.
     claims.put(TOKEN_VERSION_CLAIM_NAME, String.valueOf(TokenVersion.TWO.numericValue));
@@ -114,8 +115,9 @@ public class StatefulTokenService extends StatelessTokenService {
     value.setActorUrn(UrnUtils.getUrn(actor.toUrnStr()));
     value.setOwnerUrn(UrnUtils.getUrn(actorUrn));
     value.setCreatedAt(createdAtInMs);
-    value.setExpiresAt(createdAtInMs + expiresInMs);
-
+    if (expiresInMs != null) {
+      value.setExpiresAt(createdAtInMs + expiresInMs);
+    }
     proposal.setEntityType(Constants.ACCESS_TOKEN_ENTITY_NAME);
     proposal.setAspectName(Constants.ACCESS_TOKEN_INFO_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(value));
