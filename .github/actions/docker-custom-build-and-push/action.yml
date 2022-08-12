@@ -3,10 +3,13 @@ description: "Build and push a Docker image to AWS ECR"
 
 inputs:
   username:
-    description: "AWS ERC username"
+    required: true
+    description: "AWS ECR username"
   password:
-    description: "AWS ERC password"
+    required: true
+    description: "AWS ECR password"
   publish:
+    required: true
     description: "Set to true to actually publish the image to Docker Hub"
 
   context:
