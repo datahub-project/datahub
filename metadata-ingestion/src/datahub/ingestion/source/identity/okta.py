@@ -264,6 +264,8 @@ class OktaSource(Source):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
         # Step 0: get or create the event loop
+        # This method can be called on the main thread or an async thread, so we must create a new loop if one doesn't exist
+        # See https://docs.python.org/3/library/asyncio-eventloop.html for more info.
         try:
             event_loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
         except RuntimeError:
