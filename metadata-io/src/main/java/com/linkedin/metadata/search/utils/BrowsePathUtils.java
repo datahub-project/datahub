@@ -39,22 +39,18 @@ public class BrowsePathUtils {
       case Constants.CHART_ENTITY_NAME:
         ChartKey chartKey = (ChartKey) EntityKeyUtils.convertUrnToEntityKey(urn, getKeySchema(urn.getEntityType(), entityRegistry));
         return ("/" + chartKey.getDashboardTool());
-      case Constants.DASHBOARD_ENTITY_NAME:
+      case Constants.DASHBOARD_ENTITY_NAME: // TODO -> Improve the quality of our browse path here.
         DashboardKey dashboardKey = (DashboardKey) EntityKeyUtils.convertUrnToEntityKey(urn, getKeySchema(urn.getEntityType(), entityRegistry));
         return ("/" + dashboardKey.getDashboardTool()).toLowerCase();
-      case Constants.DATA_FLOW_ENTITY_NAME:
+      case Constants.DATA_FLOW_ENTITY_NAME: // TODO -> Improve the quality of our browse path here.
         DataFlowKey dataFlowKey = (DataFlowKey) EntityKeyUtils.convertUrnToEntityKey(urn, getKeySchema(urn.getEntityType(), entityRegistry));
         return ("/" + dataFlowKey.getOrchestrator() + "/" + dataFlowKey.getCluster())
             .toLowerCase();
-      case Constants.DATA_JOB_ENTITY_NAME:
+      case Constants.DATA_JOB_ENTITY_NAME: // TODO -> Improve the quality of our browse path here.
         DataJobKey dataJobKey = (DataJobKey) EntityKeyUtils.convertUrnToEntityKey(urn, getKeySchema(urn.getEntityType(), entityRegistry));
         DataFlowKey parentFlowKey = (DataFlowKey) EntityKeyUtils.convertUrnToEntityKey(dataJobKey.getFlow(),
             getKeySchema(dataJobKey.getFlow().getEntityType(), entityRegistry));
-        return ("/" + parentFlowKey.getOrchestrator() + "/" + parentFlowKey.getFlowId()).toLowerCase();
-      case Constants.GLOSSARY_TERM_ENTITY_NAME:
-        // TODO: Is this the best way to represent glossary term key?
-        GlossaryTermKey glossaryTermKey = (GlossaryTermKey) EntityKeyUtils.convertUrnToEntityKey(urn, getKeySchema(urn.getEntityType(), entityRegistry));
-        return "/" + glossaryTermKey.getName().replace('.', '/').toLowerCase();
+        return ("/" + parentFlowKey.getOrchestrator() + "/" + parentFlowKey.getCluster()).toLowerCase();
       default:
         return "";
     }
