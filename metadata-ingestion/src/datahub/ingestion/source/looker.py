@@ -77,7 +77,6 @@ from datahub.metadata.schema_classes import (
     TimeWindowSizeClass,
     InputFieldsClass,
     InputFieldClass,
-    InputFieldTypeClass
 )
 
 logger = logging.getLogger(__name__)
@@ -1084,14 +1083,16 @@ class LookerDashboardSource(Source):
 
         # enrich the input_fields with the fully hydrated ViewField from the now fetched explores
         for input_field in input_fields:
+            urn = ""
+            schemaField = None
             if input_field.view_field is None:
                 explore = self.resolved_explores_map.get((input_field.model, input_field.explore))
                 if explore is not None:
                     relevant_field = next((field for field in explore.fields if field.name == input_field.name), None)
                     if relevant_field is not None:
                         input_field.view_field = relevant_field
-            fields_for_mcp.append(InputFieldClass(fieldPath=input_field.name, label=input_field.view_field.label if input_field.view_field is not None else "",
-                                                  type=InputFieldTypeClass.UNKNOWN))
+            fields_for_mcp.append(InputFieldClass(schemaFieldUrn=
+                                                  # fieldPath=input_field.name, label=input_field.view_field.label if input_field.view_field is not None else ""))
 
         return fields_for_mcp
 

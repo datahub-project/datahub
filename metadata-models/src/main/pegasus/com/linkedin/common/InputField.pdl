@@ -1,41 +1,21 @@
 namespace com.linkedin.common
 
+import com.linkedin.schema.SchemaField
+
 /**
  * Information about a field a chart or dashboard references
  */
 record InputField {
   /**
-   * Flattened name of the field.
+   * Copied version of the referenced schema field object for indexing purposes
    */
-  @Searchable = {
-    "fieldName": "inputFieldPath",
-    "fieldType": "TEXT"
-  }
-  fieldPath: string
+  schemaField: optional SchemaField
 
   /**
-   * Human-readable name of the field
+   * Urn of the schema being referenced for lineage purposes
    */
-  @Searchable = {
-    "fieldName": "inputFieldLabel",
-    "fieldType": "TEXT"
+  @Relationship = {
+    "name": "consumesField"
   }
-  label: string
-
-  type: enum InputFieldType {
-    /**
-     * This field is a metric
-     */
-    METRIC
-
-    /**
-     * This field is a dimensions
-     */
-    DIMENSION
-
-    /**
-     *  We do not have enough information to determine the type, or the field is not used as a metric or dimension
-     */
-    UNKNOWN
-  }
+  schemaFieldUrn: optional Urn
 }
