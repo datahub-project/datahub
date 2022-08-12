@@ -263,8 +263,12 @@ class OktaSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
-        # Step 0: create the event loop
-        event_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        # Step 0: get or create the event loop
+        try:
+            event_loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
+        except RuntimeError:
+            event_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(event_loop)
 
         # Step 1: Produce MetadataWorkUnits for CorpGroups.
         if self.config.ingest_groups:
