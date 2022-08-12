@@ -119,7 +119,7 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/prod/kafka/SampleKafkaDataset"]
+              "paths": ["/prod/kafka", "/prod/kafka2"]
             }
           },
           {
@@ -2451,7 +2451,7 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": ["/feast/test_feature_table_all_feature_dtypes"]
+              "paths": ["/feast/test_feature_table_all_feature_dtypes", "/feast/test_feature_table_all_feature_stypes"]
             }
           },
           {
