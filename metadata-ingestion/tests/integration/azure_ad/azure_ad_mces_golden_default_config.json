@@ -29,6 +29,25 @@
 },
 {
     "auditHeader": null,
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:groupDisplayName1",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "origin",
+    "aspect": {
+        "value": "{\"type\": \"EXTERNAL\", \"externalType\": \"AZURE_AD\"}",
+        "contentType": "application/json"
+    },
+    "systemMetadata": {
+        "lastObserved": 1629795600000,
+        "runId": "test-azure-ad",
+        "registryName": null,
+        "registryVersion": null,
+        "properties": null
+    }
+},
+{
+    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
             "urn": "urn:li:corpGroup:groupDisplayName2",

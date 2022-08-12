@@ -1,6 +1,7 @@
 query getContainer($urn: String!) {
     container(urn: $urn) {
         urn
+        lastIngested
         platform {
             ...platformFields
         }

@@ -893,6 +893,11 @@ type Dataset implements EntityWithRelationships & Entity {
     type: EntityType!
 
     """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
+
+    """
     Standardized platform urn where the dataset is defined
     """
     platform: DataPlatform!
@@ -1586,6 +1591,11 @@ type DataPlatform implements Entity {
     type: EntityType!
 
     """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
+
+    """
     Name of the data platform
     """
     name: String!
@@ -1814,6 +1824,11 @@ type Container implements Entity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
 
     """
     Standardized platform.
@@ -4119,6 +4134,11 @@ type Dashboard implements EntityWithRelationships & Entity {
     type: EntityType!
 
     """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
+
+    """
     The parent container in which the entity resides
     """
     container: Container
@@ -4385,6 +4405,11 @@ type Chart implements EntityWithRelationships & Entity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
 
     """
     The parent container in which the entity resides
@@ -4742,6 +4767,11 @@ type DataFlow implements EntityWithRelationships & Entity {
     type: EntityType!
 
     """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
+
+    """
     Workflow orchestrator ei Azkaban, Airflow
     """
     orchestrator: String!
@@ -4915,6 +4945,11 @@ type DataJob implements EntityWithRelationships & Entity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
 
     """
     Deprecated, use relationship IsPartOf instead
@@ -7626,6 +7661,11 @@ type MLModel implements EntityWithRelationships & Entity {
     type: EntityType!
 
     """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
+
+    """
     ML model display name
     """
     name: String!
@@ -7778,6 +7818,11 @@ type MLModelGroup implements EntityWithRelationships & Entity {
     type: EntityType!
 
     """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
+
+    """
     The display name for the Entity
     """
     name: String!
@@ -7875,6 +7920,11 @@ type MLFeature implements EntityWithRelationships & Entity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
 
     """
     The display name for the ML Feature
@@ -8033,6 +8083,11 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
     type: EntityType!
 
     """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
+
+    """
     The display name
     """
     name: String!
@@ -8143,6 +8198,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity {
     A standard Entity Type
     """
     type: EntityType!
+
+    """
+    The timestamp for the last time this entity was ingested
+    """
+    lastIngested: Long
 
     """
     The display name
