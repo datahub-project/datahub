@@ -73,7 +73,7 @@ to the new format, removing the unnecessarily name component at the very end.
 
 If the migration is successful, you'll see the following in your GMS logs: 
 
-```json
+```
 18:58:17.414 [main] INFO c.l.m.b.s.UpgradeDefaultBrowsePathsStep:60 - Successfully upgraded all browse paths!
 ```
 
