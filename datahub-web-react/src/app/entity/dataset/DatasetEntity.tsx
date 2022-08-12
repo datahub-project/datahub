@@ -303,7 +303,7 @@ export class DatasetEntity implements Entity<Dataset> {
             type: EntityType.Dataset,
             subtype: entity?.subTypes?.typeNames?.[0] || undefined,
             icon: entity?.platform?.properties?.logoUrl || undefined,
-            platform: entity?.platform?.name,
+            platform: entity?.platform,
         };
     };
 
