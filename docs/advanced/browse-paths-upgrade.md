@@ -10,7 +10,7 @@ Snowflake Table called "test_table" may look something like this:
 /prod/snowflake/warehouse1/db1/test_table
 ```
 
-In the UI, we artificially truncate the final path component when you are browsing the Entity hierarchiy, so your browse experience 
+In the UI, we artificially truncate the final path component when you are browsing the Entity hierarchy, so your browse experience 
 would be: 
 
 `prod` > `snowflake` > `warehouse1`> `db1` > `Click Entity`
@@ -59,7 +59,7 @@ one extra click to find the entity. This is because we are correctly displaying 
 Fear not, if you wish to migrate your existing Browse Paths to the new canonical structure (remove the final simple name component), we've
 provided a simple way to do so. 
 
-### Upgrade to new Browse Paths format
+### Upgrading to the new Browse Paths format
 
 To migrate your existing Browse Paths, simply restart the `datahub-gms` container / pod with a single
 additional environment variable:
@@ -79,6 +79,10 @@ If the migration is successful, you'll see the following in your GMS logs:
 
 After this one-time migration is complete, you should be able to navigate the Browse hierarchy exactly as you did previously. 
 
+> Note that a select set of ingestion sources actively produce their own Browse Paths, which overrides the default path
+> computed by DataHub. We will be rolling out upgrades to each of these sources to produce the new Browse Path format. 
+> In these cases, getting the updated Browse Path will require re-running your ingestion process with the updated
+> version of the connector.  
 
 #### If you are producing custom Browse Paths
 
