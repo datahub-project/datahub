@@ -29,6 +29,11 @@
       "type" : "Urn",
       "doc" : "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
       "optional" : true
+    }, {
+      "name" : "message",
+      "type" : "string",
+      "doc" : "Additional message to keep track of in the event",
+      "optional" : true
     } ]
   }, "com.linkedin.common.Time", "com.linkedin.common.Urn", {
     "type" : "typeref",

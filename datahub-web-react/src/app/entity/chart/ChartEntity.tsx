@@ -194,7 +194,7 @@ export class ChartEntity implements Entity<Chart> {
             name: entity.properties?.name || '',
             type: EntityType.Chart,
             icon: entity?.platform?.properties?.logoUrl || '',
-            platform: entity?.platform.properties?.displayName || entity?.platform.name,
+            platform: entity?.platform,
         };
     };
 

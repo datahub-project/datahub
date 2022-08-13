@@ -45,7 +45,7 @@ jobs:
           java-version: 1.8
       - uses: actions/setup-python@v2
         with:
-          python-version: "3.6"
+          python-version: "3.7"
       - name: checkout upstream repo
         run: |
           git remote add upstream https://github.com/datahub-project/datahub.git
