@@ -19,7 +19,7 @@ from looker_sdk.sdk.api31.models import (
 )
 
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.looker import usage_queries
+from datahub.ingestion.source.looker import looker_usage
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2020-04-14 07:00:00"
@@ -302,11 +302,11 @@ def side_effect_query_inline(
     query_type = None
     if result_format == "sql":
         return ""  # Placeholder for sql text
-    for query_name, query_template in usage_queries.items():
-        if body.fields == query_template["fields"]:
-            query_type = query_name
+    for query_id, query_template in looker_usage.query_collection.items():
+        if body.fields == query_template.to_write_query().fields:
+            query_type = query_id
 
-    if query_type == "counts_per_day_per_dashboard":
+    if query_type == looker_usage.QueryId.DASHBOARD_PER_DAY_USAGE_STAT:
         return json.dumps(
             [
                 {
@@ -330,7 +330,7 @@ def side_effect_query_inline(
             ]
         )
 
-    if query_type == "counts_per_day_per_user_per_dashboard":
+    if query_type == looker_usage.QueryId.DASHBOARD_PER_USER_PER_DAY_USAGE_STAT:
         return json.dumps(
             [
                 {
@@ -432,30 +432,48 @@ def test_looker_ingest_allow_pattern(pytestconfig, tmp_path, mock_time):
 def test_looker_ingest_usage_history(pytestconfig, tmp_path, mock_time):
     mocked_client = mock.MagicMock()
     with mock.patch("looker_sdk.init31") as mock_sdk:
-        mock_sdk.return_value = mocked_client
-        mocked_client.all_dashboards.return_value = [Dashboard(id="1")]
-        mocked_client.dashboard.return_value = Dashboard(
-            id="1",
-            title="foo",
-            created_at=datetime.utcfromtimestamp(time.time()),
-            updated_at=datetime.utcfromtimestamp(time.time()),
-            description="lorem ipsum",
-            favorite_count=5,
-            view_count=25,
-            last_viewed_at=datetime.utcfromtimestamp(time.time()),
-            dashboard_elements=[
-                DashboardElement(
-                    id="2",
-                    type="",
-                    subtitle_text="Some text",
-                    query=Query(
-                        model="data",
-                        view="my_view",
-                        dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
+        def get_dashboards(**kwargs):
+            dashboard = Dashboard(
+                id="1",
+                title="foo",
+                created_at=datetime.utcfromtimestamp(time.time()),
+                updated_at=datetime.utcfromtimestamp(time.time()),
+                description="lorem ipsum",
+                favorite_count=5,
+                view_count=25,
+                last_viewed_at=datetime.utcfromtimestamp(time.time()),
+                dashboard_elements=[
+                    DashboardElement(
+                        id="2",
+                        type="",
+                        subtitle_text="Some text",
+                        query=Query(
+                            model="data",
+                            view="my_view",
+                            dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
+                        ),
                     ),
-                )
-            ],
-        )
+
+                ],
+            )
+            if kwargs["dashboard_id"] == "1":
+                return dashboard
+
+            if kwargs["dashboard_id"] == "11":
+                dashboard.id = 11
+                return dashboard
+
+            if kwargs["dashboard_id"] == "12":
+                dashboard.id = 12
+                return dashboard
+
+            if kwargs["dashboard_id"] == "37":
+                dashboard.id = 37
+                return dashboard
+
+        mock_sdk.return_value = mocked_client
+        mocked_client.all_dashboards.return_value = [Dashboard(id="1"), Dashboard(id="11"), Dashboard(id="12"), Dashboard(id="37")]
+        mocked_client.dashboard.side_effect = get_dashboards
         mocked_client.run_inline_query.side_effect = side_effect_query_inline
         setup_mock_explore(mocked_client)
         setup_mock_user(mocked_client)

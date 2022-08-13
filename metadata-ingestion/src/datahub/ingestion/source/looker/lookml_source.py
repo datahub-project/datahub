@@ -25,7 +25,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.registry import import_path
-from datahub.ingestion.source.looker_common import (
+from datahub.ingestion.source.looker.looker_common import (
     LookerCommonConfig,
     LookerExplore,
     LookerUtil,
@@ -51,7 +51,7 @@ from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.looker import (
+from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
     LookerAPIConfig,
     TransportOptionsConfig,

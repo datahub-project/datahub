@@ -57,6 +57,7 @@ entities:
       - domains
       - container
       - deprecation
+      - chartUsageStatistics
   - name: dashboard
     keyAspect: dashboardKey
     aspects:

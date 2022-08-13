@@ -1,4 +1,3 @@
-import json
 import logging
 import re
 from dataclasses import dataclass
@@ -474,30 +473,6 @@ class LookerUtil:
             filter_config=q.get("filter_config"),
             query_timezone="UTC",
         )
-
-    @staticmethod
-    def run_inline_query(
-        client: Looker31SDK, q: dict, transport_options: Optional[TransportOptions]
-    ) -> List:
-
-        response_sql = client.run_inline_query(
-            result_format="sql",
-            body=LookerUtil.create_query_request(q),
-            transport_options=transport_options,
-        )
-        logger.debug("=================Query=================")
-        logger.debug(response_sql)
-
-        response_json = client.run_inline_query(
-            result_format="json",
-            body=LookerUtil.create_query_request(q),
-            transport_options=transport_options,
-        )
-
-        logger.debug("=================Response=================")
-        data = json.loads(response_json)
-        logger.debug(f"length {len(data)}")
-        return data
 
 
 @dataclass
