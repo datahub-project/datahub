@@ -703,7 +703,7 @@ def test_frontend_me_query(frontend_session):
 
     assert res_data
     assert res_data["data"]
-    assert res_data["data"]["me"]["corpUser"]["urn"] == "urn:li:corpuser:datahub"
+    assert res_data["data"]["me"]["corpUser"]["urn"] == "urn:li:corpuser:admin"
     assert res_data["data"]["me"]["platformPrivileges"]["viewAnalytics"] is True
     assert res_data["data"]["me"]["platformPrivileges"]["managePolicies"] is True
     assert res_data["data"]["me"]["platformPrivileges"]["manageUserCredentials"] is True
@@ -1191,7 +1191,7 @@ def test_generate_personal_access_token(frontend_session):
         "variables": {
             "input": {
                 "type": "PERSONAL",
-                "actorUrn": "urn:li:corpuser:datahub",
+                "actorUrn": "urn:li:corpuser:admin",
                 "duration": "ONE_MONTH",
             }
         },
