@@ -164,13 +164,30 @@ async def retrieve_version_stats(
     github_stats_future = asyncio.ensure_future(get_github_stats())
     server_config_future = asyncio.ensure_future(get_server_version_stats(server))
 
-    client_version_stats = await client_version_stats_future
-    (last_server_version, last_server_date) = await github_stats_future
-    (
-        current_server_type,
-        current_server_version,
-        current_server_release_date,
-    ) = await server_config_future
+    # set up the sentinel variables for the different api calls
+    client_version_stats = None  # pypi call
+    current_server_version = None  # datahub GMS call
+    last_server_version = None  # github API call
+
+    try:
+        client_version_stats = await client_version_stats_future
+    except Exception:
+        log.exception("Failed to collect client_version statistics")
+        pass
+    try:
+        (last_server_version, last_server_date) = await github_stats_future
+    except Exception:
+        log.exception("Failed to collect last released server stats from github")
+        pass
+    try:
+        (
+            current_server_type,
+            current_server_version,
+            current_server_release_date,
+        ) = await server_config_future
+    except Exception:
+        log.exception("Failed to collect current server type from datahub")
+        pass
 
     server_version_stats = None
     if current_server_version:
