@@ -19,6 +19,10 @@ on:
   release:
     types: [published, edited]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   spark-smoke-test:
     runs-on: ubuntu-latest
@@ -30,7 +34,7 @@ jobs:
           java-version: 1.8
       - uses: actions/setup-python@v2
         with:
-          python-version: "3.6"
+          python-version: "3.7"
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Gradle build

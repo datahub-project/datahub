@@ -22,6 +22,7 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
                 total
                 executionRequests {
                     urn
+                    id
                     input {
                         requestedAt
                     }
@@ -56,6 +57,7 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
             total
             executionRequests {
                 urn
+                id
                 input {
                     requestedAt
                     source {
@@ -75,6 +77,7 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
 query getIngestionExecutionRequest($urn: String!) {
     executionRequest(urn: $urn) {
         urn
+        id
         input {
             source {
                 type
@@ -85,6 +88,10 @@ query getIngestionExecutionRequest($urn: String!) {
             startTimeMs
             durationMs
             report
+            structuredReport {
+                type
+                serializedValue
+            }
         }
     }
 }
@@ -128,4 +135,8 @@ mutation createIngestionExecutionRequest($input: CreateIngestionExecutionRequest
 
 mutation cancelIngestionExecutionRequest($input: CancelIngestionExecutionRequestInput!) {
     cancelIngestionExecutionRequest(input: $input)
+}
+
+mutation createTestConnectionRequest($input: CreateTestConnectionRequestInput!) {
+    createTestConnectionRequest(input: $input)
 }

@@ -27,6 +27,7 @@ dependencies {
   compile externalDependency.springCore
   compile externalDependency.springKafka
   compile externalDependency.springWeb
+  compile project(':metadata-service:auth-ranger-impl')
 
   annotationProcessor externalDependency.lombok
 
@@ -34,4 +35,5 @@ dependencies {
 
   testCompile externalDependency.mockito
   testCompile externalDependency.testng
+
 }

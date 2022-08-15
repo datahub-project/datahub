@@ -15,6 +15,8 @@ from tests.utils import (
     get_sleep_info,
     ingest_file_via_rest,
     wait_for_healthcheck_util,
+    get_frontend_session,
+    get_admin_credentials,
 )
 
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
@@ -44,16 +46,7 @@ def test_healthchecks(wait_for_healthchecks):
 
 @pytest.fixture(scope="session")
 def frontend_session(wait_for_healthchecks):
-    session = requests.Session()
-
-    headers = {
-        "Content-Type": "application/json",
-    }
-    data = '{"username":"admin", "password":"mypass"}'
-    response = session.post(f"{get_frontend_url()}/logIn", headers=headers, data=data)
-    response.raise_for_status()
-
-    yield session
+    yield get_frontend_session()
 
 
 @tenacity.retry(
@@ -74,6 +67,32 @@ def _ensure_user_present(urn: str):
     assert data["value"][user_key]
     assert data["value"][user_key]["urn"] == urn
     return data
+
+
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
+)
+def _ensure_user_relationship_present(frontend_session, urn, relationships):
+    json = {
+        "query": """query corpUser($urn: String!) {\n
+            corpUser(urn: $urn) {\n
+                urn\n
+                relationships(input: { types: ["IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
+                    total\n
+                }\n
+            }\n
+        }""",
+        "variables": {"urn": urn},
+    }
+    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["corpUser"]
+    assert res_data["data"]["corpUser"]["relationships"]
+    assert res_data["data"]["corpUser"]["relationships"]["total"] == 1
 
 
 @tenacity.retry(
@@ -606,7 +625,6 @@ def test_ingest_without_system_metadata():
     response.raise_for_status()
 
 
-@pytest.mark.skip(reason="currently failing in acryl-main")
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_frontend_app_config(frontend_session):
 
@@ -649,7 +667,6 @@ def test_frontend_app_config(frontend_session):
     assert res_data["data"]["appConfig"]["policiesConfig"]["enabled"] is True
 
 
-@pytest.mark.skip(reason="currently failing in acryl-main")
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_frontend_me_query(frontend_session):
 
@@ -686,7 +703,7 @@ def test_frontend_me_query(frontend_session):
 
     assert res_data
     assert res_data["data"]
-    assert res_data["data"]["me"]["corpUser"]["urn"] == "urn:li:corpuser:datahub"
+    assert res_data["data"]["me"]["corpUser"]["urn"] == "urn:li:corpuser:admin"
     assert res_data["data"]["me"]["platformPrivileges"]["viewAnalytics"] is True
     assert res_data["data"]["me"]["platformPrivileges"]["managePolicies"] is True
     assert res_data["data"]["me"]["platformPrivileges"]["manageUserCredentials"] is True
@@ -697,7 +714,6 @@ def test_frontend_me_query(frontend_session):
     )
 
 
-@pytest.mark.skip(reason="currently failing in acryl-main")
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_list_users(frontend_session):
 
@@ -738,7 +754,6 @@ def test_list_users(frontend_session):
     )  # Length of default user set.
 
 
-@pytest.mark.skip(reason="currently failing in acryl-main")
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_list_groups(frontend_session):
 
@@ -820,30 +835,8 @@ def test_add_remove_members_from_group(frontend_session):
     response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
 
-    # Sleep for edge store to be updated. Not ideal!
-    time.sleep(3)
-
     # Verify the member has been added
-    json = {
-        "query": """query corpUser($urn: String!) {\n
-            corpUser(urn: $urn) {\n
-                urn\n
-                relationships(input: { types: ["IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
-                    total\n
-                }\n
-            }\n
-        }""",
-        "variables": {"urn": "urn:li:corpuser:jdoe"},
-    }
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["corpUser"]
-    assert res_data["data"]["corpUser"]["relationships"]
-    assert res_data["data"]["corpUser"]["relationships"]["total"] == 1
+    _ensure_user_relationship_present(frontend_session, "urn:li:corpuser:jdoe", 1)
 
     # Now remove jdoe from the group
     json = {
@@ -860,29 +853,8 @@ def test_add_remove_members_from_group(frontend_session):
     response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
 
-    # Sleep for edge store to be updated. Not ideal!
-    time.sleep(3)
-
     # Verify the member has been removed
-    json = {
-        "query": """query corpUser($urn: String!) {\n
-            corpUser(urn: $urn) {\n
-                urn\n
-                relationships(input: { types: ["IsMemberOfNativeGroup"], direction: OUTGOING, start: 0, count: 1 }) {\n
-                    total\n
-                }\n
-            }\n
-        }""",
-        "variables": {"urn": "urn:li:corpuser:jdoe"},
-    }
-    response = frontend_session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["corpUser"]
-    assert res_data["data"]["corpUser"]["relationships"]["total"] == 0
+    _ensure_user_relationship_present(frontend_session, "urn:li:corpuser:jdoe", 0)
 
 
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
@@ -1206,7 +1178,6 @@ def test_search_results_recommendations(frontend_session):
     assert "errors" not in res_data
 
 
-@pytest.mark.skip(reason="currently failing in acryl-main")
 @pytest.mark.dependency(depends=["test_healthchecks", "test_run_ingestion"])
 def test_generate_personal_access_token(frontend_session):
 
@@ -1220,7 +1191,7 @@ def test_generate_personal_access_token(frontend_session):
         "variables": {
             "input": {
                 "type": "PERSONAL",
-                "actorUrn": "urn:li:corpuser:datahub",
+                "actorUrn": "urn:li:corpuser:admin",
                 "duration": "ONE_MONTH",
             }
         },
@@ -1328,9 +1299,11 @@ def test_native_user_endpoints(frontend_session):
     headers = {
         "Content-Type": "application/json",
     }
-
-    root_login_data = '{"username":"admin", "password":"mypass"}'
-    frontend_session.post(f"{get_frontend_url()}/logIn", headers=headers, data=root_login_data)
+    username, password = get_admin_credentials()
+    root_login_data = '{"username":"' + username + '", "password":"' + password + '"}'
+    frontend_session.post(
+        f"{get_frontend_url()}/logIn", headers=headers, data=root_login_data
+    )
 
     # Test creating the password reset token
     create_reset_token_json = {

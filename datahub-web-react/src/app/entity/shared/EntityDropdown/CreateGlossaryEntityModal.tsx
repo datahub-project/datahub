@@ -56,11 +56,7 @@ function CreateGlossaryEntityModal(props: Props) {
                 },
             },
         })
-            .catch((e) => {
-                message.destroy();
-                message.error({ content: `Failed to create: \n ${e.message || ''}`, duration: 3 });
-            })
-            .finally(() => {
+            .then(() => {
                 message.loading({ content: 'Updating...', duration: 2 });
                 setTimeout(() => {
                     message.success({
@@ -72,6 +68,10 @@ function CreateGlossaryEntityModal(props: Props) {
                         refetchData();
                     }
                 }, 2000);
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({ content: `Failed to create: \n ${e.message || ''}`, duration: 3 });
             });
         onClose();
     }

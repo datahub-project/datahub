@@ -19,7 +19,11 @@ public class MappingsBuilder {
 
   public static Map<String, Object> getMappings(@Nonnull final EntitySpec entitySpec) {
     Map<String, Object> mappings = new HashMap<>();
+
+    // Fixed fields
     mappings.put("urn", getMappingsForUrn());
+    mappings.put("runId", getMappingsForRunId());
+
     entitySpec.getSearchableFieldSpecs()
         .forEach(searchableFieldSpec -> mappings.putAll(getMappingsForField(searchableFieldSpec)));
     entitySpec.getSearchScoreFieldSpecs()
@@ -28,6 +32,10 @@ public class MappingsBuilder {
   }
 
   private static Map<String, Object> getMappingsForUrn() {
+    return ImmutableMap.<String, Object>builder().put("type", "keyword").build();
+  }
+
+  private static Map<String, Object> getMappingsForRunId() {
     return ImmutableMap.<String, Object>builder().put("type", "keyword").build();
   }
 

@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.TagAssociationInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -36,12 +37,12 @@ public class ProposeTagResolver implements DataFetcher<CompletableFuture<Boolean
     }
 
     return CompletableFuture.supplyAsync(() -> {
-      LabelUtils.validateInput(
+      LabelUtils.validateResourceAndLabel(
           tagUrn,
           targetUrn,
           input.getSubResource(),
           input.getSubResourceType(),
-          "tag",
+          Constants.TAG_ENTITY_NAME,
           _entityService,
           false
       );

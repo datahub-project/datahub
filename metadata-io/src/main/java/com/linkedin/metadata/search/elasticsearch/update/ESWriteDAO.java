@@ -17,6 +17,7 @@ import org.elasticsearch.client.indices.GetIndexResponse;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.reindex.DeleteByQueryRequest;
+import org.elasticsearch.script.Script;
 
 
 @Slf4j
@@ -52,6 +53,14 @@ public class ESWriteDAO {
   public void deleteDocument(@Nonnull String entityName, @Nonnull String docId) {
     final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName));
     bulkProcessor.add(new DeleteRequest(indexName).id(docId));
+  }
+
+  /**
+   * Applies a script to a particular document
+   */
+  public void applyScriptUpdate(@Nonnull String entityName, @Nonnull String docId, @Nonnull String script) {
+    final String indexName = indexConvention.getIndexName(entityRegistry.getEntitySpec(entityName));
+    bulkProcessor.add(new UpdateRequest(indexName, docId).script(new Script(script)));
   }
 
   /**

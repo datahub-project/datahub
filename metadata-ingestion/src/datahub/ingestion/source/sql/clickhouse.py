@@ -7,6 +7,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import clickhouse_driver  # noqa: F401
 import clickhouse_sqlalchemy.types as custom_types
+import pydantic
 from clickhouse_sqlalchemy.drivers import base
 from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
 from pydantic.fields import Field
@@ -120,6 +121,9 @@ class ClickHouseConfig(
     # defaults
     host_port = Field(default="localhost:8123", description="ClickHouse host URL.")
     scheme = Field(default="clickhouse", description="", exclude=True)
+    password: pydantic.SecretStr = Field(
+        default=pydantic.SecretStr(""), exclude=True, description="password"
+    )
 
     secure: Optional[bool] = Field(default=None, description="")
     protocol: Optional[str] = Field(default=None, description="")
@@ -139,7 +143,8 @@ class ClickHouseConfig(
 
 
 PROPERTIES_COLUMNS = (
-    "engine, partition_key, sorting_key, primary_key, sampling_key, storage_policy"
+    "engine, partition_key, sorting_key, primary_key, sampling_key, storage_policy, "
+    + "metadata_modification_time, total_rows, total_bytes, data_paths, metadata_path"
 )
 
 

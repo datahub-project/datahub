@@ -1,4 +1,4 @@
 import os
 
 # Disable telemetry
-os.putenv("DATAHUB_TELEMETRY_ENABLED", "false")
+os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
