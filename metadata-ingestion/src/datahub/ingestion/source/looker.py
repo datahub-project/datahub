@@ -1,6 +1,5 @@
 import concurrent.futures
 import datetime
-import itertools
 import json
 import logging
 import os
@@ -376,10 +375,6 @@ class LookerDashboard:
 
     def get_urn_dashboard_id(self):
         return f"dashboards.{self.id}"
-
-
-def flatten(list_of_lists):
-    return list(itertools.chain.from_iterable(list_of_lists))
 
 
 @platform_name("Looker")
@@ -805,7 +800,7 @@ class LookerDashboardSource(Source):
             inputs=dashboard_element.get_view_urns(self.source_config),
             customProperties={
                 "upstream_fields": ",".join(
-                    sorted(set(field for field in dashboard_element.upstream_fields))
+                    sorted(set(dashboard_element.upstream_fields))
                 )
                 if dashboard_element.upstream_fields
                 else ""
@@ -1472,29 +1467,6 @@ class LookerDashboardSource(Source):
             self.reporter.report_workunit(workunit)
             yield workunit
 
-        # after fetching explores, we need to go back and enrich each chart and dashboard with
-        # metadata about the fields
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=self.source_config.max_threads
-        ) as async_executor:
-            async_workunits = [
-                async_executor.submit(
-                    self.process_metrics_dimensions_and_fields_for_dashboard,
-                    dashboard_id,
-                )
-                for dashboard_id in dashboard_ids
-                if dashboard_id is not None
-            ]
-            for async_workunit in concurrent.futures.as_completed(async_workunits):
-                work_units, dashboard_id, start_time, end_time = async_workunit.result()
-                logger.debug(
-                    f"Running time of process_metrics_dimensions_and_fields_for_dashboard for {dashboard_id} = {(end_time - start_time).total_seconds()}"
-                )
-                self.reporter.report_upstream_latency(start_time, end_time)
-                for mwu in work_units:
-                    yield mwu
-                    self.reporter.report_workunit(mwu)
-
         if self.source_config.tag_measures_and_dimensions and explore_events != []:
             # Emit tag MCEs for measures and dimensions if we produced any explores:
             for tag_mce in LookerUtil.get_tag_mces():
@@ -1517,7 +1489,8 @@ class LookerDashboardSource(Source):
                 self.reporter.report_workunit(workunit)
                 yield workunit
 
-        # we want to extract explores first so we can have a mapping of field names to field metadata
+        # after fetching explores, we need to go back and enrich each chart and dashboard with
+        # metadata about the fields
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self.source_config.max_threads
         ) as async_executor:
