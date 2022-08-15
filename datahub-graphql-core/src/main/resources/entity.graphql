@@ -3224,6 +3224,11 @@ type CorpGroupProperties {
     email of this group
     """
     email: String
+
+    """
+    Slack handle for the group
+    """
+    slack: String
 }
 
 """
