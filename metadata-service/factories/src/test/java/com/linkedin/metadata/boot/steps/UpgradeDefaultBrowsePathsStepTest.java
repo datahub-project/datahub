@@ -38,7 +38,10 @@ import org.testng.annotations.Test;
 public class UpgradeDefaultBrowsePathsStepTest {
 
   private static final String VERSION_1 = "1";
-  private static final String UPGRADE_URN = String.format("urn:li:%s:%s", Constants.DATA_HUB_UPGRADE_ENTITY_NAME, "upgrade-default-browse-paths-step");
+  private static final String UPGRADE_URN = String.format(
+      "urn:li:%s:%s",
+      Constants.DATA_HUB_UPGRADE_ENTITY_NAME,
+      "upgrade-default-browse-paths-step");
 
   @Test
   public void testExecuteNoExistingBrowsePaths() throws Exception {
@@ -172,8 +175,11 @@ public class UpgradeDefaultBrowsePathsStepTest {
     )).thenReturn(null);
 
     final List<RecordTemplate> browsePaths2 = ImmutableList.of(
-        new BrowsePaths().setPaths(new StringArray(ImmutableList.of(BrowsePathUtils.getDefaultBrowsePath(testUrn3, registry, '.')))),
-        new BrowsePaths().setPaths(new StringArray(ImmutableList.of(BrowsePathUtils.getLegacyDefaultBrowsePath(testUrn4, registry), BrowsePathUtils.getDefaultBrowsePath(testUrn4, registry, '.'))))
+        new BrowsePaths().setPaths(new StringArray(ImmutableList.of(
+            BrowsePathUtils.getDefaultBrowsePath(testUrn3, registry, '.')))),
+        new BrowsePaths().setPaths(new StringArray(ImmutableList.of(
+            BrowsePathUtils.getLegacyDefaultBrowsePath(testUrn4, registry),
+            BrowsePathUtils.getDefaultBrowsePath(testUrn4, registry, '.'))))
     );
 
     final List<ExtraInfo> extraInfos2 = ImmutableList.of(
@@ -225,7 +231,8 @@ public class UpgradeDefaultBrowsePathsStepTest {
     final Urn upgradeEntityUrn = Urn.createFromString(UPGRADE_URN);
     com.linkedin.upgrade.DataHubUpgradeRequest upgradeRequest = new com.linkedin.upgrade.DataHubUpgradeRequest().setVersion(VERSION_1);
     Map<String, EnvelopedAspect> upgradeRequestAspects = new HashMap<>();
-    upgradeRequestAspects.put(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(upgradeRequest.data())));
+    upgradeRequestAspects.put(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(upgradeRequest.data())));
     EntityResponse response = new EntityResponse().setAspects(new EnvelopedAspectMap(upgradeRequestAspects));
     Mockito.when(mockService.getEntityV2(
         Mockito.eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME),
