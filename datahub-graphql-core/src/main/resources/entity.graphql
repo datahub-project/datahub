@@ -516,6 +516,16 @@ interface Entity {
 }
 
 """
+A Metadata Entity which is browsable, or has browse paths.
+"""
+interface BrowsableEntity {
+  """
+  The browse paths corresponding to an entity. If no Browse Paths have been generated before, this will be null.
+  """
+  browsePaths: [BrowsePath!]
+}
+
+"""
 A top level Metadata Entity Type
 """
 enum EntityType {
@@ -881,7 +891,7 @@ interface EntityWithRelationships implements Entity {
 """
 A Dataset entity, which encompasses Relational Tables, Document store collections, streaming topics, and other sets of data having an independent lifecycle
 """
-type Dataset implements EntityWithRelationships & Entity {
+type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of the Dataset
     """
@@ -3881,7 +3891,7 @@ input InstitutionalMemoryMetadataUpdate {
 """
 A Notebook Metadata Entity
 """
-type Notebook implements Entity {
+type Notebook implements Entity & BrowsableEntity {
     """
     The primary key of the Notebook
     """
@@ -4122,7 +4132,7 @@ type ChangeAuditStamps {
 """
 A Dashboard Metadata Entity
 """
-type Dashboard implements EntityWithRelationships & Entity {
+type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of the Dashboard
     """
@@ -4395,7 +4405,7 @@ type DashboardProperties {
 """
 A Chart Metadata Entity
 """
-type Chart implements EntityWithRelationships & Entity {
+type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of the Chart
     """
@@ -4755,7 +4765,7 @@ enum ChartQueryType {
 A Data Flow Metadata Entity, representing an set of pipelined Data Job or Tasks required
 to produce an output Dataset Also known as a Data Pipeline
 """
-type DataFlow implements EntityWithRelationships & Entity {
+type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of a Data Flow
     """
@@ -4935,7 +4945,7 @@ type DataFlowProperties {
 A Data Job Metadata Entity, representing an individual unit of computation or Task
 to produce an output Dataset Always part of a parent Data Flow aka Pipeline
 """
-type DataJob implements EntityWithRelationships & Entity {
+type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of the Data Job
     """
@@ -7649,7 +7659,7 @@ input CreateGroupInput {
 """
 An ML Model Metadata Entity Note that this entity is incubating
 """
-type MLModel implements EntityWithRelationships & Entity {
+type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of the ML model
     """
@@ -7806,7 +7816,7 @@ type MLModel implements EntityWithRelationships & Entity {
 An ML Model Group Metadata Entity
 Note that this entity is incubating
 """
-type MLModelGroup implements EntityWithRelationships & Entity {
+type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of the ML Model Group
     """
@@ -8188,7 +8198,7 @@ description: String
 """
 An ML Feature Table Entity Note that this entity is incubating
 """
-type MLFeatureTable implements EntityWithRelationships & Entity {
+type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of the ML Feature Table
     """
