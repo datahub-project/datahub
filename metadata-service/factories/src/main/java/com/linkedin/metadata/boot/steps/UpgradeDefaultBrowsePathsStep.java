@@ -76,7 +76,7 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
         BATCH_SIZE);
 
     if (latestAspects.getTotalCount() == 0 || latestAspects.getValues() == null || latestAspects.getMetadata() == null) {
-      log.info(String.format("Found 0 browse paths for entity with type %s. Skipping migration!", entityType));
+      log.debug(String.format("Found 0 browse paths for entity with type %s. Skipping migration!", entityType));
       return 0;
     }
 
@@ -102,11 +102,11 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
       Urn urn = info.getUrn();
       BrowsePaths browsePaths = (BrowsePaths) browsePathsRec;
 
-      log.info(String.format("Inspecting browse path for urn %s, value %s", urn, browsePaths));
+      log.debug(String.format("Inspecting browse path for urn %s, value %s", urn, browsePaths));
 
       if (browsePaths.hasPaths() && browsePaths.getPaths().size() == 1) {
         String legacyBrowsePath = BrowsePathUtils.getLegacyDefaultBrowsePath(urn, _entityService.getEntityRegistry());
-        log.info(String.format("Legacy browse path for urn %s, value %s", urn, legacyBrowsePath));
+        log.debug(String.format("Legacy browse path for urn %s, value %s", urn, legacyBrowsePath));
         if (legacyBrowsePath.equals(browsePaths.getPaths().get(0))) {
           migrateBrowsePath(urn, auditStamp);
         }
@@ -118,7 +118,7 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
 
   private void migrateBrowsePath(Urn urn, AuditStamp auditStamp) throws Exception {
     BrowsePaths newPaths = _entityService.buildDefaultBrowsePath(urn);
-    log.info(String.format("Updating browse path for urn %s to value %s", urn, newPaths));
+    log.debug(String.format("Updating browse path for urn %s to value %s", urn, newPaths));
     MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
     proposal.setEntityType(urn.getEntityType());

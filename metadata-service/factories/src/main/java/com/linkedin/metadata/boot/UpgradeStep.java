@@ -20,7 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public abstract class UpgradeStep implements BootstrapStep {
-  private static final Integer SLEEP_SECONDS = 2;
+  private static final Integer SLEEP_SECONDS = 120;
 
   protected final EntityService _entityService;
   private final String _version;
