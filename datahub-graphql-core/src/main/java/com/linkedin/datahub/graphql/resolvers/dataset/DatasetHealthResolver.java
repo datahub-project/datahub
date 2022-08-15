@@ -129,6 +129,7 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<List
       }
     }
 
+    // Tests are saas-only.
     if  (_config.getTestsEnabled()) {
       final Health testsHealth = computeTestsHealthForDataset(datasetUrn, context);
       if (testsHealth != null) {
@@ -136,6 +137,7 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<List
       }
     }
 
+    // Incidents are saas-only.
     if (_config.getIncidentsEnabled()) {
       final Health incidentsHealth = computeIncidentsHealthForDataset(datasetUrn, context);
       if (incidentsHealth != null) {
