@@ -19,6 +19,7 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -131,7 +132,8 @@ public class BrowsePathUtils {
    */
   private static String getDatasetPath(@Nonnull final String datasetName, @Nonnull final Character delimiter) {
     if (datasetName.contains(delimiter.toString())) {
-      final List<String> datasetNamePathParts = Arrays.asList(datasetName.split(delimiter.toString()));
+      final List<String> datasetNamePathParts = Arrays.asList(datasetName.split(Pattern.quote(delimiter.toString())));
+      System.out.println(datasetNamePathParts);
       // Omit the name from the path.
       final String datasetPath = String.join("/", datasetNamePathParts.subList(0, datasetNamePathParts.size() - 1));
       return datasetPath.startsWith("/") ? datasetPath : String.format("/%s", datasetPath);
