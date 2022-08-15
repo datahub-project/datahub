@@ -444,7 +444,6 @@ class LookerDashboardSource(Source):
     ) -> List[InputFieldElement]:
         if query is None:
             return []
-
         result = []
 
         # query.dynamic_fields can contain:
@@ -813,10 +812,6 @@ class LookerDashboardSource(Source):
             },
         )
 
-        # input_fields = InputFieldsClass(
-        #     fields=
-        # )
-
         chart_snapshot.aspects.append(chart_info)
 
         ownership = self.get_ownership(dashboard)
@@ -1132,6 +1127,8 @@ class LookerDashboardSource(Source):
             entity_urn = builder.make_chart_urn(
                 self.source_config.platform_name, dashboard_element.get_urn_element_id()
             )
+            view_field_for_reference = input_field.view_field
+
             if input_field.view_field is None:
                 explore = self.resolved_explores_map.get(
                     (input_field.model, input_field.explore)
@@ -1151,16 +1148,16 @@ class LookerDashboardSource(Source):
                         None,
                     )
                     if relevant_field is not None:
-                        input_field.view_field = relevant_field
+                        view_field_for_reference = relevant_field
 
-            if input_field.view_field is not None:
+            if view_field_for_reference is not None:
                 fields_for_mcp.append(
                     InputFieldClass(
                         schemaFieldUrn=builder.make_schema_field_urn(
-                            entity_urn, input_field.view_field.name
+                            entity_urn, view_field_for_reference.name
                         ),
                         schemaField=LookerUtil.view_field_to_schema_field(
-                            input_field.view_field,
+                            view_field_for_reference,
                             self.reporter,
                             self.source_config.tag_measures_and_dimensions,
                         ),
