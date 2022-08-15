@@ -54,7 +54,7 @@ class MetabaseConfig(DatasetLineageProviderConfigBase):
     )
     database_alias_map: Optional[dict] = Field(
         default=None,
-        description="Database name map to use when constructing dataset URN.",
+        description="Platform and database name mappings to use when constructing dataset URN.",
     )
     engine_platform_map: Optional[Dict[str, str]] = Field(
         default=None,
@@ -584,8 +584,9 @@ class MetabaseSource(Source):
             self.config.database_alias_map is not None
             and platform in self.config.database_alias_map
         ):
-            dbname = self.config.database_alias_map[platform]
-        else:
+            dbname = self.config.database_alias_map[platform].get(dbname)
+
+        if dbname is None:
             self.report.report_warning(
                 key=f"metabase-dbname-{datasource_id}",
                 reason=f"Cannot determine database name for platform: {platform}",
