@@ -1134,6 +1134,11 @@ public class GmsGraphQLEngine {
                         .map(graphType -> (EntityType<?, ?>) graphType)
                         .collect(Collectors.toList())
                 )))
+            .type("BrowsableEntity", typeWiring -> typeWiring
+                .typeResolver(new EntityInterfaceTypeResolver(browsableTypes.stream()
+                    .map(graphType -> (EntityType<?, ?>) graphType)
+                    .collect(Collectors.toList())
+                )))
             .type("OwnerType", typeWiring -> typeWiring
                 .typeResolver(new EntityInterfaceTypeResolver(ownerTypes.stream()
                     .filter(graphType -> graphType instanceof EntityType)
