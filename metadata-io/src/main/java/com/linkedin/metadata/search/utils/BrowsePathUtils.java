@@ -27,7 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class BrowsePathUtils {
 
-  public static String getDefaultBrowsePath(Urn urn, EntityRegistry entityRegistry, Character dataPlatformDelimiter) throws URISyntaxException {
+  public static String getDefaultBrowsePath(@Nonnull Urn urn, @Nonnull EntityRegistry entityRegistry, @Nonnull Character dataPlatformDelimiter) throws URISyntaxException {
 
     switch (urn.getEntityType()) {
       case Constants.DATASET_ENTITY_NAME:

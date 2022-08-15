@@ -75,7 +75,7 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
         start,
         BATCH_SIZE);
 
-    if (latestAspects.getTotalCount() == 0) {
+    if (latestAspects.getTotalCount() == 0 || latestAspects.getValues() == null || latestAspects.getMetadata() == null) {
       log.info(String.format("Found 0 browse paths for entity with type %s. Skipping migration!", entityType));
       return 0;
     }
@@ -91,7 +91,6 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
     }
 
     for (int i = 0; i < latestAspects.getValues().size(); i++) {
-
 
       ExtraInfo info = latestAspects.getMetadata().getExtraInfos().get(i);
       RecordTemplate browsePathsRec = latestAspects.getValues().get(i);
