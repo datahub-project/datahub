@@ -218,7 +218,10 @@ def setup_mock_explore_with_joins(mocked_client):
         fields=LookmlModelExploreFieldset(
             dimensions=[
                 LookmlModelExploreField(
-                    name="dim1", type="string", description="dimension one description", label_short="Dimensions One Label"
+                    name="dim1",
+                    type="string",
+                    description="dimension one description",
+                    label_short="Dimensions One Label",
                 )
             ]
         ),
@@ -254,7 +257,11 @@ def setup_mock_explore_unaliased_with_joins(mocked_client):
         fields=LookmlModelExploreFieldset(
             dimensions=[
                 LookmlModelExploreField(
-                    name="dim1", type="string", dimension_group=None, description="dimension one description", label_short="Dimensions One Label"
+                    name="dim1",
+                    type="string",
+                    dimension_group=None,
+                    description="dimension one description",
+                    label_short="Dimensions One Label",
                 )
             ]
         ),
@@ -287,7 +294,11 @@ def setup_mock_explore(mocked_client):
         fields=LookmlModelExploreFieldset(
             dimensions=[
                 LookmlModelExploreField(
-                    name="dim1", type="string", dimension_group=None, description="dimension one description", label_short="Dimensions One Label"
+                    name="dim1",
+                    type="string",
+                    dimension_group=None,
+                    description="dimension one description",
+                    label_short="Dimensions One Label",
                 )
             ]
         ),
