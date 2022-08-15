@@ -20,6 +20,7 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
+import { getMatchPrioritizingPrimary } from '../shared/utils';
 import { FIELDS_TO_HIGHLIGHT } from '../dataset/search/highlights';
 
 /**
@@ -168,6 +169,8 @@ export class ChartEntity implements Entity<Chart> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Chart;
+        const matchedField = getMatchPrioritizingPrimary(result.matchedFields, 'fieldLabels');
+
         return (
             <ChartPreview
                 urn={data.urn}
@@ -188,16 +191,9 @@ export class ChartEntity implements Entity<Chart> {
                 createdMs={data.properties?.created?.time}
                 externalUrl={data.properties?.externalUrl}
                 snippet={
-                    // Add match highlights only if all the matched fields are in the FIELDS_TO_HIGHLIGHT
-                    result.matchedFields.length > 0 && (
+                    matchedField && (
                         <Typography.Text>
-                            Matches{' '}
-                            {FIELDS_TO_HIGHLIGHT.get(
-                                result.matchedFields.filter((field) => FIELDS_TO_HIGHLIGHT.has(field.name))[0]?.name,
-                            )}{' '}
-                            <b>
-                                {result.matchedFields.filter((field) => FIELDS_TO_HIGHLIGHT.has(field.name))[0]?.value}
-                            </b>
+                            Matches {FIELDS_TO_HIGHLIGHT.get(matchedField.name)} <b>{matchedField.value}</b>
                         </Typography.Text>
                     )
                 }

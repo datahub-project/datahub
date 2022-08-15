@@ -245,4 +245,8 @@ entities:
     keyAspect: inviteTokenKey
     aspects:
       - inviteToken
+  - name: schemaField
+    category: core
+    keyAspect: schemaFieldKey
+    aspects: []
 events:

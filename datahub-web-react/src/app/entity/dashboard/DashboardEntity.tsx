@@ -25,6 +25,7 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
 import { FIELDS_TO_HIGHLIGHT } from '../dataset/search/highlights';
+import { getMatchPrioritizingPrimary } from '../shared/utils';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -183,6 +184,8 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Dashboard;
+        const matchedField = getMatchPrioritizingPrimary(result.matchedFields, 'fieldLabels');
+
         return (
             <DashboardPreview
                 urn={data.urn}
@@ -205,16 +208,9 @@ export class DashboardEntity implements Entity<Dashboard> {
                 lastUpdatedMs={data.properties?.lastModified?.time}
                 createdMs={data.properties?.created?.time}
                 snippet={
-                    // Add match highlights only if all the matched fields are in the FIELDS_TO_HIGHLIGHT
-                    result.matchedFields.length > 0 && (
+                    matchedField && (
                         <Typography.Text>
-                            Matches{' '}
-                            {FIELDS_TO_HIGHLIGHT.get(
-                                result.matchedFields.filter((field) => FIELDS_TO_HIGHLIGHT.has(field.name))[0]?.name,
-                            )}{' '}
-                            <b>
-                                {result.matchedFields.filter((field) => FIELDS_TO_HIGHLIGHT.has(field.name))[0]?.value}
-                            </b>
+                            Matches {FIELDS_TO_HIGHLIGHT.get(matchedField.name)} <b>{matchedField.value}</b>
                         </Typography.Text>
                     )
                 }

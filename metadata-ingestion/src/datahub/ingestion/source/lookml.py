@@ -709,7 +709,7 @@ class LookerView:
                     # it seems like the view is defined purely as sql, let's try using the column names to populate the schema
                     fields = [
                         # set types to unknown for now as our sql parser doesn't give us column types yet
-                        ViewField(c, "unknown", "", ViewFieldType.UNKNOWN)
+                        ViewField(c, "", "unknown", "", ViewFieldType.UNKNOWN)
                         for c in column_names
                     ]
             except Exception as e:

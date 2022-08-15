@@ -46,7 +46,7 @@ record SchemaField {
    * a field in a source, that is most likely a description.
    */
   @Searchable = {
-    "fieldName": "fieldLabel",
+    "fieldName": "fieldLabels",
     "fieldType": "TEXT",
     "boostScore": 0.2
   }

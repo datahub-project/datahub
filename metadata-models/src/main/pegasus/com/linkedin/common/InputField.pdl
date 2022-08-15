@@ -15,7 +15,8 @@ record InputField {
    * Urn of the schema being referenced for lineage purposes
    */
   @Relationship = {
-    "name": "consumesField"
+    "name": "consumesField",
+    "entityTypes": [ "schemaField" ]
   }
   schemaFieldUrn: optional Urn
 }
