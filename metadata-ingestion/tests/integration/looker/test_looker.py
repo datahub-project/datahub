@@ -13,15 +13,19 @@ from looker_sdk.sdk.api31.models import (
     LookmlModelExploreField,
     LookmlModelExploreFieldset,
     LookmlModelExploreJoins,
+    LookWithQuery,
     Query,
     User,
-    WriteQuery, LookWithQuery,
+    WriteQuery,
 )
 
-from datahub.ingestion.source.looker.looker_query_model import HistoryViewField, UserViewField
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.looker import looker_usage
-from datahub.ingestion.source.looker.looker_query_model import LookViewField
+from datahub.ingestion.source.looker.looker_query_model import (
+    HistoryViewField,
+    LookViewField,
+    UserViewField,
+)
 from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2020-04-14 07:00:00"
@@ -301,7 +305,7 @@ def setup_mock_user(mocked_client):
 def side_effect_query_inline(
     result_format: str, body: WriteQuery, transport_options: Optional[TransportOptions]
 ) -> str:
-    query_type = None
+    query_type: looker_usage.QueryId
     if result_format == "sql":
         return ""  # Placeholder for sql text
 
@@ -389,7 +393,7 @@ def side_effect_query_inline(
                     UserViewField.USER_ID: 1,
                 },
             ]
-        )
+        ),
     }
 
     if query_id_vs_response.get(query_type) is None:
@@ -477,35 +481,30 @@ def test_looker_ingest_usage_history(pytestconfig, tmp_path, mock_time):
         mock_sdk.return_value = mocked_client
         mocked_client.all_dashboards.return_value = [Dashboard(id="1")]
         mocked_client.dashboard.return_value = Dashboard(
-                    id="1",
-                    title="foo",
-                    created_at=datetime.utcfromtimestamp(time.time()),
-                    updated_at=datetime.utcfromtimestamp(time.time()),
-                    description="lorem ipsum",
-                    favorite_count=5,
-                    view_count=25,
-                    last_viewed_at=datetime.utcfromtimestamp(time.time()),
-                    dashboard_elements=[
-                        DashboardElement(
-                            id="2",
-                            type="",
-                            subtitle_text="Some text",
-                            query=Query(
-                                model="data",
-                                view="my_view",
-                                dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
-                            ),
-                        ),
-                        DashboardElement(
-                            id="3",
-                            type="",
-                            look=LookWithQuery(
-                                id="3",
-                                view_count=30
-                            )
-                        ),
-                    ],
-                )
+            id="1",
+            title="foo",
+            created_at=datetime.utcfromtimestamp(time.time()),
+            updated_at=datetime.utcfromtimestamp(time.time()),
+            description="lorem ipsum",
+            favorite_count=5,
+            view_count=25,
+            last_viewed_at=datetime.utcfromtimestamp(time.time()),
+            dashboard_elements=[
+                DashboardElement(
+                    id="2",
+                    type="",
+                    subtitle_text="Some text",
+                    query=Query(
+                        model="data",
+                        view="my_view",
+                        dynamic_fields='[{"table_calculation":"calc","label":"foobar","expression":"offset(${my_table.value},1)","value_format":null,"value_format_name":"eur","_kind_hint":"measure","_type_hint":"number"}]',
+                    ),
+                ),
+                DashboardElement(
+                    id="3", type="", look=LookWithQuery(id=3, view_count=30)
+                ),
+            ],
+        )
         mocked_client.run_inline_query.side_effect = side_effect_query_inline
         setup_mock_explore(mocked_client)
         setup_mock_user(mocked_client)

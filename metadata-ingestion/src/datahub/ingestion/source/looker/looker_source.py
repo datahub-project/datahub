@@ -20,7 +20,6 @@ from typing import (
     cast,
 )
 
-from avrogen.dict_wrapper import DictWrapper
 from looker_sdk.error import SDKError
 from looker_sdk.rtl import model
 from looker_sdk.sdk.api31.methods import Looker31SDK
@@ -45,7 +44,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.looker import looker_lib_wrapper, looker_usage
+from datahub.ingestion.source.looker import looker_usage
 from datahub.ingestion.source.looker.looker_common import (
     LookerCommonConfig,
     LookerExplore,
@@ -71,7 +70,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    ChangeTypeClass,
     ChartInfoClass,
     ChartTypeClass,
     DashboardInfoClass,
@@ -217,6 +215,7 @@ class LookerDashboardSource(Source):
                 looker_user_registry=self.user_registry,
                 interval=self.source_config.extract_usage_history_for_interval,
                 strip_user_ids_from_email=self.source_config.strip_user_ids_from_email,
+                platform_name=self.source_config.platform_name,
             )
         )
 
@@ -837,46 +836,14 @@ class LookerDashboardSource(Source):
                 ]
             )
 
-        for (model_object, aspect,) in self.dashboard_stat_generator(  # type: ignore
-            cast(List[model.Model], looker_dashboards)
-        ).generate_stat_aspects():
+        usage_stat_generators = [
+            self.dashboard_stat_generator(cast(List[model.Model], looker_dashboards)),
+            self.chart_stat_generator(cast(List[model.Model], looks)),
+        ]
 
-            dashboard_object: Dashboard = cast(Dashboard, model_object)
-            if dashboard_object.id is None:  # This check to silent mypy lint error
-                continue
-            mcps.append(
-                MetadataChangeProposalWrapper(
-                    entityUrn=builder.make_dashboard_urn(
-                        self.source_config.platform_name,
-                        looker_lib_wrapper.get_urn_looker_dashboard_id(
-                            dashboard_object.id
-                        ),
-                    ),
-                    aspect=cast(DictWrapper, aspect),
-                    entityType="dashboard",
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="dashboardUsageStatistics"
-                )
-            )
-
-        for model_object, aspect in self.chart_stat_generator(
-            cast(List[model.Model], looks)
-        ).generate_stat_aspects():
-            look: LookWithQuery = cast(LookWithQuery, model_object)
-            if look.id is None:  # This check to silent mypy lint error
-                continue
-            mcps.append(
-                MetadataChangeProposalWrapper(
-                    entityUrn=builder.make_chart_urn(
-                        self.source_config.platform_name,
-                        looker_lib_wrapper.get_urn_looker_element_id(str(look.id)),
-                    ),
-                    aspect=cast(DictWrapper, aspect),
-                    entityType="chart",
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="chartUsageStatistics"
-                )
-            )
+        for usage_stat_generator in usage_stat_generators:
+            for mcp in usage_stat_generator.generate_usage_stat_mcps():
+                mcps.append(mcp)
 
         return mcps
 
@@ -1004,8 +971,8 @@ class LookerDashboardSource(Source):
 
         # Extract usage history is enabled
         if self.source_config.extract_usage_history:
-            usage_mcps = self.extract_usage_stat(
-                ingested_looker_dashboards  # type:ignore
+            usage_mcps: List[MetadataChangeProposalWrapper] = self.extract_usage_stat(
+                ingested_looker_dashboards
             )
             for usage_mcp in usage_mcps:
                 workunit = MetadataWorkUnit(

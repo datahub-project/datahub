@@ -8,12 +8,16 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, cast
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, cast
 
+from avrogen.dict_wrapper import DictWrapper
 from looker_sdk.rtl import model
 from looker_sdk.sdk.api31.models import Dashboard, LookWithQuery
 
+import datahub.emitter.mce_builder as builder
 from datahub.emitter.mce_builder import Aspect
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.source.looker import looker_lib_wrapper
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
     LookerUser,
@@ -31,6 +35,7 @@ from datahub.ingestion.source.looker.looker_query_model import (
 )
 from datahub.metadata.schema_classes import (
     CalendarIntervalClass,
+    ChangeTypeClass,
     ChartUsageStatisticsClass,
     ChartUserUsageCountsClass,
     DashboardUsageStatisticsClass,
@@ -47,6 +52,7 @@ class StatGeneratorConfig:
     looker_user_registry: LookerUserRegistry
     strip_user_ids_from_email: bool
     interval: str
+    platform_name: str
 
 
 # QueryId and query_collection helps to return dummy responses in test cases
@@ -144,6 +150,10 @@ class BaseStatGenerator(ABC):
         pass
 
     @abstractmethod
+    def _get_mcp_detail(self, model: model.Model) -> Dict:
+        pass
+
+    @abstractmethod
     def append_user_stat(
         self, entity_stat_aspect: Aspect, user: LookerUser, row: Dict
     ) -> None:
@@ -156,6 +166,14 @@ class BaseStatGenerator(ABC):
     @abstractmethod
     def get_id_from_row(self, row: dict) -> str:
         pass
+
+    def create_mcp(
+        self, model: model.Model, aspect: Aspect
+    ) -> MetadataChangeProposalWrapper:
+        return MetadataChangeProposalWrapper(
+            aspect=cast(DictWrapper, aspect),
+            **self._get_mcp_detail(model=model),
+        )
 
     def _round_time(self, date_time: str) -> int:
         return round(
@@ -192,7 +210,7 @@ class BaseStatGenerator(ABC):
 
     def _fill_user_stat_aspect(
         self,
-        entity_usage: Dict[Tuple[str, str], Aspect],
+        entity_usage_stat: Dict[Tuple[str, str], Aspect],
         user_wise_rows: List[Dict],
     ) -> Iterable[Tuple[model.Model, Aspect]]:
         for row in user_wise_rows:
@@ -217,7 +235,9 @@ class BaseStatGenerator(ABC):
                 continue
 
             # Confirm for the user row (entity + time) the entity stat is present for the same time
-            entity_stat_aspect: Aspect = entity_usage[self.get_entity_stat_key(row)]
+            entity_stat_aspect: Aspect = entity_usage_stat[
+                self.get_entity_stat_key(row)
+            ]
             if entity_stat_aspect is None:
                 logger.warning(
                     "entity stat is not found for the user stat key = {}".format(
@@ -240,30 +260,35 @@ class BaseStatGenerator(ABC):
         query.filters.update(self.get_filter())
         return query
 
-    def generate_stat_aspects(self) -> Iterable[Tuple[model.Model, Aspect]]:
+    def generate_usage_stat_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
         # No looker entities available to process stat generation
         if len(self.looker_models) == 0:
             return
 
         # yield absolute stat for looker entities
         for looker_object, aspect in self._process_absolute_aspect():  # type: ignore
-            yield looker_object, aspect
+            yield self.create_mcp(looker_object, aspect)
 
         # Execute query and process the raw json which contains stat information
         entity_query_with_filters: LookerQuery = self._append_filters(
             self.get_entity_timeseries_query()
         )
         entity_rows: List[Dict] = self._execute_query(entity_query_with_filters)
-        entity_stat_aspect: Dict[
-            Tuple[str, str], Aspect
-        ] = self._process_entity_timeseries_rows(entity_rows)
+        entity_usage_stat: Dict[
+            Tuple[str, str], Any
+        ] = self._process_entity_timeseries_rows(
+            entity_rows
+        )  # Any type to pass mypy unbound Aspect type error
+
         user_wise_query_with_filters: LookerQuery = self._append_filters(
             self.get_entity_user_timeseries_query()
         )
         user_wise_rows = self._execute_query(user_wise_query_with_filters)
         # yield absolute stat for entity
-        for aspect in self._fill_user_stat_aspect(entity_stat_aspect, user_wise_rows):
-            yield aspect
+        for looker_object, aspect in self._fill_user_stat_aspect(
+            entity_usage_stat, user_wise_rows
+        ):
+            yield self.create_mcp(looker_object, aspect)
 
 
 class DashboardStatGenerator(BaseStatGenerator):
@@ -296,6 +321,21 @@ class DashboardStatGenerator(BaseStatGenerator):
             row[HistoryViewField.HISTORY_DASHBOARD_ID],
             row[HistoryViewField.HISTORY_CREATED_DATE],
         )
+
+    def _get_mcp_detail(self, model: model.Model) -> Dict:
+        dashboard: Dashboard = cast(Dashboard, model)
+        if dashboard is None or dashboard.id is None:  # to pass mypy lint
+            return {}
+
+        return {
+            "entityUrn": builder.make_dashboard_urn(
+                self.config.platform_name,
+                looker_lib_wrapper.get_urn_looker_dashboard_id(dashboard.id),
+            ),
+            "entityType": "dashboard",
+            "changeType": ChangeTypeClass.UPSERT,
+            "aspectName": "dashboardUsageStatistics",
+        }
 
     def to_entity_absolute_stat_aspect(self, looker_object: model.Model) -> Aspect:
         looker_dashboard: Dashboard = cast(Dashboard, looker_object)
@@ -371,7 +411,9 @@ class LookStatGenerator(BaseStatGenerator):
 
     def get_id(self, looker_object: model.Model) -> str:
         look: LookWithQuery = cast(LookWithQuery, looker_object)
-        if look.id is None:  # This condition never become true, this check is to pass the mypy lint error
+        if (
+            look.id is None
+        ):  # This condition never become true, this check is to pass the mypy lint error
             raise ValueError("Looker look model id is None")
         return str(look.id)
 
@@ -383,6 +425,21 @@ class LookStatGenerator(BaseStatGenerator):
             str(row[LookViewField.LOOK_ID]),
             row[HistoryViewField.HISTORY_CREATED_DATE],
         )
+
+    def _get_mcp_detail(self, model: model.Model) -> Dict:
+        look: LookWithQuery = cast(LookWithQuery, model)
+        if look is None or look.id is None:
+            return {}
+
+        return {
+            "entityUrn": builder.make_chart_urn(
+                self.config.platform_name,
+                looker_lib_wrapper.get_urn_looker_element_id(str(look.id)),
+            ),
+            "entityType": "chart",
+            "changeType": ChangeTypeClass.UPSERT,
+            "aspectName": "chartUsageStatistics",
+        }
 
     def to_entity_absolute_stat_aspect(self, looker_object: model.Model) -> Aspect:
         looker_look: LookWithQuery = cast(LookWithQuery, looker_object)
@@ -452,7 +509,11 @@ def create_stat_entity_generator(
     def create_dashboard_stat_generator(
         looker_dashboards: List[Dashboard],
     ) -> BaseStatGenerator:
-        logger.info("Number of dashboard received for stat processing = {}".format(len(looker_dashboards)))
+        logger.info(
+            "Number of dashboard received for stat processing = {}".format(
+                len(looker_dashboards)
+            )
+        )
         return DashboardStatGenerator(
             config=config, looker_dashboards=looker_dashboards
         )
@@ -460,7 +521,9 @@ def create_stat_entity_generator(
     def create_chart_stat_generator(
         looker_looks: List[LookWithQuery],
     ) -> BaseStatGenerator:
-        logger.info("Number of look received for stat processing = {}".format(len(looker_looks)))
+        logger.info(
+            "Number of look received for stat processing = {}".format(len(looker_looks))
+        )
         return LookStatGenerator(config=config, looker_looks=looker_looks)
 
     stat_entities_generator = {
