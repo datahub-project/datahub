@@ -108,7 +108,6 @@ class LookerAPI:
         logger.debug("=================Response=================")
         data = json.loads(response_json)
         logger.debug(f"length {len(data)}")
-        logger.debug("MOHD DATA = {}".format(data))
         return data
 
 

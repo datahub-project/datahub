@@ -241,7 +241,11 @@ class BaseStatGenerator(ABC):
         return query
 
     def generate_stat_aspects(self) -> Iterable[Tuple[model.Model, Aspect]]:
-        # yield absolute stat for entity
+        # No looker entities available to process stat generation
+        if len(self.looker_models) == 0:
+            return
+
+        # yield absolute stat for looker entities
         for looker_object, aspect in self._process_absolute_aspect():  # type: ignore
             yield looker_object, aspect
 
@@ -253,7 +257,6 @@ class BaseStatGenerator(ABC):
         entity_stat_aspect: Dict[
             Tuple[str, str], Aspect
         ] = self._process_entity_timeseries_rows(entity_rows)
-
         user_wise_query_with_filters: LookerQuery = self._append_filters(
             self.get_entity_user_timeseries_query()
         )
@@ -368,7 +371,7 @@ class LookStatGenerator(BaseStatGenerator):
 
     def get_id(self, looker_object: model.Model) -> str:
         look: LookWithQuery = cast(LookWithQuery, looker_object)
-        if look.id is None:
+        if look.id is None:  # This condition never become true, this check is to pass the mypy lint error
             raise ValueError("Looker look model id is None")
         return str(look.id)
 
@@ -387,13 +390,7 @@ class LookStatGenerator(BaseStatGenerator):
             Aspect,
             ChartUsageStatisticsClass(
                 timestampMillis=round(datetime.datetime.now().timestamp() * 1000),
-                # favoritesCount=looker_look.favorite_count,
                 viewsCount=looker_look.view_count,
-                # lastViewedAt=round(
-                #     looker_look.last_viewed_at.timestamp() * 1000
-                # )
-                # if look.last_viewed_at
-                # else None,
                 userCounts=[],
             ),
         )
@@ -455,6 +452,7 @@ def create_stat_entity_generator(
     def create_dashboard_stat_generator(
         looker_dashboards: List[Dashboard],
     ) -> BaseStatGenerator:
+        logger.info("Number of dashboard received for stat processing = {}".format(len(looker_dashboards)))
         return DashboardStatGenerator(
             config=config, looker_dashboards=looker_dashboards
         )
@@ -462,6 +460,7 @@ def create_stat_entity_generator(
     def create_chart_stat_generator(
         looker_looks: List[LookWithQuery],
     ) -> BaseStatGenerator:
+        logger.info("Number of look received for stat processing = {}".format(len(looker_looks)))
         return LookStatGenerator(config=config, looker_looks=looker_looks)
 
     stat_entities_generator = {
