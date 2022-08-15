@@ -81,9 +81,11 @@ export const getHealthIcon = (type: HealthStatusType, status: HealthStatus, font
             return getAssertionsHealthIcon(status, fontSize);
         }
         case HealthStatusType.Tests: {
+            // acryl-main only
             return getTestsHealthIcon(status, fontSize);
         }
         case HealthStatusType.Incidents: {
+            // acryl-main only
             return getIncidentsHealthIcon(status, fontSize);
         }
         default:
