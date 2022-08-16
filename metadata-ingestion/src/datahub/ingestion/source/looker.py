@@ -398,8 +398,8 @@ class LookerDashboardSource(Source):
     client: Looker31SDK
     user_registry: LookerUserRegistry
     explores_to_fetch_set: Set[Tuple[str, str]] = set()
-    resolved_explores_map: dict[Tuple[str, str], LookerExplore] = {}
-    resolved_dashboards_map: dict[str, LookerDashboard] = {}
+    resolved_explores_map: Dict[Tuple[str, str], LookerExplore] = {}
+    resolved_dashboards_map: Dict[str, LookerDashboard] = {}
     accessed_dashboards: int = 0
     resolved_user_ids: int = 0
     email_ids_missing: int = 0  # resolved users with missing email addresses
@@ -844,7 +844,7 @@ class LookerDashboardSource(Source):
         self,
         model: str,
         explore: str,
-        resolved_explores_map: dict[Tuple[str, str], LookerExplore],
+        resolved_explores_map: Dict[Tuple[str, str], LookerExplore],
     ) -> Tuple[
         List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]],
         str,
