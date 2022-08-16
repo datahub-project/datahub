@@ -2,7 +2,6 @@ package com.datahub.authentication.token;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
-
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
@@ -17,9 +16,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import javax.crypto.spec.SecretKeySpec;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.crypto.spec.SecretKeySpec;
 
 import static com.datahub.authentication.token.TokenClaims.*;
 
@@ -78,9 +77,10 @@ public class StatelessTokenService {
   public String generateAccessToken(
       @Nonnull final TokenType type,
       @Nonnull final Actor actor,
-      final long expiresInMs) {
+      @Nullable final Long expiresInMs) {
     Objects.requireNonNull(type);
     Objects.requireNonNull(actor);
+
     Map<String, Object> claims = new HashMap<>();
     claims.put(TOKEN_VERSION_CLAIM_NAME, String.valueOf(TokenVersion.ONE.numericValue)); // Hardcode version 1 for now.
     claims.put(TOKEN_TYPE_CLAIM_NAME, type.toString());
@@ -95,20 +95,26 @@ public class StatelessTokenService {
    * Note that the caller of this method is expected to authorize the action of generating a token.
    */
   @Nonnull
-  public String generateAccessToken(@Nonnull final String sub, @Nonnull final Map<String, Object> claims, final long expiresInMs) {
+  public String generateAccessToken(
+      @Nonnull final String sub,
+      @Nonnull final Map<String, Object> claims,
+      @Nullable final Long expiresInMs) {
     Objects.requireNonNull(sub);
     Objects.requireNonNull(claims);
     final JwtBuilder builder = Jwts.builder()
       .addClaims(claims)
-      .setExpiration(new Date(System.currentTimeMillis() + expiresInMs))
       .setId(UUID.randomUUID().toString())
       .setSubject(sub);
+
+    if (expiresInMs != null) {
+      builder.setExpiration(new Date(System.currentTimeMillis() + expiresInMs));
+    }
     if (this.iss != null) {
       builder.setIssuer(this.iss);
     }
     byte [] apiKeySecretBytes = this.signingKey.getBytes(StandardCharsets.UTF_8);
     final Key signingKey = new SecretKeySpec(apiKeySecretBytes, this.signingAlgorithm.getJcaName());
-      return builder.signWith(signingKey, this.signingAlgorithm).compact();
+    return builder.signWith(signingKey, this.signingAlgorithm).compact();
   }
 
   /**
@@ -137,7 +143,7 @@ public class StatelessTokenService {
               TokenType.valueOf(tokenType),
               ActorType.valueOf(actorType),
               actorId,
-              claims.getExpiration().getTime());
+              claims.getExpiration() == null ? null : claims.getExpiration().getTime());
       }
     } catch (io.jsonwebtoken.ExpiredJwtException e) {
       throw new TokenExpiredException("Failed to validate DataHub token. Token has expired.", e);

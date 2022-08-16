@@ -4,7 +4,7 @@ import * as QueryString from 'query-string';
 import { useTheme } from 'styled-components';
 import { SearchHeader } from './SearchHeader';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { EntityType } from '../../types.generated';
+import { EntityType, FacetFilterInput } from '../../types.generated';
 import {
     GetAutoCompleteMultipleResultsQuery,
     useGetAutoCompleteMultipleResultsLazyQuery,
@@ -12,6 +12,8 @@ import {
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import analytics, { EventType } from '../analytics';
+import useFilters from './utils/useFilters';
+import { PageRoutes } from '../../conf/Global';
 
 const styles = {
     children: {
@@ -33,13 +35,21 @@ const defaultProps = {
     onAutoComplete: undefined,
 };
 
+const isSearchResultPage = (path: string) => {
+    return path.startsWith(PageRoutes.SEARCH);
+};
+
 /**
  * A page that includes a sticky search header (nav bar)
  */
 export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) => {
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const currentQuery: string = decodeURIComponent(params.query ? (params.query as string) : '');
+    const paramFilters: Array<FacetFilterInput> = useFilters(params);
+    const filters = isSearchResultPage(location.pathname) ? paramFilters : [];
+    const currentQuery: string = isSearchResultPage(location.pathname)
+        ? decodeURIComponent(params.query ? (params.query as string) : '')
+        : '';
 
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
@@ -69,6 +79,7 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
         navigateToSearchUrl({
             type,
             query,
+            filters,
             history,
         });
     };

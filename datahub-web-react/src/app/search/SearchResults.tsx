@@ -119,6 +119,7 @@ interface Props {
     setSelectedEntities: (entities: EntityAndType[]) => void;
     setIsSelectMode: (showSelectMode: boolean) => any;
     onChangeSelectAll: (selected: boolean) => void;
+    refetch: () => void;
 }
 
 export const SearchResults = ({
@@ -140,6 +141,7 @@ export const SearchResults = ({
     setIsSelectMode,
     setSelectedEntities,
     onChangeSelectAll,
+    refetch,
 }: Props) => {
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
@@ -183,7 +185,7 @@ export const SearchResults = ({
                                         entityFilters={entityFilters}
                                         filters={filtersWithoutEntities}
                                         query={query}
-                                        // setShowSelectMode={setIsSelectMode}
+                                        setShowSelectMode={setIsSelectMode}
                                     />
                                 </SearchMenuContainer>
                             </>
@@ -198,6 +200,7 @@ export const SearchResults = ({
                                     selectedEntities={selectedEntities}
                                     onChangeSelectAll={onChangeSelectAll}
                                     onCancel={() => setIsSelectMode(false)}
+                                    refetch={refetch}
                                 />
                             </StyledTabToolbar>
                         )}

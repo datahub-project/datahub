@@ -30,6 +30,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -62,6 +63,9 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
         result.setUrn(entityResponse.getUrn().toString());
         result.setType(EntityType.CHART);
         EnvelopedAspectMap aspectMap = entityResponse.getAspects();
+        Long lastIngested = SystemMetadataUtils.getLastIngested(aspectMap);
+        result.setLastIngested(lastIngested);
+
         MappingHelper<Chart> mappingHelper = new MappingHelper<>(aspectMap, result);
         mappingHelper.mapToResult(CHART_KEY_ASPECT_NAME, this::mapChartKey);
         mappingHelper.mapToResult(CHART_INFO_ASPECT_NAME, (entity, dataMap) -> this.mapChartInfo(entity, dataMap, entityUrn));

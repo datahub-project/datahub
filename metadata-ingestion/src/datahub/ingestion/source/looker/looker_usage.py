@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, cast
 
-from avrogen.dict_wrapper import DictWrapper
 from looker_sdk.rtl import model
 from looker_sdk.sdk.api31.models import Dashboard, LookWithQuery
 
@@ -171,7 +170,7 @@ class BaseStatGenerator(ABC):
         self, model: model.Model, aspect: Aspect
     ) -> MetadataChangeProposalWrapper:
         return MetadataChangeProposalWrapper(
-            aspect=cast(DictWrapper, aspect),
+            aspect=aspect,
             **self._get_mcp_attributes(model=model),
         )
 

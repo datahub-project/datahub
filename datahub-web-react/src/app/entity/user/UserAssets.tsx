@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { EmbeddedListSearch } from '../shared/components/styled/search/EmbeddedListSearch';
+import { EmbeddedListSearchSection } from '../shared/components/styled/search/EmbeddedListSearchSection';
 
 const UserAssetsWrapper = styled.div`
     height: calc(100vh - 114px);
@@ -14,7 +14,7 @@ type Props = {
 export const UserAssets = ({ urn }: Props) => {
     return (
         <UserAssetsWrapper>
-            <EmbeddedListSearch
+            <EmbeddedListSearchSection
                 fixedFilter={{ field: 'owners', value: urn }}
                 emptySearchQuery="*"
                 placeholderText="Filter entities..."

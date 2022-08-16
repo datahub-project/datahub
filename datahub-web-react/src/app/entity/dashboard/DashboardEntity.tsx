@@ -211,7 +211,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             name: entity.properties?.name || '',
             type: EntityType.Dashboard,
             icon: entity?.platform?.properties?.logoUrl || '',
-            platform: entity?.platform.properties?.displayName || entity?.platform.name,
+            platform: entity?.platform,
         };
     };
 

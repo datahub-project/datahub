@@ -203,6 +203,7 @@ export const SearchBar = ({
     const [searchQuery, setSearchQuery] = useState<string>();
     const [selected, setSelected] = useState<string>();
     useEffect(() => setSelected(initialQuery), [initialQuery]);
+
     const searchEntityTypes = entityRegistry.getSearchEntityTypes();
     const userUrn = useGetAuthenticatedUserUrn();
     const { data } = useListRecommendationsQuery({
@@ -309,6 +310,7 @@ export const SearchBar = ({
                     } else {
                         // Navigate directly to the entity profile.
                         history.push(getEntityPath(option.type, value, entityRegistry, false, false));
+                        setSelected('');
                     }
                 }}
                 onSearch={(value: string) => onQueryChange(value)}
@@ -333,6 +335,7 @@ export const SearchBar = ({
                     data-testid="search-input"
                     onFocus={handleFocus}
                     onBlur={handleBlur}
+                    allowClear
                     prefix={<SearchOutlined onClick={() => onSearch(filterSearchQuery(searchQuery || ''))} />}
                 />
             </StyledAutoComplete>

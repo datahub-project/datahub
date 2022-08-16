@@ -16,8 +16,12 @@ from looker_sdk.sdk.api31.models import DBConnection
 from pydantic import root_validator, validator
 from pydantic.fields import Field
 
+import datahub.emitter.mce_builder as builder
+from datahub.configuration import ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
     config_class,
@@ -25,6 +29,8 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.registry import import_path
+from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.looker.looker_common import (
     LookerCommonConfig,
     LookerExplore,
@@ -33,24 +39,6 @@ from datahub.ingestion.source.looker.looker_common import (
     ViewField,
     ViewFieldType,
 )
-from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
-    DatasetPropertiesClass,
-    SubTypesClass,
-)
-from datahub.utilities.sql_parser import SQLParser
-
-if sys.version_info >= (3, 7):
-    import lkml
-else:
-    raise ModuleNotFoundError("The lookml plugin requires Python 3.7 or newer.")
-
-import datahub.emitter.mce_builder as builder
-from datahub.configuration import ConfigModel
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
     LookerAPIConfig,
@@ -65,8 +53,17 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    DatasetPropertiesClass,
+    SubTypesClass,
+)
+from datahub.utilities.sql_parser import SQLParser
 
-assert sys.version_info[1] >= 7  # needed for mypy
+if sys.version_info >= (3, 7):
+    import lkml
+else:
+    raise ModuleNotFoundError("The lookml plugin requires Python 3.7 or newer.")
 
 logger = logging.getLogger(__name__)
 
