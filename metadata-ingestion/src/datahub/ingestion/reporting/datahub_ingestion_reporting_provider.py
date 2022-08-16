@@ -14,9 +14,6 @@ from datahub.ingestion.api.ingestion_job_reporting_provider_base import (
     ReportingJobStatesMap,
 )
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from datahub.ingestion.reporting.datahub_ingestion_ui_aspects_generator import (
-    DatahubIngestionUIHistoryAspectsGenerator,
-)
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatahubIngestionRunSummaryClass,
@@ -32,7 +29,7 @@ class DatahubIngestionReportingProviderConfig(IngestionReportingProviderConfig):
 class DatahubIngestionReportingProvider(IngestionReportingProviderBase):
     orchestrator_name: str = "datahub"
 
-    def __init__(self, graph: DataHubGraph, name: str, ctx: PipelineContext):
+    def __init__(self, graph: DataHubGraph, name: str):
         super().__init__(name)
         self.graph = graph
         if not self._is_server_stateful_ingestion_capable():
@@ -40,21 +37,13 @@ class DatahubIngestionReportingProvider(IngestionReportingProviderBase):
                 "Datahub server is not capable of supporting stateful ingestion."
                 " Please consider upgrading to the latest server version to use this feature."
             )
-        # Initialize the UI hiostry aspect generator
-        self.ui_history_aspect_gen = DatahubIngestionUIHistoryAspectsGenerator(
-            self.graph, ctx
-        )
-        # Emit dataHubIngestionSourceInfo aspect
-        self.ui_history_aspect_gen.emit_datahub_ingestion_source_info_aspect()
-        # Emit dataHubExecutionRequestInput aspect
-        self.ui_history_aspect_gen.emit_execution_input_request()
 
     @classmethod
     def create(
         cls, config_dict: Dict[str, Any], ctx: PipelineContext, name: str
     ) -> IngestionReportingProviderBase:
         if ctx.graph:
-            return cls(ctx.graph, name, ctx)
+            return cls(ctx.graph, name)
         elif config_dict is None:
             raise ConfigurationError("Missing provider configuration.")
         else:
@@ -64,7 +53,7 @@ class DatahubIngestionReportingProvider(IngestionReportingProviderBase):
             if provider_config.datahub_api:
                 graph = DataHubGraph(provider_config.datahub_api)
                 ctx.graph = graph
-                return cls(graph, name, ctx)
+                return cls(graph, name)
             else:
                 raise ConfigurationError(
                     "Missing datahub_api. Provide either a global one or under the state_provider."
@@ -144,10 +133,6 @@ class DatahubIngestionReportingProvider(IngestionReportingProviderBase):
         return job_run_summaries
 
     def commit(self) -> None:
-        # Emit dataHubExecutionRequestResult aspect.
-        self.ui_history_aspect_gen.emit_execution_request_result()
-
-        # Emit datahubIngestionRunSummary aspect.
         if not self.state_to_commit:
             # Useful to track source types for which reporting provider need to be enabled.
             logger.info(f"No state to commit for {self.name}")

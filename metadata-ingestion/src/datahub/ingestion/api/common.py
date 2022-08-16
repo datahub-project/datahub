@@ -7,7 +7,7 @@ from datahub.ingestion.api.committable import Committable
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 
 if TYPE_CHECKING:
-    from datahub.ingestion.run.pipeline import Pipeline
+    from datahub.ingestion.run.pipeline import PipelineConfig
 
 T = TypeVar("T")
 
@@ -52,8 +52,9 @@ class PipelineContext:
         pipeline_name: Optional[str] = None,
         dry_run: bool = False,
         preview_mode: bool = False,
-        owning_pipeline: Optional["Pipeline"] = None,
+        pipeline_config: Optional["PipelineConfig"] = None,
     ) -> None:
+        self.pipeline_config = pipeline_config
         self.run_id = run_id
         self.graph = DataHubGraph(datahub_api) if datahub_api is not None else None
         self.pipeline_name = pipeline_name
@@ -62,7 +63,6 @@ class PipelineContext:
         self.reporters: Dict[str, Committable] = {}
         self.checkpointers: Dict[str, Committable] = {}
         self._set_dataset_urn_to_lower_if_needed()
-        self.owning_pipeline = owning_pipeline
 
     def _set_dataset_urn_to_lower_if_needed(self) -> None:
         # TODO: Get rid of this function once lower-casing is the standard.

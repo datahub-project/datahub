@@ -3,7 +3,6 @@ import itertools
 import json
 import logging
 import uuid
-import weakref
 from typing import Any, Dict, Iterable, List, Optional
 
 import click
@@ -18,6 +17,9 @@ from datahub.configuration.common import (
 )
 from datahub.ingestion.api.committable import CommitPolicy
 from datahub.ingestion.api.common import EndOfStream, PipelineContext, RecordEnvelope
+from datahub.ingestion.api.ingestion_run_summary_reporter import (
+    IngestionRunSummaryReporter,
+)
 from datahub.ingestion.api.sink import Sink, WriteCallback
 from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.api.transform import Transformer
@@ -146,7 +148,7 @@ class Pipeline:
             pipeline_name=self.config.pipeline_name,
             dry_run=dry_run,
             preview_mode=preview_mode,
-            owning_pipeline=weakref.proxy(self),
+            pipeline_config=self.config,
         )
         self.pipeline_init_failures = None
         self.pipeline_init_exception = None
@@ -201,7 +203,11 @@ class Pipeline:
             self._record_initialization_failure(e, "Failed to configure transformers")
             return
 
-        self._configure_reporting()
+        try:
+            self._configure_reporting()
+        except Exception as e:
+            self._record_initialization_failure(e, "Failed to configure reporters")
+            return
 
     def _configure_transforms(self) -> None:
         self.transformers = []
@@ -218,6 +224,7 @@ class Pipeline:
                 )
 
     def _configure_reporting(self) -> None:
+        self.reporters: List[IngestionRunSummaryReporter] = []
         if self.config.reporting is None:
             return
 
@@ -225,15 +232,26 @@ class Pipeline:
             reporter_type = reporter.type
             reporter_class = reporting_provider_registry.get(reporter_type)
             reporter_config_dict = reporter.dict().get("config", {})
-            self.ctx.register_reporter(
+            self.reporters.append(
                 reporter_class.create(
                     config_dict=reporter_config_dict,
                     ctx=self.ctx,
-                    name=reporter_class.__name__,
                 )
             )
-            logger.debug(
-                f"Transformer type:{reporter_type},{reporter_class} configured"
+            logger.debug(f"Reporter type:{reporter_type},{reporter_class} configured.")
+
+    def _notify_repoters_on_ingestion_start(self) -> None:
+        for reporter in self.reporters:
+            reporter.notify_on_pipeline_start(ctx=self.ctx)
+
+    def _notify_repoters_on_ingestion_completion(self) -> None:
+        for reporter in self.reporters:
+            reporter.notify_on_pipeline_completion(
+                status="FAILED"
+                if self.source.get_report().failures or self.sink.get_report().failures
+                else "SUCCESS",
+                report=self._get_structured_report(),
+                ctx=self.ctx,
             )
 
     @classmethod
@@ -255,49 +273,54 @@ class Pipeline:
         )
 
     def run(self) -> None:
+        self._notify_repoters_on_ingestion_start()
+        try:
+            callback = LoggingCallback()
+            if self.pipeline_init_failures:
+                # no point continuing, return early
+                return
 
-        callback = LoggingCallback()
-        if self.pipeline_init_failures:
-            # no point continuing, return early
-            return
+            extractor: Extractor = self.extractor_class()
+            for wu in itertools.islice(
+                self.source.get_workunits(),
+                self.preview_workunits if self.preview_mode else None,
+            ):
+                # TODO: change extractor interface
+                extractor.configure({}, self.ctx)
 
-        extractor: Extractor = self.extractor_class()
-        for wu in itertools.islice(
-            self.source.get_workunits(),
-            self.preview_workunits if self.preview_mode else None,
-        ):
-            # TODO: change extractor interface
-            extractor.configure({}, self.ctx)
+                if not self.dry_run:
+                    self.sink.handle_work_unit_start(wu)
+                try:
+                    record_envelopes = extractor.get_records(wu)
+                    for record_envelope in self.transform(record_envelopes):
+                        if not self.dry_run:
+                            self.sink.write_record_async(record_envelope, callback)
 
-            if not self.dry_run:
-                self.sink.handle_work_unit_start(wu)
-            try:
-                record_envelopes = extractor.get_records(wu)
-                for record_envelope in self.transform(record_envelopes):
-                    if not self.dry_run:
-                        self.sink.write_record_async(record_envelope, callback)
+                except Exception as e:
+                    logger.error(f"Failed to extract some records due to: {e}")
 
-            except Exception as e:
-                logger.error(f"Failed to extract some records due to: {e}")
+                extractor.close()
+                if not self.dry_run:
+                    self.sink.handle_work_unit_end(wu)
+            self.source.close()
+            # no more data is coming, we need to let the transformers produce any additional records if they are holding on to state
+            for record_envelope in self.transform(
+                [
+                    RecordEnvelope(
+                        record=EndOfStream(), metadata={"workunit_id": "end-of-stream"}
+                    )
+                ]
+            ):
+                if not self.dry_run and not isinstance(
+                    record_envelope.record, EndOfStream
+                ):
+                    # TODO: propagate EndOfStream and other control events to sinks, to allow them to flush etc.
+                    self.sink.write_record_async(record_envelope, callback)
 
-            extractor.close()
-            if not self.dry_run:
-                self.sink.handle_work_unit_end(wu)
-        self.source.close()
-        # no more data is coming, we need to let the transformers produce any additional records if they are holding on to state
-        for record_envelope in self.transform(
-            [
-                RecordEnvelope(
-                    record=EndOfStream(), metadata={"workunit_id": "end-of-stream"}
-                )
-            ]
-        ):
-            if not self.dry_run and not isinstance(record_envelope.record, EndOfStream):
-                # TODO: propagate EndOfStream and other control events to sinks, to allow them to flush etc.
-                self.sink.write_record_async(record_envelope, callback)
-
-        self.sink.close()
-        self.process_commits()
+            self.sink.close()
+            self.process_commits()
+        finally:
+            self._notify_repoters_on_ingestion_completion()
 
     def transform(self, records: Iterable[RecordEnvelope]) -> Iterable[RecordEnvelope]:
         """
@@ -423,10 +446,8 @@ class Pipeline:
             )
             return 0
 
-    def write_structured_report(self) -> None:
-        if not self.report_to:
-            return
-        report = {
+    def _get_structured_report(self) -> Dict[str, Any]:
+        return {
             "source": {
                 "type": self.config.source.type,
                 "report": self.source.get_report().as_obj(),
@@ -436,6 +457,11 @@ class Pipeline:
                 "report": self.sink.get_report().as_obj(),
             },
         }
+
+    def write_structured_report(self) -> None:
+        if not self.report_to:
+            return
+        report = self._get_structured_report()
         try:
             with open(self.report_to, "w") as report_out:
                 json.dump(report, report_out)
