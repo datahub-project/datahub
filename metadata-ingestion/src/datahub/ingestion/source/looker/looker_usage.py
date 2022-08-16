@@ -150,7 +150,7 @@ class BaseStatGenerator(ABC):
         pass
 
     @abstractmethod
-    def _get_mcp_detail(self, model: model.Model) -> Dict:
+    def _get_mcp_attributes(self, model: model.Model) -> Dict:
         pass
 
     @abstractmethod
@@ -172,7 +172,7 @@ class BaseStatGenerator(ABC):
     ) -> MetadataChangeProposalWrapper:
         return MetadataChangeProposalWrapper(
             aspect=cast(DictWrapper, aspect),
-            **self._get_mcp_detail(model=model),
+            **self._get_mcp_attributes(model=model),
         )
 
     def _round_time(self, date_time: str) -> int:
@@ -322,7 +322,7 @@ class DashboardStatGenerator(BaseStatGenerator):
             row[HistoryViewField.HISTORY_CREATED_DATE],
         )
 
-    def _get_mcp_detail(self, model: model.Model) -> Dict:
+    def _get_mcp_attributes(self, model: model.Model) -> Dict:
         dashboard: Dashboard = cast(Dashboard, model)
         if dashboard is None or dashboard.id is None:  # to pass mypy lint
             return {}
@@ -426,7 +426,7 @@ class LookStatGenerator(BaseStatGenerator):
             row[HistoryViewField.HISTORY_CREATED_DATE],
         )
 
-    def _get_mcp_detail(self, model: model.Model) -> Dict:
+    def _get_mcp_attributes(self, model: model.Model) -> Dict:
         look: LookWithQuery = cast(LookWithQuery, model)
         if look is None or look.id is None:
             return {}
