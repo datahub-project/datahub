@@ -42,6 +42,7 @@ export const getAssertionsHealthIcon = (status: HealthStatus, fontSize: number) 
     }
 };
 
+// acryl-main only
 export const getTestsHealthIcon = (status: HealthStatus, fontSize: number) => {
     switch (status) {
         case HealthStatus.Pass: {
@@ -58,6 +59,7 @@ export const getTestsHealthIcon = (status: HealthStatus, fontSize: number) => {
     }
 };
 
+// acryl-main only
 export const getIncidentsHealthIcon = (status: HealthStatus, fontSize: number) => {
     switch (status) {
         case HealthStatus.Pass: {

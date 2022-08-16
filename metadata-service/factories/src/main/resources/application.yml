@@ -209,7 +209,7 @@ springdoc:
 
 metadataTests:
   # Enable metadata tests feature
-  enabled: ${METADATA_TESTS_ENABLED:true}
+  enabled: ${METADATA_TESTS_ENABLED:false}
   cacheRefreshIntervalSecs: ${METADATA_TESTS_CACHE_REFRESH_INTERVAL_SECONDS:120}
   # Flags to enable bootstrap ingestion of default policies
   bootstrap:
