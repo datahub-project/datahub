@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Health;
 import com.linkedin.datahub.graphql.generated.HealthStatus;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
@@ -36,6 +37,8 @@ public class DatasetHealthResolverTest {
   @Test
   public void testGetSuccessHealthy() throws Exception {
     GraphClient graphClient = Mockito.mock(GraphClient.class);
+    EntityClient entityClient = Mockito.mock(EntityClient.class);
+
     TimeseriesAspectService mockAspectService = Mockito.mock(TimeseriesAspectService.class);
 
     Mockito.when(graphClient.getRelatedEntities(
@@ -65,20 +68,21 @@ public class DatasetHealthResolverTest {
         Mockito.any())
     ).thenReturn(
         new GenericTable()
-          .setColumnNames(new StringArray(ImmutableList.of(
-              "assertionUrn", "type", "timestampMillis"
-          )))
-          .setColumnTypes(new StringArray("string", "string", "long"))
-          .setRows(new StringArrayArray(
-              ImmutableList.of(
-                  new StringArray(ImmutableList.of(
-                      TEST_ASSERTION_URN, "SUCCESS", "0"
-                  ))
-              )
-          ))
+            .setColumnNames(new StringArray(ImmutableList.of(
+                "assertionUrn", "type", "timestampMillis"
+            )))
+            .setColumnTypes(new StringArray("string", "string", "long"))
+            .setRows(new StringArrayArray(
+                ImmutableList.of(
+                    new StringArray(ImmutableList.of(
+                        TEST_ASSERTION_URN, "SUCCESS", "0"
+                    ))
+                )
+            ))
     );
 
-    DatasetHealthResolver resolver = new DatasetHealthResolver(graphClient, mockAspectService);
+    DatasetHealthResolver resolver = new DatasetHealthResolver(entityClient, graphClient, mockAspectService,
+        new DatasetHealthResolver.Config(true, false, false));
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
@@ -100,6 +104,8 @@ public class DatasetHealthResolverTest {
   @Test
   public void testGetSuccessNullHealth() throws Exception {
     GraphClient graphClient = Mockito.mock(GraphClient.class);
+    EntityClient entityClient = Mockito.mock(EntityClient.class);
+
     TimeseriesAspectService mockAspectService = Mockito.mock(TimeseriesAspectService.class);
 
     // 0 associated assertions, meaning we don't report any health.
@@ -118,7 +124,8 @@ public class DatasetHealthResolverTest {
             .setRelationships(new EntityRelationshipArray(Collections.emptyList()))
     );
 
-    DatasetHealthResolver resolver = new DatasetHealthResolver(graphClient, mockAspectService);
+    DatasetHealthResolver resolver = new DatasetHealthResolver(entityClient, graphClient, mockAspectService,
+        new DatasetHealthResolver.Config(true, false, false));
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
@@ -146,6 +153,8 @@ public class DatasetHealthResolverTest {
   @Test
   public void testGetSuccessUnhealthy() throws Exception {
     GraphClient graphClient = Mockito.mock(GraphClient.class);
+    EntityClient entityClient = Mockito.mock(EntityClient.class);
+
     TimeseriesAspectService mockAspectService = Mockito.mock(TimeseriesAspectService.class);
 
     Mockito.when(graphClient.getRelatedEntities(
@@ -162,11 +171,11 @@ public class DatasetHealthResolverTest {
             .setTotal(2)
             .setRelationships(new EntityRelationshipArray(
                 ImmutableList.of(new EntityRelationship()
-                    .setEntity(Urn.createFromString(TEST_ASSERTION_URN))
-                    .setType("Asserts"),
-                new EntityRelationship()
-                    .setEntity(Urn.createFromString(TEST_ASSERTION_URN_2))
-                    .setType("Asserts")
+                        .setEntity(Urn.createFromString(TEST_ASSERTION_URN))
+                        .setType("Asserts"),
+                    new EntityRelationship()
+                        .setEntity(Urn.createFromString(TEST_ASSERTION_URN_2))
+                        .setType("Asserts")
                 )
             ))
     );
@@ -195,7 +204,8 @@ public class DatasetHealthResolverTest {
             ))
     );
 
-    DatasetHealthResolver resolver = new DatasetHealthResolver(graphClient, mockAspectService);
+    DatasetHealthResolver resolver = new DatasetHealthResolver(entityClient, graphClient, mockAspectService,
+        new DatasetHealthResolver.Config(true, false, false));
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);

@@ -9014,6 +9014,16 @@ enum HealthStatusType {
   Assertions status
   """
   ASSERTIONS
+
+  """
+  Incidents status
+  """
+  INCIDENTS
+
+  """
+  Tests status
+  """
+  TESTS
 }
 
 """

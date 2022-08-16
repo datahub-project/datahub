@@ -990,7 +990,7 @@ public class GmsGraphQLEngine {
                 )
                 .dataFetcher("usageStats", new DatasetUsageStatsResolver(this.usageClient))
                 .dataFetcher("statsSummary", new DatasetStatsSummaryResolver(this.entityClient, this.usageClient))
-                .dataFetcher("health", new DatasetHealthResolver(graphClient, timeseriesAspectService))
+                .dataFetcher("health", new DatasetHealthResolver(entityClient, graphClient, timeseriesAspectService))
                 .dataFetcher("schemaMetadata", new AspectResolver())
                 .dataFetcher("assertions", new EntityAssertionsResolver(entityClient, graphClient))
                 .dataFetcher("testResults", new TestResultsResolver(entityClient))

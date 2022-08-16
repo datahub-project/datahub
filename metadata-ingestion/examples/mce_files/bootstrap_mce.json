@@ -272,6 +272,11 @@
                   "source": null
                 },
                 {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "TECHNICAL_OWNER",
+                  "source": null
+                },
+                {
                   "owner": "urn:li:corpuser:datahub",
                   "type": "DATAOWNER",
                   "source": null
@@ -505,6 +510,15 @@
           {
             "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
               "upstreams": [
+                {
+                  "auditStamp": {
+                    "time": 1581407189000,
+                    "actor": "urn:li:corpuser:jdoe",
+                    "impersonator": null
+                  },
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+                  "type": "TRANSFORMED"
+                },
                 {
                   "auditStamp": {
                     "time": 1581407189000,
