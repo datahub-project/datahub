@@ -1,5 +1,5 @@
 import { CopyOutlined, DeleteOutlined, PlusOutlined, RedoOutlined } from '@ant-design/icons';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
 import { Button, Empty, Image, message, Modal, Pagination, Tooltip, Typography } from 'antd';
@@ -21,6 +21,7 @@ import {
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
+    RUNNING,
     sourceTypeToIconUrl,
 } from './utils';
 import { DEFAULT_EXECUTOR_ID, SourceBuilderState } from './builder/types';
@@ -118,11 +119,27 @@ export const IngestionSourceList = () => {
     const focusSource =
         (focusSourceUrn && filteredSources.find((source) => source.urn === focusSourceUrn)) || undefined;
 
-    const onRefresh = () => {
+    const onRefresh = useCallback(() => {
         refetch();
         // Used to force a re-render of the child execution request list.
         setLastRefresh(new Date().getMilliseconds());
-    };
+    }, [refetch]);
+
+    const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
+
+    useEffect(() => {
+        const runningSource = filteredSources.find((source) =>
+            source.executions?.executionRequests.find((request) => request.result?.status === RUNNING),
+        );
+        if (runningSource) {
+            if (!refreshInterval) {
+                const interval = setInterval(onRefresh, 3000);
+                setRefreshInterval(interval);
+            }
+        } else if (refreshInterval) {
+            clearInterval(refreshInterval);
+        }
+    }, [filteredSources, refreshInterval, onRefresh]);
 
     const executeIngestionSource = (urn: string) => {
         createExecutionRequestMutation({
@@ -137,7 +154,7 @@ export const IngestionSourceList = () => {
                     content: `Successfully submitted ingestion execution request!`,
                     duration: 3,
                 });
-                setInterval(() => onRefresh(), 3000);
+                setTimeout(() => onRefresh(), 3000);
             })
             .catch((e) => {
                 message.destroy();
@@ -391,13 +408,16 @@ export const IngestionSourceList = () => {
                     <Button style={{ marginRight: 16 }} onClick={() => onEdit(record.urn)}>
                         EDIT
                     </Button>
-                    <Button
-                        disabled={record.lastExecStatus === 'RUNNING'}
-                        style={{ marginRight: 16 }}
-                        onClick={() => onExecute(record.urn)}
-                    >
-                        EXECUTE
-                    </Button>
+                    {record.lastExecStatus !== RUNNING && (
+                        <Button style={{ marginRight: 16 }} onClick={() => onExecute(record.urn)}>
+                            EXECUTE
+                        </Button>
+                    )}
+                    {record.lastExecStatus === RUNNING && (
+                        <Button style={{ marginRight: 16 }} onClick={() => setFocusExecutionUrn(record.lastExecUrn)}>
+                            DETAILS
+                        </Button>
+                    )}
 
                     <Button onClick={() => onDelete(record.urn)} type="text" shape="circle" danger>
                         <DeleteOutlined />
