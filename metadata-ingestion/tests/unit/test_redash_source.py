@@ -501,7 +501,9 @@ def test_get_dashboard_snapshot_before_v10():
             )
         ],
     )
-    result = redash_source()._get_dashboard_snapshot(mock_dashboard_response, "9.0.0-beta")
+    result = redash_source()._get_dashboard_snapshot(
+        mock_dashboard_response, "9.0.0-beta"
+    )
     assert result == expected
 
 
@@ -531,7 +533,9 @@ def test_get_dashboard_snapshot_after_v10():
             )
         ],
     )
-    result = redash_source()._get_dashboard_snapshot(mock_dashboard_response, "10.0.0-beta")
+    result = redash_source()._get_dashboard_snapshot(
+        mock_dashboard_response, "10.0.0-beta"
+    )
     assert result == expected
 
 

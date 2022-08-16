@@ -6,11 +6,11 @@ from multiprocessing.pool import ThreadPool
 from typing import Dict, Iterable, List, Optional, Set, Type
 
 import dateutil.parser as dp
+from packaging import version
 from pydantic.fields import Field
 from redash_toolbelt import Redash
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
-from packaging import version
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -555,9 +555,13 @@ class RedashSource(Source):
         )
 
         if version.parse(redash_version) > version.parse(REDASH_VERSION_V9):
-            dashboard_url = f"{self.config.connect_uri}/dashboards/{dashboard_data.get('id')}"
+            dashboard_url = (
+                f"{self.config.connect_uri}/dashboards/{dashboard_data.get('id')}"
+            )
         else:
-            dashboard_url = f"{self.config.connect_uri}/dashboard/{dashboard_data.get('slug', '')}"
+            dashboard_url = (
+                f"{self.config.connect_uri}/dashboard/{dashboard_data.get('slug', '')}"
+            )
 
         widgets = dashboard_data.get("widgets", [])
         description = self._get_dashboard_description_from_widgets(widgets)
@@ -610,14 +614,14 @@ class RedashSource(Source):
                     dashboard_slug = dashboard_response["slug"]
                     dashboard_data = self.client.dashboard(dashboard_slug)
                 try:
-                    redash_version = self.client._get(
-                        "status.json"
-                    ).json()['version']
+                    redash_version = self.client._get("status.json").json()["version"]
                 except Exception:
                     redash_version = REDASH_VERSION_V9
 
                 logger.debug(dashboard_data)
-                dashboard_snapshot = self._get_dashboard_snapshot(dashboard_data, redash_version)
+                dashboard_snapshot = self._get_dashboard_snapshot(
+                    dashboard_data, redash_version
+                )
                 mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
                 wu = MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
                 self.report.report_workunit(wu)
