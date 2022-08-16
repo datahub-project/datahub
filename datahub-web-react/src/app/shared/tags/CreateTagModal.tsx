@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { message, Button, Input, Modal, Space } from 'antd';
 import styled from 'styled-components';
-import { useAddTagMutation } from '../../../graphql/mutations.generated';
+import { useBatchAddTagsMutation } from '../../../graphql/mutations.generated';
 import { useCreateTagMutation } from '../../../graphql/tag.generated';
-import { SubResourceType } from '../../../types.generated';
+import { ResourceRefInput } from '../../../types.generated';
 import { useEnterKeyListener } from '../useEnterKeyListener';
 
 type CreateTagModalProps = {
@@ -11,24 +11,16 @@ type CreateTagModalProps = {
     onClose: () => void;
     onBack: () => void;
     tagName: string;
-    entityUrn: string;
-    entitySubresource?: string;
+    resources: ResourceRefInput[];
 };
 
 const FullWidthSpace = styled(Space)`
     width: 100%;
 `;
 
-export default function CreateTagModal({
-    onClose,
-    onBack,
-    visible,
-    tagName,
-    entityUrn,
-    entitySubresource,
-}: CreateTagModalProps) {
+export default function CreateTagModal({ onClose, onBack, visible, tagName, resources }: CreateTagModalProps) {
     const [stagedDescription, setStagedDescription] = useState('');
-    const [addTagMutation] = useAddTagMutation();
+    const [batchAddTagsMutation] = useBatchAddTagsMutation();
 
     const [createTagMutation] = useCreateTagMutation();
     const [disableCreate, setDisableCreate] = useState(false);
@@ -48,13 +40,11 @@ export default function CreateTagModal({
         })
             .then(() => {
                 // then apply the tag to the dataset
-                addTagMutation({
+                batchAddTagsMutation({
                     variables: {
                         input: {
-                            tagUrn,
-                            resourceUrn: entityUrn,
-                            subResource: entitySubresource,
-                            subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
+                            tagUrns: [tagUrn],
+                            resources,
                         },
                     },
                 })

@@ -1,11 +1,7 @@
 import os
-import sys
 from typing import Dict, Set
 
 import setuptools
-
-is_py37_or_newer = sys.version_info >= (3, 7)
-
 
 package_metadata: dict = {}
 with open("./src/datahub/__init__.py") as fp:
@@ -21,8 +17,6 @@ def get_long_description():
 
 
 base_requirements = {
-    # Compatibility.
-    "dataclasses>=0.6; python_version < '3.7'",
     # Typing extension should be >=3.10.0.2 ideally but we can't restrict due to Airflow 2.0.2 dependency conflict
     "typing_extensions>=3.7.4.3 ;  python_version < '3.8'",
     "typing_extensions>=3.10.0.2 ;  python_version >= '3.8'",
@@ -101,19 +95,13 @@ kafka_common = {
     "fastavro>=1.2.0",
 }
 
-kafka_protobuf = (
-    {
-        "networkx>=2.6.2",
-        # Required to generate protobuf python modules from the schema downloaded from the schema registry
-        "grpcio==1.44.0",
-        "grpcio-tools==1.44.0",
-        "types-protobuf",
-    }
-    if is_py37_or_newer
-    else {
-        "types-protobuf",
-    }
-)
+kafka_protobuf = {
+    "networkx>=2.6.2",
+    # Required to generate protobuf python modules from the schema downloaded from the schema registry
+    "grpcio==1.44.0",
+    "grpcio-tools==1.44.0",
+    "types-protobuf",
+}
 
 sql_common = {
     # Required for all SQL sources.
@@ -179,7 +167,13 @@ trino = {
 
 microsoft_common = {"msal==1.16.0"}
 
-data_lake_base = {
+iceberg_common = {
+    # Iceberg Python SDK
+    "acryl-iceberg-legacy==0.0.4",
+    "azure-identity==1.10.0",
+}
+
+s3_base = {
     *aws_common,
     "parse>=1.19.0",
     "pyarrow>=6.0.1",
@@ -187,20 +181,14 @@ data_lake_base = {
     "ujson>=4.3.0",
     "types-ujson>=4.2.1",
     "smart-open[s3]>=5.2.1",
+    "moto[s3]",
+    *path_spec_common,
 }
 
 data_lake_profiling = {
     "pydeequ==1.0.1",
     "pyspark==3.0.3",
 }
-
-iceberg_common = {
-    # Iceberg Python SDK
-    "acryl-iceberg-legacy==0.0.4",
-    "azure-identity==1.10.0",
-}
-
-s3_base = {*data_lake_base, "moto[s3]", *path_spec_common}
 
 delta_lake = {
     *s3_base,
@@ -242,10 +230,8 @@ plugins: Dict[str, Set[str]] = {
     },
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
-    "data-lake": {*data_lake_base, *data_lake_profiling},
-    "s3": {*s3_base, *data_lake_profiling},
     "delta-lake": {*data_lake_profiling, *delta_lake},
-    "dbt": {"requests"} | aws_common,
+    "dbt": {"requests", "cached_property"} | aws_common,
     "druid": sql_common | {"pydruid>=0.6.2"},
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
     # UnsupportedProductError
@@ -294,6 +280,7 @@ plugins: Dict[str, Set[str]] = {
     "redash": {"redash-toolbelt", "sql-metadata", "sqllineage==1.3.5"},
     "redshift": sql_common | redshift_common,
     "redshift-usage": sql_common | usage_common | redshift_common,
+    "s3": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce"},
     "snowflake": snowflake_common,
@@ -302,6 +289,7 @@ plugins: Dict[str, Set[str]] = {
     | {
         "more-itertools>=8.12.0",
     },
+    "snowflake-beta": snowflake_common | usage_common,
     "sqlalchemy": sql_common,
     "superset": {
         "requests",
@@ -314,7 +302,7 @@ plugins: Dict[str, Set[str]] = {
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging"},
-    "powerbi": {"orderedset"} | microsoft_common,
+    "powerbi": microsoft_common,
     "vertica": sql_common | {"sqlalchemy-vertica[vertica-python]==0.0.5"},
 }
 
@@ -355,7 +343,7 @@ base_dev_requirements = {
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    "mypy>=0.920",
+    "mypy>=0.950",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     "pydantic>=1.9.0",
@@ -379,8 +367,10 @@ base_dev_requirements = {
             "delta-lake",
             "druid",
             "elasticsearch",
+            "iceberg",
             "ldap",
             "looker",
+            "lookml",
             "glue",
             "mariadb",
             "okta",
@@ -392,7 +382,6 @@ base_dev_requirements = {
             "redash",
             "redshift",
             "redshift-usage",
-            "data-lake",
             "s3",
             "tableau",
             "trino",
@@ -409,31 +398,17 @@ base_dev_requirements = {
 
 base_dev_requirements_airflow_1 = base_dev_requirements.copy()
 
-if is_py37_or_newer:
-    # These plugins only work on Python 3.7 or newer.
-    base_dev_requirements = base_dev_requirements.union(
-        {
-            dependency
-            for plugin in [
-                "feast",
-                "iceberg",
-                "lookml",
-            ]
-            for dependency in plugins[plugin]
-        }
-    )
+base_dev_requirements = base_dev_requirements.union(
+    # The feast plugin is not compatible with Airflow 1, so we add it later.
+    {
+        dependency
+        for plugin in [
+            "feast",
+        ]
+        for dependency in plugins[plugin]
+    }
+)
 
-    # These plugins are compatible with Airflow 1.
-    base_dev_requirements_airflow_1 = base_dev_requirements_airflow_1.union(
-        {
-            dependency
-            for plugin in [
-                "iceberg",
-                "lookml",
-            ]
-            for dependency in plugins[plugin]
-        }
-    )
 
 dev_requirements = {
     *base_dev_requirements,
@@ -455,12 +430,16 @@ full_test_dev_requirements = {
     *list(
         dependency
         for plugin in [
+            "athena",
             "circuit-breaker",
             "clickhouse",
+            "delta-lake",
             "druid",
+            "feast",
             "feast-legacy",
             "hana",
             "hive",
+            "iceberg",
             "kafka-connect",
             "ldap",
             "mongodb",
@@ -475,20 +454,6 @@ full_test_dev_requirements = {
     ),
 }
 
-if is_py37_or_newer:
-    # These plugins only work on Python 3.7 or newer.
-    full_test_dev_requirements = full_test_dev_requirements.union(
-        {
-            dependency
-            for plugin in [
-                "athena",
-                "feast",
-                "iceberg",
-            ]
-            for dependency in plugins[plugin]
-        }
-    )
-
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
     "datahub.ingestion.source.plugins": [
@@ -501,7 +466,6 @@ entry_points = {
         "bigquery-usage = datahub.ingestion.source.usage.bigquery_usage:BigQueryUsageSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
-        "data-lake = datahub.ingestion.source.data_lake:DataLakeSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",
         "dbt = datahub.ingestion.source.dbt:DBTSource",
@@ -533,6 +497,7 @@ entry_points = {
         "redshift-usage = datahub.ingestion.source.usage.redshift_usage:RedshiftUsageSource",
         "snowflake = datahub.ingestion.source.sql.snowflake:SnowflakeSource",
         "snowflake-usage = datahub.ingestion.source.usage.snowflake_usage:SnowflakeUsageSource",
+        "snowflake-beta = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "tableau = datahub.ingestion.source.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
@@ -582,10 +547,10 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
@@ -599,7 +564,7 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.6",
+    python_requires=">=3.7",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={

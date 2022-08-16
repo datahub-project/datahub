@@ -14,6 +14,7 @@ from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
 from datahub.configuration.common import ConfigurationError
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -31,9 +32,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (  # GroupMembershipClass,
+    ChangeTypeClass,
     CorpGroupInfoClass,
     CorpUserInfoClass,
     GroupMembershipClass,
+    OriginClass,
+    OriginTypeClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -42,13 +46,11 @@ logger = logging.getLogger(__name__)
 class OktaConfig(ConfigModel):
     # Required: Domain of the Okta deployment. Example: dev-33231928.okta.com
     okta_domain: str = Field(
-        default="dev-33231928.okta.com",
-        description="The location of your Okta Domain, without a protocol. Can be found in Okta Developer console.",
+        description="The location of your Okta Domain, without a protocol. Can be found in Okta Developer console. e.g. dev-33231928.okta.com",
     )
     # Required: An API token generated from Okta.
     okta_api_token: str = Field(
-        default="00be4R_M2MzDqXawbWgfKGpKee0kuEOfX1RCQSRx00",
-        description="An API token generated for the DataHub application inside your Okta Developer Console.",
+        description="An API token generated for the DataHub application inside your Okta Developer Console. e.g. 00be4R_M2MzDqXawbWgfKGpKee0kuEOfX1RCQSRx00",
     )
 
     # Optional: Whether to ingest users, groups, or both.
@@ -259,8 +261,15 @@ class OktaSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
-        # Step 0: create the event loop
-        event_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        # Step 0: get or create the event loop
+        # This method can be called on the main thread or an async thread, so we must create a new loop if one doesn't exist
+        # See https://docs.python.org/3/library/asyncio-eventloop.html for more info.
+
+        try:
+            event_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        except RuntimeError:
+            event_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(event_loop)
 
         # Step 1: Produce MetadataWorkUnits for CorpGroups.
         if self.config.ingest_groups:
@@ -278,6 +287,24 @@ class OktaSource(Source):
                 wu = MetadataWorkUnit(id=wu_id, mce=mce)
                 self.report.report_workunit(wu)
                 yield wu
+
+                group_origin_mcp = MetadataChangeProposalWrapper(
+                    entityType="corpGroup",
+                    entityUrn=datahub_corp_group_snapshot.urn,
+                    changeType=ChangeTypeClass.UPSERT,
+                    aspectName="origin",
+                    aspect=OriginClass(OriginTypeClass.EXTERNAL, "OKTA"),
+                )
+                group_origin_wu_id = (
+                    f"group-origin-{group_count + 1}"
+                    if self.config.mask_group_id
+                    else datahub_corp_group_snapshot.urn
+                )
+                group_origin_wu = MetadataWorkUnit(
+                    id=group_origin_wu_id, mcp=group_origin_mcp
+                )
+                self.report.report_workunit(group_origin_wu)
+                yield group_origin_wu
 
         # Step 2: Populate GroupMembership Aspects for CorpUsers
         datahub_corp_user_urn_to_group_membership: Dict[str, GroupMembershipClass] = {}
@@ -351,6 +378,24 @@ class OktaSource(Source):
                 wu = MetadataWorkUnit(id=wu_id, mce=mce)
                 self.report.report_workunit(wu)
                 yield wu
+
+                user_origin_mcp = MetadataChangeProposalWrapper(
+                    entityType="corpuser",
+                    entityUrn=datahub_corp_user_snapshot.urn,
+                    changeType=ChangeTypeClass.UPSERT,
+                    aspectName="origin",
+                    aspect=OriginClass(OriginTypeClass.EXTERNAL, "OKTA"),
+                )
+                user_origin_wu_id = (
+                    f"user-origin-{user_count + 1}"
+                    if self.config.mask_user_id
+                    else datahub_corp_user_snapshot.urn
+                )
+                user_origin_wu = MetadataWorkUnit(
+                    id=user_origin_wu_id, mcp=user_origin_mcp
+                )
+                self.report.report_workunit(user_origin_wu)
+                yield user_origin_wu
 
         # Step 4: Close the event loop
         event_loop.close()
