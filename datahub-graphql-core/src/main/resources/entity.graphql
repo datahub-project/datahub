@@ -516,6 +516,16 @@ interface Entity {
 }
 
 """
+A Metadata Entity which is browsable, or has browse paths.
+"""
+interface BrowsableEntity {
+  """
+  The browse paths corresponding to an entity. If no Browse Paths have been generated before, this will be null.
+  """
+  browsePaths: [BrowsePath!]
+}
+
+"""
 A top level Metadata Entity Type
 """
 enum EntityType {
@@ -881,7 +891,7 @@ interface EntityWithRelationships implements Entity {
 """
 A Dataset entity, which encompasses Relational Tables, Document store collections, streaming topics, and other sets of data having an independent lifecycle
 """
-type Dataset implements EntityWithRelationships & Entity {
+type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of the Dataset
     """
@@ -1014,6 +1024,11 @@ type Dataset implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    The browse paths corresponding to the dataset. If no Browse Paths have been generated before, this will be null.
+    """
+    browsePaths: [BrowsePath!]
 
     """
     Experimental! The resolved health statuses of the Dataset
@@ -3886,7 +3901,7 @@ input InstitutionalMemoryMetadataUpdate {
 """
 A Notebook Metadata Entity
 """
-type Notebook implements Entity {
+type Notebook implements Entity & BrowsableEntity {
     """
     The primary key of the Notebook
     """
@@ -3971,6 +3986,11 @@ type Notebook implements Entity {
     Standardized platform.
     """
     platform: DataPlatform!
+
+    """
+    The browse paths corresponding to the Notebook. If no Browse Paths have been generated before, this will be null.
+    """
+    browsePaths: [BrowsePath!]
 }
 
 """
@@ -4127,7 +4147,7 @@ type ChangeAuditStamps {
 """
 A Dashboard Metadata Entity
 """
-type Dashboard implements EntityWithRelationships & Entity {
+type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of the Dashboard
     """
@@ -4223,6 +4243,11 @@ type Dashboard implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    The browse paths corresponding to the dashboard. If no Browse Paths have been generated before, this will be null.
+    """
+    browsePaths: [BrowsePath!]
 
     """
     Experimental (Subject to breaking change) -- Statistics about how this Dashboard is used
@@ -4400,7 +4425,7 @@ type DashboardProperties {
 """
 A Chart Metadata Entity
 """
-type Chart implements EntityWithRelationships & Entity {
+type Chart implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of the Chart
     """
@@ -4508,6 +4533,11 @@ type Chart implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    The browse paths corresponding to the chart. If no Browse Paths have been generated before, this will be null.
+    """
+    browsePaths: [BrowsePath!]
 
     """
     Deprecated, use properties field instead
@@ -4760,7 +4790,7 @@ enum ChartQueryType {
 A Data Flow Metadata Entity, representing an set of pipelined Data Job or Tasks required
 to produce an output Dataset Also known as a Data Pipeline
 """
-type DataFlow implements EntityWithRelationships & Entity {
+type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of a Data Flow
     """
@@ -4852,6 +4882,11 @@ type DataFlow implements EntityWithRelationships & Entity {
     lineage(input: LineageInput!): EntityLineageResult
 
     """
+    The browse paths corresponding to the data flow. If no Browse Paths have been generated before, this will be null.
+    """
+    browsePaths: [BrowsePath!]
+
+    """
     Deprecated, use properties field instead
     Additional read only information about a Data flow
     """
@@ -4940,7 +4975,7 @@ type DataFlowProperties {
 A Data Job Metadata Entity, representing an individual unit of computation or Task
 to produce an output Dataset Always part of a parent Data Flow aka Pipeline
 """
-type DataJob implements EntityWithRelationships & Entity {
+type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of the Data Job
     """
@@ -5026,6 +5061,11 @@ type DataJob implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    The browse paths corresponding to the data job. If no Browse Paths have been generated before, this will be null.
+    """
+    browsePaths: [BrowsePath!]
 
     """
     Deprecated, use properties field instead
@@ -7654,7 +7694,7 @@ input CreateGroupInput {
 """
 An ML Model Metadata Entity Note that this entity is incubating
 """
-type MLModel implements EntityWithRelationships & Entity {
+type MLModel implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of the ML model
     """
@@ -7792,6 +7832,11 @@ type MLModel implements EntityWithRelationships & Entity {
     lineage(input: LineageInput!): EntityLineageResult
 
     """
+    The browse paths corresponding to the ML Model. If no Browse Paths have been generated before, this will be null.
+    """
+    browsePaths: [BrowsePath!]
+
+    """
     The structured glossary terms associated with the entity
     """
     glossaryTerms: GlossaryTerms
@@ -7811,7 +7856,7 @@ type MLModel implements EntityWithRelationships & Entity {
 An ML Model Group Metadata Entity
 Note that this entity is incubating
 """
-type MLModelGroup implements EntityWithRelationships & Entity {
+type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of the ML Model Group
     """
@@ -7881,6 +7926,11 @@ type MLModelGroup implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    The browse paths corresponding to the ML Model Group. If no Browse Paths have been generated before, this will be null.
+    """
+    browsePaths: [BrowsePath!]
 
     """
     Tags applied to entity
@@ -8193,7 +8243,7 @@ description: String
 """
 An ML Feature Table Entity Note that this entity is incubating
 """
-type MLFeatureTable implements EntityWithRelationships & Entity {
+type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntity {
     """
     The primary key of the ML Feature Table
     """
@@ -8269,6 +8319,11 @@ type MLFeatureTable implements EntityWithRelationships & Entity {
     Edges extending from this entity grouped by direction in the lineage graph
     """
     lineage(input: LineageInput!): EntityLineageResult
+
+    """
+    The browse paths corresponding to the ML Feature Table. If no Browse Paths have been generated before, this will be null.
+    """
+    browsePaths: [BrowsePath!]
 
     """
     Tags applied to entity
