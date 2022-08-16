@@ -60,7 +60,7 @@ AND
          AND (
             {allow_regex}
             {deny_regex}
-                OR
+         OR
             protoPayload.metadata.tableDataRead.reason = "JOB"
         )
     )

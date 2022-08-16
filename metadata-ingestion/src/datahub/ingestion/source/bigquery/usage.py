@@ -393,8 +393,9 @@ class BigQueryUsageExtractor:
                 logical_operator="AND" if use_allow_filter else "",
             )
             if use_deny_filter
-            else ""
+            else ("" if use_allow_filter else "FALSE")
         )
+
         logger.debug(
             f"use_allow_filter={use_allow_filter}, use_deny_filter={use_deny_filter}, "
             f"allow_regex={allow_regex}, deny_regex={deny_regex}"
