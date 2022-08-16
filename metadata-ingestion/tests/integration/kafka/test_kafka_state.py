@@ -149,7 +149,7 @@ def test_kafka_ingest_with_stateful(
             "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
             mock_datahub_graph,
         ) as mock_checkpoint, patch(
-            "datahub.ingestion.reporting.datahub_ingestion_reporting_provider.DataHubGraph",
+            "datahub.ingestion.reporting.datahub_ingestion_run_summary_provider.DataHubGraph",
             mock_datahub_graph,
         ) as mock_reporting:
 
@@ -193,8 +193,8 @@ def test_kafka_ingest_with_stateful(
             # NOTE: The following validation asserts for presence of state as well
             # and validates reporting.
             validate_all_providers_have_committed_successfully(
-                pipeline=pipeline_run1, expected_providers=2
+                pipeline=pipeline_run1, expected_providers=1
             )
             validate_all_providers_have_committed_successfully(
-                pipeline=pipeline_run1, expected_providers=2
+                pipeline=pipeline_run1, expected_providers=1
             )
