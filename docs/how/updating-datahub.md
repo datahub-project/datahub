@@ -6,6 +6,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 - Java version 11 or greater is required.
+- #5647 `platform_instance_map` in the `metabase` source is now mapping platforms to maps of database names as `internal_dbname: datahub_dbname`.
 
 ### Potential Downtime
 
