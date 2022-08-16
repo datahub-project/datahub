@@ -13,6 +13,7 @@ from datahub.ingestion.source.bigquery.bigquery_audit import (
     BQ_DATETIME_FORMAT,
     AuditLogEntry,
     BigQueryAuditMetadata,
+    BigqueryTableIdentifier,
     BigQueryTableRef,
     QueryEvent,
 )
@@ -52,8 +53,6 @@ AND
         AND
         protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables !~ "projects/.*/datasets/.*/tables/__TABLES__"
         AND
-        protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables !~ "projects/.*/datasets/.*/tables/__TABLES__"
-        AND
         protoPayload.metadata.jobChange.job.jobConfig.queryConfig.destinationTable !~ "projects/.*/datasets/_.*/tables/anon.*"
 
     )
@@ -67,7 +66,7 @@ timestamp < "{end_time}"
 
 
 def bigquery_audit_metadata_query_template(
-    dataset: str, use_date_sharded_tables: bool
+    dataset: str, use_date_sharded_tables: bool, limit: Optional[int] = None
 ) -> str:
     """
     Receives a dataset (with project specified) and returns a query template that is used to query exported
@@ -116,10 +115,12 @@ def bigquery_audit_metadata_query_template(
     AND protopayload_auditlog.serviceName="bigquery.googleapis.com"
     AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
     AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.errorResults") IS NULL
-    AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL;
+    AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL
     """
 
-    query = textwrap.dedent(query) + audit_log_filter
+    if limit is not None:
+        audit_log_filter = audit_log_filter + f" LIMIT {limit}"
+    query = textwrap.dedent(query) + audit_log_filter + ";"
 
     return textwrap.dedent(query)
 
@@ -137,11 +138,10 @@ class BigqueryLineageExtractor:
     def compute_bigquery_lineage_via_gcp_logging(self) -> dict[str, set[str]]:
         logger.info("Populating lineage info via GCP audit logs")
         try:
-            _clients: List[GCPLoggingClient] = self._make_gcp_logging_client()
-            template = BQ_FILTER_RULE_TEMPLATE_V2
+            _clients: GCPLoggingClient = self._make_gcp_logging_client()
 
             log_entries: Iterable[AuditLogEntry] = self._get_bigquery_log_entries(
-                _clients, template
+                _clients
             )
             parsed_entries: Iterable[QueryEvent] = self._parse_bigquery_log_entries(
                 log_entries
@@ -180,20 +180,18 @@ class BigqueryLineageExtractor:
 
     def _make_gcp_logging_client(
         self, project_id: Optional[str] = None
-    ) -> List[GCPLoggingClient]:
+    ) -> GCPLoggingClient:
         # See https://github.com/googleapis/google-cloud-python/issues/2674 for
         # why we disable gRPC here.
         client_options = self.config.extra_client_options.copy()
         client_options["_use_grpc"] = False
         if project_id is not None:
-            return [GCPLoggingClient(**client_options, project=project_id)]
+            return GCPLoggingClient(**client_options, project=project_id)
         else:
-            return [GCPLoggingClient(**client_options)]
+            return GCPLoggingClient(**client_options)
 
     def _get_bigquery_log_entries(
-        self,
-        clients: List[GCPLoggingClient],
-        template: str,
+        self, client: GCPLoggingClient, limit: Optional[int] = None
     ) -> Union[Iterable[AuditLogEntry], Iterable[BigQueryAuditMetadata]]:
         self.report.num_total_log_entries = 0
         # Add a buffer to start and end time to account for delays in logging events.
@@ -207,7 +205,7 @@ class BigqueryLineageExtractor:
         )
         self.report.log_entry_end_time = end_time
 
-        filter = template.format(
+        filter = BQ_FILTER_RULE_TEMPLATE_V2.format(
             start_time=start_time,
             end_time=end_time,
         )
@@ -215,26 +213,28 @@ class BigqueryLineageExtractor:
         logger.info(
             f"Start loading log entries from BigQuery start_time={start_time} and end_time={end_time}"
         )
-        for client in clients:
-            if self.config.rate_limit:
-                with RateLimiter(max_calls=self.config.requests_per_min, period=60):
-                    entries = client.list_entries(
-                        filter_=filter, page_size=self.config.log_page_size
-                    )
-            else:
+
+        if self.config.rate_limit:
+            with RateLimiter(max_calls=self.config.requests_per_min, period=60):
                 entries = client.list_entries(
-                    filter_=filter, page_size=self.config.log_page_size
+                    filter_=filter,
+                    page_size=self.config.log_page_size,
+                    max_results=limit,
                 )
-            for entry in entries:
-                self.report.num_total_log_entries += 1
-                yield entry
+        else:
+            entries = client.list_entries(
+                filter_=filter, page_size=self.config.log_page_size, max_results=limit
+            )
+        for entry in entries:
+            self.report.num_total_log_entries += 1
+            yield entry
 
         logger.info(
             f"Finished loading {self.report.num_total_log_entries} log entries from BigQuery so far"
         )
 
     def _get_exported_bigquery_audit_metadata(
-        self, bigquery_client: BigQueryClient
+        self, bigquery_client: BigQueryClient, limit: Optional[int] = None
     ) -> Iterable[BigQueryAuditMetadata]:
         if self.config.bigquery_audit_metadata_datasets is None:
             self.error(
@@ -279,6 +279,9 @@ class BigqueryLineageExtractor:
                 query = bigquery_audit_metadata_query_template(
                     dataset, self.config.use_date_sharded_audit_log_tables
                 ).format(start_time=start_time, end_time=end_time)
+
+            if limit is not None:
+                query = query + f" LIMIT {limit}"
             query_job = bigquery_client.query(query)
 
             logger.info(
@@ -367,28 +370,22 @@ class BigqueryLineageExtractor:
                 self.report.num_skipped_lineage_entries_missing_data += 1
                 continue
             # Skip if schema/table pattern don't allow the destination table
-            destination_table_str = str(
-                e.destinationTable.remove_extras(self.config.sharded_table_pattern)
-            )
+            destination_table_str = str(e.destinationTable.get_sanitized_name())
             destination_table_str_parts = destination_table_str.split("/")
-            if not self.config.schema_pattern.allowed(
+            if not self.config.dataset_pattern.allowed(
                 destination_table_str_parts[3]
             ) or not self.config.table_pattern.allowed(destination_table_str_parts[-1]):
                 self.report.num_skipped_lineage_entries_not_allowed += 1
                 continue
             has_table = False
             for ref_table in e.referencedTables:
-                ref_table_str = str(
-                    ref_table.remove_extras(self.config.sharded_table_pattern)
-                )
+                ref_table_str = str(ref_table.get_sanitized_name())
                 if ref_table_str != destination_table_str:
                     lineage_map[destination_table_str].add(ref_table_str)
                     has_table = True
             has_view = False
             for ref_view in e.referencedViews:
-                ref_view_str = str(
-                    ref_view.remove_extras(self.config.sharded_table_pattern)
-                )
+                ref_view_str = str(ref_view.get_sanitized_name())
                 if ref_view_str != destination_table_str:
                     lineage_map[destination_table_str].add(ref_view_str)
                     has_view = True
@@ -464,13 +461,12 @@ class BigqueryLineageExtractor:
         return upstreams
 
     def get_upstream_lineage_info(
-        self, dataset_name: str, platform: str
+        self, table_identifier: BigqueryTableIdentifier, platform: str
     ) -> Optional[tuple[UpstreamLineageClass, dict[str, str]]]:
         if self.lineage_metadata is None:
             self.lineage_metadata = self._compute_bigquery_lineage()
 
-        project_id, dataset_name, tablename = dataset_name.split(".")
-        bq_table = BigQueryTableRef(project_id, dataset_name, tablename)
+        bq_table = BigQueryTableRef.from_bigquery_table(table_identifier)
         if str(bq_table) in self.lineage_metadata:
             upstream_list: List[UpstreamClass] = []
             # Sorting the list of upstream lineage events in order to avoid creating multiple aspects in backend
@@ -482,9 +478,9 @@ class BigqueryLineageExtractor:
                     mce_builder.make_dataset_urn_with_platform_instance(
                         platform,
                         "{project}.{database}.{table}".format(
-                            project=upstream_table.project,
-                            database=upstream_table.dataset,
-                            table=upstream_table.table,
+                            project=upstream_table.table_identifier.project_id,
+                            database=upstream_table.table_identifier.dataset,
+                            table=upstream_table.table_identifier.table,
                         ),
                         self.config.platform_instance,
                         self.config.env,
@@ -503,3 +499,24 @@ class BigqueryLineageExtractor:
                 upstream_lineage = UpstreamLineageClass(upstreams=upstream_list)
                 return upstream_lineage, {}
         return None
+
+    def test_capability(self):
+        lineage_metadata: dict[str, set[str]]
+        if self.config.use_exported_bigquery_audit_metadata:
+            bigquery_client: BigQueryClient = BigQueryClient(
+                project=self.config.project_id
+            )
+            entries = self._get_exported_bigquery_audit_metadata(
+                bigquery_client=bigquery_client, limit=1
+            )
+            for entry in entries:
+                logger.debug(
+                    f"Connection test got one exported_bigquery_audit_metadata {entry}"
+                )
+
+            return
+        else:
+            gcp_logging_client: GCPLoggingClient = self._make_gcp_logging_client()
+            for entry in self._get_bigquery_log_entries(gcp_logging_client, limit=1):
+                logger.debug(f"Connection test got one audit metadata entry {entry}")
+            return

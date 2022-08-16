@@ -5,6 +5,8 @@ from typing import Dict, List, Optional
 
 from google.cloud import bigquery
 
+from datahub.ingestion.source.bigquery.bigquery_audit import BigqueryTableIdentifier
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 
@@ -64,10 +66,6 @@ class BigqueryQuery:
         return f"select schema_name from {project_id}.INFORMATION_SCHEMA.SCHEMATA"
 
     @staticmethod
-    def use_database(db_name: str) -> str:
-        return f'use database "{db_name}"'
-
-    @staticmethod
     def datasets_for_project_id(project_id: str) -> str:
         return f"""select s.CATALOG_NAME as catalog_name
         , s.schema_name as table_schema
@@ -108,7 +106,7 @@ class BigqueryQuery:
         order by table_schema, table_name"""
 
     @staticmethod
-    def tables_for_dataset(dataset_name: str, project_id: str) -> str:
+    def tables_for_dataset(project_id: str, dataset_name: str) -> str:
         # https://cloud.google.com/bigquery/docs/information-schema-table-storage?hl=en
         return f"""
         SELECT t.table_catalog as table_catalog,
@@ -129,7 +127,7 @@ class BigqueryQuery:
         order by table_schema, table_name"""
 
     @staticmethod
-    def views_for_dataset(dataset_name: str, project_id: str) -> str:
+    def views_for_dataset(project_id: str, dataset_name: str) -> str:
         return f"""
         SELECT t.table_catalog as table_catalog,
         t.table_schema as table_schema,
@@ -149,7 +147,7 @@ class BigqueryQuery:
         order by table_schema, table_name"""
 
     @staticmethod
-    def columns_for_dataset(dataset_name: str, project_id: Optional[str]) -> str:
+    def columns_for_dataset(project_id: str, dataset_name: str) -> str:
         return f"""
         select
         c.table_catalog as table_catalog,
@@ -162,12 +160,12 @@ class BigqueryQuery:
         description as comment,
         c.is_hidden as is_hidden,
         c.is_partitioning_column as is_partitioning_column
-        from `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.COLUMNS c
-        join `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name and cfp.column_name = c.column_name
+        from `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.COLUMNS c
+        join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name and cfp.column_name = c.column_name
         ORDER BY ordinal_position"""
 
     @staticmethod
-    def columns_for_table(table_name: str, dataset_name: str, project_id: str) -> str:
+    def columns_for_table(table_identifier: BigqueryTableIdentifier) -> str:
         return f"""select
         c.table_catalog as table_catalog,
         c.table_schema as table_schema,
@@ -179,9 +177,9 @@ class BigqueryQuery:
         c.is_hidden as is_hidden,
         c.is_partitioning_column as is_partitioning_column,
         description as comment
-        from `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.COLUMNS as c
-        join `{project_id}`.{dataset_name}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name and cfp.column_name = c.column_name
-        where c.table_name='{table_name}'
+        from `{table_identifier.project_id}`.{table_identifier.dataset}.INFORMATION_SCHEMA.COLUMNS as c
+        join `{table_identifier.project_id}`.{table_identifier.dataset}.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name and cfp.column_name = c.column_name
+        where c.table_name='{table_identifier.table}'
         ORDER BY ordinal_position"""
 
 
@@ -254,13 +252,13 @@ class BigQueryDataDictionary:
         return tables
 
     def get_tables_for_dataset(
-        self, conn: bigquery.Client, dataset_name: str, project_id: str
+        self, conn: bigquery.Client, project_id: str, dataset_name: str
     ) -> List[BigqueryTable]:
         tables: List[BigqueryTable] = []
 
         cur = self.query(
             conn,
-            BigqueryQuery.tables_for_dataset(dataset_name, project_id),
+            BigqueryQuery.tables_for_dataset(project_id, dataset_name),
         )
 
         for table in cur:
@@ -278,11 +276,13 @@ class BigQueryDataDictionary:
         return tables
 
     def get_views_for_dataset(
-        self, conn: bigquery.Client, schema_name: str, db_name: str
+        self, conn: bigquery.Client, project_id: str, dataset_name: str
     ) -> List[BigqueryView]:
         views: List[BigqueryView] = []
 
-        cur = self.query(conn, BigqueryQuery.views_for_dataset(schema_name, db_name))
+        cur = self.query(
+            conn, BigqueryQuery.views_for_dataset(project_id, dataset_name)
+        )
         for table in cur:
             views.append(
                 BigqueryView(
@@ -296,12 +296,12 @@ class BigQueryDataDictionary:
         return views
 
     def get_columns_for_dataset(
-        self, conn: bigquery.Client, schema_name: str, db_name: str
+        self, conn: bigquery.Client, project_id: str, schema_name: str
     ) -> Optional[Dict[str, List[BigqueryColumn]]]:
         columns: Dict[str, List[BigqueryColumn]] = {}
         try:
             cur = self.query(
-                conn, BigqueryQuery.columns_for_dataset(schema_name, db_name)
+                conn, BigqueryQuery.columns_for_dataset(project_id, schema_name)
             )
         except Exception as e:
             logger.debug(e)
@@ -325,13 +325,13 @@ class BigQueryDataDictionary:
         return columns
 
     def get_columns_for_table(
-        self, conn: bigquery.Client, table_name: str, schema_name: str, db_name: str
+        self, conn: bigquery.Client, table_identifier: BigqueryTableIdentifier
     ) -> List[BigqueryColumn]:
         columns: List[BigqueryColumn] = []
 
         cur = self.query(
             conn,
-            BigqueryQuery.columns_for_table(table_name, schema_name, db_name),
+            BigqueryQuery.columns_for_table(table_identifier),
         )
 
         for column in cur:

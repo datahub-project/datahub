@@ -3,7 +3,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from dateutil import parser
 
@@ -27,53 +27,20 @@ PARTITION_SUMMARY_REGEXP = re.compile(r"^(.+)\$__PARTITIONS_SUMMARY__$")
 
 BQ_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 BQ_DATE_SHARD_FORMAT = "%Y%m%d"
-BQ_AUDIT_V1 = {
-    "BQ_FILTER_REGEX_ALLOW_TEMPLATE": """
-protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.tableId =~ "{allow_pattern}"
-""",
-    "BQ_FILTER_REGEX_DENY_TEMPLATE": """
-{logical_operator}
-protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.tableId !~ "{deny_pattern}"
-""",
-    "BQ_FILTER_RULE_TEMPLATE": """
-protoPayload.serviceName="bigquery.googleapis.com"
-AND
-(
-    (
-        protoPayload.methodName="jobservice.jobcompleted"
-        AND
-        protoPayload.serviceData.jobCompletedEvent.eventName="query_job_completed"
-        AND
-        protoPayload.serviceData.jobCompletedEvent.job.jobStatus.state="DONE"
-        AND
-        NOT protoPayload.serviceData.jobCompletedEvent.job.jobStatus.error.code:*
-    )
-    OR
-    (
-        protoPayload.metadata.tableDataRead:*
-    )
-)
-AND (
-    {allow_regex}
-    {deny_regex}
-    OR
-    protoPayload.metadata.tableDataRead.reason = "JOB"
-)
-AND
-timestamp >= "{start_time}"
-AND
-timestamp < "{end_time}"
-""".strip(),
-}
 
 BQ_AUDIT_V2 = {
-    "BQ_FILTER_REGEX_ALLOW_TEMPLATE": """
-protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/{allow_pattern}"
-""",
+    "BQ_FILTER_REGEX_ALLOW_TEMPLATE": """protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/{table_allow_pattern}"
+""".strip(
+        "\t \n"
+    ),
     "BQ_FILTER_REGEX_DENY_TEMPLATE": """
-{logical_operator}
-protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables !~ "projects/.*/datasets/.*/tables/{deny_pattern}"
-""",
+    {logical_operator}
+            NOT (
+                protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/{table_deny_pattern}"
+            )
+""".strip(
+        "\t \n"
+    ),
     "BQ_FILTER_RULE_TEMPLATE": """
 resource.type=("bigquery_project" OR "bigquery_dataset")
 AND
@@ -89,6 +56,7 @@ AND
         protoPayload.metadata.jobChange.job.jobStatus.jobState="DONE"
         AND NOT protoPayload.metadata.jobChange.job.jobStatus.errorResult:*
         AND protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
+        AND NOT protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/__TABLES__|__TABLES_SUMMARY__|INFORMATION_SCHEMA.*"
          AND (
             {allow_regex}
             {deny_regex}
@@ -105,7 +73,9 @@ AND
 timestamp >= "{start_time}"
 AND
 timestamp < "{end_time}"
-""".strip(),
+""".strip(
+        "\t \n"
+    ),
 }
 
 DEBUG_INCLUDE_FULL_PAYLOADS = False
@@ -119,86 +89,115 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, order=True)
-class BigQueryTableRef:
-    project: str
+class BigqueryTableIdentifier:
+    project_id: str
     dataset: str
     table: str
 
-    @classmethod
-    def from_spec_obj(cls, spec: dict) -> "BigQueryTableRef":
-        return cls(spec["projectId"], spec["datasetId"], spec["tableId"])
+    _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: str = "((.+)[_$])?(\\d{4,10})$"
+
+    def _get_table_and_shard(self, table_name: str) -> Tuple[str, Optional[str]]:
+        match = re.search(
+            BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
+            table_name,
+            re.IGNORECASE,
+        )
+        if match:
+            table_name = match.group(2)
+            shard = match.group(3)
+            return table_name, shard
+        return table_name, None
 
     @classmethod
-    def from_string_name(cls, ref: str) -> "BigQueryTableRef":
-        parts = ref.split("/")
-        if parts[0] != "projects" or parts[2] != "datasets" or parts[4] != "tables":
-            raise ValueError(f"invalid BigQuery table reference: {ref}")
-        return cls(parts[1], parts[3], parts[5])
+    def from_string_name(cls, table: str) -> "BigqueryTableIdentifier":
+        parts = table.split(".")
+        return cls(parts[0], parts[1], parts[2])
 
-    def is_temporary_table(self, prefix: str) -> bool:
-        # Temporary tables will have a dataset that begins with an underscore.
-        return self.dataset.startswith(prefix)
+    def raw_table(self):
+        return f"{self.project_id}.{self.dataset}.{self.table}"
 
     @staticmethod
-    def remove_suffix(input_string, suffix):
+    def _remove_suffix(input_string, suffix):
         if suffix and input_string.endswith(suffix):
             return input_string[: -len(suffix)]
         return input_string
 
-    def remove_extras(self, sharded_table_regex: str) -> "BigQueryTableRef":
-        # Handle partitioned and sharded tables.
-        table_name: Optional[str] = None
+    def get_table(self) -> str:
         shortened_table_name = self.table
         # if table name ends in _* or * then we strip it as that represents a query on a sharded table
-        shortened_table_name = self.remove_suffix(shortened_table_name, "_*")
-        shortened_table_name = self.remove_suffix(shortened_table_name, "*")
+        shortened_table_name = self._remove_suffix(shortened_table_name, "_*")
+        shortened_table_name = self._remove_suffix(shortened_table_name, "*")
 
-        matches = re.match(sharded_table_regex, shortened_table_name)
-        if matches:
-            table_name = matches.group(2)
-        else:
-            matches = PARTITION_SUMMARY_REGEXP.match(shortened_table_name)
-            if matches:
-                table_name = matches.group(1)
-        if matches:
-            if not table_name:
-                logger.debug(
-                    f"Using dataset id {self.dataset} as table name because table only contains date value {self.table}"
-                )
-                table_name = self.dataset
+        table_name, _ = self._get_table_and_shard(shortened_table_name)
+        if not table_name:
+            table_name = self.dataset
 
-            logger.debug(
-                f"Found sharded table {self.table}. Using {table_name} as the table name."
-            )
-
-            return BigQueryTableRef(self.project, self.dataset, table_name)
-
-        # Handle table snapshots.
-        matches = SNAPSHOT_TABLE_REGEX.match(shortened_table_name)
+        matches = SNAPSHOT_TABLE_REGEX.match(table_name)
         if matches:
             table_name = matches.group(1)
-            logger.debug(
-                f"Found table snapshot {self.table}. Using {table_name} as the table name."
-            )
-            return BigQueryTableRef(self.project, self.dataset, table_name)
+            logger.debug(f"Found table snapshot. Using {table_name} as the table name.")
 
         # Handle exceptions
         invalid_chars_in_table_name: List[str] = [
-            c for c in {"$", "@"} if c in shortened_table_name
+            c for c in {"$", "@"} if c in table_name
         ]
         if invalid_chars_in_table_name:
             raise ValueError(
                 f"Cannot handle {self} - poorly formatted table name, contains {invalid_chars_in_table_name}"
             )
 
-        return BigQueryTableRef(self.project, self.dataset, shortened_table_name)
+        return f"{self.project_id}.{self.dataset}.{table_name}"
 
     def __str__(self) -> str:
-        return f"projects/{self.project}/datasets/{self.dataset}/tables/{self.table}"
+        return self.get_table()
+
+
+@dataclass(frozen=True, order=True)
+class BigQueryTableRef:
+    table_identifier: BigqueryTableIdentifier
+
+    @classmethod
+    def from_bigquery_table(cls, table: BigqueryTableIdentifier) -> "BigQueryTableRef":
+        return cls(
+            BigqueryTableIdentifier(table.project_id, table.dataset, table.table)
+        )
+
+    @classmethod
+    def from_spec_obj(cls, spec: dict) -> "BigQueryTableRef":
+        return cls(
+            BigqueryTableIdentifier(
+                spec["projectId"], spec["datasetId"], spec["tableId"]
+            )
+        )
+
+    @classmethod
+    def from_string_name(cls, ref: str) -> "BigQueryTableRef":
+        parts = ref.split("/")
+        if parts[0] != "projects" or parts[2] != "datasets" or parts[4] != "tables":
+            raise ValueError(f"invalid BigQuery table reference: {ref}")
+        return cls(BigqueryTableIdentifier(parts[1], parts[3], parts[5]))
+
+    def is_temporary_table(self, prefix: str) -> bool:
+        # Temporary tables will have a dataset that begins with an underscore.
+        return self.table_identifier.dataset.startswith(prefix)
+
+    def get_sanitized_name(self) -> "BigQueryTableRef":
+        sanitized_table = self.table_identifier.get_table()
+        # Handle partitioned and sharded tables.
+        return BigQueryTableRef(
+            BigqueryTableIdentifier.from_string_name(sanitized_table)
+        )
+
+    def __str__(self) -> str:
+        return f"projects/{self.table_identifier.project_id}/datasets/{self.table_identifier.dataset}/tables/{self.table_identifier.table}"
 
 
 def _table_ref_to_urn(ref: BigQueryTableRef, env: str) -> str:
-    return make_dataset_urn("bigquery", f"{ref.project}.{ref.dataset}.{ref.table}", env)
+    return make_dataset_urn(
+        "bigquery",
+        f"{ref.table_identifier.project_id}.{ref.table_identifier.dataset}.{ref.table_identifier.table}",
+        env,
+    )
 
 
 @dataclass

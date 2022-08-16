@@ -21,9 +21,10 @@ class BigQueryBaseConfig(ConfigModel):
         description="If you are creating temp tables in a dataset with a particular prefix you can use this config to set the prefix for the dataset. This is to support workflows from before bigquery's introduction of temp tables. By default we use `_` because of datasets that begin with an underscore are hidden by default https://cloud.google.com/bigquery/docs/datasets#dataset-naming.",
     )
 
+
     sharded_table_pattern: str = pydantic.Field(
         default=_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
-        description="The regex pattern to match sharded tables and group as one table. This is a very low level config parameter, only change if you know what you are doing, ",
+        description="DEPRECATED: The regex pattern to match sharded tables and group as one table. This is a very low level config parameter, only change if you know what you are doing, ",
     )
 
     @pydantic.validator("sharded_table_pattern")

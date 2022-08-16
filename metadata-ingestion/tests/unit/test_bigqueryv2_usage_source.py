@@ -3,21 +3,15 @@ import os
 
 from freezegun import freeze_time
 
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.usage.bigquery_usage import (
-    BQ_AUDIT_V1,
-    BigQueryTableRef,
-    BigQueryUsageConfig,
-    BigQueryUsageSource, BQ_AUDIT_V2,
-)
-from datahub.ingestion.source_config.bigquery import (
-    _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
-)
+from datahub.ingestion.source.bigquery.bigquery_audit import BigQueryTableRef, BigqueryTableIdentifier, BQ_AUDIT_V2
+from datahub.ingestion.source.bigquery.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery.bigquery_report import BigQueryV2Report
+from datahub.ingestion.source.bigquery.usage import BigQueryUsageExtractor
 
 FROZEN_TIME = "2021-07-20 00:00:00"
 
 
-def test_bigquery_uri_with_credential():
+def test_bigqueryv2_uri_with_credential():
 
     expected_credential_json = {
         "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
@@ -32,9 +26,12 @@ def test_bigquery_uri_with_credential():
         "type": "service_account",
     }
 
-    config = BigQueryUsageConfig.parse_obj(
+    config = BigQueryV2Config.parse_obj(
         {
             "project_id": "test-project",
+            "stateful_ingestion": {
+                "enabled": False
+            },
             "credential": {
                 "project_id": "test-project",
                 "private_key_id": "test-private-key",
@@ -63,9 +60,12 @@ def test_bigquery_uri_with_credential():
 
 
 @freeze_time(FROZEN_TIME)
-def test_bigquery_filters_with_allow_filter():
-    config = {
+def test_bigqueryv2_filters_with_allow_filter():
+    config = BigQueryV2Config.parse_obj( {
         "project_id": "test-project",
+        "stateful_ingestion": {
+            "enabled": False
+        },
         "credential": {
             "project_id": "test-project",
             "private_key_id": "test-private-key",
@@ -74,7 +74,7 @@ def test_bigquery_filters_with_allow_filter():
             "client_id": "test_client-id",
         },
         "table_pattern": {"allow": ["test-regex", "test-regex-1"], "deny": []},
-    }
+    })
     expected_filter: str = """resource.type=(\"bigquery_project\" OR \"bigquery_dataset\")
 AND
 (
@@ -89,14 +89,10 @@ AND
         protoPayload.metadata.jobChange.job.jobStatus.jobState=\"DONE\"
         AND NOT protoPayload.metadata.jobChange.job.jobStatus.errorResult:*
         AND protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
+        AND NOT protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/__TABLES__|__TABLES_SUMMARY__|INFORMATION_SCHEMA.*"
          AND (
+            protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ \"projects/.*/datasets/.*/tables/test-regex|test-regex-1\"
             
-protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ \"projects/.*/datasets/.*/tables/test-regex|test-regex-1\"
-
-            
-AND
-protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables !~ \"projects/.*/datasets/.*/tables/__TABLES_SUMMARY__|INFORMATION_SCHEMA\"
-
                 OR
             protoPayload.metadata.tableDataRead.reason = \"JOB\"
         )
@@ -109,24 +105,16 @@ protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables !~ \"pr
 AND
 timestamp >= \"2021-07-18T23:45:00Z\"
 AND
-<<<<<<< HEAD
-timestamp < "2021-07-20T00:15:00Z\""""  # noqa: W293
-=======
 timestamp < \"2021-07-21T00:15:00Z\""""  # noqa: W293
->>>>>>> 4e084234ba (Adding filter generation, tests, etc..)
 
-    source = BigQueryUsageSource.create(config, PipelineContext(run_id="bq-usage-test"))
-
-    # source: BigQueryUsageSource = BigQueryUsageSource(
-    #    config=config, ctx=PipelineContext(run_id="test")
-    # )
+    source = BigQueryUsageExtractor(config, BigQueryV2Report())
     filter: str = source._generate_filter(BQ_AUDIT_V2)
     assert filter == expected_filter
 
 
 @freeze_time(FROZEN_TIME)
-def test_bigquery_filters_with_deny_filter():
-    config = {
+def test_bigqueryv2_filters_with_deny_filter():
+    config = BigQueryV2Config.parse_obj({
         "project_id": "test-project",
         "credential": {
             "project_id": "test-project",
@@ -139,7 +127,7 @@ def test_bigquery_filters_with_deny_filter():
             "allow": ["test-regex", "test-regex-1"],
             "deny": ["excluded_table_regex", "excluded-regex-2"],
         },
-    }
+    })
     expected_filter: str = """resource.type=(\"bigquery_project\" OR \"bigquery_dataset\")
 AND
 (
@@ -154,14 +142,13 @@ AND
         protoPayload.metadata.jobChange.job.jobStatus.jobState=\"DONE\"
         AND NOT protoPayload.metadata.jobChange.job.jobStatus.errorResult:*
         AND protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
+        AND NOT protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/__TABLES__|__TABLES_SUMMARY__|INFORMATION_SCHEMA.*"
          AND (
-            
-protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ \"projects/.*/datasets/.*/tables/test-regex|test-regex-1\"
-
-            
-AND
-protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables !~ \"projects/.*/datasets/.*/tables/__TABLES_SUMMARY__|INFORMATION_SCHEMA|excluded_table_regex|excluded-regex-2\"
-
+            protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ \"projects/.*/datasets/.*/tables/test-regex|test-regex-1\"
+            AND
+            NOT (
+                protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ \"projects/.*/datasets/.*/tables/excluded_table_regex|excluded-regex-2\"
+            )
                 OR
             protoPayload.metadata.tableDataRead.reason = \"JOB\"
         )
@@ -174,43 +161,39 @@ protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables !~ \"pr
 AND
 timestamp >= \"2021-07-18T23:45:00Z\"
 AND
-<<<<<<< HEAD
-timestamp < "2021-07-20T00:15:00Z\""""  # noqa: W293
-=======
 timestamp < \"2021-07-21T00:15:00Z\""""  # noqa: W293
->>>>>>> 4e084234ba (Adding filter generation, tests, etc..)
-    source = BigQueryUsageSource.create(config, PipelineContext(run_id="bq-usage-test"))
+    source = BigQueryUsageExtractor(config, BigQueryV2Report())
     filter: str = source._generate_filter(BQ_AUDIT_V2)
     assert filter == expected_filter
 
 
-def test_bigquery_ref_extra_removal():
-    table_ref = BigQueryTableRef("project-1234", "dataset-4567", "foo_*")
-    new_table_ref = table_ref.remove_extras(_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX)
+def test_bigquery_table_sanitasitation():
+    table_ref = BigQueryTableRef(BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_*"))
+    new_table_ref = BigqueryTableIdentifier.from_string_name(table_ref.table_identifier.get_table())
     assert new_table_ref.table == "foo"
-    assert new_table_ref.project == table_ref.project
-    assert new_table_ref.dataset == table_ref.dataset
+    assert new_table_ref.project_id == "project-1234"
+    assert new_table_ref.dataset == "dataset-4567"
 
-    table_ref = BigQueryTableRef("project-1234", "dataset-4567", "foo_2022")
-    new_table_ref = table_ref.remove_extras(_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX)
+    table_ref = BigQueryTableRef(BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_2022"))
+    new_table_ref = BigqueryTableIdentifier.from_string_name(table_ref.table_identifier.get_table())
     assert new_table_ref.table == "foo"
-    assert new_table_ref.project == table_ref.project
-    assert new_table_ref.dataset == table_ref.dataset
+    assert new_table_ref.project_id == "project-1234"
+    assert new_table_ref.dataset == "dataset-4567"
 
-    table_ref = BigQueryTableRef("project-1234", "dataset-4567", "foo_20222110")
-    new_table_ref = table_ref.remove_extras(_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX)
+    table_ref = BigQueryTableRef(BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_20222110"))
+    new_table_ref = BigqueryTableIdentifier.from_string_name(table_ref.table_identifier.get_table())
     assert new_table_ref.table == "foo"
-    assert new_table_ref.project == table_ref.project
-    assert new_table_ref.dataset == table_ref.dataset
+    assert new_table_ref.project_id == "project-1234"
+    assert new_table_ref.dataset == "dataset-4567"
 
-    table_ref = BigQueryTableRef("project-1234", "dataset-4567", "foo")
-    new_table_ref = table_ref.remove_extras(_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX)
+    table_ref = BigQueryTableRef(BigqueryTableIdentifier("project-1234", "dataset-4567", "foo"))
+    new_table_ref = BigqueryTableIdentifier.from_string_name(table_ref.table_identifier.get_table())
     assert new_table_ref.table == "foo"
-    assert new_table_ref.project == table_ref.project
-    assert new_table_ref.dataset == table_ref.dataset
+    assert new_table_ref.project_id == "project-1234"
+    assert new_table_ref.dataset == "dataset-4567"
 
-    table_ref = BigQueryTableRef("project-1234", "dataset-4567", "foo_2016*")
-    new_table_ref = table_ref.remove_extras(_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX)
+    table_ref = BigQueryTableRef(BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_2016*"))
+    new_table_ref = BigqueryTableIdentifier.from_string_name(table_ref.table_identifier.get_table())
     assert new_table_ref.table == "foo"
-    assert new_table_ref.project == table_ref.project
-    assert new_table_ref.dataset == table_ref.dataset
+    assert new_table_ref.project_id == "project-1234"
+    assert new_table_ref.dataset == "dataset-4567"
