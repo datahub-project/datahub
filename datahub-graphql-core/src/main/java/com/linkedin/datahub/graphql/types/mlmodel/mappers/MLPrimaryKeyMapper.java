@@ -20,6 +20,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapp
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -55,6 +56,9 @@ public class MLPrimaryKeyMapper implements ModelMapper<EntityResponse, MLPrimary
         result.setUrn(entityResponse.getUrn().toString());
         result.setType(EntityType.MLPRIMARY_KEY);
         EnvelopedAspectMap aspectMap = entityResponse.getAspects();
+        Long lastIngested = SystemMetadataUtils.getLastIngested(aspectMap);
+        result.setLastIngested(lastIngested);
+
         MappingHelper<MLPrimaryKey> mappingHelper = new MappingHelper<>(aspectMap, result);
         mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (mlPrimaryKey, dataMap) ->
             mlPrimaryKey.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
