@@ -1,6 +1,6 @@
 # Browse Paths Upgrade (August 2022)
 
-## Context
+## Background
 
 Up to this point, there's been a historical constraint on all entity browse paths. Namely, each browse path has been
 required to end with a path component that represents "simple name" for an entity. For example, a Browse Path for a 
@@ -83,8 +83,9 @@ If the migration is successful, you'll see the following in your GMS logs:
 
 After this one-time migration is complete, you should be able to navigate the Browse hierarchy exactly as you did previously. 
 
-> Note that a select set of ingestion sources actively produce their own Browse Paths, which overrides the default path
-> computed by DataHub. We will be rolling out upgrades to each of these sources to produce the new Browse Path format. 
+> Note that certain ingestion sources actively produce their own Browse Paths, which overrides the default path
+> computed by DataHub. 
+> 
 > In these cases, getting the updated Browse Path will require re-running your ingestion process with the updated
 > version of the connector. This is discussed in more detail in the next section. 
 
@@ -93,13 +94,14 @@ After this one-time migration is complete, you should be able to navigate the Br
 If you are actively ingesting metadata from one or more of following sources
 
 1. Sagemaker
-2. Looker
+2. Looker / LookML
 3. Feast
 4. Kafka
 5. Mode
 6. PowerBi
 7. Pulsar
 8. Tableau
+9. Business Glossary
 
 You will need to upgrade the DataHub CLI to >= `v0.8.44` and re-run metadata ingestion. This will generate the new browse path format
 and overwrite the existing paths for entities that were extracted from these sources. 
@@ -122,6 +124,10 @@ You can simply remove the final "suffix" piece:
 Your users will be able to find the entity by traversing through these folders in the UI:
 
 `my` > `custom` > `browse`> `path` > `Click Entity`.
+
+
+> Note that if you are using the Browse Path Transformer you *will* be impacted in the same way. It is recommended that you revisit the
+> paths that you are producing, and update them to the new format. 
 
 ## Support
 
