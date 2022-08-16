@@ -169,18 +169,9 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
                     <Typography.Paragraph ellipsis>
                         <pre>{`${logs}${!showExpandedLogs ? '...' : ''}`}</pre>
                         {isOutputExpandable && (
-                            <>
-                                {!showExpandedLogs && (
-                                    <ShowMoreButton type="link" onClick={() => setShowExpandedLogs(true)}>
-                                        Show More
-                                    </ShowMoreButton>
-                                )}
-                                {showExpandedLogs && (
-                                    <ShowMoreButton type="link" onClick={() => setShowExpandedLogs(false)}>
-                                        Hide
-                                    </ShowMoreButton>
-                                )}
-                            </>
+                            <ShowMoreButton type="link" onClick={() => setShowExpandedLogs(!showExpandedLogs)}>
+                                {showExpandedLogs ? 'Hide' : 'Show More'}
+                            </ShowMoreButton>
                         )}
                     </Typography.Paragraph>
                 </LogsSection>

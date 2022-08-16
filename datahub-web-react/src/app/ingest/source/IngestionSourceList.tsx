@@ -95,6 +95,7 @@ export const IngestionSourceList = () => {
     const [lastRefresh, setLastRefresh] = useState(0);
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
+    const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
 
     // Ingestion Source Queries
     const { loading, error, data, refetch } = useListIngestionSourcesQuery({
@@ -124,8 +125,6 @@ export const IngestionSourceList = () => {
         // Used to force a re-render of the child execution request list.
         setLastRefresh(new Date().getMilliseconds());
     }, [refetch]);
-
-    const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         const runningSource = filteredSources.find((source) =>
