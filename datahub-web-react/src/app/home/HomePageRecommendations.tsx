@@ -62,6 +62,13 @@ const NoMetadataContainer = styled.div`
     align-items: center;
 `;
 
+const DomainsRecomendationContainer = styled.div`
+    margin-top: -48px;
+    margin-bottom: 32px;
+    max-width: 1000px;
+    min-width: 750px;
+`;
+
 type Props = {
     userUrn: string;
 };
@@ -122,7 +129,7 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
                 <RecommendationContainer>
                     {domainRecommendationModule && (
                         <>
-                            <RecommendationContainer>
+                            <DomainsRecomendationContainer>
                                 <RecommendationTitle level={4}>{domainRecommendationModule.title}</RecommendationTitle>
                                 <ThinDivider />
                                 <RecommendationModule
@@ -130,7 +137,7 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
                                     scenarioType={scenario}
                                     showTitle={false}
                                 />
-                            </RecommendationContainer>
+                            </DomainsRecomendationContainer>
                         </>
                     )}
                     <RecommendationTitle level={4}>Explore your Metadata</RecommendationTitle>
