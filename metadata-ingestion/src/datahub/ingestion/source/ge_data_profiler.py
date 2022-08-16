@@ -528,14 +528,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         assert profile.rowCount is not None
         row_count: int = profile.rowCount
 
-        telemetry.telemetry_instance.ping(
-            "profile_sql_table",
-            # bucket by taking floor of log of the number of rows scanned
-            {
-                "rows_profiled": stats.discretize(row_count),
-            },
-        )
-
         for column_spec in columns_profiling_queue:
             column = column_spec.column
             column_profile = column_spec.column_profile
@@ -663,6 +655,7 @@ class DatahubGEProfiler:
     report: SQLSourceReport
     config: GEProfilingConfig
     times_taken: List[float]
+    total_row_count: int
 
     base_engine: Engine
     platform: str  # passed from parent source config
@@ -680,6 +673,7 @@ class DatahubGEProfiler:
         self.report = report
         self.config = config
         self.times_taken = []
+        self.total_row_count = 0
 
         # TRICKY: The call to `.engine` is quite important here. Connection.connect()
         # returns a "branched" connection, which does not actually use a new underlying
@@ -797,6 +791,7 @@ class DatahubGEProfiler:
                         {
                             "total_time_taken": stats.discretize(total_time_taken),
                             "count": stats.discretize(len(self.times_taken)),
+                            "total_row_count": stats.discretize(self.total_row_count),
                             "platform": self.platform,
                             **time_percentiles,
                         },
@@ -930,6 +925,8 @@ class DatahubGEProfiler:
                     f"Finished profiling {pretty_name}; took {time_taken:.3f} seconds"
                 )
                 self.times_taken.append(time_taken)
+                if profile.rowCount is not None:
+                    self.total_row_count += profile.rowCount
 
                 return profile
             except Exception as e:
