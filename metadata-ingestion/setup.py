@@ -290,6 +290,7 @@ plugins: Dict[str, Set[str]] = {
     | {
         "more-itertools>=8.12.0",
     },
+    "snowflake-beta": snowflake_common | usage_common,
     "sqlalchemy": sql_common,
     "superset": {
         "requests",
@@ -499,6 +500,7 @@ entry_points = {
         "redshift-usage = datahub.ingestion.source.usage.redshift_usage:RedshiftUsageSource",
         "snowflake = datahub.ingestion.source.sql.snowflake:SnowflakeSource",
         "snowflake-usage = datahub.ingestion.source.usage.snowflake_usage:SnowflakeUsageSource",
+        "snowflake-beta = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "tableau = datahub.ingestion.source.tableau:TableauSource",
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
