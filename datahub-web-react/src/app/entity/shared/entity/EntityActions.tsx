@@ -53,9 +53,7 @@ function EntityActions(props: Props) {
                             content: `Added Glossary Term to entities!`,
                             duration: 2,
                         });
-                        if (refetchForEntity) {
-                            refetchForEntity();
-                        }
+                        refetchForEntity?.();
                     }, 3000);
                 }
             })
@@ -86,9 +84,7 @@ function EntityActions(props: Props) {
                             content: `Added assets to Domain!`,
                             duration: 3,
                         });
-                        if (refetchForEntity) {
-                            refetchForEntity();
-                        }
+                        refetchForEntity?.();
                     }, 3000);
                 }
             })
