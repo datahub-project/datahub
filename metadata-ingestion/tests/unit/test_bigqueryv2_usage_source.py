@@ -3,7 +3,11 @@ import os
 
 from freezegun import freeze_time
 
-from datahub.ingestion.source.bigquery.bigquery_audit import BigQueryTableRef, BigqueryTableIdentifier, BQ_AUDIT_V2
+from datahub.ingestion.source.bigquery.bigquery_audit import (
+    BigQueryTableRef,
+    BigqueryTableIdentifier,
+    BQ_AUDIT_V2,
+)
 from datahub.ingestion.source.bigquery.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery.usage import BigQueryUsageExtractor
@@ -29,9 +33,7 @@ def test_bigqueryv2_uri_with_credential():
     config = BigQueryV2Config.parse_obj(
         {
             "project_id": "test-project",
-            "stateful_ingestion": {
-                "enabled": False
-            },
+            "stateful_ingestion": {"enabled": False},
             "credential": {
                 "project_id": "test-project",
                 "private_key_id": "test-private-key",
@@ -61,20 +63,20 @@ def test_bigqueryv2_uri_with_credential():
 
 @freeze_time(FROZEN_TIME)
 def test_bigqueryv2_filters_with_allow_filter():
-    config = BigQueryV2Config.parse_obj( {
-        "project_id": "test-project",
-        "stateful_ingestion": {
-            "enabled": False
-        },
-        "credential": {
+    config = BigQueryV2Config.parse_obj(
+        {
             "project_id": "test-project",
-            "private_key_id": "test-private-key",
-            "private_key": "random_private_key",
-            "client_email": "test@acryl.io",
-            "client_id": "test_client-id",
-        },
-        "table_pattern": {"allow": ["test-regex", "test-regex-1"], "deny": []},
-    })
+            "stateful_ingestion": {"enabled": False},
+            "credential": {
+                "project_id": "test-project",
+                "private_key_id": "test-private-key",
+                "private_key": "random_private_key",
+                "client_email": "test@acryl.io",
+                "client_id": "test_client-id",
+            },
+            "table_pattern": {"allow": ["test-regex", "test-regex-1"], "deny": []},
+        }
+    )
     expected_filter: str = """resource.type=(\"bigquery_project\" OR \"bigquery_dataset\")
 AND
 (
@@ -114,20 +116,22 @@ timestamp < \"2021-07-21T00:15:00Z\""""  # noqa: W293
 
 @freeze_time(FROZEN_TIME)
 def test_bigqueryv2_filters_with_deny_filter():
-    config = BigQueryV2Config.parse_obj({
-        "project_id": "test-project",
-        "credential": {
+    config = BigQueryV2Config.parse_obj(
+        {
             "project_id": "test-project",
-            "private_key_id": "test-private-key",
-            "private_key": "random_private_key",
-            "client_email": "test@acryl.io",
-            "client_id": "test_client-id",
-        },
-        "table_pattern": {
-            "allow": ["test-regex", "test-regex-1"],
-            "deny": ["excluded_table_regex", "excluded-regex-2"],
-        },
-    })
+            "credential": {
+                "project_id": "test-project",
+                "private_key_id": "test-private-key",
+                "private_key": "random_private_key",
+                "client_email": "test@acryl.io",
+                "client_id": "test_client-id",
+            },
+            "table_pattern": {
+                "allow": ["test-regex", "test-regex-1"],
+                "deny": ["excluded_table_regex", "excluded-regex-2"],
+            },
+        }
+    )
     expected_filter: str = """resource.type=(\"bigquery_project\" OR \"bigquery_dataset\")
 AND
 (
@@ -168,32 +172,52 @@ timestamp < \"2021-07-21T00:15:00Z\""""  # noqa: W293
 
 
 def test_bigquery_table_sanitasitation():
-    table_ref = BigQueryTableRef(BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_*"))
-    new_table_ref = BigqueryTableIdentifier.from_string_name(table_ref.table_identifier.get_table())
+    table_ref = BigQueryTableRef(
+        BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_*")
+    )
+    new_table_ref = BigqueryTableIdentifier.from_string_name(
+        table_ref.table_identifier.get_table()
+    )
     assert new_table_ref.table == "foo"
     assert new_table_ref.project_id == "project-1234"
     assert new_table_ref.dataset == "dataset-4567"
 
-    table_ref = BigQueryTableRef(BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_2022"))
-    new_table_ref = BigqueryTableIdentifier.from_string_name(table_ref.table_identifier.get_table())
+    table_ref = BigQueryTableRef(
+        BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_2022")
+    )
+    new_table_ref = BigqueryTableIdentifier.from_string_name(
+        table_ref.table_identifier.get_table()
+    )
     assert new_table_ref.table == "foo"
     assert new_table_ref.project_id == "project-1234"
     assert new_table_ref.dataset == "dataset-4567"
 
-    table_ref = BigQueryTableRef(BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_20222110"))
-    new_table_ref = BigqueryTableIdentifier.from_string_name(table_ref.table_identifier.get_table())
+    table_ref = BigQueryTableRef(
+        BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_20222110")
+    )
+    new_table_ref = BigqueryTableIdentifier.from_string_name(
+        table_ref.table_identifier.get_table()
+    )
     assert new_table_ref.table == "foo"
     assert new_table_ref.project_id == "project-1234"
     assert new_table_ref.dataset == "dataset-4567"
 
-    table_ref = BigQueryTableRef(BigqueryTableIdentifier("project-1234", "dataset-4567", "foo"))
-    new_table_ref = BigqueryTableIdentifier.from_string_name(table_ref.table_identifier.get_table())
+    table_ref = BigQueryTableRef(
+        BigqueryTableIdentifier("project-1234", "dataset-4567", "foo")
+    )
+    new_table_ref = BigqueryTableIdentifier.from_string_name(
+        table_ref.table_identifier.get_table()
+    )
     assert new_table_ref.table == "foo"
     assert new_table_ref.project_id == "project-1234"
     assert new_table_ref.dataset == "dataset-4567"
 
-    table_ref = BigQueryTableRef(BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_2016*"))
-    new_table_ref = BigqueryTableIdentifier.from_string_name(table_ref.table_identifier.get_table())
+    table_ref = BigQueryTableRef(
+        BigqueryTableIdentifier("project-1234", "dataset-4567", "foo_2016*")
+    )
+    new_table_ref = BigqueryTableIdentifier.from_string_name(
+        table_ref.table_identifier.get_table()
+    )
     assert new_table_ref.table == "foo"
     assert new_table_ref.project_id == "project-1234"
     assert new_table_ref.dataset == "dataset-4567"

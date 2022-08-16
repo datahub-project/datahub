@@ -8,7 +8,7 @@ from datahub.ingestion.source.usage.bigquery_usage import (
     BQ_AUDIT_V1,
     BigQueryTableRef,
     BigQueryUsageConfig,
-    BigQueryUsageSource, BQ_AUDIT_V2,
+    BigQueryUsageSource,
 )
 from datahub.ingestion.source_config.bigquery import (
     _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
@@ -75,52 +75,45 @@ def test_bigquery_filters_with_allow_filter():
         },
         "table_pattern": {"allow": ["test-regex", "test-regex-1"], "deny": []},
     }
-    expected_filter: str = """resource.type=(\"bigquery_project\" OR \"bigquery_dataset\")
+    expected_filter: str = """protoPayload.serviceName="bigquery.googleapis.com"
 AND
 (
     (
-        protoPayload.methodName=
-            (
-                \"google.cloud.bigquery.v2.JobService.Query\"
-                OR
-                \"google.cloud.bigquery.v2.JobService.InsertJob\"
-            )
+        protoPayload.methodName="jobservice.jobcompleted"
         AND
-        protoPayload.metadata.jobChange.job.jobStatus.jobState=\"DONE\"
-        AND NOT protoPayload.metadata.jobChange.job.jobStatus.errorResult:*
-        AND protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
-         AND (
-            
-protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ \"projects/.*/datasets/.*/tables/test-regex|test-regex-1\"
-
-            
-AND
-protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables !~ \"projects/.*/datasets/.*/tables/__TABLES_SUMMARY__|INFORMATION_SCHEMA\"
-
-                OR
-            protoPayload.metadata.tableDataRead.reason = \"JOB\"
-        )
+        protoPayload.serviceData.jobCompletedEvent.eventName="query_job_completed"
+        AND
+        protoPayload.serviceData.jobCompletedEvent.job.jobStatus.state="DONE"
+        AND
+        NOT protoPayload.serviceData.jobCompletedEvent.job.jobStatus.error.code:*
     )
     OR
     (
         protoPayload.metadata.tableDataRead:*
     )
 )
+AND (
+    
+protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.tableId =~ "test-regex|test-regex-1"
+
+    
 AND
-timestamp >= \"2021-07-18T23:45:00Z\"
+protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.tableId !~ "__TABLES_SUMMARY__|INFORMATION_SCHEMA"
+
+    OR
+    protoPayload.metadata.tableDataRead.reason = "JOB"
+)
 AND
-<<<<<<< HEAD
+timestamp >= "2021-07-18T23:45:00Z"
+AND
 timestamp < "2021-07-20T00:15:00Z\""""  # noqa: W293
-=======
-timestamp < \"2021-07-21T00:15:00Z\""""  # noqa: W293
->>>>>>> 4e084234ba (Adding filter generation, tests, etc..)
 
     source = BigQueryUsageSource.create(config, PipelineContext(run_id="bq-usage-test"))
 
     # source: BigQueryUsageSource = BigQueryUsageSource(
     #    config=config, ctx=PipelineContext(run_id="test")
     # )
-    filter: str = source._generate_filter(BQ_AUDIT_V2)
+    filter: str = source._generate_filter(BQ_AUDIT_V1)
     assert filter == expected_filter
 
 
@@ -140,47 +133,40 @@ def test_bigquery_filters_with_deny_filter():
             "deny": ["excluded_table_regex", "excluded-regex-2"],
         },
     }
-    expected_filter: str = """resource.type=(\"bigquery_project\" OR \"bigquery_dataset\")
+    expected_filter: str = """protoPayload.serviceName="bigquery.googleapis.com"
 AND
 (
     (
-        protoPayload.methodName=
-            (
-                \"google.cloud.bigquery.v2.JobService.Query\"
-                OR
-                \"google.cloud.bigquery.v2.JobService.InsertJob\"
-            )
+        protoPayload.methodName="jobservice.jobcompleted"
         AND
-        protoPayload.metadata.jobChange.job.jobStatus.jobState=\"DONE\"
-        AND NOT protoPayload.metadata.jobChange.job.jobStatus.errorResult:*
-        AND protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
-         AND (
-            
-protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ \"projects/.*/datasets/.*/tables/test-regex|test-regex-1\"
-
-            
-AND
-protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables !~ \"projects/.*/datasets/.*/tables/__TABLES_SUMMARY__|INFORMATION_SCHEMA|excluded_table_regex|excluded-regex-2\"
-
-                OR
-            protoPayload.metadata.tableDataRead.reason = \"JOB\"
-        )
+        protoPayload.serviceData.jobCompletedEvent.eventName="query_job_completed"
+        AND
+        protoPayload.serviceData.jobCompletedEvent.job.jobStatus.state="DONE"
+        AND
+        NOT protoPayload.serviceData.jobCompletedEvent.job.jobStatus.error.code:*
     )
     OR
     (
         protoPayload.metadata.tableDataRead:*
     )
 )
+AND (
+    
+protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.tableId =~ "test-regex|test-regex-1"
+
+    
 AND
-timestamp >= \"2021-07-18T23:45:00Z\"
+protoPayload.serviceData.jobCompletedEvent.job.jobStatistics.referencedTables.tableId !~ "__TABLES_SUMMARY__|INFORMATION_SCHEMA|excluded_table_regex|excluded-regex-2"
+
+    OR
+    protoPayload.metadata.tableDataRead.reason = "JOB"
+)
 AND
-<<<<<<< HEAD
+timestamp >= "2021-07-18T23:45:00Z"
+AND
 timestamp < "2021-07-20T00:15:00Z\""""  # noqa: W293
-=======
-timestamp < \"2021-07-21T00:15:00Z\""""  # noqa: W293
->>>>>>> 4e084234ba (Adding filter generation, tests, etc..)
     source = BigQueryUsageSource.create(config, PipelineContext(run_id="bq-usage-test"))
-    filter: str = source._generate_filter(BQ_AUDIT_V2)
+    filter: str = source._generate_filter(BQ_AUDIT_V1)
     assert filter == expected_filter
 
 
