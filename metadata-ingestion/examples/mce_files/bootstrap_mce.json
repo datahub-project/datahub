@@ -83,7 +83,8 @@
               "email": "jdoe@linkedin.com",
               "admins": ["urn:li:corpuser:jdoe", "urn:li:corpuser:datahub"],
               "members": ["urn:li:corpuser:jdoe", "urn:li:corpuser:datahub"],
-              "groups": []
+              "groups": [],
+              "slack":  "bfoo-squad"
             }
           }
         ]

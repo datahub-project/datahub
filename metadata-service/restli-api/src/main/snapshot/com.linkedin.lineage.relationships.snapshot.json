@@ -29,6 +29,11 @@
       "type" : "Urn",
       "doc" : "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
       "optional" : true
+    }, {
+      "name" : "message",
+      "type" : "string",
+      "doc" : "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually.",
+      "optional" : true
     } ]
   }, {
     "type" : "record",

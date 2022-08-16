@@ -13,9 +13,10 @@ The architecture of this metadata ingestion framework is heavily inspired by [Ap
 ### Requirements
 
 1. Python 3.7+ must be installed in your host environment.
-2. On MacOS: `brew install librdkafka`
-3. On Debian/Ubuntu: `sudo apt install librdkafka-dev python3-dev python3-venv`
-4. On Fedora (if using LDAP source integration): `sudo yum install openldap-devel`
+2. Java8 (gradle won't work with newer versions)
+3. On MacOS: `brew install librdkafka`
+4. On Debian/Ubuntu: `sudo apt install librdkafka-dev python3-dev python3-venv`
+5. On Fedora (if using LDAP source integration): `sudo yum install openldap-devel`
 
 ### Set up your Python environment
 
@@ -25,7 +26,7 @@ From the repository root:
 cd metadata-ingestion
 ../gradlew :metadata-ingestion:installDev
 source venv/bin/activate
-datahub version  # should print "version: unavailable (installed via git)"
+datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
 ```
 
 ### Common setup issues

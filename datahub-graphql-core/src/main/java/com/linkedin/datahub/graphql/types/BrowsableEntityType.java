@@ -27,6 +27,7 @@ public interface BrowsableEntityType<T extends Entity, K> extends EntityType<T, 
      * @param count the number of results to retrieve
      * @param context the {@link QueryContext} corresponding to the request.
      */
+    @Nonnull
     BrowseResults browse(@Nonnull List<String> path,
                          @Nullable List<FacetFilterInput> filters,
                          int start,
@@ -39,6 +40,7 @@ public interface BrowsableEntityType<T extends Entity, K> extends EntityType<T, 
      * @param urn the entity urn to fetch browse paths for
      * @param context the {@link QueryContext} corresponding to the request.
      */
+    @Nonnull
     List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull final QueryContext context) throws Exception;
 
 }

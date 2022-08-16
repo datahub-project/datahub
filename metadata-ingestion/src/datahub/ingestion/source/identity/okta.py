@@ -46,13 +46,11 @@ logger = logging.getLogger(__name__)
 class OktaConfig(ConfigModel):
     # Required: Domain of the Okta deployment. Example: dev-33231928.okta.com
     okta_domain: str = Field(
-        default="dev-33231928.okta.com",
-        description="The location of your Okta Domain, without a protocol. Can be found in Okta Developer console.",
+        description="The location of your Okta Domain, without a protocol. Can be found in Okta Developer console. e.g. dev-33231928.okta.com",
     )
     # Required: An API token generated from Okta.
     okta_api_token: str = Field(
-        default="00be4R_M2MzDqXawbWgfKGpKee0kuEOfX1RCQSRx00",
-        description="An API token generated for the DataHub application inside your Okta Developer Console.",
+        description="An API token generated for the DataHub application inside your Okta Developer Console. e.g. 00be4R_M2MzDqXawbWgfKGpKee0kuEOfX1RCQSRx00",
     )
 
     # Optional: Whether to ingest users, groups, or both.
@@ -263,8 +261,15 @@ class OktaSource(Source):
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
 
-        # Step 0: create the event loop
-        event_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        # Step 0: get or create the event loop
+        # This method can be called on the main thread or an async thread, so we must create a new loop if one doesn't exist
+        # See https://docs.python.org/3/library/asyncio-eventloop.html for more info.
+
+        try:
+            event_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        except RuntimeError:
+            event_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(event_loop)
 
         # Step 1: Produce MetadataWorkUnits for CorpGroups.
         if self.config.ingest_groups:

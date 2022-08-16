@@ -2,6 +2,7 @@ query getChart($urn: String!) {
     chart(urn: $urn) {
         urn
         type
+        lastIngested
         tool
         chartId
         platform {
