@@ -40,13 +40,3 @@ class BigQueryReport(SQLSourceReport):
     profile_table_selection_criteria: Dict[str, str] = field(default_factory=dict)
     selected_profile_tables: Dict[str, List[str]] = field(default_factory=dict)
     invalid_partition_ids: Dict[str, str] = field(default_factory=dict)
-    allow_pattern: Optional[str] = None
-    deny_pattern: Optional[str] = None
-    num_usage_workunits_emitted: Optional[int] = None
-    num_operational_stats_workunits_emitted: Optional[int] = None
-    read_reasons_stat: Counter[str] = dataclasses.field(
-        default_factory=collections.Counter
-    )
-    operation_types_stat: Counter[str] = dataclasses.field(
-        default_factory=collections.Counter
-    )
