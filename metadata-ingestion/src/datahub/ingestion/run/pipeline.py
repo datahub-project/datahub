@@ -152,6 +152,7 @@ class Pipeline:
         )
         self.pipeline_init_failures = None
         self.pipeline_init_exception = None
+        self.reporters: List[IngestionRunSummaryReporter] = []
 
         sink_type = self.config.sink.type
         try:
@@ -224,7 +225,6 @@ class Pipeline:
                 )
 
     def _configure_reporting(self) -> None:
-        self.reporters: List[IngestionRunSummaryReporter] = []
         if self.config.reporting is None:
             return
 
@@ -273,13 +273,13 @@ class Pipeline:
         )
 
     def run(self) -> None:
+        if self.pipeline_init_failures:
+            # no point continuing, return early
+            return
+
         self._notify_repoters_on_ingestion_start()
         try:
             callback = LoggingCallback()
-            if self.pipeline_init_failures:
-                # no point continuing, return early
-                return
-
             extractor: Extractor = self.extractor_class()
             for wu in itertools.islice(
                 self.source.get_workunits(),
