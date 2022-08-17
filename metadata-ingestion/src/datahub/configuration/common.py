@@ -10,6 +10,7 @@ from pydantic.fields import Field
 class ConfigModel(BaseModel):
     class Config:
         extra = Extra.forbid
+        underscore_attrs_are_private = True
 
 
 class TransformerSemantics(Enum):

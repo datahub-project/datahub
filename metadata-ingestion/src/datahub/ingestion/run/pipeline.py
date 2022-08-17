@@ -6,7 +6,7 @@ import uuid
 from typing import Any, Dict, Iterable, List, Optional
 
 import click
-from pydantic import root_validator, validator
+from pydantic import Field, root_validator, validator
 
 from datahub.cli.cli_utils import get_url_and_token
 from datahub.configuration import config_loader
@@ -38,6 +38,13 @@ class SourceConfig(DynamicTypedConfig):
     extractor: str = "generic"
 
 
+class ReporterConfig(DynamicTypedConfig):
+    required: bool = Field(
+        False,
+        description="Whether the reporter is a required reporter or not. If not required, then configuration and reporting errors will be treated as warnings, not errors",
+    )
+
+
 class PipelineConfig(ConfigModel):
     # Once support for discriminated unions gets merged into Pydantic, we can
     # simplify this configuration and validation.
@@ -46,10 +53,14 @@ class PipelineConfig(ConfigModel):
     source: SourceConfig
     sink: DynamicTypedConfig
     transformers: Optional[List[DynamicTypedConfig]]
-    reporting: Optional[List[DynamicTypedConfig]] = None
+    reporting: Optional[List[ReporterConfig]] = None
     run_id: str = "__DEFAULT_RUN_ID"
     datahub_api: Optional[DatahubClientConfig] = None
     pipeline_name: Optional[str] = None
+
+    _raw_dict: Optional[
+        dict
+    ] = None  # the raw dict that was parsed to construct this config
 
     @validator("run_id", pre=True, always=True)
     def run_id_should_be_semantic(
@@ -95,6 +106,14 @@ class PipelineConfig(ConfigModel):
                 sink_config = values["sink"].config
                 v = DatahubClientConfig.parse_obj(sink_config)
         return v
+
+    @classmethod
+    def from_dict(
+        cls, resolved_dict: dict, raw_dict: Optional[dict]
+    ) -> "PipelineConfig":
+        config = cls.parse_obj(resolved_dict)
+        config._raw_dict = raw_dict
+        return config
 
 
 class LoggingCallback(WriteCallback):
@@ -230,19 +249,30 @@ class Pipeline:
 
     def _configure_reporting(self) -> None:
         if self.config.reporting is None:
-            return
+            # if reporting is not specified we add the default reporter
+            self.config.reporting = [ReporterConfig.parse_obj({"type": "datahub"})]
 
         for reporter in self.config.reporting:
             reporter_type = reporter.type
             reporter_class = reporting_provider_registry.get(reporter_type)
             reporter_config_dict = reporter.dict().get("config", {})
-            self.reporters.append(
-                reporter_class.create(
-                    config_dict=reporter_config_dict,
-                    ctx=self.ctx,
+            try:
+                self.reporters.append(
+                    reporter_class.create(
+                        config_dict=reporter_config_dict,
+                        ctx=self.ctx,
+                    )
                 )
-            )
-            logger.debug(f"Reporter type:{reporter_type},{reporter_class} configured.")
+                logger.debug(
+                    f"Reporter type:{reporter_type},{reporter_class} configured."
+                )
+            except Exception as e:
+                if reporter.required:
+                    raise
+                else:
+                    logger.warning(
+                        f"Failed to configure reporter: {reporter_type}", exc_info=e
+                    )
 
     def _notify_reporters_on_ingestion_start(self) -> None:
         for reporter in self.reporters:
@@ -273,8 +303,9 @@ class Pipeline:
         preview_mode: bool = False,
         preview_workunits: int = 10,
         report_to: Optional[str] = None,
+        raw_config: Optional[dict] = None,
     ) -> "Pipeline":
-        config = PipelineConfig.parse_obj(config_dict)
+        config = PipelineConfig.from_dict(config_dict, raw_config)
         return cls(
             config,
             dry_run=dry_run,

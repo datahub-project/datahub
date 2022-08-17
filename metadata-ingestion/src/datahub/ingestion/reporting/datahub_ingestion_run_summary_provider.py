@@ -89,7 +89,9 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
                 getattr(ctx.pipeline_config.source, "platform", "unknown")
             ),
             config=DataHubIngestionSourceConfigClass(
-                recipe=ctx.pipeline_config.json(),
+                recipe=json.dumps(ctx.pipeline_config._raw_dict)
+                if ctx.pipeline_config._raw_dict
+                else "",
                 version=nice_version_name(),
                 executorId=self._EXECUTOR_ID,
             ),
@@ -121,7 +123,9 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         execution_input_aspect = ExecutionRequestInputClass(
             task=self._INGESTION_TASK_NAME,
             args={
-                "recipe": ctx.pipeline_config.json(),
+                "recipe": json.dumps(ctx.pipeline_config._raw_dict)
+                if ctx.pipeline_config._raw_dict
+                else "",
                 "version": nice_version_name(),
             },
             executorId=self._EXECUTOR_ID,
@@ -149,7 +153,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
             status=status,
             startTimeMs=self.start_time_ms,
             durationMs=self.get_cur_time_in_ms() - self.start_time_ms,
-            report=json.dumps(report),
+            report=json.dumps(report, indent=2),
         )
 
         # Emit the dataHubExecutionRequestResult aspect

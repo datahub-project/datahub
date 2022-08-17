@@ -169,14 +169,23 @@ def run(
     logger.info("DataHub CLI version: %s", datahub_package.nice_version_name())
 
     config_file = pathlib.Path(config)
-    pipeline_config = load_config_file(config_file)
+    pipeline_config = load_config_file(
+        config_file, squirrel_original_config=True, squirrel_field="__raw_config"
+    )
+    raw_pipeline_config = pipeline_config["__raw_config"]
+    pipeline_config = {k: v for k, v in pipeline_config.items() if k != "__raw_config"}
     if test_source_connection:
         _test_source_connection(report_to, pipeline_config)
 
     try:
         logger.debug(f"Using config: {pipeline_config}")
         pipeline = Pipeline.create(
-            pipeline_config, dry_run, preview, preview_workunits, report_to
+            pipeline_config,
+            dry_run,
+            preview,
+            preview_workunits,
+            report_to,
+            raw_pipeline_config,
         )
     except Exception as e:
         # The pipeline_config may contain sensitive information, so we wrap the exception
