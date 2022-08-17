@@ -58,8 +58,8 @@ from datahub.ingestion.source.aws.s3_util import (
     get_key_prefix,
     strip_s3_prefix,
 )
-from datahub.ingestion.source.data_lake.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig, PathSpec
+from datahub.ingestion.source.s3.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.s3.profiling import _SingleTableProfiler
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet

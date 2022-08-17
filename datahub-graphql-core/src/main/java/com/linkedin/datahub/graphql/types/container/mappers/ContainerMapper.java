@@ -19,6 +19,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
@@ -39,6 +40,8 @@ public class ContainerMapper {
     final Container result = new Container();
     final Urn entityUrn = entityResponse.getUrn();
     final EnvelopedAspectMap aspects = entityResponse.getAspects();
+    Long lastIngested = SystemMetadataUtils.getLastIngested(aspects);
+    result.setLastIngested(lastIngested);
 
     result.setUrn(entityUrn.toString());
     result.setType(EntityType.CONTAINER);

@@ -11,6 +11,8 @@ import {
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
+    getExecutionRequestSummaryText,
+    RUNNING,
     SUCCESS,
 } from './utils';
 
@@ -89,7 +91,7 @@ type Props = {
 
 export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
     const [showExpandedLogs, setShowExpandedLogs] = useState(true);
-    const { data, loading, error } = useGetIngestionExecutionRequestQuery({ variables: { urn } });
+    const { data, loading, error, refetch } = useGetIngestionExecutionRequestQuery({ variables: { urn } });
     const output = data?.executionRequest?.result?.report || 'No output found.';
 
     useEffect(() => {
@@ -105,6 +107,14 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
     const logs = (showExpandedLogs && output) || output.slice(0, 100);
     const result = data?.executionRequest?.result?.status;
 
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (result === RUNNING) refetch();
+        }, 2000);
+
+        return () => clearInterval(interval);
+    });
+
     const ResultIcon = result && getExecutionRequestStatusIcon(result);
     const resultColor = result && getExecutionRequestStatusDisplayColor(result);
     const resultText = result && (
@@ -114,12 +124,9 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
         </Typography.Text>
     );
     const resultSummaryText =
-        (result && (
-            <Typography.Text type="secondary">
-                Ingestion {result === SUCCESS ? 'successfully completed' : 'completed with errors'}.
-            </Typography.Text>
-        )) ||
+        (result && <Typography.Text type="secondary">{getExecutionRequestSummaryText(result)}</Typography.Text>) ||
         undefined;
+    const isOutputExpandable = output.length > 100;
 
     return (
         <Modal
@@ -160,10 +167,10 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
                         </Button>
                     </SectionSubHeader>
                     <Typography.Paragraph ellipsis>
-                        <pre>{`${logs}${!showExpandedLogs && '...'}`}</pre>
-                        {!showExpandedLogs && (
-                            <ShowMoreButton type="link" onClick={() => setShowExpandedLogs(true)}>
-                                Show More
+                        <pre>{`${logs}${!showExpandedLogs ? '...' : ''}`}</pre>
+                        {isOutputExpandable && (
+                            <ShowMoreButton type="link" onClick={() => setShowExpandedLogs(!showExpandedLogs)}>
+                                {showExpandedLogs ? 'Hide' : 'Show More'}
                             </ShowMoreButton>
                         )}
                     </Typography.Paragraph>
