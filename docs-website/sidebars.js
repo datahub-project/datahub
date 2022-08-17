@@ -49,6 +49,7 @@ module.exports = {
           "docs/components",
           "docs/architecture/metadata-ingestion",
           "docs/architecture/metadata-serving",
+          "docs/what/mxe",
           // "docs/what/gma",
           // "docs/what/gms",
         ],
@@ -59,7 +60,55 @@ module.exports = {
       "docs/saas",
       "releases",
     ],
-    "Getting Started": ["docs/quickstart", "docs/cli", "docs/debugging"],
+    "Getting Started": ["docs/quickstart", "docs/debugging"],
+    Authentication: [
+      {
+        type: "doc",
+        id: "docs/authentication/README",
+        label: "Overview",
+      },
+      {
+        type: "doc",
+        id: "docs/authentication/concepts",
+        label: "Concepts",
+      },
+      {
+        "Frontend Authentication": [
+          "docs/authentication/guides/jaas",
+          {
+            "OIDC Authentication": [
+              "docs/authentication/guides/sso/configure-oidc-react",
+              "docs/authentication/guides/sso/configure-oidc-react-google",
+              "docs/authentication/guides/sso/configure-oidc-react-okta",
+              "docs/authentication/guides/sso/configure-oidc-react-azure",
+            ],
+          },
+          "docs/authentication/guides/add-users",
+        ],
+      },
+      {
+        type: "doc",
+        id: "docs/authentication/introducing-metadata-service-authentication",
+        label: "Metadata Service Authentication",
+      },
+      {
+        type: "doc",
+        id: "docs/authentication/personal-access-tokens",
+        label: "Personal Access Tokens",
+      },
+    ],
+    Authorization: [
+      {
+        type: "doc",
+        id: "docs/authorization/README",
+        label: "Overview",
+      },
+      {
+        type: "doc",
+        id: "docs/authorization/policies",
+        label: "Access Policies",
+      },
+    ],
     Ingestion: [
       // add a custom label since the default is 'Metadata Ingestion'
       // note that we also have to add the path to this file in sidebarsjs_hardcoded_titles in generateDocsDir.ts
@@ -138,6 +187,13 @@ module.exports = {
       // "docs/what/snapshot",
       // "docs/what/delta",
       // "docs/what/mxe",
+    ],
+    CLI: [
+      {
+        label: "Overview",
+        type: "doc",
+        id: "docs/cli",
+      },
     ],
     "GraphQL API": [
       {
@@ -266,14 +322,13 @@ module.exports = {
       },
     ],
     "Usage Guides": [
-      "docs/policies",
       "docs/domains",
       "docs/ui-ingestion",
       "docs/tags",
       "docs/schema-history",
       "docs/how/search",
-      "docs/how/auth/add-users",
       "docs/how/ui-tabs-guide",
+      "docs/how/business-glossary-guide",
     ],
     "Developer Guides": [
       // TODO: the titles of these should not be in question form in the sidebar
@@ -288,15 +343,7 @@ module.exports = {
       //"docs/how/build-metadata-service",
       //"docs/how/graph-onboarding",
       //"docs/demo/graph-onboarding",
-      {
-        Authentication: [
-          "docs/how/auth/jaas",
-          "docs/how/auth/sso/configure-oidc-react",
-          "docs/how/auth/sso/configure-oidc-react-google",
-          "docs/how/auth/sso/configure-oidc-react-okta",
-          "docs/how/auth/sso/configure-oidc-react-azure",
-        ],
-      },
+      "docs/what/mxe",
       "docs/how/restore-indices",
       "docs/dev-guides/timeline",
       "docs/how/extract-container-logs",
@@ -338,6 +385,7 @@ module.exports = {
     ],
     "Deployment Guides": [
       "docs/how/kafka-config",
+      "datahub-ranger-plugin/README",
       "docker/README",
       "docs/deploy/kubernetes",
       "docker/datahub-upgrade/README",

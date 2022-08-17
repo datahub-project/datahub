@@ -9,15 +9,19 @@ interface CopyUrnProps {
 }
 
 export default function CopyUrn({ urn, isActive, onClick }: CopyUrnProps) {
-    return (
-        <Tooltip title="Copy URN. An URN uniquely identifies an entity on DataHub.">
-            <Button
-                icon={isActive ? <CheckOutlined /> : <CopyOutlined />}
-                onClick={() => {
-                    navigator.clipboard.writeText(urn);
-                    onClick();
-                }}
-            />
-        </Tooltip>
-    );
+    if (navigator.clipboard) {
+        return (
+            <Tooltip title="Copy URN. An URN uniquely identifies an entity on DataHub.">
+                <Button
+                    icon={isActive ? <CheckOutlined /> : <CopyOutlined />}
+                    onClick={() => {
+                        navigator.clipboard.writeText(urn);
+                        onClick();
+                    }}
+                />
+            </Tooltip>
+        );
+    }
+
+    return null;
 }

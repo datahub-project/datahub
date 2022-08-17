@@ -5,6 +5,7 @@ on:
     branches:
       - master
     paths-ignore:
+      - "docker/**"
       - "docs/**"
       - "**.md"
   pull_request:
@@ -16,6 +17,10 @@ on:
       - "**.md"
   release:
     types: [published, edited]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
 
@@ -31,7 +36,7 @@ jobs:
           java-version: 1.8
       - uses: actions/setup-python@v2
         with:
-          python-version: "3.6"
+          python-version: "3.7"
       - name: check datahub-client jar
         run: |
           ./gradlew :metadata-integration:java:datahub-client:build

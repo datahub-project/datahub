@@ -20,16 +20,9 @@ from typing import (
     cast,
 )
 
-try:
-    import grpc
-    import grpc.experimental
-    import networkx as nx
-except ImportError:
-    raise ModuleNotFoundError(
-        "The protobuf_util module requires Python 3.7 or newer because of the"
-        " networkx.algorithms.dag.topological_generations dependency."
-    )
-
+import grpc
+import grpc.experimental
+import networkx as nx
 from google.protobuf.descriptor import (
     Descriptor,
     DescriptorBase,
@@ -365,11 +358,7 @@ def _schema_fields_from_dag(
 
     if generations and generations[0]:
         roots = generations[0]
-        leafs: List = []
-        for node in graph:
-            if graph.out_degree(node) == 0:
-                leafs.append(node)
-
+        leafs: List = [node for node in graph if graph.out_degree(node) == 0]
         type_of_nodes: Dict = nx.get_node_attributes(graph, "node_type")
 
         for root in roots:

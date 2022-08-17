@@ -8,6 +8,7 @@ fragment globalTagsFields on GlobalTags {
                 colorHex
             }
         }
+        associatedUrn
     }
 }
 
@@ -17,16 +18,9 @@ fragment glossaryNode on GlossaryNode {
     properties {
         name
     }
-    children: relationships(
-            input: {
-                types: ["IsPartOf"]
-                direction: INCOMING
-                start: 0
-                count: 1000
-            }
-        ) {
-            count
-        }
+    children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 1000 }) {
+        count
+    }
 }
 
 fragment glossaryTerm on GlossaryTerm {
@@ -46,6 +40,7 @@ fragment glossaryTerms on GlossaryTerms {
         term {
             ...glossaryTerm
         }
+        associatedUrn
     }
 }
 
@@ -154,6 +149,7 @@ fragment ownershipFields on Ownership {
             }
         }
         type
+        associatedUrn
     }
     lastModified {
         time
@@ -181,6 +177,7 @@ fragment nonRecursiveDatasetFields on Dataset {
     type
     origin
     uri
+    lastIngested
     platform {
         ...platformFields
     }
@@ -207,9 +204,6 @@ fragment nonRecursiveDatasetFields on Dataset {
         ...institutionalMemoryFields
     }
     schemaMetadata(version: 0) {
-        ...schemaMetadataFields
-    }
-    previousSchemaMetadata: schemaMetadata(version: -1) {
         ...schemaMetadataFields
     }
     editableSchemaMetadata {
@@ -299,23 +293,13 @@ fragment nonRecursiveDataJobFields on DataJob {
 fragment dataJobFields on DataJob {
     urn
     type
+    lastIngested
     dataFlow {
         ...nonRecursiveDataFlowFields
     }
     jobId
     ownership {
         ...ownershipFields
-    }
-    inputOutput {
-        inputDatasets {
-            ...nonRecursiveDatasetFields
-        }
-        outputDatasets {
-            ...nonRecursiveDatasetFields
-        }
-        inputDatajobs {
-            ...nonRecursiveDataJobFields
-        }
     }
     properties {
         name
@@ -344,6 +328,9 @@ fragment dataJobFields on DataJob {
     deprecation {
         ...deprecationFields
     }
+    status {
+        removed
+    }
     dataPlatformInstance {
         ...dataPlatformInstanceFields
     }
@@ -352,6 +339,7 @@ fragment dataJobFields on DataJob {
 fragment dashboardFields on Dashboard {
     urn
     type
+    lastIngested
     tool
     dashboardId
     properties {
@@ -371,6 +359,9 @@ fragment dashboardFields on Dashboard {
             time
         }
     }
+    editableProperties {
+        description
+    }
     ownership {
         ...ownershipFields
     }
@@ -389,9 +380,6 @@ fragment dashboardFields on Dashboard {
     domain {
         ...entityDomain
     }
-    container {
-        ...entityContainer
-    }
     parentContainers {
         ...parentContainersFields
     }
@@ -404,11 +392,31 @@ fragment dashboardFields on Dashboard {
     dataPlatformInstance {
         ...dataPlatformInstanceFields
     }
+    statsSummary {
+        viewCount
+        uniqueUserCountLast30Days
+        topUsersLast30Days {
+            urn
+            type
+            username
+            properties {
+                displayName
+                firstName
+                lastName
+                fullName
+            }
+            editableProperties {
+                displayName
+                pictureLink
+            }
+        }
+    }
 }
 
 fragment nonRecursiveMLFeature on MLFeature {
     urn
     type
+    lastIngested
     name
     featureNamespace
     description
@@ -476,6 +484,7 @@ fragment nonRecursiveMLFeature on MLFeature {
 fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
     urn
     type
+    lastIngested
     name
     featureNamespace
     description
@@ -543,6 +552,7 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
 fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     urn
     type
+    lastIngested
     name
     platform {
         ...platformFields
@@ -662,6 +672,7 @@ fragment schemaMetadataFields on SchemaMetadata {
 fragment nonRecursiveMLModel on MLModel {
     urn
     type
+    lastIngested
     name
     description
     origin
@@ -726,6 +737,7 @@ fragment nonRecursiveMLModel on MLModel {
 fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     urn
     type
+    lastIngested
     name
     description
     origin
@@ -764,6 +776,7 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
 fragment platformFields on DataPlatform {
     urn
     type
+    lastIngested
     name
     properties {
         type
@@ -798,7 +811,7 @@ fragment nonConflictingPlatformFields on DataPlatform {
     }
 }
 
-fragment dataPlatformInstanceFields on DataPlatformInstance  {
+fragment dataPlatformInstanceFields on DataPlatformInstance {
     urn
     type
     platform {
@@ -823,9 +836,12 @@ fragment entityContainer on Container {
     }
 }
 
-fragment entityDomain on Domain {
-    urn
-    properties {
-        name
+fragment entityDomain on DomainAssociation {
+    domain {
+        urn
+        properties {
+            name
+        }
     }
+    associatedUrn
 }

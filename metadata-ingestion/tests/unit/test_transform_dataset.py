@@ -1392,7 +1392,8 @@ def test_old_transformers_working_as_before(mock_time):
     dataset_mcps = [
         make_generic_dataset_mcp(),
         make_generic_dataset_mcp(
-            aspect=DatasetPropertiesClass(description="Another test MCP")
+            aspect_name="datasetProperties",
+            aspect=DatasetPropertiesClass(description="Another test MCP"),
         ),
         EndOfStream(),
     ]

@@ -26,7 +26,7 @@ public class McpEmitter implements LineageConsumer {
   private static final String TRANSPORT_KEY = "transport";
   private static final String GMS_URL_KEY = "rest.server";
   private static final String GMS_AUTH_TOKEN = "rest.token";
-  
+  private static final String DISABLE_SSL_VERIFICATION_KEY = "rest.disable_ssl_verification";
   private Optional<Emitter> getEmitter() {
     Optional<Emitter> emitter = Optional.empty();
     switch (emitterType) {
@@ -78,12 +78,19 @@ public class McpEmitter implements LineageConsumer {
           String gmsUrl = datahubConf.hasPath(GMS_URL_KEY) ? datahubConf.getString(GMS_URL_KEY)
                   : "http://localhost:8080";
           String token = datahubConf.hasPath(GMS_AUTH_TOKEN) ? datahubConf.getString(GMS_AUTH_TOKEN) : null;
+          boolean disableSslVerification = datahubConf.hasPath(DISABLE_SSL_VERIFICATION_KEY) ? datahubConf.getBoolean(
+              DISABLE_SSL_VERIFICATION_KEY) : false;
           log.info("REST Emitter Configuration: GMS url {}{}", gmsUrl,
                   (datahubConf.hasPath(GMS_URL_KEY) ? "" : "(default)"));
           if (token != null) {
               log.info("REST Emitter Configuration: Token {}", (token != null) ? "XXXXX" : "(empty)");
           }
-          restEmitterConfig = Optional.of(RestEmitterConfig.builder().server(gmsUrl).token(token).build());
+          if (disableSslVerification) {
+            log.warn("REST Emitter Configuration: ssl verification will be disabled.");
+          }
+          restEmitterConfig = Optional.of(RestEmitterConfig.builder()
+              .server(gmsUrl).token(token)
+              .disableSslVerification(disableSslVerification).build());
           
           break;
       default:

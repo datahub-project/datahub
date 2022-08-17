@@ -12,7 +12,7 @@ node {
   }
 
   // Version of node to use.
-  version = '16.8.0'
+  version = '16.16.0'
 
   // Version of Yarn to use.
   yarnVersion = '1.22.0'
@@ -51,6 +51,11 @@ task generateGraphQLSchema(type: Exec) {
   commandLine './generateGraphQLSchema.sh'
 }
 
+task generateJsonSchema(type: Exec, dependsOn: [':metadata-ingestion:docGen']) {
+  workingDir "$projectDir/genJsonSchema"
+  commandLine './generateJsonSchema.sh'
+}
+
 /*
   Wrappers around Yarn Tasks.
  */
@@ -63,17 +68,13 @@ task yarnInstall(type: YarnTask) {
   }
 }
 
-task generateGraphQLDocumentation(type: YarnTask, dependsOn: [yarnInstall, generateGraphQLSchema] ) {
-  args = ['docusaurus', 'docs:generate:graphql']
-}
-
-task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall, generateGraphQLDocumentation, ':metadata-ingestion:modelDocGen', ':metadata-ingestion:docGen'] ) {
+task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall, generateGraphQLSchema, generateJsonSchema, ':metadata-ingestion:modelDocGen', ':metadata-ingestion:docGen'] ) {
   inputs.files(projectMdFiles)
   outputs.cacheIf { true }
   args = ['run', 'generate']
 }
 
-task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+task yarnStart(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   args = ['run', 'start']
 }
 
@@ -119,6 +120,9 @@ clean {
   delete 'tmp'
   delete 'build'
   delete 'just'
+  delete fileTree(dir: 'genDocs', exclude: '.gitignore')
+  delete fileTree(dir: 'docs', exclude: '.gitignore')
+  delete 'graphql/combined.graphql'
   yarnClear
 }
 

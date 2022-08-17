@@ -1,4 +1,5 @@
 import concurrent.futures
+import contextlib
 import functools
 import logging
 from dataclasses import dataclass
@@ -51,6 +52,7 @@ class DatahubRestSink(Sink):
             retry_max_times=self.config.retry_max_times,
             extra_headers=self.config.extra_headers,
             ca_certificate_path=self.config.ca_certificate_path,
+            disable_ssl_verification=self.config.disable_ssl_verification,
         )
         try:
             gms_config = self.emitter.test_connection()
@@ -111,13 +113,10 @@ class DatahubRestSink(Sink):
                 else:
                     # trim exception stacktraces when reporting warnings
                     if "stackTrace" in e.info:
-                        try:
+                        with contextlib.suppress(Exception):
                             e.info["stackTrace"] = "\n".join(
-                                e.info["stackTrace"].split("\n")[0:2]
+                                e.info["stackTrace"].split("\n")[:2]
                             )
-                        except Exception:
-                            # ignore failures in trimming
-                            pass
                     record = record_envelope.record
                     if isinstance(record, MetadataChangeProposalWrapper):
                         # include information about the entity that failed
@@ -159,3 +158,9 @@ class DatahubRestSink(Sink):
 
     def close(self):
         self.executor.shutdown(wait=True)
+
+    def __repr__(self) -> str:
+        return self.emitter.__repr__()
+
+    def configured(self) -> str:
+        return self.__repr__()

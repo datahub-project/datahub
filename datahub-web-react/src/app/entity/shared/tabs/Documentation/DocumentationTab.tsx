@@ -6,6 +6,7 @@ import styled from 'styled-components';
 import { Button, Divider, Typography } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import MDEditor from '@uiw/react-md-editor';
+import DOMPurify from 'dompurify';
 
 import TabToolbar from '../../components/styled/TabToolbar';
 import { AddLinkModal } from '../../components/styled/AddLinkModal';
@@ -32,6 +33,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
     const { urn, entityData } = useEntityData();
     const refetch = useRefetch();
     const description = entityData?.editableProperties?.description || entityData?.properties?.description || '';
+    const sanitizedDescription = DOMPurify.sanitize(description);
     const links = entityData?.institutionalMemory?.elements || [];
     const localStorageDictionary = localStorage.getItem(EDITED_DESCRIPTIONS_CACHE_NAME);
 
@@ -51,7 +53,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
         </>
     ) : (
         <>
-            {description || links.length ? (
+            {sanitizedDescription || links.length ? (
                 <>
                     <TabToolbar>
                         <div>
@@ -65,8 +67,8 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                         </div>
                     </TabToolbar>
                     <DocumentationContainer>
-                        {description ? (
-                            <MDEditor.Markdown style={{ fontWeight: 400 }} source={description} />
+                        {sanitizedDescription ? (
+                            <MDEditor.Markdown style={{ fontWeight: 400 }} source={sanitizedDescription} />
                         ) : (
                             <Typography.Text type="secondary">No documentation added yet.</Typography.Text>
                         )}

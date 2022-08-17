@@ -9,16 +9,15 @@ from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from enum import Enum
 from time import sleep
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 from xmlrpc.client import Boolean
 
 import msal
+import pydantic
 import requests
-from orderedset import OrderedSet
-from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import ConfigurationError
 from datahub.configuration.source_common import EnvBasedSourceConfigBase
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -32,10 +31,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.common import (
-    ChangeAuditStamps,
-    DataPlatformInstance,
-)
+from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     ChangeTypeClass,
@@ -53,6 +49,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     StatusClass,
 )
+from datahub.utilities.dedup_list import deduplicate_list
 
 # Logger instance
 LOGGER = logging.getLogger(__name__)
@@ -104,41 +101,39 @@ class Constant:
     VALUE = "value"
     ENTITY = "ENTITY"
     ID = "ID"
+    HTTP_RESPONSE_TEXT = "HttpResponseText"
+    HTTP_RESPONSE_STATUS_CODE = "HttpResponseStatusCode"
 
 
 class PowerBiAPIConfig(EnvBasedSourceConfigBase):
     # Organsation Identifier
-    tenant_id: str = Field(description="Power BI tenant identifier.")
+    tenant_id: str = pydantic.Field(description="PowerBI tenant identifier")
     # PowerBi workspace identifier
-    workspace_id: str = Field(description="Power BI workspace identifier.")
+    workspace_id: str = pydantic.Field(description="PowerBI workspace identifier")
     # Dataset type mapping
-    dataset_type_mapping: Dict[str, str] = Field(
-        description="Mapping of Power BI datasource type to Datahub dataset."
+    dataset_type_mapping: Dict[str, str] = pydantic.Field(
+        description="Mapping of PowerBI datasource type to DataHub supported data-sources. See Quickstart Recipe for mapping"
     )
     # Azure app client identifier
-    client_id: str = Field(description="Azure AD App client identifier.")
+    client_id: str = pydantic.Field(description="Azure app client identifier")
     # Azure app client secret
-    client_secret: str = Field(description="Azure AD App client secret.")
+    client_secret: str = pydantic.Field(description="Azure app client secret")
     # timeout for meta-data scanning
-    scan_timeout: int = Field(
-        default=60,
-        description="time in seconds to wait for Power BI metadata scan result.",
+    scan_timeout: int = pydantic.Field(
+        default=60, description="timeout for PowerBI metadata scanning"
     )
-
-    scope: str = "https://analysis.windows.net/powerbi/api/.default"
-    base_url: str = "https://api.powerbi.com/v1.0/myorg/groups"
-    admin_base_url = "https://api.powerbi.com/v1.0/myorg/admin"
-    authority = "https://login.microsoftonline.com/"
-
-    def get_authority_url(self):
-        return "{}{}".format(self.authority, self.tenant_id)
+    # Enable/Disable extracting ownership information of Dashboard
+    extract_ownership: bool = pydantic.Field(
+        default=True, description="Whether ownership should be ingested"
+    )
 
 
 class PowerBiDashboardSourceConfig(PowerBiAPIConfig):
     platform_name: str = "powerbi"
     platform_urn: str = builder.make_data_platform_urn(platform=platform_name)
-    dashboard_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
-    chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    # Not supporting the pattern
+    # dashboard_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
+    # chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
 
 class PowerBiAPI:
@@ -154,6 +149,11 @@ class PowerBiAPI:
         Constant.SCAN_RESULT_GET: "{POWERBI_ADMIN_BASE_URL}/workspaces/scanResult/{SCAN_ID}",
         Constant.SCAN_CREATE: "{POWERBI_ADMIN_BASE_URL}/workspaces/getInfo",
     }
+
+    SCOPE: str = "https://analysis.windows.net/powerbi/api/.default"
+    BASE_URL: str = "https://api.powerbi.com/v1.0/myorg/groups"
+    ADMIN_BASE_URL: str = "https://api.powerbi.com/v1.0/myorg/admin"
+    AUTHORITY: str = "https://login.microsoftonline.com/"
 
     @dataclass
     class Workspace:
@@ -216,7 +216,7 @@ class PowerBiAPI:
         tables: List[Any]
 
         def get_urn_part(self):
-            return "datasets.{}".format(self.id)
+            return f"datasets.{self.id}"
 
         def __members(self):
             return (self.id,)
@@ -239,7 +239,7 @@ class PowerBiAPI:
         dataset: Any
 
         def get_urn_part(self):
-            return "reports.{}".format(self.id)
+            return f"reports.{self.id}"
 
     @dataclass
     class Tile:
@@ -257,7 +257,7 @@ class PowerBiAPI:
         createdFrom: CreatedFrom
 
         def get_urn_part(self):
-            return "charts.{}".format(self.id)
+            return f"charts.{self.id}"
 
     @dataclass
     class User:
@@ -269,7 +269,7 @@ class PowerBiAPI:
         principalType: str
 
         def get_urn_part(self):
-            return "users.{}".format(self.id)
+            return f"users.{self.id}"
 
         def __members(self):
             return (self.id,)
@@ -296,7 +296,7 @@ class PowerBiAPI:
         users: List[Any]
 
         def get_urn_part(self):
-            return "dashboards.{}".format(self.id)
+            return f"dashboards.{self.id}"
 
         def __members(self):
             return (self.id,)
@@ -318,48 +318,57 @@ class PowerBiAPI:
         self.__msal_client = msal.ConfidentialClientApplication(
             self.__config.client_id,
             client_credential=self.__config.client_secret,
-            authority=self.__config.authority + self.__config.tenant_id,
+            authority=PowerBiAPI.AUTHORITY + self.__config.tenant_id,
         )
 
         # Test connection by generating a access token
-        LOGGER.info("Trying to connect to {}".format(self.__config.get_authority_url()))
+        LOGGER.info("Trying to connect to {}".format(self.__get_authority_url()))
         self.get_access_token()
-        LOGGER.info("Able to connect to {}".format(self.__config.get_authority_url()))
+        LOGGER.info("Able to connect to {}".format(self.__get_authority_url()))
+
+    def __get_authority_url(self):
+        return "{}{}".format(PowerBiAPI.AUTHORITY, self.__config.tenant_id)
 
     def __get_users(self, workspace_id: str, entity: str, id: str) -> List[User]:
         """
         Get user for the given PowerBi entity
         """
+        users: List[PowerBiAPI.User] = []
+        if self.__config.extract_ownership is False:
+            LOGGER.info(
+                "ExtractOwnership capabilities is disabled from configuration and hence returning empty users list"
+            )
+            return users
+
         user_list_endpoint: str = PowerBiAPI.API_ENDPOINTS[Constant.ENTITY_USER_LIST]
         # Replace place holders
         user_list_endpoint = user_list_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=self.__config.admin_base_url,
+            POWERBI_ADMIN_BASE_URL=PowerBiAPI.ADMIN_BASE_URL,
             ENTITY=entity,
             ENTITY_ID=id,
         )
         # Hit PowerBi
-        LOGGER.info("Request to URL={}".format(user_list_endpoint))
+        LOGGER.info(f"Request to URL={user_list_endpoint}")
         response = requests.get(
-            url=user_list_endpoint,
+            user_list_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
         )
 
         # Check if we got response from PowerBi
         if response.status_code != 200:
             LOGGER.warning(
-                "Failed to fetch user list from power-bi for, http_status={}, message={}".format(
-                    response.status_code, response.text
-                )
+                f"Failed to fetch user list from power-bi for, http_status={response.status_code}, message={response.text}"
             )
-            LOGGER.info("{}={}".format(Constant.WorkspaceId, workspace_id))
-            LOGGER.info("{}={}".format(Constant.ENTITY, entity))
-            LOGGER.info("{}={}".format(Constant.ID, id))
+
+            LOGGER.info(f"{Constant.WorkspaceId}={workspace_id}")
+            LOGGER.info(f"{Constant.ENTITY}={entity}")
+            LOGGER.info(f"{Constant.ID}={id}")
             raise ConnectionError("Failed to fetch the user list from the power-bi")
 
         users_dict: List[Any] = response.json()[Constant.VALUE]
 
         # Iterate through response and create a list of PowerBiAPI.Dashboard
-        users: List[PowerBiAPI.User] = [
+        users = [
             PowerBiAPI.User(
                 id=instance.get("identifier"),
                 displayName=instance.get("displayName"),
@@ -379,21 +388,21 @@ class PowerBiAPI:
         """
         if workspace_id is None or report_id is None:
             LOGGER.info("Input values are None")
-            LOGGER.info("{}={}".format(Constant.WorkspaceId, workspace_id))
-            LOGGER.info("{}={}".format(Constant.ReportId, report_id))
+            LOGGER.info(f"{Constant.WorkspaceId}={workspace_id}")
+            LOGGER.info(f"{Constant.ReportId}={report_id}")
             return None
 
         report_get_endpoint: str = PowerBiAPI.API_ENDPOINTS[Constant.REPORT_GET]
         # Replace place holders
         report_get_endpoint = report_get_endpoint.format(
-            POWERBI_BASE_URL=self.__config.base_url,
+            POWERBI_BASE_URL=PowerBiAPI.BASE_URL,
             WORKSPACE_ID=workspace_id,
             REPORT_ID=report_id,
         )
         # Hit PowerBi
-        LOGGER.info("Request to report URL={}".format(report_get_endpoint))
+        LOGGER.info(f"Request to report URL={report_get_endpoint}")
         response = requests.get(
-            url=report_get_endpoint,
+            report_get_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
         )
 
@@ -401,8 +410,8 @@ class PowerBiAPI:
         if response.status_code != 200:
             message: str = "Failed to fetch report from power-bi for"
             LOGGER.warning(message)
-            LOGGER.warning("{}={}".format(Constant.WorkspaceId, workspace_id))
-            LOGGER.warning("{}={}".format(Constant.ReportId, report_id))
+            LOGGER.warning(f"{Constant.WorkspaceId}={workspace_id}")
+            LOGGER.warning(f"{Constant.ReportId}={report_id}")
             raise ConnectionError(message)
 
         response_dict = response.json()
@@ -425,7 +434,7 @@ class PowerBiAPI:
         LOGGER.info("Generating PowerBi access token")
 
         auth_response = self.__msal_client.acquire_token_for_client(
-            scopes=[self.__config.scope]
+            scopes=[PowerBiAPI.SCOPE]
         )
 
         if not auth_response.get("access_token"):
@@ -440,7 +449,7 @@ class PowerBiAPI:
 
         self.__access_token = "Bearer {}".format(auth_response.get("access_token"))
 
-        LOGGER.debug("{}={}".format(Constant.PBIAccessToken, self.__access_token))
+        LOGGER.debug(f"{Constant.PBIAccessToken}={self.__access_token}")
 
         return self.__access_token
 
@@ -461,19 +470,19 @@ class PowerBiAPI:
         dashboard_list_endpoint: str = PowerBiAPI.API_ENDPOINTS[Constant.DASHBOARD_LIST]
         # Replace place holders
         dashboard_list_endpoint = dashboard_list_endpoint.format(
-            POWERBI_BASE_URL=self.__config.base_url, WORKSPACE_ID=workspace.id
+            POWERBI_BASE_URL=PowerBiAPI.BASE_URL, WORKSPACE_ID=workspace.id
         )
         # Hit PowerBi
-        LOGGER.info("Request to URL={}".format(dashboard_list_endpoint))
+        LOGGER.info(f"Request to URL={dashboard_list_endpoint}")
         response = requests.get(
-            url=dashboard_list_endpoint,
+            dashboard_list_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
         )
 
         # Check if we got response from PowerBi
         if response.status_code != 200:
             LOGGER.warning("Failed to fetch dashboard list from power-bi for")
-            LOGGER.warning("{}={}".format(Constant.WorkspaceId, workspace.id))
+            LOGGER.warning(f"{Constant.WorkspaceId}={workspace.id}")
             raise ConnectionError(
                 "Failed to fetch the dashboard list from the power-bi"
             )
@@ -505,21 +514,21 @@ class PowerBiAPI:
         """
         if workspace_id is None or dataset_id is None:
             LOGGER.info("Input values are None")
-            LOGGER.info("{}={}".format(Constant.WorkspaceId, workspace_id))
-            LOGGER.info("{}={}".format(Constant.DatasetId, dataset_id))
+            LOGGER.info(f"{Constant.WorkspaceId}={workspace_id}")
+            LOGGER.info(f"{Constant.DatasetId}={dataset_id}")
             return None
 
         dataset_get_endpoint: str = PowerBiAPI.API_ENDPOINTS[Constant.DATASET_GET]
         # Replace place holders
         dataset_get_endpoint = dataset_get_endpoint.format(
-            POWERBI_BASE_URL=self.__config.base_url,
+            POWERBI_BASE_URL=PowerBiAPI.BASE_URL,
             WORKSPACE_ID=workspace_id,
             DATASET_ID=dataset_id,
         )
         # Hit PowerBi
-        LOGGER.info("Request to dataset URL={}".format(dataset_get_endpoint))
+        LOGGER.info(f"Request to dataset URL={dataset_get_endpoint}")
         response = requests.get(
-            url=dataset_get_endpoint,
+            dataset_get_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
         )
 
@@ -527,12 +536,12 @@ class PowerBiAPI:
         if response.status_code != 200:
             message: str = "Failed to fetch dataset from power-bi for"
             LOGGER.warning(message)
-            LOGGER.warning("{}={}".format(Constant.WorkspaceId, workspace_id))
-            LOGGER.warning("{}={}".format(Constant.DatasetId, dataset_id))
+            LOGGER.warning(f"{Constant.WorkspaceId}={workspace_id}")
+            LOGGER.warning(f"{Constant.DatasetId}={dataset_id}")
             raise ConnectionError(message)
 
         response_dict = response.json()
-
+        LOGGER.debug("datasets = {}".format(response_dict))
         # PowerBi Always return the webURL, in-case if it is None then setting complete webURL to None instead of None/details
         return PowerBiAPI.Dataset(
             id=response_dict.get("id"),
@@ -553,14 +562,14 @@ class PowerBiAPI:
         datasource_get_endpoint: str = PowerBiAPI.API_ENDPOINTS[Constant.DATASOURCE_GET]
         # Replace place holders
         datasource_get_endpoint = datasource_get_endpoint.format(
-            POWERBI_BASE_URL=self.__config.base_url,
+            POWERBI_BASE_URL=PowerBiAPI.BASE_URL,
             WORKSPACE_ID=dataset.workspace_id,
             DATASET_ID=dataset.id,
         )
         # Hit PowerBi
-        LOGGER.info("Request to datasource URL={}".format(datasource_get_endpoint))
+        LOGGER.info(f"Request to datasource URL={datasource_get_endpoint}")
         response = requests.get(
-            url=datasource_get_endpoint,
+            datasource_get_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
         )
 
@@ -570,23 +579,40 @@ class PowerBiAPI:
             LOGGER.warning(message)
             LOGGER.warning("{}={}".format(Constant.WorkspaceId, dataset.workspace_id))
             LOGGER.warning("{}={}".format(Constant.DatasetId, dataset.id))
+            LOGGER.warning("{}={}".format(Constant.HTTP_RESPONSE_TEXT, response.text))
+            LOGGER.warning(
+                "{}={}".format(Constant.HTTP_RESPONSE_STATUS_CODE, response.status_code)
+            )
+
             raise ConnectionError(message)
 
         res = response.json()
         value = res["value"]
         if len(value) == 0:
             LOGGER.info(
-                "datasource is not found for dataset {}({})".format(
+                f"datasource is not found for dataset {dataset.name}({dataset.id})"
+            )
+
+            return None
+
+        if len(value) > 1:
+            # We are currently supporting data-set having single relational database
+            LOGGER.warning(
+                "More than one data-source found for {}({})".format(
                     dataset.name, dataset.id
                 )
             )
+            LOGGER.debug(value)
             return None
+
         # Consider only zero index datasource
         datasource_dict = value[0]
-
+        LOGGER.debug("data-sources = {}".format(value))
         # Create datasource instance with basic detail available
         datasource = PowerBiAPI.DataSource(
-            id=datasource_dict["datasourceId"],
+            id=datasource_dict.get(
+                "datasourceId"
+            ),  # datasourceId is not available in all cases
             type=datasource_dict["datasourceType"],
             server=None,
             database=None,
@@ -601,6 +627,9 @@ class PowerBiAPI:
             datasource.server = datasource_dict["connectionDetails"]["server"]
         else:
             datasource.metadata = PowerBiAPI.DataSource.MetaData(is_relational=False)
+            LOGGER.warning(
+                "Non relational data-source found = {}".format(datasource_dict)
+            )
 
         return datasource
 
@@ -617,27 +646,23 @@ class PowerBiAPI:
             Find out which is the data source for tile. It is either REPORT or DATASET
             """
             report_fields = {
-                "dataset": None,
-                "report": None,
+                "dataset": (
+                    workspace.datasets[tile_instance.get("datasetId")]
+                    if tile_instance.get("datasetId") is not None
+                    else None
+                ),
+                "report": (
+                    self.__get_report(
+                        workspace_id=workspace.id,
+                        report_id=tile_instance.get("reportId"),
+                    )
+                    if tile_instance.get("reportId") is not None
+                    else None
+                ),
                 "createdFrom": PowerBiAPI.Tile.CreatedFrom.UNKNOWN,
             }
 
-            report_fields["dataset"] = (
-                workspace.datasets[tile_instance.get("datasetId")]
-                if tile_instance.get("datasetId") is not None
-                else None
-            )
-            report_fields["report"] = (
-                self.__get_report(
-                    workspace_id=workspace.id,
-                    report_id=tile_instance.get("reportId"),
-                )
-                if tile_instance.get("reportId") is not None
-                else None
-            )
-
             # Tile is either created from report or dataset or from custom visualization
-            report_fields["createdFrom"] = PowerBiAPI.Tile.CreatedFrom.UNKNOWN
             if report_fields["report"] is not None:
                 report_fields["createdFrom"] = PowerBiAPI.Tile.CreatedFrom.REPORT
             elif report_fields["dataset"] is not None:
@@ -646,11 +671,7 @@ class PowerBiAPI:
                 report_fields["createdFrom"] = PowerBiAPI.Tile.CreatedFrom.VISUALIZATION
 
             LOGGER.info(
-                "Tile {}({}) is created from {}".format(
-                    tile_instance.get("title"),
-                    tile_instance.get("id"),
-                    report_fields["createdFrom"],
-                )
+                f'Tile {tile_instance.get("title")}({tile_instance.get("id")}) is created from {report_fields["createdFrom"]}'
             )
 
             return report_fields
@@ -658,14 +679,14 @@ class PowerBiAPI:
         tile_list_endpoint: str = PowerBiAPI.API_ENDPOINTS[Constant.TILE_LIST]
         # Replace place holders
         tile_list_endpoint = tile_list_endpoint.format(
-            POWERBI_BASE_URL=self.__config.base_url,
+            POWERBI_BASE_URL=PowerBiAPI.BASE_URL,
             WORKSPACE_ID=dashboard.workspace_id,
             DASHBOARD_ID=dashboard.id,
         )
         # Hit PowerBi
         LOGGER.info("Request to URL={}".format(tile_list_endpoint))
         response = requests.get(
-            url=tile_list_endpoint,
+            tile_list_endpoint,
             headers={Constant.Authorization: self.get_access_token()},
         )
 
@@ -678,6 +699,7 @@ class PowerBiAPI:
 
         # Iterate through response and create a list of PowerBiAPI.Dashboard
         tile_dict: List[Any] = response.json()[Constant.VALUE]
+        LOGGER.debug("Tile Dict = {}".format(tile_dict))
         tiles: List[PowerBiAPI.Tile] = [
             PowerBiAPI.Tile(
                 id=instance.get("id"),
@@ -698,7 +720,7 @@ class PowerBiAPI:
         """
         scan_create_endpoint = PowerBiAPI.API_ENDPOINTS[Constant.SCAN_CREATE]
         scan_create_endpoint = scan_create_endpoint.format(
-            POWERBI_ADMIN_BASE_URL=self.__config.admin_base_url
+            POWERBI_ADMIN_BASE_URL=PowerBiAPI.ADMIN_BASE_URL
         )
 
         def create_scan_job():
@@ -721,9 +743,7 @@ class PowerBiAPI:
             )
 
             if res.status_code not in (200, 202):
-                message = "API({}) return error code {} for workpace id({})".format(
-                    scan_create_endpoint, res.status_code, workspace_id
-                )
+                message = f"API({scan_create_endpoint}) return error code {res.status_code} for workspace id({workspace_id})"
 
                 LOGGER.warning(message)
 
@@ -740,46 +760,40 @@ class PowerBiAPI:
             minimum_sleep = 3
             if timeout < minimum_sleep:
                 LOGGER.info(
-                    "Setting timeout to minimum_sleep time {} seconds".format(
-                        minimum_sleep
-                    )
+                    f"Setting timeout to minimum_sleep time {minimum_sleep} seconds"
                 )
                 timeout = minimum_sleep
 
-            max_trial = int(timeout / minimum_sleep)
-            LOGGER.info("Max trial {}".format(max_trial))
+            max_trial = timeout // minimum_sleep
+            LOGGER.info(f"Max trial {max_trial}")
             scan_get_endpoint = PowerBiAPI.API_ENDPOINTS[Constant.SCAN_GET]
             scan_get_endpoint = scan_get_endpoint.format(
-                POWERBI_ADMIN_BASE_URL=self.__config.admin_base_url, SCAN_ID=scan_id
+                POWERBI_ADMIN_BASE_URL=PowerBiAPI.ADMIN_BASE_URL, SCAN_ID=scan_id
             )
 
-            LOGGER.info("Hitting URL={}".format(scan_get_endpoint))
+            LOGGER.info(f"Hitting URL={scan_get_endpoint}")
 
             trail = 1
             while True:
-                LOGGER.info("Trial = {}".format(trail))
+                LOGGER.info(f"Trial = {trail}")
                 res = requests.get(
                     scan_get_endpoint,
                     headers={Constant.Authorization: self.get_access_token()},
                 )
                 if res.status_code != 200:
-                    message = "API({}) return error code {} for scan id({})".format(
-                        scan_get_endpoint, res.status_code, scan_id
-                    )
+                    message = f"API({scan_get_endpoint}) return error code {res.status_code} for scan id({scan_id})"
 
                     LOGGER.warning(message)
 
                     raise ConnectionError(message)
 
                 if res.json()["status"].upper() == "Succeeded".upper():
-                    LOGGER.info(
-                        "Scan result is available for scan id({})".format(scan_id)
-                    )
+                    LOGGER.info(f"Scan result is available for scan id({scan_id})")
                     return True
 
                 if trail == max_trial:
                     break
-                LOGGER.info("Sleeping for {} seconds".format(minimum_sleep))
+                LOGGER.info(f"Sleeping for {minimum_sleep} seconds")
                 sleep(minimum_sleep)
                 trail += 1
 
@@ -788,23 +802,21 @@ class PowerBiAPI:
 
         def get_scan_result(scan_id: str) -> dict:
             LOGGER.info("Fetching scan  result")
-            LOGGER.info("{}={}".format(Constant.SCAN_ID, scan_id))
+            LOGGER.info(f"{Constant.SCAN_ID}={scan_id}")
             scan_result_get_endpoint = PowerBiAPI.API_ENDPOINTS[
                 Constant.SCAN_RESULT_GET
             ]
             scan_result_get_endpoint = scan_result_get_endpoint.format(
-                POWERBI_ADMIN_BASE_URL=self.__config.admin_base_url, SCAN_ID=scan_id
+                POWERBI_ADMIN_BASE_URL=PowerBiAPI.ADMIN_BASE_URL, SCAN_ID=scan_id
             )
 
-            LOGGER.info("Hittin URL={}".format(scan_result_get_endpoint))
+            LOGGER.info(f"Hitting URL={scan_result_get_endpoint}")
             res = requests.get(
                 scan_result_get_endpoint,
                 headers={Constant.Authorization: self.get_access_token()},
             )
             if res.status_code != 200:
-                message = "API({}) return error code {} for scan id({})".format(
-                    scan_result_get_endpoint, res.status_code, scan_id
-                )
+                message = f"API({scan_result_get_endpoint}) return error code {res.status_code} for scan id({scan_id})"
 
                 LOGGER.warning(message)
 
@@ -821,10 +833,9 @@ class PowerBiAPI:
 
             if datasets is None or len(datasets) == 0:
                 LOGGER.warning(
-                    "Workspace {}({}) does not have datasets".format(
-                        scan_result["name"], scan_result["id"]
-                    )
+                    f'Workspace {scan_result["name"]}({scan_result["id"]}) does not have datasets'
                 )
+
                 LOGGER.info("Returning empty datasets")
                 return dataset_map
 
@@ -844,18 +855,15 @@ class PowerBiAPI:
                     and dataset_instance.datasource.metadata.is_relational is True
                 ):
                     LOGGER.info(
-                        "Processing tables attribute for dataset {}({})".format(
-                            dataset_instance.name, dataset_instance.id
-                        )
+                        f"Processing tables attribute for dataset {dataset_instance.name}({dataset_instance.id})"
                     )
 
                     for table in dataset_dict["tables"]:
                         if "Value.NativeQuery(" in table["source"][0]["expression"]:
                             LOGGER.warning(
-                                "Table {} is created from Custom SQL. Ignoring in processing".format(
-                                    table["name"]
-                                )
+                                f'Table {table["name"]} is created from Custom SQL. Ignoring in processing'
                             )
+
                             continue
 
                         # PowerBi table name contains schema name and table name. Format is <SchemaName> <TableName>
@@ -892,6 +900,7 @@ class PowerBiAPI:
 
         # Scan is complete lets take the result
         scan_result = get_scan_result(scan_id=scan_id)
+        LOGGER.debug("scan result = {}".format(scan_result))
         workspace = PowerBiAPI.Workspace(
             id=scan_result["id"],
             name=scan_result["name"],
@@ -919,7 +928,7 @@ class Mapper:
         """
 
         def __eq__(self, instance):
-            return self.id == self.id
+            return self.id == instance.id
 
         def __hash__(self):
             return id(self.id)
@@ -970,34 +979,30 @@ class Mapper:
         if dataset is None:
             return dataset_mcps
 
-        # We are only suporting relation PowerBi DataSources
+        # We are only supporting relation PowerBi DataSources
         if (
             dataset.datasource is None
             or dataset.datasource.metadata.is_relational is False
         ):
             LOGGER.warning(
-                "Dataset {}({}) is not created from relational datasource".format(
-                    dataset.name, dataset.id
-                )
+                f"Dataset {dataset.name}({dataset.id}) is not created from relational datasource"
             )
+
             return dataset_mcps
 
         LOGGER.info(
-            "Converting dataset={}(id={}) to datahub dataset".format(
-                dataset.name, dataset.id
-            )
+            f"Converting dataset={dataset.name}(id={dataset.id}) to datahub dataset"
         )
 
         for table in dataset.tables:
             # Create an URN for dataset
             ds_urn = builder.make_dataset_urn(
                 platform=self.__config.dataset_type_mapping[dataset.datasource.type],
-                name="{}.{}.{}".format(
-                    dataset.datasource.database, table.schema_name, table.name
-                ),
+                name=f"{dataset.datasource.database}.{table.schema_name}.{table.name}",
                 env=self.__config.env,
             )
-            LOGGER.info("{}={}".format(Constant.Dataset_URN, ds_urn))
+
+            LOGGER.info(f"{Constant.Dataset_URN}={ds_urn}")
             # Create datasetProperties mcp
             ds_properties = DatasetPropertiesClass(description=table.name)
 
@@ -1091,14 +1096,12 @@ class Mapper:
 
     # written in this style to fix linter error
     def to_urn_set(self, mcps: List[MetadataChangeProposalWrapper]) -> List[str]:
-        return list(
-            OrderedSet(
-                [
-                    mcp.entityUrn
-                    for mcp in mcps
-                    if mcp is not None and mcp.entityUrn is not None
-                ]
-            )
+        return deduplicate_list(
+            [
+                mcp.entityUrn
+                for mcp in mcps
+                if mcp is not None and mcp.entityUrn is not None
+            ]
         )
 
     def __to_datahub_dashboard(
@@ -1166,18 +1169,21 @@ class Mapper:
 
         # Dashboard Ownership
         owners = [
-            OwnerClass(owner=user_urn, type=OwnershipTypeClass.CONSUMER)
+            OwnerClass(owner=user_urn, type=OwnershipTypeClass.NONE)
             for user_urn in user_urn_list
             if user_urn is not None
         ]
-        ownership = OwnershipClass(owners=owners)
-        # Dashboard owner MCP
-        owner_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
-            entity_urn=dashboard_urn,
-            aspect_name=Constant.OWNERSHIP,
-            aspect=ownership,
-        )
+
+        owner_mcp = None
+        if len(owners) > 0:
+            # Dashboard owner MCP
+            ownership = OwnershipClass(owners=owners)
+            owner_mcp = self.new_mcp(
+                entity_type=Constant.DASHBOARD,
+                entity_urn=dashboard_urn,
+                aspect_name=Constant.OWNERSHIP,
+                aspect=ownership,
+            )
 
         # Dashboard browsePaths
         browse_path = BrowsePathsClass(
@@ -1190,13 +1196,17 @@ class Mapper:
             aspect=browse_path,
         )
 
-        return [
+        list_of_mcps = [
             browse_path_mcp,
             info_mcp,
             removed_status_mcp,
             dashboard_key_mcp,
-            owner_mcp,
         ]
+
+        if owner_mcp is not None:
+            list_of_mcps.append(owner_mcp)
+
+        return list_of_mcps
 
     def to_datahub_user(
         self, user: PowerBiAPI.User
@@ -1206,9 +1216,7 @@ class Mapper:
         """
 
         LOGGER.info(
-            "Converting user {}(id={}) to datahub's user".format(
-                user.displayName, user.id
-            )
+            f"Converting user {user.displayName}(id={user.id}) to datahub's user"
         )
 
         # Create an URN for user
@@ -1266,10 +1274,10 @@ class Mapper:
         chart_mcps = []
 
         # Return empty list if input list is empty
-        if len(tiles) == 0:
+        if not tiles:
             return [], []
 
-        LOGGER.info("Converting tiles(count={}) to charts".format(len(tiles)))
+        LOGGER.info(f"Converting tiles(count={len(tiles)}) to charts")
 
         for tile in tiles:
             if tile is None:
@@ -1288,11 +1296,11 @@ class Mapper:
 
     def to_datahub_work_units(
         self, dashboard: PowerBiAPI.Dashboard
-    ) -> Set[EquableMetadataWorkUnit]:
+    ) -> List[EquableMetadataWorkUnit]:
         mcps = []
 
         LOGGER.info(
-            "Converting dashboard={} to datahub dashboard".format(dashboard.displayName)
+            f"Converting dashboard={dashboard.displayName} to datahub dashboard"
         )
 
         # Convert user to CorpUser
@@ -1311,7 +1319,7 @@ class Mapper:
         # Convert MCP to work_units
         work_units = map(self.__to_work_unit, mcps)
         # Return set of work_unit
-        return OrderedSet([wu for wu in work_units if wu is not None])
+        return deduplicate_list([wu for wu in work_units if wu is not None])
 
 
 @dataclass
@@ -1337,23 +1345,15 @@ class PowerBiDashboardSourceReport(SourceReport):
 @platform_name("PowerBI")
 @config_class(PowerBiDashboardSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.OWNERSHIP, "Enabled by default")
+@capability(
+    SourceCapability.OWNERSHIP, "On by default but can disabled by configuration"
+)
 class PowerBiDashboardSource(Source):
     """
-        This plugin extracts the following:
-
-    - Power BI dashboards, tiles, datasets
+    This plugin extracts the following:
+    - Power BI dashboards, tiles and datasets
     - Names, descriptions and URLs of dashboard and tile
     - Owners of dashboards
-
-    ## Configuration Notes
-
-    See the
-    1.  [Microsoft AD App Creation doc](https://docs.microsoft.com/en-us/power-bi/developer/embedded/embed-service-principal) for the steps to create a app client ID and secret.
-    2.  Login to Power BI as Admin and from `Tenant settings` allow below permissions.
-        - Allow service principles to use Power BI APIs
-        - Allow service principals to use read-only Power BI admin APIs
-        - Enhance admin APIs responses with detailed metadata
     """
 
     source_config: PowerBiDashboardSourceConfig
@@ -1391,12 +1391,10 @@ class PowerBiDashboardSource(Source):
                 self.reporter.report_dashboards_scanned()
                 self.reporter.report_charts_scanned(count=len(dashboard.tiles))
             except Exception as e:
-                message = "Error ({}) occurred while loading dashboard {}(id={}) tiles.".format(
-                    e, dashboard.displayName, dashboard.id
-                )
+                message = f"Error ({e}) occurred while loading dashboard {dashboard.displayName}(id={dashboard.id}) tiles."
+
                 LOGGER.exception(message, e)
                 self.reporter.report_warning(dashboard.id, message)
-
             # Convert PowerBi Dashboard and child entities to Datahub work unit to ingest into Datahub
             workunits = self.mapper.to_datahub_work_units(dashboard)
             for workunit in workunits:

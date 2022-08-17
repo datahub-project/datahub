@@ -6,6 +6,7 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import { Container } from '../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../constants';
 import ContainerLink from './ContainerLink';
+import { capitalizeFirstLetterOnly } from '../../../../../../shared/textUtil';
 
 const LogoIcon = styled.span`
     display: flex;
@@ -87,6 +88,8 @@ export function getParentContainerNames(containers?: Maybe<Container>[] | null) 
 interface Props {
     platformName?: string;
     platformLogoUrl?: Maybe<string>;
+    platformNames?: Maybe<string>[];
+    platformLogoUrls?: Maybe<string>[];
     entityLogoComponent?: JSX.Element;
     instanceId?: string;
     typeIcon?: JSX.Element;
@@ -100,6 +103,8 @@ function PlatformContentView(props: Props) {
     const {
         platformName,
         platformLogoUrl,
+        platformNames,
+        platformLogoUrls,
         entityLogoComponent,
         instanceId,
         typeIcon,
@@ -115,16 +120,24 @@ function PlatformContentView(props: Props) {
     return (
         <PlatformContentWrapper>
             {typeIcon && <LogoIcon>{typeIcon}</LogoIcon>}
-            <PlatformText>{entityType}</PlatformText>
+            <PlatformText>{capitalizeFirstLetterOnly(entityType)}</PlatformText>
             {(!!platformName || !!instanceId || !!parentContainers?.length) && <PlatformDivider />}
             {platformName && (
                 <LogoIcon>
-                    {(!!platformLogoUrl && <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />) ||
-                        entityLogoComponent}
+                    {!platformLogoUrl && !platformLogoUrls && entityLogoComponent}
+                    {!!platformLogoUrl && !platformLogoUrls && (
+                        <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />
+                    )}
+                    {!!platformLogoUrls &&
+                        platformLogoUrls.slice(0, 2).map((platformLogoUrlsEntry) => (
+                            <>
+                                <PreviewImage preview={false} src={platformLogoUrlsEntry || ''} alt={platformName} />
+                            </>
+                        ))}
                 </LogoIcon>
             )}
             <PlatformText>
-                {platformName}
+                {platformNames ? platformNames.join(' & ') : platformName}
                 {(directParentContainer || instanceId) && <StyledRightOutlined data-testid="right-arrow" />}
             </PlatformText>
             {instanceId && (

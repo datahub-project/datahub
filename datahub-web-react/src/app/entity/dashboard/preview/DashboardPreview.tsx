@@ -9,10 +9,14 @@ import {
     Owner,
     SearchInsight,
     ParentContainersResult,
+    Deprecation,
+    DashboardStatsSummary,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { capitalizeFirstLetter } from '../../../shared/textUtil';
+import { IconStyleType } from '../../Entity';
+import { DashboardStatsSummary as DashboardStatsSummaryView } from '../shared/DashboardStatsSummary';
 
 export const DashboardPreview = ({
     urn,
@@ -28,7 +32,13 @@ export const DashboardPreview = ({
     container,
     insights,
     logoUrl,
+    chartCount,
+    statsSummary,
+    lastUpdatedMs,
+    createdMs,
+    externalUrl,
     parentContainers,
+    deprecation,
 }: {
     urn: string;
     platform: string;
@@ -41,8 +51,14 @@ export const DashboardPreview = ({
     glossaryTerms?: GlossaryTerms | null;
     domain?: Domain | null;
     container?: Container | null;
+    deprecation?: Deprecation | null;
     insights?: Array<SearchInsight> | null;
     logoUrl?: string | null;
+    chartCount?: number | null;
+    statsSummary?: DashboardStatsSummary | null;
+    lastUpdatedMs?: number | null;
+    createdMs?: number | null;
+    externalUrl?: string | null;
     parentContainers?: ParentContainersResult | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
@@ -54,6 +70,7 @@ export const DashboardPreview = ({
             name={name || ''}
             description={description || ''}
             type="Dashboard"
+            typeIcon={entityRegistry.getIcon(EntityType.Dashboard, 14, IconStyleType.ACCENT)}
             logoUrl={logoUrl || ''}
             platformInstanceId={platformInstanceId}
             platform={capitalizedPlatform}
@@ -63,8 +80,20 @@ export const DashboardPreview = ({
             container={container || undefined}
             glossaryTerms={glossaryTerms || undefined}
             domain={domain}
+            deprecation={deprecation}
             insights={insights}
             parentContainers={parentContainers}
+            externalUrl={externalUrl}
+            topUsers={statsSummary?.topUsersLast30Days}
+            subHeader={
+                <DashboardStatsSummaryView
+                    chartCount={chartCount}
+                    viewCount={statsSummary?.viewCount}
+                    uniqueUserCountLast30Days={statsSummary?.uniqueUserCountLast30Days}
+                    lastUpdatedMs={lastUpdatedMs}
+                    createdMs={createdMs}
+                />
+            }
         />
     );
 };

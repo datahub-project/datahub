@@ -10,11 +10,14 @@ on:
     branches:
       - master
     paths-ignore:
-      - "docker/**"
       - "docs/**"
       - "**.md"
   release:
     types: [published, edited]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -28,7 +31,7 @@ jobs:
           java-version: 1.8
       - uses: actions/setup-python@v2
         with:
-          python-version: "3.6"
+          python-version: "3.7"
       - name: Gradle build (and test)
         # there is some race condition in gradle build, which makes gradle never terminate in ~30% of the runs
         # running build first without datahub-web-react:yarnBuild and then with it is 100% stable
@@ -45,15 +48,7 @@ jobs:
             **/build/test-results/test/**
             **/junit.*.xml
       - name: Ensure codegen is updated
-        run: |
-          if output=$(git status --porcelain) && [ ! -z "$output" ]; then
-            # See https://unix.stackexchange.com/a/155077/378179.
-            echo 'There are uncommitted changes:'
-            echo $output
-            exit 1
-          else
-            echo 'All good!'
-          fi
+        uses: ./.github/actions/ensure-codegen-updated
       - name: Slack failure notification
         if: failure() && github.event_name == 'push'
         uses: kpritam/slack-job-status-action@v1
@@ -68,7 +63,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
         with:
-          python-version: "3.6"
+          python-version: "3.7"
       - name: Quickstart Compose Validation
         run: ./docker/quickstart/generate_and_compare.sh
 

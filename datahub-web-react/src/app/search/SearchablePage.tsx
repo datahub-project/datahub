@@ -1,14 +1,19 @@
-import React, { useEffect } from 'react';
-import { useHistory } from 'react-router';
+import React, { useEffect, useState } from 'react';
+import { useHistory, useLocation } from 'react-router';
+import * as QueryString from 'query-string';
 import { useTheme } from 'styled-components';
-
 import { SearchHeader } from './SearchHeader';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { EntityType } from '../../types.generated';
-import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../graphql/search.generated';
+import { EntityType, FacetFilterInput } from '../../types.generated';
+import {
+    GetAutoCompleteMultipleResultsQuery,
+    useGetAutoCompleteMultipleResultsLazyQuery,
+} from '../../graphql/search.generated';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import analytics, { EventType } from '../analytics';
+import useFilters from './utils/useFilters';
+import { PageRoutes } from '../../conf/Global';
 
 const styles = {
     children: {
@@ -21,27 +26,44 @@ const styles = {
 };
 
 interface Props extends React.PropsWithChildren<any> {
-    initialQuery?: string;
     onSearch?: (query: string, type?: EntityType) => void;
     onAutoComplete?: (query: string) => void;
 }
 
 const defaultProps = {
-    initialQuery: '',
     onSearch: undefined,
     onAutoComplete: undefined,
+};
+
+const isSearchResultPage = (path: string) => {
+    return path.startsWith(PageRoutes.SEARCH);
 };
 
 /**
  * A page that includes a sticky search header (nav bar)
  */
-export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, children }: Props) => {
+export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) => {
+    const location = useLocation();
+    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+    const paramFilters: Array<FacetFilterInput> = useFilters(params);
+    const filters = isSearchResultPage(location.pathname) ? paramFilters : [];
+    const currentQuery: string = isSearchResultPage(location.pathname)
+        ? decodeURIComponent(params.query ? (params.query as string) : '')
+        : '';
+
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
 
     const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
     const user = useGetAuthenticatedUser()?.corpUser;
+    const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
+
+    useEffect(() => {
+        if (suggestionsData !== undefined) {
+            setNewSuggestionData(suggestionsData);
+        }
+    }, [suggestionsData]);
 
     const search = (query: string, type?: EntityType) => {
         if (!query || query.trim().length === 0) {
@@ -57,6 +79,7 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
         navigateToSearchUrl({
             type,
             query,
+            filters,
             history,
         });
     };
@@ -75,26 +98,26 @@ export const SearchablePage = ({ initialQuery, onSearch, onAutoComplete, childre
 
     // Load correct autocomplete results on initial page load.
     useEffect(() => {
-        if (initialQuery && initialQuery.trim() !== '') {
+        if (currentQuery && currentQuery.trim() !== '') {
             getAutoCompleteResults({
                 variables: {
                     input: {
-                        query: initialQuery,
+                        query: currentQuery,
                     },
                 },
             });
         }
-    }, [initialQuery, getAutoCompleteResults]);
+    }, [currentQuery, getAutoCompleteResults]);
 
     return (
         <>
             <SearchHeader
-                initialQuery={initialQuery as string}
+                initialQuery={currentQuery as string}
                 placeholderText={themeConfig.content.search.searchbarMessage}
                 suggestions={
-                    (suggestionsData &&
-                        suggestionsData?.autoCompleteForMultiple &&
-                        suggestionsData.autoCompleteForMultiple.suggestions) ||
+                    (newSuggestionData &&
+                        newSuggestionData?.autoCompleteForMultiple &&
+                        newSuggestionData.autoCompleteForMultiple.suggestions) ||
                     []
                 }
                 onSearch={onSearch || search}

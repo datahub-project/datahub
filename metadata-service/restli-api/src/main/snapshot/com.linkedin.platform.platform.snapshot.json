@@ -136,6 +136,11 @@
               "type" : "Urn",
               "doc" : "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
               "optional" : true
+            }, {
+              "name" : "message",
+              "type" : "string",
+              "doc" : "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually.",
+              "optional" : true
             } ]
           },
           "doc" : "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data.",
@@ -798,6 +803,11 @@
               "filterNameOverride" : "Tag",
               "hasValuesFieldName" : "hasTags"
             }
+          }, {
+            "name" : "context",
+            "type" : "string",
+            "doc" : "Additional context about the association",
+            "optional" : true
           } ]
         }
       },
@@ -879,6 +889,11 @@
         "filterNameOverride" : "Glossary Term",
         "hasValuesFieldName" : "hasGlossaryTerms"
       }
+    }, {
+      "name" : "context",
+      "type" : "string",
+      "doc" : "Additional context about the association",
+      "optional" : true
     } ]
   }, "com.linkedin.common.GlossaryTermUrn", {
     "type" : "record",
@@ -1205,6 +1220,21 @@
           "entityTypes" : [ "chart" ],
           "isLineage" : true,
           "name" : "Contains"
+        }
+      }
+    }, {
+      "name" : "datasets",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Urn"
+      },
+      "doc" : "Datasets consumed by a dashboard",
+      "default" : [ ],
+      "Relationship" : {
+        "/*" : {
+          "entityTypes" : [ "dataset" ],
+          "isLineage" : true,
+          "name" : "Consumes"
         }
       }
     }, {
@@ -2103,6 +2133,11 @@
                     "Searchable" : {
                       "fieldType" : "TEXT_PARTIAL"
                     }
+                  }, {
+                    "name" : "slack",
+                    "type" : "string",
+                    "doc" : "Slack channel for the group",
+                    "optional" : true
                   } ],
                   "Aspect" : {
                     "EntityUrns" : [ "com.linkedin.common.CorpGroupUrn" ],
@@ -4430,7 +4465,16 @@
                     "name" : "parentNode",
                     "type" : "com.linkedin.common.GlossaryNodeUrn",
                     "doc" : "Parent node of the glossary term",
-                    "optional" : true
+                    "optional" : true,
+                    "Relationship" : {
+                      "entityTypes" : [ "glossaryNode" ],
+                      "name" : "IsPartOf"
+                    },
+                    "Searchable" : {
+                      "fieldName" : "parentNode",
+                      "fieldType" : "URN",
+                      "hasValuesFieldName" : "hasParentNode"
+                    }
                   }, {
                     "name" : "termSource",
                     "type" : "string",
@@ -4568,7 +4612,16 @@
                     "name" : "parentNode",
                     "type" : "com.linkedin.common.GlossaryNodeUrn",
                     "doc" : "Parent node of the glossary term",
-                    "optional" : true
+                    "optional" : true,
+                    "Relationship" : {
+                      "entityTypes" : [ "glossaryNode" ],
+                      "name" : "IsPartOf"
+                    },
+                    "Searchable" : {
+                      "fieldName" : "parentNode",
+                      "fieldType" : "URN",
+                      "hasValuesFieldName" : "hasParentNode"
+                    }
                   }, {
                     "name" : "name",
                     "type" : "string",
@@ -4577,6 +4630,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
+                      "fieldName" : "displayName",
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   } ],

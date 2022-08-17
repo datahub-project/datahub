@@ -1,4 +1,3 @@
-import importlib
 import logging
 import math
 import sys
@@ -7,6 +6,7 @@ from multiprocessing.pool import ThreadPool
 from typing import Dict, Iterable, List, Optional, Set, Type
 
 import dateutil.parser as dp
+from packaging import version
 from pydantic.fields import Field
 from redash_toolbelt import Redash
 from requests.adapters import HTTPAdapter
@@ -22,6 +22,7 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -83,6 +84,7 @@ REDASH_DATA_SOURCE_TO_DATAHUB_MAP = {
     "results": {"platform": "external", "db_name_key": "name"},
 }
 
+REDASH_VERSION_V9 = "9.0.0-beta"
 
 # We assume the default chart type is TABLE
 DEFAULT_VISUALIZATION_TYPE = ChartTypeClass.TABLE
@@ -203,29 +205,33 @@ class BigqueryQualifiedNameParser(QualifiedNameParser):
 
 
 def get_full_qualified_name(platform: str, database_name: str, table_name: str) -> str:
-    if platform == "postgres":
-        full_qualified_name = PostgresQualifiedNameParser().get_full_qualified_name(
+    if platform == "athena":
+        return AthenaQualifiedNameParser().get_full_qualified_name(
             database_name, table_name
         )
-    elif platform == "mysql":
-        full_qualified_name = MysqlQualifiedNameParser().get_full_qualified_name(
-            database_name, table_name
-        )
-    elif platform == "mssql":
-        full_qualified_name = MssqlQualifiedNameParser().get_full_qualified_name(
-            database_name, table_name
-        )
-    elif platform == "athena":
-        full_qualified_name = AthenaQualifiedNameParser().get_full_qualified_name(
-            database_name, table_name
-        )
+
     elif platform == "bigquery":
-        full_qualified_name = BigqueryQualifiedNameParser().get_full_qualified_name(
+        return BigqueryQualifiedNameParser().get_full_qualified_name(
             database_name, table_name
         )
+
+    elif platform == "mssql":
+        return MssqlQualifiedNameParser().get_full_qualified_name(
+            database_name, table_name
+        )
+
+    elif platform == "mysql":
+        return MysqlQualifiedNameParser().get_full_qualified_name(
+            database_name, table_name
+        )
+
+    elif platform == "postgres":
+        return PostgresQualifiedNameParser().get_full_qualified_name(
+            database_name, table_name
+        )
+
     else:
-        full_qualified_name = f"{database_name}.{table_name}"
-    return full_qualified_name
+        return f"{database_name}.{table_name}"
 
 
 class RedashConfig(ConfigModel):
@@ -359,7 +365,7 @@ class RedashSource(Source):
         self.report.report_warning(key, reason)
         log.warning(f"{key} => {reason}")
 
-    def test_connection(self) -> None:
+    def validate_connection(self) -> None:
         test_response = self.client._get(f"{self.config.connect_uri}/api")
         if test_response.status_code == 200:
             logger.info("Redash API connected succesfully")
@@ -374,11 +380,10 @@ class RedashSource(Source):
     @classmethod
     def _import_sql_parser_cls(cls, sql_parser_path: str) -> Type[SQLParser]:
         assert "." in sql_parser_path, "sql_parser-path must contain a ."
-        module_name, cls_name = sql_parser_path.rsplit(".", 1)
-        parser_cls = getattr(importlib.import_module(module_name), cls_name)
+        parser_cls = import_path(sql_parser_path)
+
         if not issubclass(parser_cls, SQLParser):
             raise ValueError(f"must be derived from {SQLParser}; got {parser_cls}")
-
         return parser_cls
 
     @classmethod
@@ -405,8 +410,7 @@ class RedashSource(Source):
             map = REDASH_DATA_SOURCE_TO_DATAHUB_MAP.get(
                 data_source_type, {"platform": DEFAULT_DATA_SOURCE_PLATFORM}
             )
-            platform = map.get("platform", DEFAULT_DATA_SOURCE_PLATFORM)
-            return platform
+            return map.get("platform", DEFAULT_DATA_SOURCE_PLATFORM)
         return DEFAULT_DATA_SOURCE_PLATFORM
 
     def _get_database_name_based_on_datasource(
@@ -531,7 +535,7 @@ class RedashSource(Source):
 
         return chart_urns
 
-    def _get_dashboard_snapshot(self, dashboard_data):
+    def _get_dashboard_snapshot(self, dashboard_data, redash_version):
         dashboard_id = dashboard_data["id"]
         dashboard_urn = f"urn:li:dashboard:({self.platform},{dashboard_id})"
         dashboard_snapshot = DashboardSnapshot(
@@ -550,9 +554,14 @@ class RedashSource(Source):
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
 
-        dashboard_url = (
-            f"{self.config.connect_uri}/dashboard/{dashboard_data.get('slug', '')}"
-        )
+        if version.parse(redash_version) > version.parse(REDASH_VERSION_V9):
+            dashboard_url = (
+                f"{self.config.connect_uri}/dashboards/{dashboard_data.get('id')}"
+            )
+        else:
+            dashboard_url = (
+                f"{self.config.connect_uri}/dashboard/{dashboard_data.get('slug', '')}"
+            )
 
         widgets = dashboard_data.get("widgets", [])
         description = self._get_dashboard_description_from_widgets(widgets)
@@ -597,15 +606,22 @@ class RedashSource(Source):
                     # Tested the same with a Redash instance
                     dashboard_id = dashboard_response["id"]
                     dashboard_data = self.client._get(
-                        "api/dashboards/{}".format(dashboard_id)
+                        f"api/dashboards/{dashboard_id}"
                     ).json()
                 except Exception:
                     # This does not work in our testing but keeping for now because
                     # people in community are using Redash connector successfully
                     dashboard_slug = dashboard_response["slug"]
                     dashboard_data = self.client.dashboard(dashboard_slug)
+                try:
+                    redash_version = self.client._get("status.json").json()["version"]
+                except Exception:
+                    redash_version = REDASH_VERSION_V9
+
                 logger.debug(dashboard_data)
-                dashboard_snapshot = self._get_dashboard_snapshot(dashboard_data)
+                dashboard_snapshot = self._get_dashboard_snapshot(
+                    dashboard_data, redash_version
+                )
                 mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
                 wu = MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
                 self.report.report_workunit(wu)
@@ -686,9 +702,7 @@ class RedashSource(Source):
         chart_type = self._get_chart_type_from_viz_data(viz_data)
         query_id = query_data.get("id")
         chart_url = f"{self.config.connect_uri}/queries/{query_id}#{viz_id}"
-        description = (
-            viz_data.get("description", "") if viz_data.get("description", "") else ""
-        )
+        description = viz_data.get("description", "") or ""
         data_source_id = query_data.get("data_source_id")
         data_source = self._get_chart_data_source(data_source_id)
         data_source_type = data_source.get("type")
@@ -728,7 +742,6 @@ class RedashSource(Source):
             for query_response in queries_response["results"]:
                 chart_name = query_response["name"]
                 self.report.report_item_scanned()
-
                 if (not self.config.chart_patterns.allowed(chart_name)) or (
                     self.config.skip_draft and query_response["is_draft"]
                 ):
@@ -768,7 +781,7 @@ class RedashSource(Source):
         self.report.api_page_limit = self.config.api_page_limit
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        self.test_connection()
+        self.validate_connection()
         self.add_config_to_report()
         with PerfTimer() as timer:
             yield from self._emit_chart_mces()

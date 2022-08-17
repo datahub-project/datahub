@@ -67,11 +67,16 @@ export class UserEntity implements Entity<CorpUser> {
             data.properties?.fullName ||
             data.info?.displayName || // Deprecated info field
             data.info?.fullName || // Deprecated info field
-            data.username
+            data.username ||
+            data.urn
         );
     };
 
     getGenericEntityProperties = (user: CorpUser) => {
         return getDataForEntityType({ data: user, entityType: this.type, getOverrideProperties: (data) => data });
+    };
+
+    supportedCapabilities = () => {
+        return new Set([]);
     };
 }

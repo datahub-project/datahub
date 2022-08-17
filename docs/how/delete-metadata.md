@@ -57,6 +57,7 @@ Eg: datahub delete -p "snowflake" -a "datasetProfile" --start-time '2022-05-29 0
 
 You can optionally add `-n` or `--dry-run` to execute a dry run before issuing the final delete command.
 You can optionally add `-f` or `--force` to skip confirmations
+You can optionally add `--only-soft-deleted` flag to remove soft-deleted items only.
 
  :::note
 

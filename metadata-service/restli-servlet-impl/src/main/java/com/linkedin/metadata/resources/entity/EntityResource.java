@@ -1,6 +1,8 @@
 package com.linkedin.metadata.resources.entity;
 
 import com.codahale.metrics.MetricRegistry;
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationContext;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
@@ -8,7 +10,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
@@ -74,6 +75,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
 import static com.linkedin.metadata.entity.ValidationUtils.*;
+import static com.linkedin.metadata.resources.entity.ResourceUtils.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.utils.PegasusUtils.*;
 
@@ -93,6 +95,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String ACTION_LIST_URNS = "listUrns";
   private static final String ACTION_FILTER = "filter";
   private static final String ACTION_DELETE = "delete";
+  private static final String ACTION_EXISTS = "exists";
   private static final String PARAM_ENTITY = "entity";
   private static final String PARAM_ENTITIES = "entities";
   private static final String PARAM_COUNT = "count";
@@ -100,6 +103,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String PARAM_ASPECT_NAME = "aspectName";
   private static final String PARAM_START_TIME_MILLIS = "startTimeMillis";
   private static final String PARAM_END_TIME_MILLIS = "endTimeMillis";
+  private static final String PARAM_URN = "urn";
   private static final String SYSTEM_METADATA = "systemMetadata";
   private static final String ES_FILED_TIMESTAMP = "timestampMillis";
   private static final Integer ELASTIC_MAX_PAGE_SIZE = 10000;
@@ -159,6 +163,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @RestMethod.Get
   @Nonnull
   @WithSpan
+
   public Task<AnyRecord> get(@Nonnull String urnStr,
       @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames) throws URISyntaxException {
     log.info("GET {}", urnStr);
@@ -222,14 +227,16 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     SystemMetadata systemMetadata = populateDefaultFieldsIfEmpty(providedSystemMetadata);
 
-    // TODO Correctly audit ingestions.
-    final AuditStamp auditStamp =
-        new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(Constants.UNKNOWN_ACTOR));
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    String actorUrnStr = authentication.getActor().toUrnStr();
+    final AuditStamp auditStamp = new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));
 
     // variables referenced in lambdas are required to be final
     final SystemMetadata finalSystemMetadata = systemMetadata;
     return RestliUtil.toTask(() -> {
       _entityService.ingestEntity(entity, auditStamp, finalSystemMetadata);
+      tryIndexRunId(com.datahub.util.ModelUtils.getUrnFromSnapshotUnion(entity.getValue()), systemMetadata,
+          _entitySearchService);
       return null;
     }, MetricRegistry.name(this.getClass(), "ingest"));
   }
@@ -248,8 +255,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       }
     }
 
-    final AuditStamp auditStamp =
-        new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(Constants.UNKNOWN_ACTOR));
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    String actorUrnStr = authentication.getActor().toUrnStr();
+    final AuditStamp auditStamp = new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));
 
     if (systemMetadataList == null) {
       systemMetadataList = new SystemMetadata[entities.length];
@@ -263,8 +271,15 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         .map(systemMetadata -> populateDefaultFieldsIfEmpty(systemMetadata))
         .collect(Collectors.toList());
 
+    SystemMetadata[] finalSystemMetadataList1 = systemMetadataList;
     return RestliUtil.toTask(() -> {
       _entityService.ingestEntities(Arrays.asList(entities), auditStamp, finalSystemMetadataList);
+      for (int i = 0; i < entities.length; i++) {
+        SystemMetadata systemMetadata = finalSystemMetadataList1[i];
+        Entity entity = entities[i];
+        tryIndexRunId(com.datahub.util.ModelUtils.getUrnFromSnapshotUnion(entity.getValue()), systemMetadata,
+            _entitySearchService);
+      }
       return null;
     }, MetricRegistry.name(this.getClass(), "batchIngest"));
   }
@@ -304,6 +319,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @ActionParam(PARAM_DIRECTION) String direction,
       @ActionParam(PARAM_ENTITIES) @Optional @Nullable String[] entities,
       @ActionParam(PARAM_INPUT) @Optional @Nullable String input,
+      @ActionParam(PARAM_MAX_HOPS) @Optional @Nullable Integer maxHops,
       @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
       @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sortCriterion, @ActionParam(PARAM_START) int start,
       @ActionParam(PARAM_COUNT) int count) throws URISyntaxException {
@@ -313,7 +329,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         urnStr, direction, entityList, input);
     return RestliUtil.toTask(
         () -> _lineageSearchService.searchAcrossLineage(urn, LineageDirection.valueOf(direction), entityList, input,
-            filter, sortCriterion, start, count), "searchAcrossRelationships");
+            maxHops, filter, sortCriterion, start, count), "searchAcrossRelationships");
   }
 
   @Action(name = ACTION_LIST)
@@ -372,7 +388,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   }
 
   /*
-  Used to delete all data related to a filter criteria based on registryId, runId etc.
+   Used to delete all data related to a filter criteria based on registryId, runId etc.
    */
   @Action(name = "deleteAll")
   @Nonnull
@@ -555,5 +571,14 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     log.info("FILTER RESULTS for {} with filter {}", entityName, filter);
     return RestliUtil.toTask(() -> _entitySearchService.filter(entityName, filter, sortCriterion, start, count),
         MetricRegistry.name(this.getClass(), "search"));
+  }
+
+  @Action(name = ACTION_EXISTS)
+  @Nonnull
+  @WithSpan
+  public Task<Boolean> exists(@ActionParam(PARAM_URN) @Nonnull String urnStr) throws URISyntaxException {
+    log.info("EXISTS for {}", urnStr);
+    Urn urn = Urn.createFromString(urnStr);
+    return RestliUtil.toTask(() -> _entityService.exists(urn), MetricRegistry.name(this.getClass(), "exists"));
   }
 }

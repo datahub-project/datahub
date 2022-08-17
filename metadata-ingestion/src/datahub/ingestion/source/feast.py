@@ -1,25 +1,20 @@
-import sys
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Tuple, Union
 
+from feast import (
+    BigQuerySource,
+    Entity,
+    Feature,
+    FeatureStore,
+    FeatureView,
+    FileSource,
+    KafkaSource,
+    KinesisSource,
+    OnDemandFeatureView,
+    ValueType,
+)
+from feast.data_source import DataSource, RequestDataSource
 from pydantic import Field
-
-if sys.version_info >= (3, 7):
-    from feast import (
-        BigQuerySource,
-        Entity,
-        Feature,
-        FeatureStore,
-        FeatureView,
-        FileSource,
-        KafkaSource,
-        KinesisSource,
-        OnDemandFeatureView,
-        ValueType,
-    )
-    from feast.data_source import DataSource, RequestDataSource
-else:
-    raise ModuleNotFoundError("The feast plugin requires Python 3.7 or newer.")
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -50,8 +45,7 @@ from datahub.metadata.schema_classes import (
     StatusClass,
 )
 
-assert sys.version_info >= (3, 7)  # needed for mypy
-
+# FIXME: ValueType module cannot be used as a type
 _field_type_mapping: Dict[ValueType, str] = {
     ValueType.UNKNOWN: MLFeatureDataType.UNKNOWN,
     ValueType.BYTES: MLFeatureDataType.BYTE,
@@ -218,6 +212,7 @@ class FeastRepositorySource(Source):
 
     def _get_feature_workunit(
         self,
+        # FIXME: FeatureView and OnDemandFeatureView cannot be used as a type
         feature_view: Union[FeatureView, OnDemandFeatureView],
         feature: Feature,
     ) -> MetadataWorkUnit:

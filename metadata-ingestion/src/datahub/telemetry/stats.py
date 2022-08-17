@@ -9,12 +9,12 @@ class SupportsLT(Protocol):
         ...
 
 
-SupportsComparisonT = TypeVar("SupportsComparisonT", bound=SupportsLT)  # noqa: Y001
+_SupportsComparisonT = TypeVar("_SupportsComparisonT", bound=SupportsLT)
 
 
 def calculate_percentiles(
-    data: List[SupportsComparisonT], percentiles: List[int]
-) -> Dict[int, SupportsComparisonT]:
+    data: List[_SupportsComparisonT], percentiles: List[int]
+) -> Dict[int, _SupportsComparisonT]:
     size = len(data)
 
     if size == 0:
@@ -27,9 +27,7 @@ def calculate_percentiles(
         min(i, size - 1) for i in percentile_indices
     ]  # in case of rounding errors
 
-    values = {p: data_sorted[i] for p, i in zip(percentiles, percentile_indices)}
-
-    return values
+    return {p: data_sorted[i] for p, i in zip(percentiles, percentile_indices)}
 
 
 def discretize(statistic: Union[float, int]) -> int:

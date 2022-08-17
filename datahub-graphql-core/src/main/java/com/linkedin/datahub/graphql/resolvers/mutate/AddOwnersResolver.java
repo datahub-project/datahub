@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.CorpuserUrn;
 
 import com.linkedin.common.urn.Urn;
@@ -7,6 +8,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AddOwnersInput;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
+import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
@@ -47,9 +49,9 @@ public class AddOwnersResolver implements DataFetcher<CompletableFuture<Boolean>
         log.debug("Adding Owners. input: {}", input.toString());
 
         Urn actor = CorpuserUrn.createFromString(((QueryContext) environment.getContext()).getActorUrn());
-        OwnerUtils.addOwners(
+        OwnerUtils.addOwnersToResources(
             owners,
-            targetUrn,
+            ImmutableList.of(new ResourceRefInput(input.getResourceUrn(), null, null)),
             actor,
             _entityService
         );

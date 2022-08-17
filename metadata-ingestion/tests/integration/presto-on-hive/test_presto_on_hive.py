@@ -1,6 +1,5 @@
 import re
 import subprocess
-import sys
 from typing import Dict
 
 import pytest
@@ -16,9 +15,6 @@ FROZEN_TIME = "2021-09-23 12:00:00"
 data_platform = "presto-on-hive"
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 7), reason="presto-on-hive requires Python 3.7+"
-)
 @pytest.fixture(scope="module")
 def presto_on_hive_runner(docker_compose_runner, pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/presto-on-hive"
@@ -52,7 +48,7 @@ def loaded_presto_on_hive(presto_on_hive_runner):
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration
+@pytest.mark.integration_batch_1
 def test_presto_on_hive_ingest(
     loaded_presto_on_hive, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):
@@ -112,7 +108,7 @@ def test_presto_on_hive_ingest(
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration
+@pytest.mark.integration_batch_1
 def test_presto_on_hive_instance_ingest(
     loaded_presto_on_hive, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):

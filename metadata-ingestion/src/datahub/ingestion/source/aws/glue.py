@@ -3,7 +3,18 @@ import typing
 from collections import defaultdict
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Union
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+    cast,
+)
 from urllib.parse import urlparse
 
 import yaml
@@ -11,7 +22,6 @@ from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
-from datahub.configuration.source_common import PlatformSourceConfigBase
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
     get_sys_time,
@@ -37,12 +47,22 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.ingestion_job_state_provider import JobId
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.glue_profiling_config import GlueProfilingConfig
+from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.ingestion.source.state.sql_common_state import (
+    BaseSQLAlchemyCheckpointState,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfig,
+    StatefulIngestionConfigBase,
+    StatefulIngestionReport,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -64,12 +84,14 @@ from datahub.metadata.schema_classes import (
     DatasetProfileClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
+    JobStatusClass,
     MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
     PartitionSpecClass,
     PartitionTypeClass,
+    StatusClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -83,8 +105,19 @@ DEFAULT_PLATFORM = "glue"
 VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
 
-class GlueSourceConfig(AwsSourceConfig, PlatformSourceConfigBase, GlueProfilingConfig):
+class GlueStatefulIngestionConfig(StatefulIngestionConfig):
+    """
+    Specialization of basic StatefulIngestionConfig to adding custom config.
+    This will be used to override the stateful_ingestion config param of StatefulIngestionConfigBase
+    in the GlueSourceConfig.
+    """
 
+    remove_stale_metadata: bool = True
+
+
+class GlueSourceConfig(
+    AwsSourceConfig, GlueProfilingConfig, StatefulIngestionConfigBase
+):
     extract_owners: Optional[bool] = Field(
         default=True,
         description="When enabled, extracts ownership from Glue directly and overwrites existing owners. When disabled, ownership is left empty for datasets.",
@@ -127,6 +160,10 @@ class GlueSourceConfig(AwsSourceConfig, PlatformSourceConfigBase, GlueProfilingC
         default=None,
         description="Configs to ingest data profiles from glue table",
     )
+    # Custom Stateful Ingestion settings
+    stateful_ingestion: Optional[GlueStatefulIngestionConfig] = Field(
+        default=None, description=""
+    )
 
     @property
     def glue_client(self):
@@ -164,9 +201,10 @@ class GlueSourceConfig(AwsSourceConfig, PlatformSourceConfigBase, GlueProfilingC
 
 
 @dataclass
-class GlueSourceReport(SourceReport):
+class GlueSourceReport(StatefulIngestionReport):
     tables_scanned = 0
     filtered: List[str] = dataclass_field(default_factory=list)
+    soft_deleted_stale_entities: List[str] = dataclass_field(default_factory=list)
 
     def report_table_scanned(self) -> None:
         self.tables_scanned += 1
@@ -174,13 +212,20 @@ class GlueSourceReport(SourceReport):
     def report_table_dropped(self, table: str) -> None:
         self.filtered.append(table)
 
+    def report_stale_entity_soft_deleted(self, urn: str) -> None:
+        self.soft_deleted_stale_entities.append(urn)
+
 
 @platform_name("Glue")
 @config_class(GlueSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
-class GlueSource(Source):
+@capability(
+    SourceCapability.DELETION_DETECTION,
+    "Enabled by default when stateful ingestion is turned on.",
+)
+class GlueSource(StatefulIngestionSourceBase):
     """
     Note: if you also have files in S3 that you'd like to ingest, we recommend you use Glue's built-in data catalog. See [here](../../../../docs/generated/ingestion/sources/s3.md) for a quick guide on how to set up a crawler on Glue and ingest the outputs with DataHub.
 
@@ -229,7 +274,7 @@ class GlueSource(Source):
     report = GlueSourceReport()
 
     def __init__(self, config: GlueSourceConfig, ctx: PipelineContext):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.extract_owners = config.extract_owners
         self.source_config = config
         self.report = GlueSourceReport()
@@ -497,8 +542,7 @@ class GlueSource(Source):
             # in nodes. this may lead to broken edge in lineage.
             if source_node is None or target_node is None:
                 logger.warning(
-                    flow_urn,
-                    f"Unrecognized source or target node in edge: {edge}. Skipping.\
+                    f"{flow_urn}: Unrecognized source or target node in edge: {edge}. Skipping.\
                         This may lead to broken edge in lineage",
                 )
                 continue
@@ -716,7 +760,7 @@ class GlueSource(Source):
             dataset_profile.rowCount = int(
                 float(table_stats[self.source_config.profiling.row_count])
             )
-        if self.source_config.profiling.row_count in table_stats:
+        if self.source_config.profiling.column_count in table_stats:
             dataset_profile.columnCount = int(
                 float(table_stats[self.source_config.profiling.column_count])
             )
@@ -900,6 +944,52 @@ class GlueSource(Source):
                 self.report.report_workunit(wu)
                 yield wu
 
+    # TODO: Consider refactoring this logic out for use across sources as it is leading to a significant amount of
+    #  code duplication.
+    def gen_removed_entity_workunits(self) -> Iterable[MetadataWorkUnit]:
+        last_checkpoint = self.get_last_checkpoint(
+            self.get_default_ingestion_job_id(), BaseSQLAlchemyCheckpointState
+        )
+        cur_checkpoint = self.get_current_checkpoint(
+            self.get_default_ingestion_job_id()
+        )
+        if (
+            self.source_config.stateful_ingestion
+            and self.source_config.stateful_ingestion.remove_stale_metadata
+            and last_checkpoint is not None
+            and last_checkpoint.state is not None
+            and cur_checkpoint is not None
+            and cur_checkpoint.state is not None
+        ):
+            logger.debug("Checking for stale entity removal.")
+
+            def soft_delete_item(urn: str, type: str) -> Iterable[MetadataWorkUnit]:
+
+                logger.info(f"Soft-deleting stale entity of type {type} - {urn}.")
+                mcp = MetadataChangeProposalWrapper(
+                    entityType=type,
+                    entityUrn=urn,
+                    changeType=ChangeTypeClass.UPSERT,
+                    aspectName="status",
+                    aspect=StatusClass(removed=True),
+                )
+                wu = MetadataWorkUnit(id=f"soft-delete-{type}-{urn}", mcp=mcp)
+                self.report.report_workunit(wu)
+                self.report.report_stale_entity_soft_deleted(urn)
+                yield wu
+
+            last_checkpoint_state = cast(
+                BaseSQLAlchemyCheckpointState, last_checkpoint.state
+            )
+            cur_checkpoint_state = cast(
+                BaseSQLAlchemyCheckpointState, cur_checkpoint.state
+            )
+
+            for table_urn in last_checkpoint_state.get_table_urns_not_in(
+                cur_checkpoint_state
+            ):
+                yield from soft_delete_item(table_urn, "dataset")
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         database_seen = set()
         tables = self.get_all_tables()
@@ -937,6 +1027,16 @@ class GlueSource(Source):
             yield from self.add_table_to_database_container(
                 dataset_urn=dataset_urn, db_name=database_name
             )
+            if self.is_stateful_ingestion_configured():
+                cur_checkpoint = self.get_current_checkpoint(
+                    self.get_default_ingestion_job_id()
+                )
+                if cur_checkpoint is not None:
+                    # Utilizing BaseSQLAlchemyCheckpointState class to save state
+                    checkpoint_state = cast(
+                        BaseSQLAlchemyCheckpointState, cur_checkpoint.state
+                    )
+                    checkpoint_state.add_table_urn(dataset_urn)
             mcp = self.get_lineage_if_enabled(mce)
             if mcp:
                 mcp_wu = MetadataWorkUnit(
@@ -957,6 +1057,10 @@ class GlueSource(Source):
 
         if self.extract_transforms:
             yield from self._transform_extraction()
+
+        if self.is_stateful_ingestion_configured():
+            # Clean up stale entities.
+            yield from self.gen_removed_entity_workunits()
 
     def _transform_extraction(self) -> Iterable[MetadataWorkUnit]:
         dags: Dict[str, Optional[Dict[str, Any]]] = {}
@@ -1045,6 +1149,10 @@ class GlueSource(Source):
             )
 
         def get_s3_tags() -> Optional[GlobalTagsClass]:
+            # when TableType=VIRTUAL_VIEW the Location can be empty and we should
+            # return no tags rather than fail the entire ingestion
+            if table.get("StorageDescriptor", {}).get("Location") is None:
+                return None
             bucket_name = s3_util.get_bucket_name(
                 table["StorageDescriptor"]["Location"]
             )
@@ -1059,7 +1167,7 @@ class GlueSource(Source):
                         ]
                     )
                 except self.s3_client.exceptions.ClientError:
-                    logger.warn(f"No tags found for bucket={bucket_name}")
+                    logger.warning(f"No tags found for bucket={bucket_name}")
             if self.source_config.use_s3_object_tags:
                 key_prefix = s3_util.get_key_prefix(
                     table["StorageDescriptor"]["Location"]
@@ -1078,7 +1186,7 @@ class GlueSource(Source):
                 else:
                     # Unlike bucket tags, if an object does not have tags, it will just return an empty array
                     # as opposed to an exception.
-                    logger.warn(
+                    logger.warning(
                         f"No tags found for bucket={bucket_name} key={key_prefix}"
                     )
             if len(tags_to_add) == 0:
@@ -1097,7 +1205,7 @@ class GlueSource(Source):
                         [current_tag.tag for current_tag in current_tags.tags]
                     )
             else:
-                logger.warn(
+                logger.warning(
                     "Could not connect to DatahubApi. No current tags to maintain"
                 )
 
@@ -1185,5 +1293,55 @@ class GlueSource(Source):
     def get_report(self):
         return self.report
 
+    def create_checkpoint(self, job_id: JobId) -> Optional[Checkpoint]:
+        """
+        Create the custom checkpoint with empty state for the job.
+        """
+        assert self.ctx.pipeline_name is not None
+        if job_id == self.get_default_ingestion_job_id():
+            return Checkpoint(
+                job_name=job_id,
+                pipeline_name=self.ctx.pipeline_name,
+                platform_instance_id=self.get_platform_instance_id(),
+                run_id=self.ctx.run_id,
+                config=self.source_config,
+                # Reusing BaseSQLAlchemyCheckpointState as it has needed functionality to support statefulness of GLue
+                state=BaseSQLAlchemyCheckpointState(),
+            )
+        return None
+
+    def get_platform_instance_id(self) -> str:
+        return self.source_config.platform_instance or self.platform
+
+    def is_checkpointing_enabled(self, job_id: JobId) -> bool:
+        if (
+            job_id == self.get_default_ingestion_job_id()
+            and self.is_stateful_ingestion_configured()
+            and self.source_config.stateful_ingestion
+            and self.source_config.stateful_ingestion.remove_stale_metadata
+        ):
+            return True
+
+        return False
+
+    def get_default_ingestion_job_id(self) -> JobId:
+        """
+        Glue ingestion job name.
+        """
+        return JobId(f"{self.platform}_stateful_ingestion")
+
+    def update_default_job_run_summary(self) -> None:
+        summary = self.get_job_run_summary(self.get_default_ingestion_job_id())
+        if summary is not None:
+            # For now just add the config and the report.
+            summary.config = self.source_config.json()
+            summary.custom_summary = self.report.as_string()
+            summary.runStatus = (
+                JobStatusClass.FAILED
+                if self.get_report().failures
+                else JobStatusClass.COMPLETED
+            )
+
     def close(self):
-        pass
+        self.update_default_job_run_summary()
+        self.prepare_for_commit()

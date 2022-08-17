@@ -10,7 +10,8 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 import { capitalizeFirstLetter } from '../shared/textUtil';
 import { nodeHeightFromTitleLength } from './utils/nodeHeightFromTitleLength';
 import { LineageExplorerContext } from './utils/LineageExplorerContext';
-import useLazyGetEntityQuery from './utils/useLazyGetEntityQuery';
+import { useGetEntityLineageLazyQuery } from '../../graphql/lineage.generated';
+import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
 
 const CLICK_DELAY_THRESHOLD = 1000;
 const DRAG_DISTANCE_THRESHOLD = 20;
@@ -23,10 +24,10 @@ function truncate(input, length) {
     return input;
 }
 
-function getLastTokenOfTitle(title?: string): string {
+function getLastTokenOfTitle(title?: string, delimiter?: string): string {
     if (!title) return '';
 
-    const lastToken = title?.split('.').slice(-1)[0];
+    const lastToken = title?.split(delimiter || '.').slice(-1)[0];
 
     // if the last token does not contain any content, the string should not be tokenized on `.`
     if (lastToken.replace(/\s/g, '').length === 0) {
@@ -89,13 +90,18 @@ export default function LineageEntityNode({
     const { expandTitles } = useContext(LineageExplorerContext);
     const [isExpanding, setIsExpanding] = useState(false);
     const [expandHover, setExpandHover] = useState(false);
-    const { getAsyncEntity, asyncData } = useLazyGetEntityQuery();
+    const [getAsyncEntityLineage, { data: asyncLineageData }] = useGetEntityLineageLazyQuery();
+    const isHideSiblingMode = useIsSeparateSiblingsMode();
 
     useEffect(() => {
-        if (asyncData) {
-            onExpandClick(asyncData);
+        if (asyncLineageData && asyncLineageData.entity) {
+            const entityAndType = {
+                type: asyncLineageData.entity.type,
+                entity: { ...asyncLineageData.entity },
+            } as EntityAndType;
+            onExpandClick(entityAndType);
         }
-    }, [asyncData, onExpandClick]);
+    }, [asyncLineageData, onExpandClick]);
 
     const entityRegistry = useEntityRegistry();
     const unexploredHiddenChildren =
@@ -111,6 +117,15 @@ export default function LineageEntityNode({
         }),
         [],
     );
+
+    let platformDisplayText = capitalizeFirstLetter(
+        node.data.platform?.properties?.displayName || node.data.platform?.name,
+    );
+    if (node.data.siblingPlatforms && !isHideSiblingMode) {
+        platformDisplayText = node.data.siblingPlatforms
+            .map((platform) => platform.properties?.displayName || platform.name)
+            .join(' & ');
+    }
 
     const nodeHeight = nodeHeightFromTitleLength(expandTitles ? node.data.expandedName || node.data.name : undefined);
 
@@ -148,7 +163,10 @@ export default function LineageEntityNode({
                         onClick={() => {
                             setIsExpanding(true);
                             if (node.data.urn && node.data.type) {
-                                getAsyncEntity(node.data.urn, node.data.type);
+                                // getAsyncEntity(node.data.urn, node.data.type);
+                                getAsyncEntityLineage({
+                                    variables: { urn: node.data.urn, separateSiblings: isHideSiblingMode },
+                                });
                             }
                         }}
                         onMouseOver={() => {
@@ -237,23 +255,42 @@ export default function LineageEntityNode({
                     // eslint-disable-next-line react/style-prop-object
                     style={{ filter: isSelected ? 'url(#shadow1-selected)' : 'url(#shadow1)' }}
                 />
-                {node.data.icon ? (
+                {node.data.siblingPlatforms && !isHideSiblingMode && (
+                    <svg x={iconX} y={iconY - 5}>
+                        <image
+                            // preserveAspectRatio="none"
+                            y={0}
+                            height={iconHeight * (3 / 4)}
+                            width={iconWidth * (3 / 4)}
+                            href={node.data.siblingPlatforms[0]?.properties?.logoUrl || ''}
+                            clipPath="url(#clipPolygonTop)"
+                        />
+                        <image
+                            // preserveAspectRatio="none"
+                            y={25}
+                            height={iconHeight * (3 / 4)}
+                            width={iconWidth * (3 / 4)}
+                            clipPath="url(#clipPolygon)"
+                            href={node.data.siblingPlatforms[1]?.properties?.logoUrl || ''}
+                        />
+                    </svg>
+                )}
+                {(!node.data.siblingPlatforms || isHideSiblingMode) && node.data.icon && (
                     <image href={node.data.icon} height={iconHeight} width={iconWidth} x={iconX} y={iconY} />
-                ) : (
-                    node.data.type && (
-                        <svg
-                            viewBox="64 64 896 896"
-                            focusable="false"
-                            x={iconX}
-                            y={iconY}
-                            height={iconHeight}
-                            width={iconWidth}
-                            fill="currentColor"
-                            aria-hidden="true"
-                        >
-                            {entityRegistry.getIcon(node.data.type, 16, IconStyleType.SVG)}
-                        </svg>
-                    )
+                )}
+                {!node.data.icon && (!node.data.siblingPlatforms || isHideSiblingMode) && node.data.type && (
+                    <svg
+                        viewBox="64 64 896 896"
+                        focusable="false"
+                        x={iconX}
+                        y={iconY}
+                        height={iconHeight}
+                        width={iconWidth}
+                        fill="currentColor"
+                        aria-hidden="true"
+                    >
+                        {entityRegistry.getIcon(node.data.type, 16, IconStyleType.SVG)}
+                    </svg>
                 )}
                 <Group>
                     <UnselectableText
@@ -265,7 +302,7 @@ export default function LineageEntityNode({
                         textAnchor="start"
                         fill="#8C8C8C"
                     >
-                        <tspan>{truncate(capitalizeFirstLetter(node.data.platform), 16)}</tspan>
+                        <tspan>{truncate(platformDisplayText, 16)}</tspan>
                         <tspan dx=".25em" dy="2px" fill="#dadada" fontSize={12} fontWeight="normal">
                             {' '}
                             |{' '}
@@ -289,7 +326,13 @@ export default function LineageEntityNode({
                             textAnchor="start"
                             fill={isCenterNode ? '#1890FF' : 'black'}
                         >
-                            {truncate(getLastTokenOfTitle(node.data.name), 16)}
+                            {truncate(
+                                getLastTokenOfTitle(
+                                    node.data.name,
+                                    node.data.platform?.properties?.datasetNameDelimiter,
+                                ),
+                                16,
+                            )}
                         </UnselectableText>
                     )}
                 </Group>

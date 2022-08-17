@@ -2,7 +2,7 @@ import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
 import { Dataset, DatasetProperties, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import { FIELDS_TO_HIGHLIGHT } from './search/highlights';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
@@ -15,7 +15,6 @@ import QueriesTab from '../shared/tabs/Dataset/Queries/QueriesTab';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { SidebarStatsSection } from '../shared/containers/profile/sidebar/Dataset/StatsSidebarSection';
 import StatsTab from '../shared/tabs/Dataset/Stats/StatsTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { capitalizeFirstLetter } from '../../shared/textUtil';
@@ -27,6 +26,8 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 import { ValidationsTab } from '../shared/tabs/Dataset/Validations/ValidationsTab';
 import { OperationsTab } from './profile/OperationsTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
+import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
+import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -85,6 +86,9 @@ export class DatasetEntity implements Entity<Dataset> {
             useUpdateQuery={useUpdateDatasetMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
+            subHeader={{
+                component: DatasetStatsSummarySubHeader,
+            }}
             tabs={[
                 {
                     name: 'Schema',
@@ -175,6 +179,19 @@ export class DatasetEntity implements Entity<Dataset> {
                     component: SidebarAboutSection,
                 },
                 {
+                    component: SidebarOwnerSection,
+                    properties: {
+                        defaultOwnerType: OwnershipType.TechnicalOwner,
+                    },
+                },
+                {
+                    component: SidebarSiblingsSection,
+                    display: {
+                        visible: (_, dataset: GetDatasetQuery) =>
+                            (dataset?.dataset?.siblings?.siblings?.length || 0) > 0,
+                    },
+                },
+                {
                     component: SidebarViewDefinitionSection,
                     display: {
                         visible: (_, dataset: GetDatasetQuery) =>
@@ -182,24 +199,10 @@ export class DatasetEntity implements Entity<Dataset> {
                     },
                 },
                 {
-                    component: SidebarStatsSection,
-                    display: {
-                        visible: (_, dataset: GetDatasetQuery) =>
-                            (dataset?.dataset?.datasetProfiles?.length || 0) > 0 ||
-                            (dataset?.dataset?.usageStats?.buckets?.length || 0) > 0,
-                    },
-                },
-                {
                     component: SidebarTagsSection,
                     properties: {
                         hasTags: true,
                         hasTerms: true,
-                    },
-                },
-                {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
                     },
                 },
                 {
@@ -241,7 +244,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 glossaryTerms={data.glossaryTerms}
-                domain={data.domain}
+                domain={data.domain?.domain}
                 container={data.container}
             />
         );
@@ -249,6 +252,7 @@ export class DatasetEntity implements Entity<Dataset> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Dataset;
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 urn={data.urn}
@@ -258,9 +262,14 @@ export class DatasetEntity implements Entity<Dataset> {
                 platformName={data.platform.properties?.displayName || data.platform.name}
                 platformLogo={data.platform.properties?.logoUrl}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
+                platformNames={genericProperties?.siblingPlatforms?.map(
+                    (platform) => platform.properties?.displayName || platform.name,
+                )}
+                platformLogos={genericProperties?.siblingPlatforms?.map((platform) => platform.properties?.logoUrl)}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
-                domain={data.domain}
+                domain={data.domain?.domain}
+                deprecation={data.deprecation}
                 glossaryTerms={data.glossaryTerms}
                 subtype={data.subTypes?.typeNames?.[0]}
                 container={data.container}
@@ -276,6 +285,12 @@ export class DatasetEntity implements Entity<Dataset> {
                     )
                 }
                 insights={result.insights}
+                externalUrl={data.properties?.externalUrl}
+                statsSummary={data.statsSummary}
+                rowCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].rowCount}
+                lastUpdatedMs={
+                    (data as any).lastOperation?.length && (data as any).lastOperation[0].lastUpdatedTimestamp
+                }
             />
         );
     };
@@ -288,12 +303,12 @@ export class DatasetEntity implements Entity<Dataset> {
             type: EntityType.Dataset,
             subtype: entity?.subTypes?.typeNames?.[0] || undefined,
             icon: entity?.platform?.properties?.logoUrl || undefined,
-            platform: entity?.platform?.name,
+            platform: entity?.platform,
         };
     };
 
     displayName = (data: Dataset) => {
-        return data?.properties?.name || data.name;
+        return data?.properties?.name || data.name || data.urn;
     };
 
     platformLogoUrl = (data: Dataset) => {
@@ -306,5 +321,16 @@ export class DatasetEntity implements Entity<Dataset> {
             entityType: this.type,
             getOverrideProperties: this.getOverridePropertiesFromEntity,
         });
+    };
+
+    supportedCapabilities = () => {
+        return new Set([
+            EntityCapabilityType.OWNERS,
+            EntityCapabilityType.GLOSSARY_TERMS,
+            EntityCapabilityType.TAGS,
+            EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.DEPRECATION,
+            EntityCapabilityType.SOFT_DELETE,
+        ]);
     };
 }

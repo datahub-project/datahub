@@ -15,11 +15,14 @@ export enum EventType {
     EntityViewEvent,
     EntitySectionViewEvent,
     EntityActionEvent,
+    BatchEntityActionEvent,
     RecommendationImpressionEvent,
     RecommendationClickEvent,
     SearchAcrossLineageEvent,
     SearchAcrossLineageResultsViewEvent,
     DownloadAsCsvEvent,
+    SignUpEvent,
+    ResetCredentialsEvent,
 }
 
 /**
@@ -41,6 +44,14 @@ export interface PageViewEvent extends BaseEvent {
 }
 
 /**
+ * Logged on successful new user sign up.
+ */
+export interface SignUpEvent extends BaseEvent {
+    type: EventType.SignUpEvent;
+    title: string;
+}
+
+/**
  * Logged on user successful login.
  */
 export interface LogInEvent extends BaseEvent {
@@ -52,6 +63,13 @@ export interface LogInEvent extends BaseEvent {
  */
 export interface LogOutEvent extends BaseEvent {
     type: EventType.LogOutEvent;
+}
+
+/**
+ * Logged on user resetting their credentials
+ */
+export interface ResetCredentialsEvent extends BaseEvent {
+    type: EventType.ResetCredentialsEvent;
 }
 
 /**
@@ -139,8 +157,14 @@ export const EntityActionType = {
 export interface EntityActionEvent extends BaseEvent {
     type: EventType.EntityActionEvent;
     actionType: string;
-    entityType: EntityType;
+    entityType?: EntityType;
     entityUrn: string;
+}
+
+export interface BatchEntityActionEvent extends BaseEvent {
+    type: EventType.BatchEntityActionEvent;
+    actionType: string;
+    entityUrns: string[];
 }
 
 export interface RecommendationImpressionEvent extends BaseEvent {
@@ -189,8 +213,10 @@ export interface DownloadAsCsvEvent extends BaseEvent {
  */
 export type Event =
     | PageViewEvent
+    | SignUpEvent
     | LogInEvent
     | LogOutEvent
+    | ResetCredentialsEvent
     | SearchEvent
     | SearchResultsViewEvent
     | SearchResultClickEvent
@@ -202,4 +228,5 @@ export type Event =
     | SearchAcrossLineageEvent
     | SearchAcrossLineageResultsViewEvent
     | DownloadAsCsvEvent
-    | RecommendationClickEvent;
+    | RecommendationClickEvent
+    | BatchEntityActionEvent;

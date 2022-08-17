@@ -3,7 +3,7 @@ import * as React from 'react';
 import styled from 'styled-components';
 import { Tag, EntityType, SearchResult } from '../../../types.generated';
 import DefaultPreviewCard from '../../preview/DefaultPreviewCard';
-import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { urlEncodeUrn } from '../shared/utils';
 import TagProfile from './TagProfile';
@@ -60,6 +60,7 @@ export class TagEntity implements Entity<Tag> {
             url={`/${this.getPathName()}/${urlEncodeUrn(data.urn)}`}
             logoComponent={<PreviewTagIcon />}
             type="Tag"
+            typeIcon={this.icon(14, IconStyleType.ACCENT)}
         />
     );
 
@@ -73,5 +74,9 @@ export class TagEntity implements Entity<Tag> {
 
     getGenericEntityProperties = (tag: Tag) => {
         return getDataForEntityType({ data: tag, entityType: this.type, getOverrideProperties: (data) => data });
+    };
+
+    supportedCapabilities = () => {
+        return new Set([EntityCapabilityType.OWNERS]);
     };
 }

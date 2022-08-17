@@ -10,51 +10,13 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
 import click
 import requests
 import yaml
-from avrogen.dict_wrapper import DictWrapper
 from pydantic import BaseModel, ValidationError
 from requests.models import Response
 from requests.sessions import Session
 
-from datahub.emitter.mce_builder import Aspect
-from datahub.emitter.rest_emitter import _make_curl_command
+from datahub.emitter.request_helper import _make_curl_command
 from datahub.emitter.serialization_helper import post_json_transform
-from datahub.metadata.schema_classes import (
-    AssertionRunEventClass,
-    BrowsePathsClass,
-    ChartInfoClass,
-    ChartKeyClass,
-    ContainerClass,
-    ContainerKeyClass,
-    ContainerPropertiesClass,
-    DatahubIngestionCheckpointClass,
-    DatahubIngestionRunSummaryClass,
-    DataJobInputOutputClass,
-    DataJobKeyClass,
-    DataPlatformInstanceClass,
-    DataProcessInfoClass,
-    DatasetDeprecationClass,
-    DatasetKeyClass,
-    DatasetProfileClass,
-    DatasetPropertiesClass,
-    DatasetUpstreamLineageClass,
-    DatasetUsageStatisticsClass,
-    EditableDatasetPropertiesClass,
-    EditableSchemaMetadataClass,
-    GlobalTagsClass,
-    GlossaryTermsClass,
-    InstitutionalMemoryClass,
-    MLFeatureKeyClass,
-    MLFeaturePropertiesClass,
-    MLPrimaryKeyKeyClass,
-    MLPrimaryKeyPropertiesClass,
-    OperationClass,
-    OwnershipClass,
-    SchemaMetadataClass,
-    StatusClass,
-    SubTypesClass,
-    UpstreamLineageClass,
-    ViewPropertiesClass,
-)
+from datahub.metadata.schema_classes import _ASPECT_CLASSES, _Aspect
 from datahub.utilities.urns.urn import Urn
 
 log = logging.getLogger(__name__)
@@ -63,9 +25,16 @@ DEFAULT_GMS_HOST = "http://localhost:8080"
 CONDENSED_DATAHUB_CONFIG_PATH = "~/.datahubenv"
 DATAHUB_CONFIG_PATH = os.path.expanduser(CONDENSED_DATAHUB_CONFIG_PATH)
 
+DATAHUB_ROOT_FOLDER = os.path.expanduser("~/.datahub")
+
 ENV_SKIP_CONFIG = "DATAHUB_SKIP_CONFIG"
+ENV_METADATA_HOST_URL = "DATAHUB_GMS_URL"
 ENV_METADATA_HOST = "DATAHUB_GMS_HOST"
+ENV_METADATA_PORT = "DATAHUB_GMS_PORT"
+ENV_METADATA_PROTOCOL = "DATAHUB_GMS_PROTOCOL"
 ENV_METADATA_TOKEN = "DATAHUB_GMS_TOKEN"
+ENV_DATAHUB_SYSTEM_CLIENT_ID = "DATAHUB_SYSTEM_CLIENT_ID"
+ENV_DATAHUB_SYSTEM_CLIENT_SECRET = "DATAHUB_SYSTEM_CLIENT_SECRET"
 
 config_override: Dict = {}
 
@@ -79,9 +48,9 @@ class DatahubConfig(BaseModel):
     gms: GmsConfig
 
 
-def set_env_variables_override_config(host: str, token: Optional[str]) -> None:
+def set_env_variables_override_config(url: str, token: Optional[str]) -> None:
     """Should be used to override the config when using rest emitter"""
-    config_override[ENV_METADATA_HOST] = host
+    config_override[ENV_METADATA_HOST_URL] = url
     if token is not None:
         config_override[ENV_METADATA_TOKEN] = token
 
@@ -130,12 +99,26 @@ def get_details_from_config():
             gms_token = gms_config.token
             return gms_host, gms_token
         except yaml.YAMLError as exc:
-            click.secho(f"{DATAHUB_CONFIG_PATH} malformatted, error: {exc}", bold=True)
+            click.secho(f"{DATAHUB_CONFIG_PATH} malformed, error: {exc}", bold=True)
     return None, None
 
 
 def get_details_from_env() -> Tuple[Optional[str], Optional[str]]:
-    return os.environ.get(ENV_METADATA_HOST), os.environ.get(ENV_METADATA_TOKEN)
+    host = os.environ.get(ENV_METADATA_HOST)
+    port = os.environ.get(ENV_METADATA_PORT)
+    token = os.environ.get(ENV_METADATA_TOKEN)
+    protocol = os.environ.get(ENV_METADATA_PROTOCOL, "http")
+    url = os.environ.get(ENV_METADATA_HOST_URL)
+    if port is not None:
+        url = f"{protocol}://{host}:{port}"
+        return url, token
+    # The reason for using host as URL is backward compatibility
+    # If port is not being used we assume someone is using host env var as URL
+    if url is None and host is not None:
+        log.warning(
+            f"Do not use {ENV_METADATA_HOST} as URL. Use {ENV_METADATA_HOST_URL} instead"
+        )
+    return url or host, token
 
 
 def first_non_null(ls: List[Optional[str]]) -> Optional[str]:
@@ -147,10 +130,18 @@ def guess_entity_type(urn: str) -> str:
     return urn.split(":")[2]
 
 
-def get_host_and_token():
+def get_system_auth() -> Optional[str]:
+    system_client_id = os.environ.get(ENV_DATAHUB_SYSTEM_CLIENT_ID)
+    system_client_secret = os.environ.get(ENV_DATAHUB_SYSTEM_CLIENT_SECRET)
+    if system_client_id is not None and system_client_secret is not None:
+        return f"Basic {system_client_id}:{system_client_secret}"
+    return None
+
+
+def get_url_and_token():
     gms_host_env, gms_token_env = get_details_from_env()
     if len(config_override.keys()) > 0:
-        gms_host = config_override.get(ENV_METADATA_HOST)
+        gms_host = config_override.get(ENV_METADATA_HOST_URL)
         gms_token = config_override.get(ENV_METADATA_TOKEN)
     elif should_skip_config():
         gms_host = gms_host_env
@@ -164,17 +155,17 @@ def get_host_and_token():
 
 
 def get_token():
-    return get_host_and_token()[1]
+    return get_url_and_token()[1]
 
 
 def get_session_and_host():
     session = requests.Session()
 
-    gms_host, gms_token = get_host_and_token()
+    gms_host, gms_token = get_url_and_token()
 
     if gms_host is None or gms_host.strip() == "":
         log.error(
-            f"GMS Host is not set. Use datahub init command or set {ENV_METADATA_HOST} env var"
+            f"GMS Host is not set. Use datahub init command or set {ENV_METADATA_HOST_URL} env var"
         )
         return None, None
 
@@ -194,13 +185,13 @@ def get_session_and_host():
 
 def test_connection():
     (session, host) = get_session_and_host()
-    url = host + "/config"
+    url = f"{host}/config"
     response = session.get(url)
     response.raise_for_status()
 
 
 def test_connectivity_complain_exit(operation_name: str) -> None:
-    """Test connectivty to metadata-service, log operation name and exit"""
+    """Test connectivity to metadata-service, log operation name and exit"""
     # First test connectivity
     try:
         test_connection()
@@ -297,10 +288,7 @@ def post_delete_references_endpoint(
     path: str,
     cached_session_host: Optional[Tuple[Session, str]] = None,
 ) -> Tuple[int, List[Dict]]:
-    if not cached_session_host:
-        session, gms_host = get_session_and_host()
-    else:
-        session, gms_host = cached_session_host
+    session, gms_host = cached_session_host or get_session_and_host()
     url = gms_host + path
 
     payload = json.dumps(payload_obj)
@@ -316,10 +304,7 @@ def post_delete_endpoint(
     path: str,
     cached_session_host: Optional[Tuple[Session, str]] = None,
 ) -> typing.Tuple[str, int, int]:
-    if not cached_session_host:
-        session, gms_host = get_session_and_host()
-    else:
-        session, gms_host = cached_session_host
+    session, gms_host = cached_session_host or get_session_and_host()
     url = gms_host + path
 
     return post_delete_endpoint_with_session_and_url(session, url, payload_obj)
@@ -344,10 +329,11 @@ def post_delete_endpoint_with_session_and_url(
 
 def get_urns_by_filter(
     platform: Optional[str],
-    env: Optional[str],
+    env: Optional[str] = None,
     entity_type: str = "dataset",
     search_query: str = "*",
     include_removed: bool = False,
+    only_soft_deleted: Optional[bool] = None,
 ) -> Iterable[str]:
     session, gms_host = get_session_and_host()
     endpoint: str = "/entities?action=search"
@@ -370,9 +356,7 @@ def get_urns_by_filter(
                 "condition": "EQUAL",
             }
         )
-    if platform is not None and (
-        entity_type_lower == "chart" or entity_type_lower == "dashboard"
-    ):
+    if platform is not None and entity_type_lower in {"chart", "dashboard"}:
         filter_criteria.append(
             {
                 "field": "tool",
@@ -381,7 +365,15 @@ def get_urns_by_filter(
             }
         )
 
-    if include_removed:
+    if only_soft_deleted:
+        filter_criteria.append(
+            {
+                "field": "removed",
+                "value": "true",
+                "condition": "EQUAL",
+            }
+        )
+    elif include_removed:
         filter_criteria.append(
             {
                 "field": "removed",
@@ -480,10 +472,7 @@ def batch_get_ids(
     session, gms_host = get_session_and_host()
     endpoint: str = "/entitiesV2"
     url = gms_host + endpoint
-    ids_to_get = []
-    for id in ids:
-        ids_to_get.append(Urn.url_encode(id))
-
+    ids_to_get = [Urn.url_encode(id) for id in ids]
     response = session.get(
         f"{url}?ids=List({','.join(ids_to_get)})",
     )
@@ -540,11 +529,7 @@ def get_entity(
     aspect: Optional[List] = None,
     cached_session_host: Optional[Tuple[Session, str]] = None,
 ) -> Dict:
-    if not cached_session_host:
-        session, gms_host = get_session_and_host()
-    else:
-        session, gms_host = cached_session_host
-
+    session, gms_host = cached_session_host or get_session_and_host()
     if urn.startswith("urn%3A"):
         # we assume the urn is already encoded
         encoded_urn: str = urn
@@ -557,7 +542,7 @@ def get_entity(
     endpoint: str = f"/entitiesV2/{encoded_urn}"
 
     if aspect and len(aspect):
-        endpoint = endpoint + "?aspects=List(" + ",".join(aspect) + ")"
+        endpoint = f"{endpoint}?aspects=List(" + ",".join(aspect) + ")"
 
     response = session.get(gms_host + endpoint)
     response.raise_for_status()
@@ -570,12 +555,8 @@ def post_entity(
     aspect_name: str,
     aspect_value: Dict,
     cached_session_host: Optional[Tuple[Session, str]] = None,
-) -> Dict:
-    if not cached_session_host:
-        session, gms_host = get_session_and_host()
-    else:
-        session, gms_host = cached_session_host
-
+) -> int:
+    session, gms_host = cached_session_host or get_session_and_host()
     endpoint: str = "/aspects/?action=ingestProposal"
 
     proposal = {
@@ -603,48 +584,19 @@ def post_entity(
 
 
 type_class_to_name_map = {
-    DatasetKeyClass: "datasetKey",
-    UpstreamLineageClass: "upstreamLineage",
-    DataJobKeyClass: "datajobKey",
-    DataJobInputOutputClass: "dataJobInputOutput",
-    SchemaMetadataClass: "schemaMetadata",
-    MLPrimaryKeyKeyClass: "mlPrimaryKey",
-    MLPrimaryKeyPropertiesClass: "mlPrimaryKeyProperties",
-    MLFeatureKeyClass: "mlFeatureKey",
-    MLFeaturePropertiesClass: "mlFeatureProperties",
-    InstitutionalMemoryClass: "institutionalMemory",
-    OwnershipClass: "ownership",
-    BrowsePathsClass: "browsePaths",
-    DataPlatformInstanceClass: "dataPlatformInstance",
-    GlobalTagsClass: "globalTags",
-    StatusClass: "status",
-    DatasetPropertiesClass: "datasetProperties",
-    GlossaryTermsClass: "glossaryTerms",
-    SubTypesClass: "subTypes",
-    EditableSchemaMetadataClass: "editableSchemaMetadata",
-    ViewPropertiesClass: "viewProperties",
-    EditableDatasetPropertiesClass: "editableDatasetProperties",
-    DatasetDeprecationClass: "datasetDeprecation",
-    DatasetUpstreamLineageClass: "datasetUpstreamLineage",
-    ChartInfoClass: "chartInfo",
-    DataProcessInfoClass: "dataProcessInfo",
-    ChartKeyClass: "chartKey",
-    ContainerClass: "container",
-    ContainerKeyClass: "containerKey",
-    ContainerPropertiesClass: "containerProperties",
+    AspectClass: AspectClass.get_aspect_name()
+    for AspectClass in _ASPECT_CLASSES
+    if AspectClass.get_aspect_type() == "default"
 }
 
-timeseries_class_to_aspect_name_map: Dict[Type, str] = {
-    DatahubIngestionCheckpointClass: "datahubIngestionCheckpoint",
-    DatahubIngestionRunSummaryClass: "datahubIngestionRunSummary",
-    DatasetUsageStatisticsClass: "datasetUsageStatistics",
-    DatasetProfileClass: "datasetProfile",
-    AssertionRunEventClass: "assertionRunEvent",
-    OperationClass: "operation",
+timeseries_class_to_aspect_name_map = {
+    AspectClass: AspectClass.get_aspect_name()
+    for AspectClass in _ASPECT_CLASSES
+    if AspectClass.get_aspect_type() == "timeseries"
 }
 
 
-def _get_pydantic_class_from_aspect_name(aspect_name: str) -> Optional[Type[Aspect]]:
+def _get_pydantic_class_from_aspect_name(aspect_name: str) -> Optional[Type[_Aspect]]:
     candidates = [k for (k, v) in type_class_to_name_map.items() if v == aspect_name]
     candidates.extend(
         [
@@ -656,26 +608,12 @@ def _get_pydantic_class_from_aspect_name(aspect_name: str) -> Optional[Type[Aspe
     return candidates[0] if candidates else None
 
 
-def _get_aspect_name_from_aspect_class(aspect_class: str) -> str:
-    class_to_name_map = {
-        k.RECORD_SCHEMA.fullname.replace("pegasus2avro.", ""): v  # type: ignore
-        for (k, v) in (
-            set(type_class_to_name_map.items())
-            | set(timeseries_class_to_aspect_name_map.items())
-        )
-    }
-    return class_to_name_map.get(aspect_class, "unknown")
-
-
 def get_latest_timeseries_aspect_values(
     entity_urn: str,
     timeseries_aspect_name: str,
     cached_session_host: Optional[Tuple[Session, str]],
 ) -> Dict:
-    if not cached_session_host:
-        session, gms_host = get_session_and_host()
-    else:
-        session, gms_host = cached_session_host
+    session, gms_host = cached_session_host or get_session_and_host()
     query_body = {
         "urn": entity_urn,
         "entity": guess_entity_type(entity_urn),
@@ -697,7 +635,7 @@ def get_aspects_for_entity(
     aspects: List[str] = [],
     typed: bool = False,
     cached_session_host: Optional[Tuple[Session, str]] = None,
-) -> Dict[str, Union[dict, DictWrapper]]:
+) -> Dict[str, Union[dict, _Aspect]]:
     # Process non-timeseries aspects
     non_timeseries_aspects: List[str] = [
         a for a in aspects if a not in timeseries_class_to_aspect_name_map.values()
@@ -717,19 +655,20 @@ def get_aspects_for_entity(
         )
         values: List[Dict] = timeseries_response.get("value", {}).get("values", [])
         if values:
-            # Decode the json-encoded generic aspect value.
-            aspect_value: Dict = json.loads(values[0]["aspect"]["value"])
-            aspect_list.update(
-                # Follow the convention used for non-timeseries aspects.
-                {
-                    timeseries_aspect: {
-                        "name": timeseries_aspect,
-                        "value": aspect_value,
-                    }
-                }
+            aspect_cls: Optional[Type] = _get_pydantic_class_from_aspect_name(
+                timeseries_aspect
             )
+            if aspect_cls is not None:
+                aspect_value = values[0]
+                # Decode the json-encoded generic aspect value.
+                aspect_value["aspect"]["value"] = json.loads(
+                    aspect_value["aspect"]["value"]
+                )
+                aspect_list[
+                    aspect_cls.RECORD_SCHEMA.fullname.replace("pegasus2avro.", "")
+                ] = aspect_value
 
-    aspect_map: Dict[str, Union[dict, DictWrapper]] = {}
+    aspect_map: Dict[str, Union[dict, _Aspect]] = {}
     for a in aspect_list.values():
         aspect_name = a["name"]
         aspect_py_class: Optional[Type[Any]] = _get_pydantic_class_from_aspect_name(
@@ -751,4 +690,4 @@ def get_aspects_for_entity(
     if aspects:
         return {k: v for (k, v) in aspect_map.items() if k in aspects}
     else:
-        return {k: v for (k, v) in aspect_map.items()}
+        return dict(aspect_map)

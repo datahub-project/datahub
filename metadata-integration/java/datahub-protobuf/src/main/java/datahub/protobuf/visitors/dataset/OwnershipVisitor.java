@@ -37,14 +37,14 @@ public class OwnershipVisitor implements ProtobufModelVisitor<Owner> {
                         try {
                             ownershipType = OwnershipType.valueOf(entry.getKey().getName().toUpperCase());
                         } catch (IllegalArgumentException e) {
-                            ownershipType = OwnershipType.PRODUCER;
+                            ownershipType = OwnershipType.TECHNICAL_OWNER;
                         }
 
                         String[] id = entry.getValue().toLowerCase().split(":", 2);
                         return new Owner()
                                 .setType(ownershipType)
                                 .setSource(new OwnershipSource().setType(OwnershipSourceType.MANUAL))
-                                .setOwner(new Urn(id.length > 1 ? id[0] : "corpgroup", id[id.length - 1]));
+                                .setOwner(new Urn(id.length > 1 ? id[0].replaceFirst("corpgroup", "corpGroup") : "corpGroup", id[id.length - 1]));
                     } catch (URISyntaxException e) {
                         System.err.println(e.getMessage());
                         return null;

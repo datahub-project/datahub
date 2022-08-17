@@ -18,7 +18,7 @@ DataHub supports Tags, Glossary Terms, & Domains as distinct types of Metadata t
 ## Creating a Domain
 
 To create a Domain, first navigate to the **Domains** tab in the top-right menu of DataHub. Users must have the Platform Privilege
-called `Manage Domains` to view this tab, which can be granted by creating a new Platform [Policy](./policies.md).
+called `Manage Domains` to view this tab, which can be granted by creating a new Platform [Policy](authorization/policies.md).
 
 ![](./imgs/domains-tab.png)
 
@@ -47,8 +47,11 @@ By default, you don't need to worry about this. DataHub will auto-generate an un
 Once you've chosen a name and a description, click 'Create' to create the new Domain. 
 
 
-## Assigning an Asset to a Domain 
+## Assigning an Asset to a Domain
 
+You can assign assets to Domain using the UI or programmatically using the API or during ingestion. 
+
+### UI-Based Assignment
 To assign an asset to a Domain, simply navigate to the asset's profile page. At the bottom left-side menu bar, you'll 
 see a 'Domain' section. Click 'Set Domain', and then search for the Domain you'd like to add to. When you're done, click 'Add'.
 
@@ -57,7 +60,81 @@ see a 'Domain' section. Click 'Set Domain', and then search for the Domain you'd
 To remove an asset from a Domain, click the 'x' icon on the Domain tag. 
 
 > Notice: Adding or removing an asset from a Domain requires the `Edit Domain` Metadata Privilege, which can be granted
-> by a [Policy](./policies.md).
+> by a [Policy](authorization/policies.md).
+
+### Ingestion-time Assignment
+All SQL-based ingestion sources support assigning domains during ingestion using the `domain` configuration. Consult your source's configuration details page (e.g. [Snowflake](./generated/ingestion/sources/snowflake.md)), to verify that it supports the Domain capability.
+
+:::note
+
+Assignment of domains during ingestion will overwrite domains that you have assigned in the UI. A single table can only belong to one domain.
+
+:::
+
+
+Here is a quick example of a snowflake ingestion recipe that has been enhanced to attach the **Analytics** domain to all tables in the **long_tail_companions** database in the **analytics** schema, and the **Finance** domain to all tables in the **long_tail_companions** database in the **ecommerce** schema.
+
+```yaml
+source:
+  type: snowflake
+  config:
+    username: ${SNOW_USER}
+    password: ${SNOW_PASS}
+    account_id: 
+    warehouse: COMPUTE_WH
+    role: accountadmin
+    database_pattern:
+      allow:
+        - "long_tail_companions"
+    schema_pattern:
+      deny:
+        - information_schema
+    profiling:
+      enabled: False
+    domain:
+      Analytics:
+        allow:
+          - "long_tail_companions.analytics.*"
+      Finance:
+        allow:
+          - "long_tail_companions.ecommerce.*"
+```
+
+:::note
+
+When bare domain names like `Analytics` is used, the ingestion system will first check if a domain like `urn:li:domain:Analytics` is provisioned, failing that; it will check for a provisioned domain that has the same name. If we are unable to resolve bare domain names to provisioned domains, then ingestion will refuse to proceeed until the domain is provisioned on DataHub.
+
+:::
+
+You can also provide fully-qualified domain names to ensure that no ingestion-time domain resolution is needed. For example, the following recipe shows an example using fully qualified domain names:
+
+```yaml
+source:
+  type: snowflake
+  config:
+    username: ${SNOW_USER}
+    password: ${SNOW_PASS}
+    account_id:
+    warehouse: COMPUTE_WH
+    role: accountadmin
+    database_pattern:
+      allow:
+        - "long_tail_companions"
+    schema_pattern:
+      deny:
+        - information_schema
+    profiling:
+      enabled: False
+    domain:
+      "urn:li:domain:6289fccc-4af2-4cbb-96ed-051e7d1de93c":
+        allow:
+          - "long_tail_companions.analytics.*"
+      "urn:li:domain:07155b15-cee6-4fda-b1c1-5a19a6b74c3a":
+        allow:
+          - "long_tail_companions.ecommerce.*"
+```
+
+
 
 
 ## Searching by Domain

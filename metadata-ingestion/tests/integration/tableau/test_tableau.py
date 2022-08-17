@@ -2,6 +2,7 @@ import json
 import pathlib
 from unittest import mock
 
+import pytest
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
@@ -40,6 +41,7 @@ def side_effect_query_metadata(query):
 
 
 @freeze_time(FROZEN_TIME)
+@pytest.mark.slow_unit
 def test_tableau_ingest(pytestconfig, tmp_path):
 
     global test_resources_dir
@@ -69,7 +71,7 @@ def test_tableau_ingest(pytestconfig, tmp_path):
                         "connect_uri": "https://do-not-connect",
                         "site": "acryl",
                         "projects": ["default", "Project 2"],
-                        "workbooks_page_size": 10,
+                        "page_size": 10,
                         "ingest_tags": True,
                         "ingest_owner": True,
                         "ingest_tables_external": True,
