@@ -496,7 +496,7 @@ class BigqueryLineageExtractor:
                 return upstream_lineage, {}
         return None
 
-    def test_capability(self, project_id: str):
+    def test_capability(self, project_id: str) -> None:
         lineage_metadata: dict[str, set[str]]
         if self.config.use_exported_bigquery_audit_metadata:
             bigquery_client: BigQueryClient = BigQueryClient(project=project_id)

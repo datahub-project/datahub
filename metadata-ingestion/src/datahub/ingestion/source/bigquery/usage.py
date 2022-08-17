@@ -228,7 +228,7 @@ class BigQueryUsageExtractor:
             f"Number of buckets created = {len(self.aggregated_info)}. Per-bucket details:{bucket_level_stats}"
         )
 
-    def _make_bigquery_client(self, project_id: str) -> BigQueryClient:
+    def _make_bigquery_client(self, project_id: Optional[str]) -> BigQueryClient:
         return BigQueryClient(project=project_id)
 
     def _get_bigquery_log_entries_via_exported_bigquery_audit_metadata(
