@@ -38,9 +38,6 @@ class BigQueryV2Config(BigQueryConfig):
         description="Regex patterns for dataset to filter in ingestion. Specify regex to only match the schema name. e.g. to match all tables in schema analytics, use the regex 'analytics'",
     )
 
-    #    def __init__(self, **data: Any):
-    #        super().__init__(**data)
-
     @root_validator(pre=False)
     def validate_unsupported_configs(cls, values: Dict) -> Dict:
         value = values.get("profiling")
@@ -70,21 +67,6 @@ class BigQueryV2Config(BigQueryConfig):
             logging.warning(
                 "schema_pattern will be ignored in favour of dataset_pattern. schema_pattern will be deprecated, please use dataset_pattern only."
             )
-
-        #        project_id_config = values.get("project_id")
-        #        if project_id_config:
-        #            if values.get("project_id_pattern") != AllowDenyPattern.allow_all():
-        #                logging.warning(
-        #                    "project_id config property ignored because project_id_pattern is set. project_id property is deprecated, use only project_id_pattern"
-        #                )
-        #            else:
-        #                logging.warning(
-        #                    "project_id config property is deprecated, please use project_id_pattern instead"
-        #                )
-        #
-        #                allow_pattern = AllowDenyPattern()
-        #                allow_pattern.allow = [f"^{project_id_config}$"]
-        #                values["project_id_pattern"] = allow_pattern
 
         return values
 

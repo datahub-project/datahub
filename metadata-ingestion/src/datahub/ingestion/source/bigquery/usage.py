@@ -167,7 +167,7 @@ class BigQueryUsageExtractor:
             Union[ReadEvent, QueryEvent, MetadataWorkUnit]
         ]
         if self.config.use_exported_bigquery_audit_metadata:
-            bigquery_client = self._make_bigquery_client(project_id)
+            bigquery_client = self._make_bigquery_client(self.config.project_id)
             bigquery_log_entries = (
                 self._get_bigquery_log_entries_via_exported_bigquery_audit_metadata(
                     bigquery_client
