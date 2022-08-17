@@ -10,13 +10,16 @@ import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.identity.CorpUserCredentials;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.metadata.key.CorpUserKey;
 import javax.annotation.Nonnull;
+import org.springframework.beans.factory.annotation.Value;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -29,6 +32,9 @@ import static com.linkedin.metadata.Constants.*;
 public class CorpUserMapper implements ModelMapper<EntityResponse, CorpUser> {
 
     public static final CorpUserMapper INSTANCE = new CorpUserMapper();
+
+    @Value("${simplifiedHomepage.defaultOn:false}")
+    private Boolean simplifiedHomepageDefaultOn;
 
     public static CorpUser map(@Nonnull final EntityResponse entityResponse) {
         return INSTANCE.apply(entityResponse);
@@ -52,7 +58,23 @@ public class CorpUserMapper implements ModelMapper<EntityResponse, CorpUser> {
         mappingHelper.mapToResult(CORP_USER_STATUS_ASPECT_NAME,
             (corpUser, dataMap) -> corpUser.setStatus(CorpUserStatusMapper.map(new CorpUserStatus(dataMap))));
         mappingHelper.mapToResult(CORP_USER_CREDENTIALS_ASPECT_NAME, this::mapIsNativeUser);
+
+        mapCorpUserSettings(result, aspectMap.getOrDefault(CORP_USER_SETTINGS_ASPECT_NAME, null));
+
         return mappingHelper.getResult();
+    }
+
+    private void mapCorpUserSettings(@Nonnull CorpUser corpUser, EnvelopedAspect envelopedAspect) {
+        CorpUserSettings corpUserSettings = new CorpUserSettings();
+        if (envelopedAspect != null) {
+            corpUserSettings = new CorpUserSettings(envelopedAspect.data());
+        }
+
+        com.linkedin.datahub.graphql.generated.CorpUserSettings result =
+            new com.linkedin.datahub.graphql.generated.CorpUserSettings();
+        result.setShowSimplifiedHomepage(simplifiedHomepageDefaultOn);
+
+        corpUser.setSettings(result);
     }
 
     private void mapCorpUserKey(@Nonnull CorpUser corpUser, @Nonnull DataMap dataMap) {

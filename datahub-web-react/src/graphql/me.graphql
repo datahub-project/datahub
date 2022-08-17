@@ -19,6 +19,9 @@ query getMe {
                 teams
                 skills
             }
+            settings {
+                showSimplifiedHomepage
+            }
         }
         platformPrivileges {
             viewAnalytics

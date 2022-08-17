@@ -2871,6 +2871,22 @@ type CorpUser implements Entity {
     The structured tags associated with the user
     """
     globalTags: GlobalTags @deprecated
+
+    """
+    Settings that a user can customize through the datahub ui
+    """
+    settings: CorpUserSettings
+}
+
+"""
+Settings that a user can customize through the datahub ui
+"""
+type CorpUserSettings {
+    """
+    Flag whether the user should see a homepage with only datasets, charts & dashboards. Intended for users
+    who have less operational use cases for the datahub tool.
+    """
+    showSimplifiedHomepage: Boolean
 }
 
 """
