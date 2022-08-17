@@ -52,6 +52,7 @@ class DatahubRestSink(Sink):
             retry_max_times=self.config.retry_max_times,
             extra_headers=self.config.extra_headers,
             ca_certificate_path=self.config.ca_certificate_path,
+            disable_ssl_verification=self.config.disable_ssl_verification,
         )
         try:
             gms_config = self.emitter.test_connection()

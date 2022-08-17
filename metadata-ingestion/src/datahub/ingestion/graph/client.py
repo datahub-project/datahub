@@ -43,6 +43,7 @@ class DatahubClientConfig(ConfigModel):
     extra_headers: Optional[Dict[str, str]]
     ca_certificate_path: Optional[str]
     max_threads: int = 1
+    disable_ssl_verification: bool = False
 
 
 class DataHubGraph(DatahubRestEmitter):

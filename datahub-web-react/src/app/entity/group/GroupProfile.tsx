@@ -103,7 +103,7 @@ export default function GroupProfile() {
             data?.corpGroup?.info?.displayName ||
             undefined,
         email: data?.corpGroup?.editableProperties?.email || data?.corpGroup?.properties?.email || undefined,
-        slack: data?.corpGroup?.editableProperties?.slack || undefined,
+        slack: data?.corpGroup?.editableProperties?.slack || data?.corpGroup?.properties?.slack || undefined,
         aboutText:
             data?.corpGroup?.editableProperties?.description || data?.corpGroup?.properties?.description || undefined,
         groupMemberRelationships: groupMemberRelationships as EntityRelationshipsResult,

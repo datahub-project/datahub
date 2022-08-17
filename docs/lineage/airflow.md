@@ -13,12 +13,13 @@ There are a few ways to enable these integrations from Airflow into DataHub.
 ::: note
 
 We recommend you use the lineage plugin if you are on Airflow version >= 2.0.2 or on MWAA with an Airflow version >= 2.0.2
+
 :::
 
 1. You need to install the required dependency in your airflow.
 
   ```shell
-    pip install acryl-datahub-airflow-plugin
+  pip install acryl-datahub-airflow-plugin
   ```
 
 2. Disable lazy plugin load in your airflow.cfg.

@@ -1,7 +1,7 @@
 import re
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import IO, Any, Dict, List, Optional, Pattern, cast
+from typing import IO, Any, ClassVar, Dict, List, Optional, Pattern, cast
 
 from pydantic import BaseModel, Extra, validator
 from pydantic.fields import Field
@@ -121,6 +121,12 @@ class OauthConfiguration(ConfigModel):
 class AllowDenyPattern(ConfigModel):
     """A class to store allow deny regexes"""
 
+    # This regex is used to check if a given rule is a regex expression or a literal.
+    # Note that this is not a perfect check. For example, the '.' character should
+    # be considered a regex special character, but it's used frequently in literal
+    # patterns and hence we allow it anyway.
+    IS_SIMPLE_REGEX: ClassVar = re.compile(r"^[A-Za-z0-9 _.-]+$")
+
     allow: List[str] = Field(
         default=[".*"],
         description="List of regex patterns to include in ingestion",
@@ -133,13 +139,6 @@ class AllowDenyPattern(ConfigModel):
         default=True,
         description="Whether to ignore case sensitivity during pattern matching.",
     )  # Name comparisons should default to ignoring case
-    alphabet: str = Field(
-        default="[A-Za-z0-9 _.-]", description="Allowed alphabets pattern"
-    )
-
-    @property
-    def alphabet_pattern(self) -> Pattern:
-        return re.compile(f"^{self.alphabet}+$")
 
     @property
     def regex_flags(self) -> int:
@@ -167,7 +166,7 @@ class AllowDenyPattern(ConfigModel):
         much more efficient in some cases.
         """
         return all(
-            self.alphabet_pattern.match(allow_pattern) for allow_pattern in self.allow
+            self.IS_SIMPLE_REGEX.match(allow_pattern) for allow_pattern in self.allow
         )
 
     def get_allowed_list(self) -> List[str]:
