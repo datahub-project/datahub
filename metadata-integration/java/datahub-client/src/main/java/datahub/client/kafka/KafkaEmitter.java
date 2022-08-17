@@ -28,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class KafkaEmitter implements Emitter {
 
-  public static final String DEFAULT_MCP_KAFKA_TOPIC = "MetadataChangeProposal_v1";
+  public static String DEFAULT_MCP_KAFKA_TOPIC = "MetadataChangeProposal_v1";
 
   private final KafkaEmitterConfig config;
   private final KafkaProducer<Object, Object> producer;
