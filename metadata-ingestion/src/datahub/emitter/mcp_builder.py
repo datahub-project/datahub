@@ -23,7 +23,8 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
     SubTypesClass,
-    TagAssociationClass, _Aspect,
+    TagAssociationClass,
+    _Aspect,
 )
 
 
@@ -135,7 +136,7 @@ def wrap_aspect_as_workunit(
     entityUrn: str,
     aspectName: str,
     aspect: _Aspect,
-    report: SourceReport
+    report: SourceReport,
 ) -> MetadataWorkUnit:
     wu = MetadataWorkUnit(
         id=f"{aspectName}-for-{entityUrn}",
