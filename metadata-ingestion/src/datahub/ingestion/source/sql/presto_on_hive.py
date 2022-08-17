@@ -4,6 +4,8 @@ import logging
 from collections import namedtuple
 from itertools import groupby
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from enum import Enum
+from wsgiref import validate
 
 from pydantic.fields import Field
 
@@ -43,6 +45,11 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 TableKey = namedtuple("TableKey", ["schema", "table"])
 
+class PrestoOnHiveConfigMode(str, Enum):
+    hive: str = "hive"
+    presto: str = "presto"
+    presto_on_hive: str = "presto-on-hive"
+    trino: str = "trino"
 
 class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
     views_where_clause_suffix: str = Field(
@@ -62,7 +69,11 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
         description="Host URL and port to connect to. Example: localhost:3306",
     )
     scheme: str = Field(default="mysql+pymysql", description="", exclude=True)
-
+    mode: PrestoOnHiveConfigMode = Field(
+        default=PrestoOnHiveConfigMode.presto_on_hive,
+        description="""The ingested data will be stored under this platform.
+        Valid options: [presto-on-hive, trino, presto, hive]""",
+    )
 
 @platform_name("Presto on Hive")
 @config_class(PrestoOnHiveConfig)
@@ -166,7 +177,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
     """
 
     def __init__(self, config: PrestoOnHiveConfig, ctx: PipelineContext) -> None:
-        super().__init__(config, ctx, "presto-on-hive")
+        super().__init__(config, ctx, config.mode)
         self.config: PrestoOnHiveConfig = config
         self._alchemy_client = SQLAlchemyClient(config)
 
