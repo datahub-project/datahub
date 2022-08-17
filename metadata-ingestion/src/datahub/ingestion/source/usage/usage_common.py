@@ -6,7 +6,6 @@ from typing import Callable, Counter, Generic, List, Optional, TypeVar
 
 import pydantic
 from pydantic.fields import Field
-from sql_metadata import Parser
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
