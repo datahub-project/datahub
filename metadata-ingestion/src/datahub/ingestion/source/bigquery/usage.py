@@ -3,7 +3,7 @@ import logging
 import textwrap
 import time
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast
+from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast, Set
 
 import cachetools
 from google.cloud.bigquery import Client as BigQueryClient
@@ -772,7 +772,7 @@ class BigQueryUsageExtractor:
         )
 
     def test_capability(self, project_id: str) -> None:
-        lineage_metadata: dict[str, set[str]]
+        lineage_metadata: Dict[str, Set[str]]
         if self.config.use_exported_bigquery_audit_metadata:
             _client: BigQueryClient = BigQueryClient(project=project_id)
             entries = self._get_exported_bigquery_audit_metadata(

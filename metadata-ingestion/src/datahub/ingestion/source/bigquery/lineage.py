@@ -139,7 +139,7 @@ class BigqueryLineageExtractor:
 
     def compute_bigquery_lineage_via_gcp_logging(
         self, project_id: Optional[str]
-    ) -> dict[str, set[str]]:
+    ) -> Dict[str, Set[str]]:
         logger.info("Populating lineage info via GCP audit logs")
         try:
             _clients: GCPLoggingClient = _make_gcp_logging_client(project_id)
@@ -161,7 +161,7 @@ class BigqueryLineageExtractor:
 
     def compute_bigquery_lineage_via_exported_bigquery_audit_metadata(
         self,
-    ) -> dict[str, set[str]]:
+    ) -> Dict[str, Set[str]]:
         logger.info("Populating lineage info via exported GCP audit logs")
         try:
             _client: BigQueryClient = BigQueryClient(project=self.config.project_id)
@@ -409,11 +409,11 @@ class BigqueryLineageExtractor:
 
     def _compute_bigquery_lineage(
         self, project_id: Optional[str] = None
-    ) -> dict[str, set[str]]:
+    ) -> Dict[str, Set[str]]:
         lineage_extractor: BigqueryLineageExtractor = BigqueryLineageExtractor(
             config=self.config, report=self.report
         )
-        lineage_metadata: dict[str, set[str]]
+        lineage_metadata: Dict[str, Set[str]]
         if self.config.use_exported_bigquery_audit_metadata:
             lineage_metadata = (
                 lineage_extractor.compute_bigquery_lineage_via_exported_bigquery_audit_metadata()
@@ -456,7 +456,7 @@ class BigqueryLineageExtractor:
 
     def get_upstream_lineage_info(
         self, table_identifier: BigqueryTableIdentifier, platform: str
-    ) -> Optional[tuple[UpstreamLineageClass, dict[str, str]]]:
+    ) -> Optional[tuple[UpstreamLineageClass, Dict[str, str]]]:
         if self.lineage_metadata is None:
             self.lineage_metadata = self._compute_bigquery_lineage(
                 table_identifier.project_id
@@ -497,7 +497,7 @@ class BigqueryLineageExtractor:
         return None
 
     def test_capability(self, project_id: str) -> None:
-        lineage_metadata: dict[str, set[str]]
+        lineage_metadata: Dict[str, Set[str]]
         if self.config.use_exported_bigquery_audit_metadata:
             bigquery_client: BigQueryClient = BigQueryClient(project=project_id)
             entries = self._get_exported_bigquery_audit_metadata(

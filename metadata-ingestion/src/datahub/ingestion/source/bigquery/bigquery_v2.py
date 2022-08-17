@@ -96,7 +96,7 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 logger: logging.Logger = logging.getLogger(__name__)
 
 # https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types
-BIGQUERY_FIELD_TYPE_MAPPINGS: dict[
+BIGQUERY_FIELD_TYPE_MAPPINGS: Dict[
     str, Type[Union[BytesType, BooleanType, NumberType, StringType, TimeType, NullType]]
 ] = {
     "BYTES": BytesType,
