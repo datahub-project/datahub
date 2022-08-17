@@ -178,7 +178,7 @@ class BigQueryUsageExtractor:
             )
         else:
             logging_client: GCPLoggingClient = _make_gcp_logging_client(
-                self.config.storage_project_id, self.config.extra_client_options
+                project_id, self.config.extra_client_options
             )
             bigquery_log_entries = self._get_bigquery_log_entries_via_gcp_logging(
                 logging_client

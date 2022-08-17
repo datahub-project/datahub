@@ -224,9 +224,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     project_ids.append(project.project_id)
 
             lineage_extractor = BigqueryLineageExtractor(connection_conf, report)
-            for id in project_ids:
+            for project_id in project_ids:
                 try:
-                    lineage_extractor.test_capability(id)
+                    logger.info((f"Lineage capability test for project {project_id}"))
+                    lineage_extractor.test_capability(project_id)
                 except Exception as e:
                     _report[SourceCapability.LINEAGE_COARSE] = CapabilityReport(
                         capable=False,
