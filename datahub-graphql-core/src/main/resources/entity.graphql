@@ -493,6 +493,11 @@ type Mutation {
     Updates the soft deleted status for a batch of assets
     """
     batchUpdateSoftDeleted(input: BatchUpdateSoftDeletedInput!): Boolean
+
+    """
+    Update a user setting
+    """
+    updateUserSetting(input: UpdateUserSettingsInput!): Boolean
 }
 
 """
@@ -9074,4 +9079,27 @@ input BatchUpdateSoftDeletedInput {
     Whether to mark the asset as soft-deleted (hidden)
     """
     deleted: Boolean!
+}
+
+enum UserSetting {
+    """
+    Show simplified homepage
+    """
+    SHOW_SIMPLIFIED_HOMEPAGE
+}
+
+
+"""
+Input for updating a user setting
+"""
+input UpdateUserSettingsInput {
+    """
+    The name of the setting
+    """
+    name: UserSetting!
+
+    """
+    The new value of the setting
+    """
+    value: Boolean!
 }

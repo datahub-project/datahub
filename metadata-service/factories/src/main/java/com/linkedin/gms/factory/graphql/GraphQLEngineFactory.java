@@ -6,6 +6,7 @@ import com.datahub.authentication.user.NativeUserService;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.analytics.service.AnalyticsService;
+import com.linkedin.datahub.graphql.featureflags.GraphqlFeatureFlags;
 import com.linkedin.entity.client.JavaEntityClient;
 import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
 import com.linkedin.gms.factory.common.GitVersionFactory;
@@ -116,9 +117,16 @@ public class GraphQLEngineFactory {
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
+  @Value("${featureFlags.simplifiedHomepageDefaultOn}")
+  private Boolean simplifiedHomepageDefaultOn;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine getInstance() {
+    GraphqlFeatureFlags featureFlags = new GraphqlFeatureFlags();
+    featureFlags.setDefaultShowSimplifiedHomepage(simplifiedHomepageDefaultOn);
+    GraphqlFeatureFlags.setFeatureFlags(featureFlags);
+
     if (isAnalyticsEnabled) {
       return new GmsGraphQLEngine(
           _entityClient,

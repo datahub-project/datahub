@@ -4,6 +4,7 @@ import com.linkedin.common.GlobalTags;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datahub.graphql.featureflags.GraphqlFeatureFlags;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
@@ -19,7 +20,6 @@ import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.metadata.key.CorpUserKey;
 import javax.annotation.Nonnull;
-import org.springframework.beans.factory.annotation.Value;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -32,9 +32,6 @@ import static com.linkedin.metadata.Constants.*;
 public class CorpUserMapper implements ModelMapper<EntityResponse, CorpUser> {
 
     public static final CorpUserMapper INSTANCE = new CorpUserMapper();
-
-    @Value("${simplifiedHomepage.defaultOn:false}")
-    private Boolean simplifiedHomepageDefaultOn;
 
     public static CorpUser map(@Nonnull final EntityResponse entityResponse) {
         return INSTANCE.apply(entityResponse);
@@ -72,7 +69,11 @@ public class CorpUserMapper implements ModelMapper<EntityResponse, CorpUser> {
 
         com.linkedin.datahub.graphql.generated.CorpUserSettings result =
             new com.linkedin.datahub.graphql.generated.CorpUserSettings();
-        result.setShowSimplifiedHomepage(simplifiedHomepageDefaultOn);
+        result.setShowSimplifiedHomepage(GraphqlFeatureFlags.getDefaultShowSimplifiedHomepage());
+
+        if (corpUserSettings.hasShowSimplifiedHomepage()) {
+            result.setShowSimplifiedHomepage(corpUserSettings.isShowSimplifiedHomepage());
+        }
 
         corpUser.setSettings(result);
     }

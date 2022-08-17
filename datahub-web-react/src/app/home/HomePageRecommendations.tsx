@@ -10,6 +10,7 @@ import { useEntityRegistry } from '../useEntityRegistry';
 import { useGetEntityCountsQuery } from '../../graphql/app.generated';
 import { GettingStartedModal } from './GettingStartedModal';
 import { ANTD_GRAY } from '../entity/shared/constants';
+import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 
 const RecommendationsContainer = styled.div`
     margin-top: 32px;
@@ -61,11 +62,22 @@ type Props = {
     userUrn: string;
 };
 
+const simpleViewEntityTypes = [
+    EntityType.Dataset,
+    EntityType.Chart,
+    EntityType.Dashboard,
+    EntityType.GlossaryNode,
+    EntityType.GlossaryTerm,
+];
+
 export const HomePageRecommendations = ({ userUrn }: Props) => {
     // Entity Types
     const entityRegistry = useEntityRegistry();
     const browseEntityList = entityRegistry.getBrowseEntityTypes();
     const [showGettingStartedModal, setShowGettingStartedModal] = useState(false);
+    const user = useGetAuthenticatedUser()?.corpUser;
+
+    const showSimplifiedHomepage = user?.settings?.showSimplifiedHomepage || true;
 
     const { data: entityCountData } = useGetEntityCountsQuery({
         variables: {
@@ -75,9 +87,11 @@ export const HomePageRecommendations = ({ userUrn }: Props) => {
         },
     });
 
-    const orderedEntityCounts = entityCountData?.getEntityCounts?.counts?.sort((a, b) => {
-        return browseEntityList.indexOf(a.entityType) - browseEntityList.indexOf(b.entityType);
-    });
+    const orderedEntityCounts = entityCountData?.getEntityCounts?.counts
+        ?.sort((a, b) => {
+            return browseEntityList.indexOf(a.entityType) - browseEntityList.indexOf(b.entityType);
+        })
+        .filter((entityCount) => !showSimplifiedHomepage || simpleViewEntityTypes.indexOf(entityCount.entityType) >= 0);
 
     // Recommendations
     const scenario = ScenarioType.Home;
