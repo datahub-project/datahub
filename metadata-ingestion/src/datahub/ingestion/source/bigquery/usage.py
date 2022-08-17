@@ -3,7 +3,7 @@ import logging
 import textwrap
 import time
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Union, cast, Set
+from typing import Any, Dict, Iterable, List, MutableMapping, Optional, Set, Union, cast
 
 import cachetools
 from google.cloud.bigquery import Client as BigQueryClient
