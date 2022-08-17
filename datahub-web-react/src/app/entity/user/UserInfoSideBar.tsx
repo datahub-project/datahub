@@ -1,4 +1,4 @@
-import { Divider, message, Space, Button, Typography } from 'antd';
+import { Divider, message, Space, Button, Typography, Tag } from 'antd';
 import React, { useState } from 'react';
 import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
@@ -20,6 +20,7 @@ import {
     Team,
 } from '../shared/SidebarStyledComponents';
 import EntityGroups from '../shared/EntityGroups';
+import { ANTD_GRAY } from '../shared/constants';
 
 const { Paragraph } = Typography;
 
@@ -99,6 +100,7 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                     <Name>{name || <EmptyValue />}</Name>
                     {role && <Role>{role}</Role>}
                     {team && <Team>{team}</Team>}
+                    <Tag color={ANTD_GRAY[6]}>Organization Admin</Tag>
                     <Divider className="divider-infoSection" />
                     <SocialDetails>
                         <Space>

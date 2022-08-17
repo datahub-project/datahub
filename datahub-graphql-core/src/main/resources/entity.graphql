@@ -173,6 +173,11 @@ type Query {
     Gets an entity based on its urn
     """
     entity(urn: String!): Entity
+
+    """
+    List all DataHub Roles
+    """
+    listRoles(input: ListRolesInput!): ListRolesResult
 }
 
 """
@@ -498,6 +503,11 @@ type Mutation {
     Update a user setting
     """
     updateUserSetting(input: UpdateUserSettingInput!): Boolean
+
+    """
+    Batch assign roles to actors
+    """
+    batchAssignToActors(input: BatchAssignRoleInput!): Boolean
 }
 
 """
@@ -7362,6 +7372,16 @@ type ActorFilter {
   The list of groups on the Policy, resolved.
   """
   resolvedGroups: [CorpGroup!]
+
+    """
+    A disjunctive set of roles to apply the policy to
+    """
+    roles: [String!]
+
+    """
+    The list of roles on the Policy, resolved.
+    """
+    resolvedGroups: [Role!]
 }
 
 """
@@ -9117,4 +9137,84 @@ input UpdateUserSettingInput {
     The new value of the setting
     """
     value: Boolean!
+}
+
+"""
+Input provided when batch assigning a role to a list of users
+"""
+input BatchAssignRoleInput {
+    """
+    The urn of the role to assign to the actors
+    """
+    roleUrn: String!
+
+    """
+    The urns of the actors to assign the role to
+    """
+    actors: [String!]!
+}
+
+"""
+Input provided when listing existing roles
+"""
+input ListRolesInput {
+    """
+    The starting offset of the result set returned
+    """
+    start: Int
+
+    """
+    The maximum number of Roles to be returned in the result set
+    """
+    count: Int
+
+    """
+    Optional search query
+    """
+    query: String
+}
+
+"""
+The result obtained when listing DataHub Roles
+"""
+type ListRolesResult {
+    """
+    The starting offset of the result set returned
+    """
+    start: Int!
+
+    """
+    The number of Roles in the returned result set
+    """
+    count: Int!
+
+    """
+    The total number of Roles in the result set
+    """
+    total: Int!
+
+    """
+    The Roles themselves
+    """
+    roles: [Role!]!
+}
+
+"""
+A DataHub Role is a high-level abstraction on top of Policies that dictates what actions users can take.
+"""
+type Role {
+    """
+    The primary key of the Role
+    """
+    urn: String!
+
+    """
+    The name of the Role
+    """
+    name: String!
+
+    """
+    The description of the Role
+    """
+    description: String
 }

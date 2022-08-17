@@ -9,6 +9,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.NativeGroupMembership;
+import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
@@ -264,8 +265,13 @@ public class PolicyEngine {
       return true;
     }
 
-    // 3. If the actor is the owner, either directly or indirectly via a group, return true
-    return isOwnerMatch(actor, actorFilter, resourceSpec, context);
+    // 3. If the actor is the owner, either directly or indirectly via a group, return true immediately.
+    if (isOwnerMatch(actor, actorFilter, resourceSpec, context)) {
+      return true;
+    }
+
+    // 4. If the actor is in a matching "Role" in the actor filter, return true immediately.
+    return isRoleMatch(actor, actorFilter, context);
   }
 
   private boolean isUserMatch(final Urn actor, final DataHubActorFilter actorFilter) {
@@ -317,6 +323,38 @@ public class PolicyEngine {
 
   private boolean isGroupOwner(Set<Urn> groups, Set<String> owners) {
     return groups.stream().anyMatch(group -> owners.contains(group.toString()));
+  }
+
+  private boolean isRoleMatch(final Urn actor, final DataHubActorFilter actorFilter,
+      final PolicyEvaluationContext context) {
+    // If the actor has a matching "Role" in the actor filter, return true immediately.
+    Set<Urn> actorRoles = resolveRoles(actor, context);
+    return actorFilter.hasRoles() && Objects.requireNonNull(actorFilter.getRoles())
+        .stream()
+        .anyMatch(actorRoles::contains);
+  }
+
+  private Set<Urn> resolveRoles(Urn actor, PolicyEvaluationContext context) {
+    if (context.roles != null) {
+      return context.roles;
+    }
+
+    try {
+      final EntityResponse corpUser = _entityClient.batchGetV2(CORP_USER_ENTITY_NAME, Collections.singleton(actor),
+          Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME), _systemAuthentication).get(actor);
+      final EnvelopedAspectMap aspectMap = corpUser.getAspects();
+
+      if (aspectMap.containsKey(ROLE_MEMBERSHIP_ASPECT_NAME)) {
+        RoleMembership roleMembership =
+            new RoleMembership(aspectMap.get(ROLE_MEMBERSHIP_ASPECT_NAME).getValue().data());
+        Set<Urn> roles = new HashSet<>(roleMembership.getRoles());
+        context.setRoles(roles);
+        return roles;
+      }
+    } catch (Exception e) {
+      log.error(String.format("Failed to fetch RoleMembership for urn %s", actor), e);
+    }
+    return Collections.emptySet();
   }
 
   private Set<Urn> resolveGroups(Urn actor, PolicyEvaluationContext context) {
@@ -372,9 +410,14 @@ public class PolicyEngine {
    */
   static class PolicyEvaluationContext {
     private Set<Urn> groups;
+    private Set<Urn> roles;
 
     public void setGroups(Set<Urn> groups) {
       this.groups = groups;
+    }
+
+    public void setRoles(Set<Urn> roles) {
+      this.roles = roles;
     }
   }
 

@@ -1,0 +1,19 @@
+namespace com.linkedin.identity
+
+import com.linkedin.common.Urn
+
+/**
+ * Carries information about the CorpGroups a user is in.
+ */
+@Aspect = {
+  "name": "roleMembership"
+}
+record RoleMembership {
+  @Relationship = {
+    "/*": {
+      "name": "IsMemberOfRole",
+      "entityTypes": [ "corpuser" ]
+    }
+  }
+  roles: array[Urn]
+}

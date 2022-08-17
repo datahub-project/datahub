@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Dropdown, List, Menu, Tag, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
-import { DeleteOutlined, MoreOutlined, UnlockOutlined } from '@ant-design/icons';
+import { DeleteOutlined, MoreOutlined, UnlockOutlined, UserSwitchOutlined } from '@ant-design/icons';
 import { CorpUser, CorpUserStatus, EntityType } from '../../../types.generated';
 import CustomAvatar from '../../shared/avatar/CustomAvatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -103,6 +103,21 @@ export default function UserListItem({ user, canManageUserCredentials, onDelete 
                 </Link>
             </UserItemContainer>
             <ButtonGroup>
+                <Dropdown
+                    trigger={['hover']}
+                    overlay={
+                        <Menu>
+                            <Menu.Item>&nbsp; Organization Admin</Menu.Item>
+                            <Menu.Item>&nbsp; Metadata Reader</Menu.Item>
+                        </Menu>
+                    }
+                >
+                    <Tag color={ANTD_GRAY[6]}>
+                        <UserSwitchOutlined />
+                        <Typography.Text style={{ color: 'white' }}>Metadata Steward</Typography.Text>
+                    </Tag>
+                </Dropdown>
+
                 <Dropdown
                     trigger={['click']}
                     overlay={
