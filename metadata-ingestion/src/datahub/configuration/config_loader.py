@@ -45,6 +45,8 @@ def resolve_env_variables(config: dict) -> dict:
             new_dict[k] = _resolve_list(v)
         elif isinstance(v, str):
             new_dict[k] = resolve_element(v)
+        else:
+            new_dict[k] = v
     return new_dict
 
 
