@@ -4,9 +4,9 @@ import os
 from freezegun import freeze_time
 
 from datahub.ingestion.source.bigquery.bigquery_audit import (
-    BigQueryTableRef,
-    BigqueryTableIdentifier,
     BQ_AUDIT_V2,
+    BigqueryTableIdentifier,
+    BigQueryTableRef,
 )
 from datahub.ingestion.source.bigquery.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery.bigquery_report import BigQueryV2Report
